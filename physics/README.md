@@ -62,3 +62,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 39: Handling steering-state review queue
 
 - [Phase 39 source, tests and research limits](phase39/README.md): source-backed MIPS steering access/provenance triage organized by known steering input/output anchors. Also fixes the Phase38 false-clean-pointer treatment of MIPS LWL/LWR partial loads. No original-file Phase39 results or live gameplay patch. Phase30 tire-force hook remains disabled.
+
+## Phase 40: Carbon PC steering write anchors
+
+- [Read-only Carbon PC store decoder](phase40/README.md): decodes two previously verified x86 instructions in the Carbon PC steering function, `mov [esi+0x104], eax` and `mov [esi+0x118], edx`, after exact Phase31 executable validation. Their semantic field names and relationship to PS2 offsets remain **unverified**. Includes 25 synthetic tests, no game hook or modified handling.
