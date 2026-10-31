@@ -77,3 +77,6 @@ membership survive the cross-game comparison. Trace actual Carbon PC scenery
 loader/culler consumers before writing any `0x34107` records. The offline
 V42 insertion's untouched spatial/preculler arrays remain an **unsafe
 integration blocker**, not evidence that Carbon will display the building.
+## V53 correction (source-verified)
+
+The V52 examples comparing candidate blocks **1 and 11** at ~4,161 source-coordinate units should **not** be treated as a valid geographic counterexample. The source instance referencing block 1 has a stored position of `(0,0,0)` but a nonzero world bounding box, so that separation is a raw-record artifact. When its AABB midpoint is used as an *explicitly heuristic* location proxy, the pair's distance becomes ~58.67 source-coordinate units (the candidate-mask similarity remains ~0.942). The flags and meaning of that record are not independently decoded. The [V53 source-backed controls](../v53/README_V53.md) test excluding all such zero-position groups, proxying their coordinates, and permuting whole candidate masks. V52's raw-byte evidence about mask structure remains unchanged. These analyses still do not validate Carbon PC serialization or runtime visibility.
