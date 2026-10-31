@@ -1,0 +1,78 @@
+{
+  "cohort_scenery_info6_blocks": 13,
+  "in_game_verified": false,
+  "leave_one_block_out": {
+    "all_nonzero_block_jackknife": {
+      "all_jackknife_rhos_negative": true,
+      "blocks_compared": 22,
+      "rho_baseline": -0.5900183685298409,
+      "rho_max": -0.5644873601214974,
+      "rho_min": -0.6798207380029672
+    },
+    "info6_cohort_jackknife": {
+      "all_jackknife_rhos_negative": true,
+      "blocks_compared": 13,
+      "rho_baseline": -0.7804117723996318,
+      "rho_max": -0.7457542229754239,
+      "rho_min": -0.7984509900962429
+    }
+  },
+  "nonzero_candidate_blocks": 22,
+  "original_scene_count_authenticated": 1,
+  "original_wii_root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "read_only": true,
+  "safe_to_install": false,
+  "schema": "V54-public-aggregate-single-scene-robustness-v1",
+  "source_class": "known_original_Wii_scene",
+  "source_uniqueness_gate": {
+    "Carbon_PC_runtime_compatible": false,
+    "at_least_two_distinct_roots": false,
+    "different_hashes_do_not_authenticate_game_provenance": true,
+    "distinct_root_sha256s": 1,
+    "duplicate_input_roots_found": false,
+    "independent_original_scenes_authenticated": false,
+    "new_scene_layout_validated": false,
+    "sources_submitted": 1
+  },
+  "statistical_caveats": [
+    "post_hoc_single_scene",
+    "nonindependent_pairwise_measurements",
+    "not_pre_registered",
+    "conditional_mask_shuffling_is_not_scene_replication",
+    "fixed_9999_shuffles_with_plus_one_estimator"
+  ],
+  "tests": {
+    "new_v54_original_wii_fixture": 8,
+    "new_v54_synthetic": 28,
+    "new_v54_total": 36,
+    "prior_selected_tests_rerun": 248,
+    "selected_total": 284
+  },
+  "unknowns": [
+    "Carbon_PC_0x34105_0x34107_serialized_layout",
+    "engine_preculler_visibility_logic",
+    "scenery_loader_and_streaming_ownership",
+    "shader_TPK_materials",
+    "collision_navigation"
+  ],
+  "within_cohort_shuffles": {
+    "group_locked_permutation": {
+      "frozen_other_block_count": 9,
+      "movable_block_count": 13,
+      "observed_spearman_rho": -0.5900183685298409,
+      "one_sided_extreme_count": 0,
+      "one_sided_p_plus_one": 0.0001,
+      "permutations": 9999,
+      "seed": 540
+    },
+    "group_locked_permutation_without_shared_bits": {
+      "frozen_other_block_count": 9,
+      "movable_block_count": 13,
+      "observed_spearman_rho": -0.5680446514634487,
+      "one_sided_extreme_count": 0,
+      "one_sided_p_plus_one": 0.0001,
+      "permutations": 9999,
+      "seed": 540
+    }
+  }
+}

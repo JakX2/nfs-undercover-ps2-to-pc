@@ -1,0 +1,24 @@
+name: V54 Wii mask robustness (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v54/**'
+      - 'research/v53/v53_preculler_spatial_controls.py'
+      - 'research/v50/v50_scenery_index_crosscheck.py'
+      - '.github/workflows/v54-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v54/**'
+      - 'research/v53/v53_preculler_spatial_controls.py'
+      - 'research/v50/v50_scenery_index_crosscheck.py'
+      - '.github/workflows/v54-asset-free-tests.yml'
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V54 synthetic-only tests (original games excluded)
+        run: python -m unittest discover -s research/v54 -p 'test_v54.py' -v
