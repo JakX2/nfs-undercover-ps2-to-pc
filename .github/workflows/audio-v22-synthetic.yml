@@ -55,6 +55,7 @@ jobs:
           python audio/tools/vgmstream_real_decoder_selftest_v24.py --decoder "$cli" | tee "$RUNNER_TEMP/v24-decoder-selftest.json"
           python audio/tools/ea_schl_platform_pcm_selftest_v26.py --decoder "$cli" | tee "$RUNNER_TEMP/v26-ea-schl.json"
           python audio/tools/ea_mt10_synthetic_silence_v27.py --decoder "$cli" | tee "$RUNNER_TEMP/v27-ea-mt10.json"
+          python audio/tools/ea_mt10_synthetic_silence_v27.py --decoder "$cli" --pulse | tee "$RUNNER_TEMP/v27-ea-mt10-pulse.json"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
