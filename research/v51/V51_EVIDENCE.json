@@ -1,0 +1,41 @@
+{
+  "milestone": "V51",
+  "status": "offline research only, no Carbon PC runtime/installable patch",
+  "original_wii_source": {
+    "bytes": 8488,
+    "sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+    "scene_child_0x34103_payload_offset": 92,
+    "payload_bytes": 2980,
+    "padding_bytes": 4,
+    "padding_hex": "11111111",
+    "instance_count_96": 31,
+    "first_instance_root_offset": 96
+  },
+  "github": {
+    "draft_pr": "https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/6",
+    "source_branch": "research/v51-aligned-instance-reader",
+    "commit": "2fe6aefb3c6250e0c8a959da3e943834934fb5bb",
+    "public_synthetic_CI": "success",
+    "fixture_in_CI": false
+  },
+  "independent_local_regressions": {
+    "V41": 18,
+    "V43_to_V46": 146,
+    "V50": 24,
+    "total": 188
+  },
+  "new_v51_tests": {
+    "synthetic_public": 15,
+    "private_wii_sha_pinned": 4,
+    "public_CI_status": "success",
+    "private_fixture_execution_with_patched_V49": "not independently run"
+  },
+  "known_unknowns": [
+    "original Carbon PC on-disk instance alignment",
+    "Carbon serialized spatial tree membership",
+    "0x34107 semantic mapping",
+    "PC streaming/ownership and relocation",
+    "material, shader, texture pack, collision and road navigation"
+  ],
+  "safe_to_install": false
+}
