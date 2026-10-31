@@ -1,0 +1,24 @@
+name: V58 stream envelope safety (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v55/**'
+      - 'research/v57/**'
+      - 'research/v58/**'
+      - '.github/workflows/v58-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v55/**'
+      - 'research/v57/**'
+      - 'research/v58/**'
+      - '.github/workflows/v58-asset-free-tests.yml'
+jobs:
+  synthetic-v58:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Asset-free V58 tests (no proprietary fixtures)
+        run: python -m unittest discover -s research/v58 -p 'test_v58.py' -v

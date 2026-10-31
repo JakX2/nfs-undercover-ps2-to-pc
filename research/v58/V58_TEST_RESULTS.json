@@ -1,0 +1,13 @@
+{
+  "milestone": "V58",
+  "new_total": 36,
+  "synthetic": 31,
+  "pinned_original_Wii": 5,
+  "prior_v57": 31,
+  "prior_v56": 32,
+  "prior_v55": 41,
+  "fresh_selected_total": 140,
+  "all_tests_passed": true,
+  "in_game_tests": 0,
+  "GitHub_CI": "pending at time of local packaging"
+}
