@@ -1,0 +1,8 @@
+method,carbon_wii,undercover_wii,carbon_ps2,undercover_ps2,carbon_pc,pc_confidence
+OnTask,0x80016F1C,0x800147F8,0x0010C8F0,0x0010BFB8,0x004463C0,confirmed task and call signature
+UpdateDebug,0x80015E2C,0x800136D0,0x0010B6E8,0x0010ADB0,0x00407110,inferred from call order
+ApplyBreakerZones,0x8001113C,0x8000EE3C,0x00106748,0x00106390,0x0042D560,inferred from call order
+UpdatePatrols,0x80013554,0x8001160C,0x00108B18,0x00108B18,0x0043A9D0,inferred from call order
+UpdatePursuits,0x80015174,0x800129DC,0x0010AA30,0x0010A0B0,0x00445C70,inferred and independently studied
+UpdateRoadBlocks,0x80015A5C,0x80013300,0x0010B360,0x0010AA20,0x00440F70,inferred from call order
+UpdateSpawnRequests,0x8000E818,0x8000E944,0x00105F68,0x00105E28,0x00435630,inferred from call order
