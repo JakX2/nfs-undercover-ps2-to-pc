@@ -1,4 +1,4 @@
-name: Audio V22-V23 decoder preflight
+name: Audio V22-V24 decoder validation
 
 on:
   pull_request:
@@ -27,10 +27,14 @@ jobs:
       - run: python -m unittest discover -s audio/tests -p 'test_*.py' -v
 
   vgmstream-cli-smoke:
-    name: Download official static CLI and verify it launches (no game audio)
+    name: Official CLI plus generated PCM/TXTH decode (no game audio)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Download latest vgmstream static Linux CLI
         shell: bash
         run: |
@@ -48,10 +52,11 @@ jobs:
           chmod +x "$cli"
           "$cli" -h > "$RUNNER_TEMP/vgmstream-help.txt" 2>&1 || true
           grep -Eiq '(vgmstream|Usage:)' "$RUNNER_TEMP/vgmstream-help.txt"
+          python audio/tools/vgmstream_real_decoder_selftest_v24.py --decoder "$cli" | tee "$RUNNER_TEMP/v24-decoder-selftest.json"
           {
-            echo '### vgmstream static CLI availability'
+            echo '### vgmstream CLI synthetic decode integration'
             echo ''
-            echo 'Official nightly Linux binary downloaded and started successfully.'
+            echo 'Official nightly Linux binary downloaded. V24 PCM16LE/TXTH metadata + WAV round-trip self-test passed.'
             echo ''
             echo 'Archive SHA-256:'
             sha256sum "$RUNNER_TEMP/vgmstream-linux-cli.tar.gz"
