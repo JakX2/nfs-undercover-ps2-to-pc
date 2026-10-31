@@ -1,0 +1,25 @@
+# Never commit original proprietary game assets or experimental export payloads
+*.BIG
+*.big
+*.IDX
+*.idx
+*.ABK
+*.abk
+*.GIN
+*.gin
+*.EVT
+*.evt
+*.CSI
+*.csi
+*.asf
+*.ASF
+*.wav
+*.WAV
+*.zip
+*.z01
+*.z02
+_lab/
+_inputs/
+_outputs/
+__pycache__/
+*.pyc
