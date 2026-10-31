@@ -313,6 +313,15 @@ class CLIAndAuthenticationTests(unittest.TestCase):
                 p46.main([str(source), '--output', str(out), '--overwrite'])
             self.assertEqual(source.read_text(), original)
 
+    def test_executable_output_extension_rejected_even_without_exe_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            source, out = Path(d) / 'phase45.json', Path(d) / 'NFSC.exe'
+            source.write_text(json.dumps(fixture()), encoding='utf-8')
+            out.write_bytes(b'preserve synthetic exe')
+            with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                p46.main([str(source), '--output', str(out), '--overwrite'])
+            self.assertEqual(out.read_bytes(), b'preserve synthetic exe')
+
     def test_report_size_limit(self):
         with tempfile.TemporaryDirectory() as d:
             source = Path(d) / 'report.json'
