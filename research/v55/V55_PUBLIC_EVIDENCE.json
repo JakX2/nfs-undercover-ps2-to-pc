@@ -1,0 +1,31 @@
+{
+  "additional_authentic_original_wii_scenes_available": 0,
+  "carbon_PC_disk_schema_proven": false,
+  "caveat": "This metadata is source-backed for the pinned original Wii root only. The second-scene size discrimination is synthetic, not new original evidence. 0x34101 first u32 is NOT proven to be section geography.",
+  "cross_scene_hypotheses_resolved": false,
+  "known_original_root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "observed": {
+    "both_34107_size_hypotheses_match_this_original_root": true,
+    "candidate_aux32": 31,
+    "candidate_indices_0_to_23": true,
+    "candidate_instances96": 31,
+    "candidate_preculler_blocks128": 24,
+    "candidate_preculler_payload_bytes": 3072,
+    "candidate_tree_nodes48": 8,
+    "candidate_tree_payload_bytes": 384,
+    "scenery_instance_payload_bytes": 2980
+  },
+  "original_carbon_pc_scenes_available": 0,
+  "original_scenery_34101_first_u32_hex": "0x00000000",
+  "original_source_size_bytes": 8488,
+  "runtime_verified": false,
+  "safe_to_install": false,
+  "schema": "v55-public-source-evidence-v1",
+  "testing": {
+    "combined_selected": 325,
+    "previous_selected_regressions": 284,
+    "v55_original_Wii_fixture": 7,
+    "v55_synthetic": 34,
+    "v55_total": 41
+  }
+}
