@@ -1,0 +1,24 @@
+name: V61 embedded scenery inventory (asset-free)
+on:
+  push:
+    branches: ['research/v61-*']
+  pull_request:
+    paths:
+      - 'research/v61/**'
+      - 'research/v60/**'
+      - 'research/v59/**'
+      - 'research/v58/**'
+      - 'research/v55/**'
+      - '.github/workflows/v61-asset-free-tests.yml'
+jobs:
+  readonly-root-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run read-only V61 synthetic regression suite
+        env:
+          NFS_UC_WII_SCENE: ''
+        run: python -m unittest discover -s research/v61 -p 'test_v61.py' -v

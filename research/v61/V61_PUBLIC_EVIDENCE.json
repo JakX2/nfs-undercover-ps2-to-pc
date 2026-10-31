@@ -1,0 +1,52 @@
+{
+  "candidate_root_count": 1,
+  "candidate_scenery_root_count": 1,
+  "carbon_PC_root_or_master_schema_proven": false,
+  "direct_children": [
+    {
+      "bytes": 68,
+      "id": "0x34101",
+      "payload_offset_in_root": 16
+    },
+    {
+      "bytes": 2980,
+      "id": "0x34103",
+      "payload_offset_in_root": 92
+    },
+    {
+      "bytes": 936,
+      "id": "0x34102",
+      "payload_offset_in_root": 3080
+    },
+    {
+      "bytes": 992,
+      "id": "0x3410D",
+      "payload_offset_in_root": 4024
+    },
+    {
+      "bytes": 384,
+      "id": "0x34105",
+      "payload_offset_in_root": 5024
+    },
+    {
+      "bytes": 3072,
+      "id": "0x34107",
+      "payload_offset_in_root": 5416
+    }
+  ],
+  "safe_to_install": false,
+  "source_provenance_authenticated_by_file_hash_alone": false,
+  "source_root_length_bytes": 8488,
+  "source_root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "source_type": "exact_original_Wii_RedBuilding_fixture_alone_not_a_Carbon_PC_file",
+  "standalone_root_offset": 0,
+  "tests": {
+    "fresh_selected_tests": 154,
+    "rerun_v58": 36,
+    "rerun_v59": 38,
+    "rerun_v60": 42,
+    "v61_passed": 38,
+    "v61_pinned_Wii": 4,
+    "v61_synthetic": 34
+  }
+}
