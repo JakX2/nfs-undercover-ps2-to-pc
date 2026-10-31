@@ -171,3 +171,11 @@ The [V35 legacy source recovery tool](tools/legacy_audio_research_recovery_v35.p
 **Verified:** 263/263 synthetic Python tests passed, including 31 new source recovery, ZIP security, binary filtering, metadata and no-overwrite cases. The separate upstream decoder integration and V35 source-only self-test also passed. See the [V35 recovery instructions](research/V35_RECOVER_LEGACY_AUDIO_SOURCES.md) and [verified CI](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41217606419).
 
 **Limit:** The actual private V21 ZIP was registered in this Project but not readable through the local Python/container environment during V35. No original source parsers were recovered or committed, no original police recording was decoded, and Carbon PC runtime playback remains unverified. The V34 Xbox IDX profile is still an unproven hypothesis for Undercover PS2.
+
+## V36: Discover candidate native IDX record layouts from verified SCHl offsets
+
+The [V36 IDX layout discovery tool](tools/native_idx_layout_discovery_v36.py) avoids assuming that Carbon Xbox's published IDX format applies to Undercover PS2. It searches bounded alternative count positions, table starts, row widths, offset-word positions and byte orders, then checks each hypothesis against **independently validated SCHl offsets from a matching V31 scan**. It ranks candidates but never declares a native layout, CSI/EVT mapping or police audio event proven.
+
+**Verified synthetic testing:** 291/291 Python regressions and the separate official vgmstream CLI integration passed. V36's own self-test recovers two different artificial IDX layouts and also uses the **real V31 SCHl scanner** to verify offsets in a generated MicroTalk BIG. See [V36 instructions and assumptions](research/V36_IDX_LAYOUT_DISCOVERY.md) and [the latest audio CI runs](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions).
+
+**Remaining original-data gate:** Test V36 against the actual Undercover PS2 IDX/BIG pair and reconcile any candidate format with the user's original V21 parser. Neither the Xbox format nor the V36 search outcome has been verified against original Undercover file bytes. No real police recording or Carbon PC in-game speech has been decoded or played.
