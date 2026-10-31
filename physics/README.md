@@ -74,3 +74,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 42: Carbon PC ESI-relative steering access inventory
 
 - [Phase 42 source, synthetic tests and limitations](phase42/README.md): exact-version-gated, bounded x86 disassembly inventories explicit PC steering routine memory accesses through ESI, groups simple constant displacements and separates complex/indexed and unknown operation forms. Phase 40's two verified ESI-relative writes must be recovered at their exact instruction boundaries. No user-original executable analyzed in this phase, no PS2 field equivalence claimed, and no handling patch. Phase 30 tire-force test remains disabled.
+
+## Phase 43: Carbon PC +0x104/+0x118 candidate access review
+
+- [Phase 43 source, tests and research constraints](phase43/README.md): SHA-gated, read-only focused review of static ESI-relative reads and writes to two known Carbon PC steering-function displacements. Checks branch boundaries and ESI register changes, including the first memory-access instruction, before reporting possible lexical relationships. **Does not establish runtime object identity, field names, PS2 equivalence or an in-game handling change.** Phase 30's tire-force hook remains disabled.
