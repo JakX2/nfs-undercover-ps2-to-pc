@@ -97,6 +97,9 @@ class ClassificationTests(unittest.TestCase):
     def test_xchg_read_write(self):
         self.assertEqual(phase42.access_direction('xchg', 0, 2), 'read_write')
 
+    def test_xchg_second_operand_also_read_write(self):
+        self.assertEqual(phase42.access_direction('xchg', 1, 2), 'read_write')
+
 
 class InventoryTests(unittest.TestCase):
     def test_two_known_anchor_stores(self):
