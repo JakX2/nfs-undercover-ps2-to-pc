@@ -62,6 +62,41 @@ def audit(raw,order='little',label='synthetic'):
           'endian':order,'platform_hint_unverified':'wii','stream_offset':None}
     return v56.audit_one(raw,parsed,meta)
 
+
+def replace_tree_payload(raw:bytes,tree_payload:bytes,endian='little') -> bytes:
+    """Replace one synthetic source child, preserving all other chunk bytes."""
+    e=v55.endian(endian)
+    position=8
+    chunks=[]
+    replaced=False
+    while position<len(raw):
+        tag,length=struct.unpack_from(e+'II',raw,position)
+        payload=raw[position+8:position+8+length]
+        if tag==v55.TREE:
+            payload=tree_payload
+            replaced=True
+        chunks.append(struct.pack(e+'II',tag,len(payload))+payload)
+        position+=8+length
+    if not replaced:raise AssertionError('source tree child absent')
+    payload=b''.join(chunks)
+    return struct.pack(e+'II',v55.ROOT,len(payload))+payload
+
+
+def chain_tree(node_count:int,*,root_child_override=None,endian='little')->bytes:
+    """Synthetic linear candidate hierarchy, one leaf, constant exact AABBs."""
+    e=v55.endian(endian)
+    b=bytearray(node_count*48)
+    for i in range(node_count):
+        off=i*48
+        struct.pack_into(e+'3f',b,off,-1.,-2.,-3.)
+        struct.pack_into(e+'3f',b,off+16,1.,2.,3.)
+        struct.pack_into(e+'H',b,off+12,1)
+        ref=-(i+1) if i<node_count-1 else 0
+        if i==0 and root_child_override is not None:ref=root_child_override
+        struct.pack_into(e+'h',b,off+28,ref)
+    return bytes(b)
+
+
 class Synthetic(unittest.TestCase):
     def test_good_exact_structural_candidate(self):
         r=audit(fixture());self.assertEqual(r['candidate_wii_graph_status'],'candidate_internally_consistent')
@@ -154,6 +189,63 @@ class Synthetic(unittest.TestCase):
             self.assertEqual(r.returncode,0,msg=r.stderr)
             y=out.read_text();self.assertNotIn('secret-original-game-root',y)
             self.assertFalse(json.loads(y)['safe_to_install'])
+
+
+    def test_very_deep_candidate_tree_no_python_recursion_limit(self):
+        # >1,000 parent links used to raise RecursionError in V56.
+        raw=replace_tree_payload(fixture(n=1),chain_tree(1500))
+        result=audit(raw)
+        self.assertEqual(result['candidate_wii_graph_status'],'candidate_internally_consistent')
+        self.assertEqual(result['candidate_tree']['candidate_48_nodes'],1500)
+        self.assertEqual(result['candidate_tree']['covered_instances_exactly_once'],1)
+        self.assertEqual(result['candidate_tree']['max_absolute_aabb_union_error'],0.)
+
+    def test_deep_candidate_cycle_rejected_without_recursion(self):
+        tree=bytearray(chain_tree(1200))
+        # Last node points back to its own index; cannot recurse forever.
+        struct.pack_into('<h',tree,(1200-1)*48+28,-(1200-1))
+        raw=replace_tree_payload(fixture(n=1),bytes(tree))
+        result=audit(raw)
+        self.assertEqual(result['candidate_wii_graph_status'],'rejected')
+        self.assertIn('cycle',result['candidate_rejection_reason'])
+
+    def test_branch_shares_leaf_rejected(self):
+        # Three nodes: root -> children 1 and 2; both reference leaf 0.
+        tree=bytearray(chain_tree(3))
+        struct.pack_into('<H',tree,12,2)
+        struct.pack_into('<h',tree,28,-1)
+        struct.pack_into('<h',tree,30,-2)
+        struct.pack_into('<h',tree,48+28,0)
+        struct.pack_into('<h',tree,96+28,0)
+        raw=replace_tree_payload(fixture(n=1),bytes(tree))
+        result=audit(raw)
+        self.assertEqual(result['candidate_wii_graph_status'],'rejected')
+        self.assertIn('multiple times',result['candidate_rejection_reason'])
+
+    def test_unreachable_candidate_node_rejected(self):
+        tree=bytearray(chain_tree(2))
+        struct.pack_into('<h',tree,28,0)
+        raw=replace_tree_payload(fixture(n=1),bytes(tree))
+        result=audit(raw)
+        self.assertIn('unreachable',result['candidate_rejection_reason'])
+
+    def test_out_of_range_child_rejected(self):
+        raw=replace_tree_payload(fixture(n=1),chain_tree(2,root_child_override=-9))
+        result=audit(raw)
+        self.assertIn('out-of-range',result['candidate_rejection_reason'])
+
+    def test_branching_tree_consistent_bounds(self):
+        # Three nodes and two source instances with the same synthetic bounds.
+        tree=bytearray(chain_tree(3))
+        struct.pack_into('<H',tree,12,2)
+        struct.pack_into('<h',tree,28,-1)
+        struct.pack_into('<h',tree,30,-2)
+        struct.pack_into('<h',tree,48+28,0)
+        struct.pack_into('<h',tree,96+28,1)
+        result=audit(replace_tree_payload(fixture(n=2),bytes(tree)))
+        self.assertEqual(result['candidate_wii_graph_status'],'candidate_internally_consistent')
+        self.assertEqual(result['candidate_tree']['covered_instances_exactly_once'],2)
+
 
 class PrivateWii(unittest.TestCase):
     @classmethod

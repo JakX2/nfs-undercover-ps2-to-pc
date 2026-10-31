@@ -71,6 +71,12 @@ def candidate_precull(children:dict,rows:list):
 
 
 def candidate_tree(children:dict,rows:list,order:str,tolerance:float=0.0):
+    """Iterative post-order candidate tree audit, linear in nodes and references.
+
+    Retains the Wii candidate 48-byte layout from V56. Refuses cycles, shared
+    children, repeated instances, unbounded references and inconsistent AABBs.
+    No recursion and no materializing descendant lists at every ancestor.
+    """
     if prior.TREE not in children:raise CandidateError('spatial tree child absent')
     b=children[prior.TREE][1]
     if not b or len(b)%48:raise CandidateError('spatial tree not a nonempty 48-byte candidate array')
@@ -85,29 +91,48 @@ def candidate_tree(children:dict,rows:list,order:str,tolerance:float=0.0):
             raise CandidateError(f'tree node {i}: invalid count or bounds')
         refs=list(struct.unpack_from(e+str(cnt)+'h',b,start+28)) if cnt else []
         nodes.append((mn,mx,refs))
-    active=set();visited=set();leaf_indices=[];err=0.0
-    def walk(i:int):
-        nonlocal err
-        if i<0 or i>=len(nodes):raise CandidateError('spatial tree references out-of-range child')
-        if i in active:raise CandidateError('spatial tree cycle')
-        if i in visited:raise CandidateError('spatial tree child referenced multiple times')
-        active.add(i)
-        mn,mx,refs=nodes[i];desc=[]
-        for j in refs:
-            if j<0:
-                desc.extend(walk(-j))
-            elif j<len(rows):
-                leaf_indices.append(j);desc.append(rows[j])
-            else:raise CandidateError('spatial tree references nonexistent instance')
-        if not desc:raise CandidateError('empty spatial tree node')
+    state=bytearray(len(nodes))   # 0 unseen; 1 on DFS stack; 2 finished
+    aggregate={}                 # one bounding-box union per visited node
+    seen_instances=set()
+    err=0.0
+    stack=[(0,False)]            # index, post-order exit marker
+    while stack:
+        i,exit_node=stack.pop()
+        if not exit_node:
+            if i<0 or i>=len(nodes):
+                raise CandidateError('spatial tree references out-of-range child')
+            if state[i]==1:raise CandidateError('spatial tree cycle')
+            if state[i]==2:raise CandidateError('spatial tree child referenced multiple times')
+            state[i]=1
+            stack.append((i,True))
+            # Reverse push order so child visits preserve source reference order.
+            for ref in reversed(nodes[i][2]):
+                if ref<0:
+                    stack.append((-ref,False))
+                elif ref>=len(rows):
+                    raise CandidateError('spatial tree references nonexistent instance')
+            continue
+        mn,mx,refs=nodes[i]
+        if not refs:raise CandidateError('empty spatial tree node')
+        low=[math.inf]*3
+        high=[-math.inf]*3
+        for ref in refs:
+            if ref<0:
+                source_low,source_high=aggregate[-ref]
+            else:
+                if ref in seen_instances:
+                    raise CandidateError('spatial tree coverage error: instance referenced multiple times')
+                seen_instances.add(ref)
+                source_low,source_high=rows[ref]['min'],rows[ref]['max']
+            for axis in range(3):
+                low[axis]=min(low[axis],source_low[axis])
+                high[axis]=max(high[axis],source_high[axis])
         for axis in range(3):
-            err=max(err,abs(mn[axis]-min(r['min'][axis] for r in desc)),
-                        abs(mx[axis]-max(r['max'][axis] for r in desc)))
-        active.remove(i);visited.add(i)
-        return desc
-    walk(0)
-    if len(visited)!=len(nodes):raise CandidateError('unreachable spatial tree nodes')
-    if len(leaf_indices)!=len(rows) or len(set(leaf_indices))!=len(rows):
+            err=max(err,abs(mn[axis]-low[axis]),abs(mx[axis]-high[axis]))
+        aggregate[i]=(tuple(low),tuple(high))
+        state[i]=2
+    if state.count(2)!=len(nodes):raise CandidateError('unreachable spatial tree nodes')
+    if len(seen_instances)!=len(rows):
         raise CandidateError('spatial tree does not cover each instance exactly once')
     if err>tolerance:raise CandidateError('spatial node AABBs do not match instance descendant unions')
     return {'candidate_48_nodes':len(nodes),'covered_instances_exactly_once':len(rows),
