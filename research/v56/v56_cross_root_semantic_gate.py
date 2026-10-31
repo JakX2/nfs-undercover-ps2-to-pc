@@ -121,7 +121,7 @@ def candidate_tree(children:dict,rows:list,order:str,tolerance:float=0.0):
                 source_low,source_high=aggregate[-ref]
             else:
                 if ref in seen_instances:
-                    raise CandidateError('spatial tree references instance multiple times')
+                    raise CandidateError('spatial tree coverage error: instance referenced multiple times')
                 seen_instances.add(ref)
                 source_low,source_high=rows[ref]['min'],rows[ref]['max']
             for axis in range(3):
