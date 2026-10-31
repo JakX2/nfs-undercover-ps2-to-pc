@@ -147,3 +147,11 @@ The [V32 private batch triage](tools/big_mt10_batch_triage_v32.py) builds on V31
 See the [V32 local testing instructions](research/V32_PRIVATE_BATCH_MT10_TRIAGE.md) and [V32 regression tests](tests/test_big_mt10_batch_triage_v32.py).
 
 **Outstanding:** We have still not decoded real Undercover police speech in this environment. V32 cannot identify police event IDs from SCHl scans alone. Actual IDX/CSI/EVT association, Carbon PC bank loading and in-game playback remain unverified.
+
+## V33: IDX → EVT → CSI evidence join for identified audio candidates
+
+The [V33 evidence joiner](tools/idx_evt_csi_evidence_join_v33.py) adds **explicit source event attribution** to V31's scanned SCHl offsets, with optional V32 real decoded-PCM results. It joins **operator-exported CSVs** for IDX (group/substream → BIG offset/length), EVT (event → group), and CSI (event ID → event name/classification) and cross-checks declared source lengths. Offset-only associations, conflicting lengths, multiple events, and IDX aliases are reported rather than silently treated as confirmed voice identities.
+
+**Verified:** 209/209 synthetic Python regression tests passed and the separate official vgmstream decoder job passed. See [V33 research and CSV schema](research/V33_IDX_EVT_CSI_EVIDENCE_JOIN.md) and [GitHub Actions evidence](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41215619199).
+
+**Important limitation:** V33 does not parse original binary IDX, EVT or CSI by itself. It needs authentic CSV exports from the earlier local research. A CSI `police` classification is an operator label, **not** a confirmed audible police recording. Actual Undercover voice decoding and Carbon PC sound bank/event playback remain unverified.
