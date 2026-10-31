@@ -169,6 +169,10 @@ def scan_archive(path:Path,*,expected_sha256:str|None=None,
                                 rec={'offset':at,'tag':f'0x{tag:08X}',
                                      'endian':order,'length_mode_hypothesis':mode,
                                      'total_bytes':end-at,
+                                     'end_offset_exclusive':end,
+                                     # Whole-frame SHA enables independent V62
+                                     # alias checks without extracting game bytes.
+                                     'framed_chunk_sha256':hashlib.sha256(buf[at:end]).hexdigest(),
                                      'payload_sha256':hashlib.sha256(buf[start:end]).hexdigest(),
                                      'candidate_only':True,
                                      '_start':start,'_end':end}
