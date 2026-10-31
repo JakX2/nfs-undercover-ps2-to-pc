@@ -32,6 +32,12 @@ Research-only branch for native Carbon PC handling experiments. This work is **n
 - [Phase 34 state-dependent steering-angle reference](phase34/README.md) identifies original Undercover PS2 angle helper at 0x00172CB8; selects arguments using chassis state +0x48 and applies a dynamic, upper-capped intermediate steering limit. This is separate from the input at chassis +0x8C.
 - Exact PS2 binary checks and 14 tests passed in the local full research package. The GitHub directory presently contains a smaller source-only Python reference and synthetic tests. The original 16-bit lookup table and subsequent steering state dynamics remain unported.
 
+## Phase 35: shared PS2 fixed-angle lookup confirmed
+
+- [Phase 35 research](phase35/README.md) verifies **identical 257-entry angle LUTs** and **91/94 identical helper instructions** across original Undercover PS2 and Carbon PS2. The remaining three words relocate the table address.
+- The table itself is not the cause of the PS2 handling difference. Work now focuses on the caller's state-dependent logic, console motion fields and their Carbon PC equivalents.
+- The complete local-source verifier and **21 passing tests** are included in the downloadable Phase35 research package. GitHub includes a smaller source-only reference model and synthetic tests.
+
 ## Immediate next work
 
 1. Derive the mathematical transformation in Undercover Wii's steering routine and independently match Undercover PS2's routine.
