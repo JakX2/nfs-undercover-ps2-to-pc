@@ -1,0 +1,24 @@
+name: V62 candidate chunk overlap gates (synthetic-only)
+on:
+  push:
+    paths:
+      - 'research/v62/**'
+      - 'research/v61/v61_carbon_chunk_probe.py'
+      - '.github/workflows/v62-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v62/**'
+      - 'research/v61/v61_carbon_chunk_probe.py'
+      - '.github/workflows/v62-asset-free-tests.yml'
+jobs:
+  framing-conflicts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: V62 nested-signature and overlap tests
+        run: python -m unittest discover -s research/v62 -p test_v62.py -v
+      - name: V61 source-format probe regression tests
+        run: python -m unittest discover -s research/v61 -p test_v61.py -v
