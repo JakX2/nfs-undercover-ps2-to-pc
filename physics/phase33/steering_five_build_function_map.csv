@@ -1,0 +1,6 @@
+game,platform,executable,function,address,length_bytes,evidence
+Undercover,PS2,SLUS_218.01,SuspensionRacer::DoHumanSteering,0x004082B0,1216,High-confidence inferred name; exact ELF and caller/helper xrefs
+Carbon,PS2,SLUS_214.93,SuspensionRacer::DoHumanSteering,0x003D58D8,688,High-confidence inferred name; exact ELF and caller/helper xrefs
+Undercover,Wii,NfsMWEuropeEnDuRelease.elf,SuspensionRacer::DoHumanSteering,0x80324B48,1288,Named ELF symbol
+Carbon,Wii,NfsMWEuropeEngRelease.elf,SuspensionRacer::DoHumanSteering,0x802EDB88,664,Named ELF symbol
+Carbon,PC,NFSC.exe,SuspensionRacer::DoHumanSteering,0x006EF540,729,Phase31 verified inferred match
