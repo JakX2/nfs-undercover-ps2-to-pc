@@ -70,3 +70,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 41: Carbon PC x86 steering-store source registers
 
 - [Read-only Phase 41 register tracer](phase41/README.md): validates the exact Carbon PC executable against Phase 31/40 before using GNU objdump to disassemble the bounded steering function. Recovers independently checked instruction boundaries and conservatively traces EAX/EDX before two verified stores, stopping on unknown definitions and branch/control boundaries. Synthetic tests only, no source-backed run in this session and **no gameplay patch**. Phase 30 tire-force hook stays disabled.
+
+## Phase 42: Carbon PC ESI-relative steering access inventory
+
+- [Phase 42 source, synthetic tests and limitations](phase42/README.md): exact-version-gated, bounded x86 disassembly inventories explicit PC steering routine memory accesses through ESI, groups simple constant displacements and separates complex/indexed and unknown operation forms. Phase 40's two verified ESI-relative writes must be recovered at their exact instruction boundaries. No user-original executable analyzed in this phase, no PS2 field equivalence claimed, and no handling patch. Phase 30 tire-force test remains disabled.
