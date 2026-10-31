@@ -1,0 +1,34 @@
+name: Physics steering research (synthetic tests)
+
+on:
+  pull_request:
+    paths:
+      - "physics/phase33/**"
+      - "physics/phase36/**"
+      - "physics/phase37/**"
+      - ".github/workflows/physics-steering-tests.yml"
+  push:
+    branches:
+      - "research/physics-phase31-steering"
+    paths:
+      - "physics/phase33/**"
+      - "physics/phase36/**"
+      - "physics/phase37/**"
+      - ".github/workflows/physics-steering-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Phase 36 synthetic tests
+        run: python -m unittest discover -s physics/phase36 -p 'test_*.py' -v
+      - name: Phase 37 synthetic tests
+        run: python -m unittest discover -s physics/phase37 -p 'test_*.py' -v
