@@ -117,3 +117,13 @@ The [V29 real-decoder experiment](tools/ea_mt10_multiblock_continuity_v29.py) us
 **Verified:** 1,296 samples at 22,050 Hz, three compressed SCDl blocks, exact PS2/PC-wrapper PCM identity, and an intentionally altered middle-block negative control that changes the decoded audio. The expanded [118/118 synthetic test suite and real decoder job passed](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41211334656).
 
 See the [V29 research and reproduction notes](research/V29_MT10_MULTIBLOCK_CONTINUITY.md) and [V29 regression tests](tests/test_ea_mt10_multiblock_v29.py). All fixtures are copyright-free and generated from scratch. The genuine Undercover police voices and Carbon PC's in-game audio engine **remain untested** in this V29 run.
+
+## V30: Multiple MicroTalk frames inside one SCDl
+
+[V30](tools/ea_mt10_multiframe_scdl_v30.py) verifies the actual upstream MicroTalk decoder against **three originally generated MT10 compressed frames inside a single EA SCDl audio block**. This is different from V29, where the same sequence occupied three independent SCDl blocks.
+
+**Verified:** The V28 PS2/v3-to-PC/v2 header operation preserves every original compressed byte; the actual upstream decoder produces exactly equal PCM for both headers, and the **same PCM also comes out when the frames are distributed across three SCDl blocks**. An intentionally removed middle-frame excitation changes decoded audio.
+
+The expanded synthetic suite passed **134/134** tests and the upstream real-decoder integration check passed. See the [V30 research report](research/V30_MT10_MULTIFRAME_SINGLE_BLOCK.md) and [V30 synthetic tests](tests/test_ea_mt10_multiframe_scdl_v30.py).
+
+**Still unverified:** An actual Undercover police recording, complete bank loading/event routing, Carbon PC engine support or audible in-game voices. No original game assets are included in GitHub.
