@@ -85,6 +85,8 @@ def access_direction(mnemonic: str, operand_index: int,
     m = mnemonic.lower()
     if m in NON_DEREFERENCE:
         return 'address_only_no_memory_access'
+    if m == 'xchg':
+        return 'read_write'  # Memory may be either x86 operand.
     if operand_index == 0:
         if m in READ_WRITE_DEST:
             return 'read_write'
