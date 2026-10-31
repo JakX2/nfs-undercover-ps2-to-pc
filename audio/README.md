@@ -137,3 +137,13 @@ The separate **verify** command selects one of those offsets, privately extracts
 **Verified:** 162/162 synthetic regression tests passed. The official upstream decoder independently validated two generated mono MT10 streams located inside a mock BIG, with identical PCM after the experimental wrapper operation. See the [successful GitHub Actions run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41212591848) and the [V31 private usage guide](research/V31_PRIVATE_BIG_VOICE_SCANNER.md).
 
 **Still unverified:** The original Undercover PS2 archives have not been scanned or decoded with V31 in this environment, and SCHl signature discovery alone cannot prove a stream is police dialogue. Carbon PC's actual bank loader, event mapping and runtime playback are not tested. The original game archives and extracted audio must stay out of this public repository.
+
+## V32: Batch offline decoding of candidate MicroTalk voices
+
+The [V32 private batch triage](tools/big_mt10_batch_triage_v32.py) builds on V31. It scans an extracted local PS2 BIG for mono EA-MT10 SCHl candidates and runs an **independent upstream vgmstream decoded-PCM comparison** on a limited batch, applying V28's experimental PC/v2 header rewrap privately. It outputs a new **metadata-only JSON** report that separates successful PCM equality from actual decoder/validation failures and never keeps original audio or WAVs.
+
+**Verified:** 182/182 synthetic Python tests passed. The real official decoder then successfully validated both synthetic MT10 BIG recordings in the V32 end-to-end batch self-test, preserving identical PCM across different SCDl packing. [Successful GitHub Actions run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41213209246).
+
+See the [V32 local testing instructions](research/V32_PRIVATE_BATCH_MT10_TRIAGE.md) and [V32 regression tests](tests/test_big_mt10_batch_triage_v32.py).
+
+**Outstanding:** We have still not decoded real Undercover police speech in this environment. V32 cannot identify police event IDs from SCHl scans alone. Actual IDX/CSI/EVT association, Carbon PC bank loading and in-game playback remain unverified.
