@@ -1,0 +1,108 @@
+{
+  "known_Carbon_PC_loader_semantics": false,
+  "provenance": {
+    "original": "exact-original-owner-provided-Wii-RedBuilding-scene",
+    "original_Carbon_PC_stream_available": false,
+    "other_independent_Wii_scenes_authenticated": 0,
+    "sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+    "size_bytes": 8488
+  },
+  "runtime_tested": false,
+  "safe_to_install": false,
+  "schema": "v58-aggregated-source-evidence-v1",
+  "synthetic_envelope_demonstration": {
+    "candidate_plus_200_byte_append_shifts_all_suffix_bytes": true,
+    "numeric_coincidences_are_not_proven_pointers": true,
+    "prefix_encoded_old_root_end_may_remain_stale": true,
+    "strict_exterior_comparison_would_reject_external_pointer_updates": true,
+    "synthetic_root_offset": 64
+  },
+  "test_counts": {
+    "new_v58_pinned_original_wii": 5,
+    "new_v58_synthetic": 31,
+    "new_v58_total": 36,
+    "prior_v55_rerun": 41,
+    "prior_v56_rerun": 32,
+    "prior_v57_rerun": 31,
+    "selected_fresh_total_v55_to_v58": 140
+  },
+  "verified_original_Wii_projection": {
+    "actual_modified_game_file_generated": false,
+    "carbon_pc_loader_compatibility_verified": false,
+    "child_absolute_offsets": [
+      {
+        "absolute_shift": 0,
+        "child_id": "0x34101",
+        "new_absolute_mod16": 0,
+        "old_absolute_mod16": 0,
+        "root_relative_original_payload_start": 16,
+        "root_relative_projected_payload_start": 16,
+        "stream_absolute_original_payload_start": 16,
+        "stream_absolute_projected_payload_start": 16
+      },
+      {
+        "absolute_shift": 0,
+        "child_id": "0x34103",
+        "new_absolute_mod16": 12,
+        "old_absolute_mod16": 12,
+        "root_relative_original_payload_start": 92,
+        "root_relative_projected_payload_start": 92,
+        "stream_absolute_original_payload_start": 92,
+        "stream_absolute_projected_payload_start": 92
+      },
+      {
+        "absolute_shift": 96,
+        "child_id": "0x34102",
+        "new_absolute_mod16": 8,
+        "old_absolute_mod16": 8,
+        "root_relative_original_payload_start": 3080,
+        "root_relative_projected_payload_start": 3176,
+        "stream_absolute_original_payload_start": 3080,
+        "stream_absolute_projected_payload_start": 3176
+      },
+      {
+        "absolute_shift": 168,
+        "child_id": "0x3410D",
+        "new_absolute_mod16": 0,
+        "old_absolute_mod16": 8,
+        "root_relative_original_payload_start": 4024,
+        "root_relative_projected_payload_start": 4192,
+        "stream_absolute_original_payload_start": 4024,
+        "stream_absolute_projected_payload_start": 4192
+      },
+      {
+        "absolute_shift": 200,
+        "child_id": "0x34105",
+        "new_absolute_mod16": 8,
+        "old_absolute_mod16": 0,
+        "root_relative_original_payload_start": 5024,
+        "root_relative_projected_payload_start": 5224,
+        "stream_absolute_original_payload_start": 5024,
+        "stream_absolute_projected_payload_start": 5224
+      },
+      {
+        "absolute_shift": 200,
+        "child_id": "0x34107",
+        "new_absolute_mod16": 0,
+        "old_absolute_mod16": 8,
+        "root_relative_original_payload_start": 5416,
+        "root_relative_projected_payload_start": 5616,
+        "stream_absolute_original_payload_start": 5416,
+        "stream_absolute_projected_payload_start": 5616
+      }
+    ],
+    "external_master_table_relocation_verified": false,
+    "external_prefix_bytes_unmoved": 0,
+    "external_suffix_bytes_that_would_shift": 0,
+    "external_suffix_displacement_bytes": 0,
+    "hypothetical_file_bytes_after_insertion": 8688,
+    "original_file_bytes": 8488,
+    "original_root_end_exclusive": 8488,
+    "projected_root_end_exclusive": 8688,
+    "projected_root_sha256": null,
+    "root_chunk_layout_from_SHA256_guarded_input": true,
+    "root_scope": "standalone_root",
+    "root_stream_offset": 0,
+    "safe_to_install": false
+  }
+}
