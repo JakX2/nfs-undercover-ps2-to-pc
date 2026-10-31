@@ -82,3 +82,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 44: Carbon PC steering ESI control-flow path audit
 
 - [Phase 44 source, tests and research limits](phase44/README.md): version-gated read-only x86 CFG over the Carbon PC steering routine, tracking paths between candidate ESI-relative +0x104 / +0x118 accesses. Distinguishes modeled routes with no detected ESI writes, register definitions and unknown effects (calls, indirect transfers, unmodeled instructions), while explicitly declining to infer source-level object identity or PC/PS2 field equivalence. No real original-file result or gameplay patch; Phase 30 tire-force hook stays disabled.
+
+## Phase 45: One-command Carbon PC steering evidence bundle
+
+- [Phase 45 source, synthetic tests and source-verified run instructions](phase45/README.md): consolidates Phase 31/40 exact-version validation and Phases 41–44 steering register, ESI-memory and bounded CFG evidence into one bounded disassembly pass and JSON report. Requires the privately owned exact supported Carbon PC NFSC.exe for real results; no source original was supplied here. No field equivalence, dynamic handling finding or gameplay patch is claimed. Phase 30 tire-force experiment remains disabled.
