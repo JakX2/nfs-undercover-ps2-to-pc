@@ -38,3 +38,13 @@ Do not publish game assets or audio recordings here. Do not install experimental
 ## Research provenance
 
 Compiled from the project's V6–V21 archive comparisons and V21 README. The earlier two uploaded PS2 SOUND archives had identical binary contents; their Undercover identity is **inferred** from cross-comparison with Wii data, not independently proven from disc metadata.
+
+## V22: audio decode equivalence harness
+
+The [V22 PCM equivalence tool](tools/ea_mt10_pcm_equivalence_v22.py), [synthetic tests](tests/test_pcm_equivalence_v22.py), and [usage/research notes](research/V22_DECODER_VALIDATION.md) live in this dedicated audio research branch.
+
+- Compares original Undercover PS2 SCHl recordings against corresponding V20/V21 experimental PC-style SCHl recordings **only after an external official decoder provides real PCM WAV files**.
+- SHA-256 verification compares **decoded PCM bytes**, sample rates, channel counts and total frames.
+- Does not transcode EA-MT10, make a Carbon-installable bank, or validate playback inside the game.
+- A GitHub Actions job runs standard-library synthetic tests without any extracted game assets.
+- Earlier V1–V21 source archives remain available separately and **have not all been migrated** into this repository.
