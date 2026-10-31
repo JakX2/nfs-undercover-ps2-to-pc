@@ -1,0 +1,77 @@
+{
+  "candidate_instances": 31,
+  "candidate_preculler_blocks": 24,
+  "caveats": [
+    "single_original_Wii_scene",
+    "exploratory_post_hoc_comparisons",
+    "Mantel_style_label_permutations_not_independent_scenes",
+    "unknown_0x34107_serialization_semantics",
+    "unknown_Carbon_PC_disk_abi",
+    "no_runtime_test",
+    "not_installable"
+  ],
+  "comparisons": {
+    "aabb_center_proxy_for_zero_position_groups": {
+      "n_blocks": 23,
+      "pair_count_not_independent": 253,
+      "perm_shuffles": 9999,
+      "permutation_one_sided_p": 0.0001,
+      "rho_spearman": -0.581738869,
+      "seed": 533
+    },
+    "all_raw_source_positions": {
+      "n_blocks": 23,
+      "pair_count_not_independent": 253,
+      "perm_shuffles": 9999,
+      "permutation_one_sided_p": 0.0001,
+      "rho_spearman": -0.474497337,
+      "seed": 533
+    },
+    "exclude_zero_position_groups": {
+      "n_blocks": 22,
+      "pair_count_not_independent": 231,
+      "perm_shuffles": 9999,
+      "permutation_one_sided_p": 0.0001,
+      "rho_spearman": -0.590018369,
+      "seed": 533
+    },
+    "exclude_zero_positions_and_shared_mask_bits": {
+      "n_blocks": 22,
+      "pair_count_not_independent": 231,
+      "perm_shuffles": 9999,
+      "permutation_one_sided_p": 0.0001,
+      "rho_spearman": -0.568044651,
+      "seed": 533
+    },
+    "source_scenery_info_6_only": {
+      "n_blocks": 13,
+      "pair_count_not_independent": 78,
+      "perm_shuffles": 9999,
+      "permutation_one_sided_p": 0.0001,
+      "rho_spearman": -0.780411772,
+      "seed": 533
+    }
+  },
+  "known_original_wii_scene_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "nonzero_mask_blocks_with_zero_position_rows": [
+    1
+  ],
+  "original_scene_bytes": 8488,
+  "previous_v52_raw_pair_1_11_is_valid_geographic_counterexample": false,
+  "safe_to_install": false,
+  "schema": "V53-public-source-only-evidence-summary-v1",
+  "source_info_six_only_candidate_block_count": 13,
+  "spatial_proxy_sourced_from_aabb_midpoints_not_original_positions": true,
+  "zero_position_instance_flags": {
+    "0": "0x000006C0",
+    "1": "0x000006C0",
+    "2": "0x000006C0",
+    "30": "0x00000400"
+  },
+  "zero_position_instance_slots": [
+    0,
+    1,
+    2,
+    30
+  ]
+}
