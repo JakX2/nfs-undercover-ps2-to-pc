@@ -117,6 +117,17 @@ class InventoryTests(unittest.TestCase):
         result = phase42.find_accesses([ins(0x1000, 'lea', 'eax,[esi+0x20]')])
         self.assertEqual(result['simple_esi_access_count'], 0)
 
+    def test_complex_lea_not_counted_as_dereference(self):
+        result = phase42.find_accesses(
+            [ins(0x1000, 'lea', 'eax,[esi+ecx*4+0x20]')])
+        self.assertEqual(result['complex_esi_operand_count'], 0)
+
+    def test_real_objdump_lea_only_has_zero_accesses(self):
+        decoded = phase42.disassemble(bytes.fromhex('8d548e10'), 0x1000)
+        result = phase42.find_accesses(decoded)
+        self.assertEqual(result['simple_esi_access_count'], 0)
+        self.assertEqual(result['complex_esi_operand_count'], 0)
+
     def test_other_base_excluded(self):
         result = phase42.find_accesses([ins(0x1000, 'mov', 'eax,DWORD PTR [edi+0x104]')])
         self.assertEqual(result['simple_esi_access_count'], 0)
