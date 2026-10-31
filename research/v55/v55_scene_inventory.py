@@ -148,14 +148,16 @@ def scan_stream(path: Path, *, expected_sha256: str | None = None,
             if expected is not None and stream_hash != expected:
                 raise InventoryError('Stream SHA-256 mismatch; refusing structural claims')
         after = os.fstat(f.fileno())
-        if _file_identity(before) != _file_identity(after):
-            raise InventoryError('Stream metadata changed while scanning; refusing inconsistent report')
+        # Replacing/unlinking a path can itself change the old inode's ctime.
+        # Diagnose path replacement before interpreting that as content mutation.
         try:
             current = path.stat()
         except OSError as exc:
             raise InventoryError('Stream path vanished while scanning') from exc
         if (current.st_dev, current.st_ino) != (after.st_dev, after.st_ino):
             raise InventoryError('Stream path replaced while scanning; refusing inconsistent report')
+        if _file_identity(before) != _file_identity(after):
+            raise InventoryError('Stream metadata changed while scanning; refusing inconsistent report')
     return {
         'stream_sha256': stream_hash,
         'stream_size_bytes': size,
