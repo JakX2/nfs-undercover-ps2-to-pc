@@ -83,6 +83,8 @@ def decode_gpr_effect(word: int) -> tuple[str, int | None, tuple[int, ...], int]
     that might define the requested GPR without accounting for it.
     """
     op, rs, rt, rd, fn, imm = fields(word)
+    if op in (0x22, 0x26):  # LWL/LWR merge bytes with prior destination contents
+        return 'partial_load_unknown', rt, (), imm
     if op in MEMORY_LOADS:
         return 'load', rt, (rs,), imm
     if op in MEMORY_STORES or op in FLOAT_MEMORY:
