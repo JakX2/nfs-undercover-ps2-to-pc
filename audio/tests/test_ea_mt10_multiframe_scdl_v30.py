@@ -55,7 +55,7 @@ class MicrotalkSingleBlockTests(unittest.TestCase):
         a = synth_frame(first=True, pulse=False)
         b = synth_frame(first=False, pulse=True)
         self.assertEqual(len(a), 48)
-        self.assertEqual(len(b), 46)
+        self.assertEqual(len(b), 47)  # extra RELP excitation bit expands this frame
         self.assertEqual(len(self.raw), len(self.old) - 2 * 17 + 0)
 
     def test_rewrap_preserves_original_post_header(self):
