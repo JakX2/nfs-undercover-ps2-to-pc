@@ -48,3 +48,12 @@ The [V22 PCM equivalence tool](tools/ea_mt10_pcm_equivalence_v22.py), [synthetic
 - Does not transcode EA-MT10, make a Carbon-installable bank, or validate playback inside the game.
 - A GitHub Actions job runs standard-library synthetic tests without any extracted game assets.
 - Earlier V1–V21 source archives remain available separately and **have not all been migrated** into this repository.
+
+
+## V23: official decoder availability + metadata preflight
+
+The [V23 vgmstream metadata-only probe](tools/vgmstream_metadata_preflight_v23.py) reads the **actual decoder's** sample rate, channel count, sample count, and encoding for one original SCHl stream and its PC-shaped counterpart. It never generates audio or modifies original streams. The [V23 documentation](research/V23_DECODER_PREFLIGHT.md) gives the private local commands; the [synthetic tests](tests/test_metadata_preflight_v23.py) exercise parsing and safety behavior.
+
+**Verified GitHub Actions:** 32/32 synthetic tests passed, and the official Linux vgmstream CLI downloaded and launched successfully in the separate smoke-test job. [Successful run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41206998993).
+
+**Still unverified:** genuine Undercover EA-MT10 voice decoding, original-vs-PC-style PCM identity, an encoder for Carbon PC speech, or in-game police-voice playback. Neither V22 nor V23 can be used to install a playable voice bank.
