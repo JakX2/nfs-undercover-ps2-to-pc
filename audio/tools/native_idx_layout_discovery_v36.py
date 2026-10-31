@@ -24,7 +24,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from idx_evt_csi_evidence_join_v33 import load_scan
+from idx_evt_csi_evidence_join_v33 import AttributionError, load_scan
 
 MAX_IDX_BYTES = 16 * 1024 * 1024
 MAX_REPORT_BYTES = 16 * 1024 * 1024
@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> int:
                 output.write("\n")
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0
-    except (LayoutError, OSError, ValueError) as exc:
+    except (LayoutError, AttributionError, OSError, ValueError) as exc:
         print(f"V36 IDX layout discovery: {type(exc).__name__}: {exc}",
               file=sys.stderr)
         return 2
