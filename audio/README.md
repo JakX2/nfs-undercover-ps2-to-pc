@@ -155,3 +155,11 @@ The [V33 evidence joiner](tools/idx_evt_csi_evidence_join_v33.py) adds **explici
 **Verified:** 209/209 synthetic Python regression tests passed and the separate official vgmstream decoder job passed. See [V33 research and CSV schema](research/V33_IDX_EVT_CSI_EVIDENCE_JOIN.md) and [GitHub Actions evidence](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41215619199).
 
 **Important limitation:** V33 does not parse original binary IDX, EVT or CSI by itself. It needs authentic CSV exports from the earlier local research. A CSI `police` classification is an operator label, **not** a confirmed audible police recording. Actual Undercover voice decoding and Carbon PC sound bank/event playback remain unverified.
+
+## V34: Source-grounded native IDX offset-table hypothesis
+
+An independently documented [Black Box IDX/BIG extraction recipe](https://reshax.com/topic/160-help-extract-big-file-nfs-carbon-xbox-version/) for **Carbon original Xbox** describes a 32-bit record count at IDX byte offset `0x54` and 16-byte records with three opaque integer fields plus an offset into BIG. The new [V34 native IDX auditor](tools/experimental_native_idx_audit_v34.py) implements that **as an experimental profile**, with strict count, endian, increasing-offset, BIG-span and original SCHl boundary checks. The opaque `raw_id` is **not** assigned a guessed CSI/EVT group identity.
+
+**Verified synthetic experiment:** 232/232 automated Python regressions passed, plus an upstream vgmstream real-decoder test that joined two originally generated IDX offsets to valid compressed MicroTalk audio in BIG, including one padded stream span. Both original-versus-experimental-PC decoded PCM pairs matched. See [V34 research notes](research/V34_NATIVE_IDX_OFFSET_HYPOTHESIS.md) and the [successful CI run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41216490127).
+
+**Important:** V34 has **not** verified the IDX profile on original Undercover PS2 IDX/BIG files. The source recipe came from Carbon **Xbox**, and the original game archive is still inaccessible to the local execution environment. A real IDX/EVT/CSI police-event identity and Carbon PC sound playback remain unproven.
