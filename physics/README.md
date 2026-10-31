@@ -54,3 +54,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 37: Anchor-guided static steering-access comparison
 
 - [Phase 37 source, tests and evidence limits](phase37/README.md): after Phase 33/36 SHA and signature verification, anchor-partitions the Undercover PS2 and Carbon PS2 steering access streams and aligns exact mnemonic/displacement pairs, marking unilateral and repeated-pattern cases. **22 local synthetic tests passed**, but no original-file Phase 37 result or gameplay patch is claimed. Carbon PC field equivalence remains unknown.
+
+## Phase 38: Steering register-provenance research
+
+- [Phase 38 source, synthetic tests and limitations](phase38/README.md): SHA-gated read-only local MIPS GPR ancestry for candidate steering memory-access bases; conservative branch/delay-slot/opaque barriers. 38 local synthetic tests passed, with no new real-PS2 scan or Carbon PC gameplay patch claimed. Keep Phase 30 tire-force experiment disabled.
