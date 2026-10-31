@@ -78,3 +78,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 43: Carbon PC +0x104/+0x118 candidate access review
 
 - [Phase 43 source, tests and research constraints](phase43/README.md): SHA-gated, read-only focused review of static ESI-relative reads and writes to two known Carbon PC steering-function displacements. Checks branch boundaries and ESI register changes, including the first memory-access instruction, before reporting possible lexical relationships. **Does not establish runtime object identity, field names, PS2 equivalence or an in-game handling change.** Phase 30's tire-force hook remains disabled.
+
+## Phase 44: Carbon PC steering ESI control-flow path audit
+
+- [Phase 44 source, tests and research limits](phase44/README.md): version-gated read-only x86 CFG over the Carbon PC steering routine, tracking paths between candidate ESI-relative +0x104 / +0x118 accesses. Distinguishes modeled routes with no detected ESI writes, register definitions and unknown effects (calls, indirect transfers, unmodeled instructions), while explicitly declining to infer source-level object identity or PC/PS2 field equivalence. No real original-file result or gameplay patch; Phase 30 tire-force hook stays disabled.
