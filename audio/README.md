@@ -127,3 +127,13 @@ See the [V29 research and reproduction notes](research/V29_MT10_MULTIBLOCK_CONTI
 The expanded synthetic suite passed **134/134** tests and the upstream real-decoder integration check passed. See the [V30 research report](research/V30_MT10_MULTIFRAME_SINGLE_BLOCK.md) and [V30 synthetic tests](tests/test_ea_mt10_multiframe_scdl_v30.py).
 
 **Still unverified:** An actual Undercover police recording, complete bank loading/event routing, Carbon PC engine support or audible in-game voices. No original game assets are included in GitHub.
+
+## V31: Private BIG voice scanner with mandatory real decoded-PCM verification
+
+The [V31 BIG scanner](tools/undercover_big_voice_scan_v31.py) bridges the gap between extracted local original PS2 .BIG sound banks and the V28 decoder/PC-style-header experiment. It searches **read-only** for contiguous mono PS2 platform5/v3 EA-MT10 SCHl streams, validates chunk boundaries, SCCl/SCDl sample accounting and source headers, then reports candidate offsets without exporting any proprietary audio.
+
+The separate **verify** command selects one of those offsets, privately extracts the original SCHl into a temporary folder, invokes V28, and **requires the real upstream vgmstream CLI** to confirm exact PCM identity against the experimental PC-style header. Only a new metadata JSON report is retained by default; original and reconstructed audio are deleted. False positives, malformed streams, invalid offsets and decoder failures are rejected.
+
+**Verified:** 162/162 synthetic regression tests passed. The official upstream decoder independently validated two generated mono MT10 streams located inside a mock BIG, with identical PCM after the experimental wrapper operation. See the [successful GitHub Actions run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41212591848) and the [V31 private usage guide](research/V31_PRIVATE_BIG_VOICE_SCANNER.md).
+
+**Still unverified:** The original Undercover PS2 archives have not been scanned or decoded with V31 in this environment, and SCHl signature discovery alone cannot prove a stream is police dialogue. Carbon PC's actual bank loader, event mapping and runtime playback are not tested. The original game archives and extracted audio must stay out of this public repository.
