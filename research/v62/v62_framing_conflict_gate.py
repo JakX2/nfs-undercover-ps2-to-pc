@@ -134,7 +134,7 @@ def analyze(v61report, *, require_guard=True, top=10000):
     roots=[r for r in records if r['tag']==ROOT]
     masters=[r for r in records if r['tag']==MASTER]
     root_sorted,root_starts,root_end_max=_prefix_max_ends(roots)
-    _,master_starts,_=_prefix_max_ends(masters)
+    master_starts=sorted({r['offset'] for r in masters})
     outputs=[]
     classifications=Counter()
     for r in records:
@@ -165,7 +165,7 @@ def analyze(v61report, *, require_guard=True, top=10000):
             lo=bisect_right(master_starts,start)
             hi=bisect_left(master_starts,end)
             # The sorted master list can have several variants at one offset.
-            contained_master_offsets=len(set(master_starts[lo:hi]))
+            contained_master_offsets=hi-lo
         if r['tag']==ROOT:
             if r['child_framing_status']=='contiguous_candidate_children':
                 category='root_with_contiguous_candidate_child_frames'
