@@ -163,3 +163,11 @@ An independently documented [Black Box IDX/BIG extraction recipe](https://reshax
 **Verified synthetic experiment:** 232/232 automated Python regressions passed, plus an upstream vgmstream real-decoder test that joined two originally generated IDX offsets to valid compressed MicroTalk audio in BIG, including one padded stream span. Both original-versus-experimental-PC decoded PCM pairs matched. See [V34 research notes](research/V34_NATIVE_IDX_OFFSET_HYPOTHESIS.md) and the [successful CI run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41216490127).
 
 **Important:** V34 has **not** verified the IDX profile on original Undercover PS2 IDX/BIG files. The source recipe came from Carbon **Xbox**, and the original game archive is still inaccessible to the local execution environment. A real IDX/EVT/CSI police-event identity and Carbon PC sound playback remain unproven.
+
+## V35: Recover original V1–V21 research source code safely
+
+The [V35 legacy source recovery tool](tools/legacy_audio_research_recovery_v35.py) provides a conservative offline path to inspect and privately recover the missing original **V21 police-audio research scripts** from a user-owned ZIP archive. It accepts only Python, QuickBMS and selected text/documentation extensions by default, preserves original file hashes, identifies likely IDX/CSI/EVT/SCHl/MT10 parsers, rejects unsafe ZIP structures, and **never executes extracted source** or automatically publishes it.
+
+**Verified:** 263/263 synthetic Python tests passed, including 31 new source recovery, ZIP security, binary filtering, metadata and no-overwrite cases. The separate upstream decoder integration and V35 source-only self-test also passed. See the [V35 recovery instructions](research/V35_RECOVER_LEGACY_AUDIO_SOURCES.md) and [verified CI](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41217606419).
+
+**Limit:** The actual private V21 ZIP was registered in this Project but not readable through the local Python/container environment during V35. No original source parsers were recovered or committed, no original police recording was decoded, and Carbon PC runtime playback remains unverified. The V34 Xbox IDX profile is still an unproven hypothesis for Undercover PS2.
