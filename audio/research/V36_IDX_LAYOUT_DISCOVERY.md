@@ -67,7 +67,7 @@ It discovers both hypotheses with bounded candidate search. In a separate integr
 
 The GitHub CI suite passes **291/291 Python synthetic tests**, plus the existing separate upstream vgmstream decoder integration and V36 self-test. All tests are source-only and game-free.
 
-CI evidence: https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41219976786 (initial 290-test discovery run; a final follow-up adds one malformed-JSON regression test).
+CI evidence: https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41220098460 (291/291 synthetic tests passing, with the official upstream decoder job passing separately).
 
 ## Still unverified
 
