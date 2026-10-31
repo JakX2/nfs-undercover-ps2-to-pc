@@ -1,0 +1,22 @@
+name: V57 append layout offsets (source only)
+on:
+  push:
+    paths:
+      - 'research/v55/**'
+      - 'research/v57/**'
+      - '.github/workflows/v57-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v55/**'
+      - 'research/v57/**'
+      - '.github/workflows/v57-asset-free-tests.yml'
+jobs:
+  source-only-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run 26 V57 synthetic tests (private game sources excluded)
+        run: python -m unittest discover -s research/v57 -p test_v57.py -v
