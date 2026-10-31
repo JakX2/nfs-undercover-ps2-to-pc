@@ -1,0 +1,22 @@
+name: V52 read-only source tests (no game assets)
+on:
+  push:
+    paths:
+      - 'research/v52/**'
+      - 'research/v50/v50_scenery_index_crosscheck.py'
+      - '.github/workflows/v52-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v52/**'
+      - 'research/v50/v50_scenery_index_crosscheck.py'
+      - '.github/workflows/v52-asset-free-tests.yml'
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V52 synthetic-only tests
+        run: python -m unittest discover -s research/v52 -p 'test_v52.py' -v
