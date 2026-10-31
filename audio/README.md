@@ -77,3 +77,12 @@ An optional --decoder argument invokes the **real installed vgmstream-cli** and 
 **Verified synthetic suite:** 58/58 tests passed, plus the official upstream vgmstream PCM16LE/TXTH job in [GitHub Actions](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41208600250). See [V25 details and local usage](research/V25_SCHL_WRAPPER_AUDIT.md).
 
 **Not yet verified:** real Undercover EA-MT10 PCM decoding, V20/V21 PS2-to-PC wrapper PCM equality, or Carbon PC playback. No copyrighted game audio is in the repository.
+
+
+## V26: actual EA SCHl cross-platform header decoder test
+
+[V26](tools/ea_schl_platform_pcm_selftest_v26.py) runs the actual **EA SCHl decoder**, not just the TXTH reader, on two synthetic EA sound streams with **identical compressed-block positions and original PCM samples**. The PS2-like container uses platform 5/version 3 and a 36-byte SCHl header; the PC-like container uses platform 0/version 2 and a 32-byte header. Both are decoded by the official vgmstream CLI to the same exact original 4,096-frame, 22,050 Hz PCM data.
+
+This is an important verified **EA container compatibility** result in the upstream decoder, but it is **not an EA-MT10 codec test**. V26 uses uncompressed EA codec2=0, while real Undercover MicroTalk speech uses codec2=4.
+
+See [V26 research report](research/V26_EA_SCHL_CROSS_PLATFORM.md) and [V26 regression tests](tests/test_ea_schl_platform_v26.py). No game audio or proprietary files were used or uploaded.
