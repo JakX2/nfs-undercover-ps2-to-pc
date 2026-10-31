@@ -235,10 +235,40 @@ def self_test() -> dict:
         ):
             raise LayoutError("Synthetic native-table hypothesis was not discovered")
         matched.append({"endian": endian, "stride": stride, "offset_column": field})
+    # Also prove the same discovery works from actual V31 SCHl scan output,
+    # not just a hand-authored set of integer offsets.
+    from ea_mt10_multiframe_scdl_v30 import make_single_block_stream
+    from ea_mt10_multiblock_continuity_v29 import make_ps2_stream
+    from undercover_big_voice_scan_v31 import scan_big
+    with tempfile.TemporaryDirectory(prefix="nfs_v36_layout_synthetic_") as folder:
+        root = Path(folder)
+        big = root / "synthetic.BIG"
+        chunks = [make_single_block_stream(), make_ps2_stream()] * 2
+        buf = bytearray(b"Z" * 64)
+        discovered_starts = []
+        for chunk in chunks:
+            discovered_starts.append(len(buf))
+            buf.extend(chunk)
+            buf.extend(b"pad_9byte")
+        big.write_bytes(buf)
+        valid = scan_big(big, scan_block=11)
+        if [r["offset"] for r in valid] != discovered_starts:
+            raise LayoutError("Real SCHl scanner did not match synthetic IDX offsets")
+        scan_json = root / "scan.json"
+        scan_json.write_text(json.dumps({
+            "format": "NFS_AUDIO_V31_BIG_SCHL_SCANNER",
+            "candidates": valid,
+        }))
+        idx = root / "synthetic.IDX"
+        idx.write_bytes(fake_idx(discovered_starts, 0x54, 4, 16, 12, "little"))
+        integrated = investigate(idx, scan_json)
+        if not integrated["displayed_layouts"]:
+            raise LayoutError("IDX layout could not be recovered from real SCHl scanner")
     return {
         "format": "NFS_AUDIO_V36_SYNTHETIC_LAYOUT_DISCOVERY_SELFTEST",
         "distinct_synthetic_layouts_found": len(matched),
         "layouts": matched,
+        "real_schl_scanner_integrated": True,
         "game_data_used": False,
         "undercover_native_idx_format_verified": False,
     }
