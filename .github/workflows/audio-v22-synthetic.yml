@@ -1,4 +1,4 @@
-name: Audio V22-V27 decoder and SCHl validation
+name: Audio V22-V28 real decoder and private MT10 bridge
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V27 stdlib-only synthetic regression tests
+    name: V22-V28 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +56,7 @@ jobs:
           python audio/tools/ea_schl_platform_pcm_selftest_v26.py --decoder "$cli" | tee "$RUNNER_TEMP/v26-ea-schl.json"
           python audio/tools/ea_mt10_synthetic_silence_v27.py --decoder "$cli" | tee "$RUNNER_TEMP/v27-ea-mt10.json"
           python audio/tools/ea_mt10_synthetic_silence_v27.py --decoder "$cli" --pulse | tee "$RUNNER_TEMP/v27-ea-mt10-pulse.json"
+          python audio/tools/undercover_mt10_private_bridge_v28.py --self-test --decoder "$cli" | tee "$RUNNER_TEMP/v28-private-bridge-synthetic.json"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
