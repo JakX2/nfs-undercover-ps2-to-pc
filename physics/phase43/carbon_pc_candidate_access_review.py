@@ -67,8 +67,8 @@ def span_evidence(instructions: list[dict], begin: int, end: int) -> dict:
             'same_runtime_object_proven': False,
         }
     for ins in instructions:
-        if not begin < ins['pc'] < end:
-            continue
+        if not begin <= ins['pc'] < end:
+            continue  # First memory access can itself redefine ESI (e.g. MOV ESI,[ESI+off]).
         effect = describe_effect(ins, 'esi')
         kind = effect['kind']
         if kind == 'opaque_barrier':
