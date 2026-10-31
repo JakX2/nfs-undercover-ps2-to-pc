@@ -1,0 +1,12 @@
+{
+  "milestone": "V61",
+  "date": "2026-10-31",
+  "tests_v61": {"synthetic_passed": 34, "pinned_original_Wii_passed": 4, "total_passed": 38},
+  "fresh_regression_tests": {"V58": 36, "V59": 38, "V60": 42},
+  "fresh_selected_offline_tests_total": 154,
+  "github_ci_fixture_free_test_count": 34,
+  "source_fixture_published": false,
+  "original_Carbon_PC_world_stream_available": false,
+  "native_pc_in_game_tests": 0,
+  "installable_patch": false
+}
