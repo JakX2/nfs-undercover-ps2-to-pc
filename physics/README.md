@@ -17,6 +17,11 @@ Research-only branch for native Carbon PC handling experiments. This work is **n
 - Source files and structured findings are for studying independently acquired local game copies. A successful offline structural match is not a live behavioral port.
 - Incompatible tire-call-site hook ASIs **must not** be loaded simultaneously. Perform live tests only in a disposable game copy.
 
+## Current Phase 32 findings
+
+- [Phase 32: Undercover Wii steering-input shaping](phase32/README.md): confirmed signed-power (exponent about 1.15) and signed-square input paths, plus a 0.12 branch threshold, with original-ELF verification and 9 tests.
+- [Police AI research](../gameplay/police/README.md): five-platform function map, verified Undercover pursuit probability branch and attribute-owner migration cautions.
+
 ## Immediate next work
 
 1. Derive the mathematical transformation in Undercover Wii's steering routine and independently match Undercover PS2's routine.
