@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V29 stdlib-only synthetic regression tests
+    name: V22-V30 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,9 +62,9 @@ jobs:
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
-            echo 'Official nightly Linux binary downloaded. V24 PCM16LE/TXTH metadata + WAV round-trip self-test passed.'
+            echo 'Official nightly Linux binary downloaded; V24, V26, V27, V28, V29 and V30 synthetic real-decoder checks passed.'
             echo ''
             echo 'Archive SHA-256:'
             sha256sum "$RUNNER_TEMP/vgmstream-linux-cli.tar.gz"
-            echo 'This job tests only the executable. No game recordings are present.'
+            echo 'This job uses generated synthetic audio only. No game recordings are present.'
           } >> "$GITHUB_STEP_SUMMARY"
