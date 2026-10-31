@@ -66,3 +66,14 @@ The [V23 vgmstream metadata-only probe](tools/vgmstream_metadata_preflight_v23.p
 **Verified successful GitHub Actions run:** https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41207703967. See [evidence and private source-clip test instructions](research/V24_REAL_DECODER_SYNTHETIC.md) and [V24 regression tests](tests/test_real_decoder_selftest_v24.py).
 
 **Important:** PCM16LE is an intentionally simple synthetic decoder test format, **not** Undercover EA-MT10; we have still not decoded a real Undercover police line or tested Carbon PC audio playback. Game recordings are never uploaded.
+
+
+## V25: strict SCHl wrapper preservation audit
+
+The [V25 verifier](tools/schl_wrapper_audit_v25.py) compares **two individual user-supplied SCHl recordings** and checks chunk sizes, SCCl/SCDl counts, post-header byte identity and per-block SHA-256 hashes. It handles the case where the original PS2 SCHl header and the experimental PC-style SCHl header have different lengths, without changing or redistributing any original audio.
+
+An optional --decoder argument invokes the **real installed vgmstream-cli** and V22's sample-accurate PCM comparator on the same two files, using temporary WAVs that are removed afterwards. Unlike earlier experiments, the structural and decoded checks can now be requested together and reported in a single JSON audit.
+
+**Verified synthetic suite:** 58/58 tests passed, plus the official upstream vgmstream PCM16LE/TXTH job in [GitHub Actions](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41208600250). See [V25 details and local usage](research/V25_SCHL_WRAPPER_AUDIT.md).
+
+**Not yet verified:** real Undercover EA-MT10 PCM decoding, V20/V21 PS2-to-PC wrapper PCM equality, or Carbon PC playback. No copyrighted game audio is in the repository.
