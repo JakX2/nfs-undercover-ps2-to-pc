@@ -109,3 +109,11 @@ The command writes a new private JSON report folder, discarding temporary experi
 **Verified CI:** 102/102 synthetic regression tests passed and the upstream decoder confirmed exact PCM identity for both generated synthetic MT10 silence and nonzero pulse after the V28 rewrapper. [GitHub Actions evidence](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41210582210).
 
 See the [V28 private test instructions](research/V28_PRIVATE_MT10_ONE_COMMAND.md). This is a lab-only conversion tool. **Real Undercover dialogue still has not been decoded and verified**, and Carbon PC's sound engine, bank loading and event routing remain untested.
+
+## V29: MT10 compressed audio across multiple SCDl blocks
+
+The [V29 real-decoder experiment](tools/ea_mt10_multiblock_continuity_v29.py) uses three independently generated MicroTalk blocks in the same EA SCHl recording. Only the first block includes codec initialization, while later blocks continue the codec state. A middle-block nonzero pulse is preserved through the actual V28 PS2-to-PC experimental header rewrapper and decoded by the real upstream vgmstream decoder.
+
+**Verified:** 1,296 samples at 22,050 Hz, three compressed SCDl blocks, exact PS2/PC-wrapper PCM identity, and an intentionally altered middle-block negative control that changes the decoded audio. The expanded [118/118 synthetic test suite and real decoder job passed](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41211334656).
+
+See the [V29 research and reproduction notes](research/V29_MT10_MULTIBLOCK_CONTINUITY.md) and [V29 regression tests](tests/test_ea_mt10_multiblock_v29.py). All fixtures are copyright-free and generated from scratch. The genuine Undercover police voices and Carbon PC's in-game audio engine **remain untested** in this V29 run.
