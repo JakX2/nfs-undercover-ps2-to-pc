@@ -57,3 +57,12 @@ The [V23 vgmstream metadata-only probe](tools/vgmstream_metadata_preflight_v23.p
 **Verified GitHub Actions:** 32/32 synthetic tests passed, and the official Linux vgmstream CLI downloaded and launched successfully in the separate smoke-test job. [Successful run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41206998993).
 
 **Still unverified:** genuine Undercover EA-MT10 voice decoding, original-vs-PC-style PCM identity, an encoder for Carbon PC speech, or in-game police-voice playback. Neither V22 nor V23 can be used to install a playable voice bank.
+
+
+## V24: decoder PCM round-trip from self-generated audio
+
+[V24's real-vgmstream self-test](tools/vgmstream_real_decoder_selftest_v24.py) generates 4096 samples of original mono PCM16LE at 22,050 Hz, provides a TXTH description and makes the **official upstream CLI actually decode** it. It independently verifies that WAV PCM is byte-identical to the generated source, and a one-bit sample mutation survives decoding.
+
+**Verified successful GitHub Actions run:** https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41207703967. See [evidence and private source-clip test instructions](research/V24_REAL_DECODER_SYNTHETIC.md) and [V24 regression tests](tests/test_real_decoder_selftest_v24.py).
+
+**Important:** PCM16LE is an intentionally simple synthetic decoder test format, **not** Undercover EA-MT10; we have still not decoded a real Undercover police line or tested Carbon PC audio playback. Game recordings are never uploaded.
