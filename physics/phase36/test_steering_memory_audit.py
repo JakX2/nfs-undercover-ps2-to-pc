@@ -2,6 +2,7 @@
 import csv
 import io
 import unittest
+import sys
 from unittest.mock import patch
 
 try:
@@ -65,7 +66,7 @@ class InventoryTests(unittest.TestCase):
             start: iword(0x31, 4, 7, 0x8c),
             start + 4: iword(0x39, 5, 8, 0x188),
         }
-        with patch('physics.phase36.steering_memory_audit.word_at',
+        with patch.object(sys.modules[scan_function.__module__], 'word_at',
                    side_effect=lambda data, segments, pc: words[pc]):
             rows = scan_function(b'', [], start, start + 8, {
                 start: ('source_input', 0x8c, 'read'),
@@ -76,19 +77,19 @@ class InventoryTests(unittest.TestCase):
                          ['source_input', 'destination'])
 
     def test_anchor_wrong_displacement(self):
-        with patch('physics.phase36.steering_memory_audit.word_at', return_value=iword(0x31, 4, 7, 0x90)):
+        with patch.object(sys.modules[scan_function.__module__], 'word_at', return_value=iword(0x31, 4, 7, 0x90)):
             with self.assertRaises(ValueError):
                 scan_function(b'', [], 0x1000, 0x1004,
                               {0x1000: ('input', 0x8c, 'read')})
 
     def test_anchor_wrong_direction(self):
-        with patch('physics.phase36.steering_memory_audit.word_at', return_value=iword(0x39, 4, 7, 0x8c)):
+        with patch.object(sys.modules[scan_function.__module__], 'word_at', return_value=iword(0x39, 4, 7, 0x8c)):
             with self.assertRaises(ValueError):
                 scan_function(b'', [], 0x1000, 0x1004,
                               {0x1000: ('input', 0x8c, 'read')})
 
     def test_anchor_non_memory(self):
-        with patch('physics.phase36.steering_memory_audit.word_at', return_value=0):
+        with patch.object(sys.modules[scan_function.__module__], 'word_at', return_value=0):
             with self.assertRaises(ValueError):
                 scan_function(b'', [], 0x1000, 0x1004,
                               {0x1000: ('input', 0x8c, 'read')})
@@ -99,7 +100,7 @@ class InventoryTests(unittest.TestCase):
                 scan_function(b'', [], start, end)
 
     def test_no_anchors_not_labeled(self):
-        with patch('physics.phase36.steering_memory_audit.word_at', return_value=iword(0x31, 4, 7, 0x8c)):
+        with patch.object(sys.modules[scan_function.__module__], 'word_at', return_value=iword(0x31, 4, 7, 0x8c)):
             rows = scan_function(b'', [], 0x1000, 0x1004)
         self.assertEqual(rows[0]['candidate_offset'], '+0x8C')
         self.assertEqual(rows[0]['evidence_label'], '')
