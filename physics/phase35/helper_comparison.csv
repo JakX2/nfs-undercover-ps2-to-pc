@@ -1,0 +1,8 @@
+property,undercover_ps2,carbon_ps2,conclusion
+helper_address,0x00172CB8,0x00173780,different_address
+helper_size,376,376,same
+helper_instruction_words,94,94,same_count
+identical_instruction_words,91,91,all_except_table_address_relocations
+table_address,0x0063E138,0x00606A98,relocated
+table_entries,257,257,identical
+table_sha256,8f1184671782f4df2c006d4ef6674700aff401127a23d09c40f4475ecffe2929,8f1184671782f4df2c006d4ef6674700aff401127a23d09c40f4475ecffe2929,byte_identical
