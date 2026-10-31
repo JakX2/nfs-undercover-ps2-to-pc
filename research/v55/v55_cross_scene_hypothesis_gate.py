@@ -132,7 +132,11 @@ def read_verified_root(spec:dict):
             raise GateError('offset must be a nonnegative integer')
     else:offset=None
 
-    with path.open('rb') as fh:
+    try:
+        source_handle=path.open('rb')
+    except OSError as exc:
+        raise GateError('source path is not an accessible local file') from exc
+    with source_handle as fh:
         before=os.fstat(fh.fileno())
         size=before.st_size
         initial_sha=_handle_digest(fh)
