@@ -1,4 +1,4 @@
-name: Audio V22-V29 MicroTalk multiblock validation
+name: Audio V22-V30 MicroTalk multiblock validation
 
 on:
   pull_request:
@@ -58,6 +58,7 @@ jobs:
           python audio/tools/ea_mt10_synthetic_silence_v27.py --decoder "$cli" --pulse | tee "$RUNNER_TEMP/v27-ea-mt10-pulse.json"
           python audio/tools/undercover_mt10_private_bridge_v28.py --self-test --decoder "$cli" | tee "$RUNNER_TEMP/v28-private-bridge-synthetic.json"
           python audio/tools/ea_mt10_multiblock_continuity_v29.py --decoder "$cli" | tee "$RUNNER_TEMP/v29-multiblock-microtalk.json"
+          python audio/tools/ea_mt10_multiframe_scdl_v30.py --decoder "$cli"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
