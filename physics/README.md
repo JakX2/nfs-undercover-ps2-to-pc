@@ -66,3 +66,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 40: Carbon PC steering write anchors
 
 - [Read-only Carbon PC store decoder](phase40/README.md): decodes two previously verified x86 instructions in the Carbon PC steering function, `mov [esi+0x104], eax` and `mov [esi+0x118], edx`, after exact Phase31 executable validation. Their semantic field names and relationship to PS2 offsets remain **unverified**. Includes 25 synthetic tests, no game hook or modified handling.
+
+## Phase 41: Carbon PC x86 steering-store source registers
+
+- [Read-only Phase 41 register tracer](phase41/README.md): validates the exact Carbon PC executable against Phase 31/40 before using GNU objdump to disassemble the bounded steering function. Recovers independently checked instruction boundaries and conservatively traces EAX/EDX before two verified stores, stopping on unknown definitions and branch/control boundaries. Synthetic tests only, no source-backed run in this session and **no gameplay patch**. Phase 30 tire-force hook stays disabled.
