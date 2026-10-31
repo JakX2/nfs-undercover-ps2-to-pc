@@ -150,7 +150,7 @@ class CLISafetyTests(unittest.TestCase):
             source, report = Path(d) / 'nonexistent', Path(d) / 'report.json'
             with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
                 phase40.main([str(source), '--output', str(report)])
-            self.assertFalse(report.exists()
+            self.assertFalse(report.exists())
 
     def test_output_cannot_replace_source(self):
         with tempfile.TemporaryDirectory() as d:
