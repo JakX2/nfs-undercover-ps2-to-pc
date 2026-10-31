@@ -22,6 +22,11 @@ Research-only branch for native Carbon PC handling experiments. This work is **n
 - [Phase 32: Undercover Wii steering-input shaping](phase32/README.md): confirmed signed-power (exponent about 1.15) and signed-square input paths, plus a 0.12 branch threshold, with original-ELF verification and 9 tests.
 - [Police AI research](../gameplay/police/README.md): five-platform function map, verified Undercover pursuit probability branch and attribute-owner migration cautions.
 
+## Phase 33: PS2 steering functions mapped
+
+- [Phase 33 PS2 verification and five-build map](phase33/README.md): independently identified stripped Undercover PS2 at **0x004082B0** (1,216 bytes) and Carbon PS2 at **0x003D58D8** (688 bytes) using exact original executables. Undercover PS2's signed-square input path and mode-specific 55-versus-45 comparison are directly observed in the code.
+- No Phase 33 handling patch exists. Phase 30's tire-force alpha remains disabled after the heavier-feeling CCX test.
+
 ## Immediate next work
 
 1. Derive the mathematical transformation in Undercover Wii's steering routine and independently match Undercover PS2's routine.
