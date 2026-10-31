@@ -1,0 +1,24 @@
+name: V58 archive-to-scene evidence bridge (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v58/**'
+      - 'research/v56/v56_cross_root_semantic_gate.py'
+      - 'research/v55/v55_cross_scene_hypothesis_gate.py'
+      - '.github/workflows/v58-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v58/**'
+      - 'research/v56/v56_cross_root_semantic_gate.py'
+      - 'research/v55/v55_cross_scene_hypothesis_gate.py'
+      - '.github/workflows/v58-asset-free-tests.yml'
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V58 synthetic-only archive tests
+        run: python -m unittest discover -s research/v58 -p 'test_v58.py' -v
