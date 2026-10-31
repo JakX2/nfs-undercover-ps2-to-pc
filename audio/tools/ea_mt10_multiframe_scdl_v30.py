@@ -67,9 +67,11 @@ def verify_real_decoder(decoder: str) -> dict:
         source = home / "original_ps2.asf"
         wrapped = home / "experimental_pc.asf"
         control = home / "negative_control.asf"
+        separate_blocks = home / "three_separate_scdl.asf"
         source.write_bytes(original)
         wrapped.write_bytes(pc_stream)
         control.write_bytes(all_silent)
+        separate_blocks.write_bytes(make_ps2_stream())
 
         audit = compare_schl(source, wrapped)
         if not audit["structurally_lossless_wrapper"]:
@@ -96,13 +98,17 @@ def verify_real_decoder(decoder: str) -> dict:
         a_wav = home / "ps2.wav"
         b_wav = home / "pc.wav"
         control_wav = home / "no_pulse.wav"
+        three_blocks_wav = home / "three_blocks.wav"
         a, a_pcm = decode_and_read(binary, source, a_wav)
         b, b_pcm = decode_and_read(binary, wrapped, b_wav)
         c, c_pcm = decode_and_read(binary, control, control_wav)
+        d, d_pcm = decode_and_read(binary, separate_blocks, three_blocks_wav)
         if a["pcm_frames"] != expected_frames or b["pcm_frames"] != expected_frames:
             raise MultiBlockError("Decoder returned unexpected PCM sample count")
         if a_pcm != b_pcm or not compare_wavs(a_wav, b_wav)["exact_pcm_match"]:
             raise MultiBlockError("PC and PS2 decoded PCM differ for single-block frames")
+        if a_pcm != d_pcm or not compare_wavs(a_wav, three_blocks_wav)["exact_pcm_match"]:
+            raise MultiBlockError("Same MT10 frames decoded differently as one vs three SCDl blocks")
         if a_pcm == c_pcm:
             raise MultiBlockError("Middle-pulse negative control did not change PCM")
         if any(a_pcm[:FRAME_SAMPLES * 2]):
@@ -125,8 +131,10 @@ def verify_real_decoder(decoder: str) -> dict:
             "ps2_decoded_pcm_sha256": a["pcm_sha256"],
             "pc_decoded_pcm_sha256": b["pcm_sha256"],
             "negative_control_pcm_sha256": c["pcm_sha256"],
+            "three_scdl_reference_pcm_sha256": d["pcm_sha256"],
             "independent_decoder_metadata": metadata,
             "ps2_pc_pcm_exact_match": True,
+            "one_block_vs_three_blocks_pcm_exact_match": True,
             "middle_frame_nonzero": True,
             "negative_control_differs": True,
             "actual_undercover_voice_tested": False,
