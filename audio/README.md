@@ -86,3 +86,16 @@ An optional --decoder argument invokes the **real installed vgmstream-cli** and 
 This is an important verified **EA container compatibility** result in the upstream decoder, but it is **not an EA-MT10 codec test**. V26 uses uncompressed EA codec2=0, while real Undercover MicroTalk speech uses codec2=4.
 
 See [V26 research report](research/V26_EA_SCHL_CROSS_PLATFORM.md) and [V26 regression tests](tests/test_ea_schl_platform_v26.py). No game audio or proprietary files were used or uploaded.
+
+
+## V27: Real EA-MT10 compressed decoding with synthetic speech frames
+
+V27 is the first verified experiment in this branch to exercise **vgmstream's EA MicroTalk compressed codec**, not merely its WAV/TXTH or EA SCHl uncompressed PCM pathways.
+
+The [V27 source](tools/ea_mt10_synthetic_silence_v27.py) independently generates two copyright-free compressed 48-byte MicroTalk frames: exact silence and a nonzero positive RELP excitation pulse. Each frame is placed into a PS2-style EA SCHl version 3 wrapper and a PC-style version 2 wrapper, with audio blocks unchanged between them.
+
+**Observed in official vgmstream CLI:** Both variants decode to exactly identical 432-frame, 22,050 Hz PCM. The silence frame produces only zeros; the second produces a verified nonzero signal. Upstream identifies both as Electronic Arts MicroTalk, codec2=4.
+
+The [research notes](research/V27_SYNTHETIC_EA_MT10_DECODING.md) provide hashes, commands, GitHub Actions evidence and the next private genuine-voice test. The [V27 synthetic regression tests](tests/test_ea_mt10_synthetic_v27.py) are included.
+
+**Limit:** This proves a MicroTalk codec pathway through the *upstream decoder*, **not original Undercover dialogue or Carbon PC runtime playback**. The original game audio archives remain private and were not uploaded.
