@@ -121,6 +121,8 @@ def find_accesses(instructions: list[dict]) -> dict:
                     })
                 continue
             direction = access_direction(ins['mnemonic'], index, len(operands))
+            if direction == 'address_only_no_memory_access':
+                continue  # LEA computes an address but does not dereference it.
             if parsed['kind'] == 'complex':
                 # Any occurrence of esi in a complex indexed/segmented
                 # expression is an unresolved candidate, not a field map.
