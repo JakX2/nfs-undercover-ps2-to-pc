@@ -1,0 +1,19 @@
+{
+  "carbon_pc_serialized_abi_proven": false,
+  "date": "2026-10-31",
+  "in_game_tested": false,
+  "milestone": "V57",
+  "original_carbon_pc_world_available": false,
+  "original_v42_pair_available": false,
+  "original_wii_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "safe_to_install": false,
+  "scope": "read-only scenery ROOT child-offset append audit",
+  "tests": {
+    "combined_fresh_passed": 104,
+    "v55_regression": 41,
+    "v56_regression": 32,
+    "v57_original_wii_fixture": 5,
+    "v57_synthetic": 26,
+    "v57_total_passed": 31
+  }
+}
