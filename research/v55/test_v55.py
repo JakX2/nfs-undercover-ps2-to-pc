@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -189,6 +190,71 @@ class InventoryTests(unittest.TestCase):
             encoded = json.dumps(result)
             self.assertNotIn('C:\\', encoded)
             self.assertNotIn('scenery_vertex', encoded)
+
+
+    def test_scan_hash_matches_same_input_stream(self):
+        with tempfile.TemporaryDirectory() as td:
+            data = b'prefix' + root() + b'suffix'
+            p = write(Path(td)/'stream', data)
+            result = v55.scan_stream(p)
+            self.assertEqual(result['stream_sha256'], hashlib.sha256(data).hexdigest())
+            self.assertTrue(result['same_open_handle_hash_and_scan'])
+            self.assertTrue(result['best_effort_file_change_check_passed'])
+            self.assertFalse(result['atomic_filesystem_snapshot'])
+
+    def test_scan_does_not_call_legacy_two_open_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = write(Path(td)/'stream', root())
+            with mock.patch.object(v55, 'digest_stream',
+                                   side_effect=AssertionError('legacy hash was used')):
+                self.assertEqual(v55.scan_stream(p)['root_count'], 1)
+
+    def test_detects_mutation_during_root_inspection(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = write(Path(td)/'stream', root() + b'last_byte')
+            orig = v55.inspect_root
+            changed = [False]
+
+            def tamper(data, base, **kwargs):
+                if not changed[0]:
+                    changed[0] = True
+                    with p.open('r+b') as f:
+                        f.seek(-1, 2)
+                        f.write(b'X')
+                        f.flush()
+                return orig(data, base, **kwargs)
+
+            with mock.patch.object(v55, 'inspect_root', side_effect=tamper):
+                with self.assertRaisesRegex(v55.InventoryError, 'changed while scanning'):
+                    v55.scan_stream(p)
+            self.assertTrue(changed[0])
+
+    def test_detects_source_path_replaced_during_scan(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = write(Path(td)/'stream', root())
+            replacement = write(Path(td)/'replacement', root())
+            orig = v55.inspect_root
+            changed = [False]
+
+            def replace_path(data, base, **kwargs):
+                if not changed[0]:
+                    changed[0] = True
+                    replacement.replace(p)
+                return orig(data, base, **kwargs)
+
+            with mock.patch.object(v55, 'inspect_root', side_effect=replace_path):
+                with self.assertRaisesRegex(v55.InventoryError, 'path replaced'):
+                    v55.scan_stream(p)
+            self.assertTrue(changed[0])
+
+    def test_empty_source_guard_with_same_handle(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = write(Path(td)/'empty', b'')
+            digest = hashlib.sha256(b'').hexdigest()
+            result = v55.scan_stream(p, expected_sha256=digest)
+            self.assertEqual(result['stream_sha256'], digest)
+            self.assertEqual(result['root_count'], 0)
+            self.assertTrue(result['best_effort_file_change_check_passed'])
 
 
 if __name__ == '__main__':

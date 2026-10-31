@@ -12,6 +12,7 @@ from collections import Counter
 import hashlib
 import json
 import mmap
+import os
 from pathlib import Path
 import struct
 
@@ -98,9 +99,20 @@ def inspect_root(data: mmap.mmap, base: int, *, max_root_bytes: int = DEFAULT_MA
     }
 
 
+def _file_identity(st):
+    """Minimal mutation/replacement indicators; not an atomic filesystem snapshot."""
+    return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns)
+
+
 def scan_stream(path: Path, *, expected_sha256: str | None = None,
                 max_root_bytes: int = DEFAULT_MAX_ROOT_BYTES,
                 max_roots: int = 10000) -> dict:
+    """Hash and scan a single opened input, then detect concurrent changes.
+
+    This eliminates the former two-open race (digest_stream then a fresh mmap).
+    The two whole-map hashes and file metadata checks are best-effort integrity
+    controls, NOT an immutable or atomic snapshot against concurrent writers.
+    """
     if max_root_bytes < 32 or max_root_bytes > 1024 * 1024 * 1024:
         raise InventoryError('max_root_bytes outside 32..1GiB')
     if max_roots < 1 or max_roots > 100000:
@@ -108,28 +120,51 @@ def scan_stream(path: Path, *, expected_sha256: str | None = None,
     expected = expected_sha256.lower() if expected_sha256 is not None else None
     if expected is not None and (len(expected) != 64 or any(c not in '0123456789abcdef' for c in expected)):
         raise InventoryError('Expected stream SHA-256 malformed')
-    stream_hash = digest_stream(path)
-    if expected is not None and stream_hash != expected:
-        raise InventoryError('Stream SHA-256 mismatch; refusing structural claims')
-    size = path.stat().st_size
     hits = []
-    if size >= 8:
-        with path.open('rb') as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as data:
-            start = 0
-            while (at := data.find(ROOT_MAGIC, start)) >= 0:
-                root = inspect_root(data, at, max_root_bytes=max_root_bytes)
-                if root is not None:
-                    hits.append(root)
-                    if len(hits) > max_roots:
-                        raise InventoryError('Candidate ROOT limit reached; no partial report emitted')
-                    # Do not reinterpret a child's bytes as an independent root.
-                    start = at + root['length_bytes']
-                else:
-                    start = at + 1
+    with path.open('rb') as f:
+        before = os.fstat(f.fileno())
+        size = before.st_size
+        if size >= 8:
+            with mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as data:
+                stream_hash = hashlib.sha256(data).hexdigest()
+                if expected is not None and stream_hash != expected:
+                    raise InventoryError('Stream SHA-256 mismatch; refusing structural claims')
+                start = 0
+                while (at := data.find(ROOT_MAGIC, start)) >= 0:
+                    root = inspect_root(data, at, max_root_bytes=max_root_bytes)
+                    if root is not None:
+                        hits.append(root)
+                        if len(hits) > max_roots:
+                            raise InventoryError('Candidate ROOT limit reached; no partial report emitted')
+                        # Do not reinterpret a child's bytes as an independent root.
+                        start = at + root['length_bytes']
+                    else:
+                        start = at + 1
+                if hashlib.sha256(data).hexdigest() != stream_hash:
+                    raise InventoryError('Stream changed while scanning; refusing inconsistent report')
+        else:
+            # mmap cannot map an empty file; detect late append by fstat below.
+            stream_hash = hashlib.sha256(f.read()).hexdigest()
+            if expected is not None and stream_hash != expected:
+                raise InventoryError('Stream SHA-256 mismatch; refusing structural claims')
+        after = os.fstat(f.fileno())
+        # Replacing/unlinking a path can itself change the old inode's ctime.
+        # Diagnose path replacement before interpreting that as content mutation.
+        try:
+            current = path.stat()
+        except OSError as exc:
+            raise InventoryError('Stream path vanished while scanning') from exc
+        if (current.st_dev, current.st_ino) != (after.st_dev, after.st_ino):
+            raise InventoryError('Stream path replaced while scanning; refusing inconsistent report')
+        if _file_identity(before) != _file_identity(after):
+            raise InventoryError('Stream metadata changed while scanning; refusing inconsistent report')
     return {
         'stream_sha256': stream_hash,
         'stream_size_bytes': size,
         'integrity_hash_guard_applied': expected is not None,
+        'same_open_handle_hash_and_scan': True,
+        'best_effort_file_change_check_passed': True,
+        'atomic_filesystem_snapshot': False,
         'source_identity_independently_authenticated': False,
         'root_count': len(hits),
         'roots': hits,
