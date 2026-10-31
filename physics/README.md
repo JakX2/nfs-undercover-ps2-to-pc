@@ -86,3 +86,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 45: One-command Carbon PC steering evidence bundle
 
 - [Phase 45 source, synthetic tests and source-verified run instructions](phase45/README.md): consolidates Phase 31/40 exact-version validation and Phases 41–44 steering register, ESI-memory and bounded CFG evidence into one bounded disassembly pass and JSON report. Requires the privately owned exact supported Carbon PC NFSC.exe for real results; no source original was supplied here. No field equivalence, dynamic handling finding or gameplay patch is claimed. Phase 30 tire-force experiment remains disabled.
+
+## Phase 46: Carbon PC steering evidence consistency and authenticated review
+
+- [Phase 46 evidence validator and Markdown review](phase46/README.md): cross-checks Phase45 register-origin, memory-access and CFG summaries and produces a focused manual research checklist. It explicitly labels JSON-only results **NOT AUTHENTICATED**; optional `--exe` re-runs the exact-build SHA-gated Phase45 analysis and requires full report equality. No original Carbon PC binary was available in this session, no confirmed field semantics or PS2/PC offsets, no handling patch. Phase30 tire-force experiment stays disabled.
