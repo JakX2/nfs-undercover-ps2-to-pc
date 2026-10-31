@@ -27,6 +27,8 @@ from pathlib import Path
 from undercover_mt10_private_bridge_v28 import (
     BridgeError, MAX_SOURCE_BYTES, parse_header, run_pair, validate_source,
 )
+from ea_mt10_pcm_equivalence_v22 import AudioCheckError
+from schl_wrapper_audit_v25 import SCHlAuditError
 
 SCAN_BLOCK = 1024 * 1024
 MAX_HEADER_SIZE = 4096
@@ -186,7 +188,7 @@ def extract_at(path: Path, offset: int) -> tuple[bytes, dict]:
     # Strong independent check: parse and audit ALL original compressed chunks.
     try:
         validate_source(raw)
-    except (BridgeError, ValueError) as exc:
+    except (BridgeError, SCHlAuditError, ValueError) as exc:
         raise BIGProbeError("Candidate rejected by independent V28 SCHl validator") from exc
     return raw, candidate
 
@@ -314,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         new_json(args.out_dir / "report.json", result)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
-    except (BIGProbeError, BridgeError, OSError, ValueError) as exc:
+    except (BIGProbeError, BridgeError, SCHlAuditError, AudioCheckError, OSError, ValueError) as exc:
         print(f"V31 BIG scanner/decoder: {exc}", file=sys.stderr)
         return 2
 
