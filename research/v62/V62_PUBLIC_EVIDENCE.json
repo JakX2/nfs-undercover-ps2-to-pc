@@ -1,0 +1,29 @@
+{
+  "authenticated_independent_original_scene_count": 1,
+  "finding": "V61 raw shortlist can include both intersecting TLV-framed scene ROOT candidates and can contain partial-scan candidates; V62 withholds ambiguous or incomplete scan candidates from V60 handoff",
+  "milestone": "V62",
+  "original_wii_scene_bytes": 8488,
+  "original_wii_scene_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "original_wii_v62_evidence": {
+    "partial_original_scene_scan_eligible_count": 0,
+    "scene_inside_synthetic_root_eligible_count": 0,
+    "standalone_scene_nonoverlapping_handoff_count": 1,
+    "two_exact_copies_unique_handoff_count": 1
+  },
+  "proof_boundary": "Candidate disjointness is not Carbon loader ownership or original game provenance; synthetic wrappers are not game streams.",
+  "safe_to_install": false,
+  "schema_proof": false,
+  "scope": "map_and_world_geometry_readonly",
+  "source_only": true,
+  "tests": {
+    "V58": 36,
+    "V59": 38,
+    "V60": 42,
+    "V61": 38,
+    "V62_original_wii": 5,
+    "V62_synthetic": 27,
+    "V62_total": 32,
+    "fresh_selected_offline_total": 186
+  },
+  "verified_carbon_pc_stream_or_loader": false
+}

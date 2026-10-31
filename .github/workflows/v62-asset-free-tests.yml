@@ -1,0 +1,24 @@
+name: V62 ambiguity-safe root handoff (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v62/**'
+      - 'research/v61/v61_root_candidate_inventory.py'
+      - 'research/v60/v60_multi_anchor_index_gate.py'
+      - '.github/workflows/v62-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v62/**'
+      - 'research/v61/v61_root_candidate_inventory.py'
+      - 'research/v60/v60_multi_anchor_index_gate.py'
+      - '.github/workflows/v62-asset-free-tests.yml'
+jobs:
+  source-only-root-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: V62 synthetic tests; source game fixture absent
+        run: python -m unittest discover -s research/v62 -p 'test_v62.py' -v

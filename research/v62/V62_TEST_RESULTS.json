@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-31",
+  "selected_offline_tests_passed": 186,
+  "selected_offline_tests_total": 186,
+  "v62": {
+    "synthetic": 27,
+    "original_wii_fixture": 5,
+    "total": 32
+  },
+  "prior_rerun": {
+    "v58": 36,
+    "v59": 38,
+    "v60": 42,
+    "v61": 38
+  },
+  "carbon_pc_in_game_tests": 0
+}
