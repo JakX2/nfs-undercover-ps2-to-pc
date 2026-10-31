@@ -100,6 +100,27 @@ class SpanTests(unittest.TestCase):
         self.assertEqual(result['status'], 'esi_definition_or_implicit_effect')
         self.assertEqual(result['effect'], 'register_copy')
 
+    def test_initial_memory_read_changes_esi_and_breaks_lifetime(self):
+        rows = [
+            ins(0x1000, bytes.fromhex('8bb604010000'), 'mov',
+                'esi,DWORD PTR [esi+0x104]'),
+            ins(0x1006, bytes.fromhex('8b8604010000'), 'mov',
+                'eax,DWORD PTR [esi+0x104]'),
+        ]
+        result = phase43.span_evidence(rows, 0x1000, 0x1006)
+        self.assertEqual(result['status'], 'esi_definition_or_implicit_effect')
+        self.assertEqual(result['effect'], 'memory_load_unknown_value')
+
+    def test_initial_xchg_using_esi_is_an_opaque_barrier(self):
+        rows = [
+            ins(0x1000, bytes.fromhex('87b604010000'), 'xchg',
+                'DWORD PTR [esi+0x104],esi'),
+            ins(0x1006, bytes.fromhex('8b8604010000'), 'mov',
+                'eax,DWORD PTR [esi+0x104]'),
+        ]
+        self.assertEqual(phase43.span_evidence(rows, 0x1000, 0x1006)['status'],
+                         'unknown_instruction_effect')
+
     def test_opaque_xchg_between_barrier(self):
         rows = [example()[0],
                 ins(0x1006, bytes.fromhex('87fe'), 'xchg', 'esi,edi'),
