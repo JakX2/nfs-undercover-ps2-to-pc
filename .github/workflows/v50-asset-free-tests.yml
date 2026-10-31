@@ -1,0 +1,20 @@
+name: V50 asset-free regression
+on:
+  push:
+    paths:
+      - 'research/v50/**'
+      - '.github/workflows/v50-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v50/**'
+      - '.github/workflows/v50-asset-free-tests.yml'
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run synthetic tests without copyrighted game assets
+        run: python -m unittest discover -s research/v50 -p test_v50.py -v

@@ -1,0 +1,16 @@
+{
+  "milestone": "V50",
+  "date": "2026-10-31",
+  "source_fixture": {
+    "platform": "Undercover Wii",
+    "root_size_bytes": 8488,
+    "root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f"
+  },
+  "V50": {"tests_passed": 24, "tests_total": 24, "fixture_tests_passed": 6, "synthetic_tests_passed": 18},
+  "V43_through_V46": {"tests_passed": 146, "tests_total": 146},
+  "V41": {"tests_passed": 18, "tests_total": 18},
+  "selected_total": {"tests_passed": 188, "tests_total": 188},
+  "carbon_pc_original_stream_tests": 0,
+  "ingame_tests": 0,
+  "safe_to_install": false
+}
