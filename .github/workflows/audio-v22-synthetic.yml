@@ -1,4 +1,4 @@
-name: Audio V22-V30 MicroTalk multiblock validation
+name: Audio V22-V33 MicroTalk and event evidence validation
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V32 stdlib-only synthetic regression tests
+    name: V22-V33 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,10 +61,11 @@ jobs:
           python audio/tools/ea_mt10_multiframe_scdl_v30.py --decoder "$cli"
           python audio/tools/undercover_big_voice_scan_v31.py self-test --decoder "$cli"
           python audio/tools/big_mt10_batch_triage_v32.py self-test --decoder "$cli"
+          python audio/tools/idx_evt_csi_evidence_join_v33.py self-test
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
-            echo 'Official nightly Linux binary downloaded; V24, V26, V27, V28, V29 and V30 synthetic real-decoder checks passed.'
+            echo 'Official nightly Linux binary downloaded; Synthetic decoder checks V24-V32 passed; V33 evidence-join self-test passed. No proprietary game recordings used.'
             echo ''
             echo 'Archive SHA-256:'
             sha256sum "$RUNNER_TEMP/vgmstream-linux-cli.tar.gz"
