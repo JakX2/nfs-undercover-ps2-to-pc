@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V31 stdlib-only synthetic regression tests
+    name: V22-V32 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +60,7 @@ jobs:
           python audio/tools/ea_mt10_multiblock_continuity_v29.py --decoder "$cli" | tee "$RUNNER_TEMP/v29-multiblock-microtalk.json"
           python audio/tools/ea_mt10_multiframe_scdl_v30.py --decoder "$cli"
           python audio/tools/undercover_big_voice_scan_v31.py self-test --decoder "$cli"
+          python audio/tools/big_mt10_batch_triage_v32.py self-test --decoder "$cli"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
