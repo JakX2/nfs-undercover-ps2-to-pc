@@ -9,6 +9,7 @@ on:
       - "physics/phase38/**"
       - "physics/phase39/**"
       - "physics/phase40/**"
+      - "physics/phase41/**"
       - ".github/workflows/physics-steering-tests.yml"
   push:
     branches:
@@ -20,6 +21,7 @@ on:
       - "physics/phase38/**"
       - "physics/phase39/**"
       - "physics/phase40/**"
+      - "physics/phase41/**"
       - ".github/workflows/physics-steering-tests.yml"
 
 permissions:
@@ -44,3 +46,5 @@ jobs:
         run: python -m unittest discover -s physics/phase39 -p 'test_*.py' -v
       - name: Phase 40 synthetic tests
         run: python -m unittest discover -s physics/phase40 -p 'test_*.py' -v
+      - name: Phase 41 synthetic tests
+        run: python -m unittest discover -s physics/phase41 -p 'test_*.py' -v
