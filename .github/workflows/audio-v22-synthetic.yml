@@ -1,4 +1,4 @@
-name: Audio V22-V33 MicroTalk and event evidence validation
+name: Audio V22-V34 native IDX candidate validation
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V33 stdlib-only synthetic regression tests
+    name: V22-V34 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -62,6 +62,7 @@ jobs:
           python audio/tools/undercover_big_voice_scan_v31.py self-test --decoder "$cli"
           python audio/tools/big_mt10_batch_triage_v32.py self-test --decoder "$cli"
           python audio/tools/idx_evt_csi_evidence_join_v33.py self-test
+          python audio/tools/experimental_native_idx_audit_v34.py self-test --decoder "$cli"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
