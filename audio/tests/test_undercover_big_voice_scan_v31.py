@@ -176,6 +176,30 @@ class BigScannerV31Tests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertEqual(sorted(x.name for x in dest.iterdir()), ["report.json"])
 
+    def test_decoder_failure_returns_clean_exit_two(self):
+        from ea_mt10_pcm_equivalence_v22 import AudioCheckError
+        folder = self.home / "decoder-broken"
+        with patch.object(v31, "run_pair", side_effect=AudioCheckError("decode failed")):
+            with patch("sys.stderr", new_callable=io.StringIO):
+                result = v31.main([
+                    "verify", "--big", str(self.big), "--offset", str(self.offset1),
+                    "--decoder", "fake-vgmstream", "--out-dir", str(folder)
+                ])
+        self.assertEqual(result, 2)
+        self.assertFalse((folder / "report.json").exists())
+
+    def test_malformed_source_returns_clean_exit_two(self):
+        from schl_wrapper_audit_v25 import SCHlAuditError
+        folder = self.home / "malformed"
+        with patch.object(v31, "extract_at", side_effect=SCHlAuditError("bad stream")):
+            with patch("sys.stderr", new_callable=io.StringIO):
+                result = v31.main([
+                    "verify", "--big", str(self.big), "--offset", str(self.offset1),
+                    "--decoder", "fake-vgmstream", "--out-dir", str(folder)
+                ])
+        self.assertEqual(result, 2)
+        self.assertFalse((folder / "report.json").exists())
+
     def test_offset_argument_rejects_negative(self):
         with self.assertRaises(Exception):
             v31.int_offset("-1")
