@@ -102,6 +102,15 @@ def scan_archive(path:Path,*,expected_stream_sha256:str|None=None,
                     candidate={
                         'offset':offset,'root_bytes':len(raw),'root_sha256':root_sha,
                         'child_tags':[f'0x{key:05X}' for key in sorted(children)],
+                        # Independent payload fingerprints help distinguish
+                        # identical scenery instances from unrelated ROOT edits.
+                        # Hashes only: no original game bytes enter reports.
+                        'candidate_scene_payload_sha256':hashlib.sha256(children[prior.SCENE][1]).hexdigest(),
+                        'candidate_instance_payload_sha256':hashlib.sha256(children[prior.INSTANCE][1]).hexdigest(),
+                        'candidate_tree_payload_sha256':(
+                            hashlib.sha256(children[prior.TREE][1]).hexdigest() if prior.TREE in children else None),
+                        'candidate_preculler_payload_sha256':(
+                            hashlib.sha256(children[prior.PRECULL][1]).hexdigest() if prior.PRECULL in children else None),
                         'source_class': ('known_exact_Wii_RedBuilding_root'
                                          if root_sha==prior.WII_REDBUILDING_SHA and order=='little'
                                          else 'unverified_candidate'),
