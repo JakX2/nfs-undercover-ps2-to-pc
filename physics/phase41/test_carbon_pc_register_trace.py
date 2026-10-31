@@ -121,6 +121,24 @@ class OperandTests(unittest.TestCase):
         self.assertEqual(phase41.describe_effect(r, 'eax')['kind'],
                          'skip_no_gpr_write')
 
+    def test_one_operand_imul_clobbers_implicit_edx_eax(self):
+        r = inst(0x1000, b'\xf7\xeb', 'imul', 'ebx')
+        for register in ('eax', 'edx'):
+            with self.subTest(register=register):
+                self.assertEqual(phase41.describe_effect(r, register)['kind'],
+                                 'implicit_register_definition_unknown')
+
+    def test_two_operand_imul_does_not_implicitly_write_edx(self):
+        r = inst(0x1000, b'\x0f\xaf\xc3', 'imul', 'eax,ebx')
+        self.assertEqual(phase41.describe_effect(r, 'edx')['kind'],
+                         'skip_no_target_write')
+
+    def test_pop_updates_esp_even_when_destination_is_other_register(self):
+        r = inst(0x1000, b'\x58', 'pop', 'eax')
+        self.assertEqual(phase41.describe_effect(r, 'esp')['kind'],
+                         'implicit_register_definition_unknown')
+
+
     def test_call_classified_as_control(self):
         self.assertTrue(phase41.transfer_kind('call'))
         self.assertTrue(phase41.transfer_kind('jne'))
