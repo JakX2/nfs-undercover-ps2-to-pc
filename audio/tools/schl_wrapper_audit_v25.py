@@ -53,7 +53,7 @@ def parse_stream(data: bytes) -> dict[str, Any]:
             raise SCHlAuditError("Too many SCHl chunks")
         if len(data) - pos < 8:
             raise SCHlAuditError("Truncated chunk header")
-        tag = data[pos:pos+4]
+        tag = bytes(data[pos:pos+4])  # bytes are hashable; accept bytes/bytearray inputs
         if tag not in KNOWN_TAGS:
             raise SCHlAuditError(f"Unsupported EA chunk {tag!r} at {pos}")
         size = struct.unpack_from("<I", data, pos + 4)[0]
