@@ -1,0 +1,26 @@
+name: V59 index hypothesis checks (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v59/**'
+      - 'research/v58/**'
+      - 'research/v57/**'
+      - 'research/v55/**'
+      - '.github/workflows/v59-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v59/**'
+      - 'research/v58/**'
+      - 'research/v57/**'
+      - 'research/v55/**'
+      - '.github/workflows/v59-asset-free-tests.yml'
+jobs:
+  v59-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run V59 synthetic tests (original game inputs excluded)
+        run: python -m unittest discover -s research/v59 -p 'test_v59.py' -v

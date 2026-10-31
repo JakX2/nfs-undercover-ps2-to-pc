@@ -1,0 +1,70 @@
+{
+  "milestone": "V59",
+  "date": "2026-10-31",
+  "scope": "Map & World Conversion / Geometry",
+  "read_only": true,
+  "safe_to_install": false,
+  "source_provenance": {
+    "authenticated_original_wii_root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+    "original_wii_root_bytes": 8488,
+    "original_carbon_pc_master_available": false,
+    "original_carbon_pc_world_stream_available": false,
+    "original_v42_carbon_donor_candidate_pair_available": false
+  },
+  "experimental_master_layout": {
+    "hypothesis_chunk_id": "0x34110",
+    "example_row_stride": 92,
+    "example_offset_field_u32": 20,
+    "documented_for": "Most Wanted 2005 PC, not verified for Carbon PC",
+    "external_context": "https://github.com/TsyVM/MWEncyclopedia/blob/main/C15-Track-Streaming/C15-Track-Streaming.md"
+  },
+  "tests": {
+    "new_asset_free_synthetic": 35,
+    "new_authenticated_Wii_root_in_synthetic_master": 3,
+    "new_total": 38,
+    "previous_rerun_V55": 41,
+    "previous_rerun_V56": 32,
+    "previous_rerun_V57": 31,
+    "previous_rerun_V58": 36,
+    "rerun_selected_total": 178,
+    "carbon_pc_in_game_tests": 0
+  },
+  "synthetic_example": {
+    "master_rows": [
+      {
+        "row": 0,
+        "relative_class": "before_root_unchanged",
+        "projected_plus_200_offset": 16,
+        "projection_matches_candidate": true
+      },
+      {
+        "row": 1,
+        "relative_class": "root_start_unchanged",
+        "projected_plus_200_offset": 128,
+        "projection_matches_candidate": true
+      },
+      {
+        "row": 2,
+        "relative_class": "at_or_after_old_root_end_plus_200_if_flat_insertion",
+        "projected_plus_200_offset": 768,
+        "projection_matches_candidate": true
+      },
+      {
+        "row": 3,
+        "relative_class": "at_or_after_old_root_end_plus_200_if_flat_insertion",
+        "projected_plus_200_offset": 776,
+        "projection_matches_candidate": true
+      }
+    ],
+    "master_and_root_byte_contract_passed": true,
+    "this_is_NOT_original_carbon_evidence": true
+  },
+  "verified_carbon_pc_index_row_semantics": false,
+  "verified_stream_relocation": false,
+  "limitations": [
+    "No genuine Carbon PC index data supplied",
+    "A configured candidate row matching root start alone is not engine evidence",
+    "A relocated original Carbon PC stream may legitimately change exterior bytes, beyond V58 strict contract",
+    "V51 direct original-source V49 fixture regression still outstanding"
+  ]
+}
