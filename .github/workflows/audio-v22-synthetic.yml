@@ -1,4 +1,4 @@
-name: Audio V22-V25 decoder and SCHl validation
+name: Audio V22-V26 decoder and SCHl validation
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V25 stdlib-only synthetic regression tests
+    name: V22-V26 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +53,7 @@ jobs:
           "$cli" -h > "$RUNNER_TEMP/vgmstream-help.txt" 2>&1 || true
           grep -Eiq '(vgmstream|Usage:)' "$RUNNER_TEMP/vgmstream-help.txt"
           python audio/tools/vgmstream_real_decoder_selftest_v24.py --decoder "$cli" | tee "$RUNNER_TEMP/v24-decoder-selftest.json"
+          python audio/tools/ea_schl_platform_pcm_selftest_v26.py --decoder "$cli" | tee "$RUNNER_TEMP/v26-ea-schl.json"
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
