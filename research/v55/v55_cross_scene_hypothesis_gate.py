@@ -70,8 +70,49 @@ def children(root:bytes, byteorder:str):
     if len(out[SCENE][1])<4:raise GateError('scene ID child too short')
     return out
 
+def _handle_digest(file_obj) -> str:
+    """SHA-256 a currently open file handle, from byte zero, in bounded chunks."""
+    file_obj.seek(0)
+    h=hashlib.sha256()
+    for block in iter(lambda:file_obj.read(1024*1024),b''):
+        h.update(block)
+    return h.hexdigest()
+
+
+def _file_snapshot_identity(stat):
+    """Best-effort mutation indicators, not an atomic filesystem snapshot."""
+    return (stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns)
+
+
+def _read_framed_root(file_obj,offset,size,e):
+    """Bounded extraction from the same file handle used by _handle_digest."""
+    if offset is None:
+        if size>MAX_ROOT:
+            raise GateError('large stream needs an explicit root offset')
+        file_obj.seek(0)
+        return file_obj.read(size)
+    if offset>size-8:
+        raise GateError('root offset outside stream')
+    file_obj.seek(offset)
+    header=file_obj.read(8)
+    if len(header)!=8:
+        raise GateError('truncated root header at supplied offset')
+    tag,n=struct.unpack(e+'II',header)
+    if tag!=ROOT or n>MAX_ROOT-8 or n>size-offset-8:
+        raise GateError('invalid framed scenery root at supplied offset')
+    payload=file_obj.read(n)
+    if len(payload)!=n:
+        raise GateError('truncated scenery root payload')
+    return header+payload
+
+
 def read_verified_root(spec:dict):
-    """Require independently known file and extracted-root fingerprints."""
+    """Check whole-file AND root SHA-256 on one open handle (best-effort).
+
+    File and ROOT fingerprints verify exact bytes, not game provenance.
+    Double whole-file hashing and fstat/path checks detect many concurrent
+    mutations, but do not provide an atomic immutable filesystem snapshot.
+    """
     if not isinstance(spec,dict):raise GateError('manifest root entry must be object')
     for key in ('path','label','expected_file_sha256','expected_root_sha256','endian'):
         if key not in spec:raise GateError(f'missing manifest field {key}')
@@ -90,27 +131,43 @@ def read_verified_root(spec:dict):
         if not isinstance(offset,int) or isinstance(offset,bool) or offset<0:
             raise GateError('offset must be a nonnegative integer')
     else:offset=None
-    if not path.is_file():raise GateError('source path is not an existing local file')
-    size=path.stat().st_size
-    if file_digest(path)!=file_sha:
-        raise GateError(f'input file fingerprint mismatch for label {label}')
-    if offset is None:
-        if size>MAX_ROOT:raise GateError('large stream needs an explicit root offset')
-        root=path.read_bytes()
-    else:
-        if offset>size-8:raise GateError('root offset outside stream')
-        with path.open('rb') as f:
-            f.seek(offset);header=f.read(8)
-            tag,n=struct.unpack(e+'II',header)
-            if tag!=ROOT or n>MAX_ROOT-8 or n>size-offset-8:
-                raise GateError('invalid framed scenery root at supplied offset')
-            root=header+f.read(n)
-    if sha256(root)!=root_sha:
-        raise GateError(f'extracted root fingerprint mismatch for label {label}')
+
+    try:
+        source_handle=path.open('rb')
+    except OSError as exc:
+        raise GateError('source path is not an accessible local file') from exc
+    with source_handle as fh:
+        before=os.fstat(fh.fileno())
+        size=before.st_size
+        initial_sha=_handle_digest(fh)
+        if initial_sha!=file_sha:
+            raise GateError(f'input file fingerprint mismatch for label {label}')
+        root=_read_framed_root(fh,offset,size,e)
+        if sha256(root)!=root_sha:
+            raise GateError(f'extracted root fingerprint mismatch for label {label}')
+        # Detect mutations to *other* archive sectors while ROOT stays intact.
+        if _handle_digest(fh)!=initial_sha:
+            raise GateError(f'input file changed while extracting root for label {label}')
+        after=os.fstat(fh.fileno())
+        try:
+            current=path.stat()
+        except OSError as exc:
+            raise GateError('source path vanished during root extraction') from exc
+        # Replacing a path can update the old inode ctime. Diagnose replacement
+        # before raising the more generic file-metadata-changed exception.
+        if (current.st_dev,current.st_ino)!=(after.st_dev,after.st_ino):
+            raise GateError('source path replaced during root extraction')
+        if _file_snapshot_identity(before)!=_file_snapshot_identity(after):
+            raise GateError('source metadata changed during root extraction')
+
     parsed=children(root,spec['endian'])
     return root,parsed,{'label':label,'file_sha256':file_sha,'root_sha256':root_sha,
                         'platform_hint_unverified':hint,'endian':spec['endian'],
-                        'stream_offset':offset}
+                        'stream_offset':offset,
+                        'same_open_handle_hash_and_extract':True,
+                        'best_effort_file_change_check_passed':True,
+                        'atomic_filesystem_snapshot':False}
+
 
 def candidate_profile(root:bytes, parsed:dict, metadata:dict):
     e=endian(metadata['endian'])
