@@ -73,6 +73,18 @@ class DecodeTests(unittest.TestCase):
     def test_opaque_opcode(self):
         self.assertEqual(decode_gpr_effect(0x70000002)[0], 'opaque')
 
+    def test_lwl_lwr_are_partial_definitions(self):
+        for opcode in (0x22, 0x26):
+            with self.subTest(opcode=opcode):
+                self.assertEqual(decode_gpr_effect(itype(opcode, 4, 18, 0x20))[0],
+                                 'partial_load_unknown')
+
+    def test_partial_load_cannot_claim_pointer_origin(self):
+        words = [itype(0x23, 4, 18, 0x10), itype(0x22, 4, 18, 0x20),
+                 itype(0x31, 18, 3, 0x48)]
+        self.assertEqual(trace_register(words, 0x1000, 0, 2, 18)['kind'],
+                         'partial_load_unknown')
+
     def test_zero_nop(self):
         self.assertEqual(decode_gpr_effect(0)[0], 'no_gpr_write')
 
