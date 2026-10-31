@@ -1,0 +1,47 @@
+{
+  "carbon_pc_disk_abi_proven": false,
+  "distinct_root_fingerprints": 1,
+  "known_authenticated_original_Wii_scenes": 1,
+  "new_independent_original_scenes_authenticated": false,
+  "read_only": true,
+  "roots": [
+    {
+      "candidate_aux32_count": 31,
+      "candidate_info_count": 13,
+      "candidate_instance_alignment_padding": 4,
+      "candidate_instance_count": 31,
+      "candidate_precull": {
+        "candidate_128_blocks": 24,
+        "maximum_reference_count": 3,
+        "referenced_distinct": 24,
+        "source_format_semantics_proven": false,
+        "unreferenced_blocks": 0,
+        "zero_blocks": 1
+      },
+      "candidate_row_shape_only_not_PC_disk_proof": true,
+      "candidate_size_hypotheses": {
+        "length_divisible_by_128": true,
+        "length_equals_instance_plus_one_times_96": true,
+        "length_equals_tree_nodes_times_384": true
+      },
+      "candidate_tree": {
+        "candidate_48_nodes": 8,
+        "covered_instances_exactly_once": 31,
+        "max_absolute_aabb_union_error": 0.0,
+        "source_format_semantics_proven": false
+      },
+      "candidate_wii_graph_status": "candidate_internally_consistent",
+      "carbon_pc_abi_proven": false,
+      "cross_scene_replication_established": false,
+      "label": "original-Wii-RedBuilding",
+      "read_only": true,
+      "root_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+      "safe_to_install": false,
+      "source_authentication": "known_exact_original_Wii_RedBuilding"
+    }
+  ],
+  "safe_to_install": false,
+  "schema": "v56-candidate-Wii-graph-consistency-v1",
+  "submitted_roots": 1,
+  "warning": "A complete synthetic candidate Wii graph is still not proof of a Carbon PC loader schema; other file SHA guards alone do not authenticate original source."
+}

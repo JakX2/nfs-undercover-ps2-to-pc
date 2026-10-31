@@ -1,0 +1,15 @@
+{
+  "milestone": "V56",
+  "wii_original_fixture_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+  "synthetic_v56": {"run": 26, "passed": 26},
+  "pinned_original_wii_v56": {"run": 6, "passed": 6},
+  "v56": {"run": 32, "passed": 32},
+  "previous_v41_v43_v46_v50_v52_v54_selected": {"run": 284, "passed": 284},
+  "v55": {"run": 41, "passed": 41},
+  "total_selected_offline": {"run": 357, "passed": 357},
+  "pc_runtime_tests": 0,
+  "pc_serialized_abi_proven": false,
+  "safe_to_install": false,
+  "source_asset_bytes_included": false,
+  "v51_direct_v49_private_fixture_tests_counted": false
+}

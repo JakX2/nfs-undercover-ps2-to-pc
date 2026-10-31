@@ -1,0 +1,22 @@
+name: V56 candidate Wii graph checks (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v55/**'
+      - 'research/v56/**'
+      - '.github/workflows/v56-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v55/**'
+      - 'research/v56/**'
+      - '.github/workflows/v56-asset-free-tests.yml'
+jobs:
+  candidate-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 26 synthetic tests, no original game files
+        run: python -m unittest discover -s research/v56 -p test_v56.py -v
