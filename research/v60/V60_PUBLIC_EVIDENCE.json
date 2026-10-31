@@ -1,0 +1,28 @@
+{
+  "schema": "v60-public-source-evidence-v1",
+  "scope": "read_only_candidate_master_row_cross_anchor",
+  "known_original_Wii_scene": {
+    "type": "single_original_RedBuilding_ROOT",
+    "bytes": 8488,
+    "sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f"
+  },
+  "local_original_Wii_master_index_available": false,
+  "local_original_Carbon_PC_world_or_master_stream_available": false,
+  "independent_original_Carbon_PC_root_count": 0,
+  "synthetic_multi_root_test": {
+    "candidate_layouts_can_match_two_roots": true,
+    "unmatched_and_ambiguous_layouts_detected": true,
+    "duplicate_root_bytes_do_not_count_as_distinct_structure": true,
+    "two_matching_hypotheses_remain_ambiguous": true
+  },
+  "genuine_Wii_fixture_usage": "wrapped_in_synthetic_stream_and_0x34110_master_only",
+  "asset_free_synthetic_tests_passed": 37,
+  "pinned_Wii_fixture_tests_passed_locally": 5,
+  "new_v60_tests_passed": 42,
+  "fresh_prior_v55_v59_regression_tests_passed": 178,
+  "total_fresh_selected_offline_tests_passed": 220,
+  "loader_semantics_verified": false,
+  "PC_in_game_test_count": 0,
+  "safe_to_install": false,
+  "source_game_assets_in_public_package": false
+}
