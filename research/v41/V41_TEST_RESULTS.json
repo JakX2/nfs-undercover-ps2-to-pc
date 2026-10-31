@@ -1,0 +1,14 @@
+{
+  "stage": "OFFLINE RESEARCH ONLY",
+  "new_v41_tests": {"passed": 18, "failed": 0},
+  "rerun_v40_tests": {"passed": 15, "failed": 0},
+  "rerun_v33_tests": {"passed": 27, "failed": 0},
+  "total_targeted_tests": {"passed": 60, "failed": 0},
+  "model_root_bytes": 31132,
+  "object_count": 3,
+  "native_vertex_records": 731,
+  "native_triangles": 464,
+  "source_texture_hash": "0x2CAB30BD",
+  "in_game_verified": false,
+  "ready_to_install": false
+}

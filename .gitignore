@@ -1,0 +1,37 @@
+# Never publish source-game extracts or native-format experiments
+*.BUN
+*.bun
+*.BIN
+*.bin
+*.chunk
+*.glb
+*.gltf
+*.tpk
+*.elf
+*.exe
+*.dll
+*.iso
+*.img
+*.wad
+*.pak
+*.zip
+*.7z
+*.rar
+*.dat
+*.vlt
+*.dds
+*.dxt
+*.o
+*.obj
+*.bak
+*.log
+*.pyc
+__pycache__/
+.pytest_cache/
+# Local-only inputs and generated analysis outputs
+**/fixtures/
+**/samples/
+**/local-inputs/
+**/rebuilt_offline/
+**/new_*report.json
+**/new_*comparison.json

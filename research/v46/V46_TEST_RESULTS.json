@@ -1,0 +1,33 @@
+{
+  "milestone": "V46",
+  "sources": {
+    "validated_wii_scene_sha256": "cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f",
+    "wii_34107_sha256": "438eaa867c378de0d381e4815f45ee453395ab458cf73eb1dcc3985d05992e0b",
+    "original_carbon_pc_full_bun_available": false,
+    "v42_original_and_candidate_root_pair_available": false,
+    "wii_loader_scenery_binary_available": false
+  },
+  "new_verified_wii_observations": {
+    "candidate_128byte_blocks": 24,
+    "zero_block_indices": [0],
+    "populated_blocks": 23,
+    "aligned_384_384_footer_occurrences": 23,
+    "global_unaligned_384_384_occurrences": 25,
+    "unaligned_marker_offsets": [437, 2741],
+    "leading_u32_count_multiple_of_256": 391,
+    "footer_384_equals_wii_34105_tree_byte_length": true,
+    "semantic_34107_decode": false,
+    "carbon_pc_schema_verified": false
+  },
+  "tests": {
+    "V46": 52,
+    "V45": 34,
+    "V44": 30,
+    "V43": 30,
+    "V41": 18,
+    "selected_passed": 164,
+    "selected_total": 164
+  },
+  "modifies_game_files": false,
+  "produces_installable_patch": false
+}
