@@ -50,3 +50,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 36: SHA-gated steering-access census
 
 - [Read-only Phase 36 memory-access audit](phase36/README.md): inventories static MIPS loads/stores in original Undercover PS2 and Carbon PS2 steering routines after Phase 33 exact-build checks. Anchors known instructions but never infers PC offsets from console numbers. Includes source-only synthetic tests. No new live game patch or real-binary Phase 36 result is claimed.
+
+## Phase 37: Anchor-guided static steering-access comparison
+
+- [Phase 37 source, tests and evidence limits](phase37/README.md): after Phase 33/36 SHA and signature verification, anchor-partitions the Undercover PS2 and Carbon PS2 steering access streams and aligns exact mnemonic/displacement pairs, marking unilateral and repeated-pattern cases. **22 local synthetic tests passed**, but no original-file Phase 37 result or gameplay patch is claimed. Carbon PC field equivalence remains unknown.
