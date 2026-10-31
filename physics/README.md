@@ -27,6 +27,11 @@ Research-only branch for native Carbon PC handling experiments. This work is **n
 - [Phase 33 PS2 verification and five-build map](phase33/README.md): independently identified stripped Undercover PS2 at **0x004082B0** (1,216 bytes) and Carbon PS2 at **0x003D58D8** (688 bytes) using exact original executables. Undercover PS2's signed-square input path and mode-specific 55-versus-45 comparison are directly observed in the code.
 - No Phase 33 handling patch exists. Phase 30's tire-force alpha remains disabled after the heavier-feeling CCX test.
 
+## Phase 34: original PS2 angle-helper path
+
+- [Phase 34 state-dependent steering-angle reference](phase34/README.md) identifies original Undercover PS2 angle helper at 0x00172CB8; selects arguments using chassis state +0x48 and applies a dynamic, upper-capped intermediate steering limit. This is separate from the input at chassis +0x8C.
+- Exact PS2 binary checks and 14 tests passed in the local full research package. The GitHub directory presently contains a smaller source-only Python reference and synthetic tests. The original 16-bit lookup table and subsequent steering state dynamics remain unported.
+
 ## Immediate next work
 
 1. Derive the mathematical transformation in Undercover Wii's steering routine and independently match Undercover PS2's routine.
