@@ -58,3 +58,7 @@ The full phase archives and the proprietary inputs remain outside GitHub.
 ## Phase 38: Steering register-provenance research
 
 - [Phase 38 source, synthetic tests and limitations](phase38/README.md): SHA-gated read-only local MIPS GPR ancestry for candidate steering memory-access bases; conservative branch/delay-slot/opaque barriers. 38 local synthetic tests passed, with no new real-PS2 scan or Carbon PC gameplay patch claimed. Keep Phase 30 tire-force experiment disabled.
+
+## Phase 39: Handling steering-state review queue
+
+- [Phase 39 source, tests and research limits](phase39/README.md): source-backed MIPS steering access/provenance triage organized by known steering input/output anchors. Also fixes the Phase38 false-clean-pointer treatment of MIPS LWL/LWR partial loads. No original-file Phase39 results or live gameplay patch. Phase30 tire-force hook remains disabled.
