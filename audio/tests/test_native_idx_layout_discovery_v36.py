@@ -211,6 +211,17 @@ class LayoutDiscoveryTests(unittest.TestCase):
         self.assertTrue(output["real_schl_scanner_integrated"])
         self.assertFalse(output["game_data_used"])
 
+    def test_cli_corrupted_scan_returns_two_without_writing(self):
+        self.scan.write_text(json.dumps({"format": "WRONG", "candidates": []}))
+        dest = self.home / "must_not_exist.json"
+        with patch("sys.stderr", new_callable=io.StringIO):
+            rc = v36.main([
+                "discover", "--idx", str(self.idx), "--scan", str(self.scan),
+                "--report", str(dest)
+            ])
+        self.assertEqual(rc, 2)
+        self.assertFalse(dest.exists())
+
     def test_three_entry_minimum(self):
         starts = {100, 200, 300}
         data = v36.fake_idx([100, 200, 300], 0x54, 4, 16, 12, "little")
