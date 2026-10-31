@@ -99,3 +99,13 @@ The [V27 source](tools/ea_mt10_synthetic_silence_v27.py) independently generates
 The [research notes](research/V27_SYNTHETIC_EA_MT10_DECODING.md) provide hashes, commands, GitHub Actions evidence and the next private genuine-voice test. The [V27 synthetic regression tests](tests/test_ea_mt10_synthetic_v27.py) are included.
 
 **Limit:** This proves a MicroTalk codec pathway through the *upstream decoder*, **not original Undercover dialogue or Carbon PC runtime playback**. The original game audio archives remain private and were not uploaded.
+
+## V28: One-command private MicroTalk rewrapper and decoded-PCM gate
+
+The [V28 private converter](tools/undercover_mt10_private_bridge_v28.py) directly accepts **one privately extracted Undercover PS2 mono MicroTalk SCHl voice** and constructs an experimental PC platform 0/version 2 header, without requiring a Carbon reference stream. It retains all SCCl/SCDl/SCEl bytes unchanged, verifies compressed block identity with V25 and, when an official vgmstream CLI is supplied, compares the actual decoded PCM with V22.
+
+The command writes a new private JSON report folder, discarding temporary experimental ASF and WAV by default. The user can explicitly retain the experimental ASF locally, but should not install it in Carbon PC yet.
+
+**Verified CI:** 102/102 synthetic regression tests passed and the upstream decoder confirmed exact PCM identity for both generated synthetic MT10 silence and nonzero pulse after the V28 rewrapper. [GitHub Actions evidence](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/41210582210).
+
+See the [V28 private test instructions](research/V28_PRIVATE_MT10_ONE_COMMAND.md). This is a lab-only conversion tool. **Real Undercover dialogue still has not been decoded and verified**, and Carbon PC's sound engine, bank loading and event routing remain untested.
