@@ -1,0 +1,26 @@
+name: V60 multi-root index crosschecks (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v60/**'
+      - 'research/v59/**'
+      - 'research/v58/**'
+      - 'research/v55/**'
+      - '.github/workflows/v60-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v60/**'
+      - 'research/v59/**'
+      - 'research/v58/**'
+      - 'research/v55/**'
+      - '.github/workflows/v60-asset-free-tests.yml'
+jobs:
+  source-only-v60:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Execute V60 synthetic tests only (proprietary files excluded)
+        run: python -m unittest discover -s research/v60 -p 'test_v60.py' -v
