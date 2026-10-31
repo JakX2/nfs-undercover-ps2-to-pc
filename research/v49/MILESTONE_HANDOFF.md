@@ -1,0 +1,15 @@
+# NFS Undercover Wii/PS2 → Carbon PC native port: V49 handoff
+
+**Current status:** OFFLINE, not playable, no installation or writer.
+
+**Original Wii source, previously verified (not available for new V49 rehash):** `0x80034100` root 8,488 bytes, SHA-256 `cb08ca728a9b76992aaaefe32b450565ef53246f090cfe296f77d96c5d272e7f`, 31×96-byte instances, 31×32-byte aux records, 8×48-byte spatial nodes. RedBuilding 1B source instance 26 position `(2631.938721,3261.404541,199.968338)`, tree node 2 contains instance 26. `0x34107` 3,072 bytes, SHA-256 `438eaa867c378de0d381e4815f45ee453395ab458cf73eb1dcc3985d05992e0b`, 24 candidate 128-byte blocks with 23 populated blocks and repeated `(384,384)` numeric footer values. Exact semantic mapping unverified.
+
+**V42 historical Carbon PC claim (not retested in V49):** PC donor `0x27BAF0C0`, 25→26 72B info / 96B instance / 32B aux records, 8616→8816 bytes, original `0x34105` and `0x34107` unchanged. Native 1B/1B/1C/1Z model LOD hashes. Same numeric section ID `0x343447` in source Wii and PC donor does not imply same geography.
+
+**V48 third-party Carbon PC runtime evidence, independently rechecked via GitHub in V49:** pinned source commit `252b44b877c207a9a70914d92c31f116ad92a469`, `structs.hpp` Git blob `2ebb2ed91ceeaeef61b55d85aa43b92f7f8ef711`, `comp.cpp` Git blob `2678c85de20d7827287b407e52485139fe837f98`. Runtime structures 72/96/48/128 bytes and separate instance preculler/info indices. Not original executable or serialized chunk proof.
+
+**V49 new:** `v49_native_culling_gate.py` is a read-only integrated 96/48/128 candidate validator and paired append byte-preservation gate, with SHA guards, stream offset/whole-stream modes, fail-closed spatial coverage, candidate preculler bitset occupancy, negative sentinel preservation, and explicit never-install status. For 384/384 in the last 8 bytes of a 128B block, LSB-first bit indices are `[967,968,999,1000]` for little-endian and `[976,991,1008,1023]` for big-endian. Numerical calculation only. 40 new synthetic tests passed; 215 inherited V43–V48 tests passed, 255 targeted total. No authentic Carbon PC scenery root accessible in the ten mounted archives.
+
+**Next:** run V49 against authorized original Carbon PC world stream at `0x27BAF0C0`, original V42 candidate and independent PC roots; verify candidate 48-byte tree and 128-byte preculler bitsets across a corpus, independently analyze Wii second root; disassemble original Wii LoaderScenery and Carbon PC loader; validate section ownership, relocations, materials, TPK, collision, navigation, and in-game behavior before any native patch.
+
+**GitHub:** source-only research branch `research/v41-v46-source-baseline` in `JakX2/nfs-undercover-ps2-to-pc`, draft PR #1. Never upload proprietary game binaries, BUN/ELF/TPK, original .chunk fixtures or converted game assets. Keep draft; no merge without user review and license decision.
