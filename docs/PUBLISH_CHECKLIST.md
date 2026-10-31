@@ -4,6 +4,7 @@
 - [x] `.gitignore` rejects common proprietary game file extensions and local fixture directories.
 - [x] Fixture-dependent test suites are preserved, but not run in public CI without legal local inputs.
 - [x] Research limitations state no playable PC build, no runtime validation, and unknown PC spatial schemas.
-- [ ] Owner creates/selects a repository specifically for **NFS Undercover → Carbon PC research** and grants the GitHub connection write access.
-- [ ] Confirm repository visibility and license preference before first public release.
-- [ ] Propose changes via a dedicated branch / pull request, not a direct commit to an unrelated project.
+- [x] Dedicated `JakX2/nfs-undercover-ps2-to-pc` repository created; GitHub write access verified.
+- [x] Repository is public; private extracted game assets excluded.
+- [ ] Decide on a software license for the original research tools before releasing or merging.
+- [x] Source baseline proposed on `research/v41-v46-source-baseline` in draft PR #1.
