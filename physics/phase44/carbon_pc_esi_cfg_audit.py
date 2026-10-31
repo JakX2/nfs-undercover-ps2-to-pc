@@ -64,7 +64,7 @@ def _control_successors(ins: dict, following: int | None,
         if target is None:
             return ((following,) if name in CONDITIONAL and following is not None else ()), 'unresolved_branch_target'
         if lower <= target < upper and target not in valid_pcs:
-            raise ValueError(f'branch into undecoded x86 instruction at {target:#x}')
+            raise ValueError(f'branch into middle of x86 instruction at {target:#x}')
         nexts = []
         if target in valid_pcs:
             nexts.append(target)
