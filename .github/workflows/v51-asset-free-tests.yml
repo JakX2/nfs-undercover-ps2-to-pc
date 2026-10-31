@@ -1,0 +1,21 @@
+name: V51 source-only instance alignment tests
+on:
+  push:
+    branches:
+      - research/v51-aligned-instance-reader
+  pull_request:
+    paths:
+      - 'research/v49/**'
+      - 'research/v51/**'
+      - '.github/workflows/v51-asset-free-tests.yml'
+jobs:
+  synthetic-alignment-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run fixture-free V51 tests
+        working-directory: research/v51
+        run: python -m unittest test_v51_alignment -v
