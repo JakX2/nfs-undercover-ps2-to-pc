@@ -212,6 +212,14 @@ def describe_effect(ins: dict, target_reg: str) -> dict:
         if not full:
             return {'kind': 'partial_register_write_unknown'}
         return {'kind': 'address_expression_unresolved', 'source_operand': items[1]}
+    if op == 'imul' and len(items) == 1:
+        # One-operand IMUL implicitly updates EDX:EAX. Do not treat EDX
+        # as unchanged merely because it isn't written as an operand.
+        if target_reg in ('eax', 'edx'):
+            return {'kind': 'implicit_register_definition_unknown', 'operator': op}
+        return {'kind': 'skip_no_target_write'}
+    if op == 'pop' and target_reg == 'esp':
+        return {'kind': 'implicit_register_definition_unknown', 'operator': op}
     if op in COMPUTE and items:
         dest, full = root_register(items[0])
         if dest != target_reg:
