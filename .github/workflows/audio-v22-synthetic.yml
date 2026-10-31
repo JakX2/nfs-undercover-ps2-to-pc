@@ -1,4 +1,4 @@
-name: Audio V22-V35 native IDX and research recovery validation
+name: Audio V22-V36 native IDX format discovery
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   synthetic-audio-validation:
-    name: V22-V35 stdlib-only synthetic regression tests
+    name: V22-V36 stdlib-only synthetic regression tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +64,7 @@ jobs:
           python audio/tools/idx_evt_csi_evidence_join_v33.py self-test
           python audio/tools/experimental_native_idx_audit_v34.py self-test --decoder "$cli"
           python audio/tools/legacy_audio_research_recovery_v35.py self-test
+          python audio/tools/native_idx_layout_discovery_v36.py self-test
           {
             echo '### vgmstream CLI synthetic decode integration'
             echo ''
