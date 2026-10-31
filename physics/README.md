@@ -46,3 +46,7 @@ Research-only branch for native Carbon PC handling experiments. This work is **n
 4. Validate the CCX driving feel with repeatable A/B tests. Do not equate lighter steering with simply reduced tire grip.
 
 The full phase archives and the proprietary inputs remain outside GitHub.
+
+## Phase 36: SHA-gated steering-access census
+
+- [Read-only Phase 36 memory-access audit](phase36/README.md): inventories static MIPS loads/stores in original Undercover PS2 and Carbon PS2 steering routines after Phase 33 exact-build checks. Anchors known instructions but never infers PC offsets from console numbers. Includes source-only synthetic tests. No new live game patch or real-binary Phase 36 result is claimed.
