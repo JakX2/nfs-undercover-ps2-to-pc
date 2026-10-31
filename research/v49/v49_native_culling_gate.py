@@ -81,13 +81,36 @@ def extract_root(path:Path,endian:str,offset:int|None=None,expected_file_sha:str
     parse_root(b,endian)
     return b
 
-def instances96(ch:dict[int,bytes],endian:str):
+def child_payload_offset(root:bytes,endian:str,child_id:int):
+    """Return absolute offset in the ROOT for a validated direct child payload.
+
+    This matters because UC Wii pads instance rows to a 16-byte *root*
+    boundary, rather than starting the first record at payload byte zero.
+    The observation does NOT establish Carbon PC's serialized ABI.
+    """
+    e=endian_prefix(endian)
+    pos=8
+    while pos<len(root):
+        cid,n=struct.unpack_from(e+'II',root,pos)
+        if cid==child_id:
+            return pos+8
+        pos+=8+n
+    raise GateError(f'child 0x{child_id:05X} absent from root')
+
+
+def instance96_padding(root:bytes,endian:str):
+    """Candidate 16-byte absolute alignment of the first 96-byte instance."""
+    return (-child_payload_offset(root,endian,INSTANCE)) & 15
+
+
+def instances96(ch:dict[int,bytes],endian:str,root:bytes):
     e=endian_prefix(endian);b=ch[INSTANCE]
-    if len(b)%96:
-        raise GateError('96-byte instance hypothesis not size-compatible')
+    pad=instance96_padding(root,endian)
+    if len(b)<pad or (len(b)-pad)%96:
+        raise GateError('aligned 96-byte instance hypothesis not size-compatible')
     out=[];ninfos=len(ch[INFO])//72
-    for i in range(len(b)//96):
-        p=i*96
+    for i in range((len(b)-pad)//96):
+        p=pad+i*96
         mn=struct.unpack_from(e+'3f',b,p)
         mx=struct.unpack_from(e+'3f',b,p+16)
         xyz=struct.unpack_from(e+'3f',b,p+32)
@@ -179,9 +202,10 @@ def audit_root(b:bytes,endian:str,expected_sha:str|None=None,tolerance:float=0.0
          'child_lengths':{f'0x{k:05X}':len(v) for k,v in ch.items()},
          'info_count_72':len(ch[INFO])//72,
          'instance_stride_candidates':[s for s in (64,96) if len(ch[INSTANCE])%s==0],
+         'candidate_instance96_root_alignment_padding_bytes':instance96_padding(b,endian),
          'pc_serialized_abi_proven':False,'safe_to_install':False}
     try:
-        rows=instances96(ch,endian)
+        rows=instances96(ch,endian,b)
     except GateError as exc:
         out['instance96']={'status':'candidate_rejected','reason':str(exc)}
         return out
@@ -213,13 +237,15 @@ def audit_append(original:bytes,candidate:bytes,endian:str,expected_original_sha
             if not new.startswith(old) or len(new)!=len(old)+stride:
                 raise GateError(f'0x{cid:05X} is not exactly one-row append')
         elif new!=old:raise GateError(f'0x{cid:05X} original bytes changed')
-    oldrows=instances96(a,endian);newrows=instances96(b,endian)
+    oldrows=instances96(a,endian,original);newrows=instances96(b,endian,candidate)
     if len(newrows)!=len(oldrows)+1 or newrows[-1]['info']!=len(a[INFO])//72:
         raise GateError('new instance/index inconsistent with one appended info')
     old=audit_root(original,endian);new=audit_root(candidate,endian)
     return {'status':'byte_preserving_append_only_NOT_installable',
             'original_sha256':digest(original),'candidate_sha256':digest(candidate),
             'old_instance_count':len(oldrows),'new_instance_count':len(newrows),
+            'original_instance_padding_bytes':instance96_padding(original,endian),
+            'candidate_instance_padding_bytes':instance96_padding(candidate,endian),
             'new_preculler_index':newrows[-1]['preculler'],
             'tree_original':old.get('tree48'),'tree_candidate':new.get('tree48'),
             'preculler_candidate':new.get('preculler128'),
