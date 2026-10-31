@@ -79,7 +79,7 @@ class EASCHLPlatformTests(unittest.TestCase):
 
     def test_two_blocks_have_exact_raw_pcm_bytes(self):
         stream = self.pc
-        pos = struct.unpack_from("<I", stream, 4)
+        pos = struct.unpack_from("<I", stream, 4)[0]
         self.assertEqual(stream[pos:pos + 4], b"SCCl")
         pos += struct.unpack_from("<I", stream, pos + 4)[0]
         data = bytearray()
