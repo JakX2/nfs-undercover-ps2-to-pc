@@ -269,6 +269,8 @@ def main(argv=None) -> int:
             authenticate_with_executable(report, args.exe.read_bytes())
         markdown = render_markdown(report, findings, bool(args.exe))
         if args.output:
+            require(args.output.suffix.lower() in ('.md', '.markdown'),
+                    'output must use a Markdown extension, never an executable extension')
             targets = [args.report] + ([args.exe] if args.exe else [])
             require(all(args.output.resolve() != target.resolve() for target in targets),
                     'output path must not equal report or source executable')
