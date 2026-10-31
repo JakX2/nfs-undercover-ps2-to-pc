@@ -1,0 +1,20 @@
+name: V63 Carbon PE32 hook address preflight (asset-free)
+on:
+  push:
+    paths:
+      - 'research/v63/**'
+      - '.github/workflows/v63-asset-free-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v63/**'
+      - '.github/workflows/v63-asset-free-tests.yml'
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Static PE32 preflight tests using synthetic executables
+        run: python -m unittest discover -s research/v63 -p test_v63.py -v

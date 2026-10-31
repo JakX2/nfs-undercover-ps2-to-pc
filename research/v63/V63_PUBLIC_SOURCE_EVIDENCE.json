@@ -1,0 +1,28 @@
+{
+  "schema": "v63-pinned-public-resource-loader-source-evidence-v1",
+  "upstream_repository": "xan1242/xnfsmodfiles",
+  "commit": "de4164ac55620f38a173ddf855c28bd036e74883",
+  "source_file_git_blobs": {
+    "XNFSModFiles/Carbon_addresses.h": "0720a4ccc79d5ffc132bb179322fc1554a394024",
+    "XNFSModFiles/dllmain.cpp": "a0a9ed10724645ae5a1074ab5c971ea4d1f082fe",
+    "README.md": "91dbb272875f437122eeda227456ae718842a26c"
+  },
+  "source_derived_fixed_virtual_addresses": {
+    "CreateResourceFile": "0x006B32C0",
+    "BeginLoading": "0x006B5910",
+    "Stage1JumpEntry": "0x006B6D56",
+    "Stage2CallEntry": "0x006B7850"
+  },
+  "source_derived_observations": {
+    "carbon_specific_build_flag": "GAME_CARBON",
+    "stage_two_flag": "HAS_STAGE2",
+    "runtime_detours_exist": true,
+    "resource_loading_via_CreateResourceFile_and_BeginLoading": true,
+    "configuration_parser_has_unbounded_percent_s": true,
+    "original_Carbon_executable_edition_verified": false,
+    "original_Carbon_world_master_stream_verified": false,
+    "Carbon_world_registration_proven": false,
+    "loader_safe_to_install_or_patch": false
+  },
+  "caveat": "Public project source code is not independent confirmation of Carbon executable hook bytes, ABI or Undercover world compatibility. No third-party source copied."
+}
