@@ -14,6 +14,8 @@ observable Undercover world sector before anyone attempts a larger map.
 **[Read the project handoff](docs/PROJECT_HANDOFF.md)** for an evidence-based
 status report, the major technical blockers and a map of the draft branches.
 
+**[Run the synthetic Carbon research baseline](docs/RUN_COMMUNITY_BASELINE.md)** to check the first consolidated source-only tools without original game files. This baseline is proposed in a separate draft PR, not a playable release.
+
 **[Start contributing](CONTRIBUTING.md)** for an asset-free first task, Python
 test commands, source-provenance standards and safety guidance.
 
