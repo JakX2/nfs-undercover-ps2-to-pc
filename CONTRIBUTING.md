@@ -9,6 +9,8 @@ Please read [the technical handoff](docs/PROJECT_HANDOFF.md) before starting.
 The code is not all on `main`; the handoff maps the two parallel scene
 research stacks and their draft PR dependencies.
 
+The first proposed consolidated entry point is the [asset-free shared research baseline](docs/RUN_COMMUNITY_BASELINE.md). It groups two self-contained readers and 56 synthetic checks into one command, avoiding the need to manually assemble the earlier V-numbered draft branches.
+
 ## Quickest asset-free start
 
 You do **not** need an original game archive to run the synthetic tests.
