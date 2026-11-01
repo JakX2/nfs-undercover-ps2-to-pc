@@ -81,6 +81,16 @@ voice/audio content or private file paths. Generated reports should be
 reviewed for sensitive path strings before upload. Synthetic fixtures or
 brief derived metadata are preferred for collaboration.
 
+## Licensing and ownership
+
+As of this handoff, there is **no repository-wide LICENSE file on `main`**.
+A public GitHub repository is not automatically open-source-licensed.
+Prospective contributors should not assume permission to reuse or redistribute
+the original code outside the repository. The maintainer should explicitly
+select and publish an appropriate license before asking others to fork the
+code for substantial redistribution. Any third-party source or game-derived
+materials need their own attribution and redistribution review.
+
 ## Review and merge expectations
 
 - Draft PRs are **research branches**, not an approved release. Many are
