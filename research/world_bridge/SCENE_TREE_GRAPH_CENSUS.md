@@ -83,7 +83,7 @@ All 10 `Z0` `0x34107` child payloads are **128 zero bytes**.
 | Undercover PS2 ↔ Undercover Wii | 3 | **1** | **1** | 3 |
 | Carbon PS2 ↔ Undercover PS2 | 2 | **0** | **0** | 2 |
 
-The **12/13 Carbon PC↔PS2 byte-identical** results show that substantial scene geometry/culling index information is serialized unchanged on PC in **these specific RB sections**, despite differing whole-stream packaging. The exception includes the special `Z0` region. Identical scene-tree and instance payloads do not prove compatible textures, shaders, visibility, collision, resources or runtime state.
+The **12/13 Carbon PC↔PS2 byte-identical** results show that substantial scene-instance spatial metadata and culling-tree information are serialized unchanged on PC in **these specific RB sections**, despite differing whole-stream packaging. The exception includes the special `Z0` region. Identical scene-tree and instance payloads do not prove compatible textures, shaders, visibility, collision, resources or runtime state.
 
 ## Test evidence and next engineering gate
 
