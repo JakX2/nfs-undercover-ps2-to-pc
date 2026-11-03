@@ -5,7 +5,7 @@ Uses validated source-hash eSolids from PC and PS2 RB sections 141/142. All
 vertex positions and triangle faces exist only in memory; prints aggregate
 counts, not hashes, models, vertices, UVs, texture names or source assets.
 The 0.01-unit face match is existential, NOT a mesh byte writer or a proof of
-one-to-one triangle multiplicities, normals, UVs, textures or runtime behavior.
+one-to-one triangle multiplicities, normals, UVs, texture or runtime behavior.
 """
 import argparse
 from collections import Counter
@@ -120,7 +120,6 @@ def main():
     p.add_argument('--tolerance',type=float,default=0.01)
     args=p.parse_args()
     print(json.dumps(analyze(args.pc_volumes,args.carbon_ps2_zip,args.tolerance),indent=2))
-
 
 if __name__=='__main__':
     main()
