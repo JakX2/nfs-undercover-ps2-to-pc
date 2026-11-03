@@ -79,6 +79,8 @@ def parse_tree_nodes(data, instance_count):
     nodes = []
     node_edges = 0
     instance_edges = 0
+    leaf_codes = []
+    internal_codes = []
     for index in range(num_nodes):
         pos = padding_bytes + index*TREE_STRIDE
         bb_min = struct.unpack_from('<3f', data, pos)
@@ -98,11 +100,15 @@ def parse_tree_nodes(data, instance_count):
                 if not 1 <= -code < num_nodes or -code == index:
                     raise ValueError('Invalid nested tree child index')
                 node_edges += 1
+                internal_codes.append(-code)
             else:
                 if not 0 <= code < instance_count:
                     raise ValueError('Invalid scene instance child index')
                 instance_edges += 1
+                leaf_codes.append(code)
         nodes.append(tuple(codes[:count]))
+    if len(leaf_codes) != instance_count or len(set(leaf_codes)) != instance_count:
+        raise ValueError('Tree leaves do not reference each scenery instance exactly once')
 
     color = [0] * num_nodes
     def visit(index):
@@ -118,6 +124,9 @@ def parse_tree_nodes(data, instance_count):
     visit(0)
     if any(value != 2 for value in color):
         raise ValueError('Tree nodes unreachable from root')
+    if (len(internal_codes) != num_nodes - 1 or
+            set(internal_codes) != set(range(1, num_nodes))):
+        raise ValueError('Nested node references do not form a strict tree')
     return {'nodes': num_nodes, 'prefix_filler_bytes': padding_bytes,
             'nested_node_references': node_edges, 'instance_references': instance_edges,
             'all_node_links_bounded': True, 'acyclic_rooted_tree': True}
