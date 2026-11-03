@@ -55,6 +55,8 @@ Each block contains exactly two ordered marker rows:
 
 The middle word of every non-marker row is `0x00010003` and the first word is 4-byte aligned. The first group values all fall within the record's pre-auxiliary text-region length; they include named strings **and** additional non-string data.
 
+**Correction from the subsequent object-span audit (2026-11-03):** The following `NtaD`-length comparison columns are **historical diagnostics using the wrong offset base**, not actual out-of-bounds references. Group A source offsets are relative to the text-region start, while group B source offsets are relative to the start of `sreV`. Both groups target the text region. With the corrected bases, all 97,064 source slots and targets are in bounds and the source words are zero. See [OBJECT_REFERENCE_MAP.md](OBJECT_REFERENCE_MAP.md).
+
 | Source | Records | First-group rows | Second-group rows | First-group targets beyond initial ErtS | Second-group target values beyond NtaD length |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Carbon PC active | 190 | 6,171 | 19,946 | 312 | 57 |
@@ -65,7 +67,7 @@ The middle word of every non-marker row is `0x00010003` and the first word is 4-
 
 Other observed exceptions: **1,720** first-group source offsets and **2,359** second-group source offsets exceed the raw `NtaD` chunk length (counting a four-byte value). These are **not** automatically malformed records. They are evidence that a naïve, uniform `NtaD`-relative interpretation is unsafe.
 
-**Unknown:** whether these triples describe fixups, section references, relocation sources, decoded object references, or some combination. The marker/group semantics and the offset bases still require independent evidence.
+**Updated interpretation:** These tables strongly resemble two relocation-source domains with a common text-region target base. The source offset bases and NpxE object containment are now structurally validated (see `OBJECT_REFERENCE_MAP.md`). Whether Carbon's loader applies these entries as pointer fixups, and the precise semantics of targets, remain unverified.
 
 ## Next milestone
 
