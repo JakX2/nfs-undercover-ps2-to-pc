@@ -16,18 +16,21 @@ import struct
 
 from texture_metadata_pixel_bridge import parse_pack, children, CODEC_FOURCC, MAX_SECTION
 from ps2_texture_layout_candidates import LAYOUTS, decode_indices, palette_rgba, indices_to_rgba
+from ps2_ct16_transfer_candidate import decode_ct16_psmt4
+from texture_pixel_base_alignment import aligned_pixel_array
 from pc_dxt_reference_decode import decode_dxt_base, compare_rgba_nearest
 
 MAX_PAIRS = 12
 MAX_PIXELS = 4 * 1024 * 1024
 
 
-def _pixels(section):
-    """Extract the already-validated, bounded 0x33320002 data in memory only."""
-    root_length = struct.unpack_from('<I', section, 4)[0]
-    root = children(section, 8, 8 + root_length)
-    pix = children(root[3][1])
-    return memoryview(pix[2][1])
+def _pixels(section, records):
+    """Use physically aligned payload base, not chunk payload byte zero.
+
+    All original Carbon controls have 120 bytes of 0x11 filler here. Image
+    offsets must be revalidated against the corrected data array boundary.
+    """
+    return aligned_pixel_array(section, records)
 
 
 def _base(section_pixel, meta):
@@ -58,7 +61,7 @@ def _options(bits):
     # there, so avoid creating duplicate candidates that tie spuriously.
     cluts = ('linear', 'csm1') if bits == 8 else ('linear',)
     for layout, clut, alpha, channels in itertools.product(
-            LAYOUTS, cluts, ('raw', 'double'), ('rgba', 'bgra')):
+            LAYOUTS + (('ct16_transfer',) if bits == 4 else ()), cluts, ('raw', 'double'), ('rgba', 'bgra')):
         yield (layout, clut, alpha, channels)
 
 
@@ -110,8 +113,8 @@ def compare_sections(pc_section, ps2_section, max_pairs=8):
         raise ValueError('Expected in-memory original section bytes')
     pc = parse_pack(pc_section, 'pc')['records']
     ps2 = parse_pack(ps2_section, 'ps2')['records']
-    pc_pixel = _pixels(pc_section)
-    ps2_pixel = _pixels(ps2_section)
+    pc_pixel, pc_pad = _pixels(pc_section, pc)
+    ps2_pixel, ps2_pad = _pixels(ps2_section, ps2)
     ps2_flags = _platform_flags(ps2_section, ps2)
     shared_count, chosen = _sample_pairs(pc, ps2, max_pairs)
     if shared_count < 2 or len(chosen) < 2:
@@ -133,9 +136,11 @@ def compare_sections(pc_section, ps2_section, max_pairs=8):
         pixel_colors = {pc_rgba[i:i+4] for i in range(0, len(pc_rgba), 4)}
         if len(pixel_colors) == 1:
             ignored_uniform += 1
-        for layout in LAYOUTS:
+        for layout in LAYOUTS + (('ct16_transfer',) if s['codec'] == 4 else ()):
             try:
-                indices = decode_indices(ps2_source, s['width'],s['height'],s['codec'],layout)
+                indices = (decode_ct16_psmt4(ps2_source, s['width'], s['height'])
+                           if layout == 'ct16_transfer' else
+                           decode_indices(ps2_source, s['width'],s['height'],s['codec'],layout))
             except ValueError:
                 for opt in _options(s['codec']):
                     if opt[0] == layout: stats[_score_key(opt)]['failed_pairs'] += 1
@@ -162,6 +167,7 @@ def compare_sections(pc_section, ps2_section, max_pairs=8):
                            'mean_alpha_mae':round(s['alpha_mae_sum']/n,4) if n else None,
                            'complete_coverage':n==len(chosen)})
     return {'shared_identity_count':shared_count,'sampled_pairs':len(chosen),
+            'pc_pixel_alignment_pad_bytes':pc_pad,'ps2_pixel_alignment_pad_bytes':ps2_pad,
             'sampled_uniform_pc_images':ignored_uniform,
             'spatially_informative_pairs':len(chosen)-ignored_uniform,
             'sampled_provisional_ps2_plus_0x17_flag_counts':dict(sorted(flag_histogram.items())),
