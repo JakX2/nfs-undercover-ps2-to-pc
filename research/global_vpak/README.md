@@ -13,7 +13,7 @@ python research/global_vpak/audit.py /local/Carbon_PC_GLOBAL.zip /local/Carbon_P
 python -m unittest discover -s research/global_vpak -p 'test_*.py' -v
 ```
 
-Outputs are aggregate counts and ZIP SHA-256 hashes, printed to stdout. The nine synthetic tests do not require original game data.
+Outputs contain aggregates and archive fingerprints, not extracted original game data. Synthetic tests do not require original game files.
 
 ## Verified archive-specific results (2026-11-02)
 
@@ -40,10 +40,33 @@ These values were reproduced locally on the supplied archives, which are **not**
 - Carbon PC backup `FE_ATTRIB.BAK` and Carbon PS2 `FE_ATTRIB.BIN`: **214 shared names** and no name-set differences.
 - Active Carbon PC `GAMEPLAY.BIN`, `ATTRIBUTES.BIN` and `FE_ATTRIB.BIN` contain the `NFS-VltEd 4.6.0.0 by nfsu360` marker; the corresponding backups do not. This suggests active files were editor-modified, **not** that backups are independently verified original retail assets.
 
+## Deeper structural research (2026-11-03)
+
+The name-pool audit above is a historical baseline. The following **read-only, source-only** probes now validate individual serialized ranges and cross-region references, without claiming a working PC loader:
+
+| Research | Script | Notes |
+| --- | --- | --- |
+| Same-index and cross-index name alignment | `record_alignment.py` | [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md) |
+| Six VPAK auxiliary chunks | `chunk_layout.py` | [CHUNK_LAYOUT.md](CHUNK_LAYOUT.md) |
+| NpxE entry-chain relationship | `export_table_probe.py` | [EXPORT_TABLE.md](EXPORT_TABLE.md) |
+| Shared .vlt/.bin resource identities | `resource_identity.py` | [RESOURCE_AND_POINTERS.md](RESOURCE_AND_POINTERS.md) |
+| NrtP two-section source/target tables | `pointer_sections.py` | [RESOURCE_AND_POINTERS.md](RESOURCE_AND_POINTERS.md) |
+| Verified NpxE object ranges and NrtP source bases | **`object_reference_map.py`** | **[OBJECT_REFERENCE_MAP.md](OBJECT_REFERENCE_MAP.md)** |
+
+The latest read-only analysis verified **767** indexed records, **21,224** positive-length NpxE object ranges, **23,068** group A reference slots and **73,996** group B reference slots across Carbon PC active, Carbon PC backup, Carbon PS2 and Undercover PS2. All source slots are zero-valued and inside their respective text or auxiliary domains; all group B slots belong to exactly one delimited object. These are **structural invariants**, not decoded racing-game logic.
+
+**Correction to earlier probe:** The five apparent NpxE range overruns arose from using an NtaD-local bound for offsets that were actually relative to the auxiliary stream start. The zero-marked final entry also has a positive data length and must not be discarded as an empty sentinel. Read [OBJECT_REFERENCE_MAP.md](OBJECT_REFERENCE_MAP.md) before using the older exploratory counts.
+
+Run the new probe:
+
+```sh
+python research/global_vpak/object_reference_map.py /local/Carbon_PC_GLOBAL.zip /local/Carbon_PS2_GLOBAL.zip /local/Undercover_PS2_GLOBAL.zip
+```
+
 ## Limits and next steps
 
 This parser inspects `VPAK` index fields and leading `ErtS` name pools. It **does not** decode complete attribute values, gameplay record payloads, checkpoint coordinates, police AI, serialization compatibility, or Carbon PC runtime loading. Matching names are not evidence of interchangeable binary records. One header field remains semantically unknown.
 
-Next: reverse-engineer genuine VPAK payload record boundaries and reference relationships, independently cross-check against both PS2 executables, and inspect smaller original `TRACKS` members in a private workspace before attempting a reversible PC integration experiment. The large `TRACKS.zip` currently exceeds the connector's 256 MiB single-file download limit.
+Next: determine the internal object field schema and distinguish name/string references from post-string structured references. Cross-check against both PS2 executables, then build a reversible synthetic fixture before attempting a PC runtime experiment. The large Carbon PC `TRACKS.zip` still exceeds the connector's 256 MiB single-file download limit.
 
 Do not commit proprietary game archives, extracted binary chunks, assets or executable patches.
