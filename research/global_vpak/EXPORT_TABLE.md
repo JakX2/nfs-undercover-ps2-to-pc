@@ -30,7 +30,7 @@ For every consecutive entry pair, across **all 20,457 transitions** in the four 
 next.word2 == align_up(current.word2 + current.word1, 8)
 ```
 
-The terminal entry has word3 = 0, and all preceding entries have word3 != 0. Every nonterminal word2 lies below the length of its associated `NtaD` chunk. The terminal entry must not be counted as a regular serialized object without further proof.
+The terminal entry has word3 = 0, and all preceding entries have word3 != 0. **Updated interpretation (2026-11-03):** all 21,224 entries, including the 767 terminal-marked entries, have nonzero lengths and valid bounded byte ranges inside `NtaD` when word2 is interpreted from the start of the six-chunk auxiliary stream. The final marker is **not** an empty sentinel to discard. These are structurally delimited object ranges; their semantic types remain unknown.
 
 | Source | Indexed records | NpxE entries (including terminal entries) | Verified transitions | Final zero markers |
 | --- | ---: | ---: | ---: | ---: |
@@ -42,7 +42,7 @@ The terminal entry has word3 = 0, and all preceding entries have word3 != 0. Eve
 
 ## Boundary caveats
 
-Five nonterminal entries have `word2 + word1` greater than the entire `NtaD` chunk length: two in the active Carbon PC source (record indices 87 and 88) and three in Undercover PS2 (166, 192, 196). These still satisfy the exact next-offset alignment rule. Therefore **do not use this relationship alone to slice or rewrite original bytes**; the offset base and treatment of end-of-data entries remain unresolved.
+The five apparent end-boundary exceptions in the original probe were due to comparing **auxiliary-stream-relative** offsets with the length of `NtaD` alone: two in the active Carbon PC source (record indices 87 and 88), and three in Undercover PS2 (166, 192, 196). These are **resolved structurally** by adding the sizes of `sreV`, `NpeD` and `NrtS` to the start of the `NtaD` range. All entries are in bounds and zero-padded. See `OBJECT_REFERENCE_MAP.md` and `object_reference_map.py` for the fully verified source-base and object-containment checks. This does **not** validate an executable loader ABI or a writer.
 
 The tool reports these exceptions without rejecting the whole archive. Seven new synthetic tests passed locally, covering normal chains, alignment, misplaced markers, broken offsets, and the boundary caveat.
 
