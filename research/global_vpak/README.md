@@ -51,6 +51,7 @@ The name-pool audit above is a historical baseline. The following **read-only, s
 | NpxE entry-chain relationship | `export_table_probe.py` | [EXPORT_TABLE.md](EXPORT_TABLE.md) |
 | Shared .vlt/.bin resource identities | `resource_identity.py` | [RESOURCE_AND_POINTERS.md](RESOURCE_AND_POINTERS.md) |
 | NrtP two-section source/target tables | `pointer_sections.py` | [RESOURCE_AND_POINTERS.md](RESOURCE_AND_POINTERS.md) |
+| Shared gameplay object IDs, payload byte equality and reference-target differences | `shared_object_probe.py` | **[SHARED_OBJECT_FINGERPRINTS.md](SHARED_OBJECT_FINGERPRINTS.md)** |
 | Verified NpxE object ranges and NrtP source bases | **`object_reference_map.py`** | **[OBJECT_REFERENCE_MAP.md](OBJECT_REFERENCE_MAP.md)** |
 
 The latest read-only analysis verified **767** indexed records, **21,224** positive-length NpxE object ranges, **23,068** group A reference slots and **73,996** group B reference slots across Carbon PC active, Carbon PC backup, Carbon PS2 and Undercover PS2. All source slots are zero-valued and inside their respective text or auxiliary domains; all group B slots belong to exactly one delimited object. These are **structural invariants**, not decoded racing-game logic.
@@ -62,6 +63,9 @@ Run the new probe:
 ```sh
 python research/global_vpak/object_reference_map.py /local/Carbon_PC_GLOBAL.zip /local/Carbon_PS2_GLOBAL.zip /local/Undercover_PS2_GLOBAL.zip
 ```
+
+
+**New source-only comparison (2026-11-03):** Three named shared gameplay resources were matched at the per-object level. `gpcore` contains 1,480 shared nonzero candidate IDs across Undercover PS2 and Carbon PS2, but only 134 same-ID raw-byte matches and 940 same-ID reference layouts. The much larger 1,440 generic raw-payload multiset overlap is **not** a same-object match. See [SHARED_OBJECT_FINGERPRINTS.md](SHARED_OBJECT_FINGERPRINTS.md) for the full controlled comparison, source fingerprints and caveats.
 
 ## Limits and next steps
 
