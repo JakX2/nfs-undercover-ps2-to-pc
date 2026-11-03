@@ -2,6 +2,7 @@
 import struct
 import unittest
 from texture_visual_pair_gate import compare_sections, _options
+from texture_pixel_base_alignment import aligned_pixel_array
 
 
 def chunk(tag, data):
@@ -58,11 +59,36 @@ def make_pack(platform='pc', bits=8, hashes=(0x11111111,0x22222222),
                chunk(0x33310002,b''.join(struct.pack('<II',h,0) for h in hashes))+
                chunk(0x33310004,metadata)+
                chunk(0x33310005,platform_meta))
-    pix=chunk(0xB3320000,chunk(0x33320001,bytes(24))+chunk(0,bytes(80))+chunk(0x33320002,pixel))
-    return chunk(0xB3300000,chunk(0,bytes(48))+desc+chunk(0,bytes(80))+pix)
+    prefix=chunk(0,bytes(48))+desc+chunk(0,bytes(80))
+    pixel_header=chunk(0x33320001,bytes(24))+chunk(0,bytes(80))
+    payload_start=8+len(prefix)+8+len(pixel_header)+8
+    padding=(-payload_start)%128
+    pix=chunk(0xB3320000,pixel_header+chunk(0x33320002,bytes([0x11])*padding+pixel))
+    return chunk(0xB3300000,prefix+pix)
 
 
 class VisualPairGateTests(unittest.TestCase):
+    def test_aligned_pixel_payload_starts_on_128_byte_boundary(self):
+        pack=make_pack('ps2')
+        view,pad=aligned_pixel_array(pack)
+        self.assertGreater(pad,0)
+        self.assertEqual(bytes(view[4:8]),b'\xff\x00\x00\xff')
+
+    def test_bad_alignment_padding_rejected(self):
+        pack=make_pack('ps2')
+        marker=bytes([0x11])*8
+        self.assertIn(marker,pack)
+        broken=pack.replace(marker,bytes(8),1)
+        with self.assertRaisesRegex(ValueError,'pixel padding'):
+            compare_sections(make_pack(),broken,2)
+
+    def test_pixel_span_beyond_corrected_base_rejected(self):
+        pack=make_pack('ps2')
+        view,pad=aligned_pixel_array(pack)
+        with self.assertRaisesRegex(ValueError,'aligned pixel data'):
+            aligned_pixel_array(pack,{1:{'image_offset':len(view)-2,'image_bytes':3,
+                                        'palette_offset':0,'palette_bytes':0}})
+
     def test_same_hash_linear_rgb_matches_synthetic_dxt1(self):
         report=compare_sections(make_pack(),make_pack('ps2'),2)
         self.assertEqual(report['shared_identity_count'],2)
@@ -132,7 +158,7 @@ class VisualPairGateTests(unittest.TestCase):
 
     def test_options_count_and_4bpp_degenerate_removal(self):
         self.assertEqual(len(list(_options(8))),24)
-        self.assertEqual(len(list(_options(4))),12)
+        self.assertEqual(len(list(_options(4))),16)
 
 
 if __name__=='__main__':unittest.main()
