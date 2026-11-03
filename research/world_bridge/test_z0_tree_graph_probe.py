@@ -100,6 +100,19 @@ class Z0TreeGraphTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'unreachable'):
             parse_tree_nodes(node((0,))+node((1,)),2)
 
+    def test_duplicate_leaf_instance_reference(self):
+        with self.assertRaisesRegex(ValueError,'exactly once'):
+            parse_tree_nodes(node((0,0)),2)
+
+    def test_missing_leaf_instance_reference(self):
+        with self.assertRaisesRegex(ValueError,'exactly once'):
+            parse_tree_nodes(node((0,)),2)
+
+    def test_dag_double_reference_to_one_node(self):
+        nodes=[node((-1,-1)), node((-2,)), node((0,))]
+        with self.assertRaisesRegex(ValueError,'strict tree'):
+            parse_tree_nodes(b''.join(nodes),1)
+
     def test_nonzero_unused_child(self):
         b=bytearray(node((0,)))
         struct.pack_into('<h',b,28+2,3)
