@@ -77,6 +77,19 @@ class ModelGeometryTests(unittest.TestCase):
         stream=bytes(16)+geometry([3],PLATFORM_PS2)+bytes(8)+geometry([9],PLATFORM_PS2)
         self.assertEqual(len(locate_geometry(stream)),2)
 
+    def test_platform_child_ids_are_counted(self):
+        a=parse_geometry_root(geometry([3,9],PLATFORM_PC))
+        b=parse_geometry_root(geometry([3,9],PLATFORM_PS2))
+        self.assertEqual(a['platform_child_counts'],{'0x00134900':2})
+        self.assertEqual(b['platform_child_counts'],{'0x00134a00':2})
+
+    def test_reject_broken_platform_nested_chunk_length(self):
+        r=bytearray(geometry([3]))
+        idx=r.find(struct.pack('<I',PLATFORM_PC))
+        struct.pack_into('<I',r,idx+4,0xffffffff)
+        with self.assertRaisesRegex(ValueError,'Unsupported platform model data'):
+            parse_geometry_root(bytes(r))
+
     def test_reject_geometry_without_index(self):
         r=geometry([3]);i=r.index(struct.pack('<I',MODEL_INDEX))
         broken=bytearray(r);struct.pack_into('<I',broken,i,0x123456)
