@@ -7,6 +7,7 @@ exports game bytes or patches an archive. Structural interpretations are not
 proof of Carbon PC runtime model/material binding or in-game rendering.
 """
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 import struct
@@ -74,7 +75,10 @@ def parse_solid(data):
     platform, size = struct.unpack_from('<II', plat)
     if platform not in (PLATFORM_PC, PLATFORM_PS2) or 8+size > len(plat):
         raise ValueError('Unsupported platform model data')
-    return namehash, platform, padding
+    platform_children = tuple(cid for cid, _ in read_chunks(plat, 0, len(plat)))
+    if platform_children[0] != platform:
+        raise ValueError('Platform data does not start with its platform-info chunk')
+    return namehash, platform, padding, platform_children
 
 
 def parse_geometry_root(blob):
@@ -101,17 +105,19 @@ def parse_geometry_root(blob):
     if len(hashes) > MAX_SOLIDS or 0 in hashes or hashes != sorted(set(hashes)):
         raise ValueError('Unsorted, repeated, or invalid index hashes')
     solids = [parse_solid(payload) for _,payload in children[1:]]
-    solid_hashes = [h for h,_,_ in solids]
+    solid_hashes = [h for h,_,_,_ in solids]
     if len(hashes) != len(solids) or set(hashes) != set(solid_hashes):
         raise ValueError('Index does not exactly enumerate the embedded solid headers')
     if len(set(solid_hashes)) != len(solid_hashes):
         raise ValueError('Duplicate embedded solid hash')
-    platforms = {platform for _, platform, _ in solids}
+    platforms = {platform for _, platform, _, _ in solids}
     if len(platforms) != 1:
         raise ValueError('Mixed platform types within geometry pack')
+    platform_child_counts = Counter(f'0x{cid:08x}' for _,_,_,ids in solids for cid in ids)
     return {'hashes': frozenset(hashes), 'solid_count':len(solids),
             'platform': next(iter(platforms)),
-            'alignment_counts':{str(n):sum(pad==n for _,_,pad in solids) for n in (0,4,8,12)}}
+            'platform_child_counts':dict(sorted(platform_child_counts.items())),
+            'alignment_counts':{str(n):sum(pad==n for _,_,pad,_ in solids) for n in (0,4,8,12)}}
 
 
 def locate_geometry(section_data):
@@ -174,6 +180,8 @@ def validate_scene_geometry(scene, packs, pc=False):
             'indexed_solid_hashes_not_in_local_info':len(index_set-info_set),
             'index_and_embedded_solid_hashes_exact_per_pack':True,
             'platform_chunks':sorted({f'0x{g["platform"]:08x}' for g in packs}),
+            'nested_platform_chunk_counts':dict(sorted(sum(
+                (Counter(g['platform_child_counts']) for g in packs), Counter()).items())),
             'alignment_prefix_distribution':{
                 str(n):sum(g['alignment_counts'][str(n)] for g in packs)
                 for n in (0,4,8,12)},
