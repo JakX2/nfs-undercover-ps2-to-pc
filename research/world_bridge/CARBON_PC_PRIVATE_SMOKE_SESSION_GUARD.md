@@ -52,7 +52,7 @@ This tests the 82.8 MB byte-copy/rollback and validation logic in a sandbox; it 
 
 `test_carbon_pc_private_smoke_session.py` contains **44 synthetic-only tests**. They exercise preflight, source-anchored image-span confinement, missing/oversize data, wrong game path, hard/symlinks, exclusive backups, manifest privacy/validation, explicit install/restore confirmation, session locks, no-clobber on errors, stage/backup mutation, unexpected installed changes, atomic temp-checksum failure, idempotent restore, and read-only evidence handoff. The tests use small artificial files and mock the game-closed condition; they never modify real installations.
 
-These 44 tests passed locally on Python 3.13. The previous baseline was **336/336 source-free tests**, so the expected combined test count is **380**; use the GitHub Actions result, rather than the expected count alone, to establish a clean-checkout result for the new commit. No original game assets are needed in CI.
+These 44 tests passed locally on Python 3.13. The previous **336/336** local baseline came from a *partial assembled research workspace*, so adding 44 yields **380 local-workspace tests**, **not** the count of every test in the complete repository. GitHub Actions **World bridge source-only tests**, run **#7**, subsequently completed successfully from a clean checkout, with the job log showing **816 tests run, OK**. No original game assets were needed in CI. These results test source logic, not Windows installation or game rendering.
 
 ## Windows workflow (deliberately explicit)
 
