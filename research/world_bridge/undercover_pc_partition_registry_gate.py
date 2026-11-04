@@ -326,6 +326,70 @@ def reconcile_cross_section_material_registry(source_pack_map, carbon_rb_texture
     }
 
 
+def reconcile_original_undercover_texture_presence(source_pack_map, original_texture_sections):
+    """Compare source-used material IDs with original Undercover RB image IDs.
+
+    One eSolid material identity can refer to a global/RA resource rather than
+    the two source RB texture packs. Absence is therefore RB-local, not proof
+    the original game lacks that texture somewhere else.
+    """
+    from triangle_corner_uv_control import ps2_geometry_attributes
+    from texture_metadata_pixel_bridge import parse_pack
+    if (not isinstance(source_pack_map, dict) or set(source_pack_map) != {241,3401} or
+            not isinstance(original_texture_sections, dict) or
+            set(original_texture_sections) != {241,3401}):
+        raise ValueError('Expected both original Undercover source sections and image indexes')
+    available = {}
+    used = {}
+    per_section = {}
+    for section in (241,3401):
+        source = original_texture_sections[section]
+        if not isinstance(source, bytes):
+            raise ValueError('Original PS2 texture section must remain private bytes')
+        records = parse_pack(source, 'ps2')['records']
+        indexed = {_hash(h) for h in records}
+        if not indexed:
+            raise ValueError('No original PS2 texture index records')
+        available[section] = indexed
+        seen = set()
+        groups = source_pack_map[section]
+        if not isinstance(groups, (tuple,list)) or not groups or any(not g for g in groups):
+            raise ValueError('Missing PS2 source geometry material groups')
+        for group in groups:
+            for row in group:
+                if len(row) != 4:
+                    raise ValueError('Wrong original eSolid record')
+                _,_,table,platform = row
+                if not isinstance(table,(tuple,list)) or not 1<=len(table)<=127:
+                    raise ValueError('Invalid original material table')
+                hashes = tuple(_hash(h) for h in table)
+                _,_,faces,labels = ps2_geometry_attributes(platform)
+                if not faces or len(faces)!=len(labels):
+                    raise ValueError('Missing original used material labels')
+                if any(type(k) is not int or not 0<=k<len(hashes) for k in labels):
+                    raise ValueError('Invalid original used material label')
+                seen.update(hashes[k] for k in set(labels))
+        used[section] = seen
+        per_section[str(section)] = {
+            'local_source_texture_index_records':len(indexed),
+            'locally_used_distinct_material_texture_ids':len(seen),
+            'locally_used_ids_with_texture_in_same_source_rb_section':len(seen & indexed),
+            'locally_used_ids_not_in_same_source_rb_texture_index':len(seen - indexed),
+        }
+    union_used = used[241] | used[3401]
+    union_images = available[241] | available[3401]
+    return {
+        'per_section':per_section,
+        'distinct_source_used_material_texture_ids_combined':len(union_used),
+        'distinct_undercover_rb_image_texture_ids_combined':len(union_images),
+        'distinct_undercover_rb_image_ids_shared_across_sections':len(available[241] & available[3401]),
+        'combined_used_material_ids_with_undercover_rb_image':len(union_used & union_images),
+        'combined_used_material_ids_absent_from_both_undercover_rb_image_indexes':len(union_used - union_images),
+        'material_to_source_pixel_image_registry_complete_in_rb':union_used <= union_images,
+        'other_source_pack_or_global_registration_may_resolve_absences':True,
+    }
+
+
 def convert_four_pack_section(source_packs, registered_pc_texture_ids, scene_detail_ids=()):
     """Build all PC-shaped pack candidates privately, return aggregates only.
 
@@ -497,9 +561,11 @@ def audit_original_four_pack_registry(undercover_zip, carbon_pc_volumes):
     sections = {}
     all_source_packs = {}
     all_scene_detail = {}
+    all_texture_sections = {}
     for number in (241,3401):
         source = _read_owner_zip_section(uc_path, number)
         groups = source_partition_roots(source)
+        all_texture_sections[number] = source
         detail = _source_scene_detail_hashes(source)
         all_source_packs[number] = groups
         all_scene_detail[number] = detail
@@ -510,10 +576,13 @@ def audit_original_four_pack_registry(undercover_zip, carbon_pc_volumes):
         all_source_packs, all_scene_detail)
     source_material_cross_section = reconcile_cross_section_material_registry(
         all_source_packs, registered)
+    source_texture_coverage = reconcile_original_undercover_texture_presence(
+        all_source_packs, all_texture_sections)
     return {'scope':'PRIVATE_ORIGINAL_ARCHIVE_FOUR_PACK_PARSER_GATE_ONLY',
             'undercover_sections':sections,
             'cross_section_source_scene_registry':source_scene_cross_section,
             'cross_section_source_material_registry':source_material_cross_section,
+            'undercover_source_rb_texture_image_presence':source_texture_coverage,
             'original_carbon_rb_texture_records':sum(pc_counts),
             'original_carbon_rb_distinct_texture_identities':len(registered),
             'originals_unchanged':True,
