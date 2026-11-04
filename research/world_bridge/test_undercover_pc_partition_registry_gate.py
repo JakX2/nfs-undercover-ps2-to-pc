@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from undercover_pc_partition_registry_gate import (
     source_partition_roots, merge_pc_pack_candidates, material_registry_coverage,
-    scene_detail_registry_coverage, reconcile_cross_section_scene_registry, reconcile_cross_section_material_registry, convert_four_pack_section,
+    scene_detail_registry_coverage, reconcile_cross_section_scene_registry, reconcile_cross_section_material_registry, reconcile_original_undercover_texture_presence, convert_four_pack_section,
     _read_owner_zip_section, audit_original_four_pack_registry)
 from undercover_pc_geometry_bridge import _chunk, _new_header, convert_decoded_ps2_model
 from geometry_hash_control import read_chunks, parse_geometry_root, parse_solid, SOLID_ROOT
@@ -297,6 +297,48 @@ class CrossSectionMaterialTests(unittest.TestCase):
         self.assertFalse(any(isinstance(x,(bytes,list,tuple,set)) for x in r.values()))
 
 
+class DonorTextureIndexPresenceTests(unittest.TestCase):
+    def check(self, records_241=(0x1111,), records_3401=(0x1111,), group_241=None, group_3401=None):
+        p={241:fake_groups() if group_241 is None else group_241,
+           3401:fake_groups() if group_3401 is None else group_3401}
+        with (patch('triangle_corner_uv_control.ps2_geometry_attributes',return_value=triangle()),
+              patch('texture_metadata_pixel_bridge.parse_pack',side_effect=[
+                  {'records':{h:{} for h in records_241}},
+                  {'records':{h:{} for h in records_3401}}])):
+            return reconcile_original_undercover_texture_presence(p,{241:b'fixture',3401:b'fixture'})
+    def test_source_identity_is_present(self):
+        r=self.check()
+        self.assertTrue(r['material_to_source_pixel_image_registry_complete_in_rb'])
+        self.assertEqual(r['combined_used_material_ids_with_undercover_rb_image'],1)
+    def test_absent_source_identity_is_counted(self):
+        r=self.check(records_241=(0x2222,),records_3401=(0x2222,))
+        self.assertEqual(r['combined_used_material_ids_absent_from_both_undercover_rb_image_indexes'],1)
+    def test_source_image_ids_shared_across_sections(self):
+        r=self.check(records_241=(0x1111,0x2222),records_3401=(0x1111,0x3333))
+        self.assertEqual(r['distinct_undercover_rb_image_texture_ids_combined'],3)
+        self.assertEqual(r['distinct_undercover_rb_image_ids_shared_across_sections'],1)
+    def test_other_source_section_only_can_supply_image(self):
+        r=self.check(records_241=(0x2222,),records_3401=(0x1111,))
+        self.assertEqual(r['combined_used_material_ids_absent_from_both_undercover_rb_image_indexes'],0)
+        self.assertEqual(r['per_section']['241']['locally_used_ids_not_in_same_source_rb_texture_index'],1)
+    def test_invalid_source_texture_section_keys(self):
+        with self.assertRaises(ValueError):
+            reconcile_original_undercover_texture_presence({241:fake_groups(),3401:fake_groups()},{241:b'raw'})
+    def test_reject_nonbytes_source_section(self):
+        with self.assertRaises(ValueError):
+            reconcile_original_undercover_texture_presence({241:fake_groups(),3401:fake_groups()},
+                                                            {241:'not bytes',3401:b'raw'})
+    def test_reject_empty_index(self):
+        with patch('texture_metadata_pixel_bridge.parse_pack',return_value={'records':{}}):
+            with self.assertRaises(ValueError):
+                reconcile_original_undercover_texture_presence({241:fake_groups(),3401:fake_groups()},
+                                                                {241:b'raw',3401:b'raw'})
+    def test_no_original_texture_hashes_emitted(self):
+        r=self.check()
+        self.assertFalse(any(isinstance(x,(set,list,tuple,bytes)) for x in r.values()))
+        self.assertEqual(set(r['per_section']),{'241','3401'})
+
+
 class FullSectionGateTests(unittest.TestCase):
     def setUp(self):
         self.packs=fake_groups(overlap=True)
@@ -362,7 +404,8 @@ class PrivateArchiveSafetyTests(unittest.TestCase):
                   patch('undercover_pc_partition_registry_gate.source_partition_roots',return_value=self_dummy()),
                   patch('undercover_pc_partition_registry_gate._source_scene_detail_hashes',return_value=(11,)),
                   patch('undercover_pc_partition_registry_gate.convert_four_pack_section',return_value={'source_model_occurrences':8}),
-                  patch('undercover_pc_partition_registry_gate.reconcile_cross_section_material_registry',return_value={'used_distinct_source_material_texture_ids_combined':1})):
+                  patch('undercover_pc_partition_registry_gate.reconcile_cross_section_material_registry',return_value={'used_distinct_source_material_texture_ids_combined':1}),
+                  patch('undercover_pc_partition_registry_gate.reconcile_original_undercover_texture_presence',return_value={'distinct_source_used_material_texture_ids_combined':1})):
                 result=audit_original_four_pack_registry(a,[b,Path(tmp)/'carbon_final.zip'])
             self.assertEqual(result['original_carbon_rb_texture_records'],5)
             self.assertEqual(a.read_bytes(),b'owner private fixture one')
