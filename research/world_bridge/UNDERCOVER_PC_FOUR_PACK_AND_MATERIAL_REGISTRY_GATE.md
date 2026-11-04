@@ -8,7 +8,7 @@
 The previous experimental `undercover_pc_geometry_bridge.py` validated one Undercover PS2 eSolid occurrence at a time as a newly constructed Carbon-PC-shaped indexed `0x80134000` root. Flattening everything by model identity is lossy because Undercover section 241 repeats one model hash in different geometry packs. This milestone instead retains the actual *pack ordinal → eSolid occurrence ordinal → model identity → local texture-table entry* structure, merging the single-model PC candidates into **four independent PC-shaped indexed geometry roots per original source section**. The combined index is sorted, but each eSolid child retains its original occurrence order and its bytes are unchanged by merging.
 
 New source-only code: `undercover_pc_partition_registry_gate.py`.  
-New synthetic-only tests: `test_undercover_pc_partition_registry_gate.py` (73 tests).  
+New synthetic-only tests: `test_undercover_pc_partition_registry_gate.py` (81 tests).  
 All original texture/model hash values, geometry bytes, stream offsets and scene-space coordinates are kept private and excluded from the repository, report and downloadable ZIP.
 
 The new script validates `0x80134000`/`0x80134001`/`0x80134010` root/index/solid structure with the existing Carbon PC parsers. Each source model still runs through the preceding native-PC-shaped 36-byte vertex/index/UV/material encoder and exact float32 face-corner multiset round-trip. Combining eSolids into one geometry root per source pack does **not** establish a retail Carbon loader-compatible section or world registration. The 144-byte geometry-pack header is still a **zeroed candidate**, and original PS2 eSolid header fields and generated normals are not validated against retail PC engine semantics.
@@ -51,6 +51,18 @@ The original Carbon PC sections 141 and 142 provide **110 distinct** texture ind
 
 The sets contain **46 shared identities**, plus two only used by section 241. The 0/48 overlap proves a specific **RB-local identity registration/remapping gap**, *not* absence from every possible global Carbon PC texture pack or cache. The previous private DXT5 existing-slot smoke tests deliberately **retained Carbon's original hash** and changed only pixels; they do not solve the new texture-identity gap required by geometry/material porting.
 
+## Undercover's own RB image-resource presence: separate source-side gap
+
+A second bounded index-presence join compares those **48 source-used material texture identities** with the original Undercover PS2 `0x33310002` image texture indexes in sections 241 and 3401, using the existing PS2 pack reader. This is separate from the Carbon PC identity check above.
+
+| Undercover source section | Distinct used material IDs | Original indexed texture-image records | Used identities with same-section image | Used identities missing same-section image |
+|---|---:|---:|---:|---:|
+| 241 | 48 | 46 | 46 | 2 |
+| 3401 | 46 | 46 | 44 | 2 |
+| **Both sections, deduplicated** | **48** | **46 distinct indexed image IDs** | **46 available from either RB image index** | **2 absent from both** |
+
+The two source RB image indexes contain the **same 46 identities**. Thus **46/48 of the converted scenery's distinct material identities have an indexed local Undercover RB image**, while **two** do not appear in either tested RB image index. Those two might be supplied through *another Undercover resource class*, a different area/region pack, or the original engine's global resource system; absence from these specific local packs is **not evidence that the original Undercover game lacks the textures**. No texture bytes or names were extracted into this report. This strengthens the next gate: research the two missing material-image references *within the owner's other original Undercover resource indexes*, then design Carbon-side texture identity registration/remapping for all 48 used material identities.
+
 **Important:** Even if new Undercover hash identities are eventually registered, full resource-table/framing ABI, texture container/header flags, material shader alpha/blending and sampler modes remain separate unverified tasks.
 
 ## How to reproduce privately
@@ -79,6 +91,6 @@ The owner-source archives are SHA-256 checked before and after the audit. The sc
 - It does **not** generate an installable `STREAML5RB.BUN`, insert the eight roots into native section tables, edit `L5RB.BUN`, register textures in an engine pack, patch `NFSC.exe`, or touch game files.
 - It does **not** establish retail eSolid header ABI, model occurrence disambiguation, resource lifetime/visibility, drivable roads, collisions, AI, traffic, normal correctness, alpha blending, or an in-game playable Undercover world.
 - Candidate normals are area-weighted reconstructions; the PS2 ADC winding/UV interpretation still has provisional aspects even though original Carbon PC↔PS2 controls corroborate it.
-- The path forward is **texture identity registration/remapping** for the 48 used Undercover IDs in the target area, plus a **private PC stream section/scene registration plan** that accounts for repeated or cross-section scenery model references. No new assets belong in the source-only PR.
+- The path forward is **texture identity registration/remapping** for the 48 used Undercover IDs in the target area (and locate the two not present in Undercover RB image indexes), plus a **private PC stream section/scene registration plan** that accounts for repeated or cross-section scenery model references. No new assets belong in the source-only PR.
 
 Keep PR #33 **draft**, `main` unchanged. Report original-source measurements separately from source-free CI coverage and Windows runtime evidence.
