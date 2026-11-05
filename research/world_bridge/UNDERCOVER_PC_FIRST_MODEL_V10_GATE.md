@@ -27,7 +27,7 @@ Original `0x00134011` eSolid headers and candidate `0xB3310000`/pixel descriptor
 The owner already prepared `UCPS2\TRACKS.zip` from original `TRACKS/L2RB.BUN` and `TRACKS/STREAML2RB.BUN` and has a checkout of the draft research branch. From PowerShell:
 
 ```powershell
-$root = 'C:\Users\Dav\Desktop\nfsuc research'
+$root = 'C:\PrivateNFS'
 python "$root\ResearchCode\research\world_bridge\undercover_pc_first_model_gate.py" `
   --undercover-ps2-tracks-zip "$root\UCPS2\TRACKS.zip" `
   --source-section 241
