@@ -1,0 +1,34 @@
+name: World bridge source-only tests
+
+on:
+  push:
+    branches:
+      - research/ps2-map-swap-as-pc-port-oracle
+    paths:
+      - 'research/world_bridge/**'
+      - '.github/workflows/world_bridge_source_only.yml'
+  pull_request:
+    paths:
+      - 'research/world_bridge/**'
+      - '.github/workflows/world_bridge_source_only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source-only research
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run bounded synthetic regression suite
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONPATH: research/world_bridge
+        run: python -m unittest discover -s research/world_bridge -p 'test_*.py' -v
