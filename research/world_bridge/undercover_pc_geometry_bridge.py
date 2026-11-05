@@ -223,7 +223,7 @@ def verify_ps2_to_pc_faces(source_xyz,source_uv,source_faces,source_labels,
 
 
 def convert_decoded_ps2_model(model_hash,texture_hashes,xyz,uv,faces,labels,
-                              source_header=None):
+                              source_header=None,pc_header_profile='preserve_source'):
     """Produce candidate full root and compare native PC readback with PS2 faces."""
     # Imports are local so the core material grouping/normal math can be
     # audited and tested independently without original game readers.
@@ -231,6 +231,15 @@ def convert_decoded_ps2_model(model_hash,texture_hashes,xyz,uv,faces,labels,
     from geometry_hash_control import parse_geometry_root,read_chunks,parse_solid,PLATFORM_PC
     from pc_native_vertex_control import inspect_pc_solid
     from triangle_corner_uv_control import pc_geometry_attributes
+    if pc_header_profile=='carbon_native_control':
+        if source_header is None:
+            raise ValueError('Native PC header control requires original PS2 eSolid header')
+        from carbon_pc_esolid_header_delta_gate import normalize_ps2_header
+        source_header=normalize_ps2_header(source_header,
+            expected_identity=model_hash, expected_material_count=len(texture_hashes),
+            expected_faces=len(faces))
+    elif pc_header_profile!='preserve_source':
+        raise ValueError('Unsupported PC header conversion profile')
     mesh_specs,stats=mesh_specs_from_ps2(xyz,uv,faces,labels,texture_hashes)
     children=make_pc_chunks(mesh_specs)
     blob=pack_pc_geometry_root(model_hash,texture_hashes,children,source_header)
@@ -251,6 +260,7 @@ def convert_decoded_ps2_model(model_hash,texture_hashes,xyz,uv,faces,labels,
     return blob, {**stats,**face_check,
                   'pc_root_bytes':len(blob),
                   'native_pc_parser_roundtrip':True,
+                  'pc_header_profile':pc_header_profile,
                   'retail_pc_loader_compatibility':'UNVERIFIED'}
 
 
