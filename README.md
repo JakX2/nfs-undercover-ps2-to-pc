@@ -16,6 +16,12 @@ A source-only [V8 Windows prototype readiness runbook](research/CARBON_PC_FIRST_
 
 **No game-side rendering or playable Undercover PC prototype has been verified.** A real Windows launch and before/staged/restored visual evidence are still needed.
 
+## Undercover scenery material coverage: V9 (2026-11-05)
+
+A read-only owner-original audit reproduced **268 PS2 eSolid occurrences and 76,348 triangles** across eight geometry packs. **46/48** texture identities actually used by Undercover RB scenery have indexed images in the source RB packs. A stricter external-bank scan found **none of the two remaining identities in fully validated PS2 texture indexes** within Undercover `GLOBAL`, `FRONTEND`, `CARS`, or `Unknown`. The car bank uses unsupported image layouts in this specific parser, so this is **not a global absence claim**. Prefer the six fully image-backed source geometry packs when preparing a constrained offline native-asset test; no in-game world import has been proven.
+
+See [V9 source-bank audit](research/UNDERCOVER_PS2_EXTERNAL_MATERIAL_IMAGE_V9.md). The standalone Python V9 scanner and 35 synthetic tests are delivered in the separate source-only research kit.
+
 ## Research code and work in progress
 
 [Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
