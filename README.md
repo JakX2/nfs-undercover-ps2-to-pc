@@ -1,25 +1,25 @@
 # NFS Undercover PS2/Wii → Carbon PC
 
-Research repository for a **native-format Undercover PS2/Wii → Carbon PC porting investigation**. This is **not a playable PC port**.
+Research repository for an **offline native-format porting investigation**. This is **not yet a playable PC port**.
 
-## Public original-source milestone: V5 (2026-11-04)
+## Original-source world-stream findings
 
-A read-only examination of the owner's original Carbon PC RB world stream found **seven sections with complete native `0x372xx` post-scene framing**, and **six sections** that also pass strict scenery/PC indexed-solid integrity checks.
+**V6, 2026-11-05:** Carbon PC RB section 299 uses two serialized eSolid header values: 73 solids with `0x00000016`, and four with `0x00400016`. The version-aware offline reader verifies all 77 indexed identities and six post-scene group matches. Across seven RB sections, **20/20** `0x37250` record groups have identical model-hash candidate fields at `+0x44` and `+0x4C`, backed by local scenery and solid indexes. This is *not* evidence of pointer semantics or runtime registration.
 
-Across **14 post-scene control groups** in those six sections, two `0x37250` payload fields, **u32 word 17 (`+0x44`) and word 19 (`+0x4C`)**, are identical and both resolve to the same section-local scenery and geometry model hash. These are **candidate identity fields**, not confirmed pointers or engine-registration instructions.
+An independent, bounded scan of 961 Carbon PC RA sections found **no match for the exact RB-specific post-scene sequence**; RA's format must be investigated separately. This is a format-profile negative, not evidence that RA lacks scenery or models.
 
-Read the [original-source V5 findings](research/CARBON_PC_POSTSCENE_ORIGINAL_RB_V5.md) for provenance, exact scope, counterexamples, and limitations.
+Read [V6 findings and limitations](research/CARBON_PC_POSTSCENE_V6_VARIANT_AND_RA.md) and the earlier [V5 original-source controls](research/CARBON_PC_POSTSCENE_ORIGINAL_RB_V5.md).
 
-## Research code and next milestones
+## Research code and work in progress
 
-[Draft research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) contains the existing source-only world bridge, asset-format tools and synthetic regression tests. The draft remains experimental and should not be mistaken for a working PC world installation.
+[Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
 
-Immediate research targets: independently verify the candidate model-hash fields outside the current Carbon RB controls, understand the alternate geometry profile in section 299, and determine native resource reference/relocation semantics before designing any reversible runtime test.
+Next: classify the four alternative section-299 solids, decode RA's distinct section layouts, and establish actual Carbon loader behavior before building any private, reversible installation experiment.
 
-Earlier work includes V41 native scenery model conversion and V43–V46 scenery spatial/opaque-chunk analysis. Those were offline results, not in-game validation.
+Earlier work includes V41 native scenery conversion and V43–V46 scenery spatial/opaque-chunk analysis. All are offline format-research milestones.
 
-## Safety and distribution
+## Distribution and runtime boundaries
 
-Original game files, extracted binary records, textures, models, patched archives and executables **are not distributed here**. Source scripts read game files supplied privately by the owner. Do not install experimental output into a live game.
+No original game files, extracted asset payloads, models, textures, executable patches or modified retail archives are distributed here. All game-source analysis uses privately supplied originals.
 
-**No playable Undercover PC port, completed streaming integration, collision, police AI, or in-game scene rendering is claimed.**
+**No Undercover gameplay, native in-game rendering, world streaming, collision or driveable PC build has been verified.**
