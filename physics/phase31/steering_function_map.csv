@@ -1,0 +1,11 @@
+platform,game,symbol,address,length_bytes,evidence,confidence
+PC,Carbon,SuspensionRacer::DoHumanSteering,0x006EF540,729,"Seven target-verified direct calls, prologue, ret and caller; exact SHA match",very high; inferred symbol name
+PC,Carbon,SuspensionRacer::CalculateMaxSteering,0x006DFDE0,684,"Two calls from DoHumanSteering, steering tables; independent function boundary",high; inferred symbol name
+PC,Carbon,SuspensionRacer::CalculateSteeringSpeed,0x006E0090,137,One call immediately after steering Table::GetValue; independent function boundary,high; inferred symbol name
+PC,Carbon,Table::GetValue,0x006A1900,,Established PC table helper also used by tire force,high; inferred symbol name
+PC,Carbon,AverageWindow::Record,0x006A2250,,Stores sample values in rolling-window buffers; direct call from main steering,high; inferred symbol name
+PC,Carbon,Sim::GetTime,0x0075CF60,7,Returns float from time-state global; direct call from main steering,high; inferred symbol name
+Wii,Carbon,SuspensionRacer::DoHumanSteering,0x802EDB88,664,Exact ELF symbol from Phase16,exact named symbol
+Wii,Undercover,SuspensionRacer::DoHumanSteering,0x80324B48,1288,Exact ELF symbol from Phase16,exact named symbol
+PS2,Undercover,SuspensionRacer::DoHumanSteering,,,Stripped PS2 executable; not independently mapped,unknown
+PS2,Carbon,SuspensionRacer::DoHumanSteering,,,Stripped PS2 executable; not independently mapped,unknown
