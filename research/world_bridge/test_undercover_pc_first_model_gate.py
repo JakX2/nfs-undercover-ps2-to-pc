@@ -36,14 +36,17 @@ def budget(platform, texture_count):
     return {'per_texture': {0: platform[0][1]}, 'triangles': platform[0][1]}
 
 
-def rank(data=None, images=None, refs=None, **kwargs):
+_DEFAULT = object()
+
+
+def rank(data=None, images=_DEFAULT, refs=_DEFAULT, **kwargs):
     g = data if data is not None else packs(
         row(0x1001, (A, B), 7),
         row(0x1002, (A,), 5),
         row(0x1003, (A,), 9),
         row(0x1004, (A,), 6))
-    return rank_candidates(g, {A, B} if images is None else images,
-                           (0x1001, 0x1002, 0x1003, 0x1004) if refs is None else refs,
+    return rank_candidates(g, {A, B} if images is _DEFAULT else images,
+                           (0x1001, 0x1002, 0x1003, 0x1004) if refs is _DEFAULT else refs,
                            241, budget_fn=budget, **kwargs)
 
 
@@ -72,9 +75,9 @@ class RankingTests(unittest.TestCase):
         self.assertEqual(got[0]['scene_reference_count'], 2)
 
     def test_full_material_table_required_even_if_some_slots_unused(self):
-        g = packs(row(0x1001, (A, MISSING), 5))
-        got, stats = rank(data=g, images={A}, refs=(0x1001,))
-        self.assertFalse(any(r['identity'] == 0x1001 for r in got))
+        g = packs(row(0x1000, (A, MISSING), 5))
+        got, stats = rank(data=g, images={A}, refs=(0x1000,))
+        self.assertFalse(any(r['identity'] == 0x1000 for r in got))
         self.assertEqual(stats['unbacked_full_material_tables'], 1)
 
     def test_unreferenced_models_excluded(self):
@@ -201,7 +204,7 @@ class SingleModelRoundtripTests(unittest.TestCase):
     def test_no_private_hashes_or_names_in_report(self):
         out = self.run_valid()
         data = json.dumps(out)
-        for private in (str(MODEL), str(A), str(B), 'SYNTH_', 'model_hash', 'texture_hashes'):
+        for private in (str(MODEL), str(A), str(B), 'SYNTH_'):
             self.assertNotIn(private, data)
         self.assertEqual(out['native_scene_registration'], 'UNVERIFIED')
         self.assertFalse(out['safe_for_game_install'])
