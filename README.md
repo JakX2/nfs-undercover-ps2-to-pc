@@ -34,11 +34,17 @@ Owner-original Undercover PS2 model data was decoded into two **PC-shaped offlin
 
 The optional source-only V11 OBJ preview implementation and PE compatibility preflight are in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33). GitHub Actions has passed **1,604/1,604** synthetic tests on the draft branch. The offline preview can display owner-generated geometry locally but does not make Undercover playable in Carbon.
 
+## V12 native eSolid header controls: 205 exact PC matches
+
+A **209-model original Carbon PC ↔ Carbon PS2 same-identity comparison** found a minimal PS2 header transform: zero the high 16 bits of the word at normalized eSolid offset `+0x14`. That yields **205/209 byte-identical native Carbon PC headers**. The four exceptions differ only in a special PC version flag and remain explicitly unsupported. The transform changes only **1 or 2 bytes** in the two selected original Undercover model headers while retaining complete offline PC-shaped geometry readback for **8/8 and 144/144 faces**. **No loader or game-side model rendering is proven.**
+
+The opt-in transform and tests are in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33); the complete synthetic CI suite passed **1,626/1,626 tests**. Read the [V12 original-source controls and limitations](research/UNDERCOVER_PC_V12_NATIVE_ESOLID_HEADER_CONTROL.md).
+
 ## Research code and work in progress
 
 [Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
 
-Next: classify the four alternative section-299 solids, decode RA's distinct section layouts, and establish actual Carbon loader behavior before building any private, reversible installation experiment.
+Next: establish a safe Carbon native resource load, then registered single-model geometry plus texture identity, scene references and visibility. Four section-299 special eSolid header versions remain distinct and are not automatically mapped from PS2. RA's distinct section layouts remain a separate research workstream.
 
 Earlier work includes V41 native scenery conversion and V43–V46 scenery spatial/opaque-chunk analysis. All are offline format-research milestones.
 
