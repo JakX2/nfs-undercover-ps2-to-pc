@@ -28,6 +28,12 @@ A private read-only Undercover PS2 RB audit selected **section 241, geometry pac
 
 The new [V10 gate](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/ps2-map-swap-as-pc-port-oracle/research/world_bridge/UNDERCOVER_PC_FIRST_MODEL_V10_GATE.md) resides in draft PR #33. Its single-model PC-shaped geometry/DXT5 candidate, strict full-table texture closure and native parser tests passed a **1,560/1,560** clean-checkout synthetic suite. **The V10 end-to-end converter has not yet been run on these original candidates or verified in Carbon PC.** See the [source-backed selection report](research/UNDERCOVER_PC_FIRST_MODEL_SOURCE_V10.md).
 
+## V11 original model and external-bundle loader research
+
+Owner-original Undercover PS2 model data was decoded into two **PC-shaped offline geometry candidates**, preserving **8/8** and **144/144** original XYZ/UV/material triangles. The 144-triangle candidate has 288 source vertex samples, one backed material identity and 11 original VIF strips. An external Carbon resource-loader candidate (XNFSModFiles) was also checked statically against the owner's original PE32 `NFSC.exe`; five documented addresses map to executable code. **No native Carbon model registration or rendering has been verified.** See [V11 original-source geometry and external-loader evidence](research/UNDERCOVER_PC_V11_ORIGINAL_MODEL_AND_LOADER_PREFLIGHT.md).
+
+The optional source-only V11 OBJ preview implementation and PE compatibility preflight are in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33). GitHub Actions has passed **1,604/1,604** synthetic tests on the draft branch. The offline preview can display owner-generated geometry locally but does not make Undercover playable in Carbon.
+
 ## Research code and work in progress
 
 [Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
