@@ -12,7 +12,7 @@ The V10 gate chooses a **single** scenery-referenced original model and performs
 
 For one selected original RB section (241 by default, or 3401), the tool:
 
-1. Validates the owner-supplied ZIP and its CRC-checked \`TRACKS/L2RB.BUN\` and \`TRACKS/STREAML2RB.BUN\` members; resolves the original 92-byte stream section table.
+1. Validates the owner-supplied ZIP and its CRC-checked `TRACKS/L2RB.BUN` and `TRACKS/STREAML2RB.BUN` members; resolves the original 92-byte stream section table.
 2. Parses the original PS2 texture root and checks every image/palette against the 128-byte aligned pixel-data origin.
 3. Validates the four original eSolid geometry packs, retains original pack and solid ordering, and finds the source scene-info primary-detail model identities through the established 72-byte scenery-info reader.
 4. Excludes models without a primary scenery reference, models repeated in more than one pack in the same source section, and models with **any** local texture-table identity absent from the validated original image index.
@@ -20,24 +20,24 @@ For one selected original RB section (241 by default, or 3401), the tool:
 
 For the top candidate only, V10 decodes PS2 VIF XYZ/UV/faces, checks their material/face counts against the predeclared strip budget, reuses the existing PC-native 36-byte vertex/index/UV converter, and demands exact per-material triangle readback from the PC parser. It builds a DXT5 texture root containing **exactly the candidate's required source texture identities**, preserves their real original hash/name/dimension metadata, validates aligned image spans and BC3 decode, then discards both private candidate byte buffers. Output is **aggregate JSON only**. A successful synthetic/parser result is **not** a Carbon loader acceptance test.
 
-Original \`0x00134011\` eSolid headers and candidate \`0xB3310000\`/pixel descriptor fields remain unverified for retail Carbon ABI. The original primary scene-info field has not been established as the runtime registration mechanism.
+Original `0x00134011` eSolid headers and candidate `0xB3310000`/pixel descriptor fields remain unverified for retail Carbon ABI. The original primary scene-info field has not been established as the runtime registration mechanism.
 
 ## Running against the owner's locally prepared sources
 
-The owner already prepared \`UCPS2\TRACKS.zip\` from original \`TRACKS/L2RB.BUN\` and \`TRACKS/STREAML2RB.BUN\` and has a checkout of the draft research branch. From PowerShell:
+The owner already prepared `UCPS2\TRACKS.zip` from original `TRACKS/L2RB.BUN` and `TRACKS/STREAML2RB.BUN` and has a checkout of the draft research branch. From PowerShell:
 
-\`\`\`powershell
+```powershell
 $root = 'C:\Users\Dav\Desktop\nfsuc research'
-python "$root\ResearchCode\research\world_bridge\undercover_pc_first_model_gate.py" \`
-  --undercover-ps2-tracks-zip "$root\UCPS2\TRACKS.zip" \`
+python "$root\ResearchCode\research\world_bridge\undercover_pc_first_model_gate.py" `
+  --undercover-ps2-tracks-zip "$root\UCPS2\TRACKS.zip" `
   --source-section 241
-\`\`\`
+```
 
-The program **does not** create a model file or game patch. It does not write any source or installation file, does not print the source model hash, model name, original texture identity, original image bytes, location or vertex coordinates, and verifies the source ZIP fingerprint remains unchanged. It prints a reproducible **source pack ordinal and eSolid ordinal** without disclosing the original identity. For an intentionally wider selection window, supply \`--min-triangles 1 --max-triangles 10000\`; this does not weaken the image-index or scene-identity checks.
+The program **does not** create a model file or game patch. It does not write any source or installation file, does not print the source model hash, model name, original texture identity, original image bytes, location or vertex coordinates, and verifies the source ZIP fingerprint remains unchanged. It prints a reproducible **source pack ordinal and eSolid ordinal** without disclosing the original identity. For an intentionally wider selection window, supply `--min-triangles 1 --max-triangles 10000`; this does not weaken the image-index or scene-identity checks.
 
 ## Tests and evidence boundary
 
-The new \`test_undercover_pc_first_model_gate.py\` adds **35 synthetic-only tests** covering deterministic ranking, full material-table closure, local duplicate-identity rejection, scene-reference validation, triangle/material accounting, native eSolid+DXT5 construction with the existing repository parsers, corrupted/partial image rejection and reports that cannot expose source identifiers. The complete GitHub Actions \`World bridge source-only tests\` workflow passed **1,560/1,560 tests** on 2026-11-05, after repairing four synthetic fixture/test-helper assertions found by the initial CI run.
+The new `test_undercover_pc_first_model_gate.py` adds **35 synthetic-only tests** covering deterministic ranking, full material-table closure, local duplicate-identity rejection, scene-reference validation, triangle/material accounting, native eSolid+DXT5 construction with the existing repository parsers, corrupted/partial image rejection and reports that cannot expose source identifiers. The complete GitHub Actions `World bridge source-only tests` workflow passed **1,560/1,560 tests** on 2026-11-05, after repairing four synthetic fixture/test-helper assertions found by the initial CI run.
 
 All original Undercover game data remains owner-private. This V10 code is committed to **draft PR #33** and must **not** be merged or advertised as a working native port until genuine Carbon loader and renderer behavior is measured.
 
