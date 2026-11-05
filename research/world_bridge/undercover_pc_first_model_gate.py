@@ -111,7 +111,8 @@ def rank_candidates(packs, image_ids, scene_refs, section,
     return tuple(candidates), dict(counts)
 
 
-def verify_single_model(candidate, source_section, mip_levels=4):
+def verify_single_model(candidate, source_section, mip_levels=4,
+                        pc_header_profile='preserve_source'):
     """Convert ONE selected model and its complete texture table in memory.
 
     The original PS2 strip material triangle budget must equal the generated
@@ -149,7 +150,8 @@ def verify_single_model(candidate, source_section, mip_levels=4):
         raise ValueError('PS2 VIF face labels contradict source strip material budget')
 
     geometry, geo_report = convert_decoded_ps2_model(
-        identity, table, xyz, uv, faces, labels, candidate['header'])
+        identity, table, xyz, uv, faces, labels, candidate['header'],
+        pc_header_profile=pc_header_profile)
     root = parse_geometry_root(geometry)
     if (root['platform'] != PLATFORM_PC or root['solid_count'] != 1 or
             root['hashes'] != frozenset({identity})):
@@ -198,6 +200,7 @@ def verify_single_model(candidate, source_section, mip_levels=4):
         'pc_candidate_geometry_bytes_in_memory': len(geometry),
         'pc_candidate_texture_bytes_in_memory': len(images),
         'native_geometry_and_material_budget_passed': True,
+        'pc_esolid_header_profile': pc_header_profile,
         'all_source_table_image_identities_backed': True,
         'source_model_hash_preserved_without_publication': True,
         'candidate_header_and_sampler_abi': 'UNVERIFIED',
@@ -209,7 +212,8 @@ def verify_single_model(candidate, source_section, mip_levels=4):
 
 
 def audit_original(path, section=241, mip_levels=4,
-                   min_triangles=4, max_triangles=2048):
+                   min_triangles=4, max_triangles=2048,
+                   pc_header_profile='preserve_source'):
     """Original owner's CRC-verified RB source archive; no file writes."""
     from undercover_ra_texture_presence_gate import (
         _owner_archive, _fingerprint, _member_bytes, parse_stream_section_rows,
@@ -240,7 +244,8 @@ def audit_original(path, section=241, mip_levels=4,
         min_triangles=min_triangles, max_triangles=max_triangles)
     if not ranked:
         raise ValueError('No primary-scene model passes strict full-table image closure')
-    result = verify_single_model(ranked[0], data, mip_levels)
+    result = verify_single_model(ranked[0], data, mip_levels,
+                                 pc_header_profile=pc_header_profile)
     if _fingerprint(original) != before:
         raise ValueError('Original owner archive changed during read-only inspection')
     result.update({
@@ -260,10 +265,13 @@ def main():
     ap.add_argument('--mip-levels', type=int, default=4)
     ap.add_argument('--min-triangles', type=int, default=4)
     ap.add_argument('--max-triangles', type=int, default=2048)
+    ap.add_argument('--pc-header-profile', choices=('preserve_source','carbon_native_control'),
+                    default='preserve_source')
     args = ap.parse_args()
     print(json.dumps(audit_original(args.undercover_ps2_tracks_zip,
         section=args.source_section, mip_levels=args.mip_levels,
-        min_triangles=args.min_triangles, max_triangles=args.max_triangles), indent=2))
+        min_triangles=args.min_triangles, max_triangles=args.max_triangles,
+        pc_header_profile=args.pc_header_profile), indent=2))
 
 
 if __name__ == '__main__':
