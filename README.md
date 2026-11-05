@@ -10,6 +10,12 @@ An independent, bounded scan of 961 Carbon PC RA sections found **no match for t
 
 Read [V6 findings and limitations](research/CARBON_PC_POSTSCENE_V6_VARIANT_AND_RA.md) and the earlier [V5 original-source controls](research/CARBON_PC_POSTSCENE_ORIGINAL_RB_V5.md).
 
+## Prototype experiment: November 7, 2026
+
+A source-only [V8 Windows prototype readiness runbook](research/CARBON_PC_FIRST_RUNTIME_PROTO_V8_RUNBOOK.md) documents a 55-test V7/V8 handoff for a reversible Undercover PS2 texture-in-Carbon PC test. V8 verifies both installed RB files plus required Python dependencies before staging; any installation and restoration require explicit owner-controlled actions.
+
+**No game-side rendering or playable Undercover PC prototype has been verified.** A real Windows launch and before/staged/restored visual evidence are still needed.
+
 ## Research code and work in progress
 
 [Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
