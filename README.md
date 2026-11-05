@@ -14,13 +14,19 @@ Read [V6 findings and limitations](research/CARBON_PC_POSTSCENE_V6_VARIANT_AND_R
 
 A source-only [V8 Windows prototype readiness runbook](research/CARBON_PC_FIRST_RUNTIME_PROTO_V8_RUNBOOK.md) documents a 55-test V7/V8 handoff for a reversible Undercover PS2 texture-in-Carbon PC test. V8 verifies both installed RB files plus required Python dependencies before staging; any installation and restoration require explicit owner-controlled actions.
 
-**No game-side rendering or playable Undercover PC prototype has been verified.** A real Windows launch and before/staged/restored visual evidence are still needed.
+The owner launched Carbon PC with the staged Undercover texture stream and restored the original afterward. **No imported texture was visibly verified**; no in-game imported model or playable port has been established.
 
 ## Undercover scenery material coverage: V9 (2026-11-05)
 
 A read-only owner-original audit reproduced **268 PS2 eSolid occurrences and 76,348 triangles** across eight geometry packs. **46/48** texture identities actually used by Undercover RB scenery have indexed images in the source RB packs. A stricter external-bank scan found **none of the two remaining identities in fully validated PS2 texture indexes** within Undercover `GLOBAL`, `FRONTEND`, `CARS`, or `Unknown`. The car bank uses unsupported image layouts in this specific parser, so this is **not a global absence claim**. Prefer the six fully image-backed source geometry packs when preparing a constrained offline native-asset test; no in-game world import has been proven.
 
 See [V9 source-bank audit](research/UNDERCOVER_PS2_EXTERNAL_MATERIAL_IMAGE_V9.md). The standalone Python V9 scanner and 35 synthetic tests are delivered in the separate source-only research kit.
+
+## First source-backed scenery candidate: V10 (2026-11-05)
+
+A private read-only Undercover PS2 RB audit selected **section 241, geometry pack 0, model ordinal 6 (zero-based)** as an 8-triangle, one-texture, scenery-referenced offline geometry candidate. A larger **144-triangle** candidate is section 241 / pack 0 / model ordinal 42. These are source asset ordinals, not proven Carbon PC scene objects.
+
+The new [V10 gate](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/ps2-map-swap-as-pc-port-oracle/research/world_bridge/UNDERCOVER_PC_FIRST_MODEL_V10_GATE.md) resides in draft PR #33. Its single-model PC-shaped geometry/DXT5 candidate, strict full-table texture closure and native parser tests passed a **1,560/1,560** clean-checkout synthetic suite. **The V10 end-to-end converter has not yet been run on these original candidates or verified in Carbon PC.** See the [source-backed selection report](research/UNDERCOVER_PC_FIRST_MODEL_SOURCE_V10.md).
 
 ## Research code and work in progress
 
