@@ -133,8 +133,8 @@ void TestRejectedWritesAreAtomic() {
     MustThrow<std::out_of_range>([&] { s.WriteVec3BE(kState+0x51, {1,2,3}); });
     MustThrow<std::out_of_range>([&] { s.WriteU16BE(kState+0x1d, 0xffff); });
     MustThrow<std::out_of_range>([&] { s.WriteU16BE(0xFFFFFFFE, 0xffff); });
-    MustThrow<std::out_of_range>([&] { RigidBodySetForce(s, 0); });
-    MustThrow<std::out_of_range>([&] { RigidBodySetTorque(s, 0xFFFFFFFC); });
+    MustThrow<std::out_of_range>([&] { RigidBodySetForce(s, 0, {1.f, 2.f, 3.f}); });
+    MustThrow<std::out_of_range>([&] { RigidBodySetTorque(s, 0xFFFFFFFC, {1.f, 2.f, 3.f}); });
     MustThrow<std::invalid_argument>([] {
         (void)WiiMutableSnapshot({{kBody, {1,2,3,4}}, {kBody+2, {5,6,7,8}}});
     });
