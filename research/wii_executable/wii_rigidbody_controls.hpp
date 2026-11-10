@@ -1,0 +1,49 @@
+#pragma once
+
+#include "wii_vehicle_snapshot.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace undercover::vehicle {
+
+// Source-backed Wii RigidBody field accessors. All 32-bit addresses are
+// EMULATED Wii addresses, never native pointers.
+std::uint16_t RigidBodyFlags(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyIsAnchored(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyHadPassiveCollision(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyHadWorldCollision(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyHadCollision(const attrib::WiiAddressSpace& m, std::uint32_t body);
+int RigidBodyContactCount(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyIsInGroundContact(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyIsSleeping(const attrib::WiiAddressSpace& m, std::uint32_t body);
+bool RigidBodyIsModeling(const attrib::WiiAddressSpace& m, std::uint32_t body);
+float RigidBodyMass(const attrib::WiiAddressSpace& m, std::uint32_t body);
+float RigidBodyGravity(const attrib::WiiAddressSpace& m, std::uint32_t body);
+Vec3 RigidBodyForce(const attrib::WiiAddressSpace& m, std::uint32_t body);
+Vec3 RigidBodyTorque(const attrib::WiiAddressSpace& m, std::uint32_t body);
+Vec3 RigidBodyCenterOfGravity(const attrib::WiiAddressSpace& m, std::uint32_t body);
+
+// Writable *private synthetic snapshot*, not a retail Wii memory editor.
+// A mutation changes only this host-owned byte vector; no process attach,
+// emulator hook or original game-file writes occur.
+class WiiMutableSnapshot {
+public:
+    explicit WiiMutableSnapshot(std::vector<attrib::WiiMemoryRegion> regions);
+    attrib::WiiAddressSpace ReadOnly() const;
+    void WriteU16BE(std::uint32_t address, std::uint16_t value);
+    void WriteVec3BE(std::uint32_t address, Vec3 value);
+
+private:
+    void WriteBytes(std::uint32_t address, const std::uint8_t* bytes,
+                    std::size_t length);
+    std::vector<attrib::WiiMemoryRegion> regions_;
+};
+
+void RigidBodySetAnchored(WiiMutableSnapshot& m, std::uint32_t body, bool anchored);
+void RigidBodySetForce(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
+void RigidBodySetTorque(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
+void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
+
+}  // namespace undercover::vehicle
