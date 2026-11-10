@@ -267,6 +267,73 @@ void TestTranslationAndTorquePrefix() {
     assert(missing_position.ReadOnly().ReadU32BE(kState + 0x20) == 0x40A00000u);
 }
 
+
+void TestAngularInertiaPrefix() {
+    auto moving = Fixture(0, 0, 0);
+    RigidBodySetPosition(moving, kBody, {100.f, 0.f, -2.f});
+    RigidBodySetLinearVelocity(moving, kBody, {10.f, 20.f, 30.f});
+    RigidBodySetAngularVelocity(moving, kBody, {1.f, 2.f, 3.f});
+    RigidBodySetForce(moving, kBody, {2.f, 4.f, 6.f});
+    RigidBodySetTorque(moving, kBody, {4.f, 8.f, -12.f});
+    moving.WriteVec3BE(kState + 0x3C, {0.5f, 0.f, 0.f});
+    // The original 3x3 body transform has per-source rows at offsets
+    // 0x84, 0x94 and 0xA4 (with a 4-byte gap between each triple).
+    moving.WriteVec3BE(kBody + 0x84, {1.f, 0.f, 1.f});
+    moving.WriteVec3BE(kBody + 0x94, {2.f, 1.f, 0.f});
+    moving.WriteVec3BE(kBody + 0xA4, {0.f, 2.f, 1.f});
+    assert(ApplyDoIntegrationAngularPrefix(moving, kBody, 0.25f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyPosition(moving.ReadOnly(), kBody),
+                 {102.5625f, 5.125f, 5.6875f}));
+    assert(Equal(RigidBodyVelocity(moving.ReadOnly(), kBody),
+                 {10.25f, 20.5f, 30.75f}));
+    assert(Equal(RigidBodyTorque(moving.ReadOnly(), kBody),
+                 {5.f, -4.f, -2.f}));
+    assert(Equal(RigidBodyAngularVelocity(moving.ReadOnly(), kBody),
+                 {6.f, -2.f, 1.f}));
+    assert(Equal(RigidBodyForce(moving.ReadOnly(), kBody), {2.f, 4.f, 6.f}));
+
+    // Original state+0x5D != 0 returns early, skipping matrix reads.
+    auto sleeping = Fixture(0, 0, 1);
+    RigidBodySetPosition(sleeping, kBody, {4.f, 5.f, 6.f});
+    RigidBodySetAngularVelocity(sleeping, kBody, {7.f, 8.f, 9.f});
+    RigidBodySetTorque(sleeping, kBody, {10.f, 11.f, 12.f});
+    assert(ApplyDoIntegrationAngularPrefix(sleeping, kBody, 1.f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyPosition(sleeping.ReadOnly(), kBody), {4.f, 5.f, 6.f}));
+    assert(Equal(RigidBodyTorque(sleeping.ReadOnly(), kBody), {10.f, 11.f, 12.f}));
+    assert(Equal(RigidBodyAngularVelocity(sleeping.ReadOnly(), kBody), {0, 0, 0}));
+
+    // All V8 writes can succeed on private regions, yet a missing BODY
+    // transform must cause V9 to reject WITHOUT exposing partial results.
+    std::vector<std::uint8_t> body(0x80, 0);
+    Put32(body, 0x70, kBody + 0x200);
+    std::vector<std::uint8_t> wrapper(4, 0);
+    Put32(wrapper, 0, kState);
+    std::vector<std::uint8_t> mass(4, 0);
+    PutF32(mass, 0, 0.5f);
+    std::vector<std::uint8_t> old_vel(12, 0);
+    PutF32(old_vel, 0, 10.f);
+    std::vector<std::uint8_t> torque(12, 0);
+    PutF32(torque, 0, 4.f);
+    WiiMutableSnapshot missing_matrix({
+        {kBody, std::move(body)},
+        {kBody + 0x200, std::move(wrapper)},
+        {kState + 0x10, std::vector<std::uint8_t>(12, 0)},
+        {kState + 0x20, std::move(old_vel)},
+        {kState + 0x30, std::vector<std::uint8_t>(12, 0)},
+        {kState + 0x3C, std::move(mass)},
+        {kState + 0x50, std::vector<std::uint8_t>(12, 0)},
+        {kState + 0x5D, {0}},
+        {kState + 0x60, std::move(torque)}
+    });
+    MustThrow<std::out_of_range>([&] {
+        (void)ApplyDoIntegrationAngularPrefix(missing_matrix, kBody, 0.5f);
+    });
+    assert(missing_matrix.ReadOnly().ReadU32BE(kState + 0x20) == 0x41200000u);
+    assert(missing_matrix.ReadOnly().ReadU32BE(kState + 0x60) == 0x40800000u);
+}
+
 } // namespace
 
 int main() {
@@ -275,4 +342,5 @@ int main() {
     TestRejectedWritesAreAtomic();
     TestIntegrationPrefix();
     TestTranslationAndTorquePrefix();
+    TestAngularInertiaPrefix();
 }
