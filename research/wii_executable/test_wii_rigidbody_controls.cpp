@@ -146,10 +146,61 @@ void TestRejectedWritesAreAtomic() {
     assert(separate.ReadOnly().ReadU32BE(0x80008000) == 0x01020304u);
     assert(separate.ReadOnly().ReadU32BE(0x80008004) == 0x05060708u);
 }
+
+void TestIntegrationPrefix() {
+    auto active = Fixture(0, 0, 0);
+    active.WriteVec3BE(kState + 0x20, {10.f, 20.f, 30.f});
+    active.WriteVec3BE(kState + 0x3c, {0.5f, 0.f, 0.f});
+    RigidBodySetForce(active, kBody, {2.f, 4.f, 6.f});
+    assert(ApplyDoIntegrationVelocityPrefix(active, kBody, 0.25f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(active.ReadOnly(), kBody),
+                 {10.25f, 20.5f, 30.75f}));
+    assert(Equal(RigidBodyForce(active.ReadOnly(), kBody), {2.f, 4.f, 6.f}));
+    // This prefix must not update location, orientation or angular state.
+    assert(active.ReadOnly().ReadU32BE(kState + 0x10) == 0);
+    assert(active.ReadOnly().ReadU32BE(kState + 0x30) == 0);
+
+    auto sleeping = Fixture(0, 0, 1);
+    sleeping.WriteVec3BE(kState + 0x20, {10.f, 20.f, 30.f});
+    sleeping.WriteVec3BE(kState + 0x30, {1.f, -2.f, 3.f});
+    RigidBodySetForce(sleeping, kBody, {4.f, 5.f, 6.f});
+    assert(ApplyDoIntegrationVelocityPrefix(sleeping, kBody, 0.25f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyVelocity(sleeping.ReadOnly(), kBody), {0, 0, 0}));
+    assert(sleeping.ReadOnly().ReadU32BE(kState + 0x30) == 0);
+    assert(sleeping.ReadOnly().ReadU32BE(kState + 0x34) == 0);
+    assert(sleeping.ReadOnly().ReadU32BE(kState + 0x38) == 0);
+    assert(Equal(RigidBodyForce(sleeping.ReadOnly(), kBody), {4.f, 5.f, 6.f}));
+
+    // Any nonzero byte takes the same branch, not only sleeping=1.
+    auto modeling = Fixture(0, 0, 2);
+    modeling.WriteVec3BE(kState + 0x20, {9.f, 8.f, 7.f});
+    assert(ApplyDoIntegrationVelocityPrefix(modeling, kBody, 0.25f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyVelocity(modeling.ReadOnly(), kBody), {0, 0, 0}));
+
+    // The original code branch clears two separated spans. A failure in
+    // the second must not leave the first modified on the host snapshot.
+    std::vector<std::uint8_t> body(0x300, 0);
+    Put32(body, 0x70, kBody + 0x200);
+    Put32(body, 0x200, kState);
+    std::vector<std::uint8_t> velocity(12, 0);
+    PutF32(velocity, 0, 5.f);
+    WiiMutableSnapshot split({{kBody, std::move(body)},
+                              {kState + 0x20, std::move(velocity)},
+                              {kState + 0x5d, {1}}});
+    MustThrow<std::out_of_range>([&] {
+        (void)ApplyDoIntegrationVelocityPrefix(split, kBody, 0.25f);
+    });
+    assert(split.ReadOnly().ReadU32BE(kState + 0x20) == 0x40A00000u);
+}
+
 } // namespace
 
 int main() {
     TestFlags();
     TestForces();
     TestRejectedWritesAreAtomic();
+    TestIntegrationPrefix();
 }
