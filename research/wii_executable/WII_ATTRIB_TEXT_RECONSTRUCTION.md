@@ -34,3 +34,12 @@ The tests cover 16 nibble values, five-byte hexadecimal encoding, null-source be
 - Do not extrapolate this small helper success to rendering, streaming, game loop or full gameplay recovery.
 
 **Classification:** three small assembly-informed behavioral reconstructions plus host-side tests. No copyrighted program bytes or retail assets are distributed.
+
+
+## Fourth named assembly-informed reconstruction (2026-11-10)
+
+The original Wii ELF function CopyString__6AttribFPcPCc at **0x8007AE38** is a **44-byte** PPC function. Its observed logic copies nonzero source bytes to the destination, advances both pointers and writes a final zero terminator. The check uses sign extension of the loaded byte only to compare against zero; values with the high bit set are copied unchanged.
+
+The new host-side CopyString(const char*, size_t) deliberately returns a bounded std::string instead of performing unchecked writes to a caller-owned PPC pointer. Missing terminators and null nonempty inputs throw exceptions, which is a deliberate safe-PC interface adaptation, not matching game-side exception behavior. Local C++ tests cover empty, high-bit byte preservation, early NUL, null and unterminated inputs. The full C++ helper regression executable compiles and passes locally; GitHub CI independently checks it.
+
+V2's named call graph also verifies that ValueToText and TweakAttribute each contain two direct branches targeting NibbleChar, supporting the existing Attrib reconstruction's caller/callee context. Four small host functions are now implemented, not the full original Attrib class or gameplay engine.
