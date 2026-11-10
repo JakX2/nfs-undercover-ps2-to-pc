@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -334,6 +335,55 @@ void TestAngularInertiaPrefix() {
     assert(missing_matrix.ReadOnly().ReadU32BE(kState + 0x60) == 0x40800000u);
 }
 
+
+void TestVelocitySaturationPrefix() {
+    auto moving = Fixture(0, 0, 0);
+    RigidBodySetLinearVelocity(moving, kBody, {350.f, -350.f, 300.f});
+    RigidBodySetAngularVelocity(moving, kBody, {35.f, -35.f, 30.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(moving, kBody, 1.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(moving.ReadOnly(), kBody),
+                 {300.f, -300.f, 300.f}));
+    assert(Equal(RigidBodyAngularVelocity(moving.ReadOnly(), kBody),
+                 {30.f, -30.f, 30.f}));
+    // The original position update runs BEFORE velocity saturation.
+    // Do not mistake the post-clamp speed for the integrated displacement.
+    assert(Equal(RigidBodyPosition(moving.ReadOnly(), kBody),
+                 {350.f, -350.f, 300.f}));
+    auto limits = Fixture(0, 0, 0);
+    RigidBodySetLinearVelocity(limits, kBody, {-300.f, 300.f, 0.f});
+    RigidBodySetAngularVelocity(limits, kBody, {-30.f, 30.f, 0.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(limits, kBody, 0.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(limits.ReadOnly(), kBody),
+                 {-300.f, 300.f, 0.f}));
+    assert(Equal(RigidBodyAngularVelocity(limits.ReadOnly(), kBody),
+                 {-30.f, 30.f, 0.f}));
+
+    // PowerPC ordered fcmpo branches select the positive limit for NaN.
+    auto special = Fixture(0, 0, 0);
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    RigidBodySetLinearVelocity(special, kBody, {nan, inf, -inf});
+    RigidBodySetAngularVelocity(special, kBody, {nan, inf, -inf});
+    assert(ApplyDoIntegrationClampedAngularPrefix(special, kBody, 1.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(special.ReadOnly(), kBody),
+                 {300.f, 300.f, -300.f}));
+    assert(Equal(RigidBodyAngularVelocity(special.ReadOnly(), kBody),
+                 {30.f, 30.f, -30.f}));
+
+    auto inactive = Fixture(0, 0, 1);
+    RigidBodySetPosition(inactive, kBody, {2.f, 4.f, 6.f});
+    RigidBodySetLinearVelocity(inactive, kBody, {350.f, -350.f, 300.f});
+    RigidBodySetAngularVelocity(inactive, kBody, {35.f, -35.f, 30.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(inactive, kBody, 1.f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyPosition(inactive.ReadOnly(), kBody), {2.f, 4.f, 6.f}));
+    assert(Equal(RigidBodyVelocity(inactive.ReadOnly(), kBody), {0, 0, 0}));
+    assert(Equal(RigidBodyAngularVelocity(inactive.ReadOnly(), kBody), {0, 0, 0}));
+}
+
 } // namespace
 
 int main() {
@@ -343,4 +393,5 @@ int main() {
     TestIntegrationPrefix();
     TestTranslationAndTorquePrefix();
     TestAngularInertiaPrefix();
+    TestVelocitySaturationPrefix();
 }
