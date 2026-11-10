@@ -18,6 +18,19 @@ int main() {
     try { (void) ValueToText(nullptr, 1); }
     catch (const std::invalid_argument&) { rejected = true; }
     assert(rejected);
+    const char string_sample[] = {'A', static_cast<char>(0x80), '\0', 'Z'};
+    assert(CopyString(string_sample, sizeof(string_sample)) ==
+           std::string(string_sample, 2));
+    assert(CopyString("", 1).empty());
+    assert(CopyString(nullptr, 0).empty());
+    rejected = false;
+    try { (void) CopyString(nullptr, 1); }
+    catch (const std::invalid_argument&) { rejected = true; }
+    assert(rejected);
+    rejected = false;
+    try { (void) CopyString("hi", 2); }
+    catch (const std::length_error&) { rejected = true; }
+    assert(rejected);
     assert(IntToString(0) == "0");
     assert(IntToString(9) == "9");
     assert(IntToString(10) == "10");
