@@ -65,4 +65,13 @@ void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body, Vec3
 IntegrationPrefixPath ApplyDoIntegrationTranslationPrefix(
     WiiMutableSnapshot& m, std::uint32_t body, float timestep);
 
+
+// V9 extends V8 through 0x8030FBD8. Reads the Wii body's 3x3 matrix
+// at +0x84,+0x94,+0xA4 (three 3-float rows in the serialized body),
+// transforms the timestep-scaled torque and adds it to angular velocity.
+// The resulting transformed torque is stored back to state+0x60.
+// Does NOT include later clamps, orientation or angular damping.
+IntegrationPrefixPath ApplyDoIntegrationAngularPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep);
+
 }  // namespace undercover::vehicle
