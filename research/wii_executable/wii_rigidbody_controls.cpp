@@ -302,4 +302,52 @@ IntegrationPrefixPath ApplyDoIntegrationTranslationPrefix(
     return IntegrationPrefixPath::active_velocity_updated;
 }
 
+// Original Wii DoIntegration branch at 0x8030FB2C..0x8030FBD8.
+// The body-side 3x3 matrix multiplies the timestep-scaled torque.
+// The three components overwrite the torque workspace, then accumulate into
+// the existing state+0x30 angular velocity. PPC uses fmuls/fmadds here;
+// host std::fma tracks the operation order but not Wii FP rounding modes.
+// The later angular clamps/orientation stores remain OUTSIDE this function.
+IntegrationPrefixPath ApplyDoIntegrationAngularPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep) {
+    WiiMutableSnapshot next = m;
+    const IntegrationPrefixPath path =
+        ApplyDoIntegrationTranslationPrefix(next, body, timestep);
+    if (path == IntegrationPrefixPath::inactive_cleared) {
+        m = std::move(next);
+        return path;
+    }
+    const auto r = next.ReadOnly();
+    const std::uint32_t state = RigidBodyStateAddress(r, body);
+    const Vec3 scaled = ReadVec3(r, Add(state, 0x60));
+    const Vec3 angular = ReadVec3(r, Add(state, 0x30));
+
+    const Vec3 first = ReadVec3(r, Add(body, 0x84));
+    const Vec3 second = ReadVec3(r, Add(body, 0x94));
+    const Vec3 third = ReadVec3(r, Add(body, 0xA4));
+
+    // Original per-component summation:
+    // delta.x = tz * Mzx + tx * Mxx + ty * Myx
+    // delta.y = tz * Mzy + tx * Mxy + ty * Myy
+    // delta.z = tz * Mzz + tx * Mxz + ty * Myz
+    // The order of the inner FMA terms follows the PPC instruction sequence.
+    const Vec3 delta {
+        std::fma(scaled.z, third.x,
+                 std::fma(scaled.x, first.x, scaled.y * second.x)),
+        std::fma(scaled.z, third.y,
+                 std::fma(scaled.x, first.y, scaled.y * second.y)),
+        std::fma(scaled.z, third.z,
+                 std::fma(scaled.x, first.z, scaled.y * second.z))
+    };
+    const Vec3 new_angular {
+        angular.x + delta.x,
+        angular.y + delta.y,
+        angular.z + delta.z
+    };
+    next.WriteVec3BE(Add(state, 0x60), delta);
+    next.WriteVec3BE(Add(state, 0x30), new_angular);
+    m = std::move(next);
+    return IntegrationPrefixPath::active_velocity_updated;
+}
+
 }  // namespace undercover::vehicle
