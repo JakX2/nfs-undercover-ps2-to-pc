@@ -180,6 +180,24 @@ void WiiMutableSnapshot::WriteVec3BE(std::uint32_t address, Vec3 value) {
     WriteBytes(address, bytes.data(), bytes.size());
 }
 
+void WiiMutableSnapshot::WriteVec4BE(
+    std::uint32_t address, const std::array<float, 4>& value) {
+    if (address & 3u) throw std::out_of_range("unaligned Wii quaternion write");
+    std::array<std::uint8_t, 16> bytes{};
+    for (std::size_t i = 0; i < value.size(); ++i)
+        PutFloatBE(bytes.data() + 4 * i, value[i]);
+    WriteBytes(address, bytes.data(), bytes.size());
+}
+
+void WiiMutableSnapshot::WriteMatrix4BE(
+    std::uint32_t address, const std::array<float, 16>& value) {
+    if (address & 3u) throw std::out_of_range("unaligned Wii matrix write");
+    std::array<std::uint8_t, 64> bytes{};
+    for (std::size_t i = 0; i < value.size(); ++i)
+        PutFloatBE(bytes.data() + 4 * i, value[i]);
+    WriteBytes(address, bytes.data(), bytes.size());
+}
+
 void RigidBodySetAnchored(WiiMutableSnapshot& m, std::uint32_t body, bool anchored) {
     // SetAnchored__9RigidBodyFb at 0x80301050: OR/clear 0x0080.
     const auto snapshot = m.ReadOnly();
