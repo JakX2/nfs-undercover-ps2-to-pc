@@ -79,6 +79,18 @@ jobs:
             research/wii_executable/wii_rigidbody_final_transform.cpp \
             research/wii_executable/test_wii_rigidbody_final_transform.cpp \
             -o /tmp/nfsuc-wii-rigidbody-final-transform-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/wii_rigidbody_frame.cpp \
+            research/wii_executable/test_wii_rigidbody_frame.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-frame-tests
       - name: Run C++ behavioral, memory and vehicle state regressions
         run: |
           /tmp/nfsuc-attrib-tests
@@ -88,3 +100,4 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-controls-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-orientation-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-final-transform-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-frame-tests
