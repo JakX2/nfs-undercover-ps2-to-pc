@@ -1,0 +1,32 @@
+name: Wii executable research checks
+
+on:
+  pull_request:
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-executable-research.yml'
+  push:
+    branches:
+      - 'research/wii-elf-symbol-map'
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-executable-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-and-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Original-free Python ELF/DOL synthetic tests
+        run: python3 -m unittest discover -s research/wii_executable -p 'test_*.py' -v
+      - name: Build reconstructed C++17 helpers
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/test_attrib_text.cpp \
+            -o /tmp/nfsuc-attrib-tests
+      - name: Run C++ behavioral regression controls
+        run: /tmp/nfsuc-attrib-tests
