@@ -196,6 +196,77 @@ void TestIntegrationPrefix() {
     assert(split.ReadOnly().ReadU32BE(kState + 0x20) == 0x40A00000u);
 }
 
+
+void TestTranslationAndTorquePrefix() {
+    auto moving = Fixture(0, 0, 0);
+    RigidBodySetPosition(moving, kBody, {100.f, 0.f, -2.f});
+    RigidBodySetLinearVelocity(moving, kBody, {10.f, 20.f, 30.f});
+    RigidBodySetAngularVelocity(moving, kBody, {1.f, 2.f, 3.f});
+    RigidBodySetForce(moving, kBody, {2.f, 4.f, 6.f});
+    RigidBodySetTorque(moving, kBody, {4.f, 8.f, -12.f});
+    moving.WriteVec3BE(kState + 0x3C, {0.5f, 0.f, 0.f});
+
+    assert(Equal(RigidBodyPosition(moving.ReadOnly(), kBody), {100.f, 0.f, -2.f}));
+    assert(Equal(RigidBodyAngularVelocity(moving.ReadOnly(), kBody), {1.f, 2.f, 3.f}));
+    assert(ApplyDoIntegrationTranslationPrefix(moving, kBody, 0.25f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(moving.ReadOnly(), kBody),
+                 {10.25f, 20.5f, 30.75f}));
+    assert(Equal(RigidBodyPosition(moving.ReadOnly(), kBody),
+                 {102.5625f, 5.125f, 5.6875f}));
+    assert(Equal(RigidBodyTorque(moving.ReadOnly(), kBody), {1.f, 2.f, -3.f}));
+    assert(Equal(RigidBodyAngularVelocity(moving.ReadOnly(), kBody),
+                 {1.f, 2.f, 3.f}));
+    assert(Equal(RigidBodyForce(moving.ReadOnly(), kBody), {2.f, 4.f, 6.f}));
+
+    // V7 has a deliberately narrower contract, for comparison.
+    auto narrow = Fixture(0, 0, 0);
+    RigidBodySetPosition(narrow, kBody, {100.f, 0.f, -2.f});
+    RigidBodySetLinearVelocity(narrow, kBody, {10.f, 20.f, 30.f});
+    RigidBodySetForce(narrow, kBody, {2.f, 4.f, 6.f});
+    RigidBodySetTorque(narrow, kBody, {4.f, 8.f, -12.f});
+    narrow.WriteVec3BE(kState + 0x3C, {0.5f, 0.f, 0.f});
+    (void)ApplyDoIntegrationVelocityPrefix(narrow, kBody, 0.25f);
+    assert(Equal(RigidBodyPosition(narrow.ReadOnly(), kBody), {100.f, 0.f, -2.f}));
+    assert(Equal(RigidBodyTorque(narrow.ReadOnly(), kBody), {4.f, 8.f, -12.f}));
+
+    auto inactive = Fixture(0, 0, 2);
+    RigidBodySetPosition(inactive, kBody, {100.f, 2.f, 3.f});
+    RigidBodySetLinearVelocity(inactive, kBody, {4.f, 5.f, 6.f});
+    RigidBodySetAngularVelocity(inactive, kBody, {7.f, 8.f, 9.f});
+    RigidBodySetTorque(inactive, kBody, {10.f, 11.f, 12.f});
+    assert(ApplyDoIntegrationTranslationPrefix(inactive, kBody, 0.25f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyPosition(inactive.ReadOnly(), kBody), {100.f, 2.f, 3.f}));
+    assert(Equal(RigidBodyTorque(inactive.ReadOnly(), kBody), {10.f, 11.f, 12.f}));
+    assert(Equal(RigidBodyVelocity(inactive.ReadOnly(), kBody), {0, 0, 0}));
+    assert(Equal(RigidBodyAngularVelocity(inactive.ReadOnly(), kBody), {0, 0, 0}));
+
+    // The next two regions permit the velocity update but omit position.
+    // A later access failure must not publish earlier writes.
+    std::vector<std::uint8_t> body(0x300, 0);
+    Put32(body, 0x70, kBody + 0x200);
+    Put32(body, 0x200, kState);
+    std::vector<std::uint8_t> velocity(12, 0);
+    PutF32(velocity, 0, 5.f);
+    std::vector<std::uint8_t> mass(4, 0);
+    PutF32(mass, 0, 0.5f);
+    std::vector<std::uint8_t> force(12, 0);
+    PutF32(force, 0, 2.f);
+    WiiMutableSnapshot missing_position({
+        {kBody, std::move(body)},
+        {kState + 0x20, std::move(velocity)},
+        {kState + 0x3C, std::move(mass)},
+        {kState + 0x50, std::move(force)},
+        {kState + 0x5D, {0}},
+        {kState + 0x60, std::vector<std::uint8_t>(12, 0)}
+    });
+    MustThrow<std::out_of_range>([&] {
+        (void)ApplyDoIntegrationTranslationPrefix(missing_position, kBody, 0.25f);
+    });
+    assert(missing_position.ReadOnly().ReadU32BE(kState + 0x20) == 0x40A00000u);
+}
+
 } // namespace
 
 int main() {
@@ -203,4 +274,5 @@ int main() {
     TestForces();
     TestRejectedWritesAreAtomic();
     TestIntegrationPrefix();
+    TestTranslationAndTorquePrefix();
 }
