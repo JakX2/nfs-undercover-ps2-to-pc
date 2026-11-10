@@ -74,4 +74,12 @@ IntegrationPrefixPath ApplyDoIntegrationTranslationPrefix(
 IntegrationPrefixPath ApplyDoIntegrationAngularPrefix(
     WiiMutableSnapshot& m, std::uint32_t body, float timestep);
 
+
+// V10 extends V9 through the six saturation stores at 0x8030FCF0.
+// Each linear velocity component is clamped to [-300,+300], each
+// angular component to [-30,+30], using branch-order-compatible comparisons.
+// Does not yet update orientation/quaternion or complete DoIntegration.
+IntegrationPrefixPath ApplyDoIntegrationClampedAngularPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep);
+
 }  // namespace undercover::vehicle
