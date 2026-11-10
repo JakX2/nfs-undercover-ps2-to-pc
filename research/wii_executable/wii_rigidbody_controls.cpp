@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -195,6 +196,44 @@ void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body,
     const auto address = Add(body, 0xE4);
     (void)m.ReadOnly().ReadU32BE(address); // validate owner-local body range.
     m.WriteVec3BE(address, value);
+}
+
+// Only the first velocity-state operation of the 0x8030F9C4 Wii integrator.
+// Original PPC at 0x8030F9FC..0x8030FA24: if state+0x5D != 0, zero
+// the six float32 slots at state+0x20..+0x28 and +0x30..+0x38
+// and branch to the final epilogue. No force or position update.
+// Otherwise, 0x8030FA28..0x8030FAD8 applies
+// velocity += force * (timestep * inverse_mass) via fmadds.
+// Other torque/orientation/position updates later in the original routine
+// are intentionally outside this prefix.
+IntegrationPrefixPath ApplyDoIntegrationVelocityPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep) {
+    const auto before = m.ReadOnly();
+    const auto state = RigidBodyStateAddress(before, body);
+    const std::uint32_t velocity_at = Add(state, 0x20);
+    const std::uint32_t second_at = Add(state, 0x30);
+    const auto status = before.ReadU8(Add(state, 0x5D));
+    // Copy-on-commit: malformed or split state mappings never leave
+    // the caller's synthetic bytes half-mutated.
+    WiiMutableSnapshot next = m;
+    if (status != 0) {
+        next.WriteVec3BE(velocity_at, {0.f, 0.f, 0.f});
+        next.WriteVec3BE(second_at, {0.f, 0.f, 0.f});
+        m = std::move(next);
+        return IntegrationPrefixPath::inactive_cleared;
+    }
+    const float inverse_mass = ReadWiiF32(before, Add(state, 0x3C));
+    const float factor = timestep * inverse_mass; // fmuls f29,f1,f0
+    const auto force = ReadVec3(before, Add(state, 0x50));
+    const auto velocity = ReadVec3(before, velocity_at);
+    const Vec3 updated = {
+        std::fma(force.x, factor, velocity.x),
+        std::fma(force.y, factor, velocity.y),
+        std::fma(force.z, factor, velocity.z)
+    };
+    next.WriteVec3BE(velocity_at, updated);
+    m = std::move(next);
+    return IntegrationPrefixPath::active_velocity_updated;
 }
 
 }  // namespace undercover::vehicle
