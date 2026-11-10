@@ -27,6 +27,22 @@ std::string ValueToText(const std::uint8_t* source, std::size_t size) {
     return output;
 }
 
+// Wii symbol: CopyString__6AttribFPcPCc, 0x8007AE38, 44 bytes.
+// Original PPC loop reads each signed-tested source byte and writes it
+// unchanged to destination; the final NUL byte is always written.
+// Our portable host interface returns a string instead of an unchecked
+// caller-owned output buffer, requiring its terminator within a bounded span.
+std::string CopyString(const char* source, std::size_t available) {
+    if (!source) {
+        if (available) throw std::invalid_argument("null nonempty source");
+        return {};
+    }
+    for (std::size_t i = 0; i < available; ++i) {
+        if (source[i] == '\0') return std::string(source, i);
+    }
+    throw std::length_error("unterminated source in bounded span");
+}
+
 // Wii symbol: IntToString__6AttribFPcUi, 0x8007AE64, 120 bytes.
 std::string IntToString(std::uint32_t value) {
     std::string result;
