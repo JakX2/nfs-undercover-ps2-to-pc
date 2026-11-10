@@ -48,6 +48,8 @@ WiiMutableSnapshot Fixture(std::uint8_t status=0, bool complete_matrix=true) {
         body[0x400+0x5D] = status;
         return WiiMutableSnapshot({{kBody, std::move(body)}});
     }
+    // The wrapper lives inside the body fixture region for both paths.
+    Put32(body, 0x200, kState);
     // Map everything necessary to run V10, but deliberately leave
     // orientation matrix state+0x70 through +0xAC unavailable.
     std::vector<std::uint8_t> state(0x70, 0);
