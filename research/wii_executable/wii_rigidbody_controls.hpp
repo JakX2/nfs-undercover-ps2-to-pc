@@ -21,6 +21,8 @@ bool RigidBodyIsSleeping(const attrib::WiiAddressSpace& m, std::uint32_t body);
 bool RigidBodyIsModeling(const attrib::WiiAddressSpace& m, std::uint32_t body);
 float RigidBodyMass(const attrib::WiiAddressSpace& m, std::uint32_t body);
 float RigidBodyGravity(const attrib::WiiAddressSpace& m, std::uint32_t body);
+Vec3 RigidBodyPosition(const attrib::WiiAddressSpace& m, std::uint32_t body);
+Vec3 RigidBodyAngularVelocity(const attrib::WiiAddressSpace& m, std::uint32_t body);
 Vec3 RigidBodyForce(const attrib::WiiAddressSpace& m, std::uint32_t body);
 Vec3 RigidBodyTorque(const attrib::WiiAddressSpace& m, std::uint32_t body);
 Vec3 RigidBodyCenterOfGravity(const attrib::WiiAddressSpace& m, std::uint32_t body);
@@ -42,6 +44,9 @@ private:
 };
 
 void RigidBodySetAnchored(WiiMutableSnapshot& m, std::uint32_t body, bool anchored);
+void RigidBodySetPosition(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
+void RigidBodySetLinearVelocity(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
+void RigidBodySetAngularVelocity(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 void RigidBodySetForce(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 void RigidBodySetTorque(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
@@ -52,5 +57,12 @@ void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body, Vec3
  enum class IntegrationPrefixPath { inactive_cleared, active_velocity_updated };
  IntegrationPrefixPath ApplyDoIntegrationVelocityPrefix(
      WiiMutableSnapshot& m, std::uint32_t body, float timestep);
+
+// V8 extends the verified active path only as far as 0x8030FB2C:
+// linear velocity FMA, torque *= timestep, position += velocity*timestep.
+// Neither angular integration nor later clamps are included. The previous
+// V7 prefix remains available for an isolated comparison.
+IntegrationPrefixPath ApplyDoIntegrationTranslationPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep);
 
 }  // namespace undercover::vehicle
