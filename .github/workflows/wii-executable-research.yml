@@ -41,8 +41,17 @@ jobs:
             research/wii_executable/attrib_memory.cpp \
             research/wii_executable/test_attrib_memory.cpp \
             -o /tmp/nfsuc-attrib-memory-tests
-      - name: Run C++ behavioral and bounded packet regression controls
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/test_wii_vehicle_snapshot.cpp \
+            -o /tmp/nfsuc-wii-vehicle-tests
+      - name: Run C++ behavioral, memory and vehicle snapshot regressions
         run: |
           /tmp/nfsuc-attrib-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-tweak-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-memory-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-vehicle-tests
