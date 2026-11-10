@@ -350,4 +350,43 @@ IntegrationPrefixPath ApplyDoIntegrationAngularPrefix(
     return IntegrationPrefixPath::active_velocity_updated;
 }
 
+
+// V10 continues from 0x8030FBD8 to the last clamp store 0x8030FCF0.
+// Original constants from the owner's Wii ELF .sdata2 are:
+//   r2-24500 -> +300.0f, r2-24496 -> -300.0f
+//   r2-24492 ->  +30.0f, r2-24488 ->  -30.0f.
+// PPC comparisons use ordered floating point. The first comparison against
+// the upper bound is LT; unordered comparisons take the upper branch.
+// The second comparison checks whether the lower bound is GREATER than
+// the upper-capped value. Host comparison ordering deliberately mirrors it.
+namespace {
+float ClampWiiComponent(float value, float lower, float upper) {
+    const float upper_capped = (value < upper) ? value : upper;
+    return (lower > upper_capped) ? lower : upper_capped;
+}
+Vec3 ClampWiiVec(Vec3 v, float bound) {
+    return {ClampWiiComponent(v.x, -bound, bound),
+            ClampWiiComponent(v.y, -bound, bound),
+            ClampWiiComponent(v.z, -bound, bound)};
+}
+}  // namespace
+
+IntegrationPrefixPath ApplyDoIntegrationClampedAngularPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep) {
+    WiiMutableSnapshot next = m;
+    const auto path = ApplyDoIntegrationAngularPrefix(next, body, timestep);
+    if (path == IntegrationPrefixPath::inactive_cleared) {
+        m = std::move(next);
+        return path;
+    }
+    const auto view = next.ReadOnly();
+    const std::uint32_t state = RigidBodyStateAddress(view, body);
+    const Vec3 linear = ReadVec3(view, Add(state, 0x20));
+    const Vec3 angular = ReadVec3(view, Add(state, 0x30));
+    next.WriteVec3BE(Add(state, 0x20), ClampWiiVec(linear, 300.f));
+    next.WriteVec3BE(Add(state, 0x30), ClampWiiVec(angular, 30.f));
+    m = std::move(next);
+    return IntegrationPrefixPath::active_velocity_updated;
+}
+
 }  // namespace undercover::vehicle
