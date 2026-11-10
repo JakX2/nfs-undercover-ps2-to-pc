@@ -46,4 +46,11 @@ void RigidBodySetForce(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 void RigidBodySetTorque(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 void RigidBodySetCenterOfGravity(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value);
 
+ // Partial, isolated reconstruction of the FIRST state writes in Wii
+ // DoIntegration__9RigidBodyFf (0x8030F9C4). This DOES NOT simulate a frame:
+ // it stops after the three state velocity stores or the inactive zeroing.
+ enum class IntegrationPrefixPath { inactive_cleared, active_velocity_updated };
+ IntegrationPrefixPath ApplyDoIntegrationVelocityPrefix(
+     WiiMutableSnapshot& m, std::uint32_t body, float timestep);
+
 }  // namespace undercover::vehicle
