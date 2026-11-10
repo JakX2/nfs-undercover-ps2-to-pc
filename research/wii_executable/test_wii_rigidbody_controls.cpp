@@ -384,6 +384,58 @@ void TestVelocitySaturationPrefix() {
     assert(Equal(RigidBodyAngularVelocity(inactive.ReadOnly(), kBody), {0, 0, 0}));
 }
 
+
+void TestV10IndependentPhaseBoundaries() {
+    // Synthetic control: zero timestep preserves position and velocity but
+    // consumes the torque workspace in the verified V8/V9 sequence.
+    auto zero = Fixture(0, 0, 0);
+    RigidBodySetPosition(zero, kBody, {17.f, -5.f, 9.f});
+    RigidBodySetLinearVelocity(zero, kBody, {3.f, -4.f, 5.f});
+    RigidBodySetAngularVelocity(zero, kBody, {6.f, 7.f, -8.f});
+    RigidBodySetForce(zero, kBody, {12.f, 14.f, 16.f});
+    RigidBodySetTorque(zero, kBody, {2.f, -3.f, 4.f});
+    zero.WriteVec3BE(kState + 0x3C, {0.25f, 0.f, 0.f});
+    zero.WriteVec3BE(kBody + 0x84, {2.f, 0.f, 0.f});
+    zero.WriteVec3BE(kBody + 0x94, {0.f, 3.f, 0.f});
+    zero.WriteVec3BE(kBody + 0xA4, {0.f, 0.f, 4.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(zero, kBody, 0.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyPosition(zero.ReadOnly(), kBody), {17.f, -5.f, 9.f}));
+    assert(Equal(RigidBodyVelocity(zero.ReadOnly(), kBody), {3.f, -4.f, 5.f}));
+    assert(Equal(RigidBodyAngularVelocity(zero.ReadOnly(), kBody), {6.f, 7.f, -8.f}));
+    assert(Equal(RigidBodyTorque(zero.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+    assert(Equal(RigidBodyForce(zero.ReadOnly(), kBody), {12.f, 14.f, 16.f}));
+
+    // Any nonzero status, including 255, bypasses all active-path reads.
+    std::vector<std::uint8_t> owner(0x300, 0);
+    Put32(owner, 0x70, kBody + 0x200);
+    Put32(owner, 0x200, kState);
+    std::vector<std::uint8_t> linear(12, 0), angular(12, 0);
+    PutF32(linear, 0, 9.f);
+    PutF32(angular, 0, -7.f);
+    WiiMutableSnapshot inactive({
+        {kBody, std::move(owner)},
+        {kState + 0x20, std::move(linear)},
+        {kState + 0x30, std::move(angular)},
+        {kState + 0x5D, {255}}
+    });
+    assert(ApplyDoIntegrationClampedAngularPrefix(inactive, kBody, 0.125f) ==
+           IntegrationPrefixPath::inactive_cleared);
+    assert(Equal(RigidBodyVelocity(inactive.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+    assert(Equal(RigidBodyAngularVelocity(inactive.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+
+    // Asymmetric nonidentity matrix detects accidental transpose or identity.
+    auto cross = Fixture(0, 0, 0);
+    RigidBodySetTorque(cross, kBody, {1.f, 2.f, 3.f});
+    cross.WriteVec3BE(kBody + 0x84, {0.f, 1.f, 2.f});
+    cross.WriteVec3BE(kBody + 0x94, {3.f, 0.f, 4.f});
+    cross.WriteVec3BE(kBody + 0xA4, {5.f, 6.f, 0.f});
+    assert(ApplyDoIntegrationAngularPrefix(cross, kBody, 1.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyTorque(cross.ReadOnly(), kBody), {21.f, 19.f, 10.f}));
+    assert(Equal(RigidBodyAngularVelocity(cross.ReadOnly(), kBody), {21.f, 19.f, 10.f}));
+}
+
 } // namespace
 
 int main() {
@@ -394,4 +446,5 @@ int main() {
     TestTranslationAndTorquePrefix();
     TestAngularInertiaPrefix();
     TestVelocitySaturationPrefix();
+    TestV10IndependentPhaseBoundaries();
 }
