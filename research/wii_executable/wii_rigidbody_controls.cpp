@@ -106,6 +106,16 @@ float RigidBodyGravity(const attrib::WiiAddressSpace& m, std::uint32_t body) {
     return ReadWiiF32(m, Add(object, 0xF0));
 }
 
+Vec3 RigidBodyPosition(const attrib::WiiAddressSpace& m, std::uint32_t body) {
+    // GetPosition__9RigidBodyCFv at 0x803012B8, returns state +0x10.
+    return ReadVec3(m, StateField(m, body, 0x10));
+}
+
+Vec3 RigidBodyAngularVelocity(const attrib::WiiAddressSpace& m, std::uint32_t body) {
+    // GetAngularVelocity__9RigidBodyCFv at 0x803012A8, state+0x30.
+    return ReadVec3(m, StateField(m, body, 0x30));
+}
+
 Vec3 RigidBodyForce(const attrib::WiiAddressSpace& m, std::uint32_t body) {
     // GetForce__9RigidBodyCFv at 0x80300FAC returns state+0x50.
     return ReadVec3(m, StateField(m, body, 0x50));
@@ -179,6 +189,23 @@ void RigidBodySetAnchored(WiiMutableSnapshot& m, std::uint32_t body, bool anchor
                                   : std::uint16_t(old & ~0x0080u));
 }
 
+void RigidBodySetPosition(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value) {
+    // SetPosition__9RigidBodyFRCQ25UMath7Vector3 at 0x8030E3B4.
+    m.WriteVec3BE(StateField(m.ReadOnly(), body, 0x10), value);
+}
+
+void RigidBodySetLinearVelocity(WiiMutableSnapshot& m, std::uint32_t body,
+                                Vec3 value) {
+    // SetLinearVelocity__9RigidBodyFRCQ25UMath7Vector3 at 0x8030E3D8.
+    m.WriteVec3BE(StateField(m.ReadOnly(), body, 0x20), value);
+}
+
+void RigidBodySetAngularVelocity(WiiMutableSnapshot& m, std::uint32_t body,
+                                 Vec3 value) {
+    // SetAngularVelocity__9RigidBodyFRCQ25UMath7Vector3 at 0x8030E3FC.
+    m.WriteVec3BE(StateField(m.ReadOnly(), body, 0x30), value);
+}
+
 void RigidBodySetForce(WiiMutableSnapshot& m, std::uint32_t body, Vec3 value) {
     // SetForce__9RigidBodyFRCQ25UMath7Vector3 at 0x80300FE0.
     m.WriteVec3BE(StateField(m.ReadOnly(), body, 0x50), value);
@@ -232,6 +259,45 @@ IntegrationPrefixPath ApplyDoIntegrationVelocityPrefix(
         std::fma(force.z, factor, velocity.z)
     };
     next.WriteVec3BE(velocity_at, updated);
+    m = std::move(next);
+    return IntegrationPrefixPath::active_velocity_updated;
+}
+
+// V8 extends the verified original 0x8030FA28..0x8030FB2C active path.
+// After force-to-linear-velocity FMA, the Wii code scales the stored torque
+// vector at state+0x60 by dt, then advances position at state+0x10 using
+// the just-updated velocity. It also computes angular-inertia intermediates
+// which are intentionally NOT reconstructed here. This function is NOT a
+// complete DoIntegration update, nor a live Wii memory patcher.
+IntegrationPrefixPath ApplyDoIntegrationTranslationPrefix(
+    WiiMutableSnapshot& m, std::uint32_t body, float timestep) {
+    // One outer transaction includes all three disjoint affected areas.
+    // Even if position or torque validation fails after updating velocity in
+    // the private next snapshot, the caller's original bytes are unchanged.
+    WiiMutableSnapshot next = m;
+    const IntegrationPrefixPath path =
+        ApplyDoIntegrationVelocityPrefix(next, body, timestep);
+    if (path == IntegrationPrefixPath::inactive_cleared) {
+        m = std::move(next);
+        return path;
+    }
+    const auto snapshot = next.ReadOnly();
+    const std::uint32_t state = RigidBodyStateAddress(snapshot, body);
+    const Vec3 torque = ReadVec3(snapshot, Add(state, 0x60));
+    const Vec3 position = ReadVec3(snapshot, Add(state, 0x10));
+    const Vec3 velocity = ReadVec3(snapshot, Add(state, 0x20));
+    const Vec3 scaled_torque{
+        torque.x * timestep,
+        torque.y * timestep,
+        torque.z * timestep
+    };
+    const Vec3 updated_position{
+        std::fma(velocity.x, timestep, position.x),
+        std::fma(velocity.y, timestep, position.y),
+        std::fma(velocity.z, timestep, position.z)
+    };
+    next.WriteVec3BE(Add(state, 0x60), scaled_torque);
+    next.WriteVec3BE(Add(state, 0x10), updated_position);
     m = std::move(next);
     return IntegrationPrefixPath::active_velocity_updated;
 }
