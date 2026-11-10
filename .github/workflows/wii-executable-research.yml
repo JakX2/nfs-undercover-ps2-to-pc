@@ -28,5 +28,13 @@ jobs:
             research/wii_executable/attrib_text.cpp \
             research/wii_executable/test_attrib_text.cpp \
             -o /tmp/nfsuc-attrib-tests
-      - name: Run C++ behavioral regression controls
-        run: /tmp/nfsuc-attrib-tests
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/test_attrib_tweak.cpp \
+            -o /tmp/nfsuc-attrib-tweak-tests
+      - name: Run C++ behavioral and bounded packet regression controls
+        run: |
+          /tmp/nfsuc-attrib-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-tweak-tests
