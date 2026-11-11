@@ -165,6 +165,17 @@ jobs:
             research/wii_executable/wii_rigidbody_drag.cpp \
             research/wii_executable/test_wii_rigidbody_pipeline.cpp \
             -o /tmp/nfsuc-wii-rigidbody-pipeline-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_resolve.cpp \
+            research/wii_executable/wii_rigidbody_detach.cpp \
+            research/wii_executable/test_wii_rigidbody_detach.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-detach-tests
       - name: Run C++ behavioral, memory and vehicle state regressions
         run: |
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-drag-gates-tests
@@ -182,3 +193,4 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-transform-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-drag-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-pipeline-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-detach-tests
