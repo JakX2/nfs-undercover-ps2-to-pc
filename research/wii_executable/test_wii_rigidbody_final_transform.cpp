@@ -188,6 +188,25 @@ void TestReciprocalStrictBoundaryAndUnaffectedState() {
     assert(Near(after.z, prior.z));
 }
 
+
+void TestZeroCenterOffsetDoesNotTranslateRotatingBody() {
+    // Independent synthetic invariant: orientation changes, but with no
+    // body-side center offset the center correction is exactly zero.
+    auto s = Fixture();
+    RigidBodySetCenterOfGravity(s, kBody, {0.f, 0.f, 0.f});
+    RigidBodySetPosition(s, kBody, {13.f, -17.f, 19.f});
+    RigidBodySetAngularVelocity(s, kBody, {0.f, 0.f, 2.f});
+    assert(ApplyDoIntegrationPostOrientationStage(s, kBody, 0.5f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    const auto pos = RigidBodyPosition(s.ReadOnly(), kBody);
+    assert(pos.x == 13.f && pos.y == -17.f && pos.z == 19.f);
+    const auto q = RigidBodyQuaternion(s.ReadOnly(), kBody);
+    assert(Near(q.z, 0.4472136f) && Near(q.w, 0.8944272f));
+    const auto matrix = RigidBodyBodyMatrix(s.ReadOnly(), kBody);
+    assert(Near(matrix[0], .34f) && Near(matrix[1], .12f));
+    assert(Near(matrix[4], .12f) && Near(matrix[5], .41f));
+}
+
 } // namespace
 
 int main() {
@@ -197,4 +216,5 @@ int main() {
     TestInactiveSkipsBodyTransform();
     TestMissingBodyMatrixWriteRollsBackWholeTick();
     TestReciprocalStrictBoundaryAndUnaffectedState();
+    TestZeroCenterOffsetDoesNotTranslateRotatingBody();
 }
