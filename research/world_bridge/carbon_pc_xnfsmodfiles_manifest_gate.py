@@ -28,7 +28,8 @@ def parse_one_carbon_control(config_bytes, expected_relative_path):
     """
     if (type(config_bytes) is not bytes or
             not 0 < len(config_bytes) <= MAX_CONFIG_BYTES or
-            b'\x00' in config_bytes or b'\r' in config_bytes):
+            b'\x00' in config_bytes or
+            b'\r' in config_bytes.replace(b'\r\n', b'')):
         raise ValueError('Unsafe Carbon external loader manifest')
     try:
         text = config_bytes.decode('ascii')
