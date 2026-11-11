@@ -460,6 +460,25 @@ void TestV10OrderedClampNeighbors() {
                  {above_linear, below_linear, inside_linear}));
 }
 
+
+void TestV10MatrixAndClampComposition() {
+    // Independent arithmetic oracle for a nontrivial, asymmetric body matrix.
+    // V9 transforms timestep-scaled torque; V10 clamps the resulting angular
+    // velocity, but preserves the unclamped torque workspace.
+    auto s = Fixture(0, 0, 0);
+    RigidBodySetAngularVelocity(s, kBody, {29.f, -29.f, 5.f});
+    RigidBodySetTorque(s, kBody, {4.f, -6.f, 8.f});
+    s.WriteVec3BE(kBody + 0x84, {2.f, 1.f, 0.f});
+    s.WriteVec3BE(kBody + 0x94, {0.f, 3.f, -1.f});
+    s.WriteVec3BE(kBody + 0xA4, {1.f, 0.f, 4.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(s, kBody, 2.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    // Scaled torque (8,-12,16) maps to (32,-28,76).
+    assert(Equal(RigidBodyTorque(s.ReadOnly(), kBody), {32.f, -28.f, 76.f}));
+    assert(Equal(RigidBodyAngularVelocity(s.ReadOnly(), kBody), {30.f, -30.f, 30.f}));
+    assert(Equal(RigidBodyVelocity(s.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+}
+
 } // namespace
 
 int main() {
@@ -472,4 +491,5 @@ int main() {
     TestVelocitySaturationPrefix();
     TestV10IndependentPhaseBoundaries();
     TestV10OrderedClampNeighbors();
+    TestV10MatrixAndClampComposition();
 }
