@@ -104,6 +104,12 @@ void TestOnlyNineWiiMatrixWordsRequired() {
     Check(WiiRigidBodyBaseConvertLocalToWorld(minimal.ReadOnly(), body,
                                              {4.f, 5.f, 6.f}, false),
           {4.f, 5.f, 6.f});
+    // Unlike ConvertLocalToWorld, the original inverse method's
+    // transpose loop reads all 16 source-matrix words.
+    MustThrow<std::out_of_range>([&] {
+        (void)WiiRigidBodyBaseConvertWorldToLocal(minimal.ReadOnly(), body,
+                                                  {4.f, 5.f, 6.f}, false);
+    });
     MustThrow<std::out_of_range>([&] {
         (void)WiiRigidBodyBaseConvertLocalToWorld(minimal.ReadOnly(), body,
                                                   {4.f, 5.f, 6.f}, true);
@@ -113,10 +119,47 @@ void TestOnlyNineWiiMatrixWordsRequired() {
                                                   {1.f, 2.f, 3.f}, false);
     });
 }
+
+void TestWorldToLocalTransposeAndTranslation() {
+    auto m = Fixture();
+    Check(WiiRigidBodyBaseConvertWorldToLocal(m.ReadOnly(), body,
+                                             {11.f, 22.f, 33.f}, true),
+          {1.f, 2.f, 3.f});
+    Check(WiiRigidBodyBaseConvertWorldToLocal(m.ReadOnly(), body,
+                                             {11.f, 22.f, 33.f}, false),
+          {11.f, 22.f, 33.f});
+
+    m.WriteMatrix4BE(state + 0x70, {
+         0.f, 1.f, 0.f, 0.f,
+        -1.f, 0.f, 0.f, 0.f,
+         0.f, 0.f, 1.f, 0.f,
+         0.f, 0.f, 0.f, 1.f
+    });
+    Check(WiiRigidBodyBaseConvertWorldToLocal(m.ReadOnly(), body,
+                                             {7.f, 22.f, 34.f}, true),
+          {2.f, 3.f, 4.f});
+    Check(WiiRigidBodyBaseConvertWorldToLocal(m.ReadOnly(), body,
+                                             {0.f, 1.f, 0.f}, false),
+          {1.f, 0.f, 0.f});
+
+    // A non-orthonormal matrix distinguishes row/column selection
+    // independently from the quaternion-based rotation example.
+    m.WriteMatrix4BE(state + 0x70, {
+         2.f, 3.f, 4.f, 99.f,
+         5.f, 6.f, 7.f, 98.f,
+         8.f, 9.f,10.f, 97.f,
+        11.f,12.f,13.f, 96.f
+    });
+    Check(WiiRigidBodyBaseConvertWorldToLocal(m.ReadOnly(), body,
+                                             {1.f, 2.f, 3.f}, false),
+          {20.f, 38.f, 56.f});
+}
+
 } // namespace
 
 int main() {
     TestIdentityAndTranslationFlag();
     TestOriginalMatrixConventions();
     TestOnlyNineWiiMatrixWordsRequired();
+    TestWorldToLocalTransposeAndTranslation();
 }
