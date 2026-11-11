@@ -3,9 +3,12 @@
 No retail Carbon/Undercover IDs, binaries or game assets.
 """
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
-from carbon_pc_resource_namespace_gate import audit_carbon_registration_namespace
+from carbon_pc_resource_namespace_gate import (
+    audit_carbon_registration_namespace, read_private_carbon_roots)
 from undercover_pc_geometry_bridge import convert_decoded_ps2_model
 from test_texture_visual_pair_gate import make_pack
 from texture_metadata_pixel_bridge import parse_pack
@@ -162,6 +165,49 @@ class CarbonNamespaceGateTests(unittest.TestCase):
         self.assertEqual(report['candidate_materials_unresolved'], 0)
         self.assertEqual(report['candidate_materials_resolved_by_candidate'], 1)
         self.assertEqual(report['candidate_materials_resolved_by_native'], 1)
+
+
+
+class PrivateReadOnlyRootTests(unittest.TestCase):
+    def test_reads_private_synthetic_roots_without_modification(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'native_carbon_geometry_root.bin'
+            original = geometry(NATIVE_MODEL, (NATIVE_TEX,))
+            path.write_bytes(original)
+            before = path.stat()
+            self.assertEqual(read_private_carbon_roots((path,)), (original,))
+            after = path.stat()
+            self.assertEqual((before.st_size, before.st_mtime_ns),
+                             (after.st_size, after.st_mtime_ns))
+
+    def test_reject_missing_and_unsafe_input(self):
+        with self.assertRaises(ValueError):
+            read_private_carbon_roots(())
+        with self.assertRaises(ValueError):
+            read_private_carbon_roots((object(),))
+        with self.assertRaises(ValueError):
+            read_private_carbon_roots(('/not/a/real/CarbonPCroot.bin',))
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'small.bin'
+            path.write_bytes(b'abc')
+            with self.assertRaises(ValueError):
+                read_private_carbon_roots((path,))
+
+    def test_reject_owner_file_symlink(self):
+        with tempfile.TemporaryDirectory() as temp:
+            origin = Path(temp) / 'origin.bin'
+            alias = Path(temp) / 'alias.bin'
+            origin.write_bytes(images(NATIVE_TEX))
+            try:
+                alias.symlink_to(origin)
+            except (OSError, NotImplementedError):
+                self.skipTest('host cannot create symlinks')
+            with self.assertRaises(ValueError):
+                read_private_carbon_roots((alias,))
+
+    def test_reject_excessive_root_references(self):
+        with self.assertRaises(ValueError):
+            read_private_carbon_roots(tuple('a' for _ in range(33)))
 
 
 if __name__ == '__main__':
