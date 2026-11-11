@@ -62,9 +62,11 @@ WiiEndFrameResult ApplyRigidBodyOnEndFrame(
         callbacks.do_drag(next, body);
         result.drag_dispatched = true;
 
-        // 0x8030EAEC..EB10: body virtual slot +0x3AC. Its return
-        // value is tested against 0; if true, state status := 1.
-        // It is NOT yet safe to name this virtual method "Sleep".
+        // 0x8030EAEC..EB10: body virtual slot +0x3AC. The original
+        // RigidBody base vtable at 0x805A8438 maps this slot to
+        // ShouldSleep__9RigidBodyCFv (0x80315D18), independently recovered
+        // in wii_rigidbody_sleep.cpp. Derived bodies may override it.
+        // If true, state status := 1.
         Require(static_cast<bool>(callbacks.should_sleep),
                 "missing Wii virtual +0x3AC host callback");
         if (callbacks.should_sleep(next, body)) {
