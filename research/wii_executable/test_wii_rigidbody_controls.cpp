@@ -479,6 +479,25 @@ void TestV10MatrixAndClampComposition() {
     assert(Equal(RigidBodyVelocity(s.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
 }
 
+
+void TestV10ForceIntegrationBeforeSaturation() {
+    // Synthetic independent oracle: acceleration and translation precede
+    // componentwise saturation; force is not consumed by this prefix.
+    auto s = Fixture(0, 0, 0);
+    RigidBodySetPosition(s, kBody, {4.f, 8.f, -12.f});
+    RigidBodySetLinearVelocity(s, kBody, {299.f, -299.f, 2.f});
+    RigidBodySetForce(s, kBody, {4.f, -8.f, 12.f});
+    s.WriteVec3BE(kState + 0x3C, {0.5f, 0.f, 0.f});
+    assert(ApplyDoIntegrationClampedAngularPrefix(s, kBody, 1.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    // v'=(301,-303,8), position'=(305,-295,-4).
+    assert(Equal(RigidBodyPosition(s.ReadOnly(), kBody), {305.f, -295.f, -4.f}));
+    assert(Equal(RigidBodyVelocity(s.ReadOnly(), kBody), {300.f, -300.f, 8.f}));
+    assert(Equal(RigidBodyForce(s.ReadOnly(), kBody), {4.f, -8.f, 12.f}));
+    assert(Equal(RigidBodyTorque(s.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+    assert(Equal(RigidBodyAngularVelocity(s.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
+}
+
 } // namespace
 
 int main() {
@@ -492,4 +511,5 @@ int main() {
     TestV10IndependentPhaseBoundaries();
     TestV10OrderedClampNeighbors();
     TestV10MatrixAndClampComposition();
+    TestV10ForceIntegrationBeforeSaturation();
 }
