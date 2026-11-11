@@ -7,6 +7,8 @@ The returned report deliberately omits every model/texture ID and name.
 A passing result is a *local namespace preflight*, NOT rendering proof.
 """
 
+from pathlib import Path
+
 from geometry_hash_control import (
     PLATFORM_PC, SOLID_ROOT, parse_geometry_root, parse_solid, read_chunks,
 )
@@ -61,6 +63,35 @@ def _roots(roots, kind):
     if type(roots) not in (tuple, list) or not 1 <= len(roots) <= MAX_REFERENCE_ROOTS:
         raise ValueError('Required bounded owner-original Carbon PC ' + kind + ' roots')
     return roots
+
+
+MAX_OWNER_ROOT_BYTES = 32 * 1024 * 1024
+
+
+def read_private_carbon_roots(paths):
+    """Read original PC resource roots privately, without writing any files.
+
+    Paths are never returned or printed. This only supplies owner-local
+    in-memory bytes to the preflight; it does not scan/install an archive.
+    """
+    result = []
+    for original_path in _roots(paths, 'file'):
+        if not isinstance(original_path, (str, Path)):
+            raise ValueError('Original Carbon root path must be a local filename')
+        p = Path(original_path).absolute()
+        if any(node.is_symlink() for node in (p, *p.parents)) or not p.is_file():
+            raise ValueError('Missing or unsafe owner-private Carbon PC root')
+        before = p.stat()
+        if not 40 <= before.st_size <= MAX_OWNER_ROOT_BYTES:
+            raise ValueError('Owner-private Carbon PC root exceeds inspection bound')
+        blob = p.read_bytes()
+        after = p.stat()
+        if (len(blob) != before.st_size or
+                (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) !=
+                (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+            raise ValueError('Carbon PC root changed during read-only inspection')
+        result.append(blob)
+    return tuple(result)
 
 
 def audit_carbon_registration_namespace(
