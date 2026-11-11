@@ -95,7 +95,9 @@ void TestZeroTinyAndSpecialCases() {
     s = Fixture(3, 2.f, 100.f);
     RigidBodySetLinearVelocity(s, kBody,
         {std::numeric_limits<float>::quiet_NaN(), 0.f, 0.f});
-    assert(!WiiRigidBodyBaseShouldSleep(s.ReadOnly(), kBody));
+    // The original rsqrt helper returns zero for an unordered input,
+    // so the linear contribution disappears rather than propagating NaN.
+    assert(WiiRigidBodyBaseShouldSleep(s.ReadOnly(), kBody));
     s = Fixture(3, 2.f, std::numeric_limits<float>::infinity());
     assert(WiiRigidBodyBaseShouldSleep(s.ReadOnly(), kBody));
 }
