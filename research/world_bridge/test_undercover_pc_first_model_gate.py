@@ -170,13 +170,16 @@ class RankingTests(unittest.TestCase):
 
 
 class SingleModelRoundtripTests(unittest.TestCase):
-    def run_valid(self, rowdata=None, source=None, mip_levels=3):
+    def run_valid(self, rowdata=None, source=None, mip_levels=3,
+                  native_geo=None, native_tex=None):
         with patch('triangle_corner_uv_control.ps2_geometry_attributes',
                    return_value=(POSITIONS, UV, FACES, LABELS)):
             return verify_single_model(
                 selected() if rowdata is None else rowdata,
                 make_pack('ps2', bits=8, hashes=(A, B)) if source is None else source,
-                mip_levels=mip_levels)
+                mip_levels=mip_levels,
+                native_carbon_geometry_roots=native_geo,
+                native_carbon_texture_roots=native_tex)
 
     def test_full_PC_geometry_and_two_dxt5_images(self):
         out = self.run_valid()
@@ -209,6 +212,53 @@ class SingleModelRoundtripTests(unittest.TestCase):
         self.assertEqual(out['native_scene_registration'], 'UNVERIFIED')
         self.assertFalse(out['safe_for_game_install'])
         self.assertFalse(out['game_files_written'])
+
+
+    def native_roots(self, collision_model=False, collision_texture=False):
+        from undercover_pc_geometry_bridge import convert_decoded_ps2_model
+        model = MODEL if collision_model else 0xAAAA5678
+        native_tex = A if collision_texture else 0xBBBB5678
+        native_geometry = convert_decoded_ps2_model(
+            model, (native_tex,), POSITIONS, UV, FACES, (0, 0))[0]
+        native_textures = make_pack('pc', hashes=(native_tex,))
+        return (native_geometry,), (native_textures,)
+
+    def test_optional_carbon_namespace_is_absent_by_default(self):
+        self.assertIsNone(self.run_valid()['carbon_pc_namespace_preflight'])
+
+    def test_optional_namespace_checks_real_converted_model_and_dxt5(self):
+        g, t = self.native_roots()
+        result = self.run_valid(native_geo=g, native_tex=t)
+        report = result['carbon_pc_namespace_preflight']
+        self.assertEqual(report['namespace_gate'],
+                         'ELIGIBLE_FOR_OWNER_LOCAL_EXPERIMENT_NOT_RUNTIME_PROOF')
+        self.assertEqual(report['candidate_model_count'], 1)
+        self.assertEqual(report['candidate_texture_count'], 2)
+        self.assertEqual(report['candidate_materials_unresolved'], 0)
+        self.assertFalse(result['safe_for_game_install'])
+        self.assertFalse(report['in_game_rendering_verified'])
+
+    def test_optional_namespace_reports_model_collision_without_disclosing_id(self):
+        g, t = self.native_roots(collision_model=True)
+        result = self.run_valid(native_geo=g, native_tex=t)
+        report = result['carbon_pc_namespace_preflight']
+        self.assertEqual(report['namespace_gate'], 'BLOCKED')
+        self.assertEqual(report['candidate_models_colliding_with_native'], 1)
+        self.assertNotIn(str(MODEL), json.dumps(report))
+
+    def test_optional_namespace_reports_texture_collision(self):
+        g, t = self.native_roots(collision_texture=True)
+        report = self.run_valid(native_geo=g, native_tex=t)['carbon_pc_namespace_preflight']
+        self.assertEqual(report['namespace_gate'], 'BLOCKED')
+        self.assertEqual(report['candidate_textures_colliding_with_native'], 1)
+        self.assertEqual(report['candidate_materials_unresolved'], 0)
+
+    def test_optional_namespace_requires_both_carbon_roots(self):
+        g, t = self.native_roots()
+        with self.assertRaises(ValueError):
+            self.run_valid(native_geo=g)
+        with self.assertRaises(ValueError):
+            self.run_valid(native_tex=t)
 
     def test_wrong_source_faces_refused(self):
         x = selected()
