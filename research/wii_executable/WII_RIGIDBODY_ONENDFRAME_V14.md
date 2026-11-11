@@ -14,7 +14,7 @@ The original OnEndFrame__9RigidBodyFfb is at **0x8030EA74**, size **0xF8** bytes
 | 0x8030EAC4–0x8030EAD0 | Read body+0xE0 collider and call WCollider::IsEmpty at 0x80406778 |
 | 0x8030EAD4–0x8030EAE0 | If collider nonempty, call DoWorldCollisions at 0x80315538 with 2.0f multiplied by timestep |
 | 0x8030EAE4–0x8030EAE8 | Call DoDrag at 0x8030ED34 regardless of collision-pass boolean on the active path |
-| 0x8030EAEC–0x8030EB10 | Call unknown body virtual slot +0x3AC; if nonzero, set state+0x5D byte to 1 |
+| 0x8030EAEC–0x8030EB10 | Call virtual +0x3AC, resolved in RigidBody base vtable to ShouldSleep at 0x80315D18; if true set state+0x5D to 1. Derived override still possible. |
 | 0x8030EB14–0x8030EB24 | For nonzero state: body+0x2C object, virtual slot +0x50 resolves world-position object |
 | 0x8030EB28–0x8030EB3C | Call WWorldPos::Update at 0x80425B8C with state+0x10, body+0xC4, boolean true, null collider, boolean true |
 | 0x8030EB40–0x8030EB48 | Both paths clear processing flag 0x0400 from state flags+0x1C |
@@ -26,7 +26,7 @@ The r2-relative original float at displacement -24524 is exactly 2.0f (IEEE bits
 - wii_rigidbody_endframe.hpp/.cpp: ApplyRigidBodyOnEndFrame with an explicit WiiEndFrameCallbacks interface. All unknown original methods are represented as caller-supplied callbacks; they are **not reimplementations** of collision, drag or position synchronization.
 - WiiMutableSnapshot::WriteU8: a bounded host-owned synthetic Wii state-byte write, never an emulator/process patch.
 - One private copy-on-commit transaction: callback failure, invalid Wii address, or a missing callback on an invoked branch leaves the caller snapshot unchanged.
-- WiiEndFrameResult exposes original branch decisions and final status/flags to tests. The callback field named should_sleep describes the original nonzero-return effect, not a verified C++ virtual method name.
+- WiiEndFrameResult exposes original branch decisions and final status/flags to tests. The base Wii RigidBody vtable resolves callback should_sleep to the named ShouldSleep method; see WII_RIGIDBODY_SHOULDSLEEP_V15.md. Host injection remains necessary when derived-class overrides are unknown.
 
 ## Original-free tests
 
@@ -36,4 +36,4 @@ The dedicated GitHub Actions workflow builds/tests under Clang C++17 ASan/UBSan 
 
 ## What remains
 
-Original DoDrag at Wii 0x8030ED34 is longer, involving multiple flag gates, rsqrt calculations and virtual calls. Its behavior is deliberately not guessed by V14. UpdateCollider, DoWorldCollisions, the private virtual +0x3AC body method and world-position update are also still opaque. Next step: isolate drag subpaths with verifiable force/torque behavior, then compare owner-private Wii emulator memory traces with host results. The complete physics engine, PS2 MIPS reconciliation and playable native PC port remain unfinished.
+Original DoDrag at Wii 0x8030ED34 is longer, involving multiple flag gates, rsqrt calculations and virtual calls. Its behavior is deliberately not guessed by V14. UpdateCollider, DoWorldCollisions and world-position update remain opaque. The base virtual +0x3AC ShouldSleep is now separately reconstructed in V15, but runtime derived overrides remain open. Next step: isolate drag subpaths with verifiable force/torque behavior, then compare owner-private Wii emulator memory traces with host results. The complete physics engine, PS2 MIPS reconciliation and playable native PC port remain unfinished.
