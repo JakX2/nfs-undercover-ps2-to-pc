@@ -119,14 +119,16 @@ void TestIndependentVelocityContributionsAndThresholdEdges() {
     RigidBodySetLinearVelocity(linear, kBody, {6.f, 8.f, 0.f});
     RigidBodySetAngularVelocity(linear, kBody, {0.f, 0.f, 0.f});
     assert(!WiiRigidBodyBaseShouldSleep(linear.ReadOnly(), kBody));
-    linear.WriteF32BE(kEnvironment + 0xE0, 11.f);
+    linear = Fixture(3, 7.f, 11.f);
+    RigidBodySetAngularVelocity(linear, kBody, {0.f, 0.f, 0.f});
     assert(WiiRigidBodyBaseShouldSleep(linear.ReadOnly(), kBody));
 
     auto angular = Fixture(3, 2.f, 10.f);
     RigidBodySetLinearVelocity(angular, kBody, {0.f, 0.f, 0.f});
     RigidBodySetAngularVelocity(angular, kBody, {0.f, 3.f, 4.f});
     assert(!WiiRigidBodyBaseShouldSleep(angular.ReadOnly(), kBody));
-    angular.WriteF32BE(kEnvironment + 0xE0, 11.f);
+    angular = Fixture(3, 2.f, 11.f);
+    RigidBodySetLinearVelocity(angular, kBody, {0.f, 0.f, 0.f});
     assert(WiiRigidBodyBaseShouldSleep(angular.ReadOnly(), kBody));
 
     // A zero radius must suppress angular motion, not linear motion.
