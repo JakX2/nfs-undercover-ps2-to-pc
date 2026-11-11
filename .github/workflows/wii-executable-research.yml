@@ -131,8 +131,13 @@ jobs:
             research/wii_executable/wii_rigidbody_transform.cpp \
             research/wii_executable/test_wii_rigidbody_transform.cpp \
             -o /tmp/nfsuc-wii-rigidbody-transform-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/test_wii_rigidbody_drag_gates.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-drag-gates-tests
       - name: Run C++ behavioral, memory and vehicle state regressions
         run: |
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-drag-gates-tests
           /tmp/nfsuc-attrib-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-tweak-tests
           ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-memory-tests
