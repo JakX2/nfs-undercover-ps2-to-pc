@@ -8,10 +8,11 @@
 
 namespace undercover::vehicle {
 
-// This callback is a HOST-SIDE placeholder for the original Wii
-// RigidBody::Primitive::Prepare called once for each intrusive list node.
-// It must be supplied for nonempty primitive lists; no gameplay behavior
-// is invented for the unknown primitive implementation.
+// Callback for the original Wii RigidBody::Primitive::Prepare,
+// called once per intrusive primitive list node BEFORE integration.
+// V22 now provides the source-backed MakeWiiPrimitivePrepareCallback()
+// in wii_rigidbody_primitive.hpp. Injection remains supported to
+// compare alternative implementations and test callback failure.
 using WiiPrimitivePrepare = std::function<void(
     WiiMutableSnapshot& memory, std::uint32_t primitive_address,
     std::uint32_t state_address)>;
