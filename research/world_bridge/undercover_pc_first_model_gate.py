@@ -227,7 +227,9 @@ def verify_single_model(candidate, source_section, mip_levels=4,
 
 def audit_original(path, section=241, mip_levels=4,
                    min_triangles=4, max_triangles=2048,
-                   pc_header_profile='preserve_source'):
+                   pc_header_profile='preserve_source',
+                   native_carbon_geometry_roots=None,
+                   native_carbon_texture_roots=None):
     """Original owner's CRC-verified RB source archive; no file writes."""
     from undercover_ra_texture_presence_gate import (
         _owner_archive, _fingerprint, _member_bytes, parse_stream_section_rows,
@@ -258,8 +260,10 @@ def audit_original(path, section=241, mip_levels=4,
         min_triangles=min_triangles, max_triangles=max_triangles)
     if not ranked:
         raise ValueError('No primary-scene model passes strict full-table image closure')
-    result = verify_single_model(ranked[0], data, mip_levels,
-                                 pc_header_profile=pc_header_profile)
+    result = verify_single_model(
+        ranked[0], data, mip_levels, pc_header_profile=pc_header_profile,
+        native_carbon_geometry_roots=native_carbon_geometry_roots,
+        native_carbon_texture_roots=native_carbon_texture_roots)
     if _fingerprint(original) != before:
         raise ValueError('Original owner archive changed during read-only inspection')
     result.update({
@@ -281,11 +285,24 @@ def main():
     ap.add_argument('--max-triangles', type=int, default=2048)
     ap.add_argument('--pc-header-profile', choices=('preserve_source','carbon_native_control'),
                     default='preserve_source')
+    ap.add_argument('--carbon-pc-geometry-root', action='append',
+                    help='owner-private extracted Carbon PC geometry root; repeat for each')
+    ap.add_argument('--carbon-pc-texture-root', action='append',
+                    help='owner-private extracted Carbon PC texture root; repeat for each')
     args = ap.parse_args()
+    if bool(args.carbon_pc_geometry_root) != bool(args.carbon_pc_texture_root):
+        ap.error('both native Carbon PC geometry and texture roots are required')
+    native_geo = native_tex = None
+    if args.carbon_pc_geometry_root:
+        from carbon_pc_resource_namespace_gate import read_private_carbon_roots
+        native_geo = read_private_carbon_roots(args.carbon_pc_geometry_root)
+        native_tex = read_private_carbon_roots(args.carbon_pc_texture_root)
     print(json.dumps(audit_original(args.undercover_ps2_tracks_zip,
         section=args.source_section, mip_levels=args.mip_levels,
         min_triangles=args.min_triangles, max_triangles=args.max_triangles,
-        pc_header_profile=args.pc_header_profile), indent=2))
+        pc_header_profile=args.pc_header_profile,
+        native_carbon_geometry_roots=native_geo,
+        native_carbon_texture_roots=native_tex), indent=2))
 
 
 if __name__ == '__main__':
