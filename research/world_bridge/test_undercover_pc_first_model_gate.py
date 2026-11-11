@@ -310,5 +310,56 @@ class SingleModelRoundtripTests(unittest.TestCase):
         self.assertEqual(SOURCE_SECTIONS, (241, 3401))
 
 
+
+class NamespaceReadOnlyCliTests(unittest.TestCase):
+    def test_cli_dispatches_private_reference_roots_to_original_audit(self):
+        from undercover_pc_first_model_gate import main
+        args = ['undercover_pc_first_model_gate.py',
+                '--undercover-ps2-tracks-zip', 'owner-original.zip',
+                '--carbon-pc-geometry-root', 'owner-native-geom.bin',
+                '--carbon-pc-texture-root', 'owner-native-tex.bin']
+        with patch('sys.argv', args), \
+             patch('carbon_pc_resource_namespace_gate.read_private_carbon_roots',
+                   side_effect=[(b'GEOMETRY_PRIVATE',), (b'TEXTURE_PRIVATE',)]) as reader, \
+             patch('undercover_pc_first_model_gate.audit_original',
+                   return_value={'scope': 'READ_ONLY', 'game_rendering_verified': False}) as audit, \
+             patch('builtins.print') as output:
+            main()
+        self.assertEqual(reader.call_count, 2)
+        self.assertEqual(audit.call_args.kwargs['native_carbon_geometry_roots'],
+                         (b'GEOMETRY_PRIVATE',))
+        self.assertEqual(audit.call_args.kwargs['native_carbon_texture_roots'],
+                         (b'TEXTURE_PRIVATE',))
+        self.assertEqual(audit.call_args.args[0], 'owner-original.zip')
+        self.assertEqual(output.call_count, 1)
+        self.assertNotIn('GEOMETRY_PRIVATE', output.call_args.args[0])
+        self.assertNotIn('owner-native', output.call_args.args[0])
+
+    def test_cli_default_still_runs_without_carbon_refs(self):
+        from undercover_pc_first_model_gate import main
+        with patch('sys.argv', ['undercover_pc_first_model_gate.py',
+                                '--undercover-ps2-tracks-zip', 'owner.zip']), \
+             patch('undercover_pc_first_model_gate.audit_original',
+                   return_value={'scope': 'ORIGINAL'}) as audit, \
+             patch('builtins.print'):
+            main()
+        self.assertIsNone(audit.call_args.kwargs['native_carbon_geometry_roots'])
+        self.assertIsNone(audit.call_args.kwargs['native_carbon_texture_roots'])
+
+    def test_cli_refuses_only_one_carbon_reference_side(self):
+        from undercover_pc_first_model_gate import main
+        for flag in ('--carbon-pc-geometry-root', '--carbon-pc-texture-root'):
+            with self.subTest(flag=flag), \
+                 patch('sys.argv', ['undercover_pc_first_model_gate.py',
+                                    '--undercover-ps2-tracks-zip', 'owner.zip',
+                                    flag, 'incomplete.bin']), \
+                 patch('undercover_pc_first_model_gate.audit_original') as audit, \
+                 patch('sys.stderr'):
+                with self.assertRaises(SystemExit) as caught:
+                    main()
+                self.assertEqual(caught.exception.code, 2)
+                audit.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()
