@@ -112,7 +112,9 @@ def rank_candidates(packs, image_ids, scene_refs, section,
 
 
 def verify_single_model(candidate, source_section, mip_levels=4,
-                        pc_header_profile='preserve_source'):
+                        pc_header_profile='preserve_source',
+                        native_carbon_geometry_roots=None,
+                        native_carbon_texture_roots=None):
     """Convert ONE selected model and its complete texture table in memory.
 
     The original PS2 strip material triangle budget must equal the generated
@@ -123,6 +125,8 @@ def verify_single_model(candidate, source_section, mip_levels=4,
             'model_ordinal', 'triangles', 'source_material_budget',
             'scene_reference_count')):
         raise ValueError('No validated private model candidate selected')
+    if (native_carbon_geometry_roots is None) != (native_carbon_texture_roots is None):
+        raise ValueError('Both native Carbon PC geometry and texture roots required')
     if type(source_section) is not bytes:
         raise ValueError('Original source section must be immutable bytes')
     if type(mip_levels) is not int or not 1 <= mip_levels <= 16:
@@ -186,7 +190,17 @@ def verify_single_model(candidate, source_section, mip_levels=4,
             geo_report['generated_pc_triangles'] != candidate['triangles'] or
             not geo_report['all_f32_xyz_uv_texture_corner_faces_preserved']):
         raise ValueError('Candidate native PC geometry face/UV readback incomplete')
+    # Optional, owner-local Carbon namespace preflight: compare the REAL
+    # in-memory geometry/DXT5 output from this function against independently
+    # parsed original Carbon PC roots. Never serialize the resource bytes.
+    namespace = None
+    if native_carbon_geometry_roots is not None:
+        from carbon_pc_resource_namespace_gate import audit_carbon_registration_namespace
+        namespace = audit_carbon_registration_namespace(
+            geometry, images, native_carbon_geometry_roots,
+            native_carbon_texture_roots)
     return {
+        'carbon_pc_namespace_preflight': namespace,
         'scope': 'PRIVATE_OFFLINE_SINGLE_UNDERCOVER_MODEL_CANDIDATE_NOT_REGISTERED',
         'source_section': candidate['section'],
         'original_pack_ordinal_zero_based': candidate['pack_ordinal'],
