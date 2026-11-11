@@ -19,6 +19,7 @@ add_library(nfsuc_wii_physics STATIC
     wii_rigidbody_transform.cpp
     wii_rigidbody_drag.cpp
     wii_rigidbody_detach.cpp
+    wii_rigidbody_primitive.cpp
 )
 target_compile_features(nfsuc_wii_physics PUBLIC cxx_std_17)
 target_include_directories(nfsuc_wii_physics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -30,3 +31,8 @@ target_compile_features(nfsuc_physics_smoke PRIVATE cxx_std_17)
 enable_testing()
 add_test(NAME nfsuc_host_two_frame_physics COMMAND nfsuc_physics_smoke --steps 2)
 add_test(NAME nfsuc_host_four_frame_physics COMMAND nfsuc_physics_smoke --steps 4)
+
+add_executable(nfsuc_primitive_regressions test_wii_rigidbody_primitive.cpp)
+target_link_libraries(nfsuc_primitive_regressions PRIVATE nfsuc_wii_physics)
+target_compile_features(nfsuc_primitive_regressions PRIVATE cxx_std_17)
+add_test(NAME nfsuc_wii_primitive_world_transform COMMAND nfsuc_primitive_regressions)
