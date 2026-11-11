@@ -9,6 +9,20 @@
 - The host calls the V18 aerodynamic drag through the V16 base virtual interface, and invokes the V20 source-backed `Detach` method. Its synthetic object deliberately has the detached flag `0x0002` **clear**: original Detach takes the verified no-op branch. This does **not** fabricate the game's owner-event callbacks.
 - A CI workflow `.github/workflows/wii-native-host.yml` builds and tests this same native executable on **Windows (MSVC)** and **Linux (system compiler)**, without invoking Dolphin, downloading original game files, or relying on console toolchains. The two tests execute **2** and **4** steps, respectively.
 
+## Prebuilt CI binaries for source-only physics testing
+
+When the `Native Wii physics host smoke (Windows and Linux)` workflow
+passes, its artifacts contain `nfsuc_physics_smoke.exe` for Windows
+and `nfsuc_physics_smoke` for Linux. These **14-day CI artifacts**
+are compiled exclusively from independently authored host source and
+synthetic test data. They do not contain the original game executable,
+commercial assets or playable game content.
+
+Open the matching GitHub Actions run and locate the two downloadable
+artifacts under the run's **Artifacts** section. Those binaries run
+the console CSV smoke only, not the game. If the workflow has not yet
+completed successfully, use the source/CMake instructions below instead.
+
 ## Build on Windows (Visual Studio 2022 + CMake)
 
 ~~~powershell
