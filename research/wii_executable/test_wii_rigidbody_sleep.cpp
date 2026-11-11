@@ -112,6 +112,31 @@ void TestUnmappedPointerFailsClosed() {
         (void)WiiRigidBodyBaseShouldSleep(s.ReadOnly(), 0);
     });
 }
+
+void TestIndependentVelocityContributionsAndThresholdEdges() {
+    // Distinguish linear-only and angular-only paths using synthetic vectors.
+    auto linear = Fixture(3, 7.f, 10.f);
+    RigidBodySetLinearVelocity(linear, kBody, {6.f, 8.f, 0.f});
+    RigidBodySetAngularVelocity(linear, kBody, {0.f, 0.f, 0.f});
+    assert(!WiiRigidBodyBaseShouldSleep(linear.ReadOnly(), kBody));
+    linear.WriteF32BE(kEnvironment + 0xE0, 11.f);
+    assert(WiiRigidBodyBaseShouldSleep(linear.ReadOnly(), kBody));
+
+    auto angular = Fixture(3, 2.f, 10.f);
+    RigidBodySetLinearVelocity(angular, kBody, {0.f, 0.f, 0.f});
+    RigidBodySetAngularVelocity(angular, kBody, {0.f, 3.f, 4.f});
+    assert(!WiiRigidBodyBaseShouldSleep(angular.ReadOnly(), kBody));
+    angular.WriteF32BE(kEnvironment + 0xE0, 11.f);
+    assert(WiiRigidBodyBaseShouldSleep(angular.ReadOnly(), kBody));
+
+    // A zero radius must suppress angular motion, not linear motion.
+    auto radius_zero = Fixture(3, 0.f, 1.f);
+    RigidBodySetLinearVelocity(radius_zero, kBody, {0.f, 0.f, 0.f});
+    assert(WiiRigidBodyBaseShouldSleep(radius_zero.ReadOnly(), kBody));
+    RigidBodySetLinearVelocity(radius_zero, kBody, {6.f, 8.f, 0.f});
+    assert(!WiiRigidBodyBaseShouldSleep(radius_zero.ReadOnly(), kBody));
+}
+
 } // namespace
 
 int main() {
@@ -119,4 +144,5 @@ int main() {
     TestContactRequirement();
     TestZeroTinyAndSpecialCases();
     TestUnmappedPointerFailsClosed();
+    TestIndependentVelocityContributionsAndThresholdEdges();
 }
