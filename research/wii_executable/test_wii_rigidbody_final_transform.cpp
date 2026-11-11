@@ -165,6 +165,29 @@ void TestMissingBodyMatrixWriteRollsBackWholeTick() {
     assert(s.ReadOnly().ReadU32BE(kState+0x10) == 0);
     assert(s.ReadOnly().ReadU32BE(kBody+0x84) == 0x3F800000u);
 }
+
+void TestReciprocalStrictBoundaryAndUnaffectedState() {
+    // Synthetic V12 regression: the Wii ordered GT comparison is strict.
+    // Exact threshold and zero remain unchanged; a larger positive input
+    // is reciprocated. This is not a runtime differential test.
+    auto s = Fixture();
+    const float threshold = 0.000001f;
+    s.WriteVec3BE(kState + 0x40, {threshold, 0.f, 0.000002f});
+    RigidBodySetPosition(s, kBody, {-3.f, 7.f, 11.f});
+    const auto prior = RigidBodyPosition(s.ReadOnly(), kBody);
+    assert(ApplyDoIntegrationPostOrientationStage(s, kBody, 0.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    const auto matrix = RigidBodyBodyMatrix(s.ReadOnly(), kBody);
+    assert(Near(matrix[0], threshold, 0.0000000001f));
+    assert(matrix[5] == 0.f);
+    assert(Near(matrix[10], 500000.f, 0.1f));
+    assert(matrix[15] == 1.f);
+    const auto after = RigidBodyPosition(s.ReadOnly(), kBody);
+    assert(Near(after.x, prior.x));
+    assert(Near(after.y, prior.y));
+    assert(Near(after.z, prior.z));
+}
+
 } // namespace
 
 int main() {
@@ -173,4 +196,5 @@ int main() {
     TestThresholdAndNegativeValues();
     TestInactiveSkipsBodyTransform();
     TestMissingBodyMatrixWriteRollsBackWholeTick();
+    TestReciprocalStrictBoundaryAndUnaffectedState();
 }
