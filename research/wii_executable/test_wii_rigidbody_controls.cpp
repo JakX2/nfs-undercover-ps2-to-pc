@@ -1,4 +1,5 @@
 #include "wii_rigidbody_controls.hpp"
+#include "wii_rigidbody_drag_gates.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -498,10 +499,36 @@ void TestV10ForceIntegrationBeforeSaturation() {
     assert(Equal(RigidBodyAngularVelocity(s.ReadOnly(), kBody), {0.f, 0.f, 0.f}));
 }
 
+
+void TestDoDragSnapshotGates() {
+    // Real Wii pointer-chain layout, entirely synthetic bytes. These cases
+    // exercise the unsigned BE halfword at state+0x1C, not host endianness.
+    struct Case { std::uint16_t flags; bool first; bool second; };
+    constexpr Case cases[] = {
+        {0x0000, false, false}, {0x0800, true, false},
+        {0x0020, false, true}, {0x0820, true, true},
+        {0x0822, false, false}, {0xFFFF, false, false},
+        {0xF7DD, false, false}, {0x1820, true, true}
+    };
+    for (const auto& tc : cases) {
+        auto snapshot = Fixture(tc.flags, 0, 0);
+        const auto selected = SelectDoDragPathsFromSnapshot(snapshot.ReadOnly(), kBody);
+        assert(selected.first == tc.first);
+        assert(selected.second == tc.second);
+        assert(RigidBodyFlags(snapshot.ReadOnly(), kBody) == tc.flags);
+    }
+    // A missing pointer target must fail, never silently select a path.
+    WiiAddressSpace truncated({{kBody, std::vector<std::uint8_t>(0x80, 0)}});
+    MustThrow<std::out_of_range>([&] {
+        (void)SelectDoDragPathsFromSnapshot(truncated, kBody);
+    });
+}
+
 } // namespace
 
 int main() {
     TestFlags();
+    TestDoDragSnapshotGates();
     TestForces();
     TestRejectedWritesAreAtomic();
     TestIntegrationPrefix();
