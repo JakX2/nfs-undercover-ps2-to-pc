@@ -67,6 +67,37 @@ If the gate returns `BLOCKED`, no tool here renames hashes or installs
 modified resources. Arbitrarily replacing resource IDs would break original
 scenery-info and texture references, which also use these identities.
 
+## Owner-local read-only CLI (no source assets published)
+
+The existing first-model tool can now read **private extracted, complete**
+Carbon PC resource-root files and pass them directly into the in-memory
+comparison. They must be actual indexed PC geometry root chunks and PC
+texture roots from the *same relevant installed Carbon world*, not arbitrary
+files renamed to `.bin`. If all original Carbon resources haven't been
+enumerated, a negative collision count does **not** establish uniqueness
+across the complete game.
+
+Example Windows PowerShell command, using fictional owner-local paths:
+
+```powershell
+python research/world_bridge/undercover_pc_first_model_gate.py `
+  --undercover-ps2-tracks-zip "D:\\Private\\Undercover\\TRACKS.zip" `
+  --source-section 241 `
+  --pc-header-profile carbon_native_control `
+  --carbon-pc-geometry-root "D:\\Private\\Carbon\\RB-GeometryRoot.bin" `
+  --carbon-pc-texture-root "D:\\Private\\Carbon\\RB-TextureRoot.bin"
+```
+
+Both kinds of Carbon PC root are mandatory when either option is provided.
+Each flag can be repeated for multiple owner-private roots, up to 32 per
+resource category. Reads reject symlinks, missing paths, unexpectedly small
+or >32 MiB files, and files that change during reading. Candidate
+Undercover content and all private identities remain in memory; JSON
+contains counts, blockers and explicit unverified-runtime caveats only.
+
+**This command does not write files, modify Carbon, install an ASI,
+register an asset or claim a successfully rendered scene.**
+
 ## Reproduction without copyrighted data
 
 Run the repo's existing source-only test suite:
