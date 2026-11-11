@@ -5,6 +5,7 @@
 #include "wii_rigidbody_drag.hpp"
 #include "wii_rigidbody_endframe.hpp"
 #include "wii_rigidbody_frame.hpp"
+#include "wii_rigidbody_primitive.hpp"
 #include "wii_rigidbody_sleep.hpp"
 
 #include <cmath>
@@ -23,6 +24,8 @@ using namespace undercover::vehicle;
 constexpr std::uint32_t kBody = 0x80060000u;
 constexpr std::uint32_t kState = kBody + 0x400u;
 constexpr std::uint32_t kEnvironment = kBody + 0x800u;
+constexpr std::uint32_t kPrimitive = kBody + 0x900u;
+constexpr std::uint32_t kSentinel = kBody + 0x104u;
 constexpr float kDt = 0.1f;
 constexpr float kInverseMass = 0.01f;
 
@@ -51,7 +54,11 @@ WiiMutableSnapshot MakeSyntheticBody() {
     Put32(bytes, 0x70, kBody + 0x200); // body -> wrapper
     Put32(bytes, 0x200, kState);       // wrapper -> physics state
     Put32(bytes, 0x78, kEnvironment);  // body -> environment
-    Put32(bytes, 0x104, kBody + 0x104); // empty primitive-list sentinel
+    Put32(bytes, 0x104, kPrimitive); // first real primitive in list
+    Put32(bytes, 0x900, kSentinel); // primitive next points to sentinel
+    PutF32(bytes, 0x900 + 0x28, 1.f); // local primitive X
+    PutF32(bytes, 0x900 + 0x2C, 0.f); // local primitive Y
+    PutF32(bytes, 0x900 + 0x30, 0.f); // local primitive Z
     // Drag enabled on both source-backed flag gates. No attach/gravity bit.
     bytes[0x400 + 0x1C] = 0x08;
     bytes[0x400 + 0x1D] = 0x20;
@@ -136,9 +143,20 @@ int Run(int steps) {
                  "queued_force_x,queued_force_y,queued_force_z\n";
     std::cout << std::fixed << std::setprecision(6);
     for (int frame = 1; frame <= steps; ++frame) {
-        const auto begin = ApplyRigidBodyOnBeginFrame(memory, kBody, kDt);
-        Require(begin.integration_called && !begin.gravity_applied,
-                "unexpected Wii begin-frame branch");
+        // The original prepares primitives BEFORE integrating the body.
+        const Vec3 expected_primitive = WiiRigidBodyBaseConvertLocalToWorld(
+            memory.ReadOnly(), kBody, {1.f,0.f,0.f}, true);
+        const auto begin = ApplyRigidBodyOnBeginFrame(
+            memory, kBody, kDt, MakeWiiPrimitivePrepareCallback());
+        Require(begin.integration_called && begin.primitives_prepared == 1 &&
+                !begin.gravity_applied,
+                "unexpected Wii begin-frame/primitive branch");
+        const Vec3 prepared = WiiPrimitivePreparedWorldPosition(
+            memory.ReadOnly(), kPrimitive);
+        Require(Near(prepared.x, expected_primitive.x) &&
+                Near(prepared.y, expected_primitive.y) &&
+                Near(prepared.z, expected_primitive.z),
+                "primitive not prepared at the original pre-integration pose");
         const auto velocity = RigidBodyVelocity(memory.ReadOnly(), kBody);
         Require(Near(velocity.x,
                      std::fma(pending_force.x, kDt * kInverseMass,
