@@ -162,6 +162,10 @@ void WiiMutableSnapshot::WriteBytes(std::uint32_t address,
     throw std::out_of_range("unmapped or split Wii write span");
 }
 
+void WiiMutableSnapshot::WriteU8(std::uint32_t address, std::uint8_t value) {
+    WriteBytes(address, &value, 1);
+}
+
 void WiiMutableSnapshot::WriteU16BE(std::uint32_t address, std::uint16_t value) {
     if (address & 1) throw std::out_of_range("unaligned Wii halfword write");
     const std::array<std::uint8_t, 2> bytes{
