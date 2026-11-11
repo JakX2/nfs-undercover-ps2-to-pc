@@ -35,6 +35,7 @@ class WiiMutableSnapshot {
 public:
     explicit WiiMutableSnapshot(std::vector<attrib::WiiMemoryRegion> regions);
     attrib::WiiAddressSpace ReadOnly() const;
+    void WriteU8(std::uint32_t address, std::uint8_t value);
     void WriteU16BE(std::uint32_t address, std::uint16_t value);
     void WriteVec3BE(std::uint32_t address, Vec3 value);
     void WriteVec4BE(std::uint32_t address, const std::array<float, 4>& value);
