@@ -19,4 +19,15 @@ Vec3 WiiRigidBodyBaseConvertLocalToWorld(
     Vec3 local,
     bool include_translation);
 
+// Wii base vtable +0x388: ConvertWorldToLocal at 0x8030F27C
+// (0x1A0 bytes). The original removes position first if the
+// boolean argument is true, transposes all 16 orientation words into
+// stack memory, then multiplies the 3x3 rotation portion.
+// Returns a value instead of overwriting the argument.
+Vec3 WiiRigidBodyBaseConvertWorldToLocal(
+    const attrib::WiiAddressSpace& snapshot,
+    std::uint32_t rigid_body,
+    Vec3 world,
+    bool include_translation);
+
 } // namespace undercover::vehicle
