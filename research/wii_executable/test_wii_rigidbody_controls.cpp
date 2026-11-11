@@ -436,6 +436,30 @@ void TestV10IndependentPhaseBoundaries() {
     assert(Equal(RigidBodyAngularVelocity(cross.ReadOnly(), kBody), {21.f, 19.f, 10.f}));
 }
 
+
+void TestV10OrderedClampNeighbors() {
+    // Values immediately on either side of each documented Wii clamp.
+    // This catches accidental >= / <= reversal and incorrect limits.
+    const float above_linear = std::nextafter(300.f, std::numeric_limits<float>::infinity());
+    const float below_linear = std::nextafter(-300.f, -std::numeric_limits<float>::infinity());
+    const float inside_linear = std::nextafter(300.f, 0.f);
+    const float above_angular = std::nextafter(30.f, std::numeric_limits<float>::infinity());
+    const float below_angular = std::nextafter(-30.f, -std::numeric_limits<float>::infinity());
+    const float inside_angular = std::nextafter(-30.f, 0.f);
+    auto s = Fixture(0, 0, 0);
+    RigidBodySetLinearVelocity(s, kBody, {above_linear, below_linear, inside_linear});
+    RigidBodySetAngularVelocity(s, kBody, {above_angular, below_angular, inside_angular});
+    assert(ApplyDoIntegrationClampedAngularPrefix(s, kBody, 1.f) ==
+           IntegrationPrefixPath::active_velocity_updated);
+    assert(Equal(RigidBodyVelocity(s.ReadOnly(), kBody),
+                 {300.f, -300.f, inside_linear}));
+    assert(Equal(RigidBodyAngularVelocity(s.ReadOnly(), kBody),
+                 {30.f, -30.f, inside_angular}));
+    // Translation precedes the clamp, even one ULP beyond the limit.
+    assert(Equal(RigidBodyPosition(s.ReadOnly(), kBody),
+                 {above_linear, below_linear, inside_linear}));
+}
+
 } // namespace
 
 int main() {
@@ -447,4 +471,5 @@ int main() {
     TestAngularInertiaPrefix();
     TestVelocitySaturationPrefix();
     TestV10IndependentPhaseBoundaries();
+    TestV10OrderedClampNeighbors();
 }
