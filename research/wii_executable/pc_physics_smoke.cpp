@@ -140,7 +140,8 @@ int Run(int steps) {
     Vec3 pending_force{0.f,0.f,0.f};
     std::cout << "frame,position_x,position_y,position_z,"
                  "velocity_x,velocity_y,velocity_z,"
-                 "queued_force_x,queued_force_y,queued_force_z\n";
+                 "queued_force_x,queued_force_y,queued_force_z,"
+                 "prepared_primitive_x,prepared_primitive_y,prepared_primitive_z\n";
     std::cout << std::fixed << std::setprecision(6);
     for (int frame = 1; frame <= steps; ++frame) {
         // The original prepares primitives BEFORE integrating the body.
@@ -192,7 +193,8 @@ int Run(int steps) {
         std::cout << frame << "," << position.x << "," << position.y << ","
                   << position.z << "," << velocity.x << ","
                   << velocity.y << "," << velocity.z << ","
-                  << force.x << "," << force.y << "," << force.z << "\n";
+                  << force.x << "," << force.y << "," << force.z << ","
+                  << prepared.x << "," << prepared.y << "," << prepared.z << "\n";
         previous_velocity = velocity;
         pending_force = force;
     }
