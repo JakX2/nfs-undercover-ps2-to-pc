@@ -223,7 +223,7 @@ class PrivateCandidateExportTests(unittest.TestCase):
     def test_corrupt_stream_refused_before_file_creation(self):
         for corrupted in (
             self.source[:-1], self.source + b'extra',
-            self.source[:20] + b'corrupt' + self.source[27:],
+            b'\xff' + self.source[1:],  # invalid texture root tag
             bytearray(self.source),
         ):
             with self.subTest(type=type(corrupted).__name__), self.assertRaises(ValueError):
