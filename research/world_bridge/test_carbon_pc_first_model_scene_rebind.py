@@ -120,7 +120,7 @@ class InMemorySceneRebindTests(unittest.TestCase):
         src = bytearray(ORIGINAL_SCENE)
         a, _ = scene_positions(src)[INSTANCE_ID]
         struct.pack_into('<h', src, a+4+0x54, -1)
-        with self.assertRaisesRegex(ValueError, 'index'):
+        with self.assertRaisesRegex(ValueError, 'nonexistent source info'):
             rebind_one_pc_scene_model(bytes(src), CANDIDATE, 0)
 
     def test_invalid_candidate_resource_closure_fails(self):
