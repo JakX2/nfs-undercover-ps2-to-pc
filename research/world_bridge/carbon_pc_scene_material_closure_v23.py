@@ -42,7 +42,7 @@ def _pc_model_materials(root):
         model, platform, _, _ = parse_solid(solid)
         if platform != PLATFORM_PC or model in materials:
             raise ValueError('Invalid or duplicate source model header')
-        children = list(read_chunks(solid))
+        children = list(read_chunks(solid, 0, len(solid)))
         if len(children) < 3:
             raise ValueError('Incomplete source eSolid texture table')
         table = parse_solid_texture_table(children[0][1], children[1][1])
