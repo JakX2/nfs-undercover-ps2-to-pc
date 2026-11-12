@@ -37,7 +37,7 @@ class InMemoryControlTests(unittest.TestCase):
                          'EXACT_ORIGINAL_PC_FILE_READ_FULL_NOT_REGISTRATION')
         self.assertTrue(result['source_compatible_with_native_pc_parser'])
         self.assertTrue(result['configured_path_matches_original_file'])
-        self.assertTrue(result['capture_exact_filename_match'])
+        self.assertTrue(result['captured_exact_target_events_observed'])
         self.assertTrue(result['entire_original_file_read_by_one_process_observed'])
         self.assertEqual(result['source_resource_records'], 1)
         self.assertEqual(result['read_bytes_covered_by_one_process'], len(SOURCE))
@@ -74,6 +74,7 @@ class InMemoryControlTests(unittest.TestCase):
         self.assertEqual(result['control_evidence'],
                          'NO_POSITIVE_ORIGINAL_PC_FILE_IO_EVIDENCE')
         self.assertFalse(result['same_pid_ordered_open_read_observed'])
+        self.assertFalse(result['captured_exact_target_events_observed'])
 
     def test_wrong_manifest_filename_rejected_even_with_positive_io(self):
         with self.assertRaises(ValueError):
