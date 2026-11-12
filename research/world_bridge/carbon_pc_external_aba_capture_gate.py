@@ -189,7 +189,9 @@ def audit_owner_aba_files(
         *, windows_root_override_for_tests=None):
     """Owner-local files only: no writing, file creation or game actions."""
     root = Path(game_directory).absolute()
-    sentinel_file = _owner_file(sentinel_game_file, MAX_SOURCE_BYTES)
+    # Stock TRACKS stream files can be far larger than 32 MiB. The
+    # sentinel is stat-checked ONLY; no content is loaded into memory.
+    sentinel_file = _owner_file(sentinel_game_file, 2 * 1024 * 1024 * 1024)
     if any(p.is_symlink() for p in (root, *root.parents)) or not root.is_dir():
         raise ValueError('Carbon game root missing or symlinked')
     try:
@@ -204,8 +206,10 @@ def audit_owner_aba_files(
               baseline_csv, control_csv, restore_csv)]
     if len(set(paths)) != len(paths):
         raise ValueError('All owner-private original files and captures must be distinct')
-    before = [_stamp(_owner_file(p, MAX_CSV_BYTES if index >= 3
-                                 else MAX_SOURCE_BYTES)) for index, p in enumerate(paths)]
+    before = [_stamp(_owner_file(p, MAX_CSV_BYTES if index >= 3 else
+                                 (2 * 1024 * 1024 * 1024 if index == 2
+                                  else MAX_SOURCE_BYTES)))
+              for index, p in enumerate(paths)]
     control = _private_text(paths[4])
     # Reuse entire V16 validated manifest/external-file selection logic.
     # Do not imply this is a runtime loading test.
