@@ -12,6 +12,8 @@ Current published-research baseline: V41 native scenery model conversion and V43
 
 **V18 combined Carbon runtime-evidence gate:** The new [joint file-read and reversible screenshot test](research/world_bridge/CARBON_PC_EXTERNAL_ABA_VISUAL_JOINT_V18.md) checks whether a calibrated A/B/A external resource read coincides with a localized pixel change that disappears after restoring the original game state. It is a redacted, read-only experimental control, **not proof that Carbon registered or rendered any particular Undercover asset**.
 
+**V19 first-model candidate assembly:** The [source-only Carbon PC chunk-stream builder](research/world_bridge/CARBON_PC_FIRST_MODEL_PRIVATE_CHUNK_V19.md) now combines the real converted Undercover scenery eSolid and complete DXT5 material images in memory, then validates the entire two-root PC-shaped stream. An explicit `--private-candidate-output ... --write-private` option exports a new `.pcchunk` file **only to the owner's local disk**, never overwriting or installing original game archives. **This is not a Carbon-loader-verified `.BUN` and is not ready to install.**
+
 Original game files, extracted binary data, textures and models are **not distributed** in this repository. All research scripts operate on game files supplied locally by the user. Do not install experimental outputs into a live game.
 
 See the research-source pull request for the source-only Python tools, test infrastructure and evidence reports.
