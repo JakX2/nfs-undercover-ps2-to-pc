@@ -190,6 +190,13 @@ def verify_single_model(candidate, source_section, mip_levels=4,
             geo_report['generated_pc_triangles'] != candidate['triangles'] or
             not geo_report['all_f32_xyz_uv_texture_corner_faces_preserved']):
         raise ValueError('Candidate native PC geometry face/UV readback incomplete')
+    # Assemble the very same converted geometry and complete DXT5 image
+    # pack as one bounded two-frame PC-shaped chunk stream. This is a
+    # wholly offline, in-memory candidate: do NOT export or install it.
+    from carbon_pc_first_model_stream_assembly import build_private_pc_first_model_stream
+    combined, assembly = build_private_pc_first_model_stream(geometry, images)
+    if len(combined) != len(geometry) + len(images):
+        raise ValueError('PC candidate assembly lost source bytes')
     # Optional, owner-local Carbon namespace preflight: compare the REAL
     # in-memory geometry/DXT5 output from this function against independently
     # parsed original Carbon PC roots. Never serialize the resource bytes.
@@ -200,6 +207,7 @@ def verify_single_model(candidate, source_section, mip_levels=4,
             geometry, images, native_carbon_geometry_roots,
             native_carbon_texture_roots)
     return {
+        'pc_candidate_combined_chunk_stream_preflight': assembly,
         'carbon_pc_namespace_preflight': namespace,
         'scope': 'PRIVATE_OFFLINE_SINGLE_UNDERCOVER_MODEL_CANDIDATE_NOT_REGISTERED',
         'source_section': candidate['section'],
