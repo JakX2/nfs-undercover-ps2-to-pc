@@ -25,7 +25,9 @@ from carbon_pc_first_model_stream_assembly import (
     build_private_pc_first_model_stream,
 )
 from carbon_pc_native_postscene_layout_gate import (
-    MAX_SCENE, SCENE, SCENE_CHILDREN, _children, scene_profile,
+    MAX_SCENE, MAX_ROOT, MAX_SMALL, MAX_STREAM,
+    SCENE, SCENE_CHILDREN, _children, scene_profile,
+    stream_rows, _scan_roots, profile_carbon_section,
 )
 from carbon_pc_resource_namespace_gate import _model_and_materials
 from scenery_model_hash_bridge import (
@@ -174,18 +176,94 @@ def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index):
     return audit
 
 
+def inspect_owner_original_carbon_rb_section(
+        carbon_l5rb_bun, carbon_stream_l5rb_bun, candidate_path,
+        section_id, info_index):
+    """Read Carbon PC native RB 141/142 scenery directly from owner sources.
+
+    The 92-byte source section index is validated against the full
+    original STREAM file length, and the selected section must pass
+    the original Carbon PC texture/geometry/scene/0x372xx profile.
+    Only the parsed scene root is passed to the one-model rebind gate.
+    The output remains aggregate-only; no original or modified data
+    is written, copied, displayed or uploaded.
+    """
+    if type(section_id) is not int or section_id not in (141, 142):
+        raise ValueError('Only source-backed Carbon PC RB 141/142 allowed')
+    bundle = _private_file(carbon_l5rb_bun, '.bun', MAX_SMALL)
+    streamed = _private_file(carbon_stream_l5rb_bun, '.bun', MAX_STREAM)
+    candidate = _private_file(candidate_path, '.pcchunk', MAX_BUN_BYTES)
+    if (bundle.name.casefold() != 'l5rb.bun' or
+            streamed.name.casefold() != 'streaml5rb.bun' or
+            bundle.parent != streamed.parent or
+            bundle.parent.name.casefold() != 'tracks'):
+        raise ValueError('Require original Carbon PC TRACKS/L5RB and STREAML5RB pair')
+    sources = (bundle, streamed, candidate)
+    if any(p.samefile(q) for i, p in enumerate(sources)
+           for q in sources[i+1:]):
+        raise ValueError('Original Carbon files and candidate must be distinct')
+    before = tuple(_snapshot(p) for p in sources)
+    rows = stream_rows(bundle.read_bytes(), streamed.stat().st_size)
+    if section_id not in rows:
+        raise ValueError('Selected original Carbon PC RB section missing')
+    at, n = rows[section_id]
+    if not 80 <= n <= MAX_ROOT:
+        raise ValueError('Original PC streaming section outside read bound')
+    with streamed.open('rb') as handle:
+        handle.seek(at)
+        section = handle.read(n)
+        if len(section) != n:
+            raise ValueError('Short original PC streaming section read')
+    # Validating the complete original native section catches a wrong
+    # stream/bundle pairing, unexpected scene child order or post-scene
+    # control format before ANY model hash is considered for editing.
+    native = profile_carbon_section(section)
+    extracted = _scan_roots(section, 1)
+    original_scene = extracted['scene']
+    _, audit = rebind_one_pc_scene_model(
+        original_scene, candidate.read_bytes(), info_index)
+    if tuple(_snapshot(p) for p in sources) != before:
+        raise ValueError('Private original sources changed during inspection')
+    return {
+        **audit,
+        'native_carbon_pc_source_section_id': section_id,
+        'native_carbon_full_original_rb_section_profile_verified': True,
+        'native_carbon_original_postscene_control_groups': (
+            native['native_postscene_control_groups']),
+        'original_carbon_scene_extracted_without_writing': True,
+        'original_carbon_source_stream_bytes_read': n,
+        'original_carbon_source_file_preserved': True,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--carbon-pc-scene-root', required=True,
-                        help='owner-private extracted native PC scenery root in .pcscene')
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument('--carbon-pc-scene-root',
+        help='owner-private extracted native PC scene root in .pcscene')
+    input_group.add_argument('--carbon-game-bun',
+        help='private original Carbon PC TRACKS/L5RB.BUN')
+    parser.add_argument('--carbon-game-stream',
+        help='paired private original Carbon PC TRACKS/STREAML5RB.BUN')
+    parser.add_argument('--section', type=int, choices=(141, 142),
+                        help='native Carbon PC scene section for paired originals')
     parser.add_argument('--private-candidate', required=True,
                         help='owner-local V20 texture-first .pcchunk candidate')
     parser.add_argument('--info-index', type=int, required=True,
                         help='existing Carbon scene info row ordinal to rebind')
     args = parser.parse_args()
-    print(json.dumps(inspect_private_scene_and_candidate(
-        args.carbon_pc_scene_root, args.private_candidate,
-        args.info_index), indent=2))
+    if args.carbon_pc_scene_root:
+        if args.carbon_game_stream is not None or args.section is not None:
+            parser.error('Raw scene-root mode cannot use game stream/section')
+        report = inspect_private_scene_and_candidate(
+            args.carbon_pc_scene_root, args.private_candidate, args.info_index)
+    else:
+        if not args.carbon_game_stream or args.section is None:
+            parser.error('Native Carbon source requires STREAML5RB and section')
+        report = inspect_owner_original_carbon_rb_section(
+            args.carbon_game_bun, args.carbon_game_stream,
+            args.private_candidate, args.section, args.info_index)
+    print(json.dumps(report, indent=2))
 
 
 if __name__ == '__main__':
