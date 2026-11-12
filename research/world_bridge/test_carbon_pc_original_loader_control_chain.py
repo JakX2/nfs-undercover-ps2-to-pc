@@ -3,6 +3,7 @@
 No retail assets, original loader, game process or installed binaries used.
 """
 import json
+import struct
 from pathlib import Path
 import tempfile
 import unittest
@@ -51,6 +52,38 @@ class InMemoryControlTests(unittest.TestCase):
                      'in_game_visual_change_verified',
                      'undercover_model_loaded_verified', 'files_modified'):
             self.assertFalse(result[name], name)
+
+    def test_complete_bun_like_chunk_stream_with_geometry_and_texture(self):
+        # A real Carbon BUN may be multiple adjacent top-level resource
+        # chunks. Bind the ProcMon length to the COMPLETE file, not merely
+        # the first geometry root.
+        tex = make_pack('pc', hashes=(0x12345678,))
+        unknown = struct.pack('<II', 0x00123456, 4) + b'abcd'
+        composite = unknown + SOURCE + tex
+        result = verify(source=composite,
+                        csv=log_for_file(len(composite), path=WINDOWS_FILE))
+        self.assertEqual(result['source_top_level_chunk_frames'], 3)
+        self.assertEqual(result['source_native_geometry_roots'], 1)
+        self.assertEqual(result['source_native_texture_roots'], 1)
+        self.assertEqual(result['source_other_top_level_frames'], 1)
+        self.assertEqual(result['source_resource_records'], 1)
+        self.assertEqual(result['original_file_bytes'], len(composite))
+        self.assertTrue(result['entire_original_file_read_by_one_process_observed'])
+        self.assertFalse(result['external_loader_container_format_verified'])
+        self.assertFalse(result['native_carbon_resource_registered_verified'])
+
+    def test_bun_like_stream_incomplete_tail_not_mistaken_for_complete_root(self):
+        with self.assertRaises(ValueError):
+            verify(source=SOURCE + b'\x12\x34')
+        with self.assertRaises(ValueError):
+            verify(source=SOURCE + SOURCE)  # repeated model identity
+
+    def test_requested_kind_has_to_exist_in_bun_stream(self):
+        only_texture = make_pack('pc', hashes=(0x12345678,))
+        with self.assertRaises(ValueError):
+            verify(source=only_texture, kind='geometry')
+        with self.assertRaises(ValueError):
+            verify(source=SOURCE, kind='texture')
 
     def test_partial_read_keeps_unverified_registration(self):
         partial = csv_log(
