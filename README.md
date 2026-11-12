@@ -18,6 +18,8 @@ Current published-research baseline: V41 native scenery model conversion and V43
 
 **V21 native PC scenery-info link:** [Carbon scene one-model rebind](research/world_bridge/CARBON_PC_FIRST_MODEL_SCENE_REBIND_V21.md) now uses original Carbon PC RB section 141/142 to rebind exactly one referenced scenery-info row's two model-hash fields to the verified V20 Undercover eSolid identity. Source placement, links and unknown bytes are preserved. Optional `--private-scene-output ... --write-private` creates a **new owner-local `.pcscene`** file outside game `TRACKS`. This remains a partial experimental scene root, **not a loader-ready Carbon sector or in-game model**.
 
+**V22 Carbon scenery model closure:** The [source-backed model reference audit](research/world_bridge/CARBON_PC_SCENE_MODEL_CLOSURE_V22.md) now compares every nonzero model/LOD hash in a patched Carbon PC scenery root against independently indexed original PC eSolid geometry and the single converted Undercover model. `--audit-model-closure` extracts original geometry directly from RB section 141/142, detects missing references and hash collisions, and prevents optional private scene export when the supplied model references are unresolved. **This is not global resource closure, loader registration or in-game rendering proof.**
+
 Original game files, extracted binary data, textures and models are **not distributed** in this repository. All research scripts operate on game files supplied locally by the user. Do not install experimental outputs into a live game.
 
 See the research-source pull request for the source-only Python tools, test infrastructure and evidence reports.
