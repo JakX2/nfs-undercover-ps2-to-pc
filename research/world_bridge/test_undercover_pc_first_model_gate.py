@@ -189,6 +189,46 @@ class SingleModelRoundtripTests(unittest.TestCase):
         self.assertEqual(out['generated_pc_triangle_count'], 2)
         self.assertGreater(out['pc_candidate_geometry_bytes_in_memory'], 0)
         self.assertGreater(out['pc_candidate_texture_bytes_in_memory'], 0)
+        assembled = out['pc_candidate_combined_chunk_stream_preflight']
+        self.assertEqual(assembled['top_level_frames'], 2)
+        self.assertEqual(assembled['pc_candidate_model_records'], 1)
+        self.assertEqual(assembled['pc_candidate_texture_records'], 2)
+        self.assertTrue(assembled['pc_dxt5_only'])
+        self.assertTrue(assembled['complete_pc_chunk_framing_reparsed'])
+        self.assertEqual(
+            assembled['pc_candidate_chunk_stream_bytes_in_memory'],
+            out['pc_candidate_geometry_bytes_in_memory'] +
+            out['pc_candidate_texture_bytes_in_memory'])
+        self.assertFalse(assembled['pc_loader_accepted_candidate_verified'])
+        self.assertFalse(assembled['undercover_model_rendered_in_game'])
+
+    def test_candidate_assembly_rejects_mismatched_internal_stream(self):
+        # Fail closed if the independently validated combined stream
+        # parser disagrees with the component-local PC image/model parses.
+        with patch(
+            'carbon_pc_first_model_stream_assembly.inspect_carbon_pc_chunk_stream',
+            return_value={
+                'source_total_bytes': 0,
+                'top_level_frames': 0,
+                'native_pc_geometry_roots': 0,
+                'native_pc_texture_roots': 0,
+                'top_level_unknown_frames': 0,
+                'native_pc_distinct_model_records': 0,
+                'native_pc_distinct_texture_records': 0,
+            }
+        ):
+            with self.assertRaisesRegex(ValueError, 'readback disagrees'):
+                self.run_valid()
+
+    def test_private_candidate_report_has_no_exported_stream(self):
+        report = self.run_valid()
+        combined = report['pc_candidate_combined_chunk_stream_preflight']
+        self.assertTrue(combined['no_unreferenced_candidate_texture_identities'])
+        self.assertFalse(combined['installed_or_exported_candidate'])
+        self.assertNotIn(str(MODEL), json.dumps(combined))
+        self.assertNotIn(str(A), json.dumps(combined))
+        self.assertNotIn(str(B), json.dumps(combined))
+        self.assertTrue(all(type(item) is not bytes for item in combined.values()))
 
     def test_material_reference_order_preserved(self):
         x = selected()
