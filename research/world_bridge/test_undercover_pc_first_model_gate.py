@@ -5,6 +5,8 @@ No original game archive, proprietary model or texture is embedded.
 import copy
 import json
 import unittest
+from pathlib import Path
+import tempfile
 from unittest.mock import patch
 
 from undercover_pc_first_model_gate import (
@@ -230,6 +232,44 @@ class SingleModelRoundtripTests(unittest.TestCase):
         self.assertNotIn(str(B), json.dumps(combined))
         self.assertTrue(all(type(item) is not bytes for item in combined.values()))
 
+    def test_in_memory_receiver_gets_actual_combined_private_bytes(self):
+        from carbon_pc_bun_chunk_stream_gate import inspect_carbon_pc_chunk_stream
+        private = []
+        with patch('triangle_corner_uv_control.ps2_geometry_attributes',
+                   return_value=(POSITIONS, UV, FACES, LABELS)):
+            audit = verify_single_model(
+                selected(), make_pack('ps2', bits=8, hashes=(A, B)),
+                private_stream_receiver=private.append)
+        self.assertEqual(len(private), 1)
+        self.assertEqual(len(private[0]),
+                         audit['pc_candidate_combined_chunk_stream_preflight'][
+                             'pc_candidate_chunk_stream_bytes_in_memory'])
+        check = inspect_carbon_pc_chunk_stream(private[0], 'either')
+        self.assertEqual(check['top_level_frames'], 2)
+        self.assertEqual(check['native_pc_distinct_texture_records'], 2)
+        self.assertNotIn(str(MODEL), json.dumps(audit))
+
+    def test_invalid_private_receiver_rejected(self):
+        with patch('triangle_corner_uv_control.ps2_geometry_attributes',
+                   return_value=(POSITIONS, UV, FACES, LABELS)):
+            with self.assertRaisesRegex(ValueError, 'receiver must be callable'):
+                verify_single_model(
+                    selected(), make_pack('ps2', bits=8, hashes=(A, B)),
+                    private_stream_receiver='not callable')
+
+    def test_private_export_flags_require_explicit_permission(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / 'candidate.pcchunk'
+            for kwargs in (
+                {'private_candidate_output': out},
+                {'write_private': True},
+                {'private_candidate_output': out, 'write_private': 'true'},
+            ):
+                with self.subTest(kwargs=kwargs), self.assertRaisesRegex(
+                    ValueError, 'Private output requires BOTH'):
+                    audit_original('/missing/owner/undercover.zip', **kwargs)
+            self.assertFalse(out.exists())
+
     def test_material_reference_order_preserved(self):
         x = selected()
         x['table'] = (B, A)
@@ -374,6 +414,24 @@ class NamespaceReadOnlyCliTests(unittest.TestCase):
         self.assertEqual(output.call_count, 1)
         self.assertNotIn('GEOMETRY_PRIVATE', output.call_args.args[0])
         self.assertNotIn('owner-native', output.call_args.args[0])
+
+    def test_cli_private_export_flags_dispatch_without_printing_filename(self):
+        from undercover_pc_first_model_gate import main
+        args = ['undercover_pc_first_model_gate.py',
+                '--undercover-ps2-tracks-zip', 'private-original.zip',
+                '--private-candidate-output', 'private-scenery.pcchunk',
+                '--write-private']
+        with patch('sys.argv', args), \
+             patch('undercover_pc_first_model_gate.audit_original',
+                   return_value={'private_candidate_export': {
+                       'private_file_created': True
+                   }}) as audit, \
+             patch('builtins.print') as printed:
+            main()
+        self.assertEqual(audit.call_args.kwargs['private_candidate_output'],
+                         'private-scenery.pcchunk')
+        self.assertIs(audit.call_args.kwargs['write_private'], True)
+        self.assertNotIn('private-scenery.pcchunk', printed.call_args.args[0])
 
     def test_cli_default_still_runs_without_carbon_refs(self):
         from undercover_pc_first_model_gate import main
