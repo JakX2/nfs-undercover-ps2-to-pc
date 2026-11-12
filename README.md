@@ -16,6 +16,8 @@ Current published-research baseline: V41 native scenery model conversion and V43
 
 **V20 Carbon native prefix fix:** The converted first-model PC chunk candidate now follows the empirically observed [Carbon PC texture-first / geometry-second section ordering](research/world_bridge/CARBON_PC_NATIVE_PREFIX_LAYOUT_V20.md) with 16-byte geometry alignment. Geometry-first V19 experimental exports are rejected and should be regenerated. Scene-instance root and post-scene control data remain **unimplemented**, and there is still no confirmed Carbon loader registration or Undercover in-game rendering.
 
+**V21 native PC scenery-info link:** [Carbon scene one-model rebind](research/world_bridge/CARBON_PC_FIRST_MODEL_SCENE_REBIND_V21.md) now uses original Carbon PC RB section 141/142 to rebind exactly one referenced scenery-info row's two model-hash fields to the verified V20 Undercover eSolid identity. Source placement, links and unknown bytes are preserved. Optional `--private-scene-output ... --write-private` creates a **new owner-local `.pcscene`** file outside game `TRACKS`. This remains a partial experimental scene root, **not a loader-ready Carbon sector or in-game model**.
+
 Original game files, extracted binary data, textures and models are **not distributed** in this repository. All research scripts operate on game files supplied locally by the user. Do not install experimental outputs into a live game.
 
 See the research-source pull request for the source-only Python tools, test infrastructure and evidence reports.
