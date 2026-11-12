@@ -68,7 +68,7 @@ class CarbonPcChunkStreamTests(unittest.TestCase):
 
     def test_nested_pc_root_with_invalid_resource_fails_closed(self):
         wrong = bytearray(GEOMETRY)
-        wrong[0] = 0
+        wrong[3] ^= 0x01  # GEOM 0x80134000 low byte is already zero
         with self.assertRaises(ValueError):
             inspect_carbon_pc_chunk_stream(bytes(wrong), 'geometry')
         with patch('carbon_pc_bun_chunk_stream_gate.parse_geometry_root',
