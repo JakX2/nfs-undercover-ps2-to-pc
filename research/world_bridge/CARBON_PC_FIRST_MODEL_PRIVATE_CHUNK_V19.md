@@ -2,6 +2,8 @@
 
 **2026-11-12. Experimental Carbon PC format research; not loader acceptance or a playable port.**
 
+**V20 correction:** This historical V19 report originally documented geometry-first assembly. The current builder instead uses **texture-first, 16-byte-aligned geometry**, matching the selected owner-original Carbon PC source section profile. The old geometry-first private exports are deprecated and explicitly rejected; regenerate them. See [V20 native prefix layout](CARBON_PC_NATIVE_PREFIX_LAYOUT_V20.md).
+
 ## What was actually implemented
 
 The existing source-only Undercover PS2 model conversion selects one scenery-info-referenced model, translates its indexed triangles/UVs into a Carbon-PC-shaped eSolid root, and converts its complete original texture-material table to a DXT5 PC-format texture root.
@@ -11,7 +13,7 @@ Previously, those two verified resources existed **separately** in memory and th
 V19 adds `carbon_pc_first_model_stream_assembly.py`:
 
 - **build_private_pc_first_model_stream(geometry_root, texture_root)** independently checks EXACT PC top-level framing for both complete roots, exactly one indexed eSolid model, full material-table/image identity closure (including unused local material slots), no unreferenced texture IDs, and DXT5-only image records by default.
-- It joins exactly **two** top-level PC resource chunks into a bounded in-memory stream: PC geometry root followed by PC texture root. It reparses the **whole combined stream** using the independent V16 chunk-stream validator, asserting byte totals, root counts, indexed model and texture counts, and absence of extra/unknown frames.
+- At V19 this initially joined exactly two top-level PC resource chunks in **geometry-then-texture** order. **V20 changed the current implementation to texture-then-geometry** after comparing owner-original Carbon PC RB section ordering, while still leaving scene and control data unresolved. It reparses the **whole combined stream** using the independent V16 chunk-stream validator, asserting byte totals, root counts, indexed model and texture counts, and absence of extra/unknown frames.
 - The first-model `verify_single_model` now executes this combined readback on the **actual converted geometry and DXT5 textures**, not on fake hash lists. A redacted audit report includes byte counts and explicit unverified game-loader flags.
 - **export_private_pc_candidate_stream** can write an owner-private, prevalidated `.pcchunk` file only by explicit opt-in. The function independently reparses the stream, writes with exclusive new-file creation, refuses existing files, symlinks, wrong extensions or unsafe output locations, and verifies the written bytes against memory. No original game files are changed. The extension deliberately avoids suggesting an installable `.BUN`.
 - `audit_original` checks the owner-original source ZIP fingerprint **before** its optional private export. The default CLI remains read-only, with no output artifact or proprietary data in stdout. When export is explicitly selected, a private file is created only in the user-chosen existing directory. Its full path and contents are omitted from the public JSON report.
