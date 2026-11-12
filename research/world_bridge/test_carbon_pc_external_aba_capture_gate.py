@@ -248,6 +248,17 @@ class OwnerLocalComparisonTests(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertFalse(report['files_modified'])
 
+    def test_large_original_stock_sentinel_is_metadata_only(self):
+        # A real Carbon TRACKS stream can greatly exceed the strict 32
+        # MiB chunk-root parsing bound. No sentinel bytes are read here.
+        with self.sentinel.open('wb') as handle:
+            handle.seek(32 * 1024 * 1024 + 128)
+            handle.write(b'\0')
+        result = self.run_audit()
+        self.assertTrue(result['all_captures_calibrated'])
+        self.assertEqual(result['evidence_level'],
+                         'ISOLATED_EXTERNAL_FILE_READ_OBSERVED_NOT_REGISTRATION')
+
     def test_detects_duplicate_capture_paths(self):
         with self.assertRaises(ValueError):
             self.run_audit(restore_csv=self.a)
