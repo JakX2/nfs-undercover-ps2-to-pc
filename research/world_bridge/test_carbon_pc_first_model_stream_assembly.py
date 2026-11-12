@@ -4,12 +4,15 @@ Only fictional triangles, synthetic 8x8 RGBA and synthetic model/texture
 IDs. No retail originals or external loader required by GitHub CI.
 """
 import json
+from pathlib import Path
+import tempfile
 import struct
 import unittest
 from unittest.mock import patch
 
 from carbon_pc_first_model_stream_assembly import (
     build_private_pc_first_model_stream,
+    export_private_pc_candidate_stream,
 )
 from undercover_pc_geometry_bridge import convert_decoded_ps2_model
 from undercover_pc_dxt5_new_identity_candidate import _assemble_pc_dxt5_entries
@@ -141,6 +144,82 @@ class FirstModelChunkStreamTests(unittest.TestCase):
         first = build_private_pc_first_model_stream(g,t)
         second = build_private_pc_first_model_stream(g,t)
         self.assertEqual(first,second)
+
+
+class PrivateCandidateExportTests(unittest.TestCase):
+    def setUp(self):
+        self.owned = tempfile.TemporaryDirectory()
+        self.addCleanup(self.owned.cleanup)
+        self.path = Path(self.owned.name) / 'undercover-one-model.pcchunk'
+        self.source, _ = build_private_pc_first_model_stream(
+            geometry(), dxt5(IMG1))
+
+    def test_explicit_private_new_file_only(self):
+        result = export_private_pc_candidate_stream(
+            self.source, self.path, apply=True)
+        self.assertEqual(self.path.read_bytes(), self.source)
+        self.assertEqual(result['private_file_bytes'], len(self.source))
+        self.assertTrue(result['private_file_created'])
+        self.assertFalse(result['carbon_loader_accepted_file'])
+        self.assertFalse(result['stock_carbon_files_modified'])
+        self.assertFalse(result['in_game_model_rendered'])
+        self.assertNotIn(str(self.path), json.dumps(result))
+        self.assertNotIn(str(MODEL), json.dumps(result))
+
+    def test_default_no_private_write(self):
+        with self.assertRaisesRegex(ValueError, 'explicit'):
+            export_private_pc_candidate_stream(self.source, self.path)
+        self.assertFalse(self.path.exists())
+
+    def test_existing_candidate_never_overwritten_or_deleted(self):
+        self.path.write_bytes(b'KEEP MY USER FILE')
+        with self.assertRaises(FileExistsError):
+            export_private_pc_candidate_stream(
+                self.source, self.path, apply=True)
+        self.assertEqual(self.path.read_bytes(), b'KEEP MY USER FILE')
+
+    def test_wrong_extension_never_written(self):
+        for ext in ('.bun', '.exe', '.bin', ''):
+            other = Path(self.owned.name) / ('test' + ext)
+            with self.subTest(ext=ext), self.assertRaises(ValueError):
+                export_private_pc_candidate_stream(
+                    self.source, other, apply=True)
+            self.assertFalse(other.exists())
+
+    def test_corrupt_stream_refused_before_file_creation(self):
+        for corrupted in (
+            self.source[:-1], self.source + b'extra',
+            self.source[:20] + b'corrupt' + self.source[27:],
+            bytearray(self.source),
+        ):
+            with self.subTest(type=type(corrupted).__name__), self.assertRaises(ValueError):
+                export_private_pc_candidate_stream(
+                    corrupted, self.path, apply=True)
+        self.assertFalse(self.path.exists())
+
+    def test_unresolved_material_candidate_cannot_be_exported(self):
+        wrong = geometry((IMG1, IMG2)) + dxt5(IMG1)
+        with self.assertRaisesRegex(ValueError, 'exactly match'):
+            export_private_pc_candidate_stream(wrong, self.path, apply=True)
+        self.assertFalse(self.path.exists())
+
+    def test_rejects_output_symlinks(self):
+        existing = Path(self.owned.name) / 'target.pcchunk'
+        existing.write_bytes(b'keep')
+        alias = Path(self.owned.name) / 'alias.pcchunk'
+        try:
+            alias.symlink_to(existing)
+        except (OSError, NotImplementedError):
+            self.skipTest('Host cannot create symlinks')
+        with self.assertRaises(ValueError):
+            export_private_pc_candidate_stream(self.source, alias, apply=True)
+        self.assertEqual(existing.read_bytes(), b'keep')
+
+    def test_rejects_absent_output_directory(self):
+        missing = Path(self.owned.name) / 'missing' / 'first.pcchunk'
+        with self.assertRaises(ValueError):
+            export_private_pc_candidate_stream(self.source, missing, apply=True)
+        self.assertFalse(missing.exists())
 
 
 if __name__ == '__main__':
