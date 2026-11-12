@@ -220,7 +220,9 @@ def _snapshot(path):
 def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
                                         private_scene_output=None,
                                         write_private=False, audit_model_closure=False,
-                                        native_carbon_geometry_roots=()):
+                                        native_carbon_geometry_roots=(),
+                                        audit_material_closure=False,
+                                        native_carbon_texture_roots=()):
     """Owner-local read-only CLI: emits *only* aggregate data, no edited file."""
     if (type(write_private) is not bool or
             (private_scene_output is None) != (not write_private)):
@@ -229,6 +231,11 @@ def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
         raise ValueError('Model closure audit option must be bool')
     if (not audit_model_closure and native_carbon_geometry_roots):
         raise ValueError('Native geometry roots require --audit-model-closure')
+    if type(audit_material_closure) is not bool or (
+            audit_material_closure and not audit_model_closure):
+        raise ValueError('Material closure requires --audit-model-closure')
+    if not audit_material_closure and native_carbon_texture_roots:
+        raise ValueError('Native textures require --audit-material-closure')
     scene = _private_file(scene_path, '.pcscene', MAX_SCENE)
     candidate = _private_file(candidate_path, '.pcchunk', MAX_BUN_BYTES)
     if scene == candidate or scene.samefile(candidate):
@@ -250,6 +257,15 @@ def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
                 audit['model_reference_closure']['local_model_reference_gate'] !=
                 'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF'):
             raise ValueError('Refusing private scene export with incomplete model closure')
+        if audit_material_closure:
+            from carbon_pc_scene_material_closure_v23 import audit_pc_scene_material_closure
+            audit['material_reference_closure'] = audit_pc_scene_material_closure(
+                output, candidate_bytes, info_index,
+                native_carbon_geometry_roots, native_carbon_texture_roots)
+            if (write_private and
+                    audit['material_reference_closure']['local_material_closure_gate'] !=
+                    'COMPLETE_FOR_SUPPLIED_PC_SCENE_RESOURCES_NOT_RUNTIME_PROOF'):
+                raise ValueError('Refusing private scene export with incomplete material closure')
     if write_private:
         audit['private_scene_export'] = export_private_rebound_pc_scene(
             original_bytes, candidate_bytes, info_index,
@@ -261,7 +277,9 @@ def inspect_owner_original_carbon_rb_section(
         carbon_l5rb_bun, carbon_stream_l5rb_bun, candidate_path,
         section_id, info_index, private_scene_output=None,
         write_private=False, audit_model_closure=False,
-        additional_native_geometry_roots=()):
+        additional_native_geometry_roots=(),
+        audit_material_closure=False,
+        additional_native_texture_roots=()):
     """Read Carbon PC native RB 141/142 scenery directly from owner sources.
 
     The 92-byte source section index is validated against the full
@@ -278,6 +296,11 @@ def inspect_owner_original_carbon_rb_section(
         raise ValueError('Model closure audit option must be bool')
     if (not audit_model_closure and additional_native_geometry_roots):
         raise ValueError('Extra geometry roots require --audit-model-closure')
+    if type(audit_material_closure) is not bool or (
+            audit_material_closure and not audit_model_closure):
+        raise ValueError('Material closure requires --audit-model-closure')
+    if not audit_material_closure and additional_native_texture_roots:
+        raise ValueError('Extra textures require --audit-material-closure')
     if type(section_id) is not int or section_id not in (141, 142):
         raise ValueError('Only source-backed Carbon PC RB 141/142 allowed')
     bundle = _private_file(carbon_l5rb_bun, '.bun', MAX_SMALL)
@@ -330,6 +353,20 @@ def inspect_owner_original_carbon_rb_section(
                 audit['model_reference_closure']['local_model_reference_gate'] !=
                 'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF'):
             raise ValueError('Refusing private scene export with incomplete model closure')
+        if audit_material_closure:
+            from carbon_pc_scene_material_closure_v23 import audit_pc_scene_material_closure
+            # Select the COMPLETE source-backed PC native texture root
+            # directly from the same original section as its scenery.
+            original_texture = section[:extracted['texture_root_bytes']]
+            all_textures = ((original_texture,) +
+                            tuple(additional_native_texture_roots))
+            audit['material_reference_closure'] = audit_pc_scene_material_closure(
+                patched, private_candidate_bytes, info_index, native_roots,
+                all_textures)
+            if (write_private and
+                    audit['material_reference_closure']['local_material_closure_gate'] !=
+                    'COMPLETE_FOR_SUPPLIED_PC_SCENE_RESOURCES_NOT_RUNTIME_PROOF'):
+                raise ValueError('Refusing private scene export with incomplete material closure')
     if tuple(_snapshot(p) for p in sources) != before:
         raise ValueError('Private original sources changed during inspection')
     if write_private:
@@ -371,13 +408,24 @@ def main():
                         help='resolve all scene LOD IDs against supplied original PC geometry')
     parser.add_argument('--native-carbon-geometry-root', action='append',
                         help='owner-private additional original PC geometry root, repeatable')
+    parser.add_argument('--audit-material-closure', action='store_true',
+                        help='audit referenced eSolid material hashes against private PC textures')
+    parser.add_argument('--native-carbon-texture-root', action='append',
+                        help='owner-private additional indexed PC texture root, repeatable')
     args = parser.parse_args()
     if args.native_carbon_geometry_root and not args.audit_model_closure:
         parser.error('Original geometry root flags require --audit-model-closure')
+    if args.audit_material_closure and not args.audit_model_closure:
+        parser.error('Material closure requires --audit-model-closure')
+    if args.native_carbon_texture_root and not args.audit_material_closure:
+        parser.error('Native PC texture root flags require --audit-material-closure')
     from carbon_pc_resource_namespace_gate import read_private_carbon_roots
     additional_native = (
         read_private_carbon_roots(args.native_carbon_geometry_root)
         if args.native_carbon_geometry_root else ())
+    additional_textures = (
+        read_private_carbon_roots(args.native_carbon_texture_root)
+        if args.native_carbon_texture_root else ())
     if args.carbon_pc_scene_root:
         if args.carbon_game_stream is not None or args.section is not None:
             parser.error('Raw scene-root mode cannot use game stream/section')
@@ -386,7 +434,9 @@ def main():
             private_scene_output=args.private_scene_output,
             write_private=args.write_private,
             audit_model_closure=args.audit_model_closure,
-            native_carbon_geometry_roots=additional_native)
+            native_carbon_geometry_roots=additional_native,
+            audit_material_closure=args.audit_material_closure,
+            native_carbon_texture_roots=additional_textures)
     else:
         if not args.carbon_game_stream or args.section is None:
             parser.error('Native Carbon source requires STREAML5RB and section')
@@ -396,7 +446,9 @@ def main():
             private_scene_output=args.private_scene_output,
             write_private=args.write_private,
             audit_model_closure=args.audit_model_closure,
-            additional_native_geometry_roots=additional_native)
+            additional_native_geometry_roots=additional_native,
+            audit_material_closure=args.audit_material_closure,
+            additional_native_texture_roots=additional_textures)
     print(json.dumps(report, indent=2))
 
 
