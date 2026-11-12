@@ -193,9 +193,13 @@ class NativePcMaterialClosureTests(unittest.TestCase):
     def test_missing_native_texture_or_geometry_sources_are_invalid(self):
         for roots in ((), None):
             with self.subTest(roots=repr(roots)), self.assertRaises(ValueError):
-                audit(texture_roots=roots)
+                audit_pc_scene_material_closure(
+                    bound_scene(), CANDIDATE, 0,
+                    (native_geometry(),), roots)
             with self.subTest(roots=repr(roots)), self.assertRaises(ValueError):
-                audit(geometry_roots=roots)
+                audit_pc_scene_material_closure(
+                    bound_scene(), CANDIDATE, 0,
+                    roots, (dxt5(NATIVE_TEXTURE),))
 
     def test_invalid_private_scene_and_candidate_inputs_fail(self):
         with self.assertRaises(ValueError):
