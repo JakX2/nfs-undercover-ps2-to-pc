@@ -8,6 +8,8 @@ Current published-research baseline: V41 native scenery model conversion and V43
 
 **V16 PC resource-stream audit:** [Carbon BUN chunk stream analysis](research/world_bridge/CARBON_PC_BUN_CHUNK_STREAM_V16.md) now checks complete, bounded top-level resource framing instead of assuming a single eSolid or texture root. It also checks duplicate model/texture identities across roots. The combined V15 loader-control tool uses this stricter full-file validation; it is still **offline evidence only**, not proven loader compatibility or in-game rendering.
 
+**V17 calibrated external-loader test:** The new [Carbon A/B/A capture gate](research/world_bridge/CARBON_PC_EXTERNAL_ABA_CAPTURE_V17.md) compares baseline, enabled-resource and restored Carbon runs against the same original Carbon file. It also requires a normally accessed stock game file to be observed in each ProcMon capture, reducing false conclusions from missing events. This is **filesystem evidence only**, not confirmed resource registration or rendering.
+
 Original game files, extracted binary data, textures and models are **not distributed** in this repository. All research scripts operate on game files supplied locally by the user. Do not install experimental outputs into a live game.
 
 See the research-source pull request for the source-only Python tools, test infrastructure and evidence reports.
