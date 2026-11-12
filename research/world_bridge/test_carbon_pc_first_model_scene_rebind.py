@@ -491,5 +491,191 @@ class OwnerCarbonPairSectionTests(unittest.TestCase):
 
 
 
+class V22NativeSourceClosureIntegrationTests(unittest.TestCase):
+    """Source-pinned V21+V22 check using a fully indexed original-free pack."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.tracks = self.root / 'Carbon' / 'TRACKS'
+        self.tracks.mkdir(parents=True)
+        self.bun = self.tracks / 'L5RB.BUN'
+        self.stream = self.tracks / 'STREAML5RB.BUN'
+        self.candidate = self.root / 'undercover.pcchunk'
+        self.nativefile = self.root / 'carbon-native.bin'
+        self.candidate.write_bytes(CANDIDATE)
+        self.make_native(101)
+
+    @staticmethod
+    def original_free_native_geometry(identity):
+        from undercover_pc_geometry_bridge import convert_decoded_ps2_model
+        xyz = ((0., 0., 0.), (1., 0., 0.), (0., 1., 0.))
+        uv = ((0., 0.), (1., 0.), (0., 1.))
+        return convert_decoded_ps2_model(
+            identity, (IMG1,), xyz, uv, ((0, 1, 2),), (0,), None)[0]
+
+    def make_native(self, model_id):
+        from test_carbon_pc_native_postscene_layout_gate import (
+            chunk, native_tail,
+        )
+        from carbon_pc_native_postscene_layout_gate import TEXTURE
+        root = self.original_free_native_geometry(model_id)
+        self.nativefile.write_bytes(root)
+        prefix = chunk(TEXTURE, bytes(8)) + root
+        # The measured PC source permits a bounded zero frame between
+        # native geometry and the scene. Align scene root exactly to 16.
+        padding = (-(len(prefix) + 8)) % 16
+        native_section = (prefix + chunk(0, bytes(padding)) +
+                          scene(pc=True, infos=2, inst=2) + native_tail(1))
+        from carbon_pc_native_postscene_layout_gate import profile_carbon_section
+        self.assertEqual(profile_carbon_section(native_section)['native_postscene_control_groups'], 1)
+        b, st = fixture_stream_and_bundle([(141, native_section)])
+        self.bun.write_bytes(b)
+        self.stream.write_bytes(st)
+
+    def run_original(self, **changes):
+        kwargs = {
+            'carbon_l5rb_bun': self.bun,
+            'carbon_stream_l5rb_bun': self.stream,
+            'candidate_path': self.candidate,
+            'section_id': 141, 'info_index': 0,
+            'audit_model_closure': True,
+        }
+        kwargs.update(changes)
+        return inspect_owner_original_carbon_rb_section(**kwargs)
+
+    def test_original_source_geometry_closes_all_active_scene_models(self):
+        original = (self.bun.read_bytes(), self.stream.read_bytes(),
+                    self.candidate.read_bytes())
+        report = self.run_original()
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF')
+        self.assertEqual(report['model_reference_closure']['source_native_geometry_roots_supplied'], 1)
+        self.assertTrue(report['model_reference_closure'][
+            'all_referenced_instance_model_slots_backed_in_supplied_roots'])
+        self.assertFalse(report['model_reference_closure']['undercover_object_rendered_in_game'])
+        self.assertEqual(original, (self.bun.read_bytes(), self.stream.read_bytes(),
+                                    self.candidate.read_bytes()))
+        self.assertNotIn(str(self.tracks), json.dumps(report))
+
+    def test_original_source_geometry_missing_model_reports_incomplete(self):
+        self.make_native(777)
+        report = self.run_original()
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'INCOMPLETE_REFERENCES_IN_SUPPLIED_NATIVE_GEOMETRY')
+        self.assertEqual(report['model_reference_closure'][
+            'referenced_model_identities_unresolved_in_supplied_roots'], 1)
+
+    def test_incomplete_closure_blocks_opt_in_private_scene_export(self):
+        self.make_native(777)
+        destination = self.root / 'should-not-export.pcscene'
+        with self.assertRaisesRegex(ValueError, 'incomplete model closure'):
+            self.run_original(private_scene_output=destination, write_private=True)
+        self.assertFalse(destination.exists())
+
+    def test_complete_closure_permits_private_scene_export_with_caveats(self):
+        target = self.root / 'rebound.pcscene'
+        report = self.run_original(
+            private_scene_output=target, write_private=True)
+        self.assertTrue(target.exists())
+        self.assertTrue(report['private_scene_export']['private_scene_created'])
+        self.assertFalse(report['private_scene_export']['carbon_stream_sector_complete'])
+        self.assertFalse(report['model_reference_closure']['external_loader_model_registration_verified'])
+        self.assertNotIn(str(target), json.dumps(report))
+
+    def test_additional_original_root_can_supply_missing_native_model(self):
+        self.make_native(777)
+        extra = self.original_free_native_geometry(101)
+        report = self.run_original(additional_native_geometry_roots=(extra,))
+        self.assertEqual(report['model_reference_closure']['source_native_geometry_roots_supplied'], 2)
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF')
+
+    def test_duplicate_original_geometry_identity_is_blocked(self):
+        root = self.nativefile.read_bytes()
+        report = self.run_original(additional_native_geometry_roots=(root,))
+        self.assertEqual(report['model_reference_closure']['source_native_repeated_model_identities'], 1)
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'BLOCKED_COLLISION_OR_AMBIGUOUS_NATIVE_MODEL_ID')
+
+    def test_legacy_no_closure_flag_keeps_existing_v21_behavior(self):
+        self.make_native(777)
+        report = self.run_original(audit_model_closure=False)
+        self.assertNotIn('model_reference_closure', report)
+        self.assertFalse(report['native_carbon_stream_sector_complete'])
+
+    def test_raw_scene_uses_owner_supplied_geometry_root(self):
+        source = self.root / 'original.pcscene'
+        source.write_bytes(scene(pc=True, infos=2, inst=2))
+        report = inspect_private_scene_and_candidate(
+            source, self.candidate, 0, audit_model_closure=True,
+            native_carbon_geometry_roots=(self.nativefile.read_bytes(),))
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF')
+
+    def test_raw_scene_requires_supplied_geometry_for_closure(self):
+        source = self.root / 'original.pcscene'
+        source.write_bytes(scene(pc=True, infos=2, inst=2))
+        with self.assertRaises(ValueError):
+            inspect_private_scene_and_candidate(
+                source, self.candidate, 0, audit_model_closure=True)
+
+    def test_extra_roots_without_audit_flag_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, 'require --audit-model-closure'):
+            self.run_original(audit_model_closure=False,
+                              additional_native_geometry_roots=(self.nativefile.read_bytes(),))
+
+    def test_cli_audits_original_section_local_geometry(self):
+        from carbon_pc_first_model_scene_rebind import main
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-game-bun', str(self.bun),
+            '--carbon-game-stream', str(self.stream),
+            '--section', '141', '--info-index', '0',
+            '--private-candidate', str(self.candidate),
+            '--audit-model-closure',
+        ]
+        with patch('sys.argv', args), patch('builtins.print') as printed:
+            main()
+        report = json.loads(printed.call_args.args[0])
+        self.assertEqual(report['model_reference_closure']['source_native_geometry_roots_supplied'], 1)
+        self.assertFalse(report['model_reference_closure']['native_carbon_stream_sector_complete'])
+
+    def test_cli_extra_native_root_requires_closure_option(self):
+        from carbon_pc_first_model_scene_rebind import main
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-game-bun', str(self.bun),
+            '--carbon-game-stream', str(self.stream),
+            '--section', '141', '--info-index', '0',
+            '--private-candidate', str(self.candidate),
+            '--native-carbon-geometry-root', str(self.nativefile),
+        ]
+        with patch('sys.argv', args), patch('sys.stderr'):
+            with self.assertRaises(SystemExit) as caught:
+                main()
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_cli_raw_scene_plus_external_owner_native_root(self):
+        from carbon_pc_first_model_scene_rebind import main
+        source = self.root / 'extracted.pcscene'
+        source.write_bytes(scene(pc=True, infos=2, inst=2))
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-pc-scene-root', str(source),
+            '--info-index', '0',
+            '--private-candidate', str(self.candidate),
+            '--native-carbon-geometry-root', str(self.nativefile),
+            '--audit-model-closure',
+        ]
+        with patch('sys.argv', args), patch('builtins.print') as printed:
+            main()
+        report = json.loads(printed.call_args.args[0])
+        self.assertEqual(report['model_reference_closure']['local_model_reference_gate'],
+                         'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF')
+
+
+
 if __name__ == '__main__':
     unittest.main()
