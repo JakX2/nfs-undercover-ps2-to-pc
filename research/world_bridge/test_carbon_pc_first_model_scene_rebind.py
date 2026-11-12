@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from carbon_pc_first_model_scene_rebind import (
     rebind_one_pc_scene_model, inspect_private_scene_and_candidate,
+    inspect_owner_original_carbon_rb_section,
 )
 from carbon_pc_native_postscene_layout_gate import _children, SCENE_CHILDREN, scene_profile
 from scenery_model_hash_bridge import FIRST_HASH_OFFSET, INFO_ID, INSTANCE_ID
@@ -20,7 +21,9 @@ from test_carbon_pc_first_model_stream_assembly import (
     MODEL, IMG1, geometry, dxt5,
 )
 from carbon_pc_first_model_stream_assembly import build_private_pc_first_model_stream
-from test_carbon_pc_native_postscene_layout_gate import scene
+from test_carbon_pc_native_postscene_layout_gate import (
+    scene, pc_section, fixture_stream_and_bundle,
+)
 
 CANDIDATE = build_private_pc_first_model_stream(geometry(), dxt5(IMG1))[0]
 ORIGINAL_SCENE = scene(pc=True, infos=2, inst=2)
@@ -219,6 +222,142 @@ class OwnerLocalReadOnlyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 inspect_private_scene_and_candidate(
                     self.scene_file, self.candidate_file, 0)
+
+
+class OwnerCarbonPairSectionTests(unittest.TestCase):
+    """Original-free native Carbon L5RB section/source filename controls."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.tracks = self.root / 'CarbonTest' / 'TRACKS'
+        self.tracks.mkdir(parents=True)
+        self.bun = self.tracks / 'L5RB.BUN'
+        self.stream = self.tracks / 'STREAML5RB.BUN'
+        self.candidate = self.root / 'first-model.pcchunk'
+        self.candidate.write_bytes(CANDIDATE)
+        b, st = fixture_stream_and_bundle([
+            (141, pc_section(1)), (142, pc_section(6, zero_gap=True))
+        ])
+        self.bun.write_bytes(b)
+        self.stream.write_bytes(st)
+
+    def audit(self, section=141, index=0, **kw):
+        params = {
+            'carbon_l5rb_bun': self.bun,
+            'carbon_stream_l5rb_bun': self.stream,
+            'candidate_path': self.candidate,
+            'section_id': section, 'info_index': index,
+        }
+        params.update(kw)
+        return inspect_owner_original_carbon_rb_section(**params)
+
+    def test_native_section_141_extracted_and_rebound_in_ram(self):
+        before = [(p.read_bytes(), p.stat().st_mtime_ns)
+                  for p in (self.bun, self.stream, self.candidate)]
+        report = self.audit(section=141, index=0)
+        after = [(p.read_bytes(), p.stat().st_mtime_ns)
+                 for p in (self.bun, self.stream, self.candidate)]
+        self.assertEqual(before, after)
+        self.assertTrue(report['native_carbon_full_original_rb_section_profile_verified'])
+        self.assertTrue(report['original_carbon_scene_extracted_without_writing'])
+        self.assertTrue(report['original_carbon_source_file_preserved'])
+        self.assertEqual(report['native_carbon_pc_source_section_id'], 141)
+        self.assertEqual(report['native_carbon_original_postscene_control_groups'], 1)
+        self.assertFalse(report['native_carbon_stream_sector_complete'])
+        self.assertFalse(report['pc_external_loader_registration_verified'])
+        self.assertNotIn(str(self.root), json.dumps(report))
+
+    def test_native_142_zero_chunk_and_six_control_groups(self):
+        report = self.audit(section=142, index=1)
+        self.assertEqual(report['native_carbon_pc_source_section_id'], 142)
+        self.assertEqual(report['native_carbon_original_postscene_control_groups'], 6)
+        self.assertEqual(report['selected_info_instances_preserved'], 1)
+
+    def test_missing_section_refused(self):
+        with self.assertRaises(ValueError):
+            self.audit(section=143)
+
+    def test_out_of_range_info_index_refused(self):
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            self.audit(index=2)
+
+    def test_bad_bundle_pair_name_or_directory_refused(self):
+        wrong = self.root / 'L5RB.BUN'
+        wrong.write_bytes(self.bun.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'TRACKS'):
+            self.audit(carbon_l5rb_bun=wrong)
+        wrong2 = self.tracks / 'WRONG.BUN'
+        wrong2.write_bytes(self.stream.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'TRACKS'):
+            self.audit(carbon_stream_l5rb_bun=wrong2)
+
+    def test_corrupt_source_stream_postscene_controls_refused(self):
+        # The outer 92-byte index is intact, but the native Carbon PC
+        # post-scene controls have invalid framing. Never rebind it.
+        source = self.stream.read_bytes()
+        pos = source.find(struct.pack('<I', 0x37220))
+        self.assertGreater(pos, 0)
+        broken = bytearray(source)
+        broken[pos:pos+4] = b'\xff\xff\xff\xff'
+        self.stream.write_bytes(broken)
+        with self.assertRaises(ValueError):
+            self.audit()
+
+    def test_bad_source_table_rejected(self):
+        bad = bytearray(self.bun.read_bytes())
+        bad[0:4] = b'xxxx'
+        self.bun.write_bytes(bad)
+        with self.assertRaises(ValueError):
+            self.audit()
+
+    def test_unsupported_section_id_or_boolean_rejected(self):
+        for bad in (0, 240, True, '141', None):
+            with self.subTest(section=repr(bad)), self.assertRaises(ValueError):
+                self.audit(section=bad)
+
+    def test_original_files_not_replaced_with_candidate(self):
+        # The entire operation remains read-only even with a successful
+        # source pair and correct model/instance patch.
+        files_before = {p: p.read_bytes()
+                        for p in (self.bun, self.stream, self.candidate)}
+        self.audit()
+        files_after = {p: p.read_bytes()
+                       for p in (self.bun, self.stream, self.candidate)}
+        self.assertEqual(files_before, files_after)
+        self.assertEqual(len(list(self.root.glob('**/*pcscene'))), 0)
+
+    def test_cli_uses_owner_native_rb_section_without_export(self):
+        from carbon_pc_first_model_scene_rebind import main
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-game-bun', str(self.bun),
+            '--carbon-game-stream', str(self.stream),
+            '--section', '141',
+            '--private-candidate', str(self.candidate),
+            '--info-index', '0',
+        ]
+        with patch('sys.argv', args), patch('builtins.print') as printed:
+            main()
+        public_report = json.loads(printed.call_args.args[0])
+        self.assertTrue(public_report['original_carbon_scene_extracted_without_writing'])
+        self.assertNotIn(str(self.bun), json.dumps(public_report))
+        self.assertNotIn(str(self.candidate), json.dumps(public_report))
+
+    def test_cli_requires_paired_source_flags(self):
+        from carbon_pc_first_model_scene_rebind import main
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-game-bun', str(self.bun),
+            '--private-candidate', str(self.candidate),
+            '--info-index', '0',
+        ]
+        with patch('sys.argv', args), patch('sys.stderr'):
+            with self.assertRaises(SystemExit) as caught:
+                main()
+        self.assertEqual(caught.exception.code, 2)
+
 
 
 if __name__ == '__main__':
