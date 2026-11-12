@@ -20,6 +20,8 @@ Current published-research baseline: V41 native scenery model conversion and V43
 
 **V22 Carbon scenery model closure:** The [source-backed model reference audit](research/world_bridge/CARBON_PC_SCENE_MODEL_CLOSURE_V22.md) now compares every nonzero model/LOD hash in a patched Carbon PC scenery root against independently indexed original PC eSolid geometry and the single converted Undercover model. `--audit-model-closure` extracts original geometry directly from RB section 141/142, detects missing references and hash collisions, and prevents optional private scene export when the supplied model references are unresolved. **This is not global resource closure, loader registration or in-game rendering proof.**
 
+**V23 Carbon PC scene material closure:** The [source-backed per-eSolid material-to-texture audit](research/world_bridge/CARBON_PC_SCENE_MATERIAL_CLOSURE_V23.md) now follows every referenced original Carbon scenery model through its indexed PC eSolid material table to the original Carbon PC texture roots and converted Undercover DXT5 images. `--audit-model-closure --audit-material-closure` uses the same original RB 141/142 geometry, texture and scene section, with optional additional owner-private PC roots; unresolved/colliding textures block explicit private scene export. **This is local resource identity closure only, not a complete Carbon stream or runtime render proof.**
+
 Original game files, extracted binary data, textures and models are **not distributed** in this repository. All research scripts operate on game files supplied locally by the user. Do not install experimental outputs into a live game.
 
 See the research-source pull request for the source-only Python tools, test infrastructure and evidence reports.
