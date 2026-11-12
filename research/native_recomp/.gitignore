@@ -1,0 +1,7 @@
+# Generated ELF-derived names, hashes and manifest belong on the owner's machine.
+private_function_map.txt
+preflight_summary.json
+undercover-wii-generic.yml
+local-private/
+__pycache__/
+*.pyc
