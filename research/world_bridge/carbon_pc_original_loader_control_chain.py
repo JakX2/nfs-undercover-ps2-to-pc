@@ -18,9 +18,10 @@ from carbon_pc_xnfsmodfiles_manifest_gate import (
     MAX_CONFIG_BYTES, parse_one_carbon_control,
 )
 from carbon_pc_external_resource_read_gate import (
-    MAX_CSV_BYTES, MAX_SOURCE_BYTES, _verify_native_resource,
+    MAX_CSV_BYTES, MAX_SOURCE_BYTES,
     _windows_bundle_path, audit_external_resource_trace,
 )
+from carbon_pc_bun_chunk_stream_gate import inspect_carbon_pc_chunk_stream
 from carbon_pc_resource_namespace_gate import read_private_carbon_roots
 
 
@@ -64,7 +65,7 @@ def audit_carbon_original_external_control(
     # The original loader expects a relative path from its active working
     # directory, not the system drive or a configurable external root.
     manifest = parse_one_carbon_control(manifest_bytes, relative)
-    original = _verify_native_resource(original_resource_bytes, kind)
+    original = inspect_carbon_pc_chunk_stream(original_resource_bytes, kind)
     io = audit_external_resource_trace(
         procmon_text, resource, len(original_resource_bytes), kind)
 
@@ -83,8 +84,16 @@ def audit_carbon_original_external_control(
     return {
         'scope': 'OFFLINE_SOURCE_BOUND_CARBON_CONTROL_NOT_RUNTIME_REGISTRATION',
         'source_compatible_with_native_pc_parser': True,
-        'source_kind': original['resource_kind'],
-        'source_resource_records': original['source_resource_records'],
+        'source_kind': 'native_pc_' + kind,
+        'source_resource_records': (original['native_pc_distinct_model_records']
+                                    if kind == 'geometry' else
+                                    original['native_pc_distinct_texture_records']),
+        'source_top_level_chunk_frames': original['top_level_frames'],
+        'source_native_geometry_roots': original['native_pc_geometry_roots'],
+        'source_native_texture_roots': original['native_pc_texture_roots'],
+        'source_other_top_level_frames': original['top_level_unknown_frames'],
+        'source_complete_chunk_framing_verified': True,
+        'external_loader_container_format_verified': False,
         'single_loader_manifest_entry_verified': True,
         'loader_stage': manifest['loader_stage'],
         'loader_resource_type': manifest['resource_file_type'],
