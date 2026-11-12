@@ -1,0 +1,224 @@
+name: Wii executable research checks
+
+on:
+  pull_request:
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-executable-research.yml'
+  push:
+    branches:
+      - 'research/wii-elf-symbol-map'
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-executable-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-and-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Original-free Python ELF/DOL synthetic tests
+        run: python3 -m unittest discover -s research/wii_executable -p 'test_*.py' -v
+      - name: Build reconstructed C++17 helpers
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/test_attrib_text.cpp \
+            -o /tmp/nfsuc-attrib-tests
+          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/test_attrib_tweak.cpp \
+            -o /tmp/nfsuc-attrib-tweak-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/test_attrib_memory.cpp \
+            -o /tmp/nfsuc-attrib-memory-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/test_wii_vehicle_snapshot.cpp \
+            -o /tmp/nfsuc-wii-vehicle-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/test_wii_rigidbody_controls.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-controls-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/test_wii_rigidbody_orientation.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-orientation-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/test_wii_rigidbody_final_transform.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-final-transform-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/wii_rigidbody_frame.cpp \
+            research/wii_executable/test_wii_rigidbody_frame.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-frame-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_endframe.cpp \
+            research/wii_executable/test_wii_rigidbody_endframe.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-endframe-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_sleep.cpp \
+            research/wii_executable/test_wii_rigidbody_sleep.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-sleep-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_resolve.cpp \
+            research/wii_executable/test_wii_rigidbody_resolve.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-resolve-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_transform.cpp \
+            research/wii_executable/test_wii_rigidbody_transform.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-transform-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/test_wii_rigidbody_drag_gates.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-drag-gates-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_resolve.cpp \
+            research/wii_executable/wii_rigidbody_transform.cpp \
+            research/wii_executable/wii_rigidbody_drag.cpp \
+            research/wii_executable/test_wii_rigidbody_drag.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-drag-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/wii_rigidbody_frame.cpp \
+            research/wii_executable/wii_rigidbody_endframe.cpp \
+            research/wii_executable/wii_rigidbody_sleep.cpp \
+            research/wii_executable/wii_rigidbody_resolve.cpp \
+            research/wii_executable/wii_rigidbody_transform.cpp \
+            research/wii_executable/wii_rigidbody_drag.cpp \
+            research/wii_executable/test_wii_rigidbody_pipeline.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-pipeline-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_resolve.cpp \
+            research/wii_executable/wii_rigidbody_detach.cpp \
+            research/wii_executable/test_wii_rigidbody_detach.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-detach-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/wii_rigidbody_frame.cpp \
+            research/wii_executable/wii_rigidbody_primitive.cpp \
+            research/wii_executable/test_wii_rigidbody_primitive.cpp \
+            -o /tmp/nfsuc-wii-rigidbody-primitive-tests
+          clang++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer -O1 \
+            research/wii_executable/attrib_text.cpp \
+            research/wii_executable/attrib_tweak.cpp \
+            research/wii_executable/attrib_memory.cpp \
+            research/wii_executable/wii_vehicle_snapshot.cpp \
+            research/wii_executable/wii_rigidbody_controls.cpp \
+            research/wii_executable/wii_rigidbody_orientation.cpp \
+            research/wii_executable/wii_rigidbody_final_transform.cpp \
+            research/wii_executable/wii_rigidbody_frame.cpp \
+            research/wii_executable/wii_rigidbody_primitive.cpp \
+            research/wii_executable/test_wii_rigidbody_collision_args.cpp \
+            -o /tmp/nfsuc-wii-collision-argument-tests
+      - name: Run C++ behavioral, memory and vehicle state regressions
+        run: |
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-drag-gates-tests
+          /tmp/nfsuc-attrib-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-tweak-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-attrib-memory-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-vehicle-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-controls-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-orientation-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-final-transform-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-frame-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-endframe-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-sleep-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-resolve-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-transform-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-drag-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-pipeline-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-detach-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-rigidbody-primitive-tests
+          ASAN_OPTIONS=detect_leaks=1 /tmp/nfsuc-wii-collision-argument-tests

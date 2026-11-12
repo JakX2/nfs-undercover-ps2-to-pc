@@ -2,6 +2,16 @@
 
 Research repository for an **offline native-format porting investigation**. This is **not yet a playable PC port**.
 
+## Wii PowerPC → native PC physics host (V21, November 11, 2026)
+
+The separate [Wii executable research PR #35](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/35) now builds an **independently authored C++17 physics static library and executable on native Windows and Linux**, without emulation or retail Wii binaries. The synthetic CLI `nfsuc_physics_smoke` composes recovered rigid-body integration, quaternion/matrix updates, aerodynamic drag, end-of-frame force accumulation and base sleeping/Detach behavior. **Both platforms passed native 2-frame and 4-frame CTest checks.**
+
+Build locally with `cmake -S research/wii_executable -B build/wii-native`, `cmake --build build/wii-native --config Release`, then `ctest --test-dir build/wii-native -C Release --output-on-failure`. See [V21 native host build instructions](research/wii_executable/WII_NATIVE_PC_SMOKE_V21.md) and the [Windows/Linux CI workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/workflows/wii-native-host.yml). Successful CI runs may provide precompiled **original-free physics smoke executables**, not a game.
+
+**V22 update:** The original Wii `RigidBody::Primitive::Prepare` (0x8030BCB4, 168 PowerPC bytes) has been reconstructed as a bounded native C++ world-position transform. The synthetic PC physics smoke now traverses a nonempty primitive list **before** body integration, validates prepared coordinates, and includes those coordinates in its CSV trace. Standalone primitive tests cover matrix direction, source state arguments, list order and atomic failure. See [V22 instruction evidence and tests](research/wii_executable/WII_RIGIDBODY_PRIMITIVE_PREPARE_V22.md); verify current CI before treating the new tests as passed.
+
+**This is not a playable Undercover PC port.** The executable runs only synthetic rigid-body scenarios. Vehicle steering/suspension, contacts and collision physics, world streaming, graphics, audio, inputs, actual game assets and original Wii runtime equivalence remain to be implemented and validated.
+
 ## Original-source world-stream findings
 
 **V6, 2026-11-05:** Carbon PC RB section 299 uses two serialized eSolid header values: 73 solids with `0x00000016`, and four with `0x00400016`. The version-aware offline reader verifies all 77 indexed identities and six post-scene group matches. Across seven RB sections, **20/20** `0x37250` record groups have identical model-hash candidate fields at `+0x44` and `+0x4C`, backed by local scenery and solid indexes. This is *not* evidence of pointer semantics or runtime registration.

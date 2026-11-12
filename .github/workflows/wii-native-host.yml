@@ -1,0 +1,48 @@
+name: Native Wii physics host smoke (Windows and Linux)
+
+on:
+  pull_request:
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-native-host.yml'
+  push:
+    branches:
+      - 'research/wii-elf-symbol-map'
+    paths:
+      - 'research/wii_executable/**'
+      - '.github/workflows/wii-native-host.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-host:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure native C++17 physics host
+        run: cmake -S research/wii_executable -B build/wii-native -DCMAKE_BUILD_TYPE=Release
+      - name: Build native static library and smoke executable
+        run: cmake --build build/wii-native --config Release --parallel 2
+      - name: Run source-free two-frame and four-frame smoke tests
+        run: ctest --test-dir build/wii-native -C Release --output-on-failure
+      - name: Publish Windows standalone physics smoke executable
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfsuc-wii-physics-host-windows-x64
+          path: build/wii-native/Release/nfsuc_physics_smoke.exe
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish Linux standalone physics smoke executable
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfsuc-wii-physics-host-linux-x64
+          path: build/wii-native/nfsuc_physics_smoke
+          if-no-files-found: error
+          retention-days: 14
