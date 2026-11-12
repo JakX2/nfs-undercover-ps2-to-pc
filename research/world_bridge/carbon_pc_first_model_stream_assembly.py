@@ -97,3 +97,68 @@ def build_private_pc_first_model_stream(geometry_root, texture_root,
                         'have not been reconstructed. No installation '
                         'or in-game rendering is performed.'),
     }
+
+
+def export_private_pc_candidate_stream(stream, path, *, apply=False):
+    """Owner-local opt-in export of a RE-VALIDATED synthetic chunk candidate.
+
+    Output file extension .pcchunk deliberately avoids masquerading as
+    confirmed Carbon .BUN; exclusive new-file creation never overwrites a
+    stock file or an earlier private candidate. No loader/runtime claims.
+    """
+    import os
+    from pathlib import Path
+
+    if apply is not True:
+        raise ValueError('Private candidate export requires explicit --write-private')
+    if type(stream) is not bytes or not 80 <= len(stream) <= MAX_BUN_BYTES:
+        raise ValueError('Invalid private source stream bytes')
+    size = struct.unpack_from('<I', stream, 4)[0] + 8
+    if not 40 <= size <= len(stream) - 40:
+        raise ValueError('Expected exactly two PC roots in private candidate stream')
+    rebuilt, report = build_private_pc_first_model_stream(
+        stream[:size], stream[size:])
+    if rebuilt != stream or report['top_level_frames'] != 2:
+        raise ValueError('Private candidate stream failed full strict revalidation')
+
+    if not isinstance(path, (str, Path)):
+        raise ValueError('Private candidate output must be a filesystem path')
+    output = Path(path).absolute()
+    if (output.suffix.lower() != '.pcchunk' or
+            any(node.is_symlink() for node in (output, *output.parents)) or
+            not output.parent.is_dir()):
+        raise ValueError('Use a NEW .pcchunk path in an existing safe directory')
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, 'O_BINARY'):
+        flags |= os.O_BINARY
+    if hasattr(os, 'O_NOFOLLOW'):
+        flags |= os.O_NOFOLLOW
+    created = False
+    try:
+        fd = os.open(output, flags, 0o600)
+        created = True
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(stream)
+            handle.flush()
+            os.fsync(handle.fileno())
+        # Recheck bytes read back on disk; no private hash is published.
+        if output.read_bytes() != stream:
+            raise ValueError('Private exported PC chunk candidate differs from memory')
+    except BaseException:
+        # Never overwrite or delete an existing user file; only a file
+        # created by this very call can be cleaned up on failure.
+        if created:
+            output.unlink(missing_ok=True)
+        raise
+    return {
+        'scope': 'PRIVATE_PC_CHUNK_CANDIDATE_WRITTEN_NOT_GAME_INSTALL',
+        'private_file_created': True,
+        'private_file_bytes': len(stream),
+        'pc_chunk_stream_reparsed_before_export': True,
+        'carbon_bun_abi_verified': False,
+        'carbon_loader_accepted_file': False,
+        'in_game_model_rendered': False,
+        'stock_carbon_files_modified': False,
+        'private_path_and_contents_omitted': True,
+    }
