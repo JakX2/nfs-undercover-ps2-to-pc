@@ -55,9 +55,14 @@ def build_private_pc_first_model_stream(geometry_root, texture_root,
     if require_dxt5 and any(record['codec'] != 38 for record in records.values()):
         raise ValueError('Expected DXT5-only Undercover conversion candidate')
 
-    # Carbon PC top-level chunk framing is little-endian; this does not
-    # manufacture any unknown stream index, loader header or scene metadata.
-    stream = geometry_root + texture_root
+    # The owner-original Carbon PC RB section source profile is
+    # 0xB3300000 textures, 0x80134000 geometry, then scenery and 0x372xx
+    # controls. This candidate reconstructs ONLY the first two roots.
+    # Native Carbon PC geometry roots start on a 16-byte boundary.
+    # Never invent an unsupported padding chunk to satisfy alignment.
+    if len(texture_root) % 16:
+        raise ValueError('PC texture root does not align native Carbon geometry')
+    stream = texture_root + geometry_root
     check = inspect_carbon_pc_chunk_stream(stream, 'either')
     if (check['source_total_bytes'] != len(stream) or
             check['top_level_frames'] != 2 or
@@ -84,6 +89,11 @@ def build_private_pc_first_model_stream(geometry_root, texture_root,
         'no_unreferenced_candidate_texture_identities': True,
         'pc_dxt5_only': all(r['codec'] == 38 for r in records.values()),
         'complete_pc_chunk_framing_reparsed': True,
+        'native_carbon_section_texture_before_geometry': True,
+        'native_carbon_geometry_start_aligned_16': True,
+        'missing_carbon_scenery_root': True,
+        'missing_carbon_postscene_control': True,
+        'complete_native_carbon_stream_section': False,
         'retail_carbon_bun_container_abi_verified': False,
         'retail_carbon_runtime_registration_verified': False,
         'pc_loader_accepted_candidate_verified': False,
@@ -113,11 +123,13 @@ def export_private_pc_candidate_stream(stream, path, *, apply=False):
         raise ValueError('Private candidate export requires explicit --write-private')
     if type(stream) is not bytes or not 80 <= len(stream) <= MAX_BUN_BYTES:
         raise ValueError('Invalid private source stream bytes')
-    size = struct.unpack_from('<I', stream, 4)[0] + 8
-    if not 40 <= size <= len(stream) - 40:
-        raise ValueError('Expected exactly two PC roots in private candidate stream')
+    tag, payload_size = struct.unpack_from('<II', stream, 0)
+    size = payload_size + 8
+    if (tag != TEXTURE or not 40 <= size <= len(stream) - 40 or
+            struct.unpack_from('<I', stream, size)[0] != GEOM):
+        raise ValueError('Expected Carbon texture-first two-root PC candidate')
     rebuilt, report = build_private_pc_first_model_stream(
-        stream[:size], stream[size:])
+        stream[size:], stream[:size])
     if rebuilt != stream or report['top_level_frames'] != 2:
         raise ValueError('Private candidate stream failed full strict revalidation')
 
