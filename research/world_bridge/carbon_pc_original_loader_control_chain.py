@@ -89,7 +89,7 @@ def audit_carbon_original_external_control(
         'loader_stage': manifest['loader_stage'],
         'loader_resource_type': manifest['resource_file_type'],
         'configured_path_matches_original_file': True,
-        'capture_exact_filename_match': True,
+        'captured_exact_target_events_observed': io['candidate_target_events'] > 0,
         'same_pid_ordered_open_read_observed': observed,
         'entire_original_file_read_by_one_process_observed': full,
         'read_bytes_covered_by_one_process': io['verified_file_bytes_read_for_one_process'],
