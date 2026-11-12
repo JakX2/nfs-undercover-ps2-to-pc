@@ -145,6 +145,64 @@ def rebind_one_pc_scene_model(scene_root, private_pcchunk, info_index):
     }
 
 
+def export_private_rebound_pc_scene(
+        original_scene, candidate_chunk, info_index, private_output, *,
+        apply=False):
+    """Explicit new-file ONLY write of the revalidated private .pcscene root.
+
+    No Carbon archive is touched and no game resource is registered. This
+    standalone scene root still needs its untouched 0x372xx controls and
+    other source model identities resolved before it could form a sector.
+    """
+    import os
+    if apply is not True:
+        raise ValueError('Private scene export requires explicit --write-private')
+    patched, audit = rebind_one_pc_scene_model(
+        original_scene, candidate_chunk, info_index)
+    if not isinstance(private_output, (str, Path)):
+        raise ValueError('Invalid private scene export path')
+    output = Path(private_output).absolute()
+    if (output.suffix.casefold() != '.pcscene' or
+            any(node.is_symlink() for node in (output, *output.parents)) or
+            not output.parent.is_dir() or
+            any(parent.name.casefold() == 'tracks'
+                for parent in output.parents)):
+        raise ValueError('Use a NEW private .pcscene file OUTSIDE game TRACKS')
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, 'O_BINARY'):
+        flags |= os.O_BINARY
+    if hasattr(os, 'O_NOFOLLOW'):
+        flags |= os.O_NOFOLLOW
+    created = False
+    try:
+        handle_id = os.open(output, flags, 0o600)
+        created = True
+        with os.fdopen(handle_id, 'wb') as handle:
+            handle.write(patched)
+            handle.flush()
+            os.fsync(handle.fileno())
+        on_disk = output.read_bytes()
+        if on_disk != patched or scene_profile(on_disk, 'pc') is None:
+            raise ValueError('Exported private PC scene differs from verified rebind')
+    except BaseException:
+        # Only clean up a file CREATED by this invocation. Existing owner
+        # files are never overwritten or deleted, even on failure.
+        if created:
+            output.unlink(missing_ok=True)
+        raise
+    return {
+        'private_scene_created': True,
+        'private_scene_bytes': len(patched),
+        'private_scene_rebound_info_rows': audit['scene_info_entries_rebound'],
+        'private_scene_revalidated_on_disk': True,
+        'source_carbon_game_files_modified': False,
+        'carbon_stream_sector_complete': False,
+        'carbon_loader_registration_verified': False,
+        'in_game_model_rendered': False,
+        'private_path_and_original_bytes_omitted': True,
+    }
+
+
 def _private_file(path, suffix, upper_bound):
     p = Path(path).absolute()
     if (p.suffix.casefold() != suffix or
@@ -159,26 +217,37 @@ def _snapshot(path):
     return s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns
 
 
-def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index):
+def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
+                                        private_scene_output=None,
+                                        write_private=False):
     """Owner-local read-only CLI: emits *only* aggregate data, no edited file."""
+    if (type(write_private) is not bool or
+            (private_scene_output is None) != (not write_private)):
+        raise ValueError('Private export requires BOTH output and --write-private')
     scene = _private_file(scene_path, '.pcscene', MAX_SCENE)
     candidate = _private_file(candidate_path, '.pcchunk', MAX_BUN_BYTES)
     if scene == candidate or scene.samefile(candidate):
         raise ValueError('Scene and candidate source files must differ')
     before = (_snapshot(scene), _snapshot(candidate))
+    original_bytes, candidate_bytes = scene.read_bytes(), candidate.read_bytes()
     output, audit = rebind_one_pc_scene_model(
-        scene.read_bytes(), candidate.read_bytes(), info_index)
+        original_bytes, candidate_bytes, info_index)
     if before != (_snapshot(scene), _snapshot(candidate)):
         raise ValueError('Private source changed during read-only audit')
     # The edited scene remains in memory only. Do not print its contents.
     if len(output) != scene.stat().st_size:
         raise ValueError('Unexpected private scene length change')
+    if write_private:
+        audit['private_scene_export'] = export_private_rebound_pc_scene(
+            original_bytes, candidate_bytes, info_index,
+            private_scene_output, apply=True)
     return audit
 
 
 def inspect_owner_original_carbon_rb_section(
         carbon_l5rb_bun, carbon_stream_l5rb_bun, candidate_path,
-        section_id, info_index):
+        section_id, info_index, private_scene_output=None,
+        write_private=False):
     """Read Carbon PC native RB 141/142 scenery directly from owner sources.
 
     The 92-byte source section index is validated against the full
@@ -188,6 +257,9 @@ def inspect_owner_original_carbon_rb_section(
     The output remains aggregate-only; no original or modified data
     is written, copied, displayed or uploaded.
     """
+    if (type(write_private) is not bool or
+            (private_scene_output is None) != (not write_private)):
+        raise ValueError('Private export requires BOTH output and --write-private')
     if type(section_id) is not int or section_id not in (141, 142):
         raise ValueError('Only source-backed Carbon PC RB 141/142 allowed')
     bundle = _private_file(carbon_l5rb_bun, '.bun', MAX_SMALL)
@@ -220,10 +292,15 @@ def inspect_owner_original_carbon_rb_section(
     native = profile_carbon_section(section)
     extracted = _scan_roots(section, 1)
     original_scene = extracted['scene']
+    private_candidate_bytes = candidate.read_bytes()
     _, audit = rebind_one_pc_scene_model(
-        original_scene, candidate.read_bytes(), info_index)
+        original_scene, private_candidate_bytes, info_index)
     if tuple(_snapshot(p) for p in sources) != before:
         raise ValueError('Private original sources changed during inspection')
+    if write_private:
+        audit['private_scene_export'] = export_private_rebound_pc_scene(
+            original_scene, private_candidate_bytes, info_index,
+            private_scene_output, apply=True)
     return {
         **audit,
         'native_carbon_pc_source_section_id': section_id,
@@ -251,18 +328,26 @@ def main():
                         help='owner-local V20 texture-first .pcchunk candidate')
     parser.add_argument('--info-index', type=int, required=True,
                         help='existing Carbon scene info row ordinal to rebind')
+    parser.add_argument('--private-scene-output',
+                        help='NEW owner-private .pcscene outside game TRACKS')
+    parser.add_argument('--write-private', action='store_true',
+                        help='explicit opt-in; source Carbon assets never changed')
     args = parser.parse_args()
     if args.carbon_pc_scene_root:
         if args.carbon_game_stream is not None or args.section is not None:
             parser.error('Raw scene-root mode cannot use game stream/section')
         report = inspect_private_scene_and_candidate(
-            args.carbon_pc_scene_root, args.private_candidate, args.info_index)
+            args.carbon_pc_scene_root, args.private_candidate, args.info_index,
+            private_scene_output=args.private_scene_output,
+            write_private=args.write_private)
     else:
         if not args.carbon_game_stream or args.section is None:
             parser.error('Native Carbon source requires STREAML5RB and section')
         report = inspect_owner_original_carbon_rb_section(
             args.carbon_game_bun, args.carbon_game_stream,
-            args.private_candidate, args.section, args.info_index)
+            args.private_candidate, args.section, args.info_index,
+            private_scene_output=args.private_scene_output,
+            write_private=args.write_private)
     print(json.dumps(report, indent=2))
 
 
