@@ -1,7 +1,11 @@
-# Generated ELF-derived names, hashes and manifest belong on the owner's machine.
+# Generated ELF-derived names, hashes, manifests, symbol CSV and native output belong on the owner's machine.
 private_function_map.txt
 preflight_summary.json
 undercover-wii-generic.yml
+undercover-nwii-symbols.csv
+undercover-nwii.toml
+nwii_setup_summary.json
+nwii-generated/
 local-private/
 __pycache__/
 *.pyc
