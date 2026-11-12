@@ -114,7 +114,8 @@ def rank_candidates(packs, image_ids, scene_refs, section,
 def verify_single_model(candidate, source_section, mip_levels=4,
                         pc_header_profile='preserve_source',
                         native_carbon_geometry_roots=None,
-                        native_carbon_texture_roots=None):
+                        native_carbon_texture_roots=None,
+                        private_stream_receiver=None):
     """Convert ONE selected model and its complete texture table in memory.
 
     The original PS2 strip material triangle budget must equal the generated
@@ -127,6 +128,8 @@ def verify_single_model(candidate, source_section, mip_levels=4,
         raise ValueError('No validated private model candidate selected')
     if (native_carbon_geometry_roots is None) != (native_carbon_texture_roots is None):
         raise ValueError('Both native Carbon PC geometry and texture roots required')
+    if private_stream_receiver is not None and not callable(private_stream_receiver):
+        raise ValueError('Private candidate receiver must be callable')
     if type(source_section) is not bytes:
         raise ValueError('Original source section must be immutable bytes')
     if type(mip_levels) is not int or not 1 <= mip_levels <= 16:
@@ -206,6 +209,10 @@ def verify_single_model(candidate, source_section, mip_levels=4,
         namespace = audit_carbon_registration_namespace(
             geometry, images, native_carbon_geometry_roots,
             native_carbon_texture_roots)
+    if private_stream_receiver is not None:
+        # The caller holds owner-private converted bytes strictly in RAM.
+        # Nothing is written here or published in the JSON audit.
+        private_stream_receiver(combined)
     return {
         'pc_candidate_combined_chunk_stream_preflight': assembly,
         'carbon_pc_namespace_preflight': namespace,
@@ -237,7 +244,8 @@ def audit_original(path, section=241, mip_levels=4,
                    min_triangles=4, max_triangles=2048,
                    pc_header_profile='preserve_source',
                    native_carbon_geometry_roots=None,
-                   native_carbon_texture_roots=None):
+                   native_carbon_texture_roots=None,
+                   private_candidate_output=None, write_private=False):
     """Original owner's CRC-verified RB source archive; no file writes."""
     from undercover_ra_texture_presence_gate import (
         _owner_archive, _fingerprint, _member_bytes, parse_stream_section_rows,
@@ -249,6 +257,9 @@ def audit_original(path, section=241, mip_levels=4,
 
     if type(section) is not int or section not in SOURCE_SECTIONS:
         raise ValueError('Unsupported original source section')
+    if (type(write_private) is not bool or
+            (private_candidate_output is None) != (not write_private)):
+        raise ValueError('Private output requires BOTH a path and --write-private')
     original = _owner_archive(path)
     before = _fingerprint(original)
     with zipfile.ZipFile(original) as archive:
@@ -268,18 +279,27 @@ def audit_original(path, section=241, mip_levels=4,
         min_triangles=min_triangles, max_triangles=max_triangles)
     if not ranked:
         raise ValueError('No primary-scene model passes strict full-table image closure')
+    in_memory_stream = []
     result = verify_single_model(
         ranked[0], data, mip_levels, pc_header_profile=pc_header_profile,
         native_carbon_geometry_roots=native_carbon_geometry_roots,
-        native_carbon_texture_roots=native_carbon_texture_roots)
+        native_carbon_texture_roots=native_carbon_texture_roots,
+        private_stream_receiver=in_memory_stream.append if write_private else None)
     if _fingerprint(original) != before:
         raise ValueError('Original owner archive changed during read-only inspection')
+    if write_private:
+        if len(in_memory_stream) != 1:
+            raise ValueError('Private converted candidate not assembled exactly once')
+        from carbon_pc_first_model_stream_assembly import export_private_pc_candidate_stream
+        result['private_candidate_export'] = export_private_pc_candidate_stream(
+            in_memory_stream.pop(), private_candidate_output, apply=True)
+        result['private_model_and_image_bytes_not_exported'] = False
     result.update({
         'candidate_scan': stats,
         'candidate_rank': 1,
         'source_zip_members_crc_verified': True,
         'original_archive_unchanged': True,
-        'private_model_and_image_bytes_not_exported': True,
+        'private_model_and_image_bytes_not_exported': not write_private,
     })
     return result
 
@@ -297,6 +317,10 @@ def main():
                     help='owner-private extracted Carbon PC geometry root; repeat for each')
     ap.add_argument('--carbon-pc-texture-root', action='append',
                     help='owner-private extracted Carbon PC texture root; repeat for each')
+    ap.add_argument('--private-candidate-output',
+                    help='owner-local NEW .pcchunk filename, not an installable Carbon BUN')
+    ap.add_argument('--write-private', action='store_true',
+                    help='explicit opt-in to write only the new private candidate file')
     args = ap.parse_args()
     if bool(args.carbon_pc_geometry_root) != bool(args.carbon_pc_texture_root):
         ap.error('both native Carbon PC geometry and texture roots are required')
@@ -310,7 +334,9 @@ def main():
         min_triangles=args.min_triangles, max_triangles=args.max_triangles,
         pc_header_profile=args.pc_header_profile,
         native_carbon_geometry_roots=native_geo,
-        native_carbon_texture_roots=native_tex), indent=2))
+        native_carbon_texture_roots=native_tex,
+        private_candidate_output=args.private_candidate_output,
+        write_private=args.write_private), indent=2))
 
 
 if __name__ == '__main__':
