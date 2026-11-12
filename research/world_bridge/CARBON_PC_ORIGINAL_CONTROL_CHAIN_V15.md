@@ -1,7 +1,7 @@
 # V15: Correlated Carbon PC original-resource loader control
 
 **2026-11-12. Offline evidence only.** A read-only owner-local audit binds
-one external-loader configuration, one validated PC-shaped Carbon resource,
+one external-loader configuration, one validated PC-shaped Carbon resource chunk stream,
 and one ProcMon capture to the **same expected Windows path**. It neither
 runs Carbon nor claims successful asset registration.
 
@@ -51,9 +51,11 @@ Example manifest single entry:
 
 Stage 1/type 1 comes from the public XNFSModFiles example; it is NOT a
 proven loader type for arbitrary Undercover scenery. This gate accepts
-complete **indexed PC eSolid roots or texture roots**. A genuine
-loader-compatible .BUN may have additional chunk/wrapper framing,
-so a raw parsed root is not automatically a valid external bundle.
+complete **native PC chunk streams** whose top-level framing and
+selected indexed eSolid/texture roots pass independent parsing (V16).
+A genuine loader-compatible .BUN may still require additional resource
+manager metadata, chunk ordering, alignment or wrapper conventions, so
+even a complete parsed chunk stream is NOT proven loadable.
 
 Positive read evidence only confirms file access as seen by ProcMon.
 It does not prove Carbon parsed the data, read the same bytes during
