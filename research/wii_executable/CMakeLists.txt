@@ -36,3 +36,9 @@ add_executable(nfsuc_primitive_regressions test_wii_rigidbody_primitive.cpp)
 target_link_libraries(nfsuc_primitive_regressions PRIVATE nfsuc_wii_physics)
 target_compile_features(nfsuc_primitive_regressions PRIVATE cxx_std_17)
 add_test(NAME nfsuc_wii_primitive_world_transform COMMAND nfsuc_primitive_regressions)
+
+# Original Wii Primitive::SetCollision argument-only reconstruction (V23).
+add_executable(nfsuc_collision_argument_regressions test_wii_rigidbody_collision_args.cpp)
+target_link_libraries(nfsuc_collision_argument_regressions PRIVATE nfsuc_wii_physics)
+target_compile_features(nfsuc_collision_argument_regressions PRIVATE cxx_std_17)
+add_test(NAME nfsuc_wii_collision_argument_preparation COMMAND nfsuc_collision_argument_regressions)
