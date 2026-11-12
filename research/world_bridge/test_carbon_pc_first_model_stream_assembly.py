@@ -48,7 +48,7 @@ class FirstModelChunkStreamTests(unittest.TestCase):
     def test_original_free_one_model_and_dxt5_texture(self):
         g, t = geometry(), dxt5(IMG1)
         blob, report = build_private_pc_first_model_stream(g, t)
-        self.assertEqual(blob, g + t)
+        self.assertEqual(blob, t + g)
         self.assertEqual(report['pc_candidate_chunk_stream_bytes_in_memory'],
                          len(g) + len(t))
         self.assertEqual(report['pc_candidate_model_records'], 1)
@@ -59,6 +59,11 @@ class FirstModelChunkStreamTests(unittest.TestCase):
         self.assertTrue(report['full_material_table_identities_backed'])
         self.assertTrue(report['complete_pc_chunk_framing_reparsed'])
         self.assertTrue(report['pc_dxt5_only'])
+        self.assertTrue(report['native_carbon_section_texture_before_geometry'])
+        self.assertTrue(report['native_carbon_geometry_start_aligned_16'])
+        self.assertTrue(report['missing_carbon_scenery_root'])
+        self.assertTrue(report['missing_carbon_postscene_control'])
+        self.assertFalse(report['complete_native_carbon_stream_section'])
         for key in ('retail_carbon_bun_container_abi_verified',
                     'retail_carbon_runtime_registration_verified',
                     'pc_loader_accepted_candidate_verified',
@@ -71,7 +76,8 @@ class FirstModelChunkStreamTests(unittest.TestCase):
         g, t = geometry((IMG1, IMG2)), dxt5(IMG1, IMG2)
         blob, report = build_private_pc_first_model_stream(g, t)
         self.assertEqual(report['pc_candidate_texture_records'], 2)
-        self.assertEqual(blob[:len(g)], g)
+        self.assertEqual(blob[:len(t)], t)
+        self.assertEqual(len(t) % 16, 0)
 
     def test_no_unresolved_or_extra_texture_identity(self):
         g = geometry((IMG1, IMG2))
@@ -83,6 +89,34 @@ class FirstModelChunkStreamTests(unittest.TestCase):
     def test_wrong_texture_identity_rejected(self):
         with self.assertRaisesRegex(ValueError, 'exactly match'):
             build_private_pc_first_model_stream(geometry(), dxt5(IMG2))
+
+    def test_private_stream_uses_observed_carbon_pc_root_order(self):
+        g, t = geometry(), dxt5(IMG1)
+        b, report = build_private_pc_first_model_stream(g, t)
+        self.assertEqual(struct.unpack_from('<I', b, 0)[0], 0xB3300000)
+        self.assertEqual(struct.unpack_from('<I', b, len(t))[0], 0x80134000)
+        self.assertEqual(len(t) % 16, 0)
+        self.assertFalse(report['complete_native_carbon_stream_section'])
+
+    def test_unaligned_native_texture_root_not_silently_padded(self):
+        # A synthetically malformed alignment must fail closed,
+        # rather than invent an unknown inter-root padding chunk.
+        g, t = geometry(), dxt5(IMG1)
+        with patch('carbon_pc_first_model_stream_assembly._texture_ids',
+                   return_value=frozenset({IMG1})), \
+             patch('carbon_pc_first_model_stream_assembly.parse_pack',
+                   return_value={'records': {IMG1: {'codec': 38}}}):
+            malformed = t[:4] + struct.pack('<I', len(t) - 7) + t[8:] + b'X'
+            with self.assertRaises(ValueError):
+                build_private_pc_first_model_stream(g, malformed)
+
+    def test_previous_geometry_first_export_rejected(self):
+        g, t = geometry(), dxt5(IMG1)
+        with tempfile.TemporaryDirectory() as td:
+            candidate = Path(td) / 'legacy.pcchunk'
+            with self.assertRaisesRegex(ValueError, 'texture-first'):
+                export_private_pc_candidate_stream(g+t, candidate, apply=True)
+            self.assertFalse(candidate.exists())
 
     def test_dxt1_texture_rejected_by_default(self):
         native_dxt1 = make_pack('pc', hashes=(IMG1,))
@@ -123,7 +157,7 @@ class FirstModelChunkStreamTests(unittest.TestCase):
 
     def test_independent_stream_readback_mismatch_refused(self):
         from carbon_pc_bun_chunk_stream_gate import inspect_carbon_pc_chunk_stream
-        actual = inspect_carbon_pc_chunk_stream(geometry()+dxt5(IMG1), 'either')
+        actual = inspect_carbon_pc_chunk_stream(dxt5(IMG1)+geometry(), 'either')
         with patch('carbon_pc_first_model_stream_assembly.inspect_carbon_pc_chunk_stream',
                    return_value={**actual, 'native_pc_distinct_texture_records': 77}):
             with self.assertRaisesRegex(ValueError, 'disagrees'):
@@ -198,7 +232,7 @@ class PrivateCandidateExportTests(unittest.TestCase):
         self.assertFalse(self.path.exists())
 
     def test_unresolved_material_candidate_cannot_be_exported(self):
-        wrong = geometry((IMG1, IMG2)) + dxt5(IMG1)
+        wrong = dxt5(IMG1) + geometry((IMG1, IMG2))
         with self.assertRaisesRegex(ValueError, 'exactly match'):
             export_private_pc_candidate_stream(wrong, self.path, apply=True)
         self.assertFalse(self.path.exists())
