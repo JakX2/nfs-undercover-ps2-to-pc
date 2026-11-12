@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from carbon_pc_first_model_scene_rebind import (
     rebind_one_pc_scene_model, inspect_private_scene_and_candidate,
-    inspect_owner_original_carbon_rb_section,
+    inspect_owner_original_carbon_rb_section, export_private_rebound_pc_scene,
 )
 from carbon_pc_native_postscene_layout_gate import _children, SCENE_CHILDREN, scene_profile
 from scenery_model_hash_bridge import FIRST_HASH_OFFSET, INFO_ID, INSTANCE_ID
@@ -185,6 +185,73 @@ class OwnerLocalReadOnlyTests(unittest.TestCase):
         self.assertEqual(list(self.root.iterdir()).__len__(), 2)
         self.assertNotIn(str(self.root), json.dumps(report))
 
+    def test_guarded_private_scene_export_from_extracted_source(self):
+        output = self.root / 'one-undercover-info.pcscene'
+        report = inspect_private_scene_and_candidate(
+            self.scene_file, self.candidate_file, 0,
+            private_scene_output=output, write_private=True)
+        original = self.scene_file.read_bytes()
+        modified = output.read_bytes()
+        a, _ = scene_positions(original)[INFO_ID]
+        self.assertEqual(struct.unpack_from('<II',
+            modified, a+FIRST_HASH_OFFSET), (MODEL, MODEL))
+        self.assertEqual(modified[:a+FIRST_HASH_OFFSET],
+                         original[:a+FIRST_HASH_OFFSET])
+        self.assertEqual(modified[a+FIRST_HASH_OFFSET+8:],
+                         original[a+FIRST_HASH_OFFSET+8:])
+        self.assertTrue(report['private_scene_export']['private_scene_created'])
+        self.assertFalse(report['private_scene_export']['carbon_stream_sector_complete'])
+        self.assertFalse(report['private_scene_export']['in_game_model_rendered'])
+        self.assertNotIn(str(output), json.dumps(report))
+
+    def test_no_export_without_both_flags(self):
+        output = self.root / 'rebound.pcscene'
+        for kwargs in ({'private_scene_output': output},
+                       {'write_private': True},
+                       {'write_private': 'True', 'private_scene_output': output}):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(
+                    ValueError, 'requires BOTH'):
+                inspect_private_scene_and_candidate(
+                    self.scene_file, self.candidate_file, 0, **kwargs)
+        self.assertFalse(output.exists())
+
+    def test_existing_export_is_preserved(self):
+        output = self.root / 'existing.pcscene'
+        output.write_bytes(b'DO NOT OVERWRITE')
+        with self.assertRaises(FileExistsError):
+            inspect_private_scene_and_candidate(
+                self.scene_file, self.candidate_file, 0,
+                private_scene_output=output, write_private=True)
+        self.assertEqual(output.read_bytes(), b'DO NOT OVERWRITE')
+
+    def test_private_scene_writer_refuses_stock_game_tracks(self):
+        tracks = self.root / 'Carbon' / 'TRACKS'
+        tracks.mkdir(parents=True)
+        output = tracks / 'would-be-patch.pcscene'
+        with self.assertRaisesRegex(ValueError, 'OUTSIDE game TRACKS'):
+            export_private_rebound_pc_scene(
+                ORIGINAL_SCENE, CANDIDATE, 0, output, apply=True)
+        self.assertFalse(output.exists())
+
+    def test_private_writer_does_not_rename_to_bun(self):
+        output = self.root / 'rebound.BUN'
+        with self.assertRaises(ValueError):
+            export_private_rebound_pc_scene(
+                ORIGINAL_SCENE, CANDIDATE, 0, output, apply=True)
+        self.assertFalse(output.exists())
+
+    def test_private_writer_revalidates_and_needs_opt_in(self):
+        output = self.root / 'rebound.pcscene'
+        with self.assertRaisesRegex(ValueError, 'explicit'):
+            export_private_rebound_pc_scene(
+                ORIGINAL_SCENE, CANDIDATE, 0, output)
+        self.assertFalse(output.exists())
+        result = export_private_rebound_pc_scene(
+            ORIGINAL_SCENE, CANDIDATE, 1, output, apply=True)
+        self.assertEqual(result['private_scene_rebound_info_rows'], 1)
+        self.assertTrue(result['private_scene_revalidated_on_disk'])
+        self.assertFalse(result['source_carbon_game_files_modified'])
+
     def test_refuse_missing_or_wrong_extension(self):
         with self.assertRaises(ValueError):
             inspect_private_scene_and_candidate(
@@ -274,6 +341,70 @@ class OwnerCarbonPairSectionTests(unittest.TestCase):
         self.assertEqual(report['native_carbon_pc_source_section_id'], 142)
         self.assertEqual(report['native_carbon_original_postscene_control_groups'], 6)
         self.assertEqual(report['selected_info_instances_preserved'], 1)
+
+    def test_export_source_pinned_rebound_scene_without_modifying_carbon(self):
+        output = self.root / 'new-original-derived-scene.pcscene'
+        before = (self.bun.read_bytes(), self.stream.read_bytes(),
+                  self.candidate.read_bytes())
+        report = self.audit(
+            private_scene_output=output, write_private=True)
+        self.assertTrue(output.is_file())
+        self.assertEqual(before, (
+            self.bun.read_bytes(), self.stream.read_bytes(),
+            self.candidate.read_bytes()))
+        self.assertTrue(report['private_scene_export']['private_scene_created'])
+        self.assertFalse(report['native_carbon_stream_sector_complete'])
+        self.assertNotIn(str(output), json.dumps(report))
+        # Only the selected scene info primary hash pair can differ.
+        from carbon_pc_native_postscene_layout_gate import (
+            _scan_roots, stream_rows,
+        )
+        rows = stream_rows(self.bun.read_bytes(), self.stream.stat().st_size)
+        at, n = rows[141]
+        original = _scan_roots(self.stream.read_bytes()[at:at+n], 1)['scene']
+        a, _ = scene_positions(original)[INFO_ID]
+        self.assertEqual(output.read_bytes()[:a+FIRST_HASH_OFFSET],
+                         original[:a+FIRST_HASH_OFFSET])
+        self.assertEqual(output.read_bytes()[a+FIRST_HASH_OFFSET+8:],
+                         original[a+FIRST_HASH_OFFSET+8:])
+
+    def test_owner_original_mode_export_requires_explicit_flag(self):
+        output = self.root / 'only-if-explicit.pcscene'
+        for kwargs in (
+            {'private_scene_output': output},
+            {'write_private': True},
+        ):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(
+                    ValueError, 'requires BOTH'):
+                self.audit(**kwargs)
+        self.assertFalse(output.exists())
+
+    def test_private_export_refuses_to_overwrite_previous_result(self):
+        output = self.root / 'already-exists.pcscene'
+        output.write_bytes(b'PREVIOUS PRIVATE TEST')
+        with self.assertRaises(FileExistsError):
+            self.audit(private_scene_output=output, write_private=True)
+        self.assertEqual(output.read_bytes(), b'PREVIOUS PRIVATE TEST')
+
+    def test_native_cli_private_export_is_explicit_and_redacted(self):
+        from carbon_pc_first_model_scene_rebind import main
+        output = self.root / 'cli-owner-private.pcscene'
+        args = [
+            'carbon_pc_first_model_scene_rebind.py',
+            '--carbon-game-bun', str(self.bun),
+            '--carbon-game-stream', str(self.stream),
+            '--section', '141',
+            '--private-candidate', str(self.candidate),
+            '--info-index', '0',
+            '--private-scene-output', str(output),
+            '--write-private',
+        ]
+        with patch('sys.argv', args), patch('builtins.print') as printed:
+            main()
+        self.assertTrue(output.is_file())
+        decoded = json.loads(printed.call_args.args[0])
+        self.assertTrue(decoded['private_scene_export']['private_scene_created'])
+        self.assertNotIn(str(output), json.dumps(decoded))
 
     def test_missing_section_refused(self):
         with self.assertRaises(ValueError):
