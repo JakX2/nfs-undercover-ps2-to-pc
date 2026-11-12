@@ -219,11 +219,16 @@ def _snapshot(path):
 
 def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
                                         private_scene_output=None,
-                                        write_private=False):
+                                        write_private=False, audit_model_closure=False,
+                                        native_carbon_geometry_roots=()):
     """Owner-local read-only CLI: emits *only* aggregate data, no edited file."""
     if (type(write_private) is not bool or
             (private_scene_output is None) != (not write_private)):
         raise ValueError('Private export requires BOTH output and --write-private')
+    if type(audit_model_closure) is not bool:
+        raise ValueError('Model closure audit option must be bool')
+    if (not audit_model_closure and native_carbon_geometry_roots):
+        raise ValueError('Native geometry roots require --audit-model-closure')
     scene = _private_file(scene_path, '.pcscene', MAX_SCENE)
     candidate = _private_file(candidate_path, '.pcchunk', MAX_BUN_BYTES)
     if scene == candidate or scene.samefile(candidate):
@@ -237,6 +242,14 @@ def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
     # The edited scene remains in memory only. Do not print its contents.
     if len(output) != scene.stat().st_size:
         raise ValueError('Unexpected private scene length change')
+    if audit_model_closure:
+        from carbon_pc_scene_model_closure_v22 import audit_pc_scene_model_closure
+        audit['model_reference_closure'] = audit_pc_scene_model_closure(
+            output, candidate_bytes, info_index, native_carbon_geometry_roots)
+        if (write_private and
+                audit['model_reference_closure']['local_model_reference_gate'] !=
+                'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF'):
+            raise ValueError('Refusing private scene export with incomplete model closure')
     if write_private:
         audit['private_scene_export'] = export_private_rebound_pc_scene(
             original_bytes, candidate_bytes, info_index,
@@ -247,7 +260,8 @@ def inspect_private_scene_and_candidate(scene_path, candidate_path, info_index,
 def inspect_owner_original_carbon_rb_section(
         carbon_l5rb_bun, carbon_stream_l5rb_bun, candidate_path,
         section_id, info_index, private_scene_output=None,
-        write_private=False):
+        write_private=False, audit_model_closure=False,
+        additional_native_geometry_roots=()):
     """Read Carbon PC native RB 141/142 scenery directly from owner sources.
 
     The 92-byte source section index is validated against the full
@@ -260,6 +274,10 @@ def inspect_owner_original_carbon_rb_section(
     if (type(write_private) is not bool or
             (private_scene_output is None) != (not write_private)):
         raise ValueError('Private export requires BOTH output and --write-private')
+    if type(audit_model_closure) is not bool:
+        raise ValueError('Model closure audit option must be bool')
+    if (not audit_model_closure and additional_native_geometry_roots):
+        raise ValueError('Extra geometry roots require --audit-model-closure')
     if type(section_id) is not int or section_id not in (141, 142):
         raise ValueError('Only source-backed Carbon PC RB 141/142 allowed')
     bundle = _private_file(carbon_l5rb_bun, '.bun', MAX_SMALL)
@@ -293,8 +311,25 @@ def inspect_owner_original_carbon_rb_section(
     extracted = _scan_roots(section, 1)
     original_scene = extracted['scene']
     private_candidate_bytes = candidate.read_bytes()
-    _, audit = rebind_one_pc_scene_model(
+    patched, audit = rebind_one_pc_scene_model(
         original_scene, private_candidate_bytes, info_index)
+    if audit_model_closure:
+        from carbon_pc_scene_model_closure_v22 import audit_pc_scene_model_closure
+        start = extracted['texture_root_bytes']
+        count = extracted['geometry_root_bytes']
+        # The selected native Carbon section 141/142 has exactly one
+        # indexed geometry root, validated again as a complete native
+        # PC eSolid pack during closure.
+        if len(count) != 1:
+            raise ValueError('Unexpected native Carbon PC geometry root count')
+        source_geometry = section[start:start + count[0]]
+        native_roots = (source_geometry,) + tuple(additional_native_geometry_roots)
+        audit['model_reference_closure'] = audit_pc_scene_model_closure(
+            patched, private_candidate_bytes, info_index, native_roots)
+        if (write_private and
+                audit['model_reference_closure']['local_model_reference_gate'] !=
+                'COMPLETE_FOR_SUPPLIED_SCENE_AND_GEOMETRY_NOT_RUNTIME_PROOF'):
+            raise ValueError('Refusing private scene export with incomplete model closure')
     if tuple(_snapshot(p) for p in sources) != before:
         raise ValueError('Private original sources changed during inspection')
     if write_private:
@@ -332,14 +367,26 @@ def main():
                         help='NEW owner-private .pcscene outside game TRACKS')
     parser.add_argument('--write-private', action='store_true',
                         help='explicit opt-in; source Carbon assets never changed')
+    parser.add_argument('--audit-model-closure', action='store_true',
+                        help='resolve all scene LOD IDs against supplied original PC geometry')
+    parser.add_argument('--native-carbon-geometry-root', action='append',
+                        help='owner-private additional original PC geometry root, repeatable')
     args = parser.parse_args()
+    if args.native_carbon_geometry_root and not args.audit_model_closure:
+        parser.error('Original geometry root flags require --audit-model-closure')
+    from carbon_pc_resource_namespace_gate import read_private_carbon_roots
+    additional_native = (
+        read_private_carbon_roots(args.native_carbon_geometry_root)
+        if args.native_carbon_geometry_root else ())
     if args.carbon_pc_scene_root:
         if args.carbon_game_stream is not None or args.section is not None:
             parser.error('Raw scene-root mode cannot use game stream/section')
         report = inspect_private_scene_and_candidate(
             args.carbon_pc_scene_root, args.private_candidate, args.info_index,
             private_scene_output=args.private_scene_output,
-            write_private=args.write_private)
+            write_private=args.write_private,
+            audit_model_closure=args.audit_model_closure,
+            native_carbon_geometry_roots=additional_native)
     else:
         if not args.carbon_game_stream or args.section is None:
             parser.error('Native Carbon source requires STREAML5RB and section')
@@ -347,7 +394,9 @@ def main():
             args.carbon_game_bun, args.carbon_game_stream,
             args.private_candidate, args.section, args.info_index,
             private_scene_output=args.private_scene_output,
-            write_private=args.write_private)
+            write_private=args.write_private,
+            audit_model_closure=args.audit_model_closure,
+            additional_native_geometry_roots=additional_native)
     print(json.dumps(report, indent=2))
 
 
