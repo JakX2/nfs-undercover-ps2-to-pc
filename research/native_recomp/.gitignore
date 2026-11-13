@@ -1,11 +1,11 @@
-# Generated ELF-derived names, hashes, manifests, symbol CSV and native output belong on the owner's machine.
-private_function_map.txt
-preflight_summary.json
-undercover-wii-generic.yml
-undercover-nwii-symbols.csv
-undercover-nwii.toml
-nwii_setup_summary.json
-nwii-generated/
+# Never check in generated code, original executables or ELF-derived inventories.
+private/
 local-private/
-__pycache__/
-*.pyc
+*.dol
+*.elf
+undercover-nwii-symbols.csv
+nwii-generated*/
+output_*.cpp
+main_output.cpp
+*.o
+bin/
