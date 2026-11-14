@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Original-free V26 regression tests for the PowerPC \`sc\` guest-PC emitter.
+"""Original-free V26 regression tests for the PowerPC `sc` guest-PC emitter.
 
 Exercises the exact upstream source transformation, fail-closed behavior and
 emitted C++ for several guest PCs. No Wii executable, extracted code or game
