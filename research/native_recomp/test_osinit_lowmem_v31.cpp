@@ -1,0 +1,270 @@
+// Source-only assertions for genuine original Wii OSInit prefix under AOT native dispatch.
+// Private extracted code and original DOL stay off GitHub and out of test source.
+#include "runtime/cpu_context.h"
+#include "loader/loader.h"
+#include <array>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+
+namespace {
+constexpr uint32_t OSINIT=0x80520670u,STOP=0x80520778u,ALT=0x80520BDCu,REPORT=0x80522F00u;
+constexpr uint32_t TIME=0x8052A844u,GETTIME=0x8052A824u,DISABLE=0x805265ACu;
+constexpr uint32_t RESTORE=0x805265D4u,EXEC=0x80523B1Cu,SAVE=0x805450E8u,COPY=0x80004338u,PERF=0x804B7964u,
+                   MFHID0=0x804B7920u,MTHID0=0x804B7928u,
+                   SPEC=0x804B7A00u,NONIEEE=0x804B7A28u,HID4=0x804B7A30u;
+constexpr uint32_t SP=0x80082000u, R13=0x8070E8E0u, INITFLAG=0x8070DAFCu;
+constexpr uint32_t DEST=0x806F4F00u,SOURCE=0x80038000u,TIMEHI=0x8070DB30u;
+// Boot-state globals are indexed from the original guest r13 small-data pointer.
+constexpr uint32_t BOOT_BASE=R13-3512u, BOOT_RECORD=R13-3516u;
+constexpr uint32_t BOOT_FALLBACK=R13-3520u, BOOT_MODE=R13-16864u;
+constexpr uint32_t BOOT_FIELD=R13-3216u, BOOT_HINT=0x8000310cu;
+constexpr uint32_t BOOT_SOURCE=0x8003D000u;
+struct ReportStop {};
+struct NativeStop {};
+uint64_t assertions=0;
+void check(bool b,const char* text){if(!b)throw std::runtime_error(text);++assertions;}
+}
+namespace nwii::runtime {
+bool g_trace_calls=true;
+uint32_t g_watch_addr=0;
+static uint32_t stops=0,forbidden=0;
+static uint32_t expected_stop=STOP;
+static uint64_t target_time=0;
+static uint32_t call_counts[21]{};
+void trace_call(uint32_t pc,CPUContext& ctx){
+ constexpr uint32_t symbols[21]={OSINIT,TIME,GETTIME,DISABLE,RESTORE,EXEC,SAVE,COPY,ALT,
+  PERF,PERF+8,PERF+16,PERF+24,PERF+32,PERF+40,MFHID0,MTHID0,SPEC,NONIEEE,HID4,REPORT};
+ for(size_t i=0;i<21;++i)if(pc==symbols[i]){
+   ++call_counts[i];
+   // Deterministic test-only virtual-clock start; not a production runtime override.
+   if(pc==GETTIME)ctx.inst_count=target_time;
+   return;
+ }
+ throw std::runtime_error("unplanned original Wii function entered");
+}
+bool handle_syscall(CPUContext& ctx){
+ if(ctx.pc!=expected_stop){++forbidden;throw std::runtime_error("unexpected guest syscall stop");}
+ ++stops;ctx.is_running=false;
+ if(ctx.pc==STOP)throw NativeStop{};
+ if(ctx.pc==REPORT)throw ReportStop{}; // stop before original OSReport can return
+ return true;
+}
+void interpret_step(CPUContext&){++forbidden;throw std::runtime_error("PPC interpreter fallback");}
+bool process_pending_callbacks(CPUContext&){return false;}
+void watch_hit(uint32_t,uint32_t,int){}
+void GX_WGPIPE_Write8(uint8_t){}
+void GX_WGPIPE_Write16(uint16_t){}
+void GX_WGPIPE_Write32(uint32_t){}
+void GX_WGPIPE_WriteF32(float){}
+void GX_WGPIPE_WriteF64(double){}
+uint16_t HW_Reg_Read16(uint32_t){return 0;}
+uint32_t HW_Reg_Read32(uint32_t){return 0;}
+void HW_Reg_Write16(uint32_t,uint16_t){}
+void HW_Reg_Write32(uint32_t,uint32_t){}
+}
+extern "C" void run_game(nwii::runtime::CPUContext&);
+int main(int argc,char**argv)try{
+ check(argc==2,"usage: original-native-test PRIVATE_DOL");
+ nwii::loader::Executable exe;
+ check(exe.load_dol(argv[1])&&exe.entry_point==OSINIT,"wrong bounded OSInit DOL");
+ auto ctx=std::make_unique<nwii::runtime::CPUContext>();
+ constexpr std::array<uint32_t,4> source{0u,0x7fffffffu,SOURCE,0x80000000u};
+ constexpr std::array<uint64_t,4> clocks{0x0000000000100000ull,0x00000001fffffffcull,
+       0x00000000fffffff0ull,0x0000000200000004ull};
+ constexpr std::array<uint64_t,4> offsets{0x0000000000000000ull,0x0000000200000050ull,
+       0x00000003ffffffe0ull,0x00000001fffffffdull};
+ for(size_t run=0;run<source.size();++run){
+  const uint32_t ptr=source[run];const bool copied=ptr>=0x80000000u;
+  const uint32_t msr=(run&1)?0x2000u:0xA000u;
+  constexpr uint32_t SAVED_LR=0x8000BEEFu;
+  ctx->mmu.write32(INITFLAG,0);
+  ctx->mmu.write32(0x800030F0u,ptr);
+  // Four independent startup shapes: neither boot source, legacy fallback,
+  // explicit boot-info record, and a boot record overriding fallback flags.
+  const uint32_t boot=run<2?0u:BOOT_SOURCE+static_cast<uint32_t>((run-2)*0x100u);
+  const bool legacy=(run&1u)!=0;
+  const uint8_t legacy_byte0=uint8_t(0x65u+run),legacy_byte1=uint8_t(0x85u+run);
+  const uint32_t boot_word0=0xABCD1200u+uint32_t(run*11+9);
+  const uint32_t boot_word1=0xCAFE5600u+uint32_t(run*13+0x42);
+  const uint32_t arena_hint=0x80102000u+uint32_t(run*0x100u);
+  ctx->mmu.write32(0x800000F4u,boot);
+  ctx->mmu.write32(0x80000034u,legacy?1u:0u);
+  ctx->mmu.write8(0x800030E8u,legacy_byte0);
+  ctx->mmu.write8(0x800030E9u,legacy_byte1);
+  ctx->mmu.write32(BOOT_HINT,arena_hint);
+  if(boot){
+    ctx->mmu.write32(boot+12u,boot_word0);
+    ctx->mmu.write32(boot+36u,boot_word1);
+    ctx->mmu.write8(boot+8u,0xDAu);
+    ctx->mmu.write8(boot+40u,0xDBu);
+  }
+  ctx->mmu.write32(BOOT_BASE,0x6F6F6F6Fu);
+  ctx->mmu.write32(BOOT_RECORD,0x6E6E6E6Eu);
+  ctx->mmu.write32(BOOT_FALLBACK,0x6D6D6D6Du);
+  ctx->mmu.write32(BOOT_FIELD,0x6C6C6C6Cu);
+  ctx->mmu.write32(BOOT_MODE,0x6B6B6B6Bu);
+
+  ctx->mmu.write32(0x800030D8u,uint32_t(offsets[run]>>32));
+  ctx->mmu.write32(0x800030DCu,uint32_t(offsets[run]));
+  ctx->mmu.write32(TIMEHI,0xA0A0A0A0u);
+  ctx->mmu.write32(TIMEHI+4,0xBBBBBBBBu);
+  ctx->mmu.write8(DEST-1,0xAC);
+  for(uint32_t i=0;i<32;++i){
+    ctx->mmu.write8(DEST+i,0xAA);
+    if(copied)ctx->mmu.write8(ptr+i,uint8_t((run*43+i*17+9)&255));
+  }
+  ctx->mmu.write8(DEST+28,0xC9);
+  ctx->mmu.write8(DEST+29,0xD9);
+  for(unsigned i=20;i<=31;++i){
+   ctx->gpr[i]=0x1CA00000u+(uint32_t(run)<<16)+i;
+   ctx->mmu.write32(SP-48u+4u*(i-20u),0xFAFAFAFAu);
+  }
+  ctx->hid0=0x05000000u + uint32_t(run);
+  ctx->hid4=0x00012345u + uint32_t(run);
+  ctx->fpscr=0xA0000000u + uint32_t(run);
+  const uint32_t initial_hid0=ctx->hid0;
+  const uint32_t initial_fpscr=ctx->fpscr;
+  ctx->mmcr0=0xFFFF0001u+uint32_t(run);
+  ctx->mmcr1=0x0000FFFFu+uint32_t(run);
+  for(size_t i=0;i<4;++i)ctx->pmc[i]=0xBEEFAA01u+uint32_t(run*4+i);
+  ctx->gpr[13]=R13;
+  ctx->gpr[1]=SP;ctx->lr=SAVED_LR;ctx->pc=OSINIT;ctx->msr=msr;
+  ctx->is_running=true;
+  nwii::runtime::target_time=clocks[run];
+  const uint32_t stops=nwii::runtime::stops;
+  std::array<uint32_t,21> before{};
+  for(size_t i=0;i<before.size();++i)before[i]=nwii::runtime::call_counts[i];
+  bool exact_stop=false;
+  try{run_game(*ctx);}catch(const NativeStop&){exact_stop=true;}
+  check(exact_stop,"original OSInit missing explicit terminal syscall");
+  check(!ctx->is_running&&ctx->pc==STOP,"wrong exact guest syscall boundary");
+  check(nwii::runtime::stops==stops+1,"missing original OSInit continuation stop");
+  check(ctx->gpr[1]==SP-80,"original OSInit stack frame incorrect");
+  check(ctx->mmu.read32(SP+4)==SAVED_LR,"original caller LR was not saved");
+  check(ctx->mmu.read32(INITFLAG)==1,"OSInit one-time global not set");
+  check((ctx->msr&0x8000u)==0,"original second interrupt disable not executed");
+  check((ctx->msr&~0x8000u)==(msr&~0x8000u),"original OSInit corrupted other MSR bits");
+  check(ctx->gpr[13]==R13,"OSInit guest small-data pointer changed");
+  check(ctx->gpr[3]==arena_hint,"original low-memory MEM1 arena hint was not loaded");
+  check(ctx->mmu.read32(BOOT_BASE)==0x80000000u,"original OS boot base pointer changed");
+  check(ctx->mmu.read32(BOOT_MODE)==1u,"original OS boot mode flag should be one");
+  check(ctx->mmu.read32(0x800000F4u)==boot,"low-memory boot pointer modified");
+  check(ctx->mmu.read32(0x80000034u)==(legacy?1u:0u),"low-memory legacy flag modified");
+  if(boot){
+    check(ctx->mmu.read32(BOOT_RECORD)==boot+12u,"original OS boot-info pointer wrong");
+    check(ctx->mmu.read32(BOOT_FIELD)==boot_word1,"original boot-info secondary word wrong");
+    check(ctx->mmu.read32(BOOT_FALLBACK)==0x6D6D6D6Du,"boot-info path touched fallback word");
+    check(ctx->mmu.read8(0x800030E8u)==uint8_t(boot_word0),"boot-info first flag byte wrong");
+    check(ctx->mmu.read8(0x800030E9u)==uint8_t(boot_word1),"boot-info second flag byte wrong");
+    check(ctx->mmu.read32(boot+12u)==boot_word0&&ctx->mmu.read32(boot+36u)==boot_word1,
+          "source boot-info words changed");
+    check(ctx->mmu.read8(boot+8u)==0xDAu&&ctx->mmu.read8(boot+40u)==0xDBu,
+          "source boot-info guards changed");
+  } else if(legacy){
+    check(ctx->mmu.read32(BOOT_RECORD)==BOOT_FALLBACK,"fallback boot pointer wrong");
+    check(ctx->mmu.read32(BOOT_FIELD)==legacy_byte1,"fallback secondary boot byte wrong");
+    check(ctx->mmu.read32(BOOT_FALLBACK)==legacy_byte0,"fallback primary boot byte wrong");
+    check(ctx->mmu.read8(0x800030E8u)==legacy_byte0&&ctx->mmu.read8(0x800030E9u)==legacy_byte1,
+          "fallback changed original low-memory bytes");
+  } else {
+    check(ctx->mmu.read32(BOOT_RECORD)==0u,"empty boot record pointer not cleared");
+    check(ctx->mmu.read32(BOOT_FIELD)==0x6C6C6C6Cu,"empty boot path modified field");
+    check(ctx->mmu.read32(BOOT_FALLBACK)==0x6D6D6D6Du,"empty boot path modified fallback");
+    check(ctx->mmu.read8(0x800030E8u)==legacy_byte0&&ctx->mmu.read8(0x800030E9u)==legacy_byte1,
+          "empty boot path modified low-memory bytes");
+  }
+
+  check(ctx->mmcr0==0&&ctx->mmcr1==0,"original MMCR0/MMCR1 zeroing failed");
+  check(ctx->hid4==0x83900000u,"genuine original HID4 init write failed");
+  check(ctx->hid0==(initial_hid0|0x200u),"original PPCDisableSpeculation HID0 bit preservation failed");
+  check(ctx->fpscr==(initial_fpscr|0x4u),"original mtfsb1(29) FPSCR bit mapping failed");
+  for(size_t i=0;i<4;++i)check(ctx->pmc[i]==0,"original PMC register zeroing failed");
+  const uint64_t stamp=(uint64_t(ctx->mmu.read32(TIMEHI))<<32)|ctx->mmu.read32(TIMEHI+4);
+  const uint64_t low=clocks[run]+offsets[run];
+  check(stamp>=low+1 && stamp<=low+48,"OSInit timestamp outside original timebase window");
+  const uint32_t expected_entries[21]={1,1,1,2,1,1,1,(copied?1u:0u),0,1,1,1,1,1,1,1,1,1,1,1,0};
+  for(size_t i=0;i<21;++i)
+    check(nwii::runtime::call_counts[i]-before[i]==expected_entries[i],
+      "wrong number of original guest function dispatches");
+  for(unsigned i=20;i<=31;++i)
+    check(ctx->mmu.read32(SP-48u+4u*(i-20u))==0x1CA00000u+(uint32_t(run)<<16)+i,
+      "original _savegpr_20 guest stack slot wrong");
+  check(ctx->mmu.read8(DEST-1)==0xAC && ctx->mmu.read8(DEST+28)==0xC9 &&
+        ctx->mmu.read8(DEST+29)==0xD9,"execparams destination guard changed");
+  for(uint32_t i=0;i<28;++i){
+    const uint8_t expected=copied?uint8_t((run*43+i*17+9)&255):(i<4?0u:0xAA);
+    check(ctx->mmu.read8(DEST+i)==expected,"OSInit original exec-params copy/zero wrong");
+  }
+ }
+ // Direct calls into each authentic two-instruction PPC helper use nonzero
+ // operands. This proves value storage (not unconditional zeroing or no-op).
+ nwii::runtime::expected_stop=ALT;
+ constexpr std::array<uint32_t,6> perf_addr{PERF,PERF+8,PERF+16,PERF+24,PERF+32,PERF+40};
+ for(size_t i=0;i<perf_addr.size();++i){
+  ctx->mmcr0=0xACDC1234u;ctx->mmcr1=0xBADA0001u;
+  ctx->pmc={0x11111111u,0x22222222u,0x33333333u,0x44444444u};
+  const std::array<uint32_t,6> previous{ctx->mmcr0,ctx->mmcr1,
+      ctx->pmc[0],ctx->pmc[1],ctx->pmc[2],ctx->pmc[3]};
+  const uint32_t value=0xDEAD1001u+uint32_t(i*37);
+  ctx->gpr[3]=value;
+  ctx->pc=perf_addr[i];ctx->lr=ALT;ctx->is_running=true;
+  const uint32_t old_stops=nwii::runtime::stops;
+  const uint32_t old_helper_calls=nwii::runtime::call_counts[9+i];
+  run_game(*ctx);
+  check(!ctx->is_running && ctx->pc==ALT,"direct original mtspr did not reach ALT stop");
+  check(nwii::runtime::stops==old_stops+1,"direct original mtspr stop missing");
+  check(nwii::runtime::call_counts[9+i]==old_helper_calls+1,"helper dispatched incorrectly");
+  check(ctx->gpr[3]==value,"original mtspr corrupted source operand");
+  const std::array<uint32_t,6> after{ctx->mmcr0,ctx->mmcr1,
+      ctx->pmc[0],ctx->pmc[1],ctx->pmc[2],ctx->pmc[3]};
+  for(size_t n=0;n<after.size();++n)
+    check(after[n]==(n==i?value:previous[n]),"performance SPR alias or mapping wrong");
+ }
+ // Original HID4 helper with sign bit set: no OSReport and correct 32-bit write.
+ nwii::runtime::expected_stop=ALT;
+ ctx->hid4=0x13572468u;
+ ctx->gpr[3]=0xBEEF4567u;ctx->gpr[31]=0xDA1E0FAFu;
+ ctx->gpr[1]=SP;ctx->lr=ALT;ctx->pc=HID4;ctx->is_running=true;
+ const uint32_t first_stop=nwii::runtime::stops;
+ const uint32_t first_hid=nwii::runtime::call_counts[19];
+ run_game(*ctx);
+ check(!ctx->is_running && ctx->pc==ALT,"direct original HID4 did not return to synthetic ALT");
+ check(ctx->hid4==0xBEEF4567u,"direct original HID4 nonzero value lost");
+ check(ctx->gpr[3]==0xBEEF4567u&&ctx->gpr[31]==0xDA1E0FAFu,"HID4 callee register corruption");
+ check(ctx->gpr[1]==SP&&ctx->lr==ALT,"original HID4 direct stack/LR mismatch");
+ check(nwii::runtime::stops==first_stop+1&&nwii::runtime::call_counts[19]==first_hid+1,
+       "direct original HID4 call tracing mismatch");
+ // HID4 bit31 clear must take the original OSReport branch. We stop there
+ // deliberately rather than invent a successful host OSReport implementation.
+ nwii::runtime::expected_stop=REPORT;
+ ctx->hid4=0x55667788u;ctx->gpr[3]=0x00000505u;
+ ctx->gpr[1]=SP;ctx->lr=ALT;ctx->pc=HID4;ctx->is_running=true;
+ const uint32_t report_before=nwii::runtime::call_counts[20];
+ bool stopped_at_report=false;
+ try { run_game(*ctx); } catch(const ReportStop&) { stopped_at_report=true; }
+ check(stopped_at_report,"HID4 bit31-clear branch returned from synthetic OSReport stop");
+ check(!ctx->is_running&&ctx->pc==REPORT,"HID4 MSB-clear path did not reach OSReport boundary");
+ check(ctx->hid4==0x55667788u,"HID4 register changed before OSReport returned");
+ check(nwii::runtime::call_counts[20]==report_before+1,"unverified OSReport branch not traced");
+ // Independent direct original speculation control preserves all other HID0 bits.
+ nwii::runtime::expected_stop=ALT;
+ for(uint32_t seed:{0u,0x40000000u,0xFFFFFFFFu}){
+  ctx->hid0=seed;ctx->gpr[1]=SP;ctx->lr=ALT;ctx->pc=SPEC;ctx->is_running=true;
+  run_game(*ctx);
+  check(ctx->pc==ALT && !ctx->is_running,"PPCDisableSpeculation did not return normally");
+  check(ctx->hid0==(seed|0x200u),"PPCDisableSpeculation damaged other HID0 bits");
+  check(ctx->gpr[1]==SP&&ctx->lr==ALT,"PPCDisableSpeculation guest ABI damaged");
+ }
+ // The original FP mode helper ORs FPSCR bit 2 (PowerPC bit number 29).
+ for(uint32_t seed:{0u,0xFFFFFFFFu,0x01230000u}){
+  ctx->fpscr=seed;ctx->lr=ALT;ctx->pc=NONIEEE;ctx->is_running=true;
+  run_game(*ctx);
+  check(!ctx->is_running&&ctx->pc==ALT,"PPCSetFpNonIEEEMode did not return");
+  check(ctx->fpscr==(seed|0x4u),"mtfsb1 29 changed unrelated FPSCR bits");
+ }
+ check(nwii::runtime::forbidden==0,"interpreter or unexpected syscall reached");
+ std::cout << std::dec << "PASS: " << assertions << " V31 original OSInit→low-memory boot-info native assertions, 4 OSInit paths + direct helpers, no interpreter fallback\n";
+ return 0;
+}catch(const std::exception& e){std::cerr<<"V31 original test failed: "<<e.what()<<'\n';return 1;}

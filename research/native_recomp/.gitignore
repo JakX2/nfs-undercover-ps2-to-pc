@@ -1,0 +1,11 @@
+# Never check in generated code, original executables or ELF-derived inventories.
+private/
+local-private/
+*.dol
+*.elf
+undercover-nwii-symbols.csv
+nwii-generated*/
+output_*.cpp
+main_output.cpp
+*.o
+bin/
