@@ -134,3 +134,26 @@ time stores, execute its next interrupt setup and `__OSGetExecParams` boundary
 with accurately tested guest-visible state, then advance to subsequent
 services one by one. Do not equate these isolated native startup checkpoints
 with a completed native Windows boot.
+
+## Follow-up: independent syscall-PC regression (2026-11-14)
+
+`test_syscall_pc_v26.py` adds **15 new original-free standalone checks** for
+the V26 `sc` emitter patch. Run it in this directory with:
+
+```bash
+python3 test_syscall_pc_v26.py
+```
+
+It verifies exact source replacement, idempotency, five fail-closed/unchanged
+source layouts, and compiles two small C++20 programs using the actual patched
+emitter snippet. The first emits native statements for three distinct guest
+PCs; the second executes those statements to confirm a syscall callback sees
+the instruction PC even when `ctx.pc` initially contains a stale return PC.
+The checks passed with Python 3 and GCC in an original-free isolated run.
+They supplement, but **are not part of**, the earlier 77/55 V26 tests and
+do not constitute a run of the complete NWiiRecomp game dispatcher.
+
+**Reproduction limitation remains:** the branch has only the V26 patch,
+documentation, and this added standalone test, not the five unpublished V26
+generator/fixture/runner sources. Its original-game and full-suite V26 results
+are owner-local, not independently reproducible from the GitHub branch alone.
