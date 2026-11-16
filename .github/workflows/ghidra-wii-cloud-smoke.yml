@@ -67,6 +67,7 @@ jobs:
             "$RUNNER_TEMP/ghidra-projects" UndercoverWiiSynthetic \
             -import "$RUNNER_TEMP/synthetic_wii.dol" \
             -loader GameCubeLoader \
+            -loader-autoloadMaps false \
             -scriptPath "$GITHUB_WORKSPACE/research/native_recomp/cloud_ghidra" \
             -postScript ExportWiiFunctionManifest.java "$RUNNER_TEMP/functions.json" synthetic \
             -analysisTimeoutPerFile 180 \
