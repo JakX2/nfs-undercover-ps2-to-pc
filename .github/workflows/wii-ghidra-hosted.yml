@@ -78,7 +78,7 @@ jobs:
           python3 research/cloud_ghidra/check_manifest.py "$RUNNER_TEMP/synthetic-functions.json"
 
   owner-original:
-    name: Authenticated Drive owner Wii DOL headless analysis (private only)
+    name: Drive-link owner Wii DOL headless analysis (SHA-pinned, original withheld)
     if: >-
       (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
       github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
@@ -94,25 +94,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install authenticated Google Drive client
-        run: python3 -m pip install --disable-pip-version-check --quiet 'google-api-python-client==2.187.0' 'google-auth==2.42.1'
-      - name: Retrieve owner originals through read-only authenticated Drive access
+      - name: Install pinned link-download client
+        run: python3 -m pip install --disable-pip-version-check --quiet 'gdown==5.2.0'
+      - name: Retrieve and SHA-256-verify owner originals from link-shared Drive
         shell: bash
         env:
-          WII_GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.WII_GDRIVE_SERVICE_ACCOUNT_JSON }}
           WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
           WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
         run: |
           set -euo pipefail
           umask 077
-          python3 research/cloud_ghidra/stage_owner_wii.py "$RUNNER_TEMP/wii-owner-private"
+          python3 research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/wii-owner-private"
           test -s "$RUNNER_TEMP/wii-owner-private/NfsMWRelease.dol"
           test -s "$RUNNER_TEMP/wii-owner-private/NfsMWRelease.elf"
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/ghidra-archives
           key: ghidra-12-1-3-verified-93a5d11a9ad5
-      - name: Install pinned authenticated cloud analyzer
+      - name: Install pinned cloud analyzer
         shell: bash
         run: |
           set -euo pipefail
