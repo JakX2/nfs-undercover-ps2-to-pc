@@ -52,7 +52,7 @@ class TestLinkStaging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "private"
             with self.assertRaisesRegex(OriginalImageError, "SHA-256"):
-                stage_links(Downloader(elf=b"not-the-right-elf"), IDS, root, EXPECTED)
+                stage_links(Downloader(elf=ELF[::-1]), IDS, root, EXPECTED)
             self.assertFalse(root.exists())
 
     def test_size_mismatch_refused_and_cleaned(self):
