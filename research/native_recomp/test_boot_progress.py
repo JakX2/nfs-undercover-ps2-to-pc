@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -115,6 +116,78 @@ class BootProgressTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(data["failure_reason"], "conflicting_guest_checkpoints")
 
+
+    def test_failed_runner_cannot_publish_checkpoint(self):
+        code = "print('PASS: synthetic\\nBOOT_PROGRESS entry=0x8000403C pc=0x805208C4 stage=27');raise SystemExit(7)"
+        rc, data = self.invoke(code, lane="continuous-start")
+        self.assertEqual(rc, 1)
+        self.assertEqual(data["failure_reason"], "runner_failed")
+        self.assertIsNone(data["observed_pc"])
+        self.assertIsNone(data["observed_entry"])
+        self.assertIsNone(data["stage"])
+
+    def test_timeout_cannot_publish_early_checkpoint(self):
+        code = "import time;print('PASS: synthetic\\nBOOT_PROGRESS entry=0x8000403C pc=0x805208C4 stage=27',flush=True);time.sleep(1)"
+        rc, data = self.invoke(code, lane="continuous-start", timeout="0.02")
+        self.assertEqual(rc, 1)
+        self.assertEqual(data["failure_reason"], "timeout")
+        self.assertIsNone(data["observed_pc"])
+
+    def test_report_must_not_overwrite_pinned_input(self):
+        private_input = self.root / "synthetic_fixture.bin"
+        payload = b"independently-authored-test-image"
+        private_input.write_bytes(payload)
+        args = ["--lane", "synthetic", "--report", str(private_input),
+                "--dol", str(private_input),
+                "--sha256", hashlib.sha256(payload).hexdigest(),
+                "--", sys.executable, "-c", "print('PASS: synthetic')"]
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(args)
+        self.assertEqual(rc, 2)
+        self.assertEqual(private_input.read_bytes(), payload)
+
+    def test_report_must_not_overwrite_baseline(self):
+        self.invoke("print('PASS: synthetic\\nBOOT_PROGRESS entry=0x8000403C pc=0x805206B4 stage=26')",
+                    lane="continuous-start")
+        baseline = self.root / "baseline.json"
+        self.report.replace(baseline)
+        original = baseline.read_bytes()
+        rc, _ = self.invoke("print('PASS: synthetic')",
+                            ["--baseline", str(baseline)], lane="continuous-start",
+                            report=baseline)
+        self.assertEqual(rc, 2)
+        self.assertEqual(baseline.read_bytes(), original)
+
+    def test_corrupt_baseline_is_rejected_before_launch(self):
+        self.invoke("print('PASS: synthetic\\nBOOT_PROGRESS entry=0x8000403C pc=0x805206B4 stage=26')",
+                    lane="continuous-start")
+        baseline = self.root / "baseline.json"
+        self.report.replace(baseline)
+        original = json.loads(baseline.read_text())
+        for changes in ({"schema": "foreign-schema"},
+                        {"observed_entry": 0x80520670},
+                        {"stage": True},
+                        {"observed_pc": -1}):
+            baseline.write_text(json.dumps(dict(original, **changes)))
+            rc, data = self.invoke("print('PASS: synthetic')",
+                                   ["--baseline", str(baseline)],
+                                   lane="continuous-start")
+            self.assertEqual(rc, 2)
+            self.assertIsNone(data)
+
+    def test_checkpoint_baseline_must_match_pinned_owner(self):
+        self.invoke("print('PASS: synthetic\\nBOOT_PROGRESS entry=0x8000403C pc=0x805206B4 stage=26')",
+                    lane="continuous-start")
+        baseline = self.root / "baseline.json"
+        self.report.replace(baseline)
+        fixture = self.root / "synthetic_fixture.bin"
+        fixture.write_bytes(b"not proprietary content")
+        rc, data = self.invoke("print('PASS: synthetic')",
+                               ["--baseline", str(baseline), "--dol", str(fixture),
+                                "--sha256", hashlib.sha256(fixture.read_bytes()).hexdigest()],
+                               lane="continuous-start")
+        self.assertEqual(rc, 2)
+        self.assertIsNone(data)
 
 if __name__ == "__main__":
     unittest.main()

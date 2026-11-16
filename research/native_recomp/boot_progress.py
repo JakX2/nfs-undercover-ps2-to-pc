@@ -84,18 +84,30 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("owner DOL requires an expected SHA-256; refusing unpinned private fixture")
     if args.sha256 is not None and args.dol is None:
         raise ValueError("--sha256 requires --dol")
+    # Never replace the pinned input or baseline with the result, even via a symlink.
+    protected = (path for path in (args.dol, args.baseline) if path is not None)
+    if any(args.report.resolve() == path.resolve() for path in protected):
+        raise ValueError("report path aliases a read-only input")
     if args.dol is not None and hash_file(args.dol).lower() != args.sha256.lower():
         raise ValueError("private owner DOL SHA-256 mismatch; command not executed")
 
     baseline = None
     if args.baseline is not None:
         baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
+        if baseline.get("schema") != "undercover-boot-progress-v1":
+            raise ValueError("unsupported checkpoint baseline schema")
         if baseline.get("lane") != args.lane:
             raise ValueError("baseline lane differs; never compare __start with direct OSInit")
         if baseline.get("status") not in ("passed_instrumented", "advanced"):
             raise ValueError("baseline is not a verified checkpoint")
-        if baseline.get("observed_pc") is None or baseline.get("stage") is None:
-            raise ValueError("baseline lacks an instrumented PC and stage")
+        pc, stage = baseline.get("observed_pc"), baseline.get("stage")
+        if (type(pc) is not int or not 0 <= pc <= 0xFFFFFFFF or
+                type(stage) is not int or stage < 0):
+            raise ValueError("baseline lacks a valid instrumented PC and stage")
+        if entry is not None and baseline.get("observed_entry") != entry:
+            raise ValueError("baseline entry does not match this execution lane")
+        if baseline.get("owner_image_sha256") != args.sha256:
+            raise ValueError("baseline owner DOL SHA-256 differs from current input")
     if args.require_progress and baseline is None:
         raise ValueError("--require-progress requires a verified --baseline")
 
@@ -148,6 +160,10 @@ def run(args: argparse.Namespace) -> int:
             status = "passed_uninstrumented"  # PASS is real; guest checkpoint is not observed.
         else:
             status = "advanced" if args.require_progress else "passed_instrumented"
+    # Failed native assertions, timeouts and conflicting markers cannot
+    # establish a verified guest-PC checkpoint, even if a marker was printed.
+    if reason is not None:
+        observed = None
     report = {
         "schema": "undercover-boot-progress-v1",
         "lane": args.lane,

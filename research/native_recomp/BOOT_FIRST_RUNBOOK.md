@@ -32,6 +32,11 @@ python3 research/native_recomp/boot_progress.py \
   -- bash research/native_recomp/run_osinit_eximask_v68.sh /private/NWiiRecomp-master /private/owner.dol.bin
 ```
 
+Failed runners cannot publish verified `observed_pc` or `stage` fields even if
+an early marker appeared before a failure or timeout. The driver rejects report
+paths that alias a pinned input or baseline, validates baseline schema and lane,
+and prohibits comparison across different pinned owner-image hashes.
+
 A successful legacy test with no instrumentation receives status
 `passed_uninstrumented`, **not** a proven new PC. Add this exact marker to a
 native test *only after it checked the actual final `ctx.pc` and entry*:
