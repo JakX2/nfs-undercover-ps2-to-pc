@@ -1,0 +1,59 @@
+# V48: Original Wii `OSInit` now runs through exception, system call and alarm setup
+
+**Scope:** a bounded, owner-original **direct `OSInit` entry** native recompilation test. This is **not** a complete Wii boot, or the continuous original `__start` execution path. The complete original `__OSInitAlarm` from V47 is now integrated into the longer V46 native `OSInit` execution chain rather than tested only in isolation.
+
+## Original native execution added
+
+The genuine `OSInit` call at **`0x805208B0`** now branches into the complete original `__OSInitAlarm` at `0x805210CC` (88 bytes). Its genuine Wii helpers also run through NWiiRecomp-generated native C++:
+
+- `__OSGetExceptionHandler` (`0x80520EB0`, 16 bytes) reads original exception handler entry 8 through the original `r13`-relative exception table pointer.
+- `__OSSetExceptionHandler` (`0x80520E9C`, 20 bytes) installs the original alarm exception handler pointer `0x805217BC` and returns the previous entry.
+- `OSRegisterShutdownFunction` (`0x80527B4C`, 136 bytes) inserts the genuine alarm shutdown node at `0x8060BCB8` into the guest OS shutdown list, updating the original head/tail globals and the node's next/previous links.
+- On normal fixture paths, the alarm's original queue-head and queue-tail globals are set to zero, while the original alarm registration node's seeded callback/priority/sentinel fields are preserved.
+
+The previously verified original code before this call still executes: original boot data, hardware register setup, MEM1/MEM2 arenas, IPC buffer globals, full 15-entry exception-vector `memcpy`/cache loops, original exception epilogue and `_restgpr_20`, and complete `__OSInitSystemCall` (28-byte handler at `0x80000C00` plus cache operations). The bounded test now stops at an **explicit synthetic syscall at `0x805208B4`**, before the next unimplemented original OS initializer.
+
+**Known test substitution:** the genuine `OSExceptionInit` epilogue still calls original `DBPrintf`, which is represented by a test-only `sc; blr` callback that returns to its original caller. No native `DBPrintf` implementation or faithful Wii OS logging is claimed. The old strict negative/debug test paths remain explicit stops. The original alarm handler itself is **registered but not invoked**; original asynchronous alarms and hardware interrupts remain unimplemented.
+
+## Private test DOL layout and safety
+
+The builder creates a private image from the SHA-pinned owner's Wii DOL:
+
+`16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4`
+
+To respect the seven-text-section Wii DOL limit without changing guest function addresses, the fixture merges the previous time/service and system-call sections with independently synthetic NOP fill for **unexecuted gaps only**, inserting the genuine owner-original shutdown registration at its authentic address. The earlier synthetic getter/setter guard is replaced with the original exception-table accessors. All original function bodies and system-call handler bytes come from the owner-private DOL only. The generator checks section sizes, source hashes, required call targets and the exact analyzer root count before writing original-game-derived C++.
+
+## Verified tests (2026-11-15)
+
+| Test | Result |
+| --- | ---: |
+| Original-native semantic assertions (six OSInit configurations and direct helper regressions) | **16,744 / 16,744** |
+| Original opcode/data mutation, SHA, private DOL metadata and no-output-overwrite guards | **259 / 259** |
+| V44 guest cache trace source-patch guards | **16 / 16** |
+| Fresh-upstream V29 / V30 / V43 source-patch guards | **13 / 13, 14 / 14, 14 / 14** |
+| Optimized GCC C++20 native runner | **Passed** |
+| Full AddressSanitizer + UndefinedBehaviorSanitizer native runner | **Passed** |
+| Fresh unmodified upstream NWiiRecomp native runner | **Passed** |
+| NWiiRecomp original/synthetic analyzed entries | **44**, zero interpreter fallback on tested paths |
+
+Three normal exception-initialization paths proceed through the alarm initializer. Three marked-exception paths deliberately stop earlier at the original-service test guard and are checked not to touch alarm globals. The entire verified normal path still begins at original `OSInit` address `0x80520670`, not at `__start`.
+
+## Reproduce using your own legitimate Wii executable
+
+Extract the source-only package into a scratch folder and run:
+
+```bash
+bash run_osinit_alarm_bridge_v48.sh /private/NWiiRecomp-master /private/NfsMWRelease.dol.bin
+V48_SANITIZE=1 bash run_osinit_alarm_bridge_v48.sh /private/NWiiRecomp-master /private/NfsMWRelease.dol.bin
+```
+
+The runner verifies the owner DOL SHA **before applying any changes** to the isolated NWiiRecomp checkout. It applies fail-closed/idempotent original-free runtime patches from V15, V26, V29, V30, V43 and V44. All private DOL slices, test fixtures and generated proprietary C++ exist only under a temporary directory and are removed when testing finishes. Never distribute those generated bytes or modify an unrelated checkout.
+
+The six new original-free files are `make_osinit_alarm_bridge_v48.py`, `generate_osinit_alarm_bridge_v48.cpp`, `test_osinit_alarm_bridge_v48.cpp`, `test_osinit_guards_v48.py`, `run_osinit_alarm_bridge_v48.sh`, and this README. The source-only bundle includes the V46/V47 prerequisite scripts without proprietary game assets.
+
+## Remaining development boundaries
+
+- Advance into subsequent original `OSInit` services, Wii OS/IOS and the game's program startup.
+- Replace the isolated debug callback with an independently verified service implementation rather than silently guessing hardware behavior.
+- **Connect the later direct `OSInit` path into continuous original `__start` execution**, which remains separately verified only through V26's `0x805206B4`; five V26 harness files are still missing from GitHub and remain a reproducibility gap.
+- The original game `main` at `0x802D3F40`, the native first rendered frame, frontend and playable Windows port have **not been reached**. Keep PR #36 in draft and preserve Carbon adaptation work.

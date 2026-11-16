@@ -1,0 +1,197 @@
+--- a/nWiiRuntime/include/runtime/virtual_disc.h
++++ b/nWiiRuntime/include/runtime/virtual_disc.h
+@@ -22,6 +22,8 @@
+     const std::vector<uint8_t>& fst_data() const { return m_fst_data; }
+     const std::vector<uint8_t>& boot_data() const { return m_boot_data; }
+     bool is_wii() const { return m_is_wii; }
++    size_t mapped_fst_files() const { return m_mapped_fst_files; }
++    size_t unmapped_fst_files() const { return m_unmapped_fst_files; }
+ 
+ private:
+     VirtualDisc() = default;
+@@ -33,8 +35,10 @@
+     };
+ 
+     void add_region(uint64_t offset, uint64_t size, const std::string& path);
+-    void parse_fst();
++    bool parse_fst();
+ 
++    size_t m_mapped_fst_files = 0;
++    size_t m_unmapped_fst_files = 0;
+     bool m_valid = false;
+     bool m_init_done = false;
+     bool m_is_wii = false;
+--- a/nWiiRuntime/src/hle/virtual_disc.cpp
++++ b/nWiiRuntime/src/hle/virtual_disc.cpp
+@@ -1,4 +1,6 @@
+ #include "runtime/virtual_disc.h"
++#include "runtime/validated_fst_v9.h"
++#include "runtime/guest_disc_paths.h"
+ #include <algorithm>
+ #include <cstring>
+ #include <filesystem>
+@@ -82,7 +84,7 @@
+         add_region(fst_off, fst_size ? fst_size : m_fst_data.size(),
+                    (sys / "fst.bin").string());
+ 
+-    parse_fst();
++    if (!parse_fst()) return false;
+ 
+     std::sort(m_regions.begin(), m_regions.end(),
+               [](const Region& a, const Region& b) { return a.offset < b.offset; });
+@@ -94,50 +96,34 @@
+     return true;
+ }
+ 
+-void VirtualDisc::parse_fst() {
+-    const uint8_t* fst = m_fst_data.data();
+-    size_t fst_len = m_fst_data.size();
+-    if (fst_len < 12)
+-        return;
+-
+-    uint32_t num_entries = be32(fst + 8);
+-    if ((uint64_t)num_entries * 12 > fst_len)
+-        return;
+-    const char* strings = reinterpret_cast<const char*>(fst + num_entries * 12);
+-    size_t strings_len = fst_len - num_entries * 12;
+-    int shift = m_is_wii ? 2 : 0;
+-
+-    fs::path files_root = fs::path(m_dir) / "files";
+-
+-    std::vector<std::pair<uint32_t, fs::path>> dirs;
+-    dirs.push_back({num_entries, files_root});
+-
+-    for (uint32_t i = 1; i < num_entries; ++i) {
+-        while (dirs.size() > 1 && i >= dirs.back().first)
+-            dirs.pop_back();
+-
+-        const uint8_t* e = fst + i * 12;
+-        bool is_dir = e[0] != 0;
+-        uint32_t name_off = ((uint32_t)e[1] << 16) | ((uint32_t)e[2] << 8) | e[3];
+-        uint32_t off_raw = be32(e + 4);
+-        uint32_t len = be32(e + 8);
+-
+-        std::string name;
+-        if (name_off < strings_len)
+-            name = std::string(strings + name_off);
+-
+-        if (is_dir) {
+-            dirs.push_back({len, dirs.back().second / name});
+-        } else {
+-            uint64_t off = (uint64_t)off_raw << shift;
+-            fs::path host = dirs.back().second / name;
+-            if (fs::exists(host)) {
+-                add_region(off, len, host.string());
+-            } else {
+-                std::cout << "[VDisc] Missing file: " << host << std::endl;
+-            }
++bool VirtualDisc::parse_fst() {
++    ValidatedFstV9 fst;
++    std::string error;
++    if (!parse_validated_fst_v9(m_fst_data, m_is_wii, fst, error)) {
++        std::cerr << "[VDisc] Invalid FST: " << error << "\n";
++        return false;
++    }
++    for (const auto& item : fst.files) {
++        // The guest path comes from the validated bounded FST string table.
++        // V8 resolves Wii case differences, host layout, and symlink escapes.
++        const auto host = resolve_guest_disc_path(m_dir, item.guest_path);
++        if (!host) {
++            ++m_unmapped_fst_files;
++            continue;
+         }
++        std::error_code ec;
++        const uint64_t host_size = fs::file_size(*host, ec);
++        if (ec || host_size < item.size) {
++            ++m_unmapped_fst_files;
++            continue;
++        }
++        add_region(item.disc_offset, item.size, host->string());
++        ++m_mapped_fst_files;
+     }
++    std::cout << "[VDisc] FST entries=" << fst.entries
++              << " mapped=" << m_mapped_fst_files
++              << " missing_or_short=" << m_unmapped_fst_files << "\n";
++    return true;
+ }
+ 
+ size_t VirtualDisc::read(uint64_t offset, uint32_t len, uint8_t* dst) {
+--- /dev/null
++++ b/nWiiRuntime/include/runtime/validated_fst_v9.h
+@@ -0,0 +1,76 @@
++#pragma once
++// Source-only, bounds-checked GameCube/Wii FST parser. No game data included.
++#include <cstdint>
++#include <cstring>
++#include <limits>
++#include <span>
++#include <string>
++#include <vector>
++
++namespace nwii::runtime {
++struct ValidatedFstFileV9 {
++    std::string guest_path;
++    uint64_t disc_offset;
++    uint32_t size;
++};
++struct ValidatedFstV9 {
++    std::vector<ValidatedFstFileV9> files;
++    uint32_t entries = 0;
++};
++namespace fst_v9_detail {
++inline uint32_t be32(const uint8_t* p) {
++    return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 |
++           uint32_t(p[2]) << 8 | uint32_t(p[3]);
++}
++inline bool valid_component(const std::string& name) {
++    if (name.empty() || name == "." || name == ".." || name.size() > 255) return false;
++    for (unsigned char c : name)
++        if (c < 32 || c == 127 || c == '/' || c == '\\' || c == ':') return false;
++    return true;
++}
++} // namespace fst_v9_detail
++
++inline bool parse_validated_fst_v9(std::span<const uint8_t> fst, bool is_wii,
++                                   ValidatedFstV9& out, std::string& error) {
++    using namespace fst_v9_detail;
++    auto fail = [&](const char* why) { error = why; return false; };
++    out = {};
++    error.clear();
++    if (fst.size() < 13) return fail("FST too small");
++    if (fst[0] != 1) return fail("FST root is not a directory");
++    const uint32_t count = be32(fst.data() + 8);
++    if (count == 0 || uint64_t(count)*12 >= fst.size()) return fail("FST entry table outside bounds");
++    if (be32(fst.data() + 4) != 0) return fail("FST root parent index not zero");
++    const size_t string_start = size_t(count)*12;
++    struct Directory { uint32_t index; uint32_t end; std::string guest; };
++    std::vector<Directory> parents{{0, count, ""}};
++    out.entries = count;
++    for (uint32_t i = 1; i < count; ++i) {
++        while (parents.size() > 1 && i >= parents.back().end) parents.pop_back();
++        if (i >= parents.back().end) return fail("FST entry escapes parent directory");
++        const uint8_t* e = fst.data() + size_t(i)*12;
++        if (e[0] != 0 && e[0] != 1) return fail("invalid FST entry type");
++        const uint32_t name_offset = (uint32_t(e[1]) << 16) | (uint32_t(e[2]) << 8) | e[3];
++        if (name_offset >= fst.size() - string_start) return fail("FST name outside string table");
++        const uint8_t* name_start = fst.data() + string_start + name_offset;
++        const size_t available = fst.size() - string_start - name_offset;
++        const void* endptr = std::memchr(name_start, 0, available);
++        if (!endptr) return fail("unterminated FST filename");
++        const auto endname = static_cast<const uint8_t*>(endptr);
++        const std::string name(reinterpret_cast<const char*>(name_start), size_t(endname-name_start));
++        if (!valid_component(name)) return fail("unsafe FST path component");
++        const std::string guest = parents.back().guest.empty() ? name : parents.back().guest + "/" + name;
++        const uint32_t offset = be32(e+4);
++        const uint32_t length = be32(e+8);
++        if (e[0] == 1) {
++            if (offset != parents.back().index) return fail("FST directory has incorrect parent index");
++            if (length <= i || length > parents.back().end) return fail("FST directory end index invalid");
++            if (parents.size() >= 1024) return fail("FST directory nesting too deep");
++            parents.push_back({i,length,guest});
++        } else {
++            out.files.push_back({guest,uint64_t(offset) << (is_wii ? 2 : 0),length});
++        }
++    }
++    return true;
++}
++} // namespace nwii::runtime
