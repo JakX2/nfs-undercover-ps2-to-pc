@@ -1,0 +1,42 @@
+name: Native recomp source-only checks
+
+on:
+  push:
+    branches:
+      - research/wii-native-recomp-preflight
+    paths:
+      - 'research/native_recomp/**'
+      - '.github/workflows/native-recomp-source-checks.yml'
+  pull_request:
+    paths:
+      - 'research/native_recomp/**'
+      - '.github/workflows/native-recomp-source-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Python source syntax
+        run: |
+          find research/native_recomp -name '*.py' -print0 |
+            xargs -0 -r -n1 python3 -m py_compile
+      - name: Check bash source syntax
+        run: |
+          find research/native_recomp -name '*.sh' -print0 |
+            xargs -0 -r -n1 bash -n
+      - name: Run boot checkpoint driver regressions
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
+      - name: Reject proprietary game fixture extensions
+        run: |
+          if git ls-files research/native_recomp | grep -E '\.(dol|elf|iso|gcm|gcz)$|/owner_PRIVATE\.'; then
+            echo 'Private game image accidentally tracked' >&2
+            exit 1
+          fi
+          echo 'No prohibited native-game fixture extensions tracked'
