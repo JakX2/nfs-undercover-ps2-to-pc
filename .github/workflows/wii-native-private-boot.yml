@@ -29,21 +29,20 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          ref: b4f8b5d5bcadf6674d550932dd47080f88ddf37a
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
           path: owner-staging
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python3 -m pip install --quiet 'google-api-python-client==2.187.0' 'google-auth==2.42.1'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
       - name: Stage verified private originals
         env:
-          WII_GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.WII_GDRIVE_SERVICE_ACCOUNT_JSON }}
           WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
           WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
         run: |
           set -euo pipefail
           umask 077
-          python3 owner-staging/research/cloud_ghidra/stage_owner_wii.py "$RUNNER_TEMP/originals"
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
       - name: Pin upstream NWiiRecomp
         run: |
           set -euo pipefail

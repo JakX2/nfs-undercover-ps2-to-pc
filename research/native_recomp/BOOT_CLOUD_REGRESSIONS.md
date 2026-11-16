@@ -45,3 +45,18 @@ The V68 direct-OSInit lane reaches 0x804EFA34 separately.
 These results are exact private-owner function/disassembly observations, not
 a new native boot milestone. Keep PR #36 draft and original game-derived
 translations/private symbol manifests off GitHub.
+
+## Simplified link-based Drive setup (2026-11-16)
+
+Merged PR #38 deployed the original-safe gdown staging script to main commit
+59e8af244d1e8105a04029ec35b95baf34fc5084. Native CI checks out this
+pinned source-only revision. The two original Wii files are already Drive
+link-readable. Owners now configure only WII_ORIGINAL_DOL_ID and
+WII_ORIGINAL_ELF_ID under repository Actions Secrets, and set repository
+Actions Variable WII_GHIDRA_PRIVATE_ENABLED=true. No Google Cloud service
+account is needed. Link sharing is not authentication: anyone with a known
+Drive link can retrieve the file. All downloads are SHA-256 pinned and
+checked privately; owner binaries and game-derived C++ are never uploaded.
+
+The original V68 native regression will remain skipped until the variable is
+enabled. Its first true owner-original CI result remains unverified.
