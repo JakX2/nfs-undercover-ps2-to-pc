@@ -80,6 +80,7 @@ static uint64_t exception_entries=0;
 static uint64_t marker_entries=0;
 static uint64_t dcflush_entries=0,icinvalid_entries=0;
 static uint64_t exception_restore_entries=0;
+static uint64_t exception_epilogue_debug_entries=0;
 static uint32_t cache_sync_entry=0,cache_isync_entry=0;
 void trace_call(uint32_t addr, CPUContext&ctx){
   constexpr std::array<uint32_t,5> data{INIT,FLUSH,COPY,FILL,SET};
@@ -214,7 +215,13 @@ bool handle_syscall(CPUContext&ctx){
     ++post_stops;ctx.is_running=false;
     if(own)throw ExceptionStop{};  // prevent synthetic BLR after exact guest PC
     return true;}
-  if(ctx.pc==DBG){++external_stubs[0];return true;}
+  if(ctx.pc==DBG){
+    ++external_stubs[0];
+    // Count the authentic terminal OSExceptionInit BL at 0x80520E58
+    // separately from other bounded debug-service invocations in __start.
+    if(ctx.lr==0x80520e5cu)++exception_epilogue_debug_entries;
+    return true;
+  }
   if(ctx.pc==ERR){
     check(ctx.gpr[3]==1u,"OSSetErrorHandler exception index differs");
     ++external_stubs[1];return true;
@@ -347,6 +354,7 @@ int main(int argc,char**argv){
     const auto before_ic=nwii::runtime::ic_calls, before_dc=nwii::runtime::dc_calls;
     const auto before_cache=nwii::runtime::cache_calls;
     const auto before_stubs=nwii::runtime::external_stubs;
+    const auto before_terminal_debug=nwii::runtime::exception_epilogue_debug_entries;
     const auto before_stop=nwii::runtime::post_stops;
     const auto before_db=nwii::runtime::db_entries;
     const auto before_os=nwii::runtime::os_entries;
@@ -493,11 +501,10 @@ int main(int argc,char**argv){
             "original PPC template-clearing loop corrupted neighboring canaries");
       check(nwii::runtime::exception_entries==before_exception+1,
             "genuine OSExceptionInit original entry not reached exactly once");
-      const auto dbprintf_delta=nwii::runtime::external_stubs[0]-before_stubs[0];
-      check(dbprintf_delta>=1u,
-            "V41 no bounded DBPrintf callback reached from exception epilogue");
-      check(dbprintf_delta<=1u,
-            "V41 extra bounded DBPrintf callback reached from exception epilogue");
+      check(nwii::runtime::exception_epilogue_debug_entries==before_terminal_debug+1u,
+            "V41 original OSExceptionInit terminal DBPrintf BL callback not observed once");
+      check(nwii::runtime::external_stubs[0]>=before_stubs[0]+1u,
+            "V41 no bounded DBPrintf callback observed during native startup");
       check(c.gpr[28]==0u && c.gpr[27]==0u,
             "original Wii _restgpr_20 did not restore caller r27/r28");
       check(c.mmu.read32(0x80000060u)==1u+trial,
