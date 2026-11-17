@@ -170,8 +170,10 @@ void trace_call(uint32_t addr, CPUContext&ctx){
   else if(addr==MARK){
     check(ctx.lr==0x80520cf4u,
           "authentic original exception-mark BL guest return LR changed");
-    check(ctx.gpr[3]==0u,
-          "original default exception mark helper index is not zero");
+    // Each original exception-vector iteration probes its own index.
+    // The zero-mask fast path reaches this helper once per vector.
+    check(ctx.gpr[3]==uint32_t(marker_entries%15u),
+          "original Wii exception mark helper vector index is out of sequence");
     ++marker_entries;
   }
   else if(addr==DCFLUSH){
