@@ -3,20 +3,27 @@
 ## Why this exists
 
 As of November 17, 2026, original Wii `__start` has been verified through
-**continuous-stage V42 at guest PC `0x805208B0`**. The original Wii
-`__start` reaches `OSInit`, returns from authentic
-`OSExceptionInit` through `_restgpr_20`, then executes the original
-`__OSInitSystemCall` routine through native AOT translation. The
-SHA-pinned original 28-byte syscall handler is installed at `0x80000C00`
-and maintained using the genuine 8-line data/instruction cache loops.
-The complete original 15-vector exception installation from V40 remains
-tested, for a total of **83 `dcbf` and 83 `icbi` operations per run**.
-Native ABI, source-byte preservation, handler overlay and guarded stack
-reuse are asserted across sixteen trials. The private and synthetic
-jobs passed in [run 44041303918](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44041303918).
-The unresolved `DBPrintf` service is still an explicit test-only callback.
+**continuous-stage V44 at guest PC `0x805208B8`**. The owner-original
+PowerPC startup now returns from `OSExceptionInit` through `_restgpr_20`,
+installs all 15 original exception vectors, initializes the original syscall
+vector through `__OSInitSystemCall`, invokes `__OSInitAlarm` with authentic
+exception-handler/shutdown registration, then calls the genuine
+`__OSModuleInit` function at `0x80526D30`. V44 checks exact native
+module-call ABI and clearing of 3 low-memory module globals at
+`0x800030C8`, `0x800030CC` and `0x800030D0` without corrupting canaries.
+The SHA-pinned original 28-byte syscall vector is installed at `0x80000C00`
+and the full chain performs **83 genuine `dcbf` and 83 `icbi` cache-line
+operations** per original-startup trial. The sixteen-case owner-native
+and independent synthetic regressions passed in
+[GitHub Actions run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082).
+The unresolved `DBPrintf` service remains an explicit test-only callback,
+not a genuine Wii debug runtime implementation.
 
-Earlier V41 at `0x805208AC` verified the native exception-return epilogue
+Earlier V43 at `0x805208B4` verified original alarm/shutdown initialization
+in [run 44042467010](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44042467010).
+V42 at `0x805208B0` verified the native original syscall-vector installation
+in [run 44041303918](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44041303918).
+V41 at `0x805208AC` verified the original exception-return epilogue
 in [run 44029703720](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44029703720).
 V40 at `0x80520E58` verified installation of all fifteen original
 exception vectors, including 75 `dcbf` and 75 `icbi` cache-line operations,
@@ -30,15 +37,15 @@ initialization (ending at `0x804EFA34`), **but has not been joined to
 continuous `__start`**. These tests still do not establish game `main`, a
 frame on screen, genuine Wii hardware services, or playable gameplay.
 
-Next, replace the test-only `sc` at `0x805208B0` with the original
-`__OSInitAlarm` call at `0x805210CC`, verify its genuine
-exception-handler accessor and shutdown-registration calls and stop
-before the next unresolved original OS service. The older V48 direct-entry
-alarm test provides independent evidence, not a substitute for continuous
-execution. Preserve a separate, deliberate
-full historical regression run while using the fast current-frontier test
-on ordinary pushes. Translating more isolated functions is not itself boot
-progress.
+Next, replace the test-only `sc` at `0x805208B8` with the owner-original
+call to `__OSInterruptInit` at `0x8052661C`. Reuse the separately
+authenticated V50/V51 interrupt-table initialization prefix and verify its
+original `memset`/`__fill_mem` helper calls and writes before advancing
+into hardware interrupt mask/MMIO services. The next bounded guest stop
+may be inside `__OSInterruptInit`, not in `OSInit`; checkpoint stage
+order, not numerical PC ordering, defines progress. Keep unsafe or
+unimplemented hardware services test-only, preserve historical regressions,
+and avoid interpreting isolated direct-`OSInit` tests as continuous boot.
 
 ## Source-only checkpoint and regression driver
 

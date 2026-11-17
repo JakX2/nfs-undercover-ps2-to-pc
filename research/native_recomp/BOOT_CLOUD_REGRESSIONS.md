@@ -27,15 +27,18 @@ continuous integration triggered by research-branch code updates.
 The V68 direct-`OSInit` runner is a separately verified native regression.
 Its direct-entry progression does not establish continuous `__start`
 execution or a complete boot. The earlier V26 startup harness has since
-been recovered and extended through V42. The current continuous frontier
-is **`0x805208B0`**, after authentic native `__OSInitSystemCall` from
-`OSInit`, verified by original-game private native assertions and
-[workflow run 44041303918](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44041303918).
-V42 installs 28 original owner syscall stub bytes and performs 83 total
-data/instruction cache-line operations per trial after the existing 15-vector
-exception installation. Earlier V41 `0x805208AC`, V40 `0x80520E58`,
-and V39 `0x80520DB8` remain passing separate regressions. The
-`DBPrintf` callback remains test-only.
+been recovered and extended through V44. The current continuous frontier
+is **`0x805208B8`**, after authentic native `__OSModuleInit`
+called from the original `OSInit` startup chain. SHA-pinned owner-original
+execution verifies exact 3-word low-memory module initialization, guarded
+canaries, syscall-vector installation, 15 exception vectors and alarm
+shutdown registration. The owner-private and synthetic jobs passed in
+[workflow run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082).
+Earlier V43 `0x805208B4`, V42 `0x805208B0`, V41 `0x805208AC`,
+V40 `0x80520E58` and V39 `0x80520DB8` remain passing independent
+regressions. Unresolved `DBPrintf` remains test-only. The next required
+original call at `0x805208B8` reaches `__OSInterruptInit` at
+`0x8052661C`; its direct-entry V50/V51 evidence is not continuous execution.
 Maintain the two checkpoint lanes separately.
 
 ## Verified owner-ELF native-boot frontier
@@ -67,6 +70,7 @@ checked privately; owner binaries and game-derived C++ are never uploaded.
 
 The private-original workflow has since run successfully with the feature
 variable enabled, using SHA-pinned owner inputs. On November 17, 2026
-continuous native V42 passed after independent V38, V39, V40 and V41 baseline checks.
+continuous native V44 passed after independent V38, V39, V40, V41, V42
+and V43 baseline checks.
 A successful private CI check is evidence for the exact assertions it ran,
 not for full native Windows startup, game `main`, or graphical output.
