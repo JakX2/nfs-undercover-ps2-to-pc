@@ -380,7 +380,7 @@ int main(int argc,char** argv)try{
     }
   }
   require(handler&&debug,
-          "original __OSContextInit handler/debug native call graph incomplete"););
+          "original __OSContextInit handler/debug native call graph incomplete");
   require(funcs.count(SYSCALL)==1,
           "owner original __OSInitSystemCall function not translated");
   for(uint32_t pc:{ALARM,GETEXC,SETEXC,SHUTDOWN,MODULE})
