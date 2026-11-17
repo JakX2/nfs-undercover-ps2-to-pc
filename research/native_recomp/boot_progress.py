@@ -62,6 +62,9 @@ SAFE_RUNNER_STAGES = {
             "fixture_collision", "fixture_stop_collision", "fixture_section",
             "fixture_source", "fixture_inherited", "fixture_other",
             "fixture_os_section", "fixture_previous_stop", "fixture_cache_section"),
+    "V41": ("runtime_cache_trace_verified", "fixture_generated",
+            "geometry_verified", "generator_compiled", "generation_complete",
+            "native_compiled", "native_test_passed"),
 }
 
 
@@ -228,7 +231,7 @@ def run(args: argparse.Namespace) -> int:
         for stage in allowed:
             if prefix + "_STAGE " + stage in lines:
                 print(f"BOOT_DIAGNOSTIC stage={prefix}.{stage}")
-        if prefix in ("V35", "V36", "V37", "V38", "V39", "V40"):
+        if prefix in ("V35", "V36", "V37", "V38", "V39", "V40", "V41"):
             # A bounded numeric ID derived only from the public original-free
             # harness assertion literals. Never surface the private log itself.
             valid = re.compile(rf"^{prefix}_NATIVE_ASSERTION id=([0-9]{{3}})$")
