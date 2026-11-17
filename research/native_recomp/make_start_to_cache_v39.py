@@ -16,6 +16,7 @@ STOP=END_STOP
 
 def make(owner:Path)->bytes:
     image=bytearray(make_v38(owner))
+    print("V39_STAGE inherited_fixture_ready", flush=True)
     if PREVIOUS_STOP!=0x80520DA4 or STOP!=0x80520DB8:
         raise ValueError("previous continuous Wii startup stage changed")
     raw=owner.read_bytes() # SHA-pinned by make_v38
@@ -28,10 +29,12 @@ def make(owner:Path)->bytes:
         raise ValueError("original DCFlushRangeNoSync call differs")
     if target(word(continuation,0x10),STOP-4,True)!=SECOND_CACHE:
         raise ValueError("original ICInvalidateRange call differs")
+    print("V39_STAGE original_cache_calls_verified", flush=True)
     if word(first,FIRST_CACHE_LEN-4)!=BLR or word(second,SECOND_CACHE_LEN-4)!=BLR:
         raise ValueError("original Wii cache helper return missing")
     if word(first,0x1C)>>26!=31 or word(second,0x1C)>>26!=31:
         raise ValueError("original cache-line instruction changed")
+    print("V39_STAGE original_cache_bodies_verified", flush=True)
     off,guest,count=(word(image,k) for k in (0,0x48,0x90))
     if off<256 or guest!=OSINIT or STOP+8>guest+count:
         raise ValueError("continuous startup section lacks bounded cache continuation")
@@ -44,6 +47,7 @@ def make(owner:Path)->bytes:
     cache_off,cache_guest,cache_count=(word(image,k+4*3) for k in (0,0x48,0x90))
     if cache_off<256 or cache_guest!=0x80522280 or cache_off+cache_count>len(image):
         raise ValueError("original Wii cache-control text section changed")
+    print("V39_STAGE cache_sections_mapped", flush=True)
     for base,code in ((FIRST_CACHE,first),(SECOND_CACHE,second)):
         at=cache_off+base-cache_guest
         if at<cache_off or at+len(code)>cache_off+cache_count:
@@ -52,11 +56,13 @@ def make(owner:Path)->bytes:
             if word(image,at+index)!=0x60000000:
                 raise ValueError("cache helper overlaps previously translated native code")
         image[at:at+len(code)]=code
+    print("V39_STAGE cache_helpers_installed", flush=True)
     image[start:start+len(continuation)]=continuation
     at=off+STOP-guest
     if image[at:at+8]!=struct.pack(">II",0x60000000,0x60000000):
         raise ValueError("new bounded stop overlaps previously translated PPC")
     struct.pack_into(">II",image,at,SC,BLR)
+    print("V39_STAGE bounded_stop_installed", flush=True)
     return bytes(image)
 
 if __name__=="__main__":

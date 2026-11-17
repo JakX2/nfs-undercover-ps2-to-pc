@@ -49,7 +49,10 @@ SAFE_RUNNER_STAGES = {
             "generator_compiled", "generation_complete", "native_compiled",
             "native_test_passed", "fixture_collision", "fixture_stop_collision",
             "fixture_section", "fixture_source", "fixture_inherited",
-            "fixture_other"),
+            "fixture_other", "inherited_fixture_ready",
+            "original_cache_calls_verified", "original_cache_bodies_verified",
+            "cache_sections_mapped", "cache_helpers_installed",
+            "bounded_stop_installed"),
 }
 
 

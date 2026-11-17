@@ -44,6 +44,7 @@ python3 "$here/make_start_to_cache_v39.py" "$owner" "$work/owner-private.dol" > 
   else
     echo 'V39_STAGE fixture_other'
   fi
+  grep -E '^V39_STAGE (inherited_fixture_ready|original_cache_calls_verified|original_cache_bodies_verified|cache_sections_mapped|cache_helpers_installed|bounded_stop_installed)$' "$work/fixture-create.log" || true
   echo 'V39 private fixture build failed; raw owner details withheld' >&2
   exit 1
 }

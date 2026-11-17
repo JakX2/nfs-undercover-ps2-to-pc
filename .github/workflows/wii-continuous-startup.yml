@@ -646,6 +646,7 @@ jobs:
               # Allowlisted milestone labels only; owner PPC code and logs withheld.
               grep -E '^BOOT_DIAGNOSTIC stage=V39\.(v29_runtime_verified|hid4_runtime_verified|cache_patch_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v39-private.log" || true
               grep -E '^BOOT_DIAGNOSTIC stage=V39\.fixture_(collision|stop_collision|section|source|inherited|other)$' "$RUNNER_TEMP/v39-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC stage=V39\.(inherited_fixture_ready|original_cache_calls_verified|original_cache_bodies_verified|cache_sections_mapped|cache_helpers_installed|bounded_stop_installed)$' "$RUNNER_TEMP/v39-private.log" || true
               grep -E '^BOOT_RESULT status=(failed|setup_error) .* reason=(runner_failed|no_native_pass_marker|expected_stop_not_observed|no_guest_checkpoint|no_verified_stage_advance|stop_pc_unchanged|ValueError|OSError)$' "$RUNNER_TEMP/v39-private.log" || true
               echo 'V39 continuous Wii cache native test failed; private logs withheld' >&2
               exit 1
