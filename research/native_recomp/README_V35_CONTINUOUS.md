@@ -1,8 +1,10 @@
 # V35 candidate: genuine continuous Wii __start enters OSExceptionInit prologue
 
-Status: owner-original V35 continuous native CI is not yet verified.
-The existing owner-original DIRECT-ENTRY V39 OSInit→OSExceptionInit
-research validates a related but independent execution path.
+Status: VERIFIED by owner-original continuous native CI run 44011635309
+on November 17, 2026. All ten V26–V35 original-game stages passed from
+real __start (0x8000403C), stage=35, with strict test-only stop 0x80520CA8.
+The original exception's nested 64-byte stack frame is asserted separately
+from OSInit's existing frame. Direct-entry V39 remains independent.
 
 ## Original PowerPC execution boundary
 

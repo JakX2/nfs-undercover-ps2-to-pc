@@ -31,6 +31,9 @@ jobs:
           bash -n research/native_recomp/run_v33_continuous_mem2.sh
           bash -n research/native_recomp/run_v34_continuous_ipc.sh
           bash -n research/native_recomp/run_v35_continuous_exception.sh
+          bash -n research/native_recomp/run_v36_continuous_mark.sh
+          python3 -m py_compile research/native_recomp/make_start_to_mark_v36.py research/native_recomp/test_v36_continuous_mark_geometry.py research/native_recomp/classify_v36_native_failure.py
+          python3 -m unittest discover -s research/native_recomp -p test_classify_v36_native_failure.py -v
           python3 -m py_compile research/native_recomp/make_start_to_exception_v35.py research/native_recomp/test_v35_continuous_exception_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_ipc_v34.py research/native_recomp/test_v34_continuous_ipc_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_mem2_v33.py research/native_recomp/test_v33_continuous_mem2_geometry.py
@@ -401,6 +404,38 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: original Wii continuous __start reached bounded OSExceptionInit prologue at 0x80520CA8')
           PY
+      - name: Verify original Wii exception mark helper from continuous __start
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/continuous-v35.json" \
+            --require-progress --report "$RUNNER_TEMP/continuous-v36.json" \
+            --diagnostic-runner V36 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80520CF4 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v36_continuous_mark.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/private-v36.log" 2>&1 || {
+              # Publish only fixed non-proprietary runner stages and numeric
+              # assertion IDs derived from the public test harness.
+              grep -E '^BOOT_DIAGNOSTIC stage=V36\.(v29_runtime_verified|hid4_runtime_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/private-v36.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V36\.[0-9]{3}$' "$RUNNER_TEMP/private-v36.log" || true
+              grep -E '^BOOT_RESULT status=(failed|setup_error) lane=continuous-start .* reason=(runner_failed|timeout|expected_stop_not_observed|no_native_pass_marker|no_guest_checkpoint|no_verified_stage_advance|stop_pc_unchanged)$' "$RUNNER_TEMP/private-v36.log" || true
+              echo 'V36 original Wii continuous mark-helper test failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/continuous-v36.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text())
+          assert r['lane']=='continuous-start' and r['status']=='advanced'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x80520CF4 and r['stage']==36
+          assert r['pass_markers']>=1
+          print('PASS: original Wii continuous __start executed __DBIsExceptionMarked to 0x80520CF4')
+          PY
       - name: Classify next original Wii OSInit control flow without publishing proprietary code
         run: |
           set -euo pipefail
@@ -419,4 +454,5 @@ jobs:
             "$RUNNER_TEMP/private-v32.log" "$RUNNER_TEMP/continuous-v32.json" \
             "$RUNNER_TEMP/private-v33.log" "$RUNNER_TEMP/continuous-v33.json" \
             "$RUNNER_TEMP/private-v34.log" "$RUNNER_TEMP/continuous-v34.json" \
-            "$RUNNER_TEMP/private-v35.log" "$RUNNER_TEMP/continuous-v35.json"
+            "$RUNNER_TEMP/private-v35.log" "$RUNNER_TEMP/continuous-v35.json" \
+            "$RUNNER_TEMP/private-v36.log" "$RUNNER_TEMP/continuous-v36.json"

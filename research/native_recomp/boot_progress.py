@@ -33,6 +33,9 @@ SAFE_RUNNER_STAGES = {
     "V35": ("v29_runtime_verified", "hid4_runtime_verified", "fixture_generated",
             "geometry_verified", "generator_compiled", "generation_complete",
             "native_compiled", "native_test_passed"),
+    "V36": ("v29_runtime_verified", "hid4_runtime_verified", "fixture_generated",
+            "geometry_verified", "generator_compiled", "generation_complete",
+            "native_compiled", "native_test_passed"),
 }
 
 
@@ -199,14 +202,14 @@ def run(args: argparse.Namespace) -> int:
         for stage in allowed:
             if prefix + "_STAGE " + stage in lines:
                 print(f"BOOT_DIAGNOSTIC stage={prefix}.{stage}")
-        if prefix == "V35":
+        if prefix in ("V35", "V36"):
             # A bounded numeric ID derived only from the public original-free
             # harness assertion literals. Never surface the private log itself.
-            valid = re.compile(r"^V35_NATIVE_ASSERTION id=([0-9]{3})$")
+            valid = re.compile(rf"^{prefix}_NATIVE_ASSERTION id=([0-9]{{3}})$")
             for line in lines:
                 match=valid.fullmatch(line)
                 if match:
-                    print(f"BOOT_DIAGNOSTIC assertion_id=V35.{match[1]}")
+                    print(f"BOOT_DIAGNOSTIC assertion_id={prefix}.{match[1]}")
                     break
     return 0 if status in ("advanced", "passed_instrumented", "passed_uninstrumented") else 1
 

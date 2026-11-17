@@ -243,6 +243,25 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn("unsafe-private-memory",output.getvalue())
         self.assertNotIn("unsafe-private-memory",self.report.read_text())
 
+    def test_v36_numeric_diagnostic_keeps_original_content_private(self):
+        private="PRIV_opaque_wii_original_instruction_data"
+        code=(
+            "print('V36_STAGE native_compiled',flush=True);"
+            "print('V36_NATIVE_ASSERTION id=043',flush=True);"
+            f"print('{private}',flush=True);"
+            "raise SystemExit(9)"
+        )
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","V36","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V36.native_compiled",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V36.043",output.getvalue())
+        self.assertNotIn(private,output.getvalue())
+        self.assertNotIn(private,self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
