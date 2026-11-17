@@ -22,6 +22,7 @@ OSINIT_CALL=0x805208C4
 OSINIT_GUARD=0x805208C8
 EXI=0x804EF9BC
 STOP=0x804EFA14
+DBINIT=0x804E5020
 DEBUG=0x804E50B8
 EXI_LENGTH=STOP-EXI
 
@@ -52,28 +53,32 @@ def make(owner:Path)->bytes:
         raise ValueError("original Wii OSInit->EXIInit call target differs")
     prefix=text_at(raw,EXI,EXI_LENGTH)
     verify_prefix(prefix)
-    os_at=locate(previous,OSINIT_CALL,8)
-    if previous[os_at:os_at+8]!=struct.pack(">II",SC,BLR):
-        raise ValueError("V51 OSInit test-only stop overwritten")
+    os_at=locate(previous,OSINIT_CALL,12)
+    if previous[os_at:os_at+12]!=struct.pack(">III",SC,BLR,NOP):
+        raise ValueError("V51 OSInit test-only stop/padding overwritten")
 
     text,data=sections_of(previous)
-    if len(text)!=7 or text[6][0]!=DEBUG or bytes(text[6][1])!=struct.pack(">II",SC,BLR):
-        raise ValueError("V51 synthetic DBPrintf section unavailable for EXI expansion")
-    for guest,code in text[:6]:
-        if guest<STOP+8 and guest+len(code)>DEBUG:
+    if len(text)!=7 or text[6][0]!=DBINIT:
+        raise ValueError("V51 DBInit/DBPrintf text section address changed")
+    base,code=text[6]
+    if (len(code)!=DEBUG+8-base or
+        code[DEBUG-base:DEBUG-base+8]!=struct.pack(">II",SC,BLR) or
+        code[0:4]!=text_at(raw,DBINIT,4)):
+        raise ValueError("V51 original DBInit or synthetic DBPrintf region changed")
+    for guest,body in text[:6]:
+        if guest<STOP+8 and guest+len(body)>base:
             raise ValueError("EXI text expansion overlaps independent text section")
-    gap=EXI-(DEBUG+8)
+    gap=EXI-(base+len(code))
     if gap<=0 or gap%4 or gap>0x20000:
         raise ValueError("EXI padding span out of bounds")
-    code=bytearray(text[6][1])
     code.extend(struct.pack(">I",NOP)*(gap//4))
-    if len(code)!=EXI-DEBUG:
+    if len(code)!=EXI-base:
         raise ValueError("EXI guest address padding incorrectly calculated")
     code.extend(prefix)
     code.extend(struct.pack(">II",SC,BLR))
-    if len(code)!=STOP+8-DEBUG:
+    if len(code)!=STOP+8-base:
         raise ValueError("EXI stop does not end final text section")
-    text[6]=(DEBUG,code)
+    text[6]=(base,code)
 
     result=bytearray(previous[:256])
     for i,(guest,body) in enumerate(text):
@@ -88,17 +93,11 @@ def make(owner:Path)->bytes:
             struct.pack_into(">I",result,off+4*i,v)
         result.extend(body)
         result.extend(b"\0"*((-len(result))%4))
-    patch=locate(result,OSINIT_CALL,8)
-    if result[patch:patch+8]!=struct.pack(">II",SC,BLR):
+    patch=locate(result,OSINIT_CALL,12)
+    if result[patch:patch+12]!=struct.pack(">III",SC,BLR,NOP):
         raise ValueError("OSInit EXI insertion would overwrite non-synthetic code")
-    result[patch:patch+4]=call
-    if result[patch+4:patch+8]!=struct.pack(">I",BLR):
-        raise ValueError("OSInit EXI return guard cannot be safely installed")
-    # The old BLR was a bounded stop; preserve a safe test-only sc;blr
-    # at the next OSInit word without accidentally changing real PPC.
-    if locate(result,OSINIT_GUARD,8)<0:
-        raise ValueError("missing OSInit post-EXI guard")
-    result[patch+4:patch+12]=struct.pack(">II",SC,BLR)
+    # C4: authentic BL. C8: test-only sc. CC: test-only blr.
+    result[patch:patch+12]=call+struct.pack(">II",SC,BLR)
     if word(result,0xE0)!=START:
         raise ValueError("original entry point unexpectedly changed")
     return bytes(result)
