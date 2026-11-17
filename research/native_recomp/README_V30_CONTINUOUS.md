@@ -1,9 +1,11 @@
 # V30 continuous original Wii __start: HID4, speculation and FP-mode seam
 
-Status: NEW CANDIDATE, owner-original CI verification pending. A separate
-older direct-entry OSInit V30 test exists, but it does not independently prove
-this continuous-startup route. Do not count this as a verified PC advance until
-the new V30 owner-original GitHub Actions job reports stage 30.
+Status: VERIFIED in authentic owner-original GitHub Actions run
+44004274082 (November 17, 2026). The runner passed its original continuous
+V26/V27/V28/V29 baselines and native V30 original HID4/speculation/non-IEEE FP
+continuation, recording an advanced instrumented guest-PC stop 0x80520700,
+stage=30. This is a bounded test, not full OSInit or a playable Windows game.
+A separately entered older direct-entry V30 regression remains independent.
 
 ## Original execution under test
 
