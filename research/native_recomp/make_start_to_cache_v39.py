@@ -38,15 +38,18 @@ def make(owner:Path)->bytes:
     off,guest,count=(word(image,k) for k in (0,0x48,0x90))
     if off<256 or guest!=OSINIT or STOP+8>guest+count:
         raise ValueError("continuous startup section lacks bounded cache continuation")
+    print("V39_STAGE os_section_verified",flush=True)
     start=off+PREVIOUS_STOP-guest
     if image[start:start+8]!=struct.pack(">II",SC,BLR):
         raise ValueError("V38 test-only stop no longer matches")
+    print("V39_STAGE previous_stop_verified",flush=True)
     # Continuous startup uses seven disjoint text sections. Cache services
     # live in the original DCEnable/ICEnable region (section 3), not the OSInit
     # section (section 1) used by the older direct-entry V43 fixture.
     cache_off,cache_guest,cache_count=(word(image,k+4*3) for k in (0,0x48,0x90))
     if cache_off<256 or cache_guest!=0x80522280 or cache_off+cache_count>len(image):
         raise ValueError("original Wii cache-control text section changed")
+    print("V39_STAGE cache_section_verified",flush=True)
     print("V39_STAGE cache_sections_mapped", flush=True)
     for base,code in ((FIRST_CACHE,first),(SECOND_CACHE,second)):
         at=cache_off+base-cache_guest

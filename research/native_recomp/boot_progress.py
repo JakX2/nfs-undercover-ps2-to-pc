@@ -52,7 +52,9 @@ SAFE_RUNNER_STAGES = {
             "fixture_other", "inherited_fixture_ready",
             "original_cache_calls_verified", "original_cache_bodies_verified",
             "cache_sections_mapped", "cache_helpers_installed",
-            "bounded_stop_installed"),
+            "bounded_stop_installed", "os_section_verified",
+            "previous_stop_verified", "cache_section_verified",
+            "fixture_os_section", "fixture_previous_stop", "fixture_cache_section"),
 }
 
 
