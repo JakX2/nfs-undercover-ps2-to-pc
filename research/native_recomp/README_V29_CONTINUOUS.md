@@ -1,8 +1,14 @@
 # V29 continuous original Wii startup: six performance SPR helpers
 
-Status: independent owner-original CI validation pending. All game PPC
-instruction bytes are read from the exact SHA-256-pinned owner DOL at
-runtime, never embedded in this original-free repository.
+Status: VERIFIED in GitHub Actions owner-original run 44003391154
+(November 17, 2026). Continuous __start passed V26, V27, V28 and V29,
+reaching the instrumented guest-PC test boundary 0x805206F0.
+All original PowerPC instruction bytes were read privately from the
+SHA-256-pinned owner DOL, never committed or uploaded. The shared
+NWiiRecomp checkout must apply the original-free V29 performance-register
+patch before V18/V20 modify overlapping mfspr/mtspr source branches.
+The runner now checks the resulting combined HID/L2/performance source
+without reapplying the pre-HID V29 patch.
 
 The verified continuous path is V26 then V27 then V28 from original
 __start (0x8000403C) through original OS time, interrupt disable,
