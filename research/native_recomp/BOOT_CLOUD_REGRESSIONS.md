@@ -27,10 +27,11 @@ continuous integration triggered by research-branch code updates.
 The V68 direct-`OSInit` runner is a separately verified native regression.
 Its direct-entry progression does not establish continuous `__start`
 execution or a complete boot. The earlier V26 startup harness has since
-been recovered and extended through V39. The current continuous frontier
-is `0x80520DB8`, verified by original-game native startup with both
-exception cache-maintenance helpers in
-[workflow run 44025883648](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44025883648).
+been recovered and extended through V40. The current continuous frontier
+is `0x80520E58`, verified through all 15 owner-original exception
+vectors and native cache-maintenance operations in
+[workflow run 44028035915](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44028035915).
+V39 at `0x80520DB8` remains a passing independent regression.
 Maintain the two checkpoint lanes separately.
 
 ## Verified owner-ELF native-boot frontier
@@ -62,6 +63,6 @@ checked privately; owner binaries and game-derived C++ are never uploaded.
 
 The private-original workflow has since run successfully with the feature
 variable enabled, using SHA-pinned owner inputs. On November 17, 2026
-continuous native V39 also passed after an independent V38 baseline check.
+continuous native V40 passed after independent V38 and V39 baseline checks.
 A successful private CI check is evidence for the exact assertions it ran,
 not for full native Windows startup, game `main`, or graphical output.
