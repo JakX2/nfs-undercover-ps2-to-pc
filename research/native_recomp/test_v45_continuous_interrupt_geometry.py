@@ -9,7 +9,7 @@ from make_start_to_module_v44 import make as make_v44
 from make_start_to_epilogue_v41 import sections_of
 from make_start_to_interrupt_v45 import (
     START,OSINIT,OLD_STOP,AFTER_CALL,INTERRUPT,STOP,MEMSET,FILL,
-    FILL_LENGTH,PREFIX_LENGTH,COPY)
+    FILL_LENGTH,PREFIX_LENGTH)
 from make_start_to_vectorcopy_v38 import word
 from make_osinit_execparams_v28 import text_at,SC,BLR,NOP
 
@@ -34,11 +34,8 @@ def verify(image:bytes,owner:Path)->None:
             pc=base+offset
             if not any(a<=pc<b for a,b in allowed) and new[offset]!=old[offset]:
                 raise ValueError("V45 altered previous verified original PPC")
-        if len(new)>len(old):
-            if base!=COPY or base+len(old)!=FILL or len(new)-len(old)!=FILL_LENGTH:
-                raise ValueError("V45 unexpected native PPC extension location/length")
-            if new[len(old):]!=text_at(owner.read_bytes(),FILL,FILL_LENGTH):
-                raise ValueError("V45 original memset/fill extension differs")
+        if len(new)!=len(old):
+            raise ValueError("V45 changed inherited original code section length")
     def mapped(pc:int,n:int)->bytes:
         hits=[bytes(code[pc-base:pc-base+n]) for base,code in newtext
               if base<=pc and pc+n<=base+len(code)]

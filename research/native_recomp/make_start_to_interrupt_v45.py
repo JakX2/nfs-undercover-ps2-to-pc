@@ -68,17 +68,18 @@ def make(owner:Path)->bytes:
     code[offset+PREFIX_LENGTH:offset+PREFIX_LENGTH+8]=struct.pack(">II",SC,BLR)
     text[idx]=(base,code)
 
-    copy_matches=[i for i,(guest,code) in enumerate(text) if guest==COPY]
-    if len(copy_matches)!=1:
-        raise ValueError("V45 original memcpy section not uniquely mapped")
-    idx=copy_matches[0];base,code=text[idx]
-    if len(code)!=FILL-COPY:
-        raise ValueError("V45 original memcpy helper geometry changed")
-    for i,(other,part) in enumerate(text):
-        if i!=idx and other<FILL+FILL_LENGTH and other+len(part)>FILL:
-            raise ValueError("original memset/fill PPC would overlap guest text")
-    code.extend(fill)
-    text[idx]=(base,code)
+    # __init_data already includes the authentic FILL/MEMSET instructions in
+    # the contiguous original START text section. The owner-original V22
+    # geometry and native V44 test previously verified both. Reuse them;
+    # introducing another section would overlap original PPC guest addresses.
+    matches=[(guest,code) for guest,code in text
+             if guest<=FILL and FILL+FILL_LENGTH<=guest+len(code)]
+    if len(matches)!=1:
+        raise ValueError("V45 inherited memset/fill original text not mapped uniquely")
+    guest,code=matches[0]
+    at=FILL-guest
+    if code[at:at+FILL_LENGTH]!=fill:
+        raise ValueError("V45 inherited original memset/fill PPC differs")
 
     result=bytearray(prior[:256])
     for i,(guest,code) in enumerate(text):
