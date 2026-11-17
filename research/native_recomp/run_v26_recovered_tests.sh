@@ -84,9 +84,7 @@ PY
     # Publish the guest checkpoint only AFTER 16 native owner trials pass.
     # The C++ test verifies exact PowerPC syscall callback PC each trial.
     # This anchored PASS is independently authored, never retail game output.
-    grep -Eq '^PASS: [0-9]+ V26 recovered continuous original __start->OSInit->time helpers->interrupt stop assertions; mode=owner trials=16 stop=0x805206b4
-done
- "$work/$mode.native.log" || {
+    grep -Eq '^PASS: [0-9]+ V26 recovered continuous original __start->OSInit->time helpers->interrupt stop assertions; mode=owner trials=16 stop=0x805206b4$' "$work/$mode.native.log" || {
       echo 'V26 owner native PASS did not verify the documented continuous stop' >&2
       exit 1
     }
