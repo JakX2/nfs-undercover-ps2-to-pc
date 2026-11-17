@@ -28,24 +28,29 @@ The V68 direct-`OSInit` runner is a separately verified native regression
 ending at `0x804EFA34`. It has **not** been joined to genuine continuous
 `__start` execution or a complete boot.
 
-**Latest verified continuous original-Wii `__start` frontier: V46 at
-`0x80526674` inside `__OSInterruptInit`.** Owner-original PowerPC AOT
+**Latest verified continuous original-Wii `__start` frontier: V47 at
+`0x80526698` inside `__OSInterruptInit`.** Owner-original PowerPC AOT
 translation and native runtime execute the full preceding exception-vector,
 syscall-vector, alarm, shutdown, and module startup chain; original
-`memset`/`__fill_mem` clear 128 IRQ table bytes. The V46 native harness
-verifies two original PowerPC MMIO stores, destination addresses/values,
-IRQ low-memory mask updates and canaries. The MMIO callback only *observes*
-test transactions; it is not a real Wii PI or IOS hardware device. Both
-private-original and synthetic continuous startup jobs passed
-[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667).
-Earlier V45 at `0x8052664C` passed
+`memset`/`__fill_mem` clear 128 IRQ table bytes. The V46/V47 native harness
+verifies two original PowerPC MMIO stores, their destination addresses/values,
+IRQ low-memory mask updates and canaries, followed by the original
+interrupt-disable helper and arithmetic resulting in the `0xFFFFFFF0`
+low-memory IRQ mask. The MMIO callback only *observes* transactions, not
+a real Wii PI or IOS controller. Private-original and synthetic V47
+continuous startup jobs passed
+[run 44173650263](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44173650263).
+Earlier V46 `0x80526674` passed
+[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667),
+and V45 `0x8052664C` passed
 [run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226).
 V44 at `0x805208B8` and all V38–V43 authenticated baselines remain passing.
 
-Next original continuous call: `__OSInterruptInit` at guest `0x80526674`
-invokes `__RAS_OSDisableInterrupts_begin` at `0x805265AC`, then original
-mask-store instructions toward bounded `0x80526698`. The older V53
-direct-entry test is independent evidence, not a continuous milestone.
+Next original continuous call: `__OSInterruptInit` at guest `0x805266A0`
+invokes the original `SetInterruptMask` entry at `0x805266E0`. Test the
+real owner-derived mask-loop call graph and subsequent controlled stop,
+using direct-entry V54/V56 as independent prior evidence rather than proof
+of continuous startup.
 Owner binaries and generated original code remain private; no game
 `main`, first frame, frontend or gameplay achieved.
 Maintain the two checkpoint lanes separately.

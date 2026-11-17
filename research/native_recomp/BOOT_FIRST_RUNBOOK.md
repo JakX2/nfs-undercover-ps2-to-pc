@@ -3,7 +3,7 @@
 ## Why this exists
 
 As of November 17, 2026, original Wii `__start` now reaches the
-**continuous native V46 checkpoint at `0x80526674`**, inside the authentic
+**continuous native V47 checkpoint at `0x80526698`**, inside the authentic
 `__OSInterruptInit` function. The pinned owner-original path has traversed
 `OSExceptionInit` (including its 15 exception vectors and original
 `_restgpr_20` return), `__OSInitSystemCall` (28 owner code bytes installed
@@ -13,16 +13,22 @@ at `0x80000C00`), `__OSInitAlarm` and shutdown registration,
 128-byte IRQ table at `0x80003040`, write the first interrupt-mask words
 at `0x800000C4` and `0x800000C8`, then issue two interrupt-controller
 MMIO transactions at `0x0C003004` and `0x0D000034`.
-The owner-native test checks the exact respective values `0xF0` and
-`0x40000000`, their order, the nested stack and memory canaries.
-This bounded V46 milestone was verified by both private original-native
-and synthetic CI in
-[GitHub Actions run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667).
+The owner-native test checks the respective values `0xF0` and
+`0x40000000`, their order, nested stack and memory canaries.
+The V47 original PowerPC continuation then calls the real
+`__RAS_OSDisableInterrupts_begin` helper at `0x805265AC`, returning
+through native ABI at `0x80526678`, and calculates the IRQ mask
+`0xFFFFFFF0` stored in guest low memory at `0x800000C4`.
+Sixteen owner-original trials passed the full prior native boot graph,
+with independent synthetic CI in
+[GitHub Actions run 44173650263](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44173650263).
 
 **The MMIO test uses a bounded host callback that only records and verifies
 writes; no functional PI/IOS interrupt-controller device is implemented or
 claimed.** `DBPrintf` remains a test-only callback. Separate earlier
-continuous native milestones are V45 `0x8052664C`, verified in
+continuous native milestones are V46 `0x80526674`, verified in
+[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667),
+V45 `0x8052664C`, verified in
 [run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226),
 V44 `0x805208B8` in
 [run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082),
@@ -36,11 +42,12 @@ initialization at `0x804EFA34`, but has **not** been joined to continuous
 `__start`. Native execution has **not** reached game `main`, full boot,
 a rendered frame, frontend, or playable gameplay.
 
-Next, replace the test-only stop at `0x80526674` with the original
-interrupt-disable call at `0x805265AC`, then verify original interrupt-mask
-arithmetic and low-memory state (target bounded stop `0x80526698`).
-Direct-entry V53 already offers independently validated PowerPC behavior,
-but is not proof of continuous startup. Keep exact SHA-verified owner
+Next, replace the test-only stop at `0x80526698` with authentic original
+IRQ mask-loop preparation, including the BL at `0x805266A0` into
+`SetInterruptMask` at `0x805266E0`, and verify the first original loop
+and bounded IRQ continuation. Independent direct-entry V54/V56 tests
+establish the owner-original PPC call graph but cannot substitute for
+continuous startup. Keep exact SHA-verified owner
 instructions, original-free public tests, no private game code in logs,
 and isolated synthetic callbacks only for services not yet implemented.
 
