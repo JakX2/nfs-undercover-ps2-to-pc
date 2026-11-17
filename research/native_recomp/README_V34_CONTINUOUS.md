@@ -1,7 +1,10 @@
 # V34 continuous original Wii __start: IPC-buffer low-memory initializer
 
-Status: new candidate, owner-original continuous native validation pending.
-The older direct-entry V38 test is a separate original OSInit experiment.
+Status: VERIFIED in owner-original GitHub Actions continuous-startup run
+44008998051 on November 17, 2026. All nine original-game native
+checkpoints V26–V34 passed from genuine __start at 0x8000403C,
+with stage=34 and exact instrumented test-only stop at 0x805208A8.
+The older direct-entry V38 test remains a separate experiment.
 
 ## Authentic original game code under test
 
