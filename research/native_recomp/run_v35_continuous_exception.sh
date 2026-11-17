@@ -50,6 +50,11 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
     echo 'V35 translated native C++ compile failed' >&2; exit 1; }
 echo "V35_STAGE native_compiled"
 "$work/native" "$work/owner-private.dol" owner > "$work/native.log" 2>&1 || {
+  # A numeric code maps exclusively to a literal in the ORIGINAL-FREE
+  # public C++ test harness. Never print the underlying private log.
+  python3 "$here/classify_v35_native_failure.py" \
+    "$work/native.log" "$here/test_start_to_exception_v35.cpp" || \
+    echo 'V35_NATIVE_ASSERTION id=000'
   echo 'V35 owner-original native assertion failed (private logs withheld)' >&2
   exit 1
 }

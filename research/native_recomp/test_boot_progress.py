@@ -226,6 +226,23 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn("BOOT_DIAGNOSTIC",output.getvalue())
         self.assertEqual(json.loads(self.report.read_text())["observed_pc"],0x80520CA8)
 
+    def test_numeric_public_only_assertion_diagnostic(self):
+        code=(
+            "print('V35_STAGE native_compiled',flush=True);"
+            "print('V35_NATIVE_ASSERTION id=027',flush=True);"
+            "print('V35_NATIVE_ASSERTION id=unsafe-private-memory',flush=True);"
+            "raise SystemExit(7)"
+        )
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","V35","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V35.027",output.getvalue())
+        self.assertNotIn("unsafe-private-memory",output.getvalue())
+        self.assertNotIn("unsafe-private-memory",self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
