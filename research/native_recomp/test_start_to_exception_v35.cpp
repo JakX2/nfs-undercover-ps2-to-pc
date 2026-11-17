@@ -351,8 +351,10 @@ int main(int argc,char**argv){
     check(nwii::runtime::save_entries==before_save+(owner?2u:1u),"original nested GPR-save helper call count differs");
     check(c.mmu.read32(sp-4)==(owner?START_OS_RET_OWNER:START_OS_RET_SYNTH),
           "OSInit prologue failed to save caller LR");
-    const auto os_frame=sp-8u-(owner?80u:96u);
-    check(c.gpr[1]==os_frame,"OSInit guest frame pointer changed");
+    // V35 is stopped inside OSExceptionInit's genuine extra 64-byte frame,
+    // not at the earlier OSInit-only V34 boundary.
+    const auto current_frame=sp-8u-(owner?80u+64u:96u);
+    check(c.gpr[1]==current_frame,"OSInit guest frame pointer changed");
     if(owner){
       check(nwii::runtime::time_entries==before_time+1, "original OS time service was not called");
       check(nwii::runtime::gettime_entries==before_gettime+1, "original OS timebase helper missing");
