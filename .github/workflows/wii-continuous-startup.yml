@@ -373,6 +373,7 @@ jobs:
           python3 research/native_recomp/boot_progress.py \
             --lane continuous-start --baseline "$RUNNER_TEMP/continuous-v34.json" \
             --require-progress --report "$RUNNER_TEMP/continuous-v35.json" \
+            --diagnostic-runner V35 \
             --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80520CA8 \
             --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
@@ -381,7 +382,10 @@ jobs:
             > "$RUNNER_TEMP/private-v35.log" 2>&1 || {
               # Fixed state labels only; never emit original Wii PPC, translated
               # game C++, owner private logs, memory or binary files.
-              grep -E '^V35_STAGE (v29_runtime_verified|hid4_runtime_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/private-v35.log" || true
+              # The checkpoint wrapper captures the original runner and
+              # explicitly prints only fixed, source-authored stage labels.
+              grep -E '^BOOT_DIAGNOSTIC stage=V35\.(v29_runtime_verified|hid4_runtime_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/private-v35.log" || true
+              grep -E '^BOOT_RESULT status=(failed|setup_error) lane=continuous-start .* reason=(runner_failed|timeout|expected_stop_not_observed|no_native_pass_marker|no_guest_checkpoint|no_verified_stage_advance|stop_pc_unchanged)$' "$RUNNER_TEMP/private-v35.log" || true
               echo 'V35 owner-original bounded exception fast-path test failed; private logs withheld' >&2
               exit 1
             }

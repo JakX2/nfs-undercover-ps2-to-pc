@@ -189,5 +189,52 @@ class BootProgressTests(unittest.TestCase):
         self.assertEqual(rc, 2)
         self.assertIsNone(data)
 
+
+    def test_failure_diagnostics_only_show_allowlisted_original_free_stages(self):
+        secret = "owner-private-DO-NOT-PRINT"
+        code = (
+            "print('V35_STAGE v29_runtime_verified', flush=True);"
+            "print('V35_STAGE fixture_generated', flush=True);"
+            f"print('{secret}', flush=True);"
+            "print('V35_STAGE injected-source-bytecode', flush=True);"
+            "raise SystemExit(7)"
+        )
+        args = ["--lane", "synthetic", "--report", str(self.report),
+                "--diagnostic-runner", "V35", "--", sys.executable, "-c", code]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        emitted=output.getvalue()
+        self.assertIn("BOOT_DIAGNOSTIC stage=V35.v29_runtime_verified",emitted)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V35.fixture_generated",emitted)
+        self.assertNotIn(secret,emitted)
+        self.assertNotIn("injected-source-bytecode",emitted)
+        self.assertNotIn(secret,self.report.read_text())
+        self.assertEqual(json.loads(self.report.read_text())["status"],"failed")
+
+    def test_success_does_not_emit_diagnostic_or_break_checkpoint(self):
+        code=("print('V35_STAGE native_compiled')\n"
+              "print('PASS: independent synthetic')\n"
+              "print('BOOT_PROGRESS entry=0x8000403C pc=0x80520CA8 stage=35')")
+        args=["--lane","continuous-start","--report",str(self.report),
+              "--diagnostic-runner","V35","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,0)
+        self.assertNotIn("BOOT_DIAGNOSTIC",output.getvalue())
+        self.assertEqual(json.loads(self.report.read_text())["observed_pc"],0x80520CA8)
+
+    def test_unknown_diagnostic_prefix_rejected(self):
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","secrets_dump","--",
+              sys.executable,"-c","print('PASS: synthetic')"]
+        with contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as stopped:
+                main(args)
+        self.assertEqual(stopped.exception.code,2)
+        self.assertFalse(self.report.exists())
+
 if __name__ == "__main__":
     unittest.main()

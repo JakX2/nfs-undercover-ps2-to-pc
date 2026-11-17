@@ -27,6 +27,13 @@ MARKER = re.compile(
 )
 LANE_ENTRY = {"continuous-start": 0x8000403C, "osinit-direct": 0x80520670}
 MAX_CAPTURE = 1_048_576  # Only a checksum and allowlisted markers are reported.
+# Diagnostic names are original-free, fixed runner stages. Never echo arbitrary
+# subprocess output, file paths, disassembly, generated game code or messages.
+SAFE_RUNNER_STAGES = {
+    "V35": ("v29_runtime_verified", "hid4_runtime_verified", "fixture_generated",
+            "geometry_verified", "generator_compiled", "generation_complete",
+            "native_compiled", "native_test_passed"),
+}
 
 
 def hash_file(path: Path) -> str:
@@ -185,6 +192,13 @@ def run(args: argparse.Namespace) -> int:
     stop = f"0x{observed['pc']:08X}" if observed else "unobserved"
     print(f"BOOT_RESULT status={status} lane={args.lane} pc={stop} passes={passes}"
           + (f" reason={reason}" if reason else ""))
+    if reason is not None and args.diagnostic_runner is not None:
+        prefix = args.diagnostic_runner
+        allowed = SAFE_RUNNER_STAGES[prefix]
+        lines = set(stdout.splitlines()) | set(stderr.splitlines())
+        for stage in allowed:
+            if prefix + "_STAGE " + stage in lines:
+                print(f"BOOT_DIAGNOSTIC stage={prefix}.{stage}")
     return 0 if status in ("advanced", "passed_instrumented", "passed_uninstrumented") else 1
 
 
@@ -205,6 +219,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-pc", type=hex_address)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--require-progress", action="store_true")
+    parser.add_argument("--diagnostic-runner", choices=tuple(SAFE_RUNNER_STAGES),
+                        help="print only allowlisted original-free stage labels on failure")
     parser.add_argument("--dol", type=Path)
     parser.add_argument("--sha256", type=lambda s: s.lower() if re.fullmatch(r"[0-9a-fA-F]{64}", s) else (_ for _ in ()).throw(argparse.ArgumentTypeError("invalid SHA-256")))
     parser.add_argument("command", nargs=argparse.REMAINDER, help="-- program arguments (never persisted)")
