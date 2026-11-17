@@ -12,45 +12,35 @@ from make_start_to_vectorcopy_v38 import word
 from make_osinit_execparams_v28 import text_at,SC,BLR,NOP
 
 def verify(actual:bytes,owner:Path)->None:
-    previous=make_v41(owner) # owner SHA + full native V41 fixture geometry
-    if len(actual)<256 or word(actual,0xE0)!=START:
-        raise ValueError("V42 original entry or DOL header truncated")
-    mutable=set(range(7*4))|set(range(0x90,0x90+7*4))
-    mutable.update(range(0x1c,0x1c+2*4))
-    mutable.update(range(0x48,0x48+7*4)) # GETTIME -> original syscall source
-    for pos in range(256):
-        if pos not in mutable and actual[pos]!=previous[pos]:
-            raise ValueError("V42 unexpected game DOL header change")
-    oldtext,olddata=sections_of(previous)
-    newtext,newdata=sections_of(actual)
-    if olddata!=newdata:
-        raise ValueError("V42 original startup table or handler oracle modified")
-    if len(oldtext)!=len(newtext) or len(newtext)!=7:
-        raise ValueError("V42 changed guest text section count")
-    for (base,old),(guest,new) in zip(oldtext,newtext):
-        if base==OSINIT:
-            if guest!=base or len(new)!=len(old):
-                raise ValueError("V42 OSInit text geometry changed")
-            off=OLD_STOP-base
-            if new[:off]!=old[:off] or new[off+12:]!=old[off+12:]:
-                raise ValueError("V42 overwrote previous continuous OSInit code")
-            if new[off:off+4]!=text_at(owner.read_bytes(),OLD_STOP,4):
-                raise ValueError("V42 original __OSInitSystemCall BL differs")
-            if new[off+4:off+12]!=struct.pack(">II",SC,BLR):
-                raise ValueError("V42 next-original-service synthetic stop missing")
-        elif base==GETTIME:
-            if guest!=SOURCE or len(new)!=(GETTIME-SOURCE)+len(old):
-                raise ValueError("V42 syscall/gettime guest PC map changed")
-            if new[GETTIME-SOURCE:]!=old:
-                raise ValueError("V42 modified previously translated Wii GETTIME")
-            if new[:END-SOURCE]!=text_at(owner.read_bytes(),SOURCE,END-SOURCE):
-                raise ValueError("V42 syscall initializer instructions differ from owner")
-            if new[END-SOURCE:GETTIME-SOURCE]!=struct.pack(">I",NOP)*((GETTIME-END)//4):
-                raise ValueError("V42 syscall section inert gap contains unexpected code")
-        elif guest!=base or new!=old:
-            raise ValueError("V42 touched previously verified guest PPC or helper text")
-    if len(set(x for x,_ in newtext))!=7 or word(actual,0xE0)!=START:
-        raise ValueError("V42 duplicate text segment base or wrong guest entry")
+    previous=make_v41(owner) # SHA-authenticated owner and full V41 original PPC
+    if len(actual)!=len(previous) or actual[:256]!=previous[:256] or word(actual,0xE0)!=START:
+        raise ValueError("V42 altered original DOL length, entry or section metadata")
+    def mapped(pc:int,n:int)->int:
+        matches=[]
+        for i in range(7):
+            off,base,size=(word(actual,k+4*i) for k in (0,0x48,0x90))
+            if base<=pc and pc+n<=base+size:
+                if off<256 or off+size>len(actual):
+                    raise ValueError("V42 private text image section out of bounds")
+                matches.append(off+pc-base)
+        if len(matches)!=1:
+            raise ValueError("V42 syscall guest code lacks unique text segment")
+        return matches[0]
+    old_at=mapped(OLD_STOP,12)
+    source_at=mapped(SOURCE,END-SOURCE)
+    allowed=set(range(old_at,old_at+12))
+    allowed.update(range(source_at,source_at+END-SOURCE))
+    for pos,(old,new) in enumerate(zip(previous,actual)):
+        if pos not in allowed and old!=new:
+            raise ValueError("V42 modified earlier verified startup/owner oracle bytes")
+    if actual[old_at:old_at+4]!=text_at(owner.read_bytes(),OLD_STOP,4):
+        raise ValueError("V42 OSInit native syscall BL differs from pinned owner")
+    if actual[old_at+4:old_at+12]!=struct.pack(">II",SC,BLR):
+        raise ValueError("V42 next original OSInit service not bounded")
+    if actual[source_at:source_at+END-SOURCE]!=text_at(owner.read_bytes(),SOURCE,END-SOURCE):
+        raise ValueError("V42 genuine __OSInitSystemCall code differs from pinned owner")
+    if previous[source_at:source_at+END-SOURCE]!=struct.pack(">I",NOP)*((END-SOURCE)//4):
+        raise ValueError("V42 original syscall mapped over existing PPC fixture")
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

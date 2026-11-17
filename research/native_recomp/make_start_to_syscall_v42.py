@@ -24,61 +24,51 @@ DEST=0x80000C00
 def make(owner:Path)->bytes:
     prior=make_v41(owner) # transitive owner SHA, original helper and DOL integrity
     raw=owner.read_bytes()
-    text,data=sections_of(prior)
-    osidx=[i for i,(g,_) in enumerate(text) if g==OSINIT]
-    timeidx=[i for i,(g,_) in enumerate(text) if g==GETTIME]
-    if len(osidx)!=1 or len(timeidx)!=1:
-        raise ValueError("V42 original OSInit/time DOL section mapping changed")
-    osbase,os=text[osidx[0]]
-    at=OLD_STOP-osbase
-    if os[at:at+8]!=struct.pack(">II",SC,BLR) or word(os,at+8)!=NOP:
-        raise ValueError("V41 OSInit synthetic checkpoint was modified")
+    # In the continuous __start image, the existing cache/IPC text section
+    # already spans SOURCE and GETTIME. Do not prepend a separate section:
+    # that would overlap a verified DOL guest-memory mapping.
+    image=bytearray(prior)
+    def mapped(pc:int,n:int)->int:
+        matches=[]
+        for i in range(7):
+            off,base,length=(word(image,k+4*i) for k in (0,0x48,0x90))
+            if base<=pc and pc+n<=base+length:
+                if off<256 or off+length>len(image):
+                    raise ValueError("V42 original text section bounds differ")
+                matches.append(off+pc-base)
+        if len(matches)!=1:
+            raise ValueError("V42 PPC instruction range ambiguously mapped")
+        return matches[0]
+    at=mapped(OLD_STOP,12)
+    if image[at:at+8]!=struct.pack(">II",SC,BLR) or word(image,at+8)!=NOP:
+        raise ValueError("V41 original OSInit syscall checkpoint changed")
     call=text_at(raw,OLD_STOP,4)
     if target(word(call,0),OLD_STOP,True)!=ENTRY:
-        raise ValueError("original OSInit __OSInitSystemCall call graph changed")
-    os[at:at+4]=call
-    os[at+4:at+12]=struct.pack(">II",SC,BLR)
-    text[osidx[0]]=(osbase,os)
+        raise ValueError("original __OSInitSystemCall OSInit BL target changed")
+    image[at:at+4]=call
+    image[at+4:at+12]=struct.pack(">II",SC,BLR)
 
-    # Keep the exact owner source at original guest PCs. Only the unused
-    # address gap before inherited GETTIME is synthesized with inert NOPs.
     code=text_at(raw,SOURCE,END-SOURCE)
     if len(code)!=0x80 or word(code,ENTRY-SOURCE)!=0x9421FFF0 or word(code,END-SOURCE-4)!=BLR:
-        raise ValueError("original Wii syscall installer body incomplete")
+        raise ValueError("original Wii syscall initializer body incomplete")
     for pc,dest in ((ENTRY+0x2C,COPY),(ENTRY+0x38,FLUSH),(ENTRY+0x48,INVALIDATE)):
         if target(word(code,pc-SOURCE),pc,True)!=dest:
-            raise ValueError("original syscall helper call target changed")
+            raise ValueError("original syscall helper BL destination changed")
     if word(code,ENTRY+0x34-SOURCE)!=0x38800100 or word(code,ENTRY+0x44-SOURCE)!=0x38800100:
-        raise ValueError("original syscall cache operation size changed")
+        raise ValueError("original Wii syscall cache range differs")
     if word(code,ENTRY+0x28-SOURCE)>>26!=31:
-        raise ValueError("original syscall source-copy length arithmetic changed")
-    gap=GETTIME-SOURCE
-    if gap<len(code) or gap%4 or gap>0x2000:
-        raise ValueError("original syscall image not safely bounded before GETTIME")
-    prefix=bytearray(struct.pack(">I",NOP)*(gap//4))
-    prefix[:len(code)]=code
-    old_time=text[timeidx[0]][1]
-    text[timeidx[0]]=(SOURCE,prefix+old_time)
-    for i,(guest,body) in enumerate(text):
-        if i!=timeidx[0] and guest<SOURCE+len(prefix)+len(old_time) and guest+len(body)>SOURCE:
-            raise ValueError("syscall code section overlaps existing original Wii text")
-
-    out=bytearray(prior[:256])
-    for i,(guest,body) in enumerate(text):
-        off=len(out)
-        for base,value in ((0,off),(0x48,guest),(0x90,len(body))):
-            struct.pack_into(">I",out,base+4*i,value)
-        out.extend(body)
-        out.extend(bytes((-len(out))%4))
-    for i,(guest,body) in enumerate(data):
-        off=len(out)
-        for base,value in ((0x1c,off),(0x64,guest),(0xac,len(body))):
-            struct.pack_into(">I",out,base+4*i,value)
-        out.extend(body)
-        out.extend(bytes((-len(out))%4))
+        raise ValueError("original Wii syscall handler copy length changed")
+    off=mapped(SOURCE,len(code))
+    if image[off:off+len(code)]!=struct.pack(">I",NOP)*(len(code)//4):
+        raise ValueError("original syscall PPC overlaps inherited native startup")
+    if not any(base<=GETTIME and GETTIME+24<=base+len(body) and
+               base<=SOURCE and END<=base+len(body) for base,body in sections_of(prior)[0]):
+        raise ValueError("existing continuous GETTIME/syscall section geometry differs")
+    image[off:off+len(code)]=code
+    out=bytes(image)
     if word(out,0xE0)!=START:
         raise ValueError("V42 original Wii __start entry changed")
-    return bytes(out)
+    return out
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
