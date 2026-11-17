@@ -2,50 +2,47 @@
 
 ## Why this exists
 
-As of November 17, 2026, original Wii `__start` has been verified through
-**continuous-stage V44 at guest PC `0x805208B8`**. The owner-original
-PowerPC startup now returns from `OSExceptionInit` through `_restgpr_20`,
-installs all 15 original exception vectors, initializes the original syscall
-vector through `__OSInitSystemCall`, invokes `__OSInitAlarm` with authentic
-exception-handler/shutdown registration, then calls the genuine
-`__OSModuleInit` function at `0x80526D30`. V44 checks exact native
-module-call ABI and clearing of 3 low-memory module globals at
-`0x800030C8`, `0x800030CC` and `0x800030D0` without corrupting canaries.
-The SHA-pinned original 28-byte syscall vector is installed at `0x80000C00`
-and the full chain performs **83 genuine `dcbf` and 83 `icbi` cache-line
-operations** per original-startup trial. The sixteen-case owner-native
-and independent synthetic regressions passed in
-[GitHub Actions run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082).
-The unresolved `DBPrintf` service remains an explicit test-only callback,
-not a genuine Wii debug runtime implementation.
+As of November 17, 2026, original Wii `__start` now reaches the
+**continuous native V46 checkpoint at `0x80526674`**, inside the authentic
+`__OSInterruptInit` function. The pinned owner-original path has traversed
+`OSExceptionInit` (including its 15 exception vectors and original
+`_restgpr_20` return), `__OSInitSystemCall` (28 owner code bytes installed
+at `0x80000C00`), `__OSInitAlarm` and shutdown registration,
+`__OSModuleInit`, then the original interrupt initializer with nested
+`memset` and `__fill_mem` calls. Genuine PowerPC stores clear the
+128-byte IRQ table at `0x80003040`, write the first interrupt-mask words
+at `0x800000C4` and `0x800000C8`, then issue two interrupt-controller
+MMIO transactions at `0x0C003004` and `0x0D000034`.
+The owner-native test checks the exact respective values `0xF0` and
+`0x40000000`, their order, the nested stack and memory canaries.
+This bounded V46 milestone was verified by both private original-native
+and synthetic CI in
+[GitHub Actions run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667).
 
-Earlier V43 at `0x805208B4` verified original alarm/shutdown initialization
-in [run 44042467010](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44042467010).
-V42 at `0x805208B0` verified the native original syscall-vector installation
-in [run 44041303918](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44041303918).
-V41 at `0x805208AC` verified the original exception-return epilogue
-in [run 44029703720](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44029703720).
-V40 at `0x80520E58` verified installation of all fifteen original
-exception vectors, including 75 `dcbf` and 75 `icbi` cache-line operations,
-30 `sync` and 15 `isync` events, byte-for-byte private original template
-checks, and final handler-table initialization. This was verified in
-[run 44028035915](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44028035915).
-V38 and V39 remain independent continuous-startup regressions.
+**The MMIO test uses a bounded host callback that only records and verifies
+writes; no functional PI/IOS interrupt-controller device is implemented or
+claimed.** `DBPrintf` remains a test-only callback. Separate earlier
+continuous native milestones are V45 `0x8052664C`, verified in
+[run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226),
+V44 `0x805208B8` in
+[run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082),
+V43 `0x805208B4`, V42 `0x805208B0`, V41 `0x805208AC`,
+and V40 `0x80520E58`. They remain separate original-game regression steps.
+Guest PCs are not monotonic across called functions: **stage order** measures
+verified progress.
 
-The separately tested V68 direct-entry `OSInit` path reaches EXI
-initialization (ending at `0x804EFA34`), **but has not been joined to
-continuous `__start`**. These tests still do not establish game `main`, a
-frame on screen, genuine Wii hardware services, or playable gameplay.
+The separately tested V68 **direct-entry** `OSInit` path reaches EXI
+initialization at `0x804EFA34`, but has **not** been joined to continuous
+`__start`. Native execution has **not** reached game `main`, full boot,
+a rendered frame, frontend, or playable gameplay.
 
-Next, replace the test-only `sc` at `0x805208B8` with the owner-original
-call to `__OSInterruptInit` at `0x8052661C`. Reuse the separately
-authenticated V50/V51 interrupt-table initialization prefix and verify its
-original `memset`/`__fill_mem` helper calls and writes before advancing
-into hardware interrupt mask/MMIO services. The next bounded guest stop
-may be inside `__OSInterruptInit`, not in `OSInit`; checkpoint stage
-order, not numerical PC ordering, defines progress. Keep unsafe or
-unimplemented hardware services test-only, preserve historical regressions,
-and avoid interpreting isolated direct-`OSInit` tests as continuous boot.
+Next, replace the test-only stop at `0x80526674` with the original
+interrupt-disable call at `0x805265AC`, then verify original interrupt-mask
+arithmetic and low-memory state (target bounded stop `0x80526698`).
+Direct-entry V53 already offers independently validated PowerPC behavior,
+but is not proof of continuous startup. Keep exact SHA-verified owner
+instructions, original-free public tests, no private game code in logs,
+and isolated synthetic callbacks only for services not yet implemented.
 
 ## Source-only checkpoint and regression driver
 

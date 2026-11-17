@@ -24,21 +24,30 @@ The private job is deliberately **skipped** until the existing Ghidra secrets
 and feature variable are set. No new scheduled automation is created; this is
 continuous integration triggered by research-branch code updates.
 
-The V68 direct-`OSInit` runner is a separately verified native regression.
-Its direct-entry progression does not establish continuous `__start`
-execution or a complete boot. The earlier V26 startup harness has since
-been recovered and extended through V44. The current continuous frontier
-is **`0x805208B8`**, after authentic native `__OSModuleInit`
-called from the original `OSInit` startup chain. SHA-pinned owner-original
-execution verifies exact 3-word low-memory module initialization, guarded
-canaries, syscall-vector installation, 15 exception vectors and alarm
-shutdown registration. The owner-private and synthetic jobs passed in
-[workflow run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082).
-Earlier V43 `0x805208B4`, V42 `0x805208B0`, V41 `0x805208AC`,
-V40 `0x80520E58` and V39 `0x80520DB8` remain passing independent
-regressions. Unresolved `DBPrintf` remains test-only. The next required
-original call at `0x805208B8` reaches `__OSInterruptInit` at
-`0x8052661C`; its direct-entry V50/V51 evidence is not continuous execution.
+The V68 direct-`OSInit` runner is a separately verified native regression
+ending at `0x804EFA34`. It has **not** been joined to genuine continuous
+`__start` execution or a complete boot.
+
+**Latest verified continuous original-Wii `__start` frontier: V46 at
+`0x80526674` inside `__OSInterruptInit`.** Owner-original PowerPC AOT
+translation and native runtime execute the full preceding exception-vector,
+syscall-vector, alarm, shutdown, and module startup chain; original
+`memset`/`__fill_mem` clear 128 IRQ table bytes. The V46 native harness
+verifies two original PowerPC MMIO stores, destination addresses/values,
+IRQ low-memory mask updates and canaries. The MMIO callback only *observes*
+test transactions; it is not a real Wii PI or IOS hardware device. Both
+private-original and synthetic continuous startup jobs passed
+[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667).
+Earlier V45 at `0x8052664C` passed
+[run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226).
+V44 at `0x805208B8` and all V38–V43 authenticated baselines remain passing.
+
+Next original continuous call: `__OSInterruptInit` at guest `0x80526674`
+invokes `__RAS_OSDisableInterrupts_begin` at `0x805265AC`, then original
+mask-store instructions toward bounded `0x80526698`. The older V53
+direct-entry test is independent evidence, not a continuous milestone.
+Owner binaries and generated original code remain private; no game
+`main`, first frame, frontend or gameplay achieved.
 Maintain the two checkpoint lanes separately.
 
 ## Verified owner-ELF native-boot frontier
@@ -70,7 +79,7 @@ checked privately; owner binaries and game-derived C++ are never uploaded.
 
 The private-original workflow has since run successfully with the feature
 variable enabled, using SHA-pinned owner inputs. On November 17, 2026
-continuous native V44 passed after independent V38, V39, V40, V41, V42
-and V43 baseline checks.
+continuous native V46 passed after independent V38–V45 owner-original
+baseline checks.
 A successful private CI check is evidence for the exact assertions it ran,
 not for full native Windows startup, game `main`, or graphical output.
