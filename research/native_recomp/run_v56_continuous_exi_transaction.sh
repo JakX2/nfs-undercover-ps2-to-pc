@@ -69,6 +69,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
   "$here/test_start_to_exi_transaction_v56.cpp" "$work/generated/output.cpp" \
   "$root/nWiiRuntime/src/core/loader.cpp" \
   -o "$work/native" > "$work/native-compile.log" 2>&1 || {
+    python3 "$here/classify_v56_compile_failure.py" "$work/native-compile.log"
     echo 'V56 original translated native compilation failed' >&2; exit 1;
   }
 echo 'V56_STAGE native_compiled'
