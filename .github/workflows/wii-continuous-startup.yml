@@ -37,6 +37,8 @@ jobs:
           bash -n research/native_recomp/run_v39_continuous_cache.sh
           bash -n research/native_recomp/run_v40_continuous_vectors.sh
           bash -n research/native_recomp/run_v41_continuous_epilogue.sh
+          bash -n research/native_recomp/run_v42_continuous_syscall.sh
+          python3 -m py_compile research/native_recomp/make_start_to_syscall_v42.py research/native_recomp/test_v42_continuous_syscall_geometry.py research/native_recomp/classify_v42_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_epilogue_v41.py research/native_recomp/test_v41_continuous_epilogue_geometry.py research/native_recomp/classify_v41_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_vectors_v40.py research/native_recomp/test_v40_continuous_vectors_geometry.py research/native_recomp/classify_v40_native_failure.py
           python3 research/native_recomp/test_cache_trace_guards_v44.py
@@ -724,6 +726,35 @@ jobs:
           assert r['stage']==41 and r['pass_markers']>=1
           print('PASS: owner-original continuous __start returned from OSExceptionInit to OSInit at 0x805208AC')
           PY
+      - name: Verify owner-original continuous Wii syscall-vector installation (V42)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v41.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v42.json" \
+            --diagnostic-runner V42 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x805208B0 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v42_continuous_syscall.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v42-private.log" 2>&1 || {
+              # Allow only fixed non-proprietary stage/diagnostic IDs to be printed.
+              grep -E '^BOOT_DIAGNOSTIC stage=V42\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v42-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V42\.[0-9]{3}$' "$RUNNER_TEMP/v42-private.log" || true
+              echo 'V42 native syscall-vector integration failed; owner logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v42.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x805208B0
+          assert r['stage']==42 and r['pass_markers']>=1
+          print('PASS: owner-original continuous __start installed Wii syscall vector to 0x805208B0')
+          PY
       - name: Remove private originals and temporary translations
         if: always()
         run: |
@@ -731,4 +762,5 @@ jobs:
             "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
             "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json" \
             "$RUNNER_TEMP/v40-private.log" "$RUNNER_TEMP/frontier-v40.json" \
-            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json"
+            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json" \
+            "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json"
