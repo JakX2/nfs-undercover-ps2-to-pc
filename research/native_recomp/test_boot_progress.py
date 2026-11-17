@@ -298,6 +298,30 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn("secret-owner-vector-template-bytes",output.getvalue())
         self.assertNotIn("secret-owner-vector-template-bytes",self.report.read_text())
 
+    def test_v52_safe_stages_and_numeric_diagnostic_only(self):
+        private = "private-owner-EXI-guest-instruction-bytes"
+        code = (
+            "print('V52_STAGE fixture_generated',flush=True);"
+            "print('V52_STAGE native_compiled',flush=True);"
+            "print('V52_STAGE untrusted-leak',flush=True);"
+            "print('V52_NATIVE_ASSERTION id=052',flush=True);"
+            f"print('{private}',flush=True);"
+            "raise SystemExit(7)"
+        )
+        args = ["--lane", "synthetic", "--report", str(self.report),
+                "--diagnostic-runner", "V52", "--", sys.executable, "-c", code]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(args)
+        self.assertEqual(rc, 1)
+        emitted = output.getvalue()
+        self.assertIn("BOOT_DIAGNOSTIC stage=V52.fixture_generated", emitted)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V52.native_compiled", emitted)
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V52.052", emitted)
+        self.assertNotIn("untrusted-leak", emitted)
+        self.assertNotIn(private, emitted)
+        self.assertNotIn(private, self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
