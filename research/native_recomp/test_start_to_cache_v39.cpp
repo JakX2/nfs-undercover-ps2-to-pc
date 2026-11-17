@@ -423,8 +423,9 @@ int main(int argc,char**argv){
               "original HID4/speculation/FP helper execution count changed");
       check(c.hid4==0x83900000u,"authentic OSInit HID4 value was not written");
       check(c.gpr[13]==R13,"original continuous startup r13 small-data base differs");
-      check(c.gpr[3]==VECTOR_DEST,
-            "original Wii handler destination register changed by cache helpers");
+      // r3 is a PowerPC caller-saved register. The cache helpers may
+      // overwrite it; verify their actual line operations and memory bounds
+      // below instead of asserting a post-call register value.
       check(nwii::runtime::dcflush_entries==before_dcflush+1,
             "original DCFlushRangeNoSync not dispatched once");
       check(nwii::runtime::icinvalid_entries==before_icinvalid+1,
