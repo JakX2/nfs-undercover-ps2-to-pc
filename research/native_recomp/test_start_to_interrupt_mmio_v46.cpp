@@ -683,8 +683,8 @@ int main(int argc,char**argv){
             "original Wii _restgpr_20 was not executed exactly once");
       check(c.gpr[29]==0u,
             "original Wii exception-vector loop failed to restore caller r29");
-      check(c.gpr[30]==0x806f4f00u && c.gpr[31]==0x80000000u,
-            "original interrupt initializer did not load MEM1 base into r31");
+      check(c.gpr[31]==0x80000000u,
+            "original Wii MMIO prefix lost r31 MEM1 base before IRQ epilogue");
       check(c.mmu.read32(R13-3552u)==0x80003000u,
             "original Wii exception handler-table global was not installed");
       check(c.mmu.read32(0x8070d8a0u)==0x80000040u &&
