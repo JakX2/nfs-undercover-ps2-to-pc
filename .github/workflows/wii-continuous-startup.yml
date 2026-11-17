@@ -77,8 +77,8 @@ jobs:
           git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
-          # Install V29 SPR emitters before V18 HID rewriting, which
-          # deliberately changes the same PowerPC source switch anchors.
+          # Patch V29 performance SPRs before V18 HID0/HID2 and V20 L2CR
+          # modify their source-switch anchors. Do not reorder these.
           python3 research/native_recomp/apply_nonsplit_dispatch_v15.py "$RUNNER_TEMP/nwii"
           python3 research/native_recomp/apply_perf_sprs_v29.py "$RUNNER_TEMP/nwii"
           python3 research/native_recomp/test_perf_patch_guards_v29.py "$RUNNER_TEMP/nwii"
@@ -196,30 +196,9 @@ jobs:
             -- bash research/native_recomp/run_v29_continuous_perfsprs.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/private-v29.log" 2>&1 || {
-              # Expose only fixed, original-free stage labels, never raw owner
-              # disassembly, C++ translation, register values or host paths.
-              grep -E '^V29_STAGE (before_perf_patch|perf_patch_present|compatible_runtime|private_fixture_created|private_geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)
-              exit 1
-            }
-          python3 - "$RUNNER_TEMP/continuous-v29.json" <<'PY'
-          import json,sys
-          from pathlib import Path
-          r=json.loads(Path(sys.argv[1]).read_text())
-          assert r['lane']=='continuous-start' and r['status']=='advanced'
-          assert r['observed_entry']==0x8000403C
-          assert r['observed_pc']==0x805206F0 and r['stage']==29
-          assert r['pass_markers']>=1
-          print('PASS: original Wii continuous __start advanced through six MMCR/PMC writes to F0 test stop')
-          PY
-      - name: Remove owner executable, private translations and logs
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/private.log" "$RUNNER_TEMP/continuous-checkpoint.json" \
-            "$RUNNER_TEMP/private-v27.log" "$RUNNER_TEMP/continuous-v27.json" \
-            "$RUNNER_TEMP/private-v28.log" "$RUNNER_TEMP/continuous-v28.json" \
-            "$RUNNER_TEMP/private-v29.log" "$RUNNER_TEMP/continuous-v29.json"
- "$RUNNER_TEMP/private-v29.log" || true
+              # The V29 runner emits only allowlisted source-only labels.
+              # Do not expose private DOL, generated C++, or owner test logs.
+              grep -E '^V29_STAGE (before_perf_patch|perf_patch_present|compatible_runtime|private_fixture_created|private_geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/private-v29.log" || true
               echo 'V29 continuous owner-original MMCR/PMC native test failed; private logs withheld' >&2
               exit 1
             }
