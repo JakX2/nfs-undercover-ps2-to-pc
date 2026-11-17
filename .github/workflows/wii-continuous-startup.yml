@@ -27,6 +27,8 @@ jobs:
           bash -n research/native_recomp/run_v29_continuous_perfsprs.sh
           bash -n research/native_recomp/run_v30_continuous_hid4.sh
           bash -n research/native_recomp/run_v31_continuous_lowmem.sh
+          bash -n research/native_recomp/run_v32_continuous_arena.sh
+          python3 -m py_compile research/native_recomp/make_start_to_arena_v32.py research/native_recomp/test_v32_continuous_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_lowmem_v31.py research/native_recomp/test_v31_continuous_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_hid4_v30.py research/native_recomp/test_v30_continuous_geometry.py research/native_recomp/apply_hid4_continuous_v30.py
           python3 research/native_recomp/test_hid4_continuous_patch_v30.py
@@ -273,6 +275,33 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: original Wii continuous __start advanced through low-memory boot-info to 0x80520778')
           PY
+      - name: Verify original Wii MEM1 arena setters from continuous __start
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/continuous-v31.json" \
+            --require-progress --report "$RUNNER_TEMP/continuous-v32.json" \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80520818 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v32_continuous_arena.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/private-v32.log" 2>&1 || {
+              grep -E '^V32_STAGE (v29_runtime_verified|hid4_runtime_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/private-v32.log" || true
+              echo 'V32 owner-original continuous MEM1 arena regression failed; original logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/continuous-v32.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text())
+          assert r['lane']=='continuous-start' and r['status']=='advanced'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x80520818 and r['stage']==32
+          assert r['pass_markers']>=1
+          print('PASS: original Wii continuous __start advanced through MEM1 setters to 0x80520818')
+          PY
       - name: Remove owner executable, private translations and logs
         if: always()
         run: |
@@ -282,4 +311,5 @@ jobs:
             "$RUNNER_TEMP/private-v28.log" "$RUNNER_TEMP/continuous-v28.json" \
             "$RUNNER_TEMP/private-v29.log" "$RUNNER_TEMP/continuous-v29.json" \
             "$RUNNER_TEMP/private-v30.log" "$RUNNER_TEMP/continuous-v30.json" \
-            "$RUNNER_TEMP/private-v31.log" "$RUNNER_TEMP/continuous-v31.json"
+            "$RUNNER_TEMP/private-v31.log" "$RUNNER_TEMP/continuous-v31.json" \
+            "$RUNNER_TEMP/private-v32.log" "$RUNNER_TEMP/continuous-v32.json"

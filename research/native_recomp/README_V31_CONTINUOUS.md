@@ -1,8 +1,11 @@
 # V31 continuous original Wii __start: low-memory boot-information handoff
 
-Status: CANDIDATE, not yet verified through the owner-original CI run.
-The earlier directly entered OSInit V31 test is a separate milestone and
-does not prove that continuous original __start reaches this code.
+Status: VERIFIED in owner-original GitHub Actions run 44004845948
+(November 17, 2026). All six continuous-startup stages V26 through V31
+passed on the genuine SHA-pinned Undercover Wii DOL. V31's instrumented
+native callback reached 0x80520778 as an advancement from V30's 0x80520700.
+The previous directly entered OSInit V31 tests remain separate and do
+not expand the continuous route's verified boot-record/fallback cases.
 
 The verified continuous path has reached V30, stopping at 0x80520700
 after original system time, interrupt setup, ExecParams, six MMCR/PMC writes,
