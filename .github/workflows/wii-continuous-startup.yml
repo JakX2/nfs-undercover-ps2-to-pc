@@ -41,6 +41,8 @@ jobs:
           bash -n research/native_recomp/run_v43_continuous_alarm.sh
           bash -n research/native_recomp/run_v44_continuous_module.sh
           bash -n research/native_recomp/run_v45_continuous_interrupt.sh
+          bash -n research/native_recomp/run_v46_continuous_interrupt_mmio.sh
+          python3 -m py_compile research/native_recomp/make_start_to_interrupt_mmio_v46.py research/native_recomp/test_v46_continuous_interrupt_mmio_geometry.py research/native_recomp/classify_v46_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_interrupt_v45.py research/native_recomp/test_v45_continuous_interrupt_geometry.py research/native_recomp/classify_v45_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_module_v44.py research/native_recomp/test_v44_continuous_module_geometry.py research/native_recomp/classify_v44_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_alarm_v43.py research/native_recomp/test_v43_continuous_alarm_geometry.py research/native_recomp/classify_v43_native_failure.py
@@ -848,6 +850,35 @@ jobs:
           assert r['stage']==45 and r['pass_markers']>=1
           print('PASS: original Wii continuous __start installed IRQ table via native memset at 0x8052664C')
           PY
+      - name: Verify owner-original continuous Wii IRQ MMIO stores and mask writes (V46)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v45.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v46.json" \
+            --diagnostic-runner V46 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80526674 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v46_continuous_interrupt_mmio.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v46-private.log" 2>&1 || {
+              # Owner-original game and translated PPC remain in private runner only.
+              grep -E '^BOOT_DIAGNOSTIC stage=V46\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v46-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V46\.[0-9]{3}$' "$RUNNER_TEMP/v46-private.log" || true
+              echo 'V46 original Wii interrupt MMIO native checkpoint failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v46.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80526674
+          assert r['stage']==46 and r['pass_markers']>=1
+          print('PASS: owner-original continuous Wii __start reached interrupt MMIO at 0x80526674')
+          PY
       - name: Remove private originals and temporary translations
         if: always()
         run: |
@@ -859,4 +890,5 @@ jobs:
             "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json" \
             "$RUNNER_TEMP/v43-private.log" "$RUNNER_TEMP/frontier-v43.json" \
             "$RUNNER_TEMP/v44-private.log" "$RUNNER_TEMP/frontier-v44.json" \
-            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json"
+            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json" \
+            "$RUNNER_TEMP/v46-private.log" "$RUNNER_TEMP/frontier-v46.json"
