@@ -59,9 +59,13 @@ def make(owner: Path | None) -> bytes:
     address, cache_text = sections[5]
     end = RESTORE + 36
     new_size = end - CACHE
-    if not len(cache_text) < new_size < 200_000 or new_size & 3:
+    if new_size <= 0 or new_size > 200_000 or new_size & 3:
         raise ValueError("invalid time/interrupt helper memory geometry")
-    cache_text += NOP.to_bytes(4, "big") * ((new_size - len(cache_text)) // 4)
+    # V25 already extends this very same section to the more distant SAVE20.
+    # Reuse that verified span; extending when already large would multiply
+    # a negative repeat count and incorrectly reject valid original inputs.
+    if new_size > len(cache_text):
+        cache_text += NOP.to_bytes(4, "big") * ((new_size - len(cache_text)) // 4)
     # Keep the existing genuine CACHE and SAVE20 functions from V25; insert
     # all four verified original helpers as separate non-overlapping spans.
     spans = ((GETTIME, 24), (TIME, 100), (DISABLE, 20), (RESTORE, 36))
