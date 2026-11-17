@@ -893,8 +893,10 @@ int main(int argc,char**argv){
       // The direct-entry V51 ABI test independently verifies this reuse.
       // The original alarm initializer reuses the 16-byte syscall stack
       // frame and saves the newer OSInit BL return at the same LR slot.
-      check(c.mmu.read32((sp-8u)-76u)==0x805208c0u,
-            "original interrupt prologue stored incorrect OSInit return LR");
+      // The authentic second __OSCacheInit call reuses this former nested LR
+      // spill. The independent direct-entry V59 ABI regression corroborates it.
+      check(c.mmu.read32((sp-8u)-76u)==0x805208c4u,
+            "original Wii second cache initialization saved incorrect caller LR");
       check(c.mmu.read32((sp-8u)-88u)==0x806f4f00u &&
             c.mmu.read32((sp-8u)-84u)==0x8060b7a8u,
             "original exception save helper corrupted OSInit r30/r31");
