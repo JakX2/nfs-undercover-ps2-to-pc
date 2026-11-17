@@ -34,6 +34,9 @@ jobs:
           bash -n research/native_recomp/run_v36_continuous_mark.sh
           bash -n research/native_recomp/run_v37_continuous_vectorclear.sh
           bash -n research/native_recomp/run_v38_continuous_vectorcopy.sh
+          bash -n research/native_recomp/run_v39_continuous_cache.sh
+          python3 -m py_compile research/native_recomp/make_start_to_cache_v39.py research/native_recomp/test_v39_continuous_cache_geometry.py research/native_recomp/apply_cache_continuous_v39.py research/native_recomp/test_cache_continuous_patch_v39.py
+          python3 research/native_recomp/test_cache_continuous_patch_v39.py
           python3 -m py_compile research/native_recomp/make_start_to_vectorcopy_v38.py research/native_recomp/test_v38_continuous_vectorcopy_geometry.py research/native_recomp/test_v38_negative_guards.py research/native_recomp/classify_v38_native_failure.py
           python3 -m unittest discover -s research/native_recomp -p test_classify_v38_native_failure.py -v
           python3 -m py_compile research/native_recomp/make_start_to_vectorclear_v37.py research/native_recomp/test_v37_continuous_vectorclear_geometry.py research/native_recomp/classify_v37_native_failure.py
@@ -625,6 +628,38 @@ jobs:
           assert result['observed_pc'] == 0x80520DA4
           assert result['stage'] == 38 and result['pass_markers'] >= 1
           print('PASS: owner-original continuous Wii startup V38 checkpoint verified')
+          PY
+      - name: Verify original Wii continuous cache-maintenance V39
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v38.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v39.json" \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80520DB8 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v39_continuous_cache.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v39-private.log" 2>&1 || {
+              # Only fixed source-only stage labels leave this private runner.
+              grep -E '^V39_STAGE (v29_runtime_verified|hid4_runtime_verified|cache_patch_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json"
+ "$RUNNER_TEMP/v39-private.log" || true
+              echo 'V39 continuous Wii cache native test failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v39.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80520DB8
+          assert r['stage']==39 and r['pass_markers']>=1
+          print('PASS: original Wii continuous __start executed both native cache helpers to 0x80520DB8')
           PY
       - name: Remove private originals and temporary translations
         if: always()
