@@ -36,6 +36,7 @@ jobs:
           python3 -m py_compile research/native_recomp/make_start_to_execparams_v28.py research/native_recomp/test_v28_execparams_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_interrupt_v27.py research/native_recomp/test_v27_interrupt_geometry.py
           python3 research/native_recomp/test_syscall_pc_v26.py
+          python3 -m unittest discover -s research/native_recomp -p test_probe_next_osinit_v33.py -v
       - name: Get exact NWiiRecomp source
         run: |
           set -euo pipefail
@@ -302,6 +303,11 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: original Wii continuous __start advanced through MEM1 setters to 0x80520818')
           PY
+      - name: Classify next original Wii OSInit control flow without publishing proprietary code
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/probe_next_osinit_v33.py \
+            "$RUNNER_TEMP/originals/NfsMWRelease.dol"
       - name: Remove owner executable, private translations and logs
         if: always()
         run: |
