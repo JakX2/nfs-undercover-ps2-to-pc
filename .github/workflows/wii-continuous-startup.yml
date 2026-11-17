@@ -642,13 +642,8 @@ jobs:
             -- bash research/native_recomp/run_v39_continuous_cache.sh \
               "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/v39-private.log" 2>&1 || {
-              # Only fixed source-only stage labels leave this private runner.
-              grep -E '^V39_STAGE (v29_runtime_verified|hid4_runtime_verified|cache_patch_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
-            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json"
- "$RUNNER_TEMP/v39-private.log" || true
+              # Allowlisted milestone labels only; owner PPC code and logs withheld.
+              grep -E '^V39_STAGE (v29_runtime_verified|hid4_runtime_verified|cache_patch_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v39-private.log" || true
               echo 'V39 continuous Wii cache native test failed; private logs withheld' >&2
               exit 1
             }
@@ -665,4 +660,5 @@ jobs:
         if: always()
         run: |
           rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json"
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json"
