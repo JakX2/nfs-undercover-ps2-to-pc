@@ -79,6 +79,7 @@ static uint64_t ipc_entries=0;
 static uint64_t exception_entries=0;
 static uint64_t marker_entries=0;
 static uint64_t dcflush_entries=0,icinvalid_entries=0;
+static uint32_t cache_sync_entry=0,cache_isync_entry=0;
 void trace_call(uint32_t addr, CPUContext&ctx){
   constexpr std::array<uint32_t,5> data{INIT,FLUSH,COPY,FILL,SET};
   const auto it=std::find(data.begin(),data.end(),addr);
@@ -175,6 +176,8 @@ void trace_call(uint32_t addr, CPUContext&ctx){
   }
   else if(addr==DCFLUSH){
     check(ctx.lr==0x80520da8u,"native original DCFlushRangeNoSync return LR changed");
+    cache_sync_entry=ctx.guest_sync_count;
+    cache_isync_entry=ctx.guest_isync_count;
     ++dcflush_entries;
   }
   else if(addr==ICINVALID){
@@ -432,7 +435,11 @@ int main(int argc,char**argv){
             "original ICInvalidateRange not dispatched once");
       check(c.guest_flush_count==5u && c.guest_invalidate_count==5u,
             "original dcbf/icbi did not run the five cache-line iterations");
-      check(c.guest_sync_count==2u && c.guest_isync_count==1u,
+      // The continuous path has already run __OSCacheInit and IC/DCEnable.
+      // Count only synchronization executed since entering the original
+      // exception-vector cache helpers, not unrelated startup operations.
+      check(c.guest_sync_count-nwii::runtime::cache_sync_entry==2u &&
+            c.guest_isync_count-nwii::runtime::cache_isync_entry==1u,
             "original PPC sync/isync ordering changed");
       for(uint32_t i=0;i<5u;++i){
         const uint32_t pc=VECTOR_DEST+32u*i;
