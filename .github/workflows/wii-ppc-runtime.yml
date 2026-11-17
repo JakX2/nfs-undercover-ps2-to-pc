@@ -1,0 +1,58 @@
+name: Wii PowerPC Runtime Tests
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/**'
+      - '.github/workflows/wii-ppc-runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wii-ppc-runtime-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-free-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check runtime patch and test source syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/apply_psq_indexed_patch.py research/native_recomp/apply_psq_estimate_and_gqr_v5.py research/native_recomp/apply_cache_trace_v44.py
+          python3 research/native_recomp/test_cache_trace_guards_v44.py
+          bash -n research/native_recomp/build_and_test_v5.sh
+          bash -n research/native_recomp/run_v19_tests.sh
+      - name: Fetch pinned upstream PowerPC runtime
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          cp -a "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/nwii-v19"
+      - name: Native C++20 paired-single and GQR emitter/runtime assertions
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/apply_psq_indexed_patch.py "$RUNNER_TEMP/nwii"
+          python3 research/native_recomp/apply_psq_estimate_and_gqr_v5.py "$RUNNER_TEMP/nwii"
+          bash research/native_recomp/build_and_test_v5.sh "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/v5-build" > "$RUNNER_TEMP/ppc-v5.log" 2>&1 || {
+            tail -70 "$RUNNER_TEMP/ppc-v5.log"
+            exit 1
+          }
+          grep -q '^PASS:' "$RUNNER_TEMP/ppc-v5.log"
+          echo 'PASS: independent original-free PPC paired-single/GQR native runtime regressions'
+      - name: Native C++20 FPSCR and FPR initialization dispatch regressions
+        run: |
+          set -euo pipefail
+          bash research/native_recomp/run_v19_tests.sh "$RUNNER_TEMP/nwii-v19" > "$RUNNER_TEMP/ppc-v19.log" 2>&1 || {
+            tail -70 "$RUNNER_TEMP/ppc-v19.log"
+            exit 1
+          }
+          grep -q '^PASS:' "$RUNNER_TEMP/ppc-v19.log"
+          echo 'PASS: independent original-free V19 native FPU state initialization regressions'
+      - name: Clean temporary built executables
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/nwii-v19" "$RUNNER_TEMP/v5-build" "$RUNNER_TEMP/ppc-v5.log" "$RUNNER_TEMP/ppc-v19.log"
