@@ -44,6 +44,10 @@ SAFE_RUNNER_STAGES = {
             "geometry_verified", "negative_guards_verified",
             "generator_compiled", "generation_complete",
             "native_compiled", "native_test_passed"),
+    "V39": ("v29_runtime_verified", "hid4_runtime_verified",
+            "cache_patch_verified", "fixture_generated", "geometry_verified",
+            "generator_compiled", "generation_complete", "native_compiled",
+            "native_test_passed"),
 }
 
 
