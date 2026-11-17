@@ -4,7 +4,7 @@
 # Owner DOL, all translated output and private failures stay in mktemp only.
 set -euo pipefail
 if (( $# != 2 )); then
-  echo 'usage: run_v45_continuous_module.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
+  echo 'usage: run_v45_continuous_interrupt.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
   exit 2
 fi
 root="$(cd "$1" && pwd)"
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0,sys.argv[2])
 from apply_cache_events_v43 import EMIT_AFTER,ISYNC_AFTER,EMITTER
-from apply_cache_trace_v45 import NEW,FILE
+from apply_cache_trace_v44 import NEW,FILE
 root=Path(sys.argv[1])
 ctx=(root/FILE).read_text(encoding="utf-8")
 emit=(root/EMITTER).read_text(encoding="utf-8")
