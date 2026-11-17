@@ -646,8 +646,11 @@ int main(int argc,char**argv){
             "native __OSInterruptInit/memset/__fill_mem dispatch counts differ");
       check(nwii::runtime::irq_disable_entries==before_irq_disable+1u,
             "original IRQ interrupt-disable PPC helper not entered exactly once");
-      check(nwii::runtime::setmask_entries==before_setmask+1u,
-            "owner-original SetInterruptMask not entered exactly once");
+      // The genuine __OSInterruptInit mask loop calls SetInterruptMask once
+      // for each of seven controller mask banks. Independently confirmed by
+      // owner-private direct-entry V55/V56 tests.
+      check(nwii::runtime::setmask_entries==before_setmask+7u,
+            "owner-original SetInterruptMask not dispatched seven times");
       check(c.mmu.read32(IRQ_GLOBAL)==IRQ_TABLE,
             "original Wii __OSInterruptInit failed to install IRQ table pointer");
       check(c.gpr[3]==0u && c.gpr[5]==0xf0u && c.gpr[6]==0u &&
