@@ -24,6 +24,8 @@ jobs:
           bash -n research/native_recomp/run_v26_recovered_tests.sh
           bash -n research/native_recomp/run_v27_continuous_interrupt.sh
           bash -n research/native_recomp/run_v28_continuous_execparams.sh
+          bash -n research/native_recomp/run_v29_continuous_perfsprs.sh
+          python3 -m py_compile research/native_recomp/make_start_to_perfsprs_v29.py research/native_recomp/test_v29_perfsprs_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_execparams_v28.py research/native_recomp/test_v28_execparams_geometry.py
           python3 -m py_compile research/native_recomp/make_start_to_interrupt_v27.py research/native_recomp/test_v27_interrupt_geometry.py
           python3 research/native_recomp/test_syscall_pc_v26.py
@@ -176,10 +178,37 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: original Wii continuous __start executed __OSGetExecParams and reached 0x805206C0')
           PY
+      - name: Verify six original performance SPR helper calls from continuous __start
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/continuous-v28.json" \
+            --require-progress --report "$RUNNER_TEMP/continuous-v29.json" \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x805206F0 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v29_continuous_perfsprs.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/private-v29.log" 2>&1 || {
+              echo 'V29 continuous owner-original MMCR/PMC native test failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/continuous-v29.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text())
+          assert r['lane']=='continuous-start' and r['status']=='advanced'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x805206F0 and r['stage']==29
+          assert r['pass_markers']>=1
+          print('PASS: original Wii continuous __start advanced through six MMCR/PMC writes to F0 test stop')
+          PY
       - name: Remove owner executable, private translations and logs
         if: always()
         run: |
           rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
             "$RUNNER_TEMP/private.log" "$RUNNER_TEMP/continuous-checkpoint.json" \
             "$RUNNER_TEMP/private-v27.log" "$RUNNER_TEMP/continuous-v27.json" \
-            "$RUNNER_TEMP/private-v28.log" "$RUNNER_TEMP/continuous-v28.json"
+            "$RUNNER_TEMP/private-v28.log" "$RUNNER_TEMP/continuous-v28.json" \
+            "$RUNNER_TEMP/private-v29.log" "$RUNNER_TEMP/continuous-v29.json"
