@@ -554,7 +554,7 @@ jobs:
             "$RUNNER_TEMP/private-v37.log" "$RUNNER_TEMP/continuous-v37.json" \
             "$RUNNER_TEMP/private-v38.log" "$RUNNER_TEMP/continuous-v38.json"
   fast-owner-startup:
-    needs: synthetic-startup
+    # Independent source-only and private checkpoints run concurrently for faster feedback.
     if: github.event_name == 'push' && github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
