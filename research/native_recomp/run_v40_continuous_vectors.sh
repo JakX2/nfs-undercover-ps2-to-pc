@@ -16,9 +16,18 @@ python3 "$here/verify_perf_combo_v29.py" "$root" > "$work/prerequisites.log" 2>&
   echo 'V40 needs the verified V30 HID4/HID0/SPR runtime baseline' >&2;exit 1;
 }
 echo 'V40_STAGE v29_runtime_verified'
-python3 "$here/apply_hid4_continuous_v30.py" "$root" > "$work/hid4-patch.log" 2>&1 || {
-  echo 'V40 HID4/FPSCR compatible native runtime patch failed' >&2;exit 1;
-}
+# The fast continuous CI lane runs V39 first; its cache-event patch extends
+# the original HID4 context anchor. Never reapply the old HID4 patch on top
+# of that valid newer runtime state.
+if grep -Fq 'guest_dcbf(uint32_t effective_address)' "$root/nWiiRuntime/include/runtime/cpu_context.h"; then
+  python3 "$here/test_cache_continuous_patch_v39.py" "$root" > "$work/inherited-cache-guards.log" 2>&1 || {
+    echo 'V40 inherited guest cache/HID4 runtime verification failed' >&2;exit 1;
+  }
+else
+  python3 "$here/apply_hid4_continuous_v30.py" "$root" > "$work/hid4-patch.log" 2>&1 || {
+    echo 'V40 HID4/FPSCR compatible native runtime patch failed' >&2;exit 1;
+  }
+fi
 python3 "$here/test_hid4_continuous_patch_v30.py" > "$work/hid4-guards.log" 2>&1 || {
   echo 'V40 original-free HID4/FPSCR source guards failed' >&2;exit 1;
 }
