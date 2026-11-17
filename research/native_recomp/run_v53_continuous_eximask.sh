@@ -83,4 +83,4 @@ grep -Eq '^PASS: [0-9]+ V53 recovered continuous original __start->OSInit EXI-ma
   echo 'V53 original native return checkpoint marker is missing' >&2; exit 1;
 }
 echo 'PASS: original Wii continuous __start executed original EXI interrupt mask and four MMIO writes at 0x804EFA34'
-echo 'BOOT_PROGRESS entry=0x8000403C pc=0x804EFA34 stage=52'
+echo 'BOOT_PROGRESS entry=0x8000403C pc=0x804EFA34 stage=53'

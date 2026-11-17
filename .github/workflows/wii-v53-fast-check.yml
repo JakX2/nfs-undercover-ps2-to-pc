@@ -83,7 +83,7 @@ jobs:
           r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
           assert r['lane']=='continuous-start' and r['status']=='passed_instrumented'
           assert r['observed_entry']==0x8000403C and r['observed_pc']==0x804EFA34
-          assert r['stage']==52 and r['pass_markers']>=1
+          assert r['stage']==53 and r['pass_markers']>=1
           print('PASS: V53 focused original Wii continuous __start->EXIInit mask/MMIO checkpoint verified')
           PY
       - name: Remove private originals and generated code
