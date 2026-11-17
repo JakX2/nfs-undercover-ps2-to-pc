@@ -2,16 +2,24 @@
 
 ## Why this exists
 
-The independently tested original Wii `OSInit` path in V68 extends into `EXIInit`, but
-**it is not a continuous boot from the owner's original `__start`**. The most recent
-verified continuous original `__start` test in the existing research is V26 at
-`0x805206B4`. Neither a test-only `sc` stop nor a callback-supplied ready bit
-is evidence of game `main` or real Wii device initialization.
+As of November 17, 2026, original Wii `__start` has been verified through
+**continuous-stage V39 at guest PC `0x80520DB8`**, including the authentic
+`DCFlushRangeNoSync` and `ICInvalidateRange` cache helpers, their bounded
+line traces, memory preservation and sync/isync behavior. The native stage
+passed in [GitHub Actions run 44025883648](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44025883648).
+The earlier V38 continuous native checkpoint was at `0x80520DA4`.
 
-For subsequent work, prioritize recovering the five missing V26 source-only test
-harness files, joining the known `OSInit` implementations to the authentic
-`__start` path, and measuring the next actual guest-PC stop. A longer count of
-isolated translated functions is not itself boot progress.
+The separately tested V68 direct-entry `OSInit` path reaches EXI
+initialization (ending at `0x804EFA34`), **but has not been joined to
+continuous `__start`**. These tests still do not establish game `main`, a
+frame on screen, genuine Wii hardware services, or playable gameplay.
+
+Next, extend the original continuous exception-initialization control flow
+beyond `0x80520DB8`, reusing the verified direct-`OSInit` modules and
+measuring subsequent native entry/stop PCs. Preserve a separate, deliberate
+full historical regression run while using the fast current-frontier test
+on ordinary pushes. Translating more isolated functions is not itself boot
+progress.
 
 ## Source-only checkpoint and regression driver
 

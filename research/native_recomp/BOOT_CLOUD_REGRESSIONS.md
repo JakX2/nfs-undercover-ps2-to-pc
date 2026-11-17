@@ -24,12 +24,14 @@ The private job is deliberately **skipped** until the existing Ghidra secrets
 and feature variable are set. No new scheduled automation is created; this is
 continuous integration triggered by research-branch code updates.
 
-The V68 direct OSInit runner currently emits PASS: lines but does not emit
-verified BOOT_PROGRESS markers. A passing run therefore gets
-passed_uninstrumented, not proof of continuous __start advancement. The next
-genuine development step is recovering the unpublished V26 startup harness,
-removing its test-only terminal at 0x805206B4, and connecting V68's authentic
-OSInit startup continuation to the original __start call.
+The V68 direct-`OSInit` runner is a separately verified native regression.
+Its direct-entry progression does not establish continuous `__start`
+execution or a complete boot. The earlier V26 startup harness has since
+been recovered and extended through V39. The current continuous frontier
+is `0x80520DB8`, verified by original-game native startup with both
+exception cache-maintenance helpers in
+[workflow run 44025883648](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44025883648).
+Maintain the two checkpoint lanes separately.
 
 ## Verified owner-ELF native-boot frontier
 
@@ -58,5 +60,8 @@ account is needed. Link sharing is not authentication: anyone with a known
 Drive link can retrieve the file. All downloads are SHA-256 pinned and
 checked privately; owner binaries and game-derived C++ are never uploaded.
 
-The original V68 native regression will remain skipped until the variable is
-enabled. Its first true owner-original CI result remains unverified.
+The private-original workflow has since run successfully with the feature
+variable enabled, using SHA-pinned owner inputs. On November 17, 2026
+continuous native V39 also passed after an independent V38 baseline check.
+A successful private CI check is evidence for the exact assertions it ran,
+not for full native Windows startup, game `main`, or graphical output.
