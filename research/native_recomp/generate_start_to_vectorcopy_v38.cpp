@@ -24,7 +24,7 @@ constexpr uint32_t MEM2_LO=0x80521d68,MEM2_HI=0x80521d50,IPC=0x8052ae80;
 constexpr uint32_t EXCEPTION=0x80520bf4,EXC_STOP=0x80520da4,EXC_FIRST_STOP=0x80520cdc,EXC_SECOND_DEBUG=0x80520d08,EXC_DEBUG_STOP=0x80520c44;
 constexpr uint32_t MARK=0x804e50a0;
 constexpr uint32_t EXC_SOURCE_WORD=0x80520f28;
-constexpr uint32_t VECTOR_COPY_CALL=0x80520d98, VECTOR_DEST=0x80000100;
+constexpr uint32_t VECTOR_COPY_CALL=0x80520d98, VECTOR_DEST=0x80000100, MEMCPY=0x80004338;
 constexpr uint32_t ORACLE_GUEST=0x90050000u,ORACLE_SIZE=0x98u;
 void require(bool v,const std::string& msg){if(!v)throw std::runtime_error(msg);}
 uint32_t be32(const uint8_t* data){return (uint32_t(data[0])<<24)|(uint32_t(data[1])<<16)|(uint32_t(data[2])<<8)|data[3];}
@@ -314,7 +314,7 @@ int main(int argc,char** argv)try{
           "original exception branches lack explicit syscall stops");
   bool vector_copy_call=false;
   for(const auto& ins:exc)if(ins.address==VECTOR_COPY_CALL){
-    require(branch(ins.opcode,VECTOR_COPY_CALL)==COPY,
+    require(branch(ins.opcode,VECTOR_COPY_CALL)==MEMCPY,
             "original exception memcpy helper BL callsite changed");
     vector_copy_call=true;
   }
