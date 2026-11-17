@@ -280,6 +280,24 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn("private-exception-vector-data",output.getvalue())
         self.assertNotIn("private-exception-vector-data",self.report.read_text())
 
+    def test_v38_original_free_diagnostics(self):
+        code=(
+            "print('V38_STAGE negative_guards_verified',flush=True);"
+            "print('V38_NATIVE_ASSERTION id=038',flush=True);"
+            "print('secret-owner-vector-template-bytes',flush=True);"
+            "raise SystemExit(7)"
+        )
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","V38","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V38.negative_guards_verified",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V38.038",output.getvalue())
+        self.assertNotIn("secret-owner-vector-template-bytes",output.getvalue())
+        self.assertNotIn("secret-owner-vector-template-bytes",self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
