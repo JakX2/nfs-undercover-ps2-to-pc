@@ -1,8 +1,11 @@
 # V33: continuous original Wii __start enters MEM2 arena initialization
 
-Status: candidate pending owner-original GitHub Actions validation.
-Earlier V37 tests entered original OSInit directly; this V33 fixture must
-independently demonstrate the same instructions from real __start 0x8000403C.
+Status: VERIFIED by owner-original GitHub Actions continuous-startup run
+44008485203 on November 17, 2026. All V26–V33 owner-original stages
+passed from authentic __start (0x8000403C), with stage=33 and exact
+instrumented test-only stop at 0x805208A4. The earlier directly entered
+OSInit V37 tests remain separate; the continuous path verifies the one
+specified nonzero MEM2 low/high hint configuration over 16 native trials.
 
 ## Original execution scope
 
