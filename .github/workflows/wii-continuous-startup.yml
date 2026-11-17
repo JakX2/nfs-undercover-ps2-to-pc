@@ -839,7 +839,177 @@ jobs:
             > "$RUNNER_TEMP/v45-private.log" 2>&1 || {
               # Only allowlisted numeric diagnostics. Never echo owner game code.
               grep -E '^BOOT_DIAGNOSTIC stage=V45\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v45-private.log" || true
-              grep -E '^BOOT_DIAGNOSTIC assertion_id=V45\.[0-9]{3}$' "$RUNNER_TEMP/v45-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V45\.[0-9]{3}
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v45.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x8052664C
+          assert r['stage']==45 and r['pass_markers']>=1
+          print('PASS: original Wii continuous __start installed IRQ table via native memset at 0x8052664C')
+          PY
+      - name: Verify owner-original continuous Wii IRQ MMIO stores and mask writes (V46)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v45.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v46.json" \
+            --diagnostic-runner V46 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80526674 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v46_continuous_interrupt_mmio.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v46-private.log" 2>&1 || {
+              # Owner-original game and translated PPC remain in private runner only.
+              grep -E '^BOOT_DIAGNOSTIC stage=V46\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v46-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V46\.[0-9]{3}$' "$RUNNER_TEMP/v46-private.log" || true
+              echo 'V46 original Wii interrupt MMIO native checkpoint failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v46.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80526674
+          assert r['stage']==46 and r['pass_markers']>=1
+          print('PASS: owner-original continuous Wii __start reached interrupt MMIO at 0x80526674')
+          PY
+      - name: Verify owner-original continuous Wii interrupt disable and mask arithmetic (V47)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v46.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v47.json" \
+            --diagnostic-runner V47 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80526698 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v47_continuous_irq_disable.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v47-private.log" 2>&1 || {
+              # Allow only sanitized native stages and fixed numeric assertion IDs.
+              grep -E '^BOOT_DIAGNOSTIC stage=V47\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v47-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V47\.[0-9]{3}$' "$RUNNER_TEMP/v47-private.log" || true
+              echo 'V47 native Wii interrupt-disable/mask checkpoint failed; owner logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v47.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80526698
+          assert r['stage']==47 and r['pass_markers']>=1
+          print('PASS: owner-original continuous Wii __start executed IRQ mask arithmetic to 0x80526698')
+          PY
+      - name: Remove private originals and temporary translations
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json" \
+            "$RUNNER_TEMP/v40-private.log" "$RUNNER_TEMP/frontier-v40.json" \
+            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json" \
+            "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json" \
+            "$RUNNER_TEMP/v43-private.log" "$RUNNER_TEMP/frontier-v43.json" \
+            "$RUNNER_TEMP/v44-private.log" "$RUNNER_TEMP/frontier-v44.json" \
+            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json" \
+            "$RUNNER_TEMP/v46-private.log" "$RUNNER_TEMP/frontier-v46.json" \
+            "$RUNNER_TEMP/v47-private.log" "$RUNNER_TEMP/frontier-v47.json"
+ "$RUNNER_TEMP/v45-private.log" || true
+              # Controlled status/reason only; never echo raw owner's runner.
+              grep -E '^BOOT_RESULT status=setup_error reason=(ValueError|OSError|JSONDecodeError)$|^BOOT_RESULT status=failed lane=continuous-start pc=unobserved passes=[0-9]+ reason=(runner_failed|timeout|no_native_pass_marker|conflicting_guest_checkpoints|expected_stop_not_observed|no_guest_checkpoint|no_verified_stage_advance|stop_pc_unchanged|unexpected_entry)
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v45.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x8052664C
+          assert r['stage']==45 and r['pass_markers']>=1
+          print('PASS: original Wii continuous __start installed IRQ table via native memset at 0x8052664C')
+          PY
+      - name: Verify owner-original continuous Wii IRQ MMIO stores and mask writes (V46)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v45.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v46.json" \
+            --diagnostic-runner V46 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80526674 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v46_continuous_interrupt_mmio.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v46-private.log" 2>&1 || {
+              # Owner-original game and translated PPC remain in private runner only.
+              grep -E '^BOOT_DIAGNOSTIC stage=V46\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v46-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V46\.[0-9]{3}$' "$RUNNER_TEMP/v46-private.log" || true
+              echo 'V46 original Wii interrupt MMIO native checkpoint failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v46.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80526674
+          assert r['stage']==46 and r['pass_markers']>=1
+          print('PASS: owner-original continuous Wii __start reached interrupt MMIO at 0x80526674')
+          PY
+      - name: Verify owner-original continuous Wii interrupt disable and mask arithmetic (V47)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v46.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v47.json" \
+            --diagnostic-runner V47 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80526698 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v47_continuous_irq_disable.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v47-private.log" 2>&1 || {
+              # Allow only sanitized native stages and fixed numeric assertion IDs.
+              grep -E '^BOOT_DIAGNOSTIC stage=V47\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v47-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V47\.[0-9]{3}$' "$RUNNER_TEMP/v47-private.log" || true
+              echo 'V47 native Wii interrupt-disable/mask checkpoint failed; owner logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v47.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x80526698
+          assert r['stage']==47 and r['pass_markers']>=1
+          print('PASS: owner-original continuous Wii __start executed IRQ mask arithmetic to 0x80526698')
+          PY
+      - name: Remove private originals and temporary translations
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json" \
+            "$RUNNER_TEMP/v40-private.log" "$RUNNER_TEMP/frontier-v40.json" \
+            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json" \
+            "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json" \
+            "$RUNNER_TEMP/v43-private.log" "$RUNNER_TEMP/frontier-v43.json" \
+            "$RUNNER_TEMP/v44-private.log" "$RUNNER_TEMP/frontier-v44.json" \
+            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json" \
+            "$RUNNER_TEMP/v46-private.log" "$RUNNER_TEMP/frontier-v46.json" \
+            "$RUNNER_TEMP/v47-private.log" "$RUNNER_TEMP/frontier-v47.json"
+ "$RUNNER_TEMP/v45-private.log" || true
               echo 'V45 native Wii interrupt/memset prefix failed; owner logs withheld' >&2
               exit 1
             }
