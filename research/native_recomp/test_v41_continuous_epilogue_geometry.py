@@ -22,10 +22,17 @@ def extract(text:list,pc:int,n:int)->bytes:
 def verify(actual:bytes,owner:Path)->None:
     original=owner.read_bytes()
     prior=make_v40(owner)  # SHA and all V40 original code guards
-    if word(actual,0xE0)!=START or actual[:0xE0]!=prior[:0xE0]:
-        # DOL offsets and sizes may legitimately differ; check them below.
-        if word(actual,0xE0)!=START:
-            raise ValueError("V41 Wii entry point changed")
+    if len(actual)<256 or len(prior)<256 or word(actual,0xE0)!=START:
+        raise ValueError("V41 Wii entry point/header changed")
+    # Only the seven text offsets, seven text lengths and two data offsets
+    # may change when the original restore thunk increases a test section.
+    # The original entry, guest mappings, data sizes and all other DOL
+    # metadata must stay byte-identical to the pinned V40 fixture.
+    mutable=set(range(0,7*4))|set(range(0x90,0x90+7*4))
+    mutable.update(range(0x1c,0x1c+2*4))
+    for index in range(256):
+        if index not in mutable and actual[index]!=prior[index]:
+            raise ValueError("V41 changed a non-relocatable DOL header byte")
     old_text,old_data=sections_of(prior)
     new_text,new_data=sections_of(actual)
     if [g for g,_ in old_text]!=[g for g,_ in new_text]:
