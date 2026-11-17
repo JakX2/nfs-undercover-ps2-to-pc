@@ -22,6 +22,8 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
           bash -n research/native_recomp/run_v26_recovered_tests.sh
+          bash -n research/native_recomp/run_v27_continuous_interrupt.sh
+          python3 -m py_compile research/native_recomp/make_start_to_interrupt_v27.py research/native_recomp/test_v27_interrupt_geometry.py
           python3 research/native_recomp/test_syscall_pc_v26.py
       - name: Get exact NWiiRecomp source
         run: |
@@ -120,8 +122,35 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: authentic recovered V26 __start checkpoint 0x805206B4 measured by native syscall callback')
           PY
+      - name: Verify genuine post-V26 interrupt BL from continuous original __start
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/continuous-checkpoint.json" \
+            --require-progress --report "$RUNNER_TEMP/continuous-v27.json" \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x805206BC \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v27_continuous_interrupt.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/private-v27.log" 2>&1 || {
+              echo 'V27 owner-original continuous-start regression failed; private logs withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/continuous-v27.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text())
+          assert r['lane']=='continuous-start' and r['status']=='advanced'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x805206BC and r['stage']==27
+          assert r['pass_markers']>=1
+          print('PASS: original Wii continuous __start advanced past V26 B4 interrupt call to test-only Bc stop')
+          PY
       - name: Remove owner executable, private translations and logs
         if: always()
         run: |
           rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/private.log" "$RUNNER_TEMP/continuous-checkpoint.json"
+            "$RUNNER_TEMP/private.log" "$RUNNER_TEMP/continuous-checkpoint.json" \
+            "$RUNNER_TEMP/private-v27.log" "$RUNNER_TEMP/continuous-v27.json"
