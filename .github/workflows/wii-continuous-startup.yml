@@ -10,7 +10,7 @@ permissions:
   contents: read
 concurrency:
   group: wii-continuous-startup-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: ${{ github.event_name == 'push' }}
+  cancel-in-progress: false
 jobs:
   synthetic-startup:
     runs-on: ubuntu-latest

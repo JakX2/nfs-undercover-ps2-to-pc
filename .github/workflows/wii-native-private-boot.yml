@@ -9,8 +9,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: private-native-wii
-  cancel-in-progress: true
+  group: private-native-wii-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
 jobs:
   syntax:
     runs-on: ubuntu-latest

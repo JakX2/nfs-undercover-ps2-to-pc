@@ -9,8 +9,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: wii-ppc-runtime-${{ github.ref }}
-  cancel-in-progress: true
+  group: wii-ppc-runtime-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
 jobs:
   original-free-runtime:
     runs-on: ubuntu-latest
