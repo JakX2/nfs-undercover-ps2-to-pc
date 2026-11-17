@@ -84,7 +84,7 @@ jobs:
           assert r['lane']=='continuous-start' and r['status']=='passed_instrumented'
           assert r['observed_entry']==0x8000403C and r['observed_pc']==0x804EFAB0
           assert r['stage']==55 and r['pass_markers']>=1
-          print('PASS: V55 focused original Wii continuous __start->EXIInit mask/MMIO checkpoint verified')
+          print('PASS: V55 focused original Wii continuous __start->EXIGetID cached-ID checkpoint verified')
           PY
       - name: Remove private originals and generated code
         if: always()

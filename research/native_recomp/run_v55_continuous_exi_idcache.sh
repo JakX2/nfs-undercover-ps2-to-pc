@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# V55: execute the authentic original Wii EXI handler registration from continuous __start.
+# V55: execute the original EXIGetID cached-ID fast path from continuous __start.
 # V40 must have installed the source-only 256-entry cache trace already.
 # Owner DOL, all translated output and private failures stay in mktemp only.
 set -euo pipefail
