@@ -322,6 +322,27 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn(private, emitted)
         self.assertNotIn(private, self.report.read_text())
 
+    def test_v53_original_free_diagnostics(self):
+        secret = "private-owner-guest-original-data"
+        code = (
+            "print('V53_STAGE fixture_generated',flush=True);"
+            "print('V53_STAGE native_compiled',flush=True);"
+            "print('V53_NATIVE_ASSERTION id=053',flush=True);"
+            f"print('{secret}',flush=True);"
+            "raise SystemExit(7)"
+        )
+        args = ["--lane", "synthetic", "--report", str(self.report),
+                "--diagnostic-runner", "V53", "--", sys.executable, "-c", code]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V53.fixture_generated",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC stage=V53.native_compiled",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V53.053",output.getvalue())
+        self.assertNotIn(secret,output.getvalue())
+        self.assertNotIn(secret,self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
