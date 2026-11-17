@@ -83,7 +83,9 @@ echo "V39_STAGE native_compiled"
 "$work/native" "$work/owner-private.dol" owner > "$work/native.log" 2>&1 || {
   # A numeric code maps exclusively to a literal in the ORIGINAL-FREE
   # public C++ test harness. Never print the underlying private log.
-  echo 'V39_NATIVE_ASSERTION private_assertion_failed' >&2
+  python3 "$here/classify_v39_native_failure.py" \
+    "$work/native.log" "$here/test_start_to_cache_v39.cpp" || \
+    echo 'V39_NATIVE_ASSERTION id=000'
   echo 'V39 owner-original native assertion failed (private logs withheld)' >&2
   exit 1
 }
