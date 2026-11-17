@@ -3,16 +3,22 @@
 ## Why this exists
 
 As of November 17, 2026, original Wii `__start` has been verified through
-**continuous-stage V41 at guest PC `0x805208AC`**, after the owner-original
-`OSExceptionInit` epilogue returns into `OSInit` through its authentic
-`_restgpr_20` register-restoration helper. The exception-initialization
-stack frame is popped and caller-saved state restored. The test tracks the
-terminal debug callback using its original guest return LR, but `DBPrintf`
-still uses an explicit test-only `sc; blr` stub: no genuine debug service
-implementation is claimed. The owner-private native and synthetic tests both
-passed in [GitHub Actions run 44029703720](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44029703720).
+**continuous-stage V42 at guest PC `0x805208B0`**. The original Wii
+`__start` reaches `OSInit`, returns from authentic
+`OSExceptionInit` through `_restgpr_20`, then executes the original
+`__OSInitSystemCall` routine through native AOT translation. The
+SHA-pinned original 28-byte syscall handler is installed at `0x80000C00`
+and maintained using the genuine 8-line data/instruction cache loops.
+The complete original 15-vector exception installation from V40 remains
+tested, for a total of **83 `dcbf` and 83 `icbi` operations per run**.
+Native ABI, source-byte preservation, handler overlay and guarded stack
+reuse are asserted across sixteen trials. The private and synthetic
+jobs passed in [run 44041303918](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44041303918).
+The unresolved `DBPrintf` service is still an explicit test-only callback.
 
-Earlier V40, at `0x80520E58`, verified installation of all fifteen original
+Earlier V41 at `0x805208AC` verified the native exception-return epilogue
+in [run 44029703720](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44029703720).
+V40 at `0x80520E58` verified installation of all fifteen original
 exception vectors, including 75 `dcbf` and 75 `icbi` cache-line operations,
 30 `sync` and 15 `isync` events, byte-for-byte private original template
 checks, and final handler-table initialization. This was verified in
@@ -24,12 +30,12 @@ initialization (ending at `0x804EFA34`), **but has not been joined to
 continuous `__start`**. These tests still do not establish game `main`, a
 frame on screen, genuine Wii hardware services, or playable gameplay.
 
-Next, replace the test-only `sc` at `OSInit+0x23C` (`0x805208AC`)
-with the SHA-pinned original call to `__OSInitSystemCall` at `0x805290C8`,
-install the original syscall-vector source in the private continuous image,
-and verify the authentic copy/cache path before attempting the next OS
-service. Do not conflate the older V46 direct-entry syscall regression
-with a future continuous-startup milestone. Preserve a separate, deliberate
+Next, replace the test-only `sc` at `0x805208B0` with the original
+`__OSInitAlarm` call at `0x805210CC`, verify its genuine
+exception-handler accessor and shutdown-registration calls and stop
+before the next unresolved original OS service. The older V48 direct-entry
+alarm test provides independent evidence, not a substitute for continuous
+execution. Preserve a separate, deliberate
 full historical regression run while using the fast current-frontier test
 on ordinary pushes. Translating more isolated functions is not itself boot
 progress.
