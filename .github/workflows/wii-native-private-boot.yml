@@ -1,0 +1,23 @@
+name: Private Wii native boot CI
+
+# GitHub only displays "Run workflow" for workflow_dispatch definitions
+# present on the repository's default branch. The real test workflow stays
+# on research/wii-native-recomp-preflight (draft PR #36).
+# When manually selecting that research branch, GitHub executes the native
+# workflow from that branch, NOT this default-branch registration stub.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  select-research-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Select the native recomp research branch
+        shell: bash
+        run: |
+          echo "::error::Select research/wii-native-recomp-preflight from Run workflow > Branch, not main."
+          echo "The native original-code test definition lives only on the research branch."
+          exit 1
