@@ -2,54 +2,46 @@
 
 ## Why this exists
 
-As of November 17, 2026, original Wii `__start` now reaches the
-**continuous native V47 checkpoint at `0x80526698`**, inside the authentic
-`__OSInterruptInit` function. The pinned owner-original path has traversed
-`OSExceptionInit` (including its 15 exception vectors and original
-`_restgpr_20` return), `__OSInitSystemCall` (28 owner code bytes installed
-at `0x80000C00`), `__OSInitAlarm` and shutdown registration,
-`__OSModuleInit`, then the original interrupt initializer with nested
-`memset` and `__fill_mem` calls. Genuine PowerPC stores clear the
-128-byte IRQ table at `0x80003040`, write the first interrupt-mask words
-at `0x800000C4` and `0x800000C8`, then issue two interrupt-controller
-MMIO transactions at `0x0C003004` and `0x0D000034`.
-The owner-native test checks the respective values `0xF0` and
-`0x40000000`, their order, nested stack and memory canaries.
-The V47 original PowerPC continuation then calls the real
-`__RAS_OSDisableInterrupts_begin` helper at `0x805265AC`, returning
-through native ABI at `0x80526678`, and calculates the IRQ mask
-`0xFFFFFFF0` stored in guest low memory at `0x800000C4`.
-Sixteen owner-original trials passed the full prior native boot graph,
-with independent synthetic CI in
-[GitHub Actions run 44173650263](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44173650263).
+As of November 17, 2026, the pinned original Wii executable is verified
+through **continuous native V51 at `0x805208C4`**, starting from genuine
+`__start` at `0x8000403C`. The path uses NWiiRecomp AOT-generated native
+C++ and includes original `OSExceptionInit` (15 vectors plus
+`_restgpr_20`), `__OSInitSystemCall` (the authentic 28-byte handler at
+`0x80000C00` and 83 cache lines), `__OSInitAlarm`/shutdown list,
+`__OSModuleInit`, `__OSInterruptInit`, original seven-bank
+`SetInterruptMask`, the complete interrupt return into `OSInit`,
+`__OSContextInit`, and a **second native call to the same original
+`__OSCacheInit`** function earlier invoked during `__start`.
 
-**The MMIO test uses a bounded host callback that only records and verifies
-writes; no functional PI/IOS interrupt-controller device is implemented or
-claimed.** `DBPrintf` remains a test-only callback. Separate earlier
-continuous native milestones are V46 `0x80526674`, verified in
-[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667),
-V45 `0x8052664C`, verified in
-[run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226),
-V44 `0x805208B8` in
-[run 44043846082](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44043846082),
-V43 `0x805208B4`, V42 `0x805208B0`, V41 `0x805208AC`,
-and V40 `0x80520E58`. They remain separate original-game regression steps.
-Guest PCs are not monotonic across called functions: **stage order** measures
-verified progress.
+V51 verifies both original cache callsites and the second guest return LR
+`0x805208C4`, preserving the OSInit stack ABI. The SHA-verified
+owner-original 16-trial native tests and independent synthetic tests passed
+[GitHub Actions run 44190097982](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44190097982).
+Earlier V50 `0x805208C0` was verified in
+[run 44185965547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44185965547);
+V49 returned from interrupt initialization at `0x805208BC`; V48
+completed its seven-bank mask loop at `0x805266AC`; V47 executed the
+IRQ-disable/mask preparation at `0x80526698`.
+These are bounded native original-code execution milestones, **not** a
+complete game boot. Guest PCs need not increase monotonically across calls.
 
-The separately tested V68 **direct-entry** `OSInit` path reaches EXI
-initialization at `0x804EFA34`, but has **not** been joined to continuous
-`__start`. Native execution has **not** reached game `main`, full boot,
-a rendered frame, frontend, or playable gameplay.
+**Remaining emulation boundary:** the interrupt-controller MMIO callbacks
+provide deterministic test-only read/write values and traces, not a working
+PI/IOS hardware device. Debug printing and selected OS services are still
+test-only callbacks. Original game binaries and generated translated game
+C++ are kept in private ephemeral CI directories.
 
-Next, replace the test-only stop at `0x80526698` with authentic original
-IRQ mask-loop preparation, including the BL at `0x805266A0` into
-`SetInterruptMask` at `0x805266E0`, and verify the first original loop
-and bounded IRQ continuation. Independent direct-entry V54/V56 tests
-establish the owner-original PPC call graph but cannot substitute for
-continuous startup. Keep exact SHA-verified owner
-instructions, original-free public tests, no private game code in logs,
-and isolated synthetic callbacks only for services not yet implemented.
+The separately verified V68 **direct-entry** `OSInit` regression reaches
+EXI initialization at `0x804EFA34`. It is not continuous original
+`__start` execution. Neither lane has reached original game `main`,
+a rendered frame, the frontend, or playable gameplay.
+
+**Next blocker:** the original `OSInit` call at `0x805208C4` reaches
+`EXIInit` at `0x804EF9BC`. Reuse the exact owner-original direct-entry
+V65/V66/V68 EXI polling/call-graph guards while adding a bounded V52
+continuous-start test. Implement missing EXI/PI/IOS device semantics only
+as required, and do not conflate controlled hardware callbacks with real
+device emulation.
 
 ## Source-only checkpoint and regression driver
 

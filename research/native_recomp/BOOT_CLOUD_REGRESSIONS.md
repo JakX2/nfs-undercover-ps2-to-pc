@@ -10,50 +10,47 @@ whenever independently authored native-recomp source changes.
 
 1. Source-only syntax and boot-checkpoint unit tests run on qualifying pushes,
    with no game executable or Google credentials.
-2. Once WII_GHIDRA_PRIVATE_ENABLED=true and the three existing cloud Ghidra
-   secrets are configured, the private job authenticates to the Drive API,
-   verifies SHA-256-pinned NfsMWRelease.dol and NfsMWRelease.elf, and obtains
-   original-free NWiiRecomp at immutable Git SHA
-   595f176f1d24cc54ff2e8389feed12d7fb553cc2.
-3. It recompiles and runs the original V68 OSInit native tests using the
-   source-only boot_progress.py wrapper. Failures withhold private logs, and
-   original executable bytes, generated game C++, temporary files and traces
-   are not uploaded or cached.
+2. With `WII_GHIDRA_PRIVATE_ENABLED=true` and the two Actions secrets
+   `WII_ORIGINAL_DOL_ID` and `WII_ORIGINAL_ELF_ID`, source-only `gdown`
+   staging retrieves owner-provided Wii inputs in a private GitHub runner,
+   verifies pinned SHA-256 fingerprints, and fetches original-free
+   NWiiRecomp at immutable commit
+   `595f176f1d24cc54ff2e8389feed12d7fb553cc2`.
+3. The private job recompiles and tests both the independent direct-entry
+   `OSInit` V68 regression and the continuous original `__start` lane
+   through V51. `boot_progress.py` asserts exact original guest PC/stage
+   advancement. Failures withhold raw logs; owner Wii files, derived game
+   C++, code shards and private traces are never published or cached.
 
-The private job is deliberately **skipped** until the existing Ghidra secrets
-and feature variable are set. No new scheduled automation is created; this is
-continuous integration triggered by research-branch code updates.
+No duplicate scheduled task is needed. The existing research-branch CI and
+hourly owner development task are already enabled.
 
 The V68 direct-`OSInit` runner is a separately verified native regression
 ending at `0x804EFA34`. It has **not** been joined to genuine continuous
 `__start` execution or a complete boot.
 
-**Latest verified continuous original-Wii `__start` frontier: V47 at
-`0x80526698` inside `__OSInterruptInit`.** Owner-original PowerPC AOT
-translation and native runtime execute the full preceding exception-vector,
-syscall-vector, alarm, shutdown, and module startup chain; original
-`memset`/`__fill_mem` clear 128 IRQ table bytes. The V46/V47 native harness
-verifies two original PowerPC MMIO stores, their destination addresses/values,
-IRQ low-memory mask updates and canaries, followed by the original
-interrupt-disable helper and arithmetic resulting in the `0xFFFFFFF0`
-low-memory IRQ mask. The MMIO callback only *observes* transactions, not
-a real Wii PI or IOS controller. Private-original and synthetic V47
-continuous startup jobs passed
-[run 44173650263](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44173650263).
-Earlier V46 `0x80526674` passed
-[run 44172509667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44172509667),
-and V45 `0x8052664C` passed
-[run 44170476226](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44170476226).
-V44 at `0x805208B8` and all V38–V43 authenticated baselines remain passing.
+**Latest verified continuous Wii `__start` frontier: V51,
+`0x805208C4`.** Original AOT-compiled Wii startup now executes through
+full exception-vector and syscall-vector initialization; original alarm
+and shutdown registration; module initialization; interrupt table
+clear and genuine IRQ hardware register writes; the complete original
+seven-bank `SetInterruptMask` loop; native IRQ return to `OSInit`;
+`__OSContextInit`; and **the authentic second `__OSCacheInit` call**.
+The same SHA-pinned original Wii cache initializer also executes during
+the early original `__start` path. Sixteen owner-original native trials
+and synthetic startup passed
+[CI run 44190097982](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44190097982).
+V50 at `0x805208C0`, V49 at `0x805208BC`, V48 at
+`0x805266AC`, V47 at `0x80526698` and all preceding stages remain
+regression-verified. Some hardware/MMIO and debug services remain
+controlled test-only callbacks, **not device implementations**.
 
-Next original continuous call: `__OSInterruptInit` at guest `0x805266A0`
-invokes the original `SetInterruptMask` entry at `0x805266E0`. Test the
-real owner-derived mask-loop call graph and subsequent controlled stop,
-using direct-entry V54/V56 as independent prior evidence rather than proof
-of continuous startup.
-Owner binaries and generated original code remain private; no game
-`main`, first frame, frontend or gameplay achieved.
-Maintain the two checkpoint lanes separately.
+Next original continuous service: `OSInit` calls `EXIInit` at
+`0x805208C4` (target `0x804EF9BC`). The separately verified
+V65/V66/V68 direct-entry EXI tests are evidence for the code path only;
+they do not prove continuous `__start` reached it.
+Never publish source-owner Wii binaries, game-derived C++ or raw private
+logs. No original game `main`, first frame, frontend or gameplay yet.
 
 ## Verified owner-ELF native-boot frontier
 
@@ -84,7 +81,7 @@ checked privately; owner binaries and game-derived C++ are never uploaded.
 
 The private-original workflow has since run successfully with the feature
 variable enabled, using SHA-pinned owner inputs. On November 17, 2026
-continuous native V46 passed after independent V38–V45 owner-original
-baseline checks.
+continuous native V51 passed after independent V38–V50 owner-original
+baseline checks; the historical direct-entry OSInit V68 lane remains separate.
 A successful private CI check is evidence for the exact assertions it ran,
 not for full native Windows startup, game `main`, or graphical output.
