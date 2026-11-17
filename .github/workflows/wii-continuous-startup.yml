@@ -47,6 +47,8 @@ jobs:
           bash -n research/native_recomp/run_v49_continuous_irq_return.sh
           bash -n research/native_recomp/run_v50_continuous_context.sh
           bash -n research/native_recomp/run_v51_continuous_cache_reuse.sh
+          bash -n research/native_recomp/run_v52_continuous_exi_poll.sh
+          python3 -m py_compile research/native_recomp/make_start_to_exi_poll_v52.py research/native_recomp/test_v52_continuous_exi_geometry.py research/native_recomp/classify_v52_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_cache_reuse_v51.py research/native_recomp/test_v51_continuous_cache_geometry.py research/native_recomp/classify_v51_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_context_v50.py research/native_recomp/test_v50_continuous_context_geometry.py research/native_recomp/classify_v50_native_failure.py
           python3 -m py_compile research/native_recomp/make_start_to_irq_return_v49.py research/native_recomp/test_v49_continuous_irq_return_geometry.py research/native_recomp/classify_v49_native_failure.py
@@ -1033,6 +1035,69 @@ jobs:
           assert r['observed_entry']==0x8000403C and r['observed_pc']==0x805208C4
           assert r['stage']==51 and r['pass_markers']>=1
           print('PASS: owner-original native __start reentered __OSCacheInit and returned to OSInit 0x805208C4')
+          PY
+      - name: Verify owner-original continuous EXIInit polling prefix (V52)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v51.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v52.json" \
+            --diagnostic-runner V52 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x804EFA14 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v52_continuous_exi_poll.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v52-private.log" 2>&1 || {
+              grep -E '^BOOT_DIAGNOSTIC stage=V52\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json" \
+            "$RUNNER_TEMP/v40-private.log" "$RUNNER_TEMP/frontier-v40.json" \
+            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json" \
+            "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json" \
+            "$RUNNER_TEMP/v43-private.log" "$RUNNER_TEMP/frontier-v43.json" \
+            "$RUNNER_TEMP/v44-private.log" "$RUNNER_TEMP/frontier-v44.json" \
+            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json" \
+            "$RUNNER_TEMP/v46-private.log" "$RUNNER_TEMP/frontier-v46.json" \
+            "$RUNNER_TEMP/v47-private.log" "$RUNNER_TEMP/frontier-v47.json" \
+            "$RUNNER_TEMP/v48-private.log" "$RUNNER_TEMP/frontier-v48.json" \
+            "$RUNNER_TEMP/v49-private.log" "$RUNNER_TEMP/frontier-v49.json" \
+            "$RUNNER_TEMP/v50-private.log" "$RUNNER_TEMP/frontier-v50.json" \
+            "$RUNNER_TEMP/v51-private.log" "$RUNNER_TEMP/frontier-v51.json" \
+            "$RUNNER_TEMP/v52-private.log" "$RUNNER_TEMP/frontier-v52.json"
+ "$RUNNER_TEMP/v52-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V52\.[0-9]{3}        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/frontier-private.log" "$RUNNER_TEMP/frontier-v38.json" \
+            "$RUNNER_TEMP/v39-private.log" "$RUNNER_TEMP/frontier-v39.json" \
+            "$RUNNER_TEMP/v40-private.log" "$RUNNER_TEMP/frontier-v40.json" \
+            "$RUNNER_TEMP/v41-private.log" "$RUNNER_TEMP/frontier-v41.json" \
+            "$RUNNER_TEMP/v42-private.log" "$RUNNER_TEMP/frontier-v42.json" \
+            "$RUNNER_TEMP/v43-private.log" "$RUNNER_TEMP/frontier-v43.json" \
+            "$RUNNER_TEMP/v44-private.log" "$RUNNER_TEMP/frontier-v44.json" \
+            "$RUNNER_TEMP/v45-private.log" "$RUNNER_TEMP/frontier-v45.json" \
+            "$RUNNER_TEMP/v46-private.log" "$RUNNER_TEMP/frontier-v46.json" \
+            "$RUNNER_TEMP/v47-private.log" "$RUNNER_TEMP/frontier-v47.json" \
+            "$RUNNER_TEMP/v48-private.log" "$RUNNER_TEMP/frontier-v48.json" \
+            "$RUNNER_TEMP/v49-private.log" "$RUNNER_TEMP/frontier-v49.json" \
+            "$RUNNER_TEMP/v50-private.log" "$RUNNER_TEMP/frontier-v50.json" \
+            "$RUNNER_TEMP/v51-private.log" "$RUNNER_TEMP/frontier-v51.json"
+ "$RUNNER_TEMP/v52-private.log" || true
+              echo 'V52 owner-original Wii EXI polling validation failed; private log withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v52.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['status']=='advanced' and r['lane']=='continuous-start'
+          assert r['observed_entry']==0x8000403C and r['observed_pc']==0x804EFA14
+          assert r['stage']==52 and r['pass_markers']>=1
+          print('PASS: original Wii continuous __start reached genuine EXI polling stop at 0x804EFA14')
           PY
       - name: Remove private originals and temporary translations
         if: always()
