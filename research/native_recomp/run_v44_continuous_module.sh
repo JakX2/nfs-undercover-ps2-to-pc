@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# V44: execute the authentic original Wii syscall initializer from __start.
+# V44: execute the authentic original Wii module initializer from __start.
 # V40 must have installed the source-only 256-entry cache trace already.
 # Owner DOL, all translated output and private failures stay in mktemp only.
 set -euo pipefail
 if (( $# != 2 )); then
-  echo 'usage: run_v44_continuous_epilogue.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
+  echo 'usage: run_v44_continuous_module.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
   exit 2
 fi
 root="$(cd "$1" && pwd)"
@@ -21,7 +21,7 @@ python3 - "$root" "$here" > "$work/verify-cache.log" 2>&1 <<'PY'
 import sys
 from pathlib import Path
 sys.path.insert(0,sys.argv[2])
-from apply_cache_events_v44 import EMIT_AFTER,ISYNC_AFTER,EMITTER
+from apply_cache_events_v43 import EMIT_AFTER,ISYNC_AFTER,EMITTER
 from apply_cache_trace_v44 import NEW,FILE
 root=Path(sys.argv[1])
 ctx=(root/FILE).read_text(encoding="utf-8")
