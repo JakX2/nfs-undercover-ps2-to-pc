@@ -1,8 +1,11 @@
 # V37 candidate: authentic exception-template clearing in continuous Wii __start
 
-Status: source-only candidate; **not owner-original verified** until the full
-V26–V37 GitHub Actions chain passes. The older V41 direct-entry OSInit
-template-loop proof is a separate original-game milestone.
+**Status: VERIFIED** by original-game Wii Continuous Startup Checks
+[owner-original run 44015047562](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44015047562)
+on November 17, 2026. All twelve V26–V37 authentic continuous native
+checkpoints passed from Wii `__start` (`0x8000403C`); the final
+instrumented test-only stop is `0x80520D80` with `stage=37`.
+The earlier directly entered OSInit V41 test is a separate execution lane.
 
 ## Scope
 
