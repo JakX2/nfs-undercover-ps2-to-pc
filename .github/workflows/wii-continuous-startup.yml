@@ -83,6 +83,25 @@ jobs:
             -- bash research/native_recomp/run_v26_recovered_tests.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/private.log" 2>&1 || {
+              # Only classify fixed, original-free stage messages. Never print
+              # arbitrary owner logs, private opcode bytes, paths or symbols.
+              if grep -q 'PASS: V26 recovered bounded startup fixture created privately' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_STAGE fixture_generated'
+              else
+                echo 'V26_STAGE before_fixture_generation'
+              fi
+              if grep -q 'PASS: recovered V26 fixture exact private PowerPC span and stop geometry' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_STAGE fixture_verified'
+              fi
+              if grep -q 'Recovered V26 native compile failed: owner' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_STAGE native_compilation_failed'
+              fi
+              if grep -q 'Recovered V26 native test failed: owner' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_STAGE native_assertion_failed'
+              fi
+              if grep -q 'Recovered V26 generator failed: owner' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_STAGE dispatch_generator_failed'
+              fi
               grep '^V26_SAFE_DIAGNOSTIC ' "$RUNNER_TEMP/private.log" || true
               if grep -q 'Recovered V26 generator failed: owner' "$RUNNER_TEMP/private.log"; then
                 echo 'V26_SAFE_DIAGNOSTIC private generator validation failed'
