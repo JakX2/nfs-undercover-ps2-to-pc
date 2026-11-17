@@ -30,7 +30,23 @@ python3 "$here/test_cache_continuous_patch_v39.py" "$root" > "$work/cache-guards
   echo 'V39 cache-event source guards failed' >&2;exit 1;
 }
 echo 'V39_STAGE cache_patch_verified'
-python3 "$here/make_start_to_cache_v39.py" "$owner" "$work/owner-private.dol"
+python3 "$here/make_start_to_cache_v39.py" "$owner" "$work/owner-private.dol" > "$work/fixture-create.log" 2>&1 || {
+  if grep -Fq 'cache helper overlaps previously translated native code' "$work/fixture-create.log"; then
+    echo 'V39_STAGE fixture_collision'
+  elif grep -Fq 'new bounded stop overlaps previously translated PPC' "$work/fixture-create.log"; then
+    echo 'V39_STAGE fixture_stop_collision'
+  elif grep -Fq 'owner cache helper not contained in cache-control section' "$work/fixture-create.log"; then
+    echo 'V39_STAGE fixture_section'
+  elif grep -Eq 'call differs|callsite target changed|cache-line instruction changed|cache helper return missing' "$work/fixture-create.log"; then
+    echo 'V39_STAGE fixture_source'
+  elif grep -Eq 'V38|owner-original Wii DOL|SHA-256|SHA mismatch' "$work/fixture-create.log"; then
+    echo 'V39_STAGE fixture_inherited'
+  else
+    echo 'V39_STAGE fixture_other'
+  fi
+  echo 'V39 private fixture build failed; raw owner details withheld' >&2
+  exit 1
+}
 echo 'V39_STAGE fixture_generated'
 python3 "$here/test_v39_continuous_cache_geometry.py" "$work/owner-private.dol" "$owner"
 echo 'V39_STAGE geometry_verified'

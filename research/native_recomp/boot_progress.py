@@ -47,7 +47,9 @@ SAFE_RUNNER_STAGES = {
     "V39": ("v29_runtime_verified", "hid4_runtime_verified",
             "cache_patch_verified", "fixture_generated", "geometry_verified",
             "generator_compiled", "generation_complete", "native_compiled",
-            "native_test_passed"),
+            "native_test_passed", "fixture_collision", "fixture_stop_collision",
+            "fixture_section", "fixture_source", "fixture_inherited",
+            "fixture_other"),
 }
 
 
