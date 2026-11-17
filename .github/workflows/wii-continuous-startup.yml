@@ -83,6 +83,10 @@ jobs:
             -- bash research/native_recomp/run_v26_recovered_tests.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/private.log" 2>&1 || {
+              grep '^V26_SAFE_DIAGNOSTIC ' "$RUNNER_TEMP/private.log" || true
+              if grep -q 'Recovered V26 generator failed: owner' "$RUNNER_TEMP/private.log"; then
+                echo 'V26_SAFE_DIAGNOSTIC private generator validation failed'
+              fi
               echo 'Recovered original V26 startup native test failed; private logs withheld' >&2
               exit 1
             }

@@ -60,7 +60,22 @@ for mode in synthetic owner; do
       exit 1
     }
   "$work/$mode-native" "$image" "$mode" > "$work/$mode.native.log" 2>&1 || {
-    if [[ "$mode" == synthetic ]]; then tail -50 "$work/$mode.native.log"; fi
+    if [[ "$mode" == synthetic ]]; then
+      tail -50 "$work/$mode.native.log"
+    else
+      # Reveal only an independently authored C++ assertion string. Never
+      # echo the raw owner log, original opcodes, code, host paths or symbols.
+      python3 - "$work/$mode.native.log" "$here/test_start_to_time_v26_recovered.cpp" <<'PY'
+import re, sys
+from pathlib import Path
+log = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+source = Path(sys.argv[2]).read_text(encoding="utf-8")
+match = re.search(r"what\(\):\s*([^\r\n]+)", log)
+allowed = set(re.findall(r'"([^"\r\n]{3,180})"', source))
+msg = match.group(1).strip() if match else ""
+print("V26_SAFE_DIAGNOSTIC " + (msg if msg in allowed else "unclassified original assertion"))
+PY
+    fi
     echo "Recovered V26 native test failed: $mode (private log withheld)" >&2
     exit 1
   }
