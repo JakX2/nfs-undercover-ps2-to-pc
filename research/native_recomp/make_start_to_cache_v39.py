@@ -35,7 +35,7 @@ def make(owner:Path)->bytes:
     if word(first,0x1C)>>26!=31 or word(second,0x1C)>>26!=31:
         raise ValueError("original cache-line instruction changed")
     print("V39_STAGE original_cache_bodies_verified", flush=True)
-    off,guest,count=(word(image,k) for k in (0,0x48,0x90))
+    off,guest,count=(word(image,k+4) for k in (0,0x48,0x90))
     if off<256 or guest!=OSINIT or STOP+8>guest+count:
         raise ValueError("continuous startup section lacks bounded cache continuation")
     print("V39_STAGE os_section_verified",flush=True)

@@ -18,7 +18,7 @@ def verify(image:bytes,owner:Path)->None:
     before=make_v38(owner)
     if len(image)!=len(before) or image[:256]!=before[:256] or word(image,0xE0)!=0x8000403C:
         raise ValueError("V39 original __start/private DOL geometry changed")
-    off,guest,count=(word(image,k) for k in (0,0x48,0x90))
+    off,guest,count=(word(image,k+4) for k in (0,0x48,0x90))
     if off<256 or guest!=OSINIT or STOP+8>guest+count:
         raise ValueError("original Wii cache region outside bounded test image")
     intervals=((0x80520DA4,STOP+8,1),
