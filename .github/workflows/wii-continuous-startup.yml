@@ -589,6 +589,12 @@ jobs:
           python3 research/native_recomp/apply_nonsplit_dispatch_v15.py "$RUNNER_TEMP/nwii"
           python3 research/native_recomp/apply_perf_sprs_v29.py "$RUNNER_TEMP/nwii"
           python3 research/native_recomp/test_perf_patch_guards_v29.py "$RUNNER_TEMP/nwii"
+          # Recreate the V26 runtime prerequisites without compiling V26-V37.
+          python3 research/native_recomp/apply_hid_state_v18.py "$RUNNER_TEMP/nwii"
+          python3 research/native_recomp/apply_fpscr_v19.py "$RUNNER_TEMP/nwii"
+          python3 research/native_recomp/apply_l2cr_v20.py "$RUNNER_TEMP/nwii"
+          python3 research/native_recomp/apply_syscall_pc_v26.py "$RUNNER_TEMP/nwii"
+          python3 research/native_recomp/verify_perf_combo_v29.py "$RUNNER_TEMP/nwii"
       - name: Verify latest original Wii continuous-start checkpoint (V38)
         run: |
           set -euo pipefail
