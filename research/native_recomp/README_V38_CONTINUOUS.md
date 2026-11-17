@@ -19,7 +19,8 @@ OSExceptionInit computes vector target 0x80000100 and copies exactly
 source 0x80520EC0, after the original CTR/BDNZ template-clear sequence
 changes a single source instruction to 0x60000000 (NOP). Tests verify
 the entire output byte-for-byte, original source bytes, adjacent canaries,
-helper dispatch count, guest LR/SP, original PPC registers, no interpreter
+independently authored exception-vector offset table test inputs (0x100 and
+0x200, not retail game data), helper dispatch count, guest LR/SP, original PPC registers, no interpreter
 fallback, and all prior native Wii startup assertions in sixteen cases.
 
 The owner-private SHA-pinned builder adds one non-executable DOL data

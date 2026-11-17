@@ -62,6 +62,30 @@ jobs:
           git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Compile V38 original-free generator against pinned NWiiRecomp headers
+        run: |
+          set -euo pipefail
+          # The generator sources and upstream recomp project are wholly
+          # independently authored and contain no original Wii game data.
+          g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
+            -I"$RUNNER_TEMP/nwii/nWiiRuntime/include" \
+            -I"$RUNNER_TEMP/nwii/nWiiAnalyzer/include" \
+            -I"$RUNNER_TEMP/nwii/nWiiRecomp/include" \
+            research/native_recomp/generate_start_to_vectorcopy_v38.cpp \
+            "$RUNNER_TEMP/nwii/nWiiRuntime/src/core/loader.cpp" \
+            "$RUNNER_TEMP/nwii/nWiiAnalyzer/src/analyzer.cpp" \
+            "$RUNNER_TEMP/nwii/nWiiAnalyzer/src/dolphin_sigdb.cpp" \
+            "$RUNNER_TEMP/nwii/nWiiAnalyzer/src/signature_scanner.cpp" \
+            "$RUNNER_TEMP/nwii/nWiiRecomp/src/recompiler.cpp" \
+            "$RUNNER_TEMP/nwii/nWiiRecomp/src/symbols.cpp" \
+            -o "$RUNNER_TEMP/v38-public-generator" \
+            > "$RUNNER_TEMP/v38-public-generator.compile.log" 2>&1 || {
+              # All compiler diagnostics reference only public source and
+              # pinned open-source headers, no owner Wii image is present.
+              tail -60 "$RUNNER_TEMP/v38-public-generator.compile.log"
+              exit 1
+            }
+          echo 'PASS: V38 independent source-only generator compiled and linked against pinned NWiiRecomp'
       - name: Compile and run recovered synthetic V26 time/interrupt startup
         run: |
           set -euo pipefail

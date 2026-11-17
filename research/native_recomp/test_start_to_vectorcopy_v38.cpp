@@ -363,6 +363,10 @@ int main(int argc,char**argv){
       c.mmu.write8(VECTOR_DEST-1u,0xB6u);
       for(uint32_t i=0;i<VECTOR_LEN;++i)c.mmu.write8(VECTOR_DEST+i,0xD3u);
       c.mmu.write8(VECTOR_DEST+VECTOR_LEN,0xB7u);
+      // Independently authored vector-offset table test inputs, not owner
+      // game data. The native test's MMU does not map the retail .data table.
+      c.mmu.write32(0x8060bbe0u,0x100u);
+      c.mmu.write32(0x8060bbe4u,0x200u);
     }
     c.mmu.write32(0x80000030u,0u); // no alternate heap override
     c.mmu.write32(0x80000034u,0);
@@ -438,6 +442,9 @@ int main(int argc,char**argv){
       check(c.mmu.read8(VECTOR_DEST-1u)==0xB6u &&
             c.mmu.read8(VECTOR_DEST+VECTOR_LEN)==0xB7u,
             "original exception-vector memcpy overwrote neighboring guest memory");
+      check(c.mmu.read32(0x8060bbe0u)==0x100u &&
+            c.mmu.read32(0x8060bbe4u)==0x200u,
+            "original exception-vector offset test inputs were overwritten");
       for(uint32_t i=0;i<VECTOR_LEN;++i){
         check(c.mmu.read8(SOURCE_TEMPLATE+i)==expected_handler[i],
               "original exception source template differs after clearing loop");
