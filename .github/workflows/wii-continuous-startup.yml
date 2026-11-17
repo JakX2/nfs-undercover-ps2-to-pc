@@ -21,7 +21,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
-          bash -n research/native_recomp/run_v25_tests.sh
+          bash -n research/native_recomp/run_v26_recovered_tests.sh
+          python3 research/native_recomp/test_syscall_pc_v26.py
       - name: Get exact NWiiRecomp source
         run: |
           set -euo pipefail
@@ -30,18 +31,18 @@ jobs:
           git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
-      - name: Compile and run independent synthetic V25 startup
+      - name: Compile and run recovered synthetic V26 time/interrupt startup
         run: |
           set -euo pipefail
-          bash research/native_recomp/run_v25_tests.sh "$RUNNER_TEMP/nwii" > "$RUNNER_TEMP/v25-synthetic.log" 2>&1 || {
+          bash research/native_recomp/run_v26_recovered_tests.sh "$RUNNER_TEMP/nwii" > "$RUNNER_TEMP/v25-synthetic.log" 2>&1 || {
             tail -65 "$RUNNER_TEMP/v25-synthetic.log"
             exit 1
           }
           grep -q '^PASS:' "$RUNNER_TEMP/v25-synthetic.log"
-          echo 'PASS: independent synthetic V25 startup AOT executed; no owner __start progress claimed'
+          echo 'PASS: independent synthetic V26 native AOT executed; original __start remains unverified here'
   owner-startup:
     needs: synthetic-startup
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -70,7 +71,7 @@ jobs:
           git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
-      - name: Execute genuine original __start via established bounded V25 harness
+      - name: Execute recovered original V26 __start -> time/interrupt native continuation
         run: |
           set -euo pipefail
           umask 077
@@ -79,10 +80,10 @@ jobs:
             --timeout 1400 \
             --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
-            -- bash research/native_recomp/run_v25_tests.sh \
+            -- bash research/native_recomp/run_v26_recovered_tests.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/private.log" 2>&1 || {
-              echo 'Bounded original V25 startup regression failed; original logs withheld' >&2
+              echo 'Recovered original V26 startup native test failed; private logs withheld' >&2
               exit 1
             }
           python3 - "$RUNNER_TEMP/continuous-checkpoint.json" <<'PY'
@@ -92,7 +93,7 @@ jobs:
           assert r['lane']=='continuous-start'
           assert r['status']=='passed_uninstrumented'
           assert r['observed_pc'] is None and r['pass_markers']>=1
-          print('PASS: owner-original V25 __start regression; no instrumented PC or V26/V68 integration claimed')
+          print('PASS: recovered original V26 bounded __start executed, but structured guest-PC report not yet instrumented')
           PY
       - name: Remove owner executable, private translations and logs
         if: always()
