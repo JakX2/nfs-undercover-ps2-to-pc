@@ -50,6 +50,7 @@ static uint64_t l2_reads=0,l2_writes=0,ic_calls=0,dc_calls=0,cache_calls=0;
 static uint64_t post_stops=0,db_entries=0,os_entries=0,save_entries=0,unknown_calls=0,interpreter_calls=0;
 static std::array<uint64_t,2> external_stubs{};
 static uint64_t time_entries=0, gettime_entries=0, disable_entries=0, restore_entries=0;
+static uint32_t observed_stop_pc=0;
 void trace_call(uint32_t addr, CPUContext&ctx){
   constexpr std::array<uint32_t,5> data{INIT,FLUSH,COPY,FILL,SET};
   const auto it=std::find(data.begin(),data.end(),addr);
@@ -76,6 +77,7 @@ bool handle_syscall(CPUContext&ctx){
     check(ctx.lr==(own?OS_RET_OWNER:OS_RET_SYNTH),"wrong guest LR at V26 owner or synthetic stop");
     check(ctx.gpr[1]==(own?ORIGINAL_SP-8u-80u:SYNTH_SP-8u-96u),
           "wrong guest SP in original/synthetic OSInit prologue");
+    observed_stop_pc=ctx.pc;
     ++post_stops;ctx.is_running=false;return true;}
   if(ctx.pc==DBG){++external_stubs[0];return true;}
   if(ctx.pc==ERR){
@@ -190,8 +192,9 @@ int main(int argc,char**argv){
     c.mmu.write32(OS_INIT_FLAG,0u);
     const auto before_inst=c.inst_count;
     run_game(c);
-    if(c.pc!=(owner?POST_OWNER:POST_SYNTH) || c.is_running){std::cerr<<std::hex<<"V26 TRACE PC="<<c.pc<<" LR="<<c.lr<<" r1="<<c.gpr[1]<<" r5="<<c.gpr[5]<<" r6="<<c.gpr[6]<<" r7="<<c.gpr[7]<<" r14="<<c.gpr[14]<<" r15="<<c.gpr[15]<<" running="<<c.is_running<<std::dec<<" dbentries="<<nwii::runtime::db_entries<<" stops="<<nwii::runtime::post_stops<<" inst="<<c.inst_count<<"\n";}
-    check(!c.is_running&&c.pc==(owner?POST_OWNER:POST_SYNTH),"native guest did not stop at exact test-only PowerPC syscall PC");
+    if(nwii::runtime::observed_stop_pc!=(owner?POST_OWNER:POST_SYNTH) || c.is_running){std::cerr<<std::hex<<"V26 TRACE PC="<<c.pc<<" LR="<<c.lr<<" r1="<<c.gpr[1]<<" r5="<<c.gpr[5]<<" r6="<<c.gpr[6]<<" r7="<<c.gpr[7]<<" r14="<<c.gpr[14]<<" r15="<<c.gpr[15]<<" running="<<c.is_running<<std::dec<<" dbentries="<<nwii::runtime::db_entries<<" stops="<<nwii::runtime::post_stops<<" inst="<<c.inst_count<<"\n";}
+    check(!c.is_running && nwii::runtime::observed_stop_pc==(owner?POST_OWNER:POST_SYNTH),
+          "native syscall callback did not observe exact test-only PowerPC instruction PC");
     check(c.lr==(owner?OS_RET_OWNER:OS_RET_SYNTH),"guest LR after original time/interrupt service changed");
     check(nwii::runtime::db_entries==before_db+1,"translated DBInit not entered exactly once");
     check(nwii::runtime::os_entries==before_os+1,"translated OSInit prefix never entered");
@@ -207,8 +210,6 @@ int main(int argc,char**argv){
       check(nwii::runtime::restore_entries==before_restore+1, "original interrupt restoration missing");
       // Read the two original store instructions from the *private* test DOL,
       // without embedding their instruction words in public source.
-      const auto* text=c.mmu.get_ptr(0x8070db30u);
-      (void)text;
       check(c.mmu.read32(0x8070db30u)==c.gpr[4] ||
             c.mmu.read32(0x8070db34u)==c.gpr[4],
             "original 64-bit system time low word was not stored");
