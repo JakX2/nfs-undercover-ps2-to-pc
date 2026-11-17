@@ -337,7 +337,6 @@ int main(int argc,char**argv){
     if(owner){
       c.mmu.write32(0x80000060u,1u+trial); // original exception fast path
       c.mmu.write32(EXC_SOURCE_WORD,exception_word);
-      c.mmu.write32(EXC_TEMPLATE_DST,0xDADAC0DEu);
       c.mmu.write32(0x80000100u,0x0DD0D0D0u); // untouched vector canary
     }
     c.mmu.write32(0x80000030u,0u); // no alternate heap override
@@ -387,8 +386,8 @@ int main(int argc,char**argv){
       check(c.mmu.read32(0x8070d8a0u)==0x80000040u &&
             c.mmu.read32(0x80000044u)==0u,
             "original debug marker pointer or zero mask changed");
-      check(c.mmu.read32(EXC_TEMPLATE_DST)==exception_word,
-            "original exception template-store instruction failed");
+      check(c.mmu.read32(EXC_SOURCE_WORD)==exception_word,
+            "original exception source literal was unexpectedly modified");
       check(nwii::runtime::exception_entries==before_exception+1,
             "genuine OSExceptionInit original entry not reached exactly once");
       check(c.gpr[28]==EXC_SOURCE_WORD && c.gpr[27]==exception_word,

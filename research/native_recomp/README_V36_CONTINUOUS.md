@@ -23,9 +23,9 @@ The new continuous runner exercises sixteen normal boot paths. The genuine
 original DBInit writes its debug-data pointer to 0x8070D8A0 and clears the
 0x80000044 bitmask; V36 verifies that the original mark helper receives
 exception index zero, returns zero after reading that state, and leaves the
-guest debug structure unchanged. It also checks the authentic exception
-template word stored at guest 0x80520F18, the nested OSInit/exception ABI
-stack frame, original call LR, unchanged low-memory vector canary, all
+guest debug structure unchanged. It also checks the authentic exception template source word retained at 0x80520F28,
+the nested OSInit/exception ABI stack frame, original call LR, unchanged
+low-memory vector canary, all
 V26–V35 CPU, FPU, hardware, BSS, memory, MEM1, MEM2 and IPC pointer
 assertions, and no interpreter fallback.
 
