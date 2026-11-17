@@ -36,12 +36,24 @@ WII_GHIDRA_PRIVATE_ENABLED repository variable are configured.
 
 ## Verification status
 
-This reconstructed code was added for new independent verification. Prior
-private V26 milestones were owner-local and not reproducible from GitHub.
-Do not claim V26 reproduction until the new CI original-game job succeeds.
-A PASS of an uninstrumented BOOT_PROGRESS wrapper means real original-code
-assertions passed but **does not carry a machine-readable guest-PC marker**.
-The native C++ assertions verify the explicit stop internally.
+The new source-only recovered harness passed **genuine owner-original**
+GitHub Actions run 43998534658 on November 17, 2026. Both synthetic and
+owner-private jobs succeeded; no original code, game assets or generated
+native source was published. The native C++ contract verifies every trial's
+exact PowerPC syscall callback PC, original native call graph, register and
+memory state, and genuine __start entry.
+
+The subsequent workflow change makes the recovered runner emit an explicit
+BOOT_PROGRESS entry=0x8000403C pc=0x805206B4 stage=26 marker **only after**
+all 16 owner-original native trials pass and a strict anchored PASS marker
+confirms the exact test stop. The boot-progress wrapper must reject any
+missing/incorrect marker and record passed_instrumented. This additional
+structured-checkpoint CI test still needs an authentic successful run to
+prove the new marker end to end.
+
+**V26 is reproduced, not exceeded.** The recovered harness ends before the
+real bl to the interrupt-disable helper at 0x805206B4. The older V68 direct
+OSInit path remains a separately entered fixture and has not been joined.
 
 The direct V68 OSInit test at 0x804EFA34 is an independent entrypoint.
 The next technical step is replacing this V26 test-only OSInit stop with

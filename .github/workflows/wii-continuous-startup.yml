@@ -77,7 +77,7 @@ jobs:
           umask 077
           python3 research/native_recomp/boot_progress.py \
             --lane continuous-start --report "$RUNNER_TEMP/continuous-checkpoint.json" \
-            --timeout 1400 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x805206B4 \
             --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
             -- bash research/native_recomp/run_v26_recovered_tests.sh \
@@ -114,9 +114,11 @@ jobs:
           from pathlib import Path
           r=json.loads(Path(sys.argv[1]).read_text())
           assert r['lane']=='continuous-start'
-          assert r['status']=='passed_uninstrumented'
-          assert r['observed_pc'] is None and r['pass_markers']>=1
-          print('PASS: recovered original V26 bounded __start executed, but structured guest-PC report not yet instrumented')
+          assert r['status']=='passed_instrumented'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x805206B4 and r['stage']==26
+          assert r['pass_markers']>=1
+          print('PASS: authentic recovered V26 __start checkpoint 0x805206B4 measured by native syscall callback')
           PY
       - name: Remove owner executable, private translations and logs
         if: always()

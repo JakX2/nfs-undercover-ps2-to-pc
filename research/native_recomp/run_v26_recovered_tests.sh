@@ -80,5 +80,19 @@ PY
     exit 1
   }
   grep -q '^PASS:' "$work/$mode.native.log" || { echo "Missing V26 native PASS"; exit 1; }
+  if [[ "$mode" == owner ]]; then
+    # Publish the guest checkpoint only AFTER 16 native owner trials pass.
+    # The C++ test verifies exact PowerPC syscall callback PC each trial.
+    # This anchored PASS is independently authored, never retail game output.
+    grep -Eq '^PASS: [0-9]+ V26 recovered continuous original __start->OSInit->time helpers->interrupt stop assertions; mode=owner trials=16 stop=0x805206b4
+done
+ "$work/$mode.native.log" || {
+      echo 'V26 owner native PASS did not verify the documented continuous stop' >&2
+      exit 1
+    }
+  fi
   echo "PASS: recovered V26 native startup test mode=$mode"
+  if [[ "$mode" == owner ]]; then
+    echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805206B4 stage=26'
+  fi
 done
