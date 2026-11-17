@@ -1,9 +1,11 @@
 # V36 candidate: continuous original Wii __start calls __DBIsExceptionMarked
 
-**Status:** owner-original V36 verification pending. V35 is independently
-verified by GitHub Actions continuous-start run 44011635309, exact test-only
-PC 0x80520CA8. The directly entered OSInit V40 marker results are a
-separate existing original-game fixture, not a continuous startup proof.
+**Status: VERIFIED** by owner-original continuous startup CI run
+44014497807 (November 17, 2026). All eleven authentic V26–V36 stages
+passed from real original __start at 0x8000403C with instrumented exact
+stop at 0x80520CF4 and stage=36, including sixteen authentic marker calls.
+V35 remains independently verified by run 44011635309 at 0x80520CA8.
+The direct-entry V40 marker tests remain a separate original-code lane.
 
 ## Authentic continuation
 

@@ -262,6 +262,24 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn(private,output.getvalue())
         self.assertNotIn(private,self.report.read_text())
 
+    def test_v37_guarded_numeric_diagnostics(self):
+        code=(
+            "print('V37_STAGE native_compiled',flush=True);"
+            "print('V37_NATIVE_ASSERTION id=037',flush=True);"
+            "print('private-exception-vector-data',flush=True);"
+            "raise SystemExit(7)"
+        )
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","V37","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V37.native_compiled",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V37.037",output.getvalue())
+        self.assertNotIn("private-exception-vector-data",output.getvalue())
+        self.assertNotIn("private-exception-vector-data",self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
