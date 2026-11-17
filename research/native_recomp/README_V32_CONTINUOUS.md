@@ -1,6 +1,9 @@
 # V32 continuous original Wii __start: MEM1 arena setters
 
-Status: CANDIDATE, owner-original continuous CI still pending.
+Status: VERIFIED in owner-original GitHub Actions run 44005433933 on
+November 17, 2026. All V26-V32 continuous entry native stages passed,
+with instrumented V32 checkpoint 0x80520818 and stage=32 (advanced
+from V31), verified on the SHA-256-pinned original Wii DOL.
 
 This independently authored source-only test extends the actual Wii original
 __start at 0x8000403C through V26/V27/V28/V29/V30/V31 and the following
