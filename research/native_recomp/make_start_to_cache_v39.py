@@ -38,10 +38,16 @@ def make(owner:Path)->bytes:
     start=off+PREVIOUS_STOP-guest
     if image[start:start+8]!=struct.pack(">II",SC,BLR):
         raise ValueError("V38 test-only stop no longer matches")
+    # Continuous startup uses seven disjoint text sections. Cache services
+    # live in the original DCEnable/ICEnable region (section 3), not the OSInit
+    # section (section 1) used by the older direct-entry V43 fixture.
+    cache_off,cache_guest,cache_count=(word(image,k+4*3) for k in (0,0x48,0x90))
+    if cache_off<256 or cache_guest!=0x80522280 or cache_off+cache_count>len(image):
+        raise ValueError("original Wii cache-control text section changed")
     for base,code in ((FIRST_CACHE,first),(SECOND_CACHE,second)):
-        at=off+base-guest
-        if at<off or at+len(code)>off+count:
-            raise ValueError("owner cache helper not contained in private test text section")
+        at=cache_off+base-cache_guest
+        if at<cache_off or at+len(code)>cache_off+cache_count:
+            raise ValueError("owner cache helper not contained in cache-control section")
         for index in range(0,len(code),4):
             if word(image,at+index)!=0x60000000:
                 raise ValueError("cache helper overlaps previously translated native code")

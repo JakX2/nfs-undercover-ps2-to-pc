@@ -21,19 +21,27 @@ def verify(image:bytes,owner:Path)->None:
     off,guest,count=(word(image,k) for k in (0,0x48,0x90))
     if off<256 or guest!=OSINIT or STOP+8>guest+count:
         raise ValueError("original Wii cache region outside bounded test image")
-    intervals=((0x80520DA4,STOP+8),(FIRST_CACHE,FIRST_CACHE+FIRST_CACHE_LEN),
-               (SECOND_CACHE,SECOND_CACHE+SECOND_CACHE_LEN))
+    intervals=((0x80520DA4,STOP+8,1),
+               (FIRST_CACHE,FIRST_CACHE+FIRST_CACHE_LEN,3),
+               (SECOND_CACHE,SECOND_CACHE+SECOND_CACHE_LEN,3))
     allowed=set()
-    for first,last in intervals:
-        if first<guest or last>guest+count:
-            raise ValueError("unmapped V39 original Wii cache code")
-        allowed.update(range(off+first-guest,off+last-guest))
+    for first,last,section in intervals:
+        section_off,section_guest,section_len=(
+            word(image,k+section*4) for k in (0,0x48,0x90)
+        )
+        if section_off<256 or first<section_guest or last>section_guest+section_len:
+            raise ValueError("original cache PPC code outside its mapped DOL text section")
+        allowed.update(range(section_off+first-section_guest,
+                             section_off+last-section_guest))
     for pos,(old,new) in enumerate(zip(before,image)):
         if pos not in allowed and old!=new:
             raise ValueError("V39 changed bytes outside authenticated cache continuation")
-    for first,last in ((0x80520DA4,STOP),(FIRST_CACHE,FIRST_CACHE+FIRST_CACHE_LEN),
-                       (SECOND_CACHE,SECOND_CACHE+SECOND_CACHE_LEN)):
-        at=off+first-guest
+    for first,last,section in ((0x80520DA4,STOP,1),
+                               (FIRST_CACHE,FIRST_CACHE+FIRST_CACHE_LEN,3),
+                               (SECOND_CACHE,SECOND_CACHE+SECOND_CACHE_LEN,3)):
+        section_off=word(image,section*4)
+        section_guest=word(image,0x48+section*4)
+        at=section_off+first-section_guest
         if image[at:at+last-first]!=text_at(source,first,last-first):
             raise ValueError("original PPC cache helper instructions differ")
     if image[off+STOP-guest:off+STOP-guest+8]!=struct.pack(">II",SC,BLR):
