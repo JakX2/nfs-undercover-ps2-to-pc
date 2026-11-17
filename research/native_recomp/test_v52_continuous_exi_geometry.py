@@ -7,7 +7,7 @@ from pathlib import Path
 
 from make_start_to_cache_reuse_v51 import make as make_v51
 from make_start_to_exi_poll_v52 import (
-    START, OSINIT_CALL, OSINIT_GUARD, EXI, STOP, DEBUG, EXI_LENGTH, verify_prefix,
+    START, OSINIT_CALL, OSINIT_GUARD, EXI, STOP, DBINIT, DEBUG, EXI_LENGTH, verify_prefix,
 )
 from make_start_to_epilogue_v41 import sections_of
 from make_start_to_module_v44 import locate
@@ -38,22 +38,24 @@ def verify(actual:bytes,owner:Path)->None:
                 raise ValueError("V51 OSInit section size changed")
             off=OSINIT_CALL-guest
             expected=bytearray(old_code)
-            if expected[off:off+8]!=struct.pack(">II",SC,BLR):
-                raise ValueError("V51 EXI call seam not synthetic")
+            if expected[off:off+12]!=struct.pack(">III",SC,BLR,NOP):
+                raise ValueError("V51 EXI call seam/padding not synthetic")
             expected[off:off+4]=original_call
             expected[off+4:off+12]=struct.pack(">II",SC,BLR)
             if code!=expected:
                 raise ValueError("V52 changed unrelated OSInit instructions")
-    if new_text[6][0]!=DEBUG or old_text[6][0]!=DEBUG:
-        raise ValueError("V52 dedicated debug/EXI region guest address changed")
+    if new_text[6][0]!=DBINIT or old_text[6][0]!=DBINIT:
+        raise ValueError("V52 DBInit/EXI region guest address changed")
     code=new_text[6][1]
-    if code[:8]!=old_text[6][1] or code[:8]!=struct.pack(">II",SC,BLR):
-        raise ValueError("V52 modified existing debug service callback")
-    if code[8:EXI-DEBUG]!=struct.pack(">I",NOP)*((EXI-DEBUG-8)//4):
+    previous=old_text[6][1]
+    if (code[:len(previous)]!=previous or len(previous)!=DEBUG+8-DBINIT or
+        code[DEBUG-DBINIT:DEBUG-DBINIT+8]!=struct.pack(">II",SC,BLR)):
+        raise ValueError("V52 modified original DBInit or synthetic debug callback")
+    if code[len(previous):EXI-DBINIT]!=struct.pack(">I",NOP)*((EXI-DBINIT-len(previous))//4):
         raise ValueError("V52 EXI padding is not explicitly synthetic NOPs")
-    if code[EXI-DEBUG:STOP-DEBUG]!=original_exi:
+    if code[EXI-DBINIT:STOP-DBINIT]!=original_exi:
         raise ValueError("V52 original EXI code differs from owner DOL")
-    if code[STOP-DEBUG:]!=struct.pack(">II",SC,BLR):
+    if code[STOP-DBINIT:]!=struct.pack(">II",SC,BLR):
         raise ValueError("V52 missing explicit EXI test-only terminal")
     if locate(actual,OSINIT_GUARD,8)!=locate(actual,OSINIT_CALL,12)+4:
         raise ValueError("OSInit post-EXI guard moved")
