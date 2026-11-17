@@ -493,8 +493,11 @@ int main(int argc,char**argv){
             "original PPC template-clearing loop corrupted neighboring canaries");
       check(nwii::runtime::exception_entries==before_exception+1,
             "genuine OSExceptionInit original entry not reached exactly once");
-      check(nwii::runtime::external_stubs[0]==before_stubs[0]+1,
-            "original exception epilogue did not call bounded DBPrintf service");
+      const auto dbprintf_delta=nwii::runtime::external_stubs[0]-before_stubs[0];
+      check(dbprintf_delta>=1u,
+            "V41 no bounded DBPrintf callback reached from exception epilogue");
+      check(dbprintf_delta<=1u,
+            "V41 extra bounded DBPrintf callback reached from exception epilogue");
       check(c.gpr[28]==0u && c.gpr[27]==0u,
             "original Wii _restgpr_20 did not restore caller r27/r28");
       check(c.mmu.read32(0x80000060u)==1u+trial,
