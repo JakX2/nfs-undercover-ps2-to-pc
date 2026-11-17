@@ -1,0 +1,18 @@
+name: Wii PowerPC Runtime Tests
+
+# Default-branch registration only; real owner-original safe runners live
+# on research/wii-native-recomp-preflight. Select that branch on dispatch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  select-research-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use the research-branch implementation
+        run: |
+          echo "::error::Choose research/wii-native-recomp-preflight under Run workflow > Branch. Do not dispatch from main."
+          exit 1
