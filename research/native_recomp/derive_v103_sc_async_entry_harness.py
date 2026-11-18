@@ -26,7 +26,7 @@ EDITS = [
   ],
   [
     "     nwii::runtime::post102_bytes.clear();",
-    "     nwii::runtime::post102_bytes.clear();\n     nwii::runtime::post103_wrapper=nwii::runtime::post103_save=nwii::runtime::post103_heap=nwii::runtime::post103_alloc=nwii::runtime::post103_copy=nwii::runtime::post103_async=0;\n     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;"
+    "     nwii::runtime::post102_bytes.clear();\n     nwii::runtime::post103_wrapper=nwii::runtime::post103_save=nwii::runtime::post103_heap=nwii::runtime::post103_alloc=nwii::runtime::post103_alloc_head=nwii::runtime::post103_alloc_disable=nwii::runtime::post103_alloc_restore=nwii::runtime::post103_copy=nwii::runtime::post103_async=0;\n     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;"
   ],
   [
     "       check(nwii::runtime::post102_next==1u&&",

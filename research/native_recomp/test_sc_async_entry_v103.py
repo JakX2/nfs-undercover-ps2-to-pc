@@ -45,6 +45,9 @@ class ScAsyncV103(unittest.TestCase):
         self.assertEqual(s,derive(base))
         for marker in ("V103_SC_SAVE","V103_SC_COPY","V103_SC_ASYNC_ENTRY","V103_TRIAL_PASS","POST_OWNER=0x8051982cu"):
             self.assertEqual(s.count(marker),1,marker)
+        for label in ("post103_alloc_head","post103_alloc_disable","post103_alloc_restore"):
+            self.assertIn("nwii::runtime::"+label+"=",s)
+        self.assertIn("nwii::runtime::post103_alloc_head=nwii::runtime::post103_alloc_disable=nwii::runtime::post103_alloc_restore=nwii::runtime::post103_copy=",s)
         self.assertEqual(s.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(s.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
     def test_generator_runner(self):
