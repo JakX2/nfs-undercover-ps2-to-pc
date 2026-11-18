@@ -88,7 +88,8 @@ g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
   "$root/nWiiRecomp/src/recompiler.cpp" \
   "$root/nWiiRecomp/src/symbols.cpp" -o "$work/generator" \
   > "$work/generator-compile.log" 2>&1 || {
-    echo 'V71 generator compilation failed; details withheld' >&2; exit 1;
+    python3 "$here/classify_v67_compile_failure.py" "$work/generator-compile.log"
+    echo 'V73 generator compilation failed; details withheld' >&2; exit 1;
   }
 echo 'V73_STAGE generator_compiled'
 mkdir "$work/generated"
@@ -135,7 +136,7 @@ grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u
 grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" | sort -u
 grep -Eq '^PASS: [0-9]+ V73 recovered continuous original __start->IOS_Open wait-queue assertions; mode=owner trials=16 stop=0x80529718$' \
   "$work/private-native.log" || {
-  echo 'V72 original native return checkpoint marker is missing' >&2; exit 1;
+  echo 'V73 original native return checkpoint marker is missing' >&2; exit 1;
 }
 echo 'PASS: original Wii continuous __start enrolled original sleeping thread and reached scheduler at 0x80529718'
 echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80529718 stage=73'

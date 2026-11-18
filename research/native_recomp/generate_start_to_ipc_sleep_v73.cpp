@@ -913,9 +913,13 @@ int main(int argc,char** argv)try{
    const auto& sleep=funcs.at(0x8052a430u).instructions;
    require(sleep.front().address==0x8052a430u&&sleep.back().address==0x8052a518u&&sleep.back().opcode==0x4e800020u,
            "original OSSleepThread body incomplete");
-   require(branch(find_opcode(0x8052a448u),0x8052a448u)==DISABLE&&
-           branch(find_opcode(0x8052a4f8u),0x8052a4f8u)==0x80529718u&&
-           branch(find_opcode(0x8052a500u),0x8052a500u)==RESTORE,
+   auto sleep_opcode=[&](uint32_t pc){
+     for(const auto& ins:sleep)if(ins.address==pc)return ins.opcode;
+     throw std::runtime_error("original OSSleepThread edge not analyzed");
+   };
+   require(branch(sleep_opcode(0x8052a448u),0x8052a448u)==DISABLE&&
+           branch(sleep_opcode(0x8052a4f8u),0x8052a4f8u)==0x80529718u&&
+           branch(sleep_opcode(0x8052a500u),0x8052a500u)==RESTORE,
            "original thread sleep scheduler call graph differs");
    require(funcs.count(0x80529718u)==1u,"explicit scheduler boundary missing");
    for(uint32_t pc:{0x80529718u,0x8051a1a4u}){
