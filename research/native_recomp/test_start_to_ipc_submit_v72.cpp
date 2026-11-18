@@ -251,6 +251,9 @@ static unsigned arena_phase=0,arena_getters=0,arena_reset_calls=0,arena_reset_re
              !(ctx.gpr[4]&3u)&&ctx.mmu.read32(IRQ_TABLE+27u*4u)==0u,
              "IPC IRQ registration ABI differs");
        ipc69_handler=ctx.gpr[4];
+       check(ipc69_handler==0x80519094u||ipc69_handler==0x805190c0u||ipc69_handler==0x80519318u,
+             "IPC registered handler not in authenticated function inventory");
+       std::cout<<"V72_IRQ_HANDLER candidate="<<(ipc69_handler==0x80519094u?1u:ipc69_handler==0x805190c0u?2u:3u)<<std::endl;
      }
      if(step==6u)check(ctx.gpr[3]==0x10u&&ctx.mmu.read32(IRQ_TABLE+27u*4u)==ipc69_handler,
                        "IPC native unmask must follow IRQ handler registration");

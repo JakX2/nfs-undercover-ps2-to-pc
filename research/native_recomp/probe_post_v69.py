@@ -96,6 +96,17 @@ def scan(raw,funcs):
                 if disp&0x8000:disp-=0x10000
                 target=(disp if op&2 else pc+disp)&0xffffffff
                 print(f"POST72_BRANCH site=0x{pc:08X} target=0x{target:08X}")
+    # Identify the external exception and IPC handler transitive frontier.
+    # Emit only authenticated function boundaries and edges, not instructions.
+    todo=[(0x80526ce0,0),(0x80519318,0),(0x805190c0,0),(0x8052a430,0),(0x8052a51c,0)]
+    seen=set()
+    while todo and len(seen)<24:
+        addr,depth=todo.pop(0)
+        if addr in seen or not 0<funcs.get(addr,0)<=MAX_SIZE:continue
+        seen.add(addr)
+        print(f"POST73_ROOT addr=0x{addr:08X} depth={depth}")
+        edges=describe(raw,funcs,addr)
+        if depth<1:todo.extend((dst,depth+1) for _,dst in edges if dst not in seen)
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()

@@ -5,6 +5,12 @@ on:
     paths:
       - 'research/native_recomp/*v72*'
       - 'research/native_recomp/*jump_table*v58*'
+      - 'research/native_recomp/wii_ios_bus.h'
+      - 'research/native_recomp/wii_stm_ios.h'
+      - 'research/native_recomp/wii_ipc_mailbox.h'
+      - 'research/native_recomp/wii_hollywood_irq.h'
+      - 'research/native_recomp/native_idle_cache_sc.h'
+      - 'research/native_recomp/*v71*'
       - '.github/workflows/wii-v72-fast-check.yml'
   workflow_dispatch:
 permissions:
@@ -75,6 +81,7 @@ jobs:
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/v72-focused.log" 2>&1 || {
               grep -E '^V72_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v72-focused.log" || true
+              grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$RUNNER_TEMP/v72-focused.log" || true
               grep -E '^V72_SDA phase=[01] site=[0-9a-f]{8} addr=[0-9a-f]{8} width=[124] init=[01] initial_nz=[01] live_nz=[01] equal=[01]$' "$RUNNER_TEMP/v72-focused.log" || true
               grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$RUNNER_TEMP/v72-focused.log" || true
               grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$RUNNER_TEMP/v72-focused.log" || true
@@ -83,6 +90,7 @@ jobs:
               exit 1
             }
           grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$RUNNER_TEMP/v72-focused.log" || true
+          grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$RUNNER_TEMP/v72-focused.log" || true
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8052A430 stage=72' "$RUNNER_TEMP/v72-focused.log"
           echo 'PASS: V72 original Wii continuous IPC request ACK checkpoint verified'
       - name: Remove private originals and generated code
