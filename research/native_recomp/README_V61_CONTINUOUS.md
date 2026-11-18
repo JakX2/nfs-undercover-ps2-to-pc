@@ -1,0 +1,2 @@
+# V61: original OS thread initialization candidate
+Restores original thread initialization, OSClearContext, OSSetCurrentContext, stack-pointer query and authenticated original thread-switch callback. Tests initial thread and scheduler queues byte-for-byte, active low-memory pointers, native indirect dispatch, initial stack bounds/magic, stack scrub and original MSR.FP/RI behavior. Current thread initialized state is distinct from thread switching or scheduler execution. Verification pending.
