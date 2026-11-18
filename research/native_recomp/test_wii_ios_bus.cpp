@@ -1,0 +1,57 @@
+#include "wii_ios_bus.h"
+#include <array>
+#include <cassert>
+#include <iostream>
+#include <string_view>
+using namespace undercover::wii;
+using B=IosBus;using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
+struct Ram final:IosMemory{
+    std::array<uint8_t,4096> ram{};
+    bool valid(uint32_t a,uint32_t n)const override{return uint64_t(a)+n<=ram.size();}
+    uint8_t read8(uint32_t a)const override{return ram.at(a);}
+    void write8(uint32_t a,uint8_t v)override{ram.at(a)=v;}
+};
+int main(){
+    Ram mem;B bus(mem);
+    constexpr uint32_t req=0x100,path=0x500;
+    constexpr auto en=M::IY1|M::IY2;
+    auto wr=[&](uint32_t a,uint32_t v){assert(bus.write32(a,v));};
+    auto rd=[&](uint32_t a){auto v=bus.read32(a);assert(v);return *v;};
+    auto ack=[&](uint32_t bit){
+        wr(B::IPC+M::PPCCTRL,en|bit);
+        wr(B::MIRROR+H::PPC_FLAG,H::IPC_PPC);
+        assert(!bus.external_irq_level());
+    };
+    unsigned n=0;for(char ch:std::string_view("/dev/stm/immediate"))mem.write8(path+n++,uint8_t(ch));
+    mem.write8(path+n,0);mem.write32(req,S::Open);mem.write32(req+12,path);
+    for(unsigned i=32;i<64;++i)mem.write8(req+i,0x5a);
+    wr(B::IPC+M::PPCCTRL,en);wr(B::MIRROR+M::PPCMSG,req);
+    assert(rd(B::IPC+M::PPCMSG)==req);
+    wr(B::IPC+M::PPCCTRL,en|M::X1);
+    assert(bus.tick()==S::Pump::Ack);
+    assert(rd(B::MIRROR+M::PPCCTRL)&M::Y2);
+    assert(rd(B::IPC+H::PPC_FLAG)==H::IPC_PPC);
+    assert(rd(B::PI_CAUSE)==0&&!bus.external_irq_level());
+    wr(B::IPC+H::PPC_MASK,H::IPC_PPC);
+    assert(rd(B::PI_CAUSE)==H::PI_HOLLYWOOD&&!bus.external_irq_level());
+    wr(B::PI_MASK,H::PI_HOLLYWOOD);
+    assert(bus.external_irq_level()&&!bus.external_exception_pending(0));
+    assert(bus.external_exception_pending(B::MSR_EE));
+    // W1C cannot suppress an IRQ while its underlying mailbox flag persists.
+    wr(B::IPC+H::PPC_FLAG,H::IPC_PPC);assert(bus.external_irq_level());
+    assert(bus.tick()==S::Pump::Busy);ack(M::Y2);
+    assert(bus.tick()==S::Pump::Replied);
+    assert(rd(B::IPC+M::ARMMSG)==req&&rd(B::PI_CAUSE)==H::PI_HOLLYWOOD);
+    assert(mem.read32(req)==S::Reply&&mem.read32(req+4)==0&&mem.read32(req+8)==S::Open);
+    for(unsigned i=32;i<64;++i)assert(mem.read8(req+i)==0x5a);
+    ack(M::Y1);assert(bus.tick()==S::Pump::Idle);
+    assert(bus.services().is_open(0,S::Device::Immediate));
+    bus.set_other_pi_causes((1u<<3)|H::PI_HOLLYWOOD);
+    assert(rd(B::PI_CAUSE)==(1u<<3));wr(B::PI_MASK,1u<<3);
+    assert(bus.external_irq_level());bus.set_other_pi_causes(0u);assert(!bus.external_irq_level());
+    for(uint32_t addr:{B::IPC+M::ARMCTRL,B::IPC+H::ARM_MASK,B::IPC+1u,B::PI_CAUSE+8u,0u,0xffffffffu}){
+        assert(!bus.read32(addr)&&!bus.write32(addr,0xffffffffu));
+    }
+    bus.reset();assert(rd(B::PI_MASK)==0u&&!bus.services().is_open(0,S::Device::Immediate));
+    std::cout<<"PASS: integrated native IOS MMIO bus, physical 64-byte requests, ACK/reply IRQ14 and MSR.EE gating\n";
+}

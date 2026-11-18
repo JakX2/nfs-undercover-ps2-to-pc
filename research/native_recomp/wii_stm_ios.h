@@ -108,7 +108,7 @@ private:
     bool idle_=false;
 
     bool request_span(uint32_t a) const {
-        return a!=0u&&(a&31u)==0u&&a<=0xffffffffu-31u&&mem_.valid(a,32);
+        return a!=0u&&(a&31u)==0u&&a<=0xffffffffu-63u&&mem_.valid(a,64);
     }
     bool in_queue(uint32_t a) const {
         for(unsigned i=0;i<count_;++i)
@@ -133,9 +133,9 @@ private:
         return Device::None;
     }
     bool output_ok(const Request&r) const {
-        // An output word may not overlap the IPC request header.
+        // An output word may not overlap the complete 0x40-byte IPC request.
         return r.e>=4u&&r.d!=0u&&r.d<=0xffffffffu-3u&&mem_.valid(r.d,4)&&
-            (uint64_t(r.d)+4u<=r.address||uint64_t(r.address)+32u<=r.d);
+            (uint64_t(r.d)+4u<=r.address||uint64_t(r.address)+64u<=r.d);
     }
     std::optional<int32_t> dispatch(const Request&r){
         if(r.command==Open){

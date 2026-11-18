@@ -54,7 +54,7 @@ int main(){
         ios.set_idle(idle);submit(req,S::Ioctl,0,S::GetState,0,0,buf,4);ack();reply(req,S::Ioctl,0);
         assert(mem.read32(buf)==uint32_t(idle));
     }
-    for(uint32_t a:{0u,req+4u,0xfffffffdu,8190u}){
+    for(uint32_t a:{0u,req+4u,req+32u,req+60u,0xfffffffdu,8190u}){
         submit(req,S::Ioctl,0,S::GetState,0,0,a,4);ack();reply(req,S::Ioctl,S::Invalid);
     }
     mem.string(path,"/dev/unknown");submit(req,S::Open,0,path,0);ack();reply(req,S::Open,S::NotFound);
@@ -64,7 +64,7 @@ int main(){
     mem.string(path,"/dev/stm/eventhook");
     for(unsigned i=1;i<S::DescriptorCount;++i){submit(req,S::Open,0,path,0);ack();reply(req,S::Open,int32_t(i));}
     submit(req,S::Open,0,path,0);ack();reply(req,S::Open,S::QueueFull);
-    for(uint32_t a:{0u,1u,8192u,0xffffffe0u}){
+    for(uint32_t a:{0u,1u,8160u,8192u,0xffffffe0u}){
         m.write(P,M::PPCMSG,a);m.write(P,M::PPCCTRL,enables|M::X1);
         assert(ios.pump()==S::Pump::InvalidAddress&&m.request_pending());
         m.write(P,M::PPCCTRL,enables);
