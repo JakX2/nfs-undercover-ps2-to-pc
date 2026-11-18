@@ -51,6 +51,10 @@ EDITS = [
   [
     "  if(own&&post95_active&&ctx.pc==0x805222e8u&&(ctx.lr==0x8051a474u||ctx.lr==0x8051a4ccu||ctx.lr==0x8051a514u)){",
     "  if(own&&post103_async==1u&&ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){\n    const bool order=post104_flush==1u&&post104_sc==0u;\n    const uint64_t lines=((post104_flush_base&31u)+uint64_t(post104_flush_len)+31u)/32u;\n    const bool count=ctx.guest_flush_count==post104_flush_before+lines;\n    std::cout<<\"V104_ASYNC_SYSCALL order=\"<<order<<\" lines=\"<<count<<std::endl;\n    check(order&&count,\"V104 IOS_OpenAsync native cache syscall order or line count differs\");\n    const uint32_t msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;\n    const auto gp=ctx.gpr;\n    native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,!ipc70_bus.external_irq_level(),[](auto& c){func_80000C00(c);});\n    check(ctx.msr==msr&&ctx.lr==lr&&ctx.hid0==hid&&ctx.ctr==ctr,\n          \"V104 IOS_OpenAsync native cache syscall state changed\");\n    for(unsigned r=0;r<32u;++r)if(r!=9u&&r!=10u)\n      check(ctx.gpr[r]==gp[r],\"V104 IOS_OpenAsync cache syscall changed unrelated GPR\");\n    ++post104_sc;return true;\n  }\n  if(own&&post95_active&&ctx.pc==0x805222e8u&&(ctx.lr==0x8051a474u||ctx.lr==0x8051a4ccu||ctx.lr==0x8051a514u)){"
+  ],
+  [
+    "     if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V98_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;",
+    "     if(post103_async==1u){\n       const bool bounded=addr>=0x80000000u&&addr<0x80600000u&&ctx.lr>=0x80000000u&&ctx.lr<0x80600000u;\n       if(bounded)std::cout<<\"V104_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n     }\n     if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V98_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;"
   ]
 ]
 
