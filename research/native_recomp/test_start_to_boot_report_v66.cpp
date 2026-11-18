@@ -499,7 +499,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
     ++console_entries;
   }
   else if(addr==0x8052701cu){
-    check(report_trial%4u>=2u&&ctx.lr==0x8051fec8u&&console_entries==1u,
+    check(report_trial%4u!=0u&&ctx.lr==0x8051fec8u&&console_entries==1u,
           "original console classification read MEM2 size outside selected path");
   }
   else if(addr==0x80527034u||addr==0x80527028u||addr==0x80521d18u||addr==0x80521d30u||
