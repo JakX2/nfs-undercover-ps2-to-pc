@@ -20,5 +20,6 @@ class SourceProbe(unittest.TestCase):
         base=(ROOT/"run_v79_continuous_reply_entry.sh").read_text()
         actual=runner(base)
         self.assertIn("derive_v107_sc_source_probe_harness.py",actual)
+        self.assertEqual(actual.count("^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$"),2)
         self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104",actual)
 if __name__=="__main__":unittest.main()
