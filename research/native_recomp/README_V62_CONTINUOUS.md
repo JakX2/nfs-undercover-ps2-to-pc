@@ -1,0 +1,2 @@
+# V62: original audio Hollywood reset prefix (candidate)
+Restores original audio bootstrap entry and the entire Hollywood clock/reset helper, including native timebase reads and all five timed hold loops. MMU decoding is extended to the Wii Hollywood MMIO bank, with independent aperture tests. The bounded register fixture validates all six ordered reads/writes and observes authentic original timebase intervals; it is not yet a complete DSP or clock controller implementation. Stops before DSP microcode staging. Verification pending.
