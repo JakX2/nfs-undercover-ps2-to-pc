@@ -128,6 +128,9 @@ SAFE_RUNNER_STAGES = {
     "V62": ("runtime_cache_trace_verified", "fixture_generated",
             "geometry_verified", "generator_compiled", "generation_complete",
             "native_compiled", "native_test_passed"),
+    "V63": ("runtime_cache_trace_verified", "fixture_generated",
+            "geometry_verified", "generator_compiled", "generation_complete",
+            "native_compiled", "native_test_passed"),
 }
 
 
@@ -294,7 +297,7 @@ def run(args: argparse.Namespace) -> int:
         for stage in allowed:
             if prefix + "_STAGE " + stage in lines:
                 print(f"BOOT_DIAGNOSTIC stage={prefix}.{stage}")
-        if prefix in ("V35", "V36", "V37", "V38", "V39", "V40", "V41", "V42", "V43", "V44", "V45", "V46", "V47", "V48", "V49", "V50", "V51", "V52", "V53", "V54", "V55", "V56", "V57", "V58", "V59", "V60", "V61", "V62"):
+        if prefix in ("V35", "V36", "V37", "V38", "V39", "V40", "V41", "V42", "V43", "V44", "V45", "V46", "V47", "V48", "V49", "V50", "V51", "V52", "V53", "V54", "V55", "V56", "V57", "V58", "V59", "V60", "V61", "V62", "V63"):
             # A bounded numeric ID derived only from the public original-free
             # harness assertion literals. Never surface the private log itself.
             valid = re.compile(rf"^{prefix}_NATIVE_ASSERTION id=([0-9]{{3}})$")

@@ -496,6 +496,23 @@ class BootProgressTests(unittest.TestCase):
         self.assertNotIn(private,output.getvalue())
         self.assertNotIn(private,self.report.read_text())
 
+    def test_v63_masked_private_diagnostic(self):
+        private="owner-original-ID-private-dol-text"
+        code=("print('V63_STAGE geometry_verified',flush=True);"
+              "print('V63_NATIVE_ASSERTION id=063',flush=True);"
+              f"print('{private}',flush=True);"
+              "raise SystemExit(7)")
+        args=["--lane","synthetic","--report",str(self.report),
+              "--diagnostic-runner","V63","--",sys.executable,"-c",code]
+        output=io.StringIO()
+        with contextlib.redirect_stdout(output),contextlib.redirect_stderr(io.StringIO()):
+            rc=main(args)
+        self.assertEqual(rc,1)
+        self.assertIn("BOOT_DIAGNOSTIC stage=V63.geometry_verified",output.getvalue())
+        self.assertIn("BOOT_DIAGNOSTIC assertion_id=V63.063",output.getvalue())
+        self.assertNotIn(private,output.getvalue())
+        self.assertNotIn(private,self.report.read_text())
+
     def test_unknown_diagnostic_prefix_rejected(self):
         args=["--lane","synthetic","--report",str(self.report),
               "--diagnostic-runner","secrets_dump","--",
