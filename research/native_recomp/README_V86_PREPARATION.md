@@ -18,3 +18,5 @@ callback ABI, executes the restored async wrapper, allocator and cache
 flushes, and stops at the real IPC submission function after observing
 the original wire request. No host writes to thread state or fabricated
 submission return. This does not yet complete the async IOS operation.
+
+V86 verified: owner run 44239753158 on e28f170c0e652e991c4817252cbf7080e86056a5 passed 16/16 trials and all entry/submission predicates.

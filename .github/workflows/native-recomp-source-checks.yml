@@ -43,6 +43,7 @@ jobs:
           python3 research/native_recomp/test_both_stm_opens_v85.py
           python3 research/native_recomp/test_stm_ioctl_fixture_v86.py
           python3 research/native_recomp/test_stm_ioctl_harness_v86.py
+          python3 research/native_recomp/test_stm_event_v87.py
       - name: Test original-free native dcbz memory effects
         run: |
           python3 research/native_recomp/test_dcbz_patch_v67.py
