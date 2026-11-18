@@ -69,6 +69,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_flat_cacheline_zero_v67.cpp
 "$work/dcbz-test"
 echo 'V79_STAGE runtime_cache_trace_verified'
 python3 "$here/derive_v79_reply_harness.py" "$here/test_start_to_ipc_ack_v77.cpp" "$work/harness.cpp"
+python3 "$here/derive_v79_reply_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"
 
 python3 "$here/make_start_to_ipc_ack_v77.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
     python3 "$here/classify_v77_fixture_failure.py" "$work/build-private.log" || true
@@ -82,7 +83,7 @@ echo 'V79_STAGE geometry_verified'
 
 g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
   -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include" \
-  "$here/generate_start_to_ipc_ack_v77.cpp" \
+  "$work/generator.cpp" \
   "$root/nWiiRuntime/src/core/loader.cpp" \
   "$root/nWiiAnalyzer/src/analyzer.cpp" \
   "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" \
@@ -96,7 +97,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
 echo 'V79_STAGE generator_compiled'
 mkdir "$work/generated"
 "$work/generator" "$work/private.dol" "$work/generated" owner   > "$work/generation.log" 2>&1 || {
-    python3 "$here/classify_v67_generator_failure.py" "$work/generation.log" "$here/generate_start_to_ipc_ack_v77.cpp"
+    python3 "$here/classify_v67_generator_failure.py" "$work/generation.log" "$work/generator.cpp"
     echo 'V72 original PPC generator guards failed; details withheld' >&2; exit 1;
   }
 echo 'V79_STAGE generation_complete'
