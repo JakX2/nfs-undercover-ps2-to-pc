@@ -227,6 +227,18 @@ int main(){
             assert(ram.read8(TitleOut+expected.size())==0u&&ram.read8(TitleOut+expected.size()+1u)==0xa5u);
             run_entry(EntryKind::Close,3u);
             assert(!bus.services().is_open(3u,S::Device::Es));
+            // Original SC initialization can attempt IOS_OpenAsync with an
+            // empty name in a reduced fixture. The IOS request still receives
+            // its real negative result through native IRQ, scheduler and RFI.
+            // Neither failure may allocate a descriptor or complete the
+            // independent STM eventhook request.
+            run_entry(EntryKind::FileOpen,uint32_t(S::FsInvalid),"");
+            run_entry(EntryKind::FileOpen,uint32_t(S::FsMissing),"/shared2/sys/not-here.bin");
+            assert(!bus.services().is_open(3u,S::Device::File)&&
+                   !bus.services().is_open(3u,S::Device::Es)&&
+                   bus.services().is_open(2u,S::Device::Fs)&&
+                   bus.services().event_pending()&&ram.read32(Event)==S::Ioctl&&
+                   ram.read32(Output)==0x11223344u&&ram.read32(Output+4u)==0x55667788u);
             run_entry(EntryKind::Close,2u);
             assert(!bus.services().is_open(2u,S::Device::Fs)&&!bus.services().is_open(3u,S::Device::File));
             assert(bus.services().event_pending()&&ram.read32(Event)==S::Ioctl&&ram.read32(Output)==0x11223344u);
@@ -241,6 +253,6 @@ int main(){
         }
     }
     std::cout.rdbuf(old);std::cerr.rdbuf(olderr);
-    assert(invocations==320u&&pairs==240u&&deferred==16u&&completed==16u&&total==512u&&err.str().find("Fallback dispatch")==std::string::npos&&err.str().find("UNKNOWN DISPATCH")==std::string::npos);
-    std::cout<<"PASS: 320 synthetic native entries, 240 synchronous IOS pairs (including read-only filesystem and title-vector transactions), 16 deferred event ACKs and 16 later event replies, 512 generated low-vector rfi returns, no fallback\n";
+    assert(invocations==352u&&pairs==272u&&deferred==16u&&completed==16u&&total==576u&&err.str().find("Fallback dispatch")==std::string::npos&&err.str().find("UNKNOWN DISPATCH")==std::string::npos);
+    std::cout<<"PASS: 352 synthetic native entries, 272 synchronous IOS pairs (including title vectors and negative SC file-open replies), 16 deferred event ACKs and 16 later event replies, 576 generated low-vector rfi returns, no fallback\n";
 }
