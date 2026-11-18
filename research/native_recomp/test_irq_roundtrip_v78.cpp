@@ -11,7 +11,8 @@
 using namespace synthetic_irq_roundtrip;
 using namespace undercover::wii;
 using B=IosBus;using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
-constexpr uint32_t Request=0x2000u,Path=0x2100u,Event=0x2200u,Output=0x2300u,State=0x2340u,FileOut=0x2380u,FileMeta=0x23c0u;
+constexpr uint32_t Request=0x2000u,Path=0x2100u,Event=0x2200u,Output=0x2300u,State=0x2340u,FileOut=0x2380u,FileMeta=0x23c0u,TitleVec=0x2400u,TitleIn=0x2440u,TitleOut=0x2480u;
+constexpr uint64_t Title=0x0001000041424344ull;
 namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 struct Ram final:IosMemory{
@@ -23,7 +24,7 @@ struct Ram final:IosMemory{
 static Ram ram;
 static B bus(ram);
 static unsigned entries=0,deliveries=0,acks=0,replies=0,controls=0,flags=0,reads=0,stops=0;
-enum class EntryKind { Idle, Open, Hook, StateQuery, EventReply, FileOpen, FileRead, FileSeek, FileStats, Close };
+enum class EntryKind { Idle, Open, Hook, StateQuery, EventReply, FileOpen, FileRead, FileSeek, FileStats, Close, TitleId, TitleDir };
 static EntryKind kind=EntryKind::Idle;
 static uint32_t expected_result=0,expected_slot=Request,expected_command=S::Open;
 static unsigned expected_irqs=0;
@@ -92,6 +93,7 @@ int main(){
     auto guest_files=std::make_shared<GuestFiles>();
     assert(guest_files->add("/shared2/sys/example.bin",{0x10,0x20,0x30,0x40,0x50}));
     assert(bus.services().mount_filesystem(guest_files));
+    assert(bus.services().mount_title_metadata(Title));
     for(unsigned i=0;i<bytes.size();++i)ctx->mmu.write8(Vector+i,bytes[i]);
     std::ostringstream out,err;auto* old=std::cout.rdbuf(out.rdbuf());auto* olderr=std::cerr.rdbuf(err.rdbuf());
     unsigned total=0,pairs=0,invocations=0,deferred=0,completed=0;
@@ -108,7 +110,8 @@ int main(){
         expected_result=opening?fd:next==EntryKind::FileRead?event_code:next==EntryKind::FileSeek?1u:0u;
         expected_slot=(next==EntryKind::Hook||next==EntryKind::EventReply)?Event:Request;
         expected_command=opening?S::Open:next==EntryKind::FileRead?S::Read:
-                         next==EntryKind::FileSeek?S::Seek:next==EntryKind::Close?S::Close:S::Ioctl;
+                         next==EntryKind::FileSeek?S::Seek:next==EntryKind::Close?S::Close:
+                         (next==EntryKind::TitleId||next==EntryKind::TitleDir)?S::Ioctlv:S::Ioctl;
         expected_irqs=next==EntryKind::Idle?0u:
                       (next==EntryKind::Hook||next==EntryKind::EventReply?1u:2u);
         assert(!bus.external_irq_level()&&bus.services().queued_replies()==0u);
@@ -123,6 +126,18 @@ int main(){
                 ram.write32(expected_slot,expected_command);ram.write32(expected_slot+8u,fd);
                 if(next==EntryKind::FileRead){ram.write32(expected_slot+12u,FileOut);ram.write32(expected_slot+16u,event_code);}
                 if(next==EntryKind::FileSeek){ram.write32(expected_slot+12u,uint32_t(-2));ram.write32(expected_slot+16u,1u);}
+            }else if(next==EntryKind::TitleId||next==EntryKind::TitleDir){
+                const bool dir=next==EntryKind::TitleDir;
+                ram.write32(expected_slot,S::Ioctlv);ram.write32(expected_slot+8u,fd);
+                ram.write32(expected_slot+12u,dir?S::EsGetDataDir:S::EsGetTitleId);
+                ram.write32(expected_slot+16u,dir?1u:0u);ram.write32(expected_slot+20u,1u);
+                ram.write32(expected_slot+24u,TitleVec);
+                if(dir){
+                    ram.write32(TitleVec,TitleIn);ram.write32(TitleVec+4u,8u);
+                    ram.write32(TitleVec+8u,TitleOut);ram.write32(TitleVec+12u,32u);
+                }else{
+                    ram.write32(TitleVec,TitleOut);ram.write32(TitleVec+4u,8u);
+                }
             }else if(next==EntryKind::FileStats){
                 ram.write32(expected_slot,S::Ioctl);ram.write32(expected_slot+8u,fd);
                 ram.write32(expected_slot+12u,S::FileStats);ram.write32(expected_slot+24u,FileMeta);
@@ -195,7 +210,24 @@ int main(){
             assert(ram.read32(FileMeta)==5u&&ram.read32(FileMeta+4u)==1u);
             run_entry(EntryKind::FileRead,3u,{},4u);
             assert(ram.read32(FileOut)==0x20304050u&&ram.read32(FileOut+4u)==0xabcdef01u);
-            run_entry(EntryKind::Close,3u);run_entry(EntryKind::Close,2u);
+            run_entry(EntryKind::Close,3u);
+            // Read-only ES vectors traverse the same native generated IRQ
+            // entry with a completed filesystem request and live STM event.
+            run_entry(EntryKind::Open,3u,"/dev/es");
+            assert(bus.services().is_open(3u,S::Device::Es));
+            ram.write32(TitleOut+8u,0xaabbccddu);
+            run_entry(EntryKind::TitleId,3u);
+            assert(ram.read32(TitleOut)==uint32_t(Title>>32)&&ram.read32(TitleOut+4u)==uint32_t(Title)&&
+                   ram.read32(TitleOut+8u)==0xaabbccddu);
+            ram.write32(TitleIn,ram.read32(TitleOut));ram.write32(TitleIn+4u,ram.read32(TitleOut+4u));
+            for(unsigned i=0;i<32u;++i)ram.write8(TitleOut+i,0xa5u);
+            run_entry(EntryKind::TitleDir,3u);
+            constexpr std::string_view expected="/title/00010000/41424344/data";
+            for(unsigned i=0;i<expected.size();++i)assert(ram.read8(TitleOut+i)==uint8_t(expected[i]));
+            assert(ram.read8(TitleOut+expected.size())==0u&&ram.read8(TitleOut+expected.size()+1u)==0xa5u);
+            run_entry(EntryKind::Close,3u);
+            assert(!bus.services().is_open(3u,S::Device::Es));
+            run_entry(EntryKind::Close,2u);
             assert(!bus.services().is_open(2u,S::Device::Fs)&&!bus.services().is_open(3u,S::Device::File));
             assert(bus.services().event_pending()&&ram.read32(Event)==S::Ioctl&&ram.read32(Output)==0x11223344u);
             run_entry(EntryKind::EventReply,event_fd,{},0x20000u+trial);
@@ -209,6 +241,6 @@ int main(){
         }
     }
     std::cout.rdbuf(old);std::cerr.rdbuf(olderr);
-    assert(invocations==256u&&pairs==176u&&deferred==16u&&completed==16u&&total==384u&&err.str().find("Fallback dispatch")==std::string::npos&&err.str().find("UNKNOWN DISPATCH")==std::string::npos);
-    std::cout<<"PASS: 256 synthetic native entries, 176 synchronous IOS pairs (including read-only filesystem transactions), 16 deferred event ACKs and 16 later event replies, 384 generated low-vector rfi returns, no fallback\n";
+    assert(invocations==320u&&pairs==240u&&deferred==16u&&completed==16u&&total==512u&&err.str().find("Fallback dispatch")==std::string::npos&&err.str().find("UNKNOWN DISPATCH")==std::string::npos);
+    std::cout<<"PASS: 320 synthetic native entries, 240 synchronous IOS pairs (including read-only filesystem and title-vector transactions), 16 deferred event ACKs and 16 later event replies, 512 generated low-vector rfi returns, no fallback\n";
 }
