@@ -1,0 +1,3 @@
+# V75: original external exception vector to registered handler (candidate)
+
+Extends verified V74 by AOT translating the **original installed external exception vector** at `0x80000500`, using the authenticated private template and exactly the debug patch/index installed by original OSExceptionInit. The generator validates relocation of direct branches. The original scheduler triggers actual native IRQ entry, unwinds generated callers, and run_game executes the original vector; guest rfi must reach the registered original external trampoline `0x80526CE0`. Assertions verify the actual saved idle context's SRR0/SRR1, GPRs, LR, CTR, XER and handler index/argument. No trampoline body, IPC handler, or IOS reply is executed at this bounded checkpoint. Owner CI pending.
