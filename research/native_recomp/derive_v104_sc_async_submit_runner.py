@@ -53,7 +53,10 @@ def derive(source):
         if source.count(old) != 1:
             raise ValueError("V83 source anchor missing or ambiguous")
         source = source.replace(old, new, 1)
-    return source.replace("V103_STAGE", "V104_STAGE").replace("V103_TRIAL_PASS", "V104_TRIAL_PASS")
+    out=source.replace("V103_STAGE", "V104_STAGE").replace("V103_TRIAL_PASS", "V104_TRIAL_PASS")
+    anchor="echo 'V104_STAGE native_test_passed'"
+    if out.count(anchor)!=1:raise ValueError("V104 native success trap anchor absent")
+    return out.replace(anchor, "trap 'echo V104_RUNNER_POSTFAIL line=$LINENO >&2' ERR\\n"+anchor,1)
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)

@@ -6,7 +6,10 @@ from derive_v107_sc_source_probe_harness import derive as previous
 EDITS = [(
     '                  <<" original_literal="<<owner_match<<std::endl;\n         }',
     '''                  <<" original_literal="<<owner_match<<std::endl;
-         check(owner_match&&guest_empty&&open71_ram(s,unsigned(public_sc.size()+1u)),
+         const bool span=open71_ram(s,unsigned(public_sc.size()+1u));
+         std::cout<<"V108_SC_GATE owner="<<owner_match<<" empty="<<guest_empty
+                  <<" span="<<span<<std::endl;
+         check(owner_match&&guest_empty&&span,
                "V108 SC literal provenance is not an omitted initialized data span");
          check(seed_stm_data(ctx,s,unsigned(public_sc.size()+1u)),
                "V108 SC authenticated original data restoration failed");

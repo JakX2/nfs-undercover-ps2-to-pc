@@ -79,6 +79,24 @@ jobs:
           grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$' "$RUNNER_TEMP/sc108.log" || true
           grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc108.log"
           grep -Fx 'V107_SC_SOURCE mapped=1 empty=1 original_literal=1' "$RUNNER_TEMP/sc108.log"
+          grep -E '^V108_SC_GATE owner=[01] empty=[01] span=[01]
+          # The subsequent V104 submit may still fail; do not claim boot.
+          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
+          echo 'PASS: original SC initialized literal restored at original guest input'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
+ "$RUNNER_TEMP/sc108.log" || true
+          grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}
+          # The subsequent V104 submit may still fail; do not claim boot.
+          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
+          echo 'PASS: original SC initialized literal restored at original guest input'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
+ "$RUNNER_TEMP/sc108.log" || true
           grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
           # The subsequent V104 submit may still fail; do not claim boot.
           grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
