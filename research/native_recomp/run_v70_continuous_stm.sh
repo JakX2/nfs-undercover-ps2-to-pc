@@ -89,10 +89,21 @@ mkdir "$work/generated"
     echo 'V70 original PPC generator guards failed; details withheld' >&2; exit 1;
   }
 echo 'V70_STAGE generation_complete'
-g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
-  -I"$root/nWiiRuntime/include" \
-  "$here/test_start_to_stm_v70.cpp" "$work/generated/output.cpp" \
-  "$root/nWiiRuntime/src/core/loader.cpp" \
+# Compile public harness and private generated source independently to
+# classify warnings without ever showing private source or diagnostics.
+for unit in harness generated loader; do
+  case "$unit" in
+    harness) source="$here/test_start_to_stm_v70.cpp";;
+    generated) source="$work/generated/output.cpp";;
+    loader) source="$root/nWiiRuntime/src/core/loader.cpp";;
+  esac
+  g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+    -I"$root/nWiiRuntime/include" -c "$source" -o "$work/$unit.o" > "$work/native-compile.log" 2>&1 || {
+      python3 "$here/classify_v70_compile_failure.py" "$work/native-compile.log" "$unit"
+      exit 1
+    }
+done
+g++ "$work/harness.o" "$work/generated.o" "$work/loader.o" \
   -o "$work/native" > "$work/native-compile.log" 2>&1 || {
     python3 "$here/classify_v67_compile_failure.py" "$work/native-compile.log"
     echo 'V70 original translated native compilation failed' >&2; exit 1;
