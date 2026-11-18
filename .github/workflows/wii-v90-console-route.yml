@@ -123,7 +123,7 @@ jobs:
           grep -E '^V88_ACTIVE_VECTOR route=[01] saved=[01] running=[01] masked=[01]$|^V88_ACTIVE_ACK clear=[01] deferred=[01] running=[01] route=[01]$|^V88_ACTIVE_RFI regs=[01] status=[01] running=[01] deferred=[01]$|^V88_STM_RETURN route=[01] abi=[01] running=[01] deferred=[01] devices=[01]$' "$RUNNER_TEMP/v90-focused.log"
           grep -E '^V89_SUBSYSTEM route=[01] queue=[01] abi=[01] version=[01] pending=[01]$' "$RUNNER_TEMP/v90-focused.log"
           grep -E '^V90_CONSOLE_ROUTE route=[01] abi=[01] console=[01] queue=[01] devices=[01] pending=[01]$|^V90_ROUTE_TARGET mode=[0-3] pc=(8051e7e4|8052f94c)$' "$RUNNER_TEMP/v90-focused.log"
-          grep -E '^BOOT_PROGRESS entry=0x8000403C pc=0x(8051E7E4|8052F94C) stage=90 "$RUNNER_TEMP/v90-focused.log"
+          grep -E '^BOOT_PROGRESS entry=0x8000403C pc=0x(8051E7E4|8052F94C) stage=90$' "$RUNNER_TEMP/v90-focused.log"
           echo 'PASS: V90 original console route reached verified dependency'
       - name: Remove private originals and generated code
         if: always()
