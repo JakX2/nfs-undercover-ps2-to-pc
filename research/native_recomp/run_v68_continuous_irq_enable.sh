@@ -66,7 +66,7 @@ python3 "$here/make_start_to_irq_enable_v68.py" "$owner" "$work/private.dol"   >
   }
 echo 'V68_STAGE fixture_generated'
 python3 "$here/test_v68_continuous_irq_enable_geometry.py" "$work/private.dol" "$owner"   > "$work/private-geometry.log" 2>&1 || {
-    echo 'V68 EXIInit return geometry guard failed' >&2; exit 1;
+    echo 'V68 IRQ-enable geometry guard failed' >&2; exit 1;
   }
 echo 'V68_STAGE geometry_verified'
 
@@ -102,7 +102,7 @@ echo 'V68_STAGE native_compiled'
   python3 "$here/classify_v67_native_failure.py" \
     "$work/private-native.log" "$here/test_start_to_irq_enable_v68.cpp" || \
     echo 'V68_NATIVE_ASSERTION id=000'
-  echo 'V68 original native EXI assertion failed; details withheld' >&2
+  echo 'V68 original native IRQ-enable assertion failed; details withheld' >&2
   exit 1
 }
 echo 'V68_STAGE native_test_passed'
@@ -111,4 +111,4 @@ grep -Eq '^PASS: [0-9]+ V68 recovered continuous original __start->OSInit interr
   echo 'V68 original native return checkpoint marker is missing' >&2; exit 1;
 }
 echo 'PASS: original Wii continuous __start returned from original IRQ enable at 0x80520948'
-echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80520948 stage=67'
+echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80520948 stage=68'
