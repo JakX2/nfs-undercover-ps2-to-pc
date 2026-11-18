@@ -2165,9 +2165,35 @@ int main(int argc,char**argv){
     check(zero[1].start==0x8070ab60u&&zero[1].size==13164,"wrong owner BSS range 1");
     check(zero[2].start==0x80711c80u&&zero[2].size==56,"wrong owner BSS range 2");
   }
+  // Each trial represents a cold boot. Snapshot the untouched, reduced
+  // fixture after its explicit loader setup, not any prior guest execution.
+  // A fresh CPUContext also resets unscripted CPU state between independent
+  // boot trials. Keep the original early-IPC zero-word assertion intact.
+  struct BootRamBank { uint32_t base, size; std::vector<uint8_t> bytes; };
+  std::array<BootRamBank,2> boot_ram{{
+    {0x80000000u,MEM1_BYTES,{}},{0x90000000u,MEM2_BYTES,{}}
+  }};
+  const auto bank_ptr=[](nwii::runtime::CPUContext& cpu,const BootRamBank& bank){
+    auto* ptr=cpu.mmu.get_ptr(bank.base);
+    check(ptr&&cpu.mmu.get_ptr(bank.base+bank.size-1u)==ptr+bank.size-1u,
+          "cold boot fixture RAM bank not contiguous");
+    return ptr;
+  };
+  if(owner)for(auto& bank:boot_ram){
+    const auto* ptr=bank_ptr(*ctx,bank);
+    bank.bytes.assign(ptr,ptr+bank.size);
+  }
   uint32_t seed=0x9e3779b9u;
   const unsigned trials=owner?16u:16u;
   for(unsigned trial=0;trial<trials;++trial){
+    if(owner&&trial!=0u){
+      // Release the old context before allocating another full RAM image.
+      nwii::runtime::ipc70_ram.cpu=nullptr;
+      ctx.reset();
+      ctx=std::make_unique<nwii::runtime::CPUContext>();
+      for(const auto& bank:boot_ram)
+        std::memcpy(bank_ptr(*ctx,bank),bank.bytes.data(),bank.size);
+    }
     auto&c=*ctx;
     if(owner){
       // Reload the authenticated initialized SI memory on every independent boot.
@@ -2519,6 +2545,7 @@ int main(int argc,char**argv){
              "IPC client disturbed earlier arena, BAT, OS buffer, or startup stack state");
        check(nwii::runtime::unexpected_mmio==0u&&c.inst_count>before_inst+100u,
              "IPC client unexpected hardware access or no native progress");
+       std::cout<<"V77_TRIAL_PASS trial="<<trial+1u<<std::endl;
        continue;
      }
     check(nwii::runtime::db_entries==before_db+1,"translated DBInit not entered exactly once");
