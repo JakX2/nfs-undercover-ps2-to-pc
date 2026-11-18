@@ -1,0 +1,3 @@
+# V73: native original IPC sleep queue enrollment (candidate)
+
+Continues verified V72 without changing the original request/ACK state, restores the full original OSSleepThread at `0x8052A430`, authenticates its nested interrupt disable/restore and scheduler call edges, and stops at real SelectThread entry `0x80529718`. The code asserts the original initialized request queue is empty before sleep and contains the default guest thread afterward, with WAITING state and correct bidirectional links. The hardware ACK stays pending while MSR.EE is disabled. The fixture does not fake a scheduler return or deliver a synthetic IPC reply. Owner CI pending.
