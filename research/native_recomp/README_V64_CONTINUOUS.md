@@ -1,0 +1,2 @@
+# V64: original DSP audio initialization return (candidate)
+Restores the remaining original DSP reset, mailbox drain, two 32-byte main-memory-to-ARAM DMA transfers, inter-transfer timebase wait, init mode/halt change, synthetic device completion mailbox, second reset, RAM restore and audio epilogue. Strict bounded device rejects invalid order, address, direction and length; the transfer copies original private bytes into ARAM at completion. This is a boot-time test device, not DSP instruction execution or sound output. Verification pending; target OSInit 0x805208D8.
