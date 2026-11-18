@@ -43,7 +43,7 @@ g++ -std=c++20 -O2 -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" 
     echo 'V71 original-free jump-table analyzer test compile failed' >&2; exit 1;
   }
 "$work/jump-table-test"
-python3 "$here/apply_explicit_tail_roots_v71.py" "$root"
+python3 "$here/apply_explicit_tail_roots_v71.py" "$root" --strict-native
 g++ -std=c++20 -O2 -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" \
   "$here/test_explicit_tail_roots_v71.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \
   "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$root/nWiiAnalyzer/src/signature_scanner.cpp" \
@@ -113,7 +113,7 @@ for unit in harness generated loader; do
 done
 g++ "$work/harness.o" "$work/generated.o" "$work/loader.o" \
   -o "$work/native" > "$work/native-compile.log" 2>&1 || {
-    python3 "$here/classify_v67_compile_failure.py" "$work/native-compile.log"
+    python3 "$here/classify_v71_link_failure.py" "$work/native-compile.log"
     echo 'V71 original translated native compilation failed' >&2; exit 1;
   }
 echo 'V71_STAGE native_compiled'

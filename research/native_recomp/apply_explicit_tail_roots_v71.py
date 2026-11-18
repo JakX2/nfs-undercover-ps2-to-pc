@@ -30,11 +30,18 @@ def rewrite(source):
         raise ValueError("unexpected explicit-root analyzer layout")
     for old,new in pairs:source=source.replace(old,new)
     return source
-def apply(root):
+def disable_automatic_hle(source):
+    old="func.hle_hook_name = scanner.match(opcodes);"
+    new="func.hle_hook_name.clear(); // strict native-only lane"
+    if source.count(new)==1 and old not in source:return source
+    if source.count(old)!=1:raise ValueError("unexpected automatic HLE signature selection layout")
+    return source.replace(old,new)
+def apply(root,strict_native=False):
     path=root/FILE
     source=path.read_text();new=rewrite(source)
+    if strict_native:new=disable_automatic_hle(new)
     if new!=source:path.write_text(new)
     return new!=source
 if __name__=="__main__":
-    p=argparse.ArgumentParser();p.add_argument("root",type=Path);a=p.parse_args()
-    print("PASS: explicit-root tail thunk analyzer patch",apply(a.root))
+    p=argparse.ArgumentParser();p.add_argument("root",type=Path);p.add_argument("--strict-native",action="store_true");a=p.parse_args()
+    print("PASS: explicit-root tail thunk analyzer patch",apply(a.root,a.strict_native))

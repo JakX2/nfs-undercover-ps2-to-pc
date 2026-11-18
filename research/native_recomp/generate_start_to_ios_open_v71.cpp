@@ -124,6 +124,7 @@ int main(int argc,char** argv)try{
  if(owner)analyzer.analyze({FPR,CACHE,REPORT,0x80000c00u,0x805270c4u,0x80527144u,0x8051ab34u});
  else analyzer.analyze({FPR,CACHE,REPORT});
  const auto& funcs=analyzer.get_functions();
+ for(const auto& [pc,fn]:funcs){(void)pc;require(fn.hle_hook_name.empty(),"automatic HLE signature hook forbidden in native V71 lane");}
  require(owner ? (funcs.size()>=62u && funcs.size()<=256u) : funcs.size()==24u,
           "unexpected V30 analyzed function count: "+std::to_string(funcs.size()));
  for(uint32_t pc:{START,REGS,HW,INIT,PS,FPR,CACHE,DBINIT,DBPRINTF,OSINIT,ERR,OSTIME,SAVE20})

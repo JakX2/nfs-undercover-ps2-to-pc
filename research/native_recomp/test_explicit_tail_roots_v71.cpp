@@ -26,6 +26,7 @@ int main(){
         assert(f.count(pc)&&f.at(pc).start_address==pc&&f.at(pc).instructions.size()==1);
     }
     assert(f.at(body).instructions.size()==2);
+    for(const auto& [pc,fn]:f){(void)pc;assert(fn.hle_hook_name.empty());}
     assert(f.at(local).instructions.size()==3); // nonexplicit local target
     // An interior branch is not an entry thunk, even with an explicit root.
     auto bytes2=be({0x60000000u,b(base+4,body),0x60000000u,0x60000000u,0x38600007u,0x4e800020u});
