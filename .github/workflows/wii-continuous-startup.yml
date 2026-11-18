@@ -1368,6 +1368,37 @@ jobs:
           assert r['pass_markers']>=1
           print('PASS: native original Wii __start reached audio Hollywood reset return at 0x80522010')
           PY
+      - name: Prepare explicitly authorized immutable low-memory vector AOT
+        run: python3 research/native_recomp/apply_native_lowmem_v63.py "$RUNNER_TEMP/nwii"
+      - name: Verify owner-original Wii DSP bootstrap staging/native SC return (V63)
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/boot_progress.py \
+            --lane continuous-start --baseline "$RUNNER_TEMP/frontier-v62.json" \
+            --require-progress --report "$RUNNER_TEMP/frontier-v63.json" \
+            --diagnostic-runner V63 \
+            --timeout 1400 --expected-entry 0x8000403C --expected-pc 0x80522044 \
+            --dol "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            --sha256 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 \
+            -- bash research/native_recomp/run_v63_continuous_dsp_stage.sh \
+              "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v63-private.log" 2>&1 || {
+              grep -E '^BOOT_DIAGNOSTIC stage=V63\.(runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v63-private.log" || true
+              grep -E '^BOOT_DIAGNOSTIC assertion_id=V63\.[0-9]{3}$' "$RUNNER_TEMP/v63-private.log" || true
+              echo 'V63 original Wii DSP bootstrap staging/native SC return failed; owner details withheld' >&2
+              exit 1
+            }
+          python3 - "$RUNNER_TEMP/frontier-v63.json" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          assert r['lane']=='continuous-start' and r['status']=='advanced'
+          assert r['observed_entry']==0x8000403C
+          assert r['observed_pc']==0x80522044 and r['stage']==63
+          assert r['pass_markers']>=1
+          print('PASS: native original Wii __start reached DSP bootstrap staging/native SC return at 0x80522044')
+          PY
       - name: Remove private originals and temporary translations
         if: always()
         run: |
@@ -1396,4 +1427,5 @@ jobs:
             "$RUNNER_TEMP/v59-private.log" "$RUNNER_TEMP/frontier-v59.json" \
             "$RUNNER_TEMP/v60-private.log" "$RUNNER_TEMP/frontier-v60.json" \
             "$RUNNER_TEMP/v61-private.log" "$RUNNER_TEMP/frontier-v61.json" \
-            "$RUNNER_TEMP/v62-private.log" "$RUNNER_TEMP/frontier-v62.json"
+            "$RUNNER_TEMP/v62-private.log" "$RUNNER_TEMP/frontier-v62.json" \
+            "$RUNNER_TEMP/v63-private.log" "$RUNNER_TEMP/frontier-v63.json"
