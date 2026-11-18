@@ -136,6 +136,33 @@ def scan(raw,funcs):
                 relative+=1;outside+=not(template<=pc+disp<template+0x98)
         elif major==19 and ((op>>1)&1023) in (16,50,528):indirect+=1
     print(f"POST73_VECTOR bytes=152 direct={direct} relative={relative} outside={outside} indirect={indirect}")
+    # Map the original ACK and reply-path scheduler dependencies to depth 1.
+    # This is control-flow geometry, not disassembly, instructions or data.
+    roots=(0x80519318,0x805190c0,0x8051b060,0x8051b070,
+           0x805293f8,0x80529434,0x80529940,0x8052a51c)
+    todo=[(a,0) for a in roots];visited=set()
+    while todo and len(visited)<24:
+        addr,depth=todo.pop(0)
+        if addr in visited or not 0<funcs.get(addr,0)<=MAX_SIZE:continue
+        visited.add(addr)
+        print(f"POST76_ROOT addr=0x{addr:08X} depth={depth}")
+        edges=describe(raw,funcs,addr)
+        if depth<1:todo.extend((dst,depth+1) for _,dst in edges if dst not in visited)
+    # Resolve direct conditional destinations in the two handler bodies.
+    # Inspect SDA access geometry without publishing initialized values.
+    for addr in (0x80519318,0x805190c0,0x8051b060,0x8051b070,0x805293f8,0x80529434):
+        size=funcs[addr]
+        for i,(op,) in enumerate(struct.iter_unpack(">I",get_text(raw,addr,size))):
+            pc=addr+4*i;major=op>>26;ra=(op>>16)&31
+            if major==16:
+                disp=op&0xfffc
+                if disp&0x8000:disp-=0x10000
+                dst=(disp if op&2 else pc+disp)&0xffffffff
+                print(f"POST76_BRANCH func=0x{addr:08X} site=0x{pc:08X} target=0x{dst:08X}")
+            if ra in (2,13) and major in (32,34,40,42,36,38,44):
+                offset=op&0xffff
+                if offset&0x8000:offset-=0x10000
+                print(f"POST76_SDA func=0x{addr:08X} site=0x{pc:08X} base={ra} offset={offset} access={'load' if major in (32,34,40,42) else 'store'}")
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
