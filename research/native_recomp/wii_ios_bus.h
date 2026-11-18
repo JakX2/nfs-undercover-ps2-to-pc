@@ -64,6 +64,11 @@ public:
         }
     }
     StmIos::Pump tick() {
+        // Do not publish a second notification through a latched IPC IRQ
+        // before Broadway acknowledges the previous interrupt. This is a
+        // readiness constraint, not a model of the physical timing delay.
+        if(irq_.read(IpcMailbox::Side::Broadway,HollywoodIrq::PPC_FLAG)&HollywoodIrq::IPC_PPC)
+            return StmIos::Pump::Busy;
         const auto result=ios_.pump();
         irq_.sample_ipc(mail_);
         return result;

@@ -19,6 +19,7 @@ int main(){
     auto rd=[&](uint32_t a){auto v=bus.read32(a);assert(v);return *v;};
     auto ack=[&](uint32_t bit){
         wr(B::IPC+M::PPCCTRL,en|bit);
+        assert(bus.tick()==S::Pump::Busy); // IRQ latch still pending
         wr(B::MIRROR+H::PPC_FLAG,H::IPC_PPC);
         assert(!bus.external_irq_level());
     };
