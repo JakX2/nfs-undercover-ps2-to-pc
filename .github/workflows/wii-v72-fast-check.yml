@@ -75,6 +75,7 @@ jobs:
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/v72-focused.log" 2>&1 || {
               grep -E '^V72_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v72-focused.log" || true
+              grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$RUNNER_TEMP/v72-focused.log" || true
               grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$RUNNER_TEMP/v72-focused.log" || true
               grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V72_COMPILE_UNIT (harness|generated|loader)$|^V72_HARNESS_LINE [0-9]+$|^V72_WARNING [a-z0-9-]+$' "$RUNNER_TEMP/v72-focused.log" || true
               echo 'V72 candidate failed; private logs withheld' >&2

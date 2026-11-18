@@ -122,6 +122,7 @@ echo 'V72_STAGE native_compiled'
     "$work/private-native.log" "$here/test_start_to_ipc_submit_v72.cpp" || \
     echo 'V71_NATIVE_ASSERTION id=000'
   echo 'V72 original IOS_Open assertion failed; details withheld' >&2
+  grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$work/private-native.log" || true
   grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" || true
   exit 1
 }

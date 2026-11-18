@@ -582,8 +582,15 @@ static bool submit72_trace(uint32_t addr,CPUContext&ctx){
    if(addr==0x8052a430u){
      using Bus=undercover::wii::IosBus;using Mail=undercover::wii::IpcMailbox;
      using Irq=undercover::wii::HollywoodIrq;using IOS=undercover::wii::StmIos;
-     check(ctx.lr==OS_RET_OWNER&&submit72_message==1u&&submit72_x1==1u&&submit72_ack==0u&&
-           !(ctx.msr&0x8000u),"original IPC thread sleep not reached after request send");
+     std::cout<<"V72_SEND_STATE lr="<<(ctx.lr==OS_RET_OWNER)
+               <<" msg="<<submit72_message<<" x1="<<submit72_x1<<" ee="<<bool(ctx.msr&0x8000u)
+               <<" flush="<<submit72_flush<<" disable="<<submit72_disable
+               <<" ack="<<submit72_ack<<std::endl;
+     check(ctx.lr==OS_RET_OWNER,"original IPC thread sleep callsite differs");
+     check(submit72_message==1u,"original IPC thread sleep reached without PPCMSG");
+     check(submit72_x1==1u,"original IPC thread sleep reached without X1");
+     check(submit72_ack==0u,"original IPC ACK already serviced before boundary");
+     check(!(ctx.msr&0x8000u),"original IPC thread sleep entered with interrupts enabled");
      const uint32_t request=submit72_phys;
      check(ipc70_ram.valid(request,64u)&&!(request&31u)&&
            ipc70_ram.read32(request)==IOS::Open,"actual mailbox message is not an aligned IOS_Open request");
