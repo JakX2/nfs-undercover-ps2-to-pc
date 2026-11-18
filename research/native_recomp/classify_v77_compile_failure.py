@@ -10,12 +10,12 @@ print(f"V67_NATIVE_ASSERTION id={classify(log):03d}")
 print(f"V77_COMPILE_UNIT {unit}")
 if unit=="generator":
     for line in log.splitlines():
-        m=re.search(r"generate_start_to_ipc_ack_v77\.cpp:(\d+):\d+: (?:fatal )?error:",line)
+        m=re.search(r"(?:^|/)(?:generate_start_to_ipc_ack_v77|generator)\.cpp:(\d+):\d+: (?:fatal )?error:",line)
         if m:print("V77_GENERATOR_LINE "+m.group(1))
 # Strict allowlist: public harness location or standard compiler warning name.
 for line in log.splitlines():
     if "error:" not in line:continue
-    m=re.search(r"test_start_to_ipc_ack_v77\.cpp:(\d+):\d+: (?:fatal )?error:",line)
+    m=re.search(r"(?:^|/)(?:test_start_to_ipc_ack_v77|harness)\.cpp:(\d+):\d+: (?:fatal )?error:",line)
     if unit=="harness" and m:print("V77_HARNESS_LINE "+m.group(1))
     m=re.search(r"\[-Werror=([a-z0-9-]+)\]",line)
     if m and m.group(1) in ("parentheses","misleading-indentation","unused-but-set-variable",
