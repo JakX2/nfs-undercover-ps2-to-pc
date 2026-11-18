@@ -10,7 +10,7 @@ EDITS = [
   ],
   [
     " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;",
-    " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;\n static unsigned post104_save=0,post104_alloc_head=0,post104_alloc=0,post104_disable=0,post104_restore=0,post104_flush=0,post104_sc=0,post104_submit=0,post104_trace=0;\n static uint32_t post104_flush_base=0,post104_flush_len=0;\n static uint64_t post104_flush_before=0;"
+    " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;\n static unsigned post104_save=0,post104_alloc_head=0,post104_alloc=0,post104_disable=0,post104_restore=0,post104_flush=0,post104_sc=0,post104_submit=0,post104_trace=0;\n static uint32_t post104_flush_base=0,post104_flush_len=0;\n static uint64_t post104_flush_before=0;\n static unsigned post104_vector=0;\n static bool post104_vector_active=false;"
   ],
   [
     "       if(addr==POST_OWNER&&ctx.lr==0x804f1eccu){",
@@ -26,7 +26,7 @@ EDITS = [
   ],
   [
     "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;",
-    "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;\n     nwii::runtime::post104_save=nwii::runtime::post104_alloc_head=nwii::runtime::post104_alloc=nwii::runtime::post104_disable=nwii::runtime::post104_restore=nwii::runtime::post104_flush=nwii::runtime::post104_sc=nwii::runtime::post104_submit=nwii::runtime::post104_trace=0;\n     nwii::runtime::post104_flush_base=nwii::runtime::post104_flush_len=0;\n     nwii::runtime::post104_flush_before=0;"
+    "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;\n     nwii::runtime::post104_save=nwii::runtime::post104_alloc_head=nwii::runtime::post104_alloc=nwii::runtime::post104_disable=nwii::runtime::post104_restore=nwii::runtime::post104_flush=nwii::runtime::post104_sc=nwii::runtime::post104_submit=nwii::runtime::post104_trace=0;\n     nwii::runtime::post104_flush_base=nwii::runtime::post104_flush_len=0;\n     nwii::runtime::post104_flush_before=0;\n     nwii::runtime::post104_vector=0;nwii::runtime::post104_vector_active=false;"
   ],
   [
     "       check(nwii::runtime::post103_async==1u&&",
@@ -50,7 +50,7 @@ EDITS = [
   ],
   [
     "  if(own&&post95_active&&ctx.pc==0x805222e8u&&(ctx.lr==0x8051a474u||ctx.lr==0x8051a4ccu||ctx.lr==0x8051a514u)){",
-    "  if(own&&post103_async==1u&&ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){\n    const bool order=post104_flush==1u&&post104_sc==0u;\n    const uint64_t lines=((post104_flush_base&31u)+uint64_t(post104_flush_len)+31u)/32u;\n    const bool count=ctx.guest_flush_count==post104_flush_before+lines;\n    std::cout<<\"V104_ASYNC_SYSCALL order=\"<<order<<\" lines=\"<<count<<std::endl;\n    check(order&&count,\"V104 IOS_OpenAsync native cache syscall order or line count differs\");\n    const uint32_t msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;\n    const auto gp=ctx.gpr;\n    native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,!ipc70_bus.external_irq_level(),[](auto& c){func_80000C00(c);});\n    check(ctx.msr==msr&&ctx.lr==lr&&ctx.hid0==hid&&ctx.ctr==ctr,\n          \"V104 IOS_OpenAsync native cache syscall state changed\");\n    for(unsigned r=0;r<32u;++r)if(r!=9u&&r!=10u)\n      check(ctx.gpr[r]==gp[r],\"V104 IOS_OpenAsync cache syscall changed unrelated GPR\");\n    ++post104_sc;return true;\n  }\n  if(own&&post95_active&&ctx.pc==0x805222e8u&&(ctx.lr==0x8051a474u||ctx.lr==0x8051a4ccu||ctx.lr==0x8051a514u)){"
+    "  if(own&&post103_async==1u&&ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){\n    const bool order=post104_flush==1u&&post104_sc==0u;\n    const uint64_t lines=((post104_flush_base&31u)+uint64_t(post104_flush_len)+31u)/32u;\n    const bool count=ctx.guest_flush_count==post104_flush_before+lines;\n    std::cout<<\"V104_ASYNC_SYSCALL order=\"<<order<<\" lines=\"<<count<<std::endl;\n    check(order&&count,\"V104 IOS_OpenAsync native cache syscall order or line count differs\");\n    const uint32_t msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;\n    const auto gp=ctx.gpr;\n    check(!post104_vector_active&&post104_vector==0u,\"V104 syscall vector already active\");\n    post104_vector_active=true;\n    native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,!ipc70_bus.external_irq_level(),[](auto& c){func_80000C00(c);});\n    post104_vector_active=false;\n    check(post104_vector==1u,\"V104 genuine installed native syscall vector was not entered\");\n    check(ctx.msr==msr&&ctx.lr==lr&&ctx.hid0==hid&&ctx.ctr==ctr,\n          \"V104 IOS_OpenAsync native cache syscall state changed\");\n    for(unsigned r=0;r<32u;++r)if(r!=9u&&r!=10u)\n      check(ctx.gpr[r]==gp[r],\"V104 IOS_OpenAsync cache syscall changed unrelated GPR\");\n    ++post104_sc;return true;\n  }\n  if(own&&post95_active&&ctx.pc==0x805222e8u&&(ctx.lr==0x8051a474u||ctx.lr==0x8051a4ccu||ctx.lr==0x8051a514u)){"
   ],
   [
     "     if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V98_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;",
@@ -75,6 +75,10 @@ EDITS = [
   [
     "bool handle_syscall(CPUContext&ctx){",
     "bool handle_syscall(CPUContext&ctx){\n  v104_last_hook=ctx.pc;v104_last_lr=ctx.lr;"
+  ],
+  [
+    " static bool submit72_trace(uint32_t addr,CPUContext&ctx){",
+    " static bool submit72_trace(uint32_t addr,CPUContext&ctx){\n   if(post104_vector_active&&addr==SYSCALL_DEST){\n     const bool valid=ctx.lr==0x80519904u&&post104_vector==0u&&\n                      post104_flush==1u&&post104_sc==0u;\n     std::cout<<\"V104_ASYNC_VECTOR route=\"<<valid<<std::endl;\n     check(valid,\"V104 original installed syscall vector entry differs\");\n     ++post104_vector;return true; // original native vector executes normally\n   }"
   ]
 ]
 
