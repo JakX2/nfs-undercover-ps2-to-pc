@@ -19,23 +19,23 @@ EDITS = [
   ],
   [
     "V97 recovered continuous original __start->ES close return assertions; mode=owner trials=16 stop=0x80527b4c",
-    "V98 recovered continuous original __start->NAND callback registration assertions; mode=owner trials=16 stop=0x8051e5bc"
+    "V98 recovered continuous original __start->NAND callback registration assertions; mode=owner trials=16 stop=0x8052f94c"
   ],
   [
     "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80527B4C stage=97'",
-    "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x8051E5BC stage=98'"
+    "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x8052F94C stage=98'"
   ],
   [
     "PASS: original Wii continuous __start completed original ES close and returned to NANDInit",
-    "PASS: original Wii continuous __start registered NAND shutdown callback and reached final NAND initializer"
+    "PASS: original Wii continuous __start registered NAND shutdown callback and returned from NANDInit to next original subsystem"
   ],
   [
     "  echo 'V97 original ES close return failed; details withheld' >&2",
-    "  grep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' \"$work/private-native.log\" | sort -u || true\n  echo 'V98 original NAND registration failed; details withheld' >&2"
+    "  grep -E '^V98_NAND_RETURN route=[01] stack=[01] status=[01]$|^V98_CONDITIONAL_HELPER selected=1$|^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' \"$work/private-native.log\" | sort -u || true\n  echo 'V98 original NAND registration failed; details withheld' >&2"
   ],
   [
     "echo 'V97_STAGE native_test_passed'",
-    "echo 'V98_STAGE native_test_passed'\ngrep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$' \"$work/private-native.log\" | sort -u"
+    "echo 'V98_STAGE native_test_passed'\ngrep -E '^V98_NAND_RETURN route=[01] stack=[01] status=[01]$|^V98_CONDITIONAL_HELPER selected=1$|^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$' \"$work/private-native.log\" | sort -u"
   ]
 ]
 

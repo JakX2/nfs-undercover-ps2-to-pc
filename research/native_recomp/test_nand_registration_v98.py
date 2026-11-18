@@ -14,14 +14,14 @@ class NandRegistrationTest(unittest.TestCase):
         prior=previous(base);s=derive(base)
         for a,_ in EDITS:self.assertEqual(prior.count(a),1)
         self.assertEqual(s,derive(base))
-        for marker in ("V98_NAND_CALLBACK","V98_TRIAL_PASS","POST_OWNER=0x8051e5bcu"):
+        for marker in ("V98_NAND_CALLBACK","V98_TRIAL_PASS","POST_OWNER=0x8052f94cu"):
             self.assertEqual(s.count(marker),1)
         self.assertEqual(s.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(s.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
         self.assertIn('seed_stm_data(ctx,post98_node,8u)',s)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8051E5BC stage=98",s)
+        self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8052F94C stage=98",s)
         self.assertIn("restore_es_close_v97.py",s)
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"run.sh";p.write_text(s)
