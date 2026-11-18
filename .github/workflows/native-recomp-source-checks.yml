@@ -59,6 +59,11 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             research/native_recomp/test_wii_ios_bus.cpp -o "$RUNNER_TEMP/ios-bus-test"
           "$RUNNER_TEMP/ios-bus-test"
+      - name: Test enabled-interrupt cache syscall entry under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            research/native_recomp/test_native_idle_cache_sc.cpp -o "$RUNNER_TEMP/idle-sc"
+          "$RUNNER_TEMP/idle-sc"
       - name: Reject proprietary game fixture extensions
         run: |
           if git ls-files research/native_recomp | grep -E '\.(dol|elf|iso|gcm|gcz)$|/owner_PRIVATE\.'; then
