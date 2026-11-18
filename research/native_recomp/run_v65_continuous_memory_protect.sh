@@ -58,6 +58,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$root/nWiiRuntime/include" "$here/te
 echo 'V65_STAGE runtime_cache_trace_verified'
 
 python3 "$here/make_start_to_memory_protect_v65.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
+    python3 "$here/classify_v65_fixture_failure.py" "$work/build-private.log" || true
     echo 'V65 fixture construction failed; owner details withheld' >&2; exit 1;
   }
 echo 'V65_STAGE fixture_generated'

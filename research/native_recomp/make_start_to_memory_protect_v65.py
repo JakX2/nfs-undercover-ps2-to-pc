@@ -23,17 +23,17 @@ def make(owner):
         if call_target(text_at(raw,pc,4),pc,pc)!=dest:raise ValueError("V65 original memory protection call edge changed")
     for pc in (0x80527140,0x80527214,0x80527564):
         if (word(text_at(raw,pc,4),0)>>1)&1023!=50:raise ValueError("original BAT trampoline rfi changed")
-    def install(lo,body,expected):
+    def install(lo,body,expected,code):
         hits=[(b,c) for b,c in text if b<=lo and lo+len(body)<=b+len(c)]
-        if len(hits)!=1:raise ValueError("V65 memory range not mapped")
+        if len(hits)!=1:raise ValueError(f"V65 private fixture range {code} not mapped")
         b,c=hits[0];at=lo-b
-        if c[at:at+len(body)]!=expected:raise ValueError("V65 memory code overlaps previously verified code")
+        if c[at:at+len(body)]!=expected:raise ValueError(f"V65 private fixture range {code} overlap")
         c[at:at+len(body)]=body
-    for lo,hi in RANGES:install(lo,text_at(raw,lo,hi-lo),struct.pack(">I",NOP)*((hi-lo)//4))
-    for addr in GUARDS:install(addr,struct.pack(">II",SC,BLR),struct.pack(">II",NOP,NOP))
+    for i,(lo,hi) in enumerate(RANGES):install(lo,text_at(raw,lo,hi-lo),struct.pack(">I",NOP)*((hi-lo)//4),i)
+    for i,addr in enumerate(GUARDS):install(addr,struct.pack(">II",SC,BLR),struct.pack(">II",NOP,NOP),4+i)
     n=STOP-PREV_STOP
     install(PREV_STOP,text_at(raw,PREV_STOP,n)+struct.pack(">II",SC,BLR),
-            struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(n//4))
+            struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(n//4),10)
     node=data_at(raw,NODE,16)
     if word(node,0)!=GUARDS[0] or word(node,4)!=127 or node[8:]!=bytes(8):
         raise ValueError("V65 original shutdown registration data changed")
