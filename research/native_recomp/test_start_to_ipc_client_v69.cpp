@@ -6,6 +6,7 @@
 #include "exi_sram_test_device_v60.h"
 #include "native_sc_vector_v63.h"
 #include "dsp_boot_device_v64.h"
+#include "wii_ipc_mailbox.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -167,6 +168,7 @@ static unsigned arena_phase=0,arena_getters=0,arena_reset_calls=0,arena_reset_re
  static unsigned enable_entries=0;
  static uint32_t enable_before=0;
  static bool ipc69_active=false;
+ static undercover::wii::IpcMailbox ipc69_mailbox;
  static unsigned ipc69_step=0,ipc69_os_get=0,ipc69_disable=0,ipc69_restore=0,ipc69_bank=0,ipc69_mail=0;
  static uint32_t ipc69_lo=0,ipc69_hi=0,ipc69_size=0,ipc69_handler=0,ipc69_mask=0,ipc69_msg=0,ipc69_msr=0;
  static std::array<uint32_t,32> ipc69_gprs{},ipc69_irqs{};
@@ -1190,6 +1192,10 @@ bool handle_syscall(CPUContext&ctx){
        check(ipc69_active&&ipc69_step==9u&&ipc69_os_get==2u&&ipc69_disable==2u&&ipc69_restore==2u&&
              ipc69_bank==1u&&ipc69_mail==1u&&ctx.gpr[3]==0u&&ctx.msr==ipc69_msr,
              "original IPC client initialization return state or dependency counts differ");
+       using Mail=undercover::wii::IpcMailbox;
+       check(ipc69_mailbox.read(Mail::Side::Broadway,Mail::PPCCTRL)==(ipc69_msg&0x39u)&&
+             !ipc69_mailbox.broadway_irq_level()&&!ipc69_mailbox.reply_pending(),
+             "IPC startup mailbox readback or idle reply state differs");
        check(ctx.gpr[1]==ipc69_gprs[1]&&ctx.gpr[2]==ipc69_gprs[2]&&ctx.gpr[13]==ipc69_gprs[13],
              "IPC native return corrupted ABI stack or SDA registers");
        for(unsigned r=14;r<32u;++r)check(ctx.gpr[r]==ipc69_gprs[r],"IPC native return corrupted nonvolatile GPR");
@@ -1400,6 +1406,8 @@ void HW_Reg_Write32(uint32_t addr,uint32_t value){
    if(ipc69_active){
      if(addr==0x0d000004u||addr==0x0d800004u){
        check(ipc69_step==8u&&ipc69_mail==0u&&value==ipc69_msg,"IPC mailbox write value/order differs");
+       ipc69_mailbox.write(undercover::wii::IpcMailbox::Side::Broadway,
+         undercover::wii::IpcMailbox::PPCCTRL,value);
        ++ipc69_mail;
      }else check(ipc69_step==7u&&(addr==0x0c003004u||addr==0x0d000034u),"unexpected IPC mask MMIO write");
      mmio_writes.emplace_back(addr,value);return;
@@ -1710,6 +1718,7 @@ int main(int argc,char**argv){
     nwii::runtime::arena_flush_calls=nwii::runtime::arena_sc_calls=0;
      nwii::runtime::enable_entries=0;nwii::runtime::enable_before=0;
      nwii::runtime::ipc69_active=false;
+     nwii::runtime::ipc69_mailbox.reset();
      nwii::runtime::ipc69_step=nwii::runtime::ipc69_os_get=nwii::runtime::ipc69_disable=nwii::runtime::ipc69_restore=0;
      nwii::runtime::ipc69_bank=nwii::runtime::ipc69_mail=0;
      nwii::runtime::ipc69_lo=nwii::runtime::ipc69_hi=nwii::runtime::ipc69_size=nwii::runtime::ipc69_handler=0;
