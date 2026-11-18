@@ -35,13 +35,15 @@ class AsyncSubmitV104(unittest.TestCase):
         prior=previous(base);actual=derive(base)
         for old,new in EDITS:self.assertEqual(prior.count(old),1,old[:70])
         self.assertEqual(actual,derive(base))
-        for marker in ("V104_ASYNC_SAVE","V104_ASYNC_CACHE","V104_ASYNC_SUBMIT",
+        for marker in ("V104_ASYNC_SAVE","V104_ASYNC_CACHE","V104_ASYNC_SYSCALL","V104_ASYNC_SUBMIT",
                        "V104_TRIAL_PASS","POST_OWNER=0x805195ecu"):
             self.assertEqual(actual.count(marker),1,marker)
         for label in ("post104_save","post104_alloc_head","post104_alloc","post104_disable",
-                      "post104_restore","post104_flush","post104_submit"):
+                      "post104_restore","post104_flush","post104_sc","post104_submit"):
             self.assertIn("nwii::runtime::"+label+"=",actual)
-        self.assertIn("nwii::runtime::post104_flush=nwii::runtime::post104_submit=0",actual)
+        self.assertIn("nwii::runtime::post104_flush=nwii::runtime::post104_sc=nwii::runtime::post104_submit=0",actual)
+        self.assertIn("nwii::runtime::post104_flush_before=0",actual)
+        self.assertIn("V104 IOS_OpenAsync native cache syscall order or line count differs",actual)
         self.assertIn("ctx.lr==0x8051ab64u&&post103_alloc==1u&&post103_async==0u",actual)
         self.assertIn("ctx.lr==0x8051ad14u&&post103_alloc==1u&&post103_async==0u",actual)
         self.assertIn("ctx.lr==0x8051ab64u&&post104_alloc==1u",actual)
