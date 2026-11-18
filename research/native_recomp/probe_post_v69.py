@@ -107,6 +107,35 @@ def scan(raw,funcs):
         print(f"POST73_ROOT addr=0x{addr:08X} depth={depth}")
         edges=describe(raw,funcs,addr)
         if depth<1:todo.extend((dst,depth+1) for _,dst in edges if dst not in seen)
+    # The external IRQ entry is an assembly trampoline with no BLR.
+    # Resolve its direct tail edge, then bound the actual OS dispatcher.
+    irq_entry=0x80526ce0
+    for i,(op,) in enumerate(struct.iter_unpack(">I",get_text(raw,irq_entry,funcs[irq_entry]))):
+        pc=irq_entry+4*i
+        if op>>26==18 and not op&1:
+            dst=branch_target(op,pc)
+            print(f"POST73_TAIL site=0x{pc:08X} target=0x{dst:08X} size=0x{funcs.get(dst,0):X}")
+            if 0<funcs.get(dst,0)<=MAX_SIZE and dst not in seen:
+                describe(raw,funcs,dst)
+                seen.add(dst)
+    # Establish whether copying the original vector template into 0x500
+    # preserves internal relative branch geometry. No raw instruction bytes.
+    template=0x80520ec0
+    direct=relative=outside=indirect=0
+    for i,(op,) in enumerate(struct.iter_unpack(">I",get_text(raw,template,0x98))):
+        pc=template+4*i;major=op>>26
+        if major==18:
+            direct+=1
+            target=branch_target(op,pc)
+            if not op&2:
+                relative+=1;outside+=not(template<=target<template+0x98)
+        elif major==16:
+            direct+=1;disp=op&0xfffc
+            if disp&0x8000:disp-=0x10000
+            if not op&2:
+                relative+=1;outside+=not(template<=pc+disp<template+0x98)
+        elif major==19 and ((op>>1)&1023) in (16,50,528):indirect+=1
+    print(f"POST73_VECTOR bytes=152 direct={direct} relative={relative} outside={outside} indirect={indirect}")
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
