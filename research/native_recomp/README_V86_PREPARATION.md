@@ -11,3 +11,10 @@ fixture bytes change. The generator guard replaces the old synthetic-boundary
 assertion with original call-geometry checks. A synthetic-only regression
 covers both fixture and generator negative cases. The game body is never
 published. This preparation does not yet claim execution of the async request.
+
+V85 has now passed. The V86 candidate continues through the original STM
+interrupt disable, validates the original event device/command/buffers and
+callback ABI, executes the restored async wrapper, allocator and cache
+flushes, and stops at the real IPC submission function after observing
+the original wire request. No host writes to thread state or fabricated
+submission return. This does not yet complete the async IOS operation.

@@ -1,4 +1,4 @@
-# V85 candidate: both original synchronous STM opens complete
+# V85 verified: both original synchronous STM opens complete
 
 V84 passed 16/16. V85 reuses the verified original IRQ and scheduler
 execution checks for a second transaction. Its expected IOS result is 1
@@ -12,3 +12,5 @@ restore, and allocation cleanup must all execute before the authenticated
 STM interrupt-disable callsite (0x8052B0D0, return 0x8052B0D4).
 Stop at 0x805265AC with both descriptors open and no outstanding request,
 IRQ or deferred event. This is not yet STM or OSInit completion.
+
+Verified in owner-original run 44239400611 on 63ae42ae928195793236427d6bdcacf777a7fd8b, 16/16 trials. Final descriptor, idle, cleanup, ABI and route checks all passed.
