@@ -621,7 +621,7 @@ static bool open71_ram(uint32_t addr,uint32_t n){
            "IPC request cache syscall vector not reached");
      return true;
    }
-   if(addr==INT_DISABLE){
+   if(addr==INT_DISABLE&&!irq76_dispatch){
      if(sleep73_entry){
        check(ctx.lr==0x8052a44cu&&sleep73_disable==0u&&!(ctx.msr&0x8000u),
              "original OSSleepThread nested interrupt disable differs");
@@ -635,7 +635,7 @@ static bool open71_ram(uint32_t addr,uint32_t n){
      check(ctx.lr==0x805196d4u&&submit72_disable==1u,"IPC queue helper callsite differs");
      return true;
    }
-   if(addr==0x8051906cu||addr==0x8051905cu){
+   if(!irq76_dispatch&&(addr==0x8051906cu||addr==0x8051905cu)){
      check(submit72_disable==1u&&!(ctx.msr&0x8000u)&&
            (ctx.lr==0x80519780u||ctx.lr==0x805197b8u||ctx.lr==0x805197c8u),
            "IPC send register helper callsite differs");
