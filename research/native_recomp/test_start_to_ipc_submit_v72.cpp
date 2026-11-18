@@ -196,11 +196,22 @@ static unsigned arena_phase=0,arena_getters=0,arena_reset_calls=0,arena_reset_re
  static uint32_t ipc69_lo=0,ipc69_hi=0,ipc69_size=0,ipc69_handler=0,ipc69_mask=0,ipc69_msg=0,ipc69_msr=0;
  static std::array<uint32_t,32> ipc69_gprs{},ipc69_irqs{};
  static constexpr uint32_t IPC69_LIMIT=0x10000u;
+ static bool seed_stm_data(CPUContext&,uint32_t,unsigned);
  static void ipc69_entry(uint32_t addr,CPUContext& ctx){
    if(addr==0x805194c4u){
      check(!ipc69_active&&enable_entries==1u&&ctx.msr==(enable_before|0x8000u)&&ctx.gpr[3]==0u&&
            ctx.lr==0x8052094cu&&ctx.gpr[1]==ORIGINAL_SP-8u-80u&&arena_sc_calls==2u,
            "IPC client must follow verified original interrupt enable");
+     // Restore the original initialized SDA words missing from the reduced
+     // fixture before IPCCltInit owns them. In particular the heap handle
+     // is subsequently written by the authentic heap creation call.
+     // Never reseed these words after guest initialization or at a branch.
+     for(int32_t offset:{-16664,-16660}){
+       const uint32_t address=ctx.gpr[13]+uint32_t(offset);
+       check(ctx.mmu.read32(address)==0u,"IPC initial SDA fixture word unexpectedly populated");
+       check(seed_stm_data(ctx,address,4u)&&ctx.mmu.read32(address)!=0u,
+             "IPC initialized SDA data unavailable from authenticated owner");
+     }
      ipc69_active=true;
      ipc69_lo=ctx.mmu.read32(IPC_LO_INPUT);ipc69_hi=ctx.mmu.read32(IPC_HI_INPUT);
      check(ipc69_lo==ctx.mmu.read32(IPC_LO_GLOBAL)&&ipc69_hi==ctx.mmu.read32(IPC_HI_GLOBAL)&&
