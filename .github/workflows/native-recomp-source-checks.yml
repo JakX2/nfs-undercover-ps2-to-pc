@@ -39,6 +39,7 @@ jobs:
           python3 research/native_recomp/test_ready_thread_v81.py
           python3 research/native_recomp/test_thread_resume_v82.py
           python3 research/native_recomp/test_second_open_v83.py
+          python3 research/native_recomp/test_second_ack_v84.py
       - name: Test original-free native dcbz memory effects
         run: |
           python3 research/native_recomp/test_dcbz_patch_v67.py

@@ -1,4 +1,4 @@
-# V83 candidate: first synchronous IOS_Open return to second STM open
+# V83 verified: first synchronous IOS_Open return to second STM open
 
 Requires verified V82. The original synchronous submit restores interrupts,
 then releases its request using the original allocator-free function.
@@ -10,5 +10,4 @@ fabricated by the host; the path check reads authenticated initialized data.
 
 This candidate stops before the second IOS_Open body, not after a completed
 second transaction. V82 verified in run 44236726199; focused V83 workflow is now enabled.
-Assumptions about allocator ABI are intentionally fail-closed and must be
-validated against original runtime evidence before marking the stage verified.
+Owner-original run 44237110943 on d621882e108ab15423562d2040e6b0e358ed464e passed all 16 trials; original allocator, cleanup ABI checks and second-open predicates passed. V84 executes the second original Open body with the first native IOS descriptor preserved.
