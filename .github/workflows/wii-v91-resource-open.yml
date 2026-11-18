@@ -101,7 +101,7 @@ jobs:
               grep -E '^V88_ACTIVE_VECTOR route=[01] saved=[01] running=[01] masked=[01]$|^V88_ACTIVE_ACK clear=[01] deferred=[01] running=[01] route=[01]$|^V88_ACTIVE_RFI regs=[01] status=[01] running=[01] deferred=[01]$|^V88_STM_RETURN route=[01] abi=[01] running=[01] deferred=[01] devices=[01]$|^V88_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v91-focused.log" || true
               grep -E '^V89_SUBSYSTEM route=[01] queue=[01] abi=[01] version=[01] pending=[01]$|^V89_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v91-focused.log" || true
               grep -E '^V90_CONSOLE_ROUTE route=[01] abi=[01] console=[01] queue=[01] devices=[01] pending=[01]$|^V90_ROUTE_TARGET mode=[0-3] pc=(8051e7e4|8052f94c)$' "$RUNNER_TEMP/v91-focused.log" || true
-              grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-4]$' "$RUNNER_TEMP/v91-focused.log" || true
+              grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' "$RUNNER_TEMP/v91-focused.log" || true
               echo 'V91 candidate failed; private logs withheld' >&2
               exit 1
             }
@@ -124,7 +124,7 @@ jobs:
           grep -E '^V88_ACTIVE_VECTOR route=[01] saved=[01] running=[01] masked=[01]$|^V88_ACTIVE_ACK clear=[01] deferred=[01] running=[01] route=[01]$|^V88_ACTIVE_RFI regs=[01] status=[01] running=[01] deferred=[01]$|^V88_STM_RETURN route=[01] abi=[01] running=[01] deferred=[01] devices=[01]$' "$RUNNER_TEMP/v91-focused.log"
           grep -E '^V89_SUBSYSTEM route=[01] queue=[01] abi=[01] version=[01] pending=[01]$' "$RUNNER_TEMP/v91-focused.log"
           grep -E '^V90_CONSOLE_ROUTE route=[01] abi=[01] console=[01] queue=[01] devices=[01] pending=[01]$|^V90_ROUTE_TARGET mode=[0-3] pc=(8051e7e4|8052f94c)$' "$RUNNER_TEMP/v91-focused.log"
-          grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-4]$' "$RUNNER_TEMP/v91-focused.log"
+          grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' "$RUNNER_TEMP/v91-focused.log"
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x80519944 stage=91' "$RUNNER_TEMP/v91-focused.log"
           echo 'PASS: V91 original IOS resource open reached'
       - name: Remove private originals and generated code

@@ -39,11 +39,11 @@ EDITS = [
   ],
   [
     "  echo 'V90 original console route failed; details withheld' >&2",
-    "  grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-4]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V91 original resource initialization failed; details withheld' >&2"
+    "  grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V91 original resource initialization failed; details withheld' >&2"
   ],
   [
     "echo 'V90_STAGE native_test_passed'",
-    "echo 'V91_STAGE native_test_passed'\ngrep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-4]$' \"$work/private-native.log\" | sort -u"
+    "echo 'V91_STAGE native_test_passed'\ngrep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' \"$work/private-native.log\" | sort -u"
   ]
 ]
 
