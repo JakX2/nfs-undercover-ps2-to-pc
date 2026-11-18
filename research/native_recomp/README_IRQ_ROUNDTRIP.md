@@ -1,0 +1,3 @@
+# Native IOS two-interrupt round-trip regression
+
+An independently authored synthetic PowerPC low-memory interrupt handler performs actual generated native `lwz`/`stw` on the IOS mailbox and Hollywood W1C latch, followed by `rfi`. The host publishes the native IOS reply only after the actual guest ACK/latch clear. Native exception entry follows both notifications and must resume the same not-yet-executed guest instruction exactly once. Both split and non-split generated C++ are compiled with ASan/UBSan. This tests the reusable bus and dispatcher integration needed after V77, with no original game code or synthetic claim about original handler execution. CI pending.
