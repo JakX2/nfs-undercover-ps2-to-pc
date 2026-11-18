@@ -120,7 +120,7 @@ jobs:
                 python3 research/native_recomp/diagnose_sc_async_submit_v104.py "$((10#$code))" || true
               fi
               grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SAVE route=[01]$|^V104_ASYNC_CACHE bounded=[01]$|^V104_ASYNC_SYSCALL order=[01] lines=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
-              grep -E '^V104_DEPENDENCY pc=80[0-5][0-9a-f]{5} lr=80[0-5][0-9a-f]{5}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
+              grep -E '^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
               echo 'V104 candidate failed; private logs withheld' >&2
               exit 1
             }
