@@ -9,6 +9,8 @@ from make_alarm_v47 import call_target
 from make_start_to_vectorcopy_v38 import word
 SIZE=0x120
 PROFILE=0x8051ad38
+ALLOC=0x8051ab34
+ALLOC_SIZE=0x204
 STOP=0x805195ec
 EDGES=((0x80519988,PROFILE),(0x80519a18,0x805222c0),(0x80519a38,STOP))
 def make(owner):
@@ -19,9 +21,17 @@ def make(owner):
     returns=[i for i in range(0,SIZE,4) if word(original,i)==BLR]
     if len(returns)!=1 or returns[0]<0xf4:
         raise ValueError("V71 original IOS_Open return geometry changed")
-    if word(text_at(raw,PROFILE,4),0)!=BLR:
-        raise ValueError("V71 original profiling leaf is not BLR")
+    leaf=word(text_at(raw,PROFILE,4),0)
+    if leaf>>26!=18 or leaf&3 or (PROFILE+((leaf&0x3fffffc)-((leaf&0x2000000)<<1)))&0xffffffff!=ALLOC:
+        raise ValueError("V71 original allocator tail differs")
+    alloc=text_at(raw,ALLOC,ALLOC_SIZE)
+    if word(alloc,ALLOC_SIZE-4)!=BLR:
+        raise ValueError("V71 original allocator return differs")
+    for pc,dst in ((0x8051ab60,0x805265ac),(0x8051ad10,0x805265d4)):
+        if call_target(text_at(raw,pc,4),pc,pc)!=dst:
+            raise ValueError("V71 original allocator IRQ edge differs")
     replace(private,OPEN,struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(SIZE//4-2),original)
+    replace(private,ALLOC,struct.pack(">I",NOP)*(ALLOC_SIZE//4),alloc)
     replace(private,PROFILE,struct.pack(">I",NOP),text_at(raw,PROFILE,4))
     replace(private,STOP,struct.pack(">II",NOP,NOP),struct.pack(">II",SC,BLR))
     return bytes(private)

@@ -378,7 +378,7 @@ static uint32_t cache_sync_entry=0,cache_isync_entry=0;
  static bool stm70_entered=false;
  static unsigned stm70_open=0;
  static uint32_t stm70_path=0;
- static unsigned open71_profile=0,open71_flush=0,open71_sc=0,open71_submit=0;
+ static unsigned open71_profile=0,open71_alloc=0,open71_alloc_disable=0,open71_alloc_restore=0,open71_flush=0,open71_sc=0,open71_submit=0;
  static uint32_t open71_path_len=0,open71_flush_base=0,open71_flush_len=0,open71_stack=0;
  static uint64_t open71_flush_before=0;
  static uint32_t original_word(uint32_t pc){
@@ -466,11 +466,27 @@ static bool open71_ram(uint32_t addr,uint32_t n){
    if(!stm70_open)return false;
    if(addr==0x8051ad38u){
      check(open71_profile==0u&&ctx.lr==0x8051998cu&&ctx.gpr[1]<open71_stack,
-           "native IOS_Open profile leaf entry differs");
+           "native IOS_Open allocator tail entry differs");
      ++open71_profile;return true;
    }
+   if(addr==0x8051ab34u){
+     check(open71_profile<=1u&&open71_alloc==0u&&ctx.lr==0x8051998cu&&
+           ctx.gpr[4]>=64u&&ctx.gpr[4]<=0x1000u,
+           "native IOS_Open allocator entry ABI differs");
+     ++open71_alloc;return true;
+   }
+   if(addr==INT_DISABLE&&ctx.lr==0x8051ab64u){
+     check(open71_alloc==1u&&open71_alloc_disable==0u&&(ctx.msr&0x8000u),
+           "native IOS allocator interrupt disable differs");
+     ++open71_alloc_disable;return true;
+   }
+   if(addr==INT_RESTORE&&ctx.lr==0x8051ad14u){
+     check(open71_alloc_disable==1u&&open71_alloc_restore==0u&&!(ctx.msr&0x8000u),
+           "native IOS allocator interrupt restore differs");
+     ++open71_alloc_restore;return true;
+   }
    if(addr==0x805222c0u){
-     check(open71_profile==1u&&open71_flush==0u&&ctx.lr==0x80519a1cu,
+     check(open71_alloc==1u&&open71_alloc_disable==1u&&open71_alloc_restore==1u&&open71_flush==0u&&ctx.lr==0x80519a1cu,
            "native IOS_Open cache flush callsite differs");
      open71_flush_base=ctx.gpr[3];open71_flush_len=ctx.gpr[4];
      const uint32_t physical=open71_flush_base&0x3fffffffu,path=stm70_path&0x3fffffffu;
@@ -486,7 +502,7 @@ static bool open71_ram(uint32_t addr,uint32_t n){
      return true;
    }
    if(addr==0x805195ecu){
-     check(open71_profile==1u&&open71_flush==1u&&open71_sc==1u&&open71_submit==0u&&
+     check(open71_alloc==1u&&open71_alloc_restore==1u&&open71_flush==1u&&open71_sc==1u&&open71_submit==0u&&
            ctx.lr==OS_RET_OWNER&&ctx.gpr[1]<open71_stack&&ctx.msr==ipc69_msr,
            "native IOS_Open did not reach synchronous submission with preserved MSR");
      unsigned request_mask=0,command_mask=0,path_mask=0;
@@ -1854,6 +1870,7 @@ int main(int argc,char**argv){
      nwii::runtime::ipc69_active=false;
      nwii::runtime::ipc69_mailbox.reset();
      nwii::runtime::stm70_entered=false;nwii::runtime::stm70_open=0;nwii::runtime::stm70_path=0;
+     nwii::runtime::open71_alloc=nwii::runtime::open71_alloc_disable=nwii::runtime::open71_alloc_restore=0;
      nwii::runtime::open71_profile=nwii::runtime::open71_flush=nwii::runtime::open71_sc=nwii::runtime::open71_submit=0;
      nwii::runtime::open71_path_len=nwii::runtime::open71_flush_base=nwii::runtime::open71_flush_len=nwii::runtime::open71_stack=0;
      nwii::runtime::open71_flush_before=0;

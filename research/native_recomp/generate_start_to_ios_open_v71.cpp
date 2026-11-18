@@ -890,8 +890,12 @@ int main(int argc,char** argv)try{
    require(open.front().address==0x80519944u&&open.back().address>=0x80519a38u&&open.back().address<=0x80519a60u&&open.back().opcode==0x4e800020u,
            "original IOS_Open span incomplete");
    require(funcs.count(0x8051ad38u)==1u&&funcs.at(0x8051ad38u).instructions.size()==1u&&
-           funcs.at(0x8051ad38u).instructions.front().opcode==0x4e800020u,
-           "original IPC profile leaf missing");
+           branch(funcs.at(0x8051ad38u).instructions.front().opcode,0x8051ad38u)==0x8051ab34u,
+           "original IOS allocation tail branch missing");
+   require(funcs.count(0x8051ab34u)==1u,"original IOS allocation body missing");
+   const auto& alloc=funcs.at(0x8051ab34u).instructions;
+   require(alloc.front().address==0x8051ab34u&&alloc.back().address==0x8051ad34u&&alloc.back().opcode==0x4e800020u,
+           "original IOS allocator body incomplete");
    require(funcs.count(0x805195ecu)==1u,"explicit IPC submission boundary missing");
    for(uint32_t pc:{0x805195ecu,0x8051a1a4u}){
      const auto& boundary=funcs.at(pc).instructions;
