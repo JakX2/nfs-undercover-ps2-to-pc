@@ -1,0 +1,3 @@
+# V76: original external interrupt dispatcher to real IPC handler (candidate)
+
+Extends verified V75 with the original external trampoline `0x80526CE0`, dispatcher `0x80526A3C`, and its scheduler helper dependencies. The analyzer preserves the backward assembly tail between explicit native roots, with a separate original-free regression. The original IRQ dispatcher must read the actual PI cause/mask through IosBus and select the genuine IPC handler `0x80519318` using its authentic indirect call. Assertions verify saved GPRs, IRQ index, context, scheduler-disable call, pending ACK and waiting thread. No host-forced handler selection, guest IPC handler execution or reply delivery is claimed. Owner CI pending.
