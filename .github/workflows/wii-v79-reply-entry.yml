@@ -89,6 +89,7 @@ jobs:
               grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V77_HARNESS_LINE [0-9]+$|^V77_GENERATOR_LINE [0-9]+$|^V77_WARNING [a-z0-9-]+$' "$RUNNER_TEMP/v79-focused.log" || true
               grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v79-focused.log" || true
               grep -E '^V79_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[01] enable=[01] resched=[01] load=[01]$' "$RUNNER_TEMP/v79-focused.log" || true
+              grep -E '^V79_GETCONTEXT resched=[01] lr=[01] masked=[01]$' "$RUNNER_TEMP/v79-focused.log" || true
               echo 'V79 candidate failed; private logs withheld' >&2
               exit 1
             }
