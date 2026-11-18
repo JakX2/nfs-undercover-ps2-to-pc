@@ -1,5 +1,10 @@
 #pragma once
 #include "wii_ipc_mailbox.h"
+#include "wii_guest_filesystem.h"
+#include <algorithm>
+#include <limits>
+#include <memory>
+#include <string>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -33,18 +38,25 @@ struct IosMemory {
 
 class StmIos {
 public:
-    enum : uint32_t { Open=1, Close=2, Ioctl=6, Reply=8,
-                     EventHook=0x1000, GetState=0x3001, Release=0x3002 };
-    enum : int32_t { Invalid=-4, NotFound=-6, QueueFull=-8 };
-    enum class Device : uint8_t { None, Immediate, Event };
+    enum : uint32_t { Open=1, Close=2, Read=3, Write=4, Seek=5, Ioctl=6, Reply=8,
+                     EventHook=0x1000, GetState=0x3001, Release=0x3002, FileStats=0x0b };
+    enum : int32_t { Invalid=-4, NotFound=-6, QueueFull=-8,
+                     FsInvalid=-101, FsAccess=-102, FsMissing=-106, FsFull=-109 } ;
+    enum class Device : uint8_t { None, Immediate, Event, Fs, File };
     enum class Pump { Idle, Ack, Replied, Deferred, InvalidAddress, Busy };
     static constexpr unsigned DescriptorCount=24;
     explicit StmIos(IpcMailbox& mailbox,IosMemory& memory):mail_(mailbox),mem_(memory){}
     // An explicit reset of the host device broker, not a system reboot.
     void reset() noexcept {
-        fds_.fill(Device::None);pending_.reset();front_=count_=0;idle_=false;
+        fds_.fill(Device::None);files_.fill({});pending_.reset();front_=count_=0;idle_=false;
     }
     void set_idle(bool idle) noexcept {idle_=idle;}
+    // Explicitly mounted native guest resources only. No host pathname is
+    // ever opened here; existing handles cannot be silently remounted.
+    bool mount_filesystem(std::shared_ptr<const GuestFiles> fs) noexcept {
+        for(auto dev:fds_)if(dev==Device::Fs||dev==Device::File)return false;
+        filesystem_=std::move(fs);return true;
+    }
     bool event_pending() const noexcept {return pending_.has_value();}
     unsigned queued_replies() const noexcept {return count_;}
     bool is_open(unsigned fd,Device kind) const noexcept {
@@ -102,6 +114,9 @@ private:
     struct Completion {uint32_t address,command;int32_t result;};
     IpcMailbox& mail_;IosMemory& mem_;
     std::array<Device,DescriptorCount> fds_{};
+    struct FileHandle {GuestFiles::Blob data;uint32_t offset=0;};
+    std::array<FileHandle,DescriptorCount> files_{};
+    std::shared_ptr<const GuestFiles> filesystem_;
     std::optional<Pending> pending_;
     std::array<Completion,8> replies_{};
     unsigned front_=0,count_=0;
@@ -118,19 +133,47 @@ private:
     void enqueue(uint32_t a,uint32_t cmd,int32_t result){
         replies_[(front_+count_)%replies_.size()]={a,cmd,result};++count_;
     }
-    Device path(uint32_t a) const {
+    std::optional<std::string> path(uint32_t a) const {
         std::array<char,64> s{};
         for(unsigned i=0;i<s.size();++i){
-            if(a>0xffffffffu-i||!mem_.valid(a+i,1))return Device::None;
+            if(a>0xffffffffu-i||!mem_.valid(a+i,1))return std::nullopt;
             s[i]=char(mem_.read8(a+i));
-            if(!s[i]){
-                const std::string_view p(s.data(),i);
-                if(p=="/dev/stm/immediate")return Device::Immediate;
-                if(p=="/dev/stm/eventhook")return Device::Event;
-                return Device::None;
-            }
+            if(!s[i])return std::string(s.data(),i);
         }
-        return Device::None;
+        return std::nullopt;
+    }
+    bool output_range(uint32_t request,uint32_t a,uint32_t n) const {
+        return n==0u||(a!=0u&&uint64_t(a)+n<=0x100000000ull&&mem_.valid(a,n)&&
+            (uint64_t(a)+n<=request||uint64_t(request)+64u<=a));
+    }
+    unsigned fs_handles() const {
+        return unsigned(std::count(fds_.begin(),fds_.end(),Device::Fs)+
+                        std::count(fds_.begin(),fds_.end(),Device::File));
+    }
+    int32_t file_request(const Request&r){
+        auto& h=files_[r.fd];
+        if(!h.data)return FsInvalid;
+        const uint32_t size=uint32_t(h.data->size());
+        if(r.command==Read){
+            if(r.b>uint32_t(std::numeric_limits<int32_t>::max())||!output_range(r.address,r.a,r.b))
+                return FsInvalid;
+            const uint32_t count=std::min(r.b,size-h.offset);
+            for(uint32_t i=0;i<count;++i)mem_.write8(r.a+i,h.data->at(h.offset+i));
+            h.offset+=count;return int32_t(count);
+        }
+        if(r.command==Seek){
+            if(r.b>2u)return FsInvalid;
+            const int64_t base=r.b==0u?0:r.b==1u?h.offset:size;
+            const int64_t next=base+int64_t(int32_t(r.a));
+            if(next<0||next>size)return FsInvalid;
+            h.offset=uint32_t(next);return int32_t(h.offset);
+        }
+        if(r.command==Write)return FsAccess;
+        if(r.command==Ioctl&&r.a==FileStats){
+            if(r.c!=0u||r.e<8u||!output_range(r.address,r.d,8u))return FsInvalid;
+            mem_.write32(r.d,size);mem_.write32(r.d+4u,h.offset);return 0;
+        }
+        return FsInvalid;
     }
     bool output_ok(const Request&r) const {
         // An output word may not overlap the complete 0x40-byte IPC request.
@@ -140,10 +183,24 @@ private:
     std::optional<int32_t> dispatch(const Request&r){
         if(r.command==Open){
             if(r.b>3u||r.a==0u)return Invalid;
-            const Device dev=path(r.a);
+            const auto p=path(r.a);
+            if(!p)return NotFound;
+            Device dev=Device::None;GuestFiles::Blob data;
+            if(*p=="/dev/stm/immediate")dev=Device::Immediate;
+            else if(*p=="/dev/stm/eventhook")dev=Device::Event;
+            else if(filesystem_&&*p=="/dev/fs")dev=Device::Fs;
+            else if(filesystem_&&!p->starts_with("/dev/")){
+                if(!GuestFiles::valid_path(*p))return FsInvalid;
+                if(r.b!=1u)return FsAccess;
+                data=filesystem_->find(*p);
+                if(!data)return FsMissing;
+                dev=Device::File;
+            }
             if(dev==Device::None)return NotFound;
+            const bool fs=dev==Device::Fs||dev==Device::File;
+            if(fs&&fs_handles()>=16u)return FsFull;
             for(unsigned i=0;i<fds_.size();++i)if(fds_[i]==Device::None){
-                fds_[i]=dev;return int32_t(i);
+                fds_[i]=dev;files_[i]={std::move(data),0u};return int32_t(i);
             }
             return QueueFull;
         }
@@ -151,8 +208,12 @@ private:
         const Device dev=fds_[r.fd];
         if(r.command==Close){
             if(pending_&&pending_->fd==r.fd)return Invalid;
-            fds_[r.fd]=Device::None;return 0;
+            fds_[r.fd]=Device::None;files_[r.fd]={};return 0;
         }
+        if(dev==Device::File)return file_request(r);
+        // Control device is real but unsupported operations remain errors.
+        // Never report successful writes, format, mutation, or directory I/O.
+        if(dev==Device::Fs)return r.command==Write?FsAccess:FsInvalid;
         if(r.command!=Ioctl)return Invalid;
         if(dev==Device::Event&&r.a==EventHook){
             if(pending_||!output_ok(r))return Invalid;
