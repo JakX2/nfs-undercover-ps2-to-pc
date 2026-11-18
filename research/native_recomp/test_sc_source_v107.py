@@ -12,6 +12,7 @@ class SourceProbe(unittest.TestCase):
         before=prior(base);actual=derive(base)
         self.assertEqual(actual.count("V107_SC_SOURCE mapped="),1)
         self.assertEqual(actual.count('"/shared2/sys/SYSCONF"'),1)
+        self.assertIn("{ // keep V107 probe locals separate from original caller declarations",actual)
         self.assertEqual(before.count("ctx.mmu.write"),actual.count("ctx.mmu.write"))
         self.assertEqual(before.count("seed_stm_data("),actual.count("seed_stm_data("))
         self.assertEqual(before.count("ipc70_bus.reset()"),actual.count("ipc70_bus.reset()"))

@@ -6,6 +6,7 @@ from derive_v104_sc_async_submit_harness import derive as previous
 EDITS=[(
     "       if(addr==0x80544ac0u&&ctx.lr==0x8051e740u){",
     """       if(addr==0x80544ac0u&&ctx.lr==0x8051e740u){
+         { // keep V107 probe locals separate from original caller declarations
          constexpr std::string_view public_sc="/shared2/sys/SYSCONF";
          const uint32_t s=ctx.gpr[3];
          const bool mapped=s&&open71_ram(s,1u);
@@ -21,7 +22,8 @@ EDITS=[(
            owner_match|=exact;
          }
          std::cout<<"V107_SC_SOURCE mapped="<<mapped<<" empty="<<guest_empty
-                  <<" original_literal="<<owner_match<<std::endl;"""
+                  <<" original_literal="<<owner_match<<std::endl;
+         }"""
 )]
 def derive(source):
     source=previous(source)
