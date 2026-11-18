@@ -3,6 +3,7 @@
 #include "loader/loader.h"
 #include "analyzer/analyzer.h"
 #include "recompiler/recompiler.h"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>

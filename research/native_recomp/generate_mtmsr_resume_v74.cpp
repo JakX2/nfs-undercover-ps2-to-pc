@@ -17,17 +17,15 @@ int main(int argc,char**argv){
     assert(argc==3);
     const std::filesystem::path dir=argv[1];
     const bool split=std::string(argv[2])=="split";
-    constexpr uint32_t entry=0x80004000u,irq=0x80005000u,stop=0x80006000u;
+    constexpr uint32_t entry=0x80004000u,irq=0x80005000u;
     nwii::loader::Executable exe;exe.entry_point=entry;
     auto add=[&](uint32_t a,std::vector<uint8_t> v){
         exe.sections.push_back({a,uint32_t(v.size()),std::move(v),true,false});
     };
-    auto branch=[](uint32_t a,uint32_t b){return 0x48000000u|((b-a)&0x03fffffcu);};
     add(entry,be({0x38800000u,0x60848000u,(31u<<26)|(4u<<21)|(146u<<1),
-                  0x38a50001u,branch(entry+16u,stop)}));
+                  0x38a50001u,0x44000002u,0x4e800020u}));
     add(irq,be({0x38c60001u,0x4c000064u}));
-    add(stop,be({0x44000002u,0x4e800020u}));
-    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({irq,stop});
+    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({irq});
     nwii::recomp::RecompilerConfig config;config.output_dir=dir.string();config.split_output=split;
     nwii::recomp::Recompiler recomp(analyzer,nullptr,config);
     auto files=recomp.generate_cpp(entry);

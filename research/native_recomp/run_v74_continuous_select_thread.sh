@@ -88,7 +88,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
   "$root/nWiiRecomp/src/recompiler.cpp" \
   "$root/nWiiRecomp/src/symbols.cpp" -o "$work/generator" \
   > "$work/generator-compile.log" 2>&1 || {
-    python3 "$here/classify_v67_compile_failure.py" "$work/generator-compile.log"
+    python3 "$here/classify_v74_compile_failure.py" "$work/generator-compile.log" generator
     echo 'V73 generator compilation failed; details withheld' >&2; exit 1;
   }
 echo 'V74_STAGE generator_compiled'

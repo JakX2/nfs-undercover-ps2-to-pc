@@ -5,9 +5,13 @@ from pathlib import Path
 from classify_v67_compile_failure import classify
 log=Path(sys.argv[1]).read_text(errors="replace")
 unit=sys.argv[2]
-assert unit in ("harness","generated","loader")
+assert unit in ("harness","generated","loader","generator")
 print(f"V67_NATIVE_ASSERTION id={classify(log):03d}")
 print(f"V74_COMPILE_UNIT {unit}")
+if unit=="generator":
+    for line in log.splitlines():
+        m=re.search(r"generate_start_to_select_thread_v74\.cpp:(\d+):\d+: (?:fatal )?error:",line)
+        if m:print("V74_GENERATOR_LINE "+m.group(1))
 # Strict allowlist: public harness location or standard compiler warning name.
 for line in log.splitlines():
     if "error:" not in line:continue

@@ -4,7 +4,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-constexpr uint32_t ENTRY=0x80004000u,RESUME=ENTRY+12u,IRQ=0x80005000u,STOP=0x80006000u;
+constexpr uint32_t ENTRY=0x80004000u,RESUME=ENTRY+12u,IRQ=0x80005000u,STOP=ENTRY+16u;
 namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 static unsigned entry_count=0,irq_count=0,deliveries=0,stops=0;
