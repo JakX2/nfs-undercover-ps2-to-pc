@@ -17,3 +17,10 @@ V77's authenticated fixture generation and geometry checks are reused.
 The separate workflow publishes fixed Boolean predicates, ordinal trial
 markers and the exact PASS checkpoint; private DOL, output and logs remain
 temporary. Status: candidate; require 16 owner-original trials to verify.
+
+## Owner-authenticated frontier (2026-11-18)
+
+- V77 remains verified (run 44230303883). V79's first run 44230615569 passed the ACK predicates but stopped at an unrecognized subsequent dependency.
+- The explicit original rescheduling tail at 0x80529950 targets SelectThread at 0x80529718; OSLoadContext contains the authentic rfi at 0x80522A88. Geometry and continuation metadata run 44231007344 passed. This is static metadata, not proof of executing that rfi.
+- Second V79 run 44230956968 passed original ACK handling and reached the scheduler context getter at 0x80522928, failing its entry-state assertion. Commit 81af6df3 separates the first sleep from subsequent IRQ rescheduling and adds predicate-only diagnostics, preserving all checks. Owner run 44231229537 is the next verification gate.
+- Original-free overlay mutation, deterministic derivation and no-overwrite tests passed in run 44231117597. V80 reply-wakeup candidate is deliberately separate and awaits V79 verification.
