@@ -374,7 +374,6 @@ static std::vector<std::pair<uint32_t,uint32_t>> mmio_writes;
 static uint64_t exception_restore_entries=0;
 static uint64_t exception_epilogue_debug_entries=0;
 static uint32_t cache_sync_entry=0,cache_isync_entry=0;
-
  static const nwii::loader::Executable* stm70_owner=nullptr;
  static bool stm70_entered=false;
  static unsigned stm70_open=0;
@@ -418,89 +417,6 @@ static uint32_t cache_sync_entry=0,cache_isync_entry=0;
        check(ctx.mmu.read8(ipc69_lo-1u)==0xd3u&&ctx.mmu.read8(ipc69_lo+IPC69_LIMIT)==0x3du,
              "IPC heap test buffer boundary overwritten");
        for(uint32_t i=ipc69_size;i<IPC69_LIMIT;++i)check(ctx.mmu.read8(ipc69_lo+i)==0x6bu,"IPC heap wrote beyond reserved size");
-     }
-    if(own)check(arena_active&&arena_phase==2u&&arena_getters==6u&&arena_reset_reads==2u&&
-                 arena_reset_calls==2u&&arena_zero_calls==2u&&arena_flush_calls==2u&&arena_sc_calls==2u,
-                 "original cold MEM1/MEM2 arena clear incomplete at OSInit return");
-    if(own)check(report_entries==1u&&report_calls==10u&&console_entries==1u&&report_getters==6u,
-                 "original boot report incomplete at OSInit return");
-    if(own)check(mi_active&&mi_writes==3u&&mi_handlers==5u&&mi_trampolines==2u&&mi_maps==2u&&ctx.mmu.read32(MI_FLAG)==1u,
-                 "original memory protection initialization incomplete at OSInit return");
-    if(own)check(wait_index==5u&&audio_write_count==6u&&!audio_active&&dsp.complete()&&dsp_wait_finished,
-                 "audio return reached before completed original DSP handshake");
-    check(ctx.lr==(own?OS_RET_OWNER:OS_RET_SYNTH),"wrong guest LR at V26 owner or synthetic stop");
-    check(own?(ctx.gpr[1]<ORIGINAL_SP-8u-80u&&ctx.gpr[1]>=ORIGINAL_SP-8u-80u-0x100u):ctx.gpr[1]==SYNTH_SP-8u-96u),
-          "original Wii interrupt epilogue failed to restore OSInit guest frame");
-    observed_stop_pc=ctx.pc;
-    ++post_stops;ctx.is_running=false;
-    if(own)throw ExceptionStop{};  // prevent synthetic BLR after exact guest PC
-    return true;}
-  if(ctx.pc==REPORT){
-    if(report_entries){
-      check(own&&report_calls<expected_report.size(),"unexpected original boot report call");
-      const auto& e=expected_report[report_calls];
-      check(ctx.lr==e.lr&&ctx.gpr[3]==e.fmt&&ctx.cr[1].eq==0,
-            "original boot report format/callsite/varargs flags differ");
-      check(ctx.gpr[1]==(report_calls==9u?ORIGINAL_SP-8u-80u:ORIGINAL_SP-8u-96u),
-            "original boot report stack frame differs");
-      check_private_report_string(ctx,e.fmt);
-      for(unsigned i=0;i<e.nargs;++i)
-        check(ctx.gpr[4u+i]==e.args[i],"original boot report argument differs");
-      if(report_calls==1u){check_private_report_string(ctx,ctx.gpr[4]);check_private_report_string(ctx,ctx.gpr[5]);}
-      if(report_calls==9u)check_private_report_string(ctx,ctx.gpr[4]);
-      if(report_calls==3u)check(ctx.ctr==report_ctr,"original console report computed branch target differs");
-      ++report_calls;return true;
-    }
-    if(ctx.lr==0x805320a0u){
-      check(own&&ctx.gpr[3]==R13-16436u&&ctx.gpr[4]==si_version_pointer,
-            "original SI version registration tail-call ABI changed");
-      ++si_report_entries;return true;
-    }
-    check(own&&ctx.lr==0x804efb60u&&ctx.gpr[3]==R13-16436u&&
-          ctx.gpr[4]==version_pointer,
-          "original EXI version registration tail-call ABI changed");
-    ++version_report_entries;
-    return true; // Explicit test-only logging sink, not an OSReport implementation.
-  }
-  if(ctx.pc==DBG){
-    ++external_stubs[0];
-    // Count the authentic terminal OSExceptionInit BL at 0x80520E58
-    // separately from other bounded debug-service invocations in __start.
-    if(ctx.lr==0x80520e5cu)++exception_epilogue_debug_entries;
-    if(ctx.lr==CONTEXT+0x38u)++context_debug_entries;
-    return true;
-  }
-  if(ctx.pc==ERR){
-    check(ctx.gpr[3]==1u,"OSSetErrorHandler exception index differs");
-    ++external_stubs[1];return true;
-  }
-  ++unknown_calls;throw std::runtime_error("unexpected syscall/native Wii service");
-}
-void interpret_step(CPUContext&){++interpreter_calls;throw std::runtime_error("interpreter fallback");}
-void micro_interpret(CPUContext&,uint32_t,uint32_t){
-  ++interpreter_calls;
-  throw std::runtime_error("unexpected micro interpreter fallback");
-}
-void note_null_call(uint32_t,uint32_t){
-  ++unknown_calls;
-  throw std::runtime_error("unexpected null indirect EXI callback");
-}
-bool process_pending_callbacks(CPUContext&){return false;}
-void watch_hit(uint32_t,uint32_t,int){}
-void GX_WGPIPE_Write8(uint8_t){}
-void GX_WGPIPE_Write16(uint16_t){}
-void GX_WGPIPE_Write32(uint32_t){}
-void GX_WGPIPE_WriteF32(float){}
-void GX_WGPIPE_WriteF64(double){}
-uint16_t HW_Reg_Read16(uint32_t addr){
-  if(dsp.active()){
-    const auto value=dsp.read16(addr,[](uint32_t src,uint32_t dest,uint32_t n){
-      check(dsp_ctx&&src==0x01000000u&&dest==0u&&n==32u&&
-            dsp_ctx->guest_flush_count==87u,"DSP ARAM DMA without original staged cache flush");
-      for(unsigned i=0;i<n;++i){
-        const auto v=dsp_ctx->mmu.read8(0x80000000u+src+i);
-        check(v==dsp_image[i],"DSP ARAM DMA source differs from original staged bytes");
-        aram[dest+i]=v;
    stm70_entered=true;
    // Seed only initialized SDA operands of the authenticated prefix.
    // Previously initialized runtime state is checked before this step;
@@ -1353,6 +1269,89 @@ bool handle_syscall(CPUContext&ctx){
              "original IOS_Open entry not reached from native STM prologue");
        check(ctx.gpr[3]==stm70_path&&ctx.gpr[4]==0u,
              "original STM IOS_Open argument registers changed before boundary");
+     }
+    if(own)check(arena_active&&arena_phase==2u&&arena_getters==6u&&arena_reset_reads==2u&&
+                 arena_reset_calls==2u&&arena_zero_calls==2u&&arena_flush_calls==2u&&arena_sc_calls==2u,
+                 "original cold MEM1/MEM2 arena clear incomplete at OSInit return");
+    if(own)check(report_entries==1u&&report_calls==10u&&console_entries==1u&&report_getters==6u,
+                 "original boot report incomplete at OSInit return");
+    if(own)check(mi_active&&mi_writes==3u&&mi_handlers==5u&&mi_trampolines==2u&&mi_maps==2u&&ctx.mmu.read32(MI_FLAG)==1u,
+                 "original memory protection initialization incomplete at OSInit return");
+    if(own)check(wait_index==5u&&audio_write_count==6u&&!audio_active&&dsp.complete()&&dsp_wait_finished,
+                 "audio return reached before completed original DSP handshake");
+    check(ctx.lr==(own?OS_RET_OWNER:OS_RET_SYNTH),"wrong guest LR at V26 owner or synthetic stop");
+    check(own?(ctx.gpr[1]<ORIGINAL_SP-8u-80u&&ctx.gpr[1]>=ORIGINAL_SP-8u-80u-0x100u):ctx.gpr[1]==SYNTH_SP-8u-96u),
+          "original Wii interrupt epilogue failed to restore OSInit guest frame");
+    observed_stop_pc=ctx.pc;
+    ++post_stops;ctx.is_running=false;
+    if(own)throw ExceptionStop{};  // prevent synthetic BLR after exact guest PC
+    return true;}
+  if(ctx.pc==REPORT){
+    if(report_entries){
+      check(own&&report_calls<expected_report.size(),"unexpected original boot report call");
+      const auto& e=expected_report[report_calls];
+      check(ctx.lr==e.lr&&ctx.gpr[3]==e.fmt&&ctx.cr[1].eq==0,
+            "original boot report format/callsite/varargs flags differ");
+      check(ctx.gpr[1]==(report_calls==9u?ORIGINAL_SP-8u-80u:ORIGINAL_SP-8u-96u),
+            "original boot report stack frame differs");
+      check_private_report_string(ctx,e.fmt);
+      for(unsigned i=0;i<e.nargs;++i)
+        check(ctx.gpr[4u+i]==e.args[i],"original boot report argument differs");
+      if(report_calls==1u){check_private_report_string(ctx,ctx.gpr[4]);check_private_report_string(ctx,ctx.gpr[5]);}
+      if(report_calls==9u)check_private_report_string(ctx,ctx.gpr[4]);
+      if(report_calls==3u)check(ctx.ctr==report_ctr,"original console report computed branch target differs");
+      ++report_calls;return true;
+    }
+    if(ctx.lr==0x805320a0u){
+      check(own&&ctx.gpr[3]==R13-16436u&&ctx.gpr[4]==si_version_pointer,
+            "original SI version registration tail-call ABI changed");
+      ++si_report_entries;return true;
+    }
+    check(own&&ctx.lr==0x804efb60u&&ctx.gpr[3]==R13-16436u&&
+          ctx.gpr[4]==version_pointer,
+          "original EXI version registration tail-call ABI changed");
+    ++version_report_entries;
+    return true; // Explicit test-only logging sink, not an OSReport implementation.
+  }
+  if(ctx.pc==DBG){
+    ++external_stubs[0];
+    // Count the authentic terminal OSExceptionInit BL at 0x80520E58
+    // separately from other bounded debug-service invocations in __start.
+    if(ctx.lr==0x80520e5cu)++exception_epilogue_debug_entries;
+    if(ctx.lr==CONTEXT+0x38u)++context_debug_entries;
+    return true;
+  }
+  if(ctx.pc==ERR){
+    check(ctx.gpr[3]==1u,"OSSetErrorHandler exception index differs");
+    ++external_stubs[1];return true;
+  }
+  ++unknown_calls;throw std::runtime_error("unexpected syscall/native Wii service");
+}
+void interpret_step(CPUContext&){++interpreter_calls;throw std::runtime_error("interpreter fallback");}
+void micro_interpret(CPUContext&,uint32_t,uint32_t){
+  ++interpreter_calls;
+  throw std::runtime_error("unexpected micro interpreter fallback");
+}
+void note_null_call(uint32_t,uint32_t){
+  ++unknown_calls;
+  throw std::runtime_error("unexpected null indirect EXI callback");
+}
+bool process_pending_callbacks(CPUContext&){return false;}
+void watch_hit(uint32_t,uint32_t,int){}
+void GX_WGPIPE_Write8(uint8_t){}
+void GX_WGPIPE_Write16(uint16_t){}
+void GX_WGPIPE_Write32(uint32_t){}
+void GX_WGPIPE_WriteF32(float){}
+void GX_WGPIPE_WriteF64(double){}
+uint16_t HW_Reg_Read16(uint32_t addr){
+  if(dsp.active()){
+    const auto value=dsp.read16(addr,[](uint32_t src,uint32_t dest,uint32_t n){
+      check(dsp_ctx&&src==0x01000000u&&dest==0u&&n==32u&&
+            dsp_ctx->guest_flush_count==87u,"DSP ARAM DMA without original staged cache flush");
+      for(unsigned i=0;i<n;++i){
+        const auto v=dsp_ctx->mmu.read8(0x80000000u+src+i);
+        check(v==dsp_image[i],"DSP ARAM DMA source differs from original staged bytes");
+        aram[dest+i]=v;
       }
     });
     mmio_reads.emplace_back(addr,value);return value;
