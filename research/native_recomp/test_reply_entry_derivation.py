@@ -56,5 +56,36 @@ class ReplyOverlayTest(unittest.TestCase):
             self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
             self.assertEqual(output.read_text(encoding="utf-8"), "sentinel")
 
+class ReplyWakeOverlayTest(unittest.TestCase):
+    def setUp(self):
+        self.source = BASE.read_text(encoding="utf-8")
+
+    def test_wake_overlay_preserves_original_reply_entry(self):
+        from derive_v80_reply_wake_harness import derive as derive_wake
+        result = derive_wake(self.source)
+        self.assertEqual(result, derive_wake(self.source))
+        for marker in ("V79_RFI_STATE", "V79_REPLY_ENTRY", "V80_WAKE_ENTRY",
+                       "V80_TRIAL_PASS", "POST_OWNER=0x8052a51cu"):
+            self.assertEqual(result.count(marker), 1)
+        self.assertIn("ctx.gpr[3]==sleep73_queue", result)
+        self.assertIn("ctx.guest_data_invalidate_count>wake80_invalidate_before", result)
+        self.assertIn("unexpected micro interpreter fallback", result)
+        self.assertIn("IPC initial SDA fixture word unexpectedly populated", result)
+
+    def test_wake_output_refuses_overwrite(self):
+        from derive_v80_reply_wake_harness import derive as derive_wake
+        with tempfile.TemporaryDirectory() as directory:
+            d = Path(directory)
+            src, dst = d / "base.cpp", d / "wake.cpp"
+            src.write_text(self.source, encoding="utf-8")
+            command = [sys.executable, str(HERE / "derive_v80_reply_wake_harness.py"),
+                       str(src), str(dst)]
+            self.assertEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertEqual(dst.read_text(encoding="utf-8"), derive_wake(self.source))
+            dst.write_text("sentinel", encoding="utf-8")
+            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertEqual(dst.read_text(encoding="utf-8"), "sentinel")
+
+
 if __name__ == "__main__":
     unittest.main()
