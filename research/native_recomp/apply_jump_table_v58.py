@@ -8,12 +8,28 @@ NEW_SPR="""uint32_t spr = (inst.value() >> 11) & 0x3FF;
       spr = ((spr & 0x1F) << 5) | (spr >> 5);"""
 OLD_BCTR="if (inst.opcode() == 19 && (inst.value() & 0x3FF) == 528) {"
 NEW_BCTR="if (inst.opcode() == 19 && inst.extended_opcode() == 528) {"
+# The initial data-pointer scan already marks all table entries as roots.
+# Recover table-controlled edges regardless of that conservative root status.
+OLD_ROOTS="""      if (known_functions.find(ptr) != known_functions.end()) {
+          
+          scan_addr += 4;
+          continue;
+      }"""
+NEW_ROOTS="""      // A table entry may already be a candidate function root from
+      // the data-pointer scan. It remains a valid computed branch edge.
+      // Keep it in the caller's local blocks as well as its root entry."""
+OLD_PARAM="const std::set<uint32_t> &known_functions) {"
+NEW_PARAM="const std::set<uint32_t> & /*known_functions*/) {"
+
 def rewrite(source):
-    if source.count(NEW_SPR)==1 and source.count(NEW_BCTR)==1 and OLD_BCTR not in source:
+    pairs=((OLD_SPR,NEW_SPR),(OLD_BCTR,NEW_BCTR),(OLD_ROOTS,NEW_ROOTS),(OLD_PARAM,NEW_PARAM))
+    if all(source.count(new)==1 for old,new in pairs) and all(old not in source for old,new in pairs[1:]):
         return source
-    if source.count(OLD_SPR)!=1 or source.count(OLD_BCTR)!=1 or NEW_SPR in source or NEW_BCTR in source:
+    if any(source.count(old)!=1 or new in source for old,new in pairs):
         raise ValueError("unexpected upstream PPC jump-table analyzer layout")
-    return source.replace(OLD_SPR,NEW_SPR).replace(OLD_BCTR,NEW_BCTR)
+    for old,new in pairs:
+        source=source.replace(old,new)
+    return source
 def apply(root):
     path=root/FILE
     source=path.read_text()

@@ -62,6 +62,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-variable \
 echo 'V58_STAGE generator_compiled'
 mkdir "$work/generated"
 "$work/generator" "$work/private.dol" "$work/generated" owner   > "$work/generation.log" 2>&1 || {
+    python3 "$here/classify_v58_generator_failure.py" "$work/generation.log" "$here/generate_start_to_si_sampling_v58.cpp"
     echo 'V58 original PPC generator guards failed; details withheld' >&2; exit 1;
   }
 echo 'V58_STAGE generation_complete'

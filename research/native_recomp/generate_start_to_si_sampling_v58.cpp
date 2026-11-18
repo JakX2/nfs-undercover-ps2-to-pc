@@ -102,7 +102,7 @@ int main(int argc,char** argv)try{
  nwii::analyzer::Analyzer analyzer(exe);
  analyzer.analyze({FPR,CACHE,REPORT});
  const auto& funcs=analyzer.get_functions();
- require(owner ? (funcs.size()>=62u && funcs.size()<=136u) : funcs.size()==24u,
+ require(owner ? (funcs.size()>=62u && funcs.size()<=160u) : funcs.size()==24u,
           "unexpected V30 analyzed function count: "+std::to_string(funcs.size()));
  for(uint32_t pc:{START,REGS,HW,INIT,PS,FPR,CACHE,DBINIT,DBPRINTF,OSINIT,ERR,OSTIME,SAVE20})
   require(funcs.count(pc)==1,"missing expected PPC function");

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic field encodings and idempotent patch guards; no game data."""
-from apply_jump_table_v58 import OLD_SPR,NEW_SPR,OLD_BCTR,NEW_BCTR,rewrite
+from apply_jump_table_v58 import OLD_SPR,NEW_SPR,OLD_BCTR,NEW_BCTR,OLD_ROOTS,NEW_ROOTS,OLD_PARAM,NEW_PARAM,rewrite
 
 def rejects(s):
     try:rewrite(s)
@@ -18,8 +18,8 @@ if __name__=="__main__":
         assert decode(ins)==spr
     bctr=(19<<26)|(20<<21)|(528<<1)
     assert ((bctr>>1)&1023)==528 and (bctr&1023)!=528
-    old=OLD_SPR+"\n"+OLD_BCTR
-    new=NEW_SPR+"\n"+NEW_BCTR
+    old="\n".join((OLD_SPR,OLD_BCTR,OLD_ROOTS,OLD_PARAM))
+    new="\n".join((NEW_SPR,NEW_BCTR,NEW_ROOTS,NEW_PARAM))
     assert rewrite(old)==new and rewrite(new)==new
     rejects(OLD_SPR);rejects(OLD_BCTR);rejects(old+"\n"+OLD_BCTR)
     print("PASS: all 1024 PPC SPR encodings and jump-table patch fail-closed guards")
