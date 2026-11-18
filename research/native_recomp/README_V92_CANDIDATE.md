@@ -1,4 +1,4 @@
-# V92 candidate: original filesystem open return
+# V92 verified: original filesystem open return
 
 V91 verified the genuine /dev/fs request in 16 owner trials. V92 mounts an
 explicit empty read-only guest resource filesystem at the beginning of
@@ -12,3 +12,5 @@ The terminal call is the original buffer-low setter at 0x8051908C from
 STM output, request/result and event pending state. No complete filesystem
 initialization is claimed until owner verification passes. No host paths
 or proprietary files are mounted.
+
+Verified owner run 44244933102 on 8d88ece4f3179fc0060178cda95d23485ceb061c: 16/16 trials; all seven terminal and two ACK predicates true. FS fd 2 returned by native IOS and stored by original code. STM deferred data/result and descriptors unchanged. V93 now extends the original initializer through its own heap and the following service wrapper.

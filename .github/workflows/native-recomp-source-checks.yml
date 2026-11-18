@@ -50,6 +50,7 @@ jobs:
           python3 research/native_recomp/test_extend_private_text.py
           python3 research/native_recomp/test_resource_open_v91.py
           python3 research/native_recomp/test_filesystem_return_v92.py
+          python3 research/native_recomp/test_isfs_return_v93.py
           python3 research/native_recomp/test_startup_tail_metadata_v90.py
       - name: Test original-free native dcbz memory effects
         run: |
