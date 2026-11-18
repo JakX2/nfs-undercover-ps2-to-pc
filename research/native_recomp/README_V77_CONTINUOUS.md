@@ -1,0 +1,3 @@
+# V77: original IPC ACK handler return and native IOS reply (candidate)
+
+Restores the entire original registered IPC handler and its direct reply/wake dependencies. Uses actual guest control/flag MMIO writes to clear the hardware ACK, verifies the original handler returns to the interrupt dispatcher's scheduler-enable call `0x80529434`, and requires the original sleeping request thread to remain waiting. Only then advances the native IOS broker to publish the real reply. The reply bytes, physical mailbox pointer and second interrupt are checked without forcing any guest branch. Stops before returning from the first interrupt exception. Authenticated handler dependency metadata CI `44228366426`. Owner CI pending; V76 must be verified independently.
