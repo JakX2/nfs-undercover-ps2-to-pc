@@ -15,7 +15,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-extern "C" void func_80000C00(nwii::runtime::CPUContext&);
+// NWiiRecomp generated function bodies use C++ linkage, unlike run_game.
+void func_80000C00(nwii::runtime::CPUContext&);
 namespace {
 constexpr uint32_t START=0x8000403cu, POST_OWNER=0x80522044u, POST_SYNTH=0x8052a844u;
 constexpr uint32_t OS_RET_OWNER=0x80522044u, OS_RET_SYNTH=0x80520694u;
