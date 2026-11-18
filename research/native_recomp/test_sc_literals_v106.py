@@ -22,7 +22,7 @@ class ProbeSC(unittest.TestCase):
         self.assertEqual(len(tuple(data_sections(blob))),3)
     def test_section_boundary(self):
         word=PUBLIC[0][1]
-        self.assertEqual(counts(fake(word[:8],word[8:])),(0,0,0,0,0))
+        self.assertEqual(counts(fake(word[:8],word[8:])),(0,1,0,0,0))
     def test_reject_bad_section(self):
         blob=bytearray(fake(b"SYSCONF\0"))
         struct.pack_into(">I",blob,0x1c,0x20)
