@@ -4,6 +4,7 @@ import argparse,struct
 from pathlib import Path
 from make_start_to_thread_return_v61 import make as previous,STOP as PREV_STOP,START
 from make_start_to_epilogue_v41 import sections_of
+from make_start_to_si_sampling_v58 import data_sections
 from make_osinit_execparams_v28 import text_at,SC,BLR,NOP
 from make_alarm_v47 import call_target
 from make_start_to_vectorcopy_v38 import word
@@ -21,6 +22,13 @@ def make(owner):
     for pc,dest in EDGES:
         if call_target(text_at(raw,pc,4),pc,pc)!=dest:raise ValueError("V62 original audio reset call graph changed")
     text,_=sections_of(old)
+    base,os=text[1]
+    end=STOP+8
+    if base!=0x80520670 or not base+len(os)<=RESET<end<=0x80522280:
+        raise ValueError("V62 audio OS text extension outside prior guarded region")
+    if any(i!=1 and b<end and b+len(c)>base for i,(b,c) in enumerate(text)):
+        raise ValueError("V62 OS extension overlaps prior text")
+    os.extend(struct.pack(">I",NOP)*((end-base-len(os))//4))
     def install(lo,body,expected):
         hits=[(b,c) for b,c in text if b<=lo and lo+len(body)<=b+len(c)]
         if len(hits)!=1:raise ValueError("V62 audio reset range not uniquely mapped")
@@ -33,12 +41,20 @@ def make(owner):
         install(lo,original,struct.pack(">I",NOP)*((hi-lo)//4))
     install(STOP,struct.pack(">II",SC,BLR),struct.pack(">II",NOP,NOP))
     install(PREV_STOP,text_at(raw,PREV_STOP,4)+struct.pack(">II",SC,BLR),struct.pack(">III",SC,BLR,NOP))
-    out=bytearray(old)
+    out=bytearray(old[:256])
     for i,(base,body) in enumerate(text):
-        off=word(old,4*i)
-        if len(body)!=word(old,0x90+4*i):raise ValueError("V62 original text geometry changed")
-        out[off:off+len(body)]=body
-    if out[:256]!=old[:256] or word(out,0xe0)!=START:raise ValueError("V62 original header changed")
+        at=len(out)
+        for k,v in ((0,at),(0x48,base),(0x90,len(body))):
+            struct.pack_into(">I",out,k+4*i,v)
+        out.extend(body);out.extend(b"\0"*((-len(out))%4))
+    data=data_sections(old)
+    if len(data)!=7:raise ValueError("V62 inherited initialized data count changed")
+    for i,(base,body) in enumerate(data):
+        at=len(out)
+        for k,v in ((0x1c,at),(0x64,base),(0xac,len(body))):
+            struct.pack_into(">I",out,k+4*i,v)
+        out.extend(body);out.extend(b"\0"*((-len(out))%4))
+    if out[0xe0:0x100]!=old[0xe0:0x100] or word(out,0xe0)!=START:raise ValueError("V62 original header tail changed")
     return bytes(out)
 if __name__=="__main__":
     p=argparse.ArgumentParser();p.add_argument("owner",type=Path);p.add_argument("private_output",type=Path);a=p.parse_args()
