@@ -1,0 +1,43 @@
+name: Wii V100 Post NAND Metadata
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/probe_post_nand_v100.py'
+      - '.github/workflows/wii-v100-post-nand-metadata.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bounded-owner:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage authenticated owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Emit bounded frontier metadata only
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/probe_post_nand_v100.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" > "$RUNNER_TEMP/postnand100.log" 2>&1 || {
+            echo 'Owner metadata probe failed; private diagnostic withheld'
+            exit 1
+          }
+          grep -E '^(V100_(REGION|SDA) |POST68_(FUNCTION|EDGE|TERMINALS) |PASS: bounded authenticated V100 post-NAND sibling dependency metadata$)' "$RUNNER_TEMP/postnand100.log"
+      - if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/postnand100.log"
