@@ -114,6 +114,11 @@ jobs:
               grep -E '^V101_SC_SAVE route=[01]$|^V101_SC_CHILD route=[01] running=[01] prior=[01] kind=[12] arg=[01]$' "$RUNNER_TEMP/v104-focused.log" || true
               grep -E '^V102_SC_STRLEN input=[01] bounded=[01]$|^V102_SC_COPY input=[01] bounded=[01]$|^V102_SC_PATH route=[01] bytes=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/v104-focused.log" || true
               grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] copied=[01] prior=[01] abi=[01]$' "$RUNNER_TEMP/v104-focused.log" || true
+              # Public source-only assertion decoder; no owner data is emitted.
+              code="$(sed -n 's/^V67_NATIVE_ASSERTION id=\\([0-9][0-9][0-9]\\)$/\\1/p' "$RUNNER_TEMP/v104-focused.log" | tail -n 1)"
+              if [[ "$code" =~ ^[0-9]{3}$ ]]; then
+                python3 research/native_recomp/diagnose_sc_async_submit_v104.py "$((10#$code))" || true
+              fi
               echo 'V104 candidate failed; private logs withheld' >&2
               exit 1
             }
