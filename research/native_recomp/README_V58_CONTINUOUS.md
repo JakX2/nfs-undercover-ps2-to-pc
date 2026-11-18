@@ -1,0 +1,2 @@
+# V58: SI sampling and interrupt registration candidate
+New general source-only analyzer patch corrects the PPC instruction XO extraction for bctr and the swapped SPR field for mtctr. The private fixture uses authentic initialized SI sampling and TV jump-table data, and reconstructs original SIInit up to the first controller discovery call. Tested clock modes and busy polling are bounded hardware-model inputs. No claim yet of complete SI, USB or controller support. Verification remains pending.
