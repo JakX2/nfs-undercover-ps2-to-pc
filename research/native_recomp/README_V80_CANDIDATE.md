@@ -13,5 +13,5 @@ OSWakeupThread entry. The handler is not replaced, and no thread is awakened
 by host code. It stops *before* executing the wake routine, then the original
 scheduler and default thread return will be tackled separately.
 
-Status: source-only candidate. V79 passed run 44231647130; V80 focused owner execution is now enabled for changes to its own files. No new original bytes or generated C++ are
+Status: VERIFIED. V79 passed run 44231647130; V80 passed run 44232553013 on a626ac618e8052c1d79930bdac778f3f8d8a4c6a with 16/16 owner-original trials and all four wake entry predicates true. No new original bytes or generated C++ are
 published.

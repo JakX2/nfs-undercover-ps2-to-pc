@@ -34,7 +34,9 @@ jobs:
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
       - name: Test original-free IPC reply harness derivation
-        run: python3 research/native_recomp/test_reply_entry_derivation.py
+        run: |
+          python3 research/native_recomp/test_reply_entry_derivation.py
+          python3 research/native_recomp/test_ready_thread_v81.py
       - name: Test original-free native dcbz memory effects
         run: |
           python3 research/native_recomp/test_dcbz_patch_v67.py
