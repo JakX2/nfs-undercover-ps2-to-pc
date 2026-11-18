@@ -1,0 +1,142 @@
+name: Wii V95 Original Title Query Return
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v95*'
+      - '.github/workflows/wii-v95-title-return.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v95-focus-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused-owner-v95:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned owner Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Prepare pinned original-free NWii runtime and cache traces
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+          echo 'PASS: V72 focused runtime prerequisites prepared and original-free source guards passed'
+      - name: Run original title return candidate
+        run: |
+          set -euo pipefail
+          umask 077
+          bash research/native_recomp/run_v95_continuous_title_return.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/v95-focused.log" 2>&1 || {
+              grep -E '^V95_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V76_MMIO_UNSUPPORTED addr=0?c[0-9a-f]{6}$|^V76_MMIO_UNSUPPORTED addr=0?d[0-9a-f]{6}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V72_SDA phase=[01] site=[0-9a-f]{8} addr=[0-9a-f]{8} width=[124] init=[01] initial_nz=[01] live_nz=[01] equal=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V77_HARNESS_LINE [0-9]+$|^V77_GENERATOR_LINE [0-9]+$|^V77_WARNING [a-z0-9-]+$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V95_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V79_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[01] enable=[01] resched=[01] load=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V79_GETCONTEXT resched=[01] lr=[01] masked=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V80_WAKE_ENTRY route=[01] waiting=[01] wire=[01] consumed=[01]$|^V95_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V81_READY_STATE route=[01] drained=[01] ready=[01] enrolled=[01] idle=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V83_FREE_ENTRY request=[01] result=[01] route=[01]$|^V83_SECOND_OPEN first=[01] next=[01] abi=[01] cleanup=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V84_SECOND_ACK first=[01] second=[01] wire=[01] pending=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V85_STM_OPENS descriptors=[01] idle=[01] cleanup=[01] abi=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V86_ASYNC_ENTRY route=[01] service=[01] buffers=[01] callback=[01] idle=[01]$|^V86_ASYNC_SUBMIT route=[01] allocated=[01] flush=[01] wire=[01] idle=[01]$|^V86_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V87_ASYNC_RETURN route=[01] descriptors=[01] thread=[01] sent=[01] before=[01]$|^V87_DEFERRED pending=[01] ack=[01] wire=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V88_ACTIVE_VECTOR route=[01] saved=[01] running=[01] masked=[01]$|^V88_ACTIVE_ACK clear=[01] deferred=[01] running=[01] route=[01]$|^V88_ACTIVE_RFI regs=[01] status=[01] running=[01] deferred=[01]$|^V88_STM_RETURN route=[01] abi=[01] running=[01] deferred=[01] devices=[01]$|^V88_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V89_SUBSYSTEM route=[01] queue=[01] abi=[01] version=[01] pending=[01]$|^V89_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V90_CONSOLE_ROUTE route=[01] abi=[01] console=[01] queue=[01] devices=[01] pending=[01]$|^V90_ROUTE_TARGET mode=[0-3] pc=(8051e7e4|8052f94c)$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V92_FS_ACK prior=[01] event=[01]$|^V92_FS_RETURN route=[01] result=[01] descriptors=[01] deferred=[01] abi=[01] idle=[01] bounds=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V93_HEAP_ENTRY route=[01] bounds=[01]$|^V93_ISFS_RETURN route=[01] result=[01] memory=[01] state=[01] preserved=[01]$|^V93_NEXT_OPEN route=[01] service=[01] preserved=[01]$|^V93_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V94_ES_ACK prior=[01] event=[01]$|^V94_ES_RETURN route=[01] result=[01] prior=[01] deferred=[01] abi=[01]$|^V94_TITLE_REQUEST route=[01] api=[01] vector=[01] prior=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+              grep -E '^V95_VECTOR_SUBMIT flush=[01] wire=[01]$|^V95_TITLE_ACK wire=[01] output=[01]$|^V95_TITLE_RETURN route=[01] output=[01] abi=[01] prior=[01] vector=[01]$|^V95_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/v95-focused.log" || true
+              echo 'V95 candidate failed; private logs withheld' >&2
+              exit 1
+            }
+          grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$RUNNER_TEMP/v95-focused.log" || true
+          grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V95_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V80_WAKE_ENTRY route=[01] waiting=[01] wire=[01] consumed=[01]$|^V95_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V81_READY_STATE route=[01] drained=[01] ready=[01] enrolled=[01] idle=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V83_FREE_ENTRY request=[01] result=[01] route=[01]$|^V83_SECOND_OPEN first=[01] next=[01] abi=[01] cleanup=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V84_SECOND_ACK first=[01] second=[01] wire=[01] pending=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V85_STM_OPENS descriptors=[01] idle=[01] cleanup=[01] abi=[01] route=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V86_ASYNC_ENTRY route=[01] service=[01] buffers=[01] callback=[01] idle=[01]$|^V86_ASYNC_SUBMIT route=[01] allocated=[01] flush=[01] wire=[01] idle=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V87_ASYNC_RETURN route=[01] descriptors=[01] thread=[01] sent=[01] before=[01]$|^V87_DEFERRED pending=[01] ack=[01] wire=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V88_ACTIVE_VECTOR route=[01] saved=[01] running=[01] masked=[01]$|^V88_ACTIVE_ACK clear=[01] deferred=[01] running=[01] route=[01]$|^V88_ACTIVE_RFI regs=[01] status=[01] running=[01] deferred=[01]$|^V88_STM_RETURN route=[01] abi=[01] running=[01] deferred=[01] devices=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V89_SUBSYSTEM route=[01] queue=[01] abi=[01] version=[01] pending=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V90_CONSOLE_ROUTE route=[01] abi=[01] console=[01] queue=[01] devices=[01] pending=[01]$|^V90_ROUTE_TARGET mode=[0-3] pc=(8051e7e4|8052f94c)$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V91_RESOURCE_BUFFER route=[01] bounds=[01]$|^V91_RESOURCE_OPEN route=[01] abi=[01] path=[01] devices=[01] pending=[01] kind=[0-8]$|^V91_LITERAL count=[0-3]$|^V91_PATH_DIAGNOSTIC length=[0-9]{1,2} mem2=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V92_FS_ACK prior=[01] event=[01]$|^V92_FS_RETURN route=[01] result=[01] descriptors=[01] deferred=[01] abi=[01] idle=[01] bounds=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V93_HEAP_ENTRY route=[01] bounds=[01]$|^V93_ISFS_RETURN route=[01] result=[01] memory=[01] state=[01] preserved=[01]$|^V93_NEXT_OPEN route=[01] service=[01] preserved=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V94_ES_ACK prior=[01] event=[01]$|^V94_ES_RETURN route=[01] result=[01] prior=[01] deferred=[01] abi=[01]$|^V94_TITLE_REQUEST route=[01] api=[01] vector=[01] prior=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -E '^V95_VECTOR_SUBMIT flush=[01] wire=[01]$|^V95_TITLE_ACK wire=[01] output=[01]$|^V95_TITLE_RETURN route=[01] output=[01] abi=[01] prior=[01] vector=[01]$' "$RUNNER_TEMP/v95-focused.log"
+          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x804F0AD8 stage=95' "$RUNNER_TEMP/v95-focused.log"
+          echo 'PASS: V95 original title query returned'
+      - name: Remove private originals and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
+            "$RUNNER_TEMP/v95-focused.json" "$RUNNER_TEMP/v95-focused.log"
