@@ -94,7 +94,7 @@ int main(){
     // through real IPC ACK/reply interrupts without inventing a file.
     ram.write32(req+32u,0xa1b2c3d4u);
     ram.string(path,"");
-    call(S::Open,0,S::NotFound,path,1u);
+    call(S::Open,0,S::FsInvalid,path,1u);
     ram.string(path,"/shared2/sys/SYSCONF");
     call(S::Open,0,S::FsMissing,path,1u);
     assert(ram.read32(req+32u)==0xa1b2c3d4u);
