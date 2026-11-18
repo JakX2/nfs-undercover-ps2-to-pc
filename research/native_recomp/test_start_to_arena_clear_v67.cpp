@@ -167,8 +167,8 @@ static unsigned arena_phase=0,arena_getters=0,arena_reset_calls=0,arena_reset_re
 static bool arena_active=false;
 static uint32_t arena_low(unsigned phase){return phase==1u?M1_ARENA_LO(report_trial):M2_ARENA_LO(report_trial);}
 static uint32_t arena_high(unsigned phase){return phase==1u?M1_ARENA_HI:M2_ARENA_HI;}
-static uint32_t arena_clear_lr(unsigned phase){return phase==1u?0x80520084u:0x80520268u;}
-static uint32_t arena_flush_lr(unsigned phase){return phase==1u?0x80520090u:0x80520274u;}
+static uint32_t arena_clear_lr(unsigned phase){return phase==1u?0x80520020u:0x805201fcu;}
+static uint32_t arena_flush_lr(unsigned phase){return phase==1u?0x8052002cu:0x80520208u;}
 static uint32_t reset_seed(){return 0x100u+report_trial*8u;}
 static uint64_t expected_zero_lines(unsigned phase){
   uint64_t sum=0;for(unsigned i=1;i<=phase;++i)sum+=(arena_high(i)-arena_low(i))/32u;
@@ -550,7 +550,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
   }
   else if(addr==0x80521d40u){
     check(arena_active&&arena_phase==1u&&ctx.gpr[1]==AUDIO_FRAME&&
-          ((arena_getters==1u&&ctx.lr==0x80520058u)||(arena_getters==2u&&ctx.lr==0x80520060u)),
+          ((arena_getters==1u&&ctx.lr==0x8051fff4u)||(arena_getters==2u&&ctx.lr==0x8051fffcu)),
           "original MEM1 arena low getter order differs");
     ++arena_getters;
   }
@@ -567,9 +567,9 @@ void trace_call(uint32_t addr, CPUContext&ctx){
           addr==0x80521d20u||addr==0x80521d38u){
     if(arena_active){
       check(arena_phase==2u&&ctx.gpr[1]==AUDIO_FRAME&&
-        ((arena_getters==3u&&addr==0x80521d20u&&ctx.lr==0x80520234u)||
-         (arena_getters==4u&&addr==0x80521d38u&&ctx.lr==0x8052023cu)||
-         (arena_getters==5u&&addr==0x80521d38u&&ctx.lr==0x80520244u)),
+        ((arena_getters==3u&&addr==0x80521d20u&&ctx.lr==0x805201c8u)||
+         (arena_getters==4u&&addr==0x80521d38u&&ctx.lr==0x805201d0u)||
+         (arena_getters==5u&&addr==0x80521d38u&&ctx.lr==0x805201d8u)),
         "original MEM2 arena getter call order differs");
       ++arena_getters;return;
     }
@@ -622,7 +622,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
   }
   else if(addr==0x80521d28u){
     if(arena_active){
-      check(arena_phase==1u&&arena_getters==0u&&ctx.lr==0x80520050u&&ctx.gpr[1]==AUDIO_FRAME,
+      check(arena_phase==1u&&arena_getters==0u&&ctx.lr==0x8051ffecu&&ctx.gpr[1]==AUDIO_FRAME,
             "original MEM1 arena high getter call order differs");
       ++arena_getters;return;
     }

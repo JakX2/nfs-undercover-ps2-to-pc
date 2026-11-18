@@ -358,8 +358,8 @@ int main(int argc,char** argv)try{
       require(funcs.count(pc)==1,"original arena clear dependent function missing");
    for(const auto& edge:std::array<std::pair<uint32_t,uint32_t>,6>{{
      {0x8051ffdcu,0x805285d0u},{0x805201b8u,0x805285d0u},
-     {0x80520080u,0x8052234cu},{0x8052008cu,0x805222c0u},
-     {0x80520264u,0x8052234cu},{0x80520270u,0x805222c0u}}})
+     {0x8052001cu,0x8052234cu},{0x80520028u,0x805222c0u},
+     {0x805201f8u,0x8052234cu},{0x80520204u,0x805222c0u}}})
        require(branch(find_opcode(edge.first),edge.first)==edge.second,"original arena cold-path call graph changed");
    require(((find_opcode(0x80522368u)>>1)&1023u)==1014u&&
            funcs.at(0x8052234cu).instructions.size()==11u,
