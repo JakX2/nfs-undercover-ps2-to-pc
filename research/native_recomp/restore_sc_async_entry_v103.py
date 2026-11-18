@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from make_osinit_execparams_v28 import BLR,text_at,be32,target
 from make_start_to_irq_enable_v68 import replace
-from extend_private_text import NOP,STUB
+from extend_private_text import NOP,STUB,install,unpack
 from restore_sc_path_v102 import (restore as v102,SPANS as V102_SPANS,
     v101,V101_ROOT,V101_SIZE,v100,V100_SPANS,v99,V99_ROOT,V99_SIZE,
     v97,V97_SPANS,v96,V96_ROOT,V96_SIZE,v95,V95_SPANS,v94,V94_ROOT,V94_SIZE,
@@ -22,17 +22,19 @@ def restore(old,bodies):
     for pc,dst in EDGES:
         if target(be32(bodies[SPANS[0][0]],pc-SPANS[0][0]),pc,True)!=dst:
             raise ValueError("V103 original async wrapper call edge differs")
-    out=bytearray(old)
+    # The reduced DOL may end before the original SC async wrapper.
+    # install() extends only the preceding private text segment with NOP,
+    # preserving every original existing section and initialized datum.
+    slots=unpack(old)
+    covered=any(kind==0 and base<=SPANS[0][0] and
+                SPANS[0][0]+SPANS[0][1]<=base+len(code)
+                for kind,index,base,code in slots)
+    patches=[]
     for i,(pc,n) in enumerate(SPANS):
-        before=STUB+NOP*(n//4-2) if i==0 else NOP*(n//4)
-        replace(out,pc,before,bodies[pc])
-    replace(out,NEXT,NOP*2,STUB)
-    reverse=bytearray(out);replace(reverse,NEXT,STUB,NOP*2)
-    for i in reversed(range(len(SPANS))):
-        pc,n=SPANS[i];before=STUB+NOP*(n//4-2) if i==0 else NOP*(n//4)
-        replace(reverse,pc,bodies[pc],before)
-    if bytes(reverse)!=old or out[:256]!=old[:256]:raise ValueError("V103 unrelated private mutation")
-    return bytes(out)
+        before=STUB+NOP*(n//4-2) if i==0 and covered else NOP*(n//4)
+        patches.append((pc,before,bodies[pc]))
+    patches.append((NEXT,NOP*2,STUB))
+    return install(old,patches)
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("fixture",type=Path);p.add_argument("owner",type=Path);p.add_argument("output",type=Path)
