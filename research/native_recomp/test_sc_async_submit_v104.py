@@ -58,6 +58,11 @@ class AsyncSubmitV104(unittest.TestCase):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104",s)
         self.assertLess(s.index("restore_sc_async_entry_v103.py"),s.index("restore_sc_async_submit_v104.py"))
+        # The inner runner must forward bounded diagnostics to the outer CI
+        # log, otherwise the public workflow greps never observe them.
+        self.assertIn("^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$",s)
+        self.assertIn("^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$",s)
+        self.assertIn("^V104_ASYNC_SYSCALL order=[01] lines=[01]$",s)
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"run.sh";p.write_text(s)
             subprocess.run(["bash","-n",str(p)],check=True)
