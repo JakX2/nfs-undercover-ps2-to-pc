@@ -1,0 +1,86 @@
+name: Wii V107 SC Original-Data Source Provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v107*'
+      - '.github/workflows/wii-v107-sc-source.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v107-source-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  owner-source-v107:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned owner Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Prepare pinned original-free NWii runtime and cache traces
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+          echo 'PASS: V72 focused runtime prerequisites prepared and original-free source guards passed'
+      - name: Run bounded original SC source provenance probe
+        run: |
+          set -euo pipefail
+          umask 077
+          bash research/native_recomp/run_v107_sc_source_probe.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/sc107.log" 2>&1 || true
+          # V104 may still fail later. This diagnostic-only probe checks
+          # solely that its native compilation and SC input were observed.
+          grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc107.log"
+          grep -E '^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$' "$RUNNER_TEMP/sc107.log" | sort -u
+          echo 'PASS: V107 read-only original SC source provenance captured'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc107.log"
