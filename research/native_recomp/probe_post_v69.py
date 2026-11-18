@@ -163,6 +163,28 @@ def scan(raw,funcs):
                 offset=op&0xffff
                 if offset&0x8000:offset-=0x10000
                 print(f"POST76_SDA func=0x{addr:08X} site=0x{pc:08X} base={ra} offset={offset} access={'load' if major in (32,34,40,42) else 'store'}")
+    # The IRQ epilogue has direct non-link tails and an architectural RFI,
+    # neither of which is represented in the ordinary call-edge census.
+    # Publish only verified code locations and branch destinations, not words.
+    for addr in (0x80529940,0x80529718,0x805229b4,0x80526a3c,0x805190c0,0x8052a51c):
+        size=funcs[addr]
+        if not 0<size<=MAX_SIZE:raise ValueError("invalid reply frontier span")
+        rfi_count=0
+        for i,(op,) in enumerate(struct.iter_unpack(">I",get_text(raw,addr,size))):
+            pc=addr+4*i;major=op>>26
+            if major==18 and not op&1:
+                dst=branch_target(op,pc)
+                if not addr<=dst<addr+size:
+                    print(f"POST79_TAIL func=0x{addr:08X} site=0x{pc:08X} target=0x{dst:08X}")
+            if major==19 and (op>>1)&1023==50:
+                rfi_count+=1
+                print(f"POST79_RFI func=0x{addr:08X} site=0x{pc:08X}")
+        print(f"POST79_SUMMARY func=0x{addr:08X} rfi={rfi_count}")
+    # The next synchronous IOS request and scheduler wakeup must retain the
+    # original submit continuation, allocator free and STM call boundaries.
+    for addr in (0x805195ec,0x80519944,0x8052b034,0x8052a51c,0x8051ad3c):
+        print(f"POST79_CONTINUE addr=0x{addr:08X}")
+        describe(raw,funcs,addr)
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
