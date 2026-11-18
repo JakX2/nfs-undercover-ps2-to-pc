@@ -63,6 +63,7 @@ jobs:
           python3 "$here/test_jump_table_patch_v58.py"
           python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
           python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
           echo 'PASS: V63 focused runtime prerequisites prepared and original-free source guards passed'
       - name: Run original Wii continuous DSP bootstrap staging/native SC return without replaying V38-V51
         run: |

@@ -459,6 +459,7 @@ int main(int argc,char** argv)try{
  }
  nwii::recomp::RecompilerConfig config;
  config.output_dir=output.string();config.split_output=false;
+ if(owner)config.native_low_mem_entries.insert(0x80000c00u);
  nwii::recomp::Recompiler generator(analyzer,nullptr,config);
  auto files=generator.generate_cpp(START);
  require(files.size()==1 && files[0]=="output.cpp","unexpected output configuration");

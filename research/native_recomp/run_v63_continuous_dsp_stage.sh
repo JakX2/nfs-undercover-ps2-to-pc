@@ -50,6 +50,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$root/nWiiRuntime/include" \
 "$work/hollywood-mmio-test"
 g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_native_sc_vector_v63.cpp" -o "$work/sc-vector-test"
 "$work/sc-vector-test"
+python3 "$here/test_native_lowmem_patch_v63.py"
 echo 'V63_STAGE runtime_cache_trace_verified'
 
 python3 "$here/make_start_to_dsp_stage_v63.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
