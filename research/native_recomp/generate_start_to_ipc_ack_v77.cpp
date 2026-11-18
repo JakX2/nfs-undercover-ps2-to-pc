@@ -1003,16 +1003,16 @@ int main(int argc,char** argv)try{
      require(body.front().address==pc&&body.back().address<=pc+size-4u,
              "original IPC handler dependency geometry differs");
    }
-   const auto& ipc=funcs.at(0x80519318u).instructions;
-   require(ipc.back().address==0x805194c0u&&ipc.back().opcode==0x4e800020u,
+   const auto& ipc_handler=funcs.at(0x80519318u).instructions;
+   require(ipc_handler.back().address==0x805194c0u&&ipc_handler.back().opcode==0x4e800020u,
            "original registered IPC handler incomplete");
    for(const auto& edge:std::array<std::pair<uint32_t,uint32_t>,12>{{
        {0x80519338u,0x8051905cu},{0x80519350u,0x805190c0u},{0x80519358u,0x8051905cu},
        {0x8051936cu,0x8051905cu},{0x8051937cu,0x8051906cu},{0x805193a0u,0x8051b060u},
        {0x805193d0u,0x8052a51cu},{0x805193d8u,0x8051905cu},{0x805193e8u,0x8051906cu},
        {0x80519460u,0x8051906cu},{0x80519498u,0x8051905cu},{0x805194a8u,0x8051906cu}}}){
-     const auto it=std::find_if(ipc.begin(),ipc.end(),[&](const auto& ins){return ins.address==edge.first;});
-     require(it!=ipc.end()&&branch(it->opcode,edge.first)==edge.second,
+     const auto it=std::find_if(ipc_handler.begin(),ipc_handler.end(),[&](const auto& ins){return ins.address==edge.first;});
+     require(it!=ipc_handler.end()&&branch(it->opcode,edge.first)==edge.second,
              "original IPC handler call edge missing");
    }
    for(uint32_t pc:{0x8051a1a4u}){
