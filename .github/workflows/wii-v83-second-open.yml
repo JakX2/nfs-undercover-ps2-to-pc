@@ -1,6 +1,11 @@
 name: Wii V83 Original Second STM Open
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v83*'
+      - '.github/workflows/wii-v83-second-open.yml'
 permissions:
   contents: read
 concurrency:
