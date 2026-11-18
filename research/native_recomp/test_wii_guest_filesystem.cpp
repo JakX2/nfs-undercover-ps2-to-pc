@@ -61,6 +61,36 @@ int main(){
     open("/tmp/missing",1,S::FsMissing);
     open("/tmp/../other",1,S::FsInvalid);
     open("/shared2/sys/example.bin",1,3);open("/shared2/sys/example.bin",1,4);
+    // IOS_OpenAsync and IOS_ReadAsync share the ordinary IOS wire request
+    // format. Run independent request slots while the STM event remains
+    // outstanding, without synthesizing a guest callback or scheduler.
+    constexpr uint32_t async_request=0x200;
+    ram.string(path,"/shared2/sys/example.bin");
+    submit(async_request,S::Open,0,path,1);
+    ack(S::Pump::Ack);
+    assert(bus.services().event_pending()&&ram.read32(event)==S::Ioctl);
+    reply(async_request,S::Open,5);
+    assert(bus.services().is_open(5,S::Device::File));
+    submit(async_request,S::Read,5,out+24,3);
+    ack(S::Pump::Ack);
+    reply(async_request,S::Read,3);
+    assert(ram.read8(out+24)==0x10u&&ram.read8(out+25)==0x20u&&
+           ram.read8(out+26)==0x30u);
+    submit(async_request,S::Ioctl,5,S::FileStats,0,0,out+40,8);
+    ack(S::Pump::Ack);
+    reply(async_request,S::Ioctl,0);
+    assert(ram.read32(out+40)==5u&&ram.read32(out+44)==3u);
+    submit(async_request,S::Close,5);
+    ack(S::Pump::Ack);
+    reply(async_request,S::Close,0);
+    assert(!bus.services().is_open(5,S::Device::File));
+    ram.string(path,"/shared2/sys/not-mounted.bin");
+    submit(async_request,S::Open,0,path,1);
+    ack(S::Pump::Ack);
+    reply(async_request,S::Open,S::FsMissing);
+    assert(bus.services().event_pending()&&ram.read32(event)==S::Ioctl&&
+           ram.read32(eventout)==0xaabbccddu&&
+           bus.services().queued_replies()==0u);
     assert(!bus.services().mount_filesystem({}));
     ram.write32(out,0xa5a5a5a5u);ram.write32(out+4,0x12345678u);
     call(S::Read,3,3,out,3);assert(ram.read32(out)==0x102030a5u);
