@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# V70: original IPC client from continuous __start.
+# V70: original STM to IOS_Open from continuous __start.
 # V40 must have installed the source-only 256-entry cache trace already.
 # Owner DOL, all translated output and private failures stay in mktemp only.
 set -euo pipefail
@@ -61,12 +61,12 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_flat_cacheline_zero_v67.cpp
 echo 'V70_STAGE runtime_cache_trace_verified'
 
 python3 "$here/make_start_to_stm_v70.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
-    python3 "$here/classify_v69_fixture_failure.py" "$work/build-private.log" || true
+    python3 "$here/classify_v70_fixture_failure.py" "$work/build-private.log" || true
     echo 'V70 fixture construction failed; owner details withheld' >&2; exit 1;
   }
 echo 'V70_STAGE fixture_generated'
 python3 "$here/test_v70_continuous_stm_geometry.py" "$work/private.dol" "$owner"   > "$work/private-geometry.log" 2>&1 || {
-    echo 'V70 IRQ-enable geometry guard failed' >&2; exit 1;
+    echo 'V70 STM geometry guard failed' >&2; exit 1;
   }
 echo 'V70_STAGE geometry_verified'
 
@@ -102,11 +102,11 @@ echo 'V70_STAGE native_compiled'
   python3 "$here/classify_v67_native_failure.py" \
     "$work/private-native.log" "$here/test_start_to_stm_v70.cpp" || \
     echo 'V70_NATIVE_ASSERTION id=000'
-  echo 'V70 original native IPC-client assertion failed; details withheld' >&2
+  echo 'V70 original STM assertion failed; details withheld' >&2
   exit 1
 }
 echo 'V70_STAGE native_test_passed'
-grep -Eq '^PASS: [0-9]+ V70 recovered continuous original __start->OSInit STM IOS-Open-boundary assertions; mode=owner trials=16 stop=0x80519944$' \
+grep -Eq '^PASS: [0-9]+ V70 recovered continuous original __start->STM IOS-Open-boundary assertions; mode=owner trials=16 stop=0x80519944$' \
   "$work/private-native.log" || {
   echo 'V70 original native return checkpoint marker is missing' >&2; exit 1;
 }
