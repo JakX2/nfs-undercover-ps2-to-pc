@@ -124,7 +124,8 @@ echo 'V79_STAGE native_compiled'
   python3 "$here/classify_v67_native_failure.py" \
     "$work/private-native.log" "$work/harness.cpp" || \
     echo 'V71_NATIVE_ASSERTION id=000'
-  grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}
+  grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}$' "$work/private-native.log" | sort -u || true
+  echo 'V79 original reply entry assertion failed; details withheld' >&2
   grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u || true
   grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u || true
   grep -E '^V76_MMIO_UNSUPPORTED addr=0?c[0-9a-f]{6}$|^V76_MMIO_UNSUPPORTED addr=0?d[0-9a-f]{6}$' "$work/private-native.log" | sort -u || true
@@ -138,7 +139,7 @@ echo 'V79_STAGE native_compiled'
   exit 1
 }
 echo 'V79_STAGE native_test_passed'
-grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}
+grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}$' "$work/private-native.log" | sort -u
 grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u
 grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u
 grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u
@@ -152,73 +153,3 @@ grep -Eq '^PASS: [0-9]+ V79 recovered continuous original __start->reply process
 }
 echo 'PASS: original Wii continuous __start entered original IOS reply processor after native context return'
 echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805190C0 stage=79'
- "$work/private-native.log" | sort -u || true
-  echo 'V79 original reply entry assertion failed; details withheld' >&2
-  grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V76_MMIO_UNSUPPORTED addr=0?c[0-9a-f]{6}$|^V76_MMIO_UNSUPPORTED addr=0?d[0-9a-f]{6}$' "$work/private-native.log" | sort -u || true
-  grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$work/private-native.log" | sort -u || true
-  grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_SDA phase=[01] site=[0-9a-f]{8} addr=[0-9a-f]{8} width=[124] init=[01] initial_nz=[01] live_nz=[01] equal=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$work/private-native.log" || true
-  grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" || true
-  exit 1
-}
-echo 'V79_STAGE native_test_passed'
-grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$work/private-native.log" | sort -u
-grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u
-grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" | sort -u
-grep -Eq '^PASS: [0-9]+ V77 recovered continuous original __start->ACK return and IOS reply assertions; mode=owner trials=16 stop=0x80529434$' \
-  "$work/private-native.log" || {
-  echo 'V73 original native return checkpoint marker is missing' >&2; exit 1;
-}
-echo 'PASS: original Wii continuous __start executed original ACK handler and published native IOS reply at 0x80529434'
-echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80529434 stage=77'
- "$work/private-native.log" | sort -u
-grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$work/private-native.log" | sort -u
-grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u
-grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" | sort -u
-grep -Eq '^PASS: [0-9]+ V77 recovered continuous original __start->ACK return and IOS reply assertions; mode=owner trials=16 stop=0x80529434$' \
-  "$work/private-native.log" || {
-  echo 'V73 original native return checkpoint marker is missing' >&2; exit 1;
-}
-echo 'PASS: original Wii continuous __start executed original ACK handler and published native IOS reply at 0x80529434'
-echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80529434 stage=77'
- "$work/private-native.log" | sort -u || true
-  echo 'V79 original reply entry assertion failed; details withheld' >&2
-  grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V76_MMIO_UNSUPPORTED addr=0?c[0-9a-f]{6}$|^V76_MMIO_UNSUPPORTED addr=0?d[0-9a-f]{6}$' "$work/private-native.log" | sort -u || true
-  grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$work/private-native.log" | sort -u || true
-  grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_SDA phase=[01] site=[0-9a-f]{8} addr=[0-9a-f]{8} width=[124] init=[01] initial_nz=[01] live_nz=[01] equal=[01]$' "$work/private-native.log" | sort -u || true
-  grep -E '^V72_SEND_STATE lr=[01] msg=[0-9]{1,2} x1=[0-9]{1,2} ee=[01] flush=[0-9]{1,2} disable=[0-9]{1,2} ack=[0-9]{1,2}$' "$work/private-native.log" || true
-  grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" || true
-  exit 1
-}
-echo 'V79_STAGE native_test_passed'
-grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V75_VECTOR_STATE index=[01] context=[01] pc=[01] msr=[01] gpr=[01] special=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V74_IRQ_ENTRY idle=1 waiting=1 vector=1 srr=1 ack=1$' "$work/private-native.log" | sort -u
-grep -E '^V73_WAIT_STATE waiting=[01] head=[01] tail=[01] queue=[01] links=[01] force0=[01]$' "$work/private-native.log" | sort -u
-grep -E '^V72_IRQ_HANDLER candidate=[123]$' "$work/private-native.log" | sort -u
-grep -E '^V71_REQUEST_SHAPE request=[0-9]{1,3} command=[0-9]{1,3} path=[0-9]{1,3}$' "$work/private-native.log" | sort -u
-grep -Eq '^PASS: [0-9]+ V77 recovered continuous original __start->ACK return and IOS reply assertions; mode=owner trials=16 stop=0x80529434$' \
-  "$work/private-native.log" || {
-  echo 'V73 original native return checkpoint marker is missing' >&2; exit 1;
-}
-echo 'PASS: original Wii continuous __start executed original ACK handler and published native IOS reply at 0x80529434'
-echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80529434 stage=77'
