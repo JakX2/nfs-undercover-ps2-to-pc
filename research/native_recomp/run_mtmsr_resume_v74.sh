@@ -7,6 +7,8 @@ trap 'rm -rf -- "$work"' EXIT
 python3 "$here/test_mtmsr_resume_patch_v74.py"
 python3 "$here/apply_nonsplit_dispatch_v15.py" "$root"
 python3 "$here/apply_mtmsr_resume_v74.py" "$root"
+python3 "$here/apply_syscall_pc_v26.py" "$root"
+python3 "$here/apply_exception_sprg.py" "$root"
 inc=(-I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
 g++ -std=c++20 -O2 "${inc[@]}" "$here/generate_mtmsr_resume_v74.cpp" \
     "$root/nWiiRuntime/src/core/loader.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \

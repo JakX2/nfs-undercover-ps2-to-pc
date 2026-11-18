@@ -4,6 +4,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*mtmsr*v74*'
+      - 'research/native_recomp/apply_exception_sprg.py'
+      - 'research/native_recomp/apply_syscall_pc_v26.py'
       - '.github/workflows/wii-native-irq-resume.yml'
   workflow_dispatch:
 permissions:

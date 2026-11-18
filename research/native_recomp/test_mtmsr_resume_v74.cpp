@@ -42,16 +42,26 @@ extern "C" void run_game(nwii::runtime::CPUContext&);
 int main(){
     auto ctx=std::make_unique<nwii::runtime::CPUContext>();
     using namespace nwii::runtime;
+    for(auto v:ctx->sprg)assert(v==0u);
     std::ostringstream output,errors;
     auto* old=std::cout.rdbuf(output.rdbuf());auto* err=std::cerr.rdbuf(errors.rdbuf());
     for(unsigned trial=0;trial<64;++trial){
         auto& c=*ctx;c.pc=ENTRY;c.lr=STOP;c.msr=0;c.is_running=true;
         c.gpr[5]=c.gpr[6]=0;pending=(trial%2==0);
+        const bool expect=pending;
+        for(unsigned k=0;k<4;++k){
+            c.sprg[k]=0x11220000u+k;c.gpr[8u+k]=0x98760000u+trial*4u+k;
+            c.gpr[12u+k]=0x33440000u+k;
+        }
         run_game(c);
-        assert(!c.is_running&&c.gpr[5]==1u&&c.gpr[6]==uint32_t(trial%2==0)&&c.msr==0x8000u);
+        assert(!c.is_running&&c.gpr[5]==1u&&c.gpr[6]==uint32_t(expect)&&c.msr==0x8000u);
+        for(unsigned k=0;k<4;++k){
+            assert(c.sprg[k]==(expect?c.gpr[8u+k]:0x11220000u+k));
+            assert(c.gpr[12u+k]==(expect?c.gpr[8u+k]:0x33440000u+k));
+        }
     }
     std::cout.rdbuf(old);std::cerr.rdbuf(err);
     assert(entry_count==64u&&irq_count==32u&&deliveries==32u&&stops==64u);
     assert(errors.str().find("Fallback dispatch")==std::string::npos&&errors.str().find("UNKNOWN DISPATCH")==std::string::npos);
-    std::cout<<"PASS: 64 native mtmsr/rfi dispatch trials, 32 actual generated IRQ returns, no fallback\n";
+    std::cout<<"PASS: 64 native mtmsr/rfi dispatch trials, 32 actual generated IRQ returns, all 4 SPRGs, no fallback\n";
 }

@@ -24,7 +24,16 @@ int main(int argc,char**argv){
     };
     add(entry,be({0x38800000u,0x60848000u,(31u<<26)|(4u<<21)|(146u<<1),
                   0x38a50001u,0x44000002u,0x4e800020u}));
-    add(irq,be({0x38c60001u,0x4c000064u}));
+    auto spr=[](uint32_t n,uint32_t reg,bool write){
+        const uint32_t field=((n&31u)<<5)|(n>>5);
+        return (31u<<26)|(reg<<21)|(field<<11)|((write?467u:339u)<<1);
+    };
+    std::vector<uint8_t> vector;
+    auto emit=[&](uint32_t word){auto b=be({word});vector.insert(vector.end(),b.begin(),b.end());};
+    for(unsigned k=0;k<4;++k)emit(spr(272u+k,8u+k,true));
+    for(unsigned k=0;k<4;++k)emit(spr(272u+k,12u+k,false));
+    emit(0x38c60001u);emit(0x4c000064u);
+    add(irq,std::move(vector));
     nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({irq});
     nwii::recomp::RecompilerConfig config;config.output_dir=dir.string();config.split_output=split;
     nwii::recomp::Recompiler recomp(analyzer,nullptr,config);
