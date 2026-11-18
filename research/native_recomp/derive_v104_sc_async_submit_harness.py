@@ -39,6 +39,14 @@ EDITS = [
   [
     "V103 recovered continuous original __start->SC asynchronous open entry assertions",
     "V104 recovered continuous original __start->IOS_OpenAsync request submit assertions"
+  ],
+  [
+    "       if(addr==INT_DISABLE&&ctx.lr==0x8051ab64u&&post103_alloc==1u){",
+    "       if(addr==INT_DISABLE&&ctx.lr==0x8051ab64u&&post103_alloc==1u&&post103_async==0u){"
+  ],
+  [
+    "       if(addr==INT_RESTORE&&ctx.lr==0x8051ad14u&&post103_alloc==1u){",
+    "       if(addr==INT_RESTORE&&ctx.lr==0x8051ad14u&&post103_alloc==1u&&post103_async==0u){"
   ]
 ]
 
