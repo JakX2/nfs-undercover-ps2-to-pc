@@ -31,7 +31,7 @@ EDITS = [
   ],
   [
     "       check(nwii::runtime::ready81_enter==1u&&nwii::runtime::ready81_disable==1u&&",
-    "       check(nwii::runtime::resume82_wake_return==1u&&nwii::runtime::resume82_enable==1u&&\n             nwii::runtime::resume82_select==1u&&nwii::runtime::resume82_load==1u&&nwii::runtime::resume82_stop==1u&&\n             nwii::runtime::ready81_enter==1u&&nwii::runtime::ready81_disable==1u&&"
+    "       check(nwii::runtime::resume82_wake_return==1u&&nwii::runtime::resume82_enable==1u&&\n             nwii::runtime::resume82_select==1u&&nwii::runtime::resume82_load==1u&&nwii::runtime::resume82_stop==1u&&\n             (nwii::runtime::resume82_idle_load==0u||\n              (nwii::runtime::resume82_idle_load==1u&&nwii::runtime::resume82_idle_rfi==1u&&\n               nwii::runtime::resume82_idle_disable==1u&&nwii::runtime::resume82_idle_clear==1u))&&\n             nwii::runtime::ready81_enter==1u&&nwii::runtime::ready81_disable==1u&&"
   ],
   [
     "V81_TRIAL_PASS trial=",
@@ -48,10 +48,6 @@ EDITS = [
   [
     "bool process_pending_callbacks(CPUContext& ctx){\n  if(ack77_reply==1u&&reply79_irq==0u){",
     "bool process_pending_callbacks(CPUContext& ctx){\n  if(resume82_idle_load==1u&&resume82_idle_rfi==0u&&ctx.pc==sched74_resume){\n    const bool regs=ctx.gpr==vector75_gprs&&ctx.lr==vector75_lr&&ctx.ctr==vector75_ctr&&ctx.xer==vector75_xer;\n    const bool status=ctx.msr==vector75_srr1&&ctx.dispatch_saved_ctx==0u;\n    const bool ready=ctx.mmu.read16(THREAD+712u)==1u&&ctx.mmu.read32(0x800000d4u)==IDLE_CONTEXT;\n    const bool clear=!ipc70_bus.external_irq_level();\n    std::cout<<\"V82_IDLE_RFI regs=\"<<regs<<\" status=\"<<status<<\" ready=\"<<ready<<\" clear=\"<<clear<<std::endl;\n    check(regs&&status&&ready&&clear,\"V82 original second RFI failed to restore idle context\");\n    ++resume82_idle_rfi; // observe restoration only; original idle loop must select ready thread\n  }\n  if(ack77_reply==1u&&reply79_irq==0u){"
-  ],
-  [
-    "             nwii::runtime::resume82_select==1u&&nwii::runtime::resume82_load==1u&&nwii::runtime::resume82_stop==1u&&",
-    "             nwii::runtime::resume82_select==1u&&nwii::runtime::resume82_load==1u&&nwii::runtime::resume82_stop==1u&&\n             (nwii::runtime::resume82_idle_load==0u||\n              (nwii::runtime::resume82_idle_load==1u&&nwii::runtime::resume82_idle_rfi==1u&&\n               nwii::runtime::resume82_idle_disable==1u&&nwii::runtime::resume82_idle_clear==1u))&&"
   ]
 ]
 
