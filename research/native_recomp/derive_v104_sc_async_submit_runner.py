@@ -39,11 +39,11 @@ EDITS = [
   ],
   [
     "  echo 'V103 original SC async open entry failed; details withheld' >&2",
-    "  grep -E '^V104_ASYNC_SAVE route=[01]$|^V104_ASYNC_CACHE bounded=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V104 original IOS_OpenAsync request submit failed; details withheld' >&2"
+    "  grep -E '^V104_ASYNC_SAVE route=[01]$|^V104_ASYNC_CACHE bounded=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$|^V104_ASYNC_SYSCALL order=[01] lines=[01]$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' \"$work/private-native.log\" | sort -u || true\n  echo 'V104 original IOS_OpenAsync request submit failed; details withheld' >&2"
   ],
   [
     "echo 'V103_STAGE native_test_passed'",
-    "echo 'V104_STAGE native_test_passed'\ngrep -E '^V104_ASYNC_SAVE route=[01]$|^V104_ASYNC_CACHE bounded=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' \"$work/private-native.log\" | sort -u"
+    "echo 'V104_STAGE native_test_passed'\ngrep -E '^V104_ASYNC_SAVE route=[01]$|^V104_ASYNC_CACHE bounded=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$|^V104_ASYNC_SYSCALL order=[01] lines=[01]$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' \"$work/private-native.log\" | sort -u"
   ]
 ]
 
