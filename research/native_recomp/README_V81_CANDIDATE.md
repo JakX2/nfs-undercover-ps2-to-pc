@@ -8,4 +8,4 @@ original default thread READY, and its ready queue must contain that thread.
 The idle context must still be current. No host writes to the thread or queue.
 This is not yet an actual context switch or completion of IOS_Open.
 
-Status: candidate until all 16 private original trials pass.
+Status: VERIFIED. Owner-original run 44235966436 on c9d040aef3c17be33b2dad9325655a7f1dbba515 passed all 16 independent cold-boot trials and the five ready-state predicates (route, drained, ready, enrolled, idle). Original thread wake and scheduler entry are now verified; actual resumed context is the V82 candidate.

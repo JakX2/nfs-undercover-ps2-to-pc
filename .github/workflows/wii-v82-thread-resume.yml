@@ -1,6 +1,11 @@
 name: Wii V82 Original Thread Resume
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v82*'
+      - '.github/workflows/wii-v82-thread-resume.yml'
 permissions:
   contents: read
 concurrency:
