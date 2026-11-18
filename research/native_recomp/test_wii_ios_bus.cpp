@@ -47,6 +47,56 @@ int main(){
     for(unsigned i=32;i<64;++i)assert(mem.read8(req+i)==0x5a);
     ack(M::Y1);assert(bus.tick()==S::Pump::Idle);
     assert(bus.services().is_open(0,S::Device::Immediate));
+    // Exercise the complete STM startup transport, not only the first
+    // open. Reuse the original request slot as a synchronous client can.
+    constexpr uint32_t event=0x180,buffer=0x600;
+    auto submit=[&](uint32_t slot,uint32_t command,uint32_t fd,uint32_t a=0,
+                    uint32_t b=0,uint32_t c=0,uint32_t d=0,uint32_t e=0){
+        const std::array<uint32_t,8> header{command,0u,fd,a,b,c,d,e};
+        for(unsigned i=0;i<header.size();++i)mem.write32(slot+4u*i,header[i]);
+        wr(B::IPC+M::PPCMSG,slot);
+        wr(B::IPC+M::PPCCTRL,en|M::X1);
+    };
+    auto acknowledge=[&](S::Pump expected){
+        assert(bus.tick()==expected);
+        assert((rd(B::IPC+M::PPCCTRL)&(M::Y1|M::Y2))==M::Y2);
+        assert(bus.external_exception_pending(B::MSR_EE));
+        ack(M::Y2);
+    };
+    auto receive=[&](uint32_t slot,uint32_t command,uint32_t result){
+        assert(bus.tick()==S::Pump::Replied);
+        assert((rd(B::IPC+M::PPCCTRL)&(M::Y1|M::Y2))==M::Y1);
+        assert(rd(B::IPC+M::ARMMSG)==slot);
+        assert(mem.read32(slot)==S::Reply&&mem.read32(slot+4)==result);
+        assert(mem.read32(slot+8)==command);
+        assert(bus.external_exception_pending(B::MSR_EE));
+        ack(M::Y1);
+    };
+    n=0;for(char ch:std::string_view("/dev/stm/eventhook"))mem.write8(path+n++,uint8_t(ch));
+    mem.write8(path+n,0);
+    submit(req,S::Open,0,path);
+    acknowledge(S::Pump::Ack);receive(req,S::Open,1);
+    assert(bus.services().is_open(0,S::Device::Immediate));
+    assert(bus.services().is_open(1,S::Device::Event));
+    mem.write32(buffer,0x12345678u);mem.write32(buffer+4u,0xabcdef01u);
+    submit(event,S::Ioctl,1,S::EventHook,0,0,buffer,4);
+    acknowledge(S::Pump::Deferred);
+    assert(bus.services().event_pending()&&bus.tick()==S::Pump::Idle);
+    assert(!bus.external_irq_level()&&mem.read32(event)==S::Ioctl);
+    // A deferred event must not block a subsequent synchronous request.
+    submit(req,S::Ioctl,0,S::GetState,0,0,buffer+8u,4);
+    acknowledge(S::Pump::Ack);receive(req,S::Ioctl,0);
+    assert(mem.read32(buffer+8u)==0u&&bus.services().event_pending());
+    assert(mem.read32(buffer)==0x12345678u);
+    assert(bus.services().signal_event(0x20000u));
+    assert(!bus.external_irq_level()); // publication only on explicit tick
+    receive(event,S::Ioctl,0);
+    assert(mem.read32(buffer)==0x20000u&&mem.read32(buffer+4u)==0xabcdef01u);
+    assert(!bus.services().event_pending()&&bus.tick()==S::Pump::Idle);
+    submit(req,S::Close,1);
+    acknowledge(S::Pump::Ack);receive(req,S::Close,0);
+    assert(!bus.services().is_open(1,S::Device::Event));
+    assert(bus.services().is_open(0,S::Device::Immediate));
     bus.set_other_pi_causes((1u<<3)|H::PI_HOLLYWOOD);
     assert(rd(B::PI_CAUSE)==(1u<<3));wr(B::PI_MASK,1u<<3);
     assert(bus.external_irq_level());bus.set_other_pi_causes(0u);assert(!bus.external_irq_level());
@@ -54,5 +104,5 @@ int main(){
         assert(!bus.read32(addr)&&!bus.write32(addr,0xffffffffu));
     }
     bus.reset();assert(rd(B::PI_MASK)==0u&&!bus.services().is_open(0,S::Device::Immediate));
-    std::cout<<"PASS: integrated native IOS MMIO bus, physical 64-byte requests, ACK/reply IRQ14 and MSR.EE gating\n";
+    std::cout<<"PASS: integrated native IOS MMIO bus, physical 64-byte requests, successive STM opens, deferred events, ACK/reply IRQ14 and MSR.EE gating\n";
 }
