@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/probe_sc_literals_v106.py'
+      - 'research/native_recomp/test_sc_literals_v106.py'
       - '.github/workflows/wii-v106-sc-literals.yml'
 permissions:
   contents: read
