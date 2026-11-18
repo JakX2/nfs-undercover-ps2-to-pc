@@ -16,7 +16,7 @@ class Restore(unittest.TestCase):
         self.assertEqual(before.count("seed_stm_data(")+1,after.count("seed_stm_data("))
         self.assertEqual(before.count("ctx.mmu.write"),after.count("ctx.mmu.write"))
         self.assertEqual(before.count("ipc70_bus.reset()"),after.count("ipc70_bus.reset()"))
-        self.assertIn("check(owner_match&&guest_empty&&open71_ram",after)
+        self.assertIn("check(owner_match&&guest_empty&&span",after)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("derive_v108_sc_literal_restore_harness.py",s)
