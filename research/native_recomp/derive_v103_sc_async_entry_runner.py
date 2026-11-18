@@ -39,11 +39,11 @@ EDITS = [
   ],
   [
     "  echo 'V102 original SC pathname execution failed; details withheld' >&2",
-    "  grep -E '^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] prior=[01] abi=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V103 original SC async open entry failed; details withheld' >&2"
+    "  grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] prior=[01] abi=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V103 original SC async open entry failed; details withheld' >&2"
   ],
   [
     "echo 'V102_STAGE native_test_passed'",
-    "echo 'V103_STAGE native_test_passed'\ngrep -E '^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] prior=[01] abi=[01]$' \"$work/private-native.log\" | sort -u"
+    "echo 'V103_STAGE native_test_passed'\ngrep -E '^V103_SC_SAVE route=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] prior=[01] abi=[01]$' \"$work/private-native.log\" | sort -u"
   ]
 ]
 

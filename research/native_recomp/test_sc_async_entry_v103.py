@@ -43,7 +43,7 @@ class ScAsyncV103(unittest.TestCase):
         prior=previous(base);s=derive(base)
         for old,new in EDITS:self.assertEqual(prior.count(old),1,old[:70])
         self.assertEqual(s,derive(base))
-        for marker in ("V103_SC_COPY","V103_SC_ASYNC_ENTRY","V103_TRIAL_PASS","POST_OWNER=0x8051982cu"):
+        for marker in ("V103_SC_SAVE","V103_SC_COPY","V103_SC_ASYNC_ENTRY","V103_TRIAL_PASS","POST_OWNER=0x8051982cu"):
             self.assertEqual(s.count(marker),1,marker)
         self.assertEqual(s.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(s.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
