@@ -1,0 +1,3 @@
+# V72: original IPC request to native STM ACK (candidate)
+
+Restores original submission function `0x805195EC` and its bounded direct dependencies, executes the original request header flush and PPCMSG/PPCCTRL MMIO writes through IosBus, and explicitly stops at thread sleep entry `0x8052A430`. The host services the actual guest request exactly once, verifies its physical pathname and mode, allocated native descriptor and ACK/IRQ flags. It does not inject a reply or execute the scheduler, interrupt handler or IOS_Open return. Owner-focused CI pending; V71 must also pass independently. All guest code, request data and diagnostic values remain private.
