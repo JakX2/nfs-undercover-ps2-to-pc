@@ -60,8 +60,13 @@ def main():
         print(f"V99_PUBLIC_API addr=0x{addr:08X} api={PUBLIC[i]}")
     for addr in ROOTS:
         if not 0<funcs.get(addr,0)<=0x1000:raise ValueError("missing bounded function")
-        calls=describe(dol,funcs,addr)
         code=get_text(dol,addr,funcs[addr])
+        _,edges=classify(code,addr)
+        if len(edges)>24:
+            # Large CRT helper is identified by public API name only.
+            # Do not emit a broad dependency inventory.
+            continue
+        calls=describe(dol,funcs,addr)
         # Inspect only the direct IOS request wrapper call's immediate
         # public selector/count arguments. Do not emit arbitrary constants.
         for site,dest in calls:

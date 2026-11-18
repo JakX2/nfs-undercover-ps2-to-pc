@@ -31,11 +31,11 @@ EDITS = [
   ],
   [
     "  echo 'V97 original ES close return failed; details withheld' >&2",
-    "  grep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' \"$work/private-native.log\" | sort -u || true\n  echo 'V98 original NAND registration failed; details withheld' >&2"
+    "  grep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' \"$work/private-native.log\" | sort -u || true\n  echo 'V98 original NAND registration failed; details withheld' >&2"
   ],
   [
     "echo 'V97_STAGE native_test_passed'",
-    "echo 'V98_STAGE native_test_passed'\ngrep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$' \"$work/private-native.log\" | sort -u"
+    "echo 'V98_STAGE native_test_passed'\ngrep -E '^V98_NAND_CALLBACK route=[01] abi=[01] list=[01] directory=[01] state=[01] prior=[01]$|^V98_VERSION_POINTER nonzero=[01] owner=[01]$|^V98_INITIAL_DATA count=[0-9]{1,2}$' \"$work/private-native.log\" | sort -u"
   ]
 ]
 
