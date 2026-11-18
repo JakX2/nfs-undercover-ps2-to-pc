@@ -1280,7 +1280,7 @@ bool handle_syscall(CPUContext&ctx){
     if(own)check(wait_index==5u&&audio_write_count==6u&&!audio_active&&dsp.complete()&&dsp_wait_finished,
                  "audio return reached before completed original DSP handshake");
     check(ctx.lr==(own?OS_RET_OWNER:OS_RET_SYNTH),"wrong guest LR at V26 owner or synthetic stop");
-    check(own?(ctx.gpr[1]<ORIGINAL_SP-8u-80u&&ctx.gpr[1]>=ORIGINAL_SP-8u-80u-0x100u):ctx.gpr[1]==SYNTH_SP-8u-96u),
+    check(own?(ctx.gpr[1]<ORIGINAL_SP-8u-80u&&ctx.gpr[1]>=ORIGINAL_SP-8u-80u-0x100u):ctx.gpr[1]==SYNTH_SP-8u-96u,
           "original Wii interrupt epilogue failed to restore OSInit guest frame");
     observed_stop_pc=ctx.pc;
     ++post_stops;ctx.is_running=false;
