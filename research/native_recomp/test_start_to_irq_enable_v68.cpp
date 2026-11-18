@@ -873,7 +873,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
   else if(addr==TIME){++time_entries;}
   else if(addr==GETTIME){++gettime_entries;}
   else if(addr==0x805265c0u){
-     check(own && ctx.lr==0x80520948u && ctx.gpr[1]==ORIGINAL_SP-8u-80u &&
+     check(ctx.mmu.read32(0x80000048u)==0x004e5090u && ctx.lr==0x80520948u && ctx.gpr[1]==ORIGINAL_SP-8u-80u &&
            !(ctx.msr&0x8000u) && arena_sc_calls==2u && enable_entries==0u,
            "original interrupt enable entry ABI/order differs");
      enable_before=ctx.msr;++enable_entries;
