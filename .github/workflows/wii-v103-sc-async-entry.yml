@@ -113,7 +113,7 @@ jobs:
               grep -E '^V100_SC_ENTRY status=[01]$|^V100_SC_STATUS entry=[01]$|^V100_SC_ROUTE route=[01] thread=[01] prior=[01] chosen=[12]$' "$RUNNER_TEMP/v103-focused.log" || true
               grep -E '^V101_SC_SAVE route=[01]$|^V101_SC_CHILD route=[01] running=[01] prior=[01] kind=[12] arg=[01]$' "$RUNNER_TEMP/v103-focused.log" || true
               grep -E '^V102_SC_STRLEN input=[01] bounded=[01]$|^V102_SC_COPY input=[01] bounded=[01]$|^V102_SC_PATH route=[01] bytes=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/v103-focused.log" || true
-              grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] copied=[01] prior=[01] abi=[01]$' "$RUNNER_TEMP/v103-focused.log" || true
+              grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] copied=[01] prior=[01] abi=[01]$' "$RUNNER_TEMP/v103-focused.log" || true
               echo 'V103 candidate failed; private logs withheld' >&2
               exit 1
             }
@@ -148,7 +148,7 @@ jobs:
           grep -E '^V100_SC_ENTRY status=[01]$|^V100_SC_STATUS entry=[01]$|^V100_SC_ROUTE route=[01] thread=[01] prior=[01] chosen=[12]$' "$RUNNER_TEMP/v103-focused.log"
           grep -E '^V101_SC_SAVE route=[01]$|^V101_SC_CHILD route=[01] running=[01] prior=[01] kind=[12] arg=[01]$' "$RUNNER_TEMP/v103-focused.log"
           grep -E '^V102_SC_STRLEN input=[01] bounded=[01]$|^V102_SC_COPY input=[01] bounded=[01]$|^V102_SC_PATH route=[01] bytes=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/v103-focused.log"
-          grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] copied=[01] prior=[01] abi=[01]$' "$RUNNER_TEMP/v103-focused.log"
+          grep -E '^V103_SC_SAVE route=[01]$|^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V103_SC_COPY bounded=[01] prior=[01]$|^V103_SC_ASYNC_ENTRY route=[01] path=[01] mode=[01] callback=[01] copied=[01] prior=[01] abi=[01]$' "$RUNNER_TEMP/v103-focused.log"
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8051982C stage=103' "$RUNNER_TEMP/v103-focused.log"
           echo 'PASS: V103 original SC asynchronous file-open entry'
       - name: Remove private originals and generated code
