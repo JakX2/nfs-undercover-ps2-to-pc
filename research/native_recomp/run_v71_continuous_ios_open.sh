@@ -43,6 +43,14 @@ g++ -std=c++20 -O2 -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" 
     echo 'V71 original-free jump-table analyzer test compile failed' >&2; exit 1;
   }
 "$work/jump-table-test"
+python3 "$here/apply_explicit_tail_roots_v71.py" "$root"
+g++ -std=c++20 -O2 -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" \
+  "$here/test_explicit_tail_roots_v71.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \
+  "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$root/nWiiAnalyzer/src/signature_scanner.cpp" \
+  -o "$work/tail-root-test" > "$work/tail-root-compile.log" 2>&1 || {
+    echo 'V71 original-free tail-root analyzer compile failed' >&2; exit 1;
+  }
+"$work/tail-root-test"
 g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_exi_sram_device_v60.cpp" -o "$work/sram-device-test"
 "$work/sram-device-test"
 g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$root/nWiiRuntime/include" \
