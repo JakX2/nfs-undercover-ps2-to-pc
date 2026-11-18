@@ -47,6 +47,20 @@ def scan(raw,funcs):
         edges=describe(raw,funcs,addr)
         if depth<2:
             frontier.extend((dst,depth+1) for _,dst in edges if dst not in visited)
+    # Resolve the four-byte IOS_Open dependency without disclosing the
+    # owner instruction word. A tail branch requires its full target body.
+    leaf=0x8051ad38
+    op=struct.unpack(">I",get_text(raw,leaf,4))[0]
+    if op==0x4e800020:
+        print("POST71_LEAF kind=return target=0x00000000 size=0x0")
+    elif op>>26==18:
+        dst=branch_target(op,leaf)
+        print(f"POST71_LEAF kind={'call' if op&1 else 'tail'} target=0x{dst:08X} size=0x{funcs.get(dst,0):X}")
+        if 0<funcs.get(dst,0)<=MAX_SIZE:describe(raw,funcs,dst)
+    elif op==0x60000000:
+        print("POST71_LEAF kind=nop target=0x00000000 size=0x0")
+    else:
+        print("POST71_LEAF kind=other target=0x00000000 size=0x0")
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
