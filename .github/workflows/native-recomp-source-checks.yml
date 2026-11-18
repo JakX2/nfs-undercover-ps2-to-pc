@@ -44,6 +44,11 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             research/native_recomp/test_wii_ipc_mailbox.cpp -o "$RUNNER_TEMP/ipc-mailbox-test"
           "$RUNNER_TEMP/ipc-mailbox-test"
+      - name: Test native STM IOS IPC dispatcher under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            research/native_recomp/test_wii_stm_ios.cpp -o "$RUNNER_TEMP/stm-ios-test"
+          "$RUNNER_TEMP/stm-ios-test"
       - name: Reject proprietary game fixture extensions
         run: |
           if git ls-files research/native_recomp | grep -E '\.(dol|elf|iso|gcm|gcz)$|/owner_PRIVATE\.'; then

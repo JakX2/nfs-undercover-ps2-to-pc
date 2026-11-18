@@ -75,18 +75,7 @@ jobs:
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/v70-focused.log" 2>&1 || {
               grep -E '^V70_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/v70-focused.log" || true
-              grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V70_COMPILE_UNIT (harness|generated|loader)$|^V70_HARNESS_LINE [0-9]+$|^V70_WARNING [a-z0-9-]+
-              echo 'V70 candidate failed; private logs withheld' >&2
-              exit 1
-            }
-          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x80519944 stage=70' "$RUNNER_TEMP/v70-focused.log"
-          echo 'PASS: V70 original Wii continuous STM IOS_Open entry checkpoint verified'
-      - name: Remove private originals and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/v70-focused.json" "$RUNNER_TEMP/v70-focused.log"
- "$RUNNER_TEMP/v70-focused.log" || true
+              grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V70_COMPILE_UNIT (harness|generated|loader)$|^V70_HARNESS_LINE [0-9]+$|^V70_WARNING [a-z0-9-]+$' "$RUNNER_TEMP/v70-focused.log" || true
               echo 'V70 candidate failed; private logs withheld' >&2
               exit 1
             }
