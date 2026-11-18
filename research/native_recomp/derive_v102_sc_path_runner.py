@@ -27,15 +27,15 @@ EDITS = [
   ],
   [
     "V101 recovered continuous original __start->SC configuration child entry assertions; mode=owner trials=16 stop=0x8051e71c",
-    "V102 recovered continuous original __start->SC pathname copy return assertions; mode=owner trials=16 stop=0x8051e3dc"
+    "V102 recovered continuous original __start->SC pathname copy return assertions; mode=owner trials=16 stop=0x804f1e2c"
   ],
   [
     "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x8051E71C stage=101'",
-    "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x8051E3DC stage=102'"
+    "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x804F1E2C stage=102'"
   ],
   [
     "PASS: original Wii continuous __start ran SC configuration body into the original selected child",
-    "PASS: original Wii continuous __start executed SC pathname length and copy operations"
+    "PASS: original Wii continuous __start executed SC pathname preparation to asynchronous open"
   ],
   [
     "  echo 'V101 original SC loading child entry failed; details withheld' >&2",

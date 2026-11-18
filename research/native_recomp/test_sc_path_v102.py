@@ -43,7 +43,7 @@ class ScPathV102(unittest.TestCase):
         prior=previous(base);actual=derive(base)
         for old,new in EDITS:self.assertEqual(prior.count(old),1,old[:70])
         self.assertEqual(actual,derive(base))
-        for marker in ("V102_SC_STRLEN","V102_SC_COPY","V102_SC_PATH","V102_TRIAL_PASS","POST_OWNER=0x8051e3dcu"):
+        for marker in ("V102_SC_STRLEN","V102_SC_COPY","V102_SC_PATH","V102_TRIAL_PASS","POST_OWNER=0x804f1e2cu"):
             self.assertEqual(actual.count(marker),1,marker)
         self.assertEqual(actual.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(actual.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
@@ -51,7 +51,7 @@ class ScPathV102(unittest.TestCase):
         g=generator((HERE/"generate_start_to_ipc_ack_v77.cpp").read_text())
         self.assertIn("V102 original pathname direct edge differs",g)
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8051E3DC stage=102",s)
+        self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x804F1E2C stage=102",s)
         self.assertLess(s.index("restore_sc_loading_v101.py"),s.index("restore_sc_path_v102.py"))
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"run.sh";p.write_text(s)

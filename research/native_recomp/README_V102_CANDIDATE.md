@@ -5,7 +5,9 @@ V101 verified the original system configuration loader selects its
 original 0x80544AC0 strlen function, retaining the previously restored
 0x8054B4B4 strcpy. The owner-original execution is checked for
 bounded string lengths, original guest string copy bytes and authentic
-continuation to 0x8051E3DC.
+continuation to the asynchronous open wrapper at 0x804F1E2C.
+The original conditional call to 0x8051E3DC was not selected in
+the initial owner run; it remains guarded but is not forced.
 
 No private pathname is printed or copied to public source. The
 inherited pending STM event, FS/ES descriptor state and running

@@ -147,7 +147,7 @@ jobs:
           grep -E '^V100_SC_ENTRY status=[01]$|^V100_SC_STATUS entry=[01]$|^V100_SC_ROUTE route=[01] thread=[01] prior=[01] chosen=[12]$' "$RUNNER_TEMP/v102-focused.log"
           grep -E '^V101_SC_SAVE route=[01]$|^V101_SC_CHILD route=[01] running=[01] prior=[01] kind=[12] arg=[01]$' "$RUNNER_TEMP/v102-focused.log"
           grep -E '^V102_SC_STRLEN input=[01] bounded=[01]$|^V102_SC_COPY input=[01] bounded=[01]$|^V102_SC_PATH route=[01] bytes=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/v102-focused.log"
-          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8051E3DC stage=102' "$RUNNER_TEMP/v102-focused.log"
+          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x804F1E2C stage=102' "$RUNNER_TEMP/v102-focused.log"
           echo 'PASS: V102 original SC pathname copy reached next child'
       - name: Remove private originals and generated code
         if: always()
