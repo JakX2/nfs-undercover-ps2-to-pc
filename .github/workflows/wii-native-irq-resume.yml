@@ -1,0 +1,26 @@
+name: Wii Native IRQ Resume Regression
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*mtmsr*v74*'
+      - '.github/workflows/wii-native-irq-resume.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  irq-resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned upstream source
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Execute synthetic native mtmsr and rfi dispatch regression
+        run: bash research/native_recomp/run_mtmsr_resume_v74.sh "$RUNNER_TEMP/nwii"
