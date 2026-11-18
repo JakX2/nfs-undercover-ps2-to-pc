@@ -1,0 +1,3 @@
+# V70: original STM initialization to first IOS_Open entry (candidate)
+
+Authentic owner DOL/ELF metadata identifies __OSInitSTM at 0x8052B034, 0x118 bytes, and the IOS_Open call at 0x8052B08C. This continuation restores the original post-IPC OSInit branching and the complete STM function, but stops explicitly at IOS_Open entry 0x80519944. It validates prior IPC state on STM entry, seeds only original initialized SDA operands for the STM prefix from the authenticated owner file, and validates the original device pathname pointer and mode. Other IOS entry and alternate startup paths remain nonreturning test-only boundaries. No IOS syscall is serviced and OSInit has not returned. The separate V69 verified lane is retained. Owner-focused CI pending.
