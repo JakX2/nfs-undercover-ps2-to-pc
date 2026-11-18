@@ -26,7 +26,7 @@ def verify(actual,owner):
             if expected[at:at+12]!=struct.pack(">III",SC,BLR,NOP):raise ValueError("V58 old guard changed")
             expected[at:at+12]=text_at(raw,PREV_STOP,4)+struct.pack(">II",SC,BLR)
         if i==5:
-            expected.extend(struct.pack(">I",NOP)*((TV_END-base-len(expected))//4))
+            if not base<=SI<TV_END<=base+len(expected):raise ValueError("V58 SI inherited section geometry differs")
             if any(expected[pc-base:pc-base+4]!=struct.pack(">I",NOP) for pc in additions):
                 raise ValueError("V58 overlapped old guest code")
             for pc,op in additions.items():expected[pc-base:pc-base+4]=op

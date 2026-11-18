@@ -3,7 +3,7 @@ on:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
-      - 'research/native_recomp/**'
+      - 'research/native_recomp/*v52*'
       - '.github/workflows/wii-v52-fast-check.yml'
   workflow_dispatch:
 permissions:

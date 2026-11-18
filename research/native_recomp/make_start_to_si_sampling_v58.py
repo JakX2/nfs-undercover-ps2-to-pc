@@ -60,12 +60,13 @@ def make(owner:Path)->bytes:
     data=data_sections(old)
     if len(data)!=3 or len(text)!=7:raise ValueError("V57 segment count changed")
     base,cache=text[5]
-    if base!=0x80522540 or base+len(cache)>SI:
-        raise ValueError("SI code extension overlaps original cache/IPC code")
-    if any(i!=5 and b<TV_END and b+len(c)>base+len(cache)
+    # V25 already reserved this section through the far-away register
+    # save/restore thunks. The SI span must reuse its existing guarded NOPs.
+    if base!=0x80522540 or not base<=SI<TV_END<=base+len(cache):
+        raise ValueError("original SI span outside inherited cache/IPC/save section")
+    if any(i!=5 and b<TV_END and b+len(c)>SI
            for i,(b,c) in enumerate(text)):
-        raise ValueError("extended SI text overlaps other original segment")
-    cache.extend(struct.pack(">I",NOP)*((TV_END-base-len(cache))//4))
+        raise ValueError("SI text overlaps other original segment")
     def place(addr,body):
         at=addr-base
         if at<0 or at+len(body)>len(cache) or cache[at:at+len(body)]!=struct.pack(">I",NOP)*(len(body)//4):
