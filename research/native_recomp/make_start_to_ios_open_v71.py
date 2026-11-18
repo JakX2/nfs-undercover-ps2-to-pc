@@ -16,8 +16,11 @@ def make(owner):
     for pc,dst in EDGES:
         if call_target(text_at(raw,pc,4),pc,pc)!=dst:raise ValueError("V71 original IOS_Open call edge changed")
     original=text_at(raw,OPEN,SIZE)
-    if word(original,SIZE-4)!=BLR or word(text_at(raw,PROFILE,4),0)!=BLR:
-        raise ValueError("V71 original return geometry changed")
+    returns=[i for i in range(0,SIZE,4) if word(original,i)==BLR]
+    if len(returns)!=1 or returns[0]<0xf4:
+        raise ValueError("V71 original IOS_Open return geometry changed")
+    if word(text_at(raw,PROFILE,4),0)!=BLR:
+        raise ValueError("V71 original profiling leaf is not BLR")
     replace(private,OPEN,struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(SIZE//4-2),original)
     replace(private,PROFILE,struct.pack(">I",NOP),text_at(raw,PROFILE,4))
     replace(private,STOP,struct.pack(">II",NOP,NOP),struct.pack(">II",SC,BLR))

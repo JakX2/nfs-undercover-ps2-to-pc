@@ -61,7 +61,7 @@ g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_flat_cacheline_zero_v67.cpp
 echo 'V71_STAGE runtime_cache_trace_verified'
 
 python3 "$here/make_start_to_ios_open_v71.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
-    python3 "$here/classify_v70_fixture_failure.py" "$work/build-private.log" || true
+    python3 "$here/classify_v71_fixture_failure.py" "$work/build-private.log" || true
     echo 'V71 fixture construction failed; owner details withheld' >&2; exit 1;
   }
 echo 'V71_STAGE fixture_generated'

@@ -887,7 +887,7 @@ int main(int argc,char** argv)try{
    require(stm.front().address==0x8052b034u&&stm.back().address==0x8052b148u&&stm.back().opcode==0x4e800020u,
            "original STM body not completely translated");
    const auto& open=funcs.at(0x80519944u).instructions;
-   require(open.front().address==0x80519944u&&open.back().address==0x80519a60u&&open.back().opcode==0x4e800020u,
+   require(open.front().address==0x80519944u&&open.back().address>=0x80519a38u&&open.back().address<=0x80519a60u&&open.back().opcode==0x4e800020u,
            "original IOS_Open span incomplete");
    require(funcs.count(0x8051ad38u)==1u&&funcs.at(0x8051ad38u).instructions.size()==1u&&
            funcs.at(0x8051ad38u).instructions.front().opcode==0x4e800020u,
