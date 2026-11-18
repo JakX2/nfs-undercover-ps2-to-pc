@@ -56,7 +56,16 @@ def derive(source):
     out=source.replace("V103_STAGE", "V104_STAGE").replace("V103_TRIAL_PASS", "V104_TRIAL_PASS")
     anchor="echo 'V104_STAGE native_test_passed'"
     if out.count(anchor)!=1:raise ValueError("V104 native success trap anchor absent")
-    return out.replace(anchor, "trap 'echo V104_RUNNER_POSTFAIL line=$LINENO >&2' ERR\n"+anchor,1)
+    out=out.replace(anchor, "trap 'echo V104_RUNNER_POSTFAIL line=$LINENO >&2' ERR\\n"+anchor,1)
+    # Informational grep pipelines can legitimately have no matches on
+    # a conditional startup path. They must not override a successful
+    # 16-trial native test. The final exact PASS marker remains required.
+    boundary="grep -Eq '^PASS: "
+    start=out.index(anchor)
+    end=out.index(boundary,start)
+    visible=out[start:end]
+    visible=visible.replace(" | sort -u\\n"," | sort -u || true\\n")
+    return out[:start]+visible+out[end:]
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
