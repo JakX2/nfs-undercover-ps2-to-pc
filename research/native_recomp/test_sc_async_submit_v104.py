@@ -42,6 +42,10 @@ class AsyncSubmitV104(unittest.TestCase):
                       "post104_restore","post104_flush","post104_submit"):
             self.assertIn("nwii::runtime::"+label+"=",actual)
         self.assertIn("nwii::runtime::post104_flush=nwii::runtime::post104_submit=0",actual)
+        self.assertIn("ctx.lr==0x8051ab64u&&post103_alloc==1u&&post103_async==0u",actual)
+        self.assertIn("ctx.lr==0x8051ad14u&&post103_alloc==1u&&post103_async==0u",actual)
+        self.assertIn("ctx.lr==0x8051ab64u&&post104_alloc==1u",actual)
+        self.assertIn("ctx.lr==0x8051ad14u&&post104_alloc==1u",actual)
         self.assertEqual(actual.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(actual.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
     def test_generator_runner(self):
