@@ -459,6 +459,14 @@ bool handle_syscall(CPUContext&ctx){
   ++unknown_calls;throw std::runtime_error("unexpected syscall/native Wii service");
 }
 void interpret_step(CPUContext&){++interpreter_calls;throw std::runtime_error("interpreter fallback");}
+void micro_interpret(CPUContext&,uint32_t,uint32_t){
+  ++interpreter_calls;
+  throw std::runtime_error("unexpected micro interpreter fallback");
+}
+void note_null_call(uint32_t,uint32_t){
+  ++unknown_calls;
+  throw std::runtime_error("unexpected null indirect EXI callback");
+}
 bool process_pending_callbacks(CPUContext&){return false;}
 void watch_hit(uint32_t,uint32_t,int){}
 void GX_WGPIPE_Write8(uint8_t){}

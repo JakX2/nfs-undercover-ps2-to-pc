@@ -4,6 +4,16 @@ import re,sys
 from pathlib import Path
 
 def classify(log):
+    # Fixed allowlist of original-free upstream runtime ABI names.
+    for line in log.splitlines():
+        if "undefined reference" not in line:continue
+        for code,needle in ((940,"note_null_call"),(941,"micro_interpret"),
+                            (942,"Config::get"),(943,"OSReport"),
+                            (944,"OSDisableInterrupts"),(945,"OSRestoreInterrupts"),
+                            (946,"OSGetTime"),(947,"OSGetCurrentThread"),
+                            (948,"HW_Reg_"),(949,"GX_WGPIPE"),
+                            (950,"func_"),(951,"OSInit")):
+            if needle in line:return code
     rules=(
         (901, "unused variable"),(902,"set but not used"),
         (903, "not declared in this scope"),(904,"was not declared"),
