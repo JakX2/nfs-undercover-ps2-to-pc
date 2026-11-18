@@ -1,0 +1,3 @@
+# V68: continuous original interrupt enable (candidate)
+
+Extends verified V67 cold arena clear by one candidate original linked call at 0x80520944. Privately authenticates the proposed leaf, checks exact fixture differences and requires a single native entry with the prior disabled MSR, unchanged remaining MSR bits, and the previous interrupt state returned. Retains all 16 V67 arena and hardware assertions. New cutoff 0x80520948 is conditional on owner CI. No asynchronous IRQ delivery or IOS behavior is claimed. Focused CI emits only bounded call metadata, stages, and pass/fail. Original bytes, native output and logs remain private.
