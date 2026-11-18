@@ -38,6 +38,6 @@ jobs:
             echo 'Owner metadata probe failed; private diagnostic withheld'
             exit 1
           }
-          grep -E '^(POST69_(RANGE|BRANCH|ROOT) |POST68_(FUNCTION|EDGE|TERMINALS) |PASS: bounded authenticated post-V69 startup graph$)' "$RUNNER_TEMP/post69.log"
+          grep -E '^(POST69_(RANGE|BRANCH|ROOT) |POST71_DISCOVERY |POST68_(FUNCTION|EDGE|TERMINALS) |PASS: bounded authenticated post-V69 startup graph$)' "$RUNNER_TEMP/post69.log"
       - if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/post69.log"

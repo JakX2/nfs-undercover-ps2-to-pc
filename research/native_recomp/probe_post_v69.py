@@ -34,6 +34,19 @@ def scan(raw,funcs):
                 if child not in seen and 0<funcs.get(child,0)<=MAX_SIZE:
                     seen.add(child)
                     describe(raw,funcs,child)
+    # The next native request lane needs the descendants of IOS_Open's
+    # synchronous submission helper, not a guessed replacement return.
+    # The graph is bounded to 12 distinct function bodies and two layers.
+    frontier=[(0x805195ec,0)]
+    visited=set()
+    while frontier and len(visited)<12:
+        addr,depth=frontier.pop(0)
+        if addr in visited or not 0<funcs.get(addr,0)<=MAX_SIZE:continue
+        visited.add(addr)
+        print(f"POST71_DISCOVERY addr=0x{addr:08X} depth={depth}")
+        edges=describe(raw,funcs,addr)
+        if depth<2:
+            frontier.extend((dst,depth+1) for _,dst in edges if dst not in visited)
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
