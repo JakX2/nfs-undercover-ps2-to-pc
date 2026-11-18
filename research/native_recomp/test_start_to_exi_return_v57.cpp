@@ -198,6 +198,12 @@ void trace_call(uint32_t addr, CPUContext&ctx){
           "original EXIGetID arguments do not match channel-zero cached-ID request");
     check(ctx.mmu.read32(ID_CACHE)==0u,
           "original EXIGetID must begin uncached after authentic BSS clear");
+    // The upper IRQ-table canary aliases the original EXI timestamp word.
+    // Check it before the legitimate original EXIProbe clears that word.
+    check(ctx.mmu.read32(0x8000303cu)==0xDEADBEEFu&&
+          ctx.mmu.read8(IRQ_TABLE+128u)==0xC5u&&
+          ctx.mmu.read32(MODULE_PRE)==0x6A6A6A6Au,
+          "native IRQ/module initializer corrupted neighboring canaries before EXI probes");
     for(uint32_t n=0;n<64u;n+=4u)
       check(ctx.mmu.read32(0x806f1560u+n)==0u,"original EXI BSS state not zero at discovery entry");
     id_device.begin(last_csr);
@@ -1050,8 +1056,8 @@ int main(int argc,char**argv){
       check(nwii::runtime::unexpected_mmio==0u,
             "unplanned Wii MMIO access occurred during startup");
       check(c.mmu.read32(0x8000303cu)==0xDEADBEEFu &&
-            c.mmu.read8(IRQ_TABLE+128u)==0xC5u,
-            "native IRQ memset clobbered table boundary canaries");
+            c.mmu.read32(IRQ_TABLE+128u)==0u,
+            "original EXI probes failed to clear aliased timestamp or changed IRQ lower canary");
       constexpr std::array<uint32_t,8> expected_irq_handlers{{
         0x804ef61cu,0x804ef6d4u,0x804ef8ecu,0x804ef61cu,
         0x804ef6d4u,0x804ef8ecu,0x804ef61cu,0x804ef6d4u}};
