@@ -33,6 +33,12 @@ jobs:
       - name: Run boot checkpoint driver regressions
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
+      - name: Test original-free native dcbz memory effects
+        run: |
+          python3 research/native_recomp/test_dcbz_patch_v67.py
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            research/native_recomp/test_flat_cacheline_zero_v67.cpp -o "$RUNNER_TEMP/dcbz-test"
+          "$RUNNER_TEMP/dcbz-test"
       - name: Reject proprietary game fixture extensions
         run: |
           if git ls-files research/native_recomp | grep -E '\.(dol|elf|iso|gcm|gcz)$|/owner_PRIVATE\.'; then
