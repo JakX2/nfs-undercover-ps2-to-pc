@@ -130,10 +130,3 @@ jobs:
         run: |
           rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
             "$RUNNER_TEMP/v90-focused.json" "$RUNNER_TEMP/v90-focused.log"
- "$RUNNER_TEMP/v90-focused.log"
-          echo 'PASS: V89 original post-STM subsystem console query reached'
-      - name: Remove private originals and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" \
-            "$RUNNER_TEMP/v90-focused.json" "$RUNNER_TEMP/v90-focused.log"
