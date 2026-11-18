@@ -6,7 +6,7 @@
 #include "exi_sram_test_device_v60.h"
 #include "native_sc_vector_v63.h"
 #include "dsp_boot_device_v64.h"
-#include "wii_ipc_mailbox.h"
+#include "wii_ios_bus.h"
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -168,7 +168,29 @@ static unsigned arena_phase=0,arena_getters=0,arena_reset_calls=0,arena_reset_re
  static unsigned enable_entries=0;
  static uint32_t enable_before=0;
  static bool ipc69_active=false;
- static undercover::wii::IpcMailbox ipc69_mailbox;
+ // Native owner-test RAM adapter: IOS sees physical MEM1/MEM2 only.
+ // MMIO, cached CPU aliases and ranges crossing banks are rejected.
+ class OwnerIosMemory final:public undercover::wii::IosMemory{
+ public:
+   CPUContext* cpu=nullptr;
+   bool valid(uint32_t a,uint32_t n)const override{
+     if(!cpu||!n)return false;
+     const uint64_t end=uint64_t(a)+n;
+     if(!(end<=MEM1_BYTES||(a>=0x10000000u&&end<=uint64_t(0x10000000u)+MEM2_BYTES)))return false;
+     auto* first=cpu->mmu.get_ptr(a|0x80000000u);
+     return first&&cpu->mmu.get_ptr((a+n-1u)|0x80000000u)==first+n-1u;
+   }
+   uint8_t read8(uint32_t a)const override{
+     check(valid(a,1),"native IOS requested unmapped physical RAM read");
+     return cpu->mmu.read8(a|0x80000000u);
+   }
+   void write8(uint32_t a,uint8_t v)override{
+     check(valid(a,1),"native IOS requested unmapped physical RAM write");
+     cpu->mmu.write8(a|0x80000000u,v);
+   }
+ };
+ static OwnerIosMemory ipc70_ram;
+ static undercover::wii::IosBus ipc70_bus(ipc70_ram);
  static unsigned ipc69_step=0,ipc69_os_get=0,ipc69_disable=0,ipc69_restore=0,ipc69_bank=0,ipc69_mail=0;
  static uint32_t ipc69_lo=0,ipc69_hi=0,ipc69_size=0,ipc69_handler=0,ipc69_mask=0,ipc69_msg=0,ipc69_msr=0;
  static std::array<uint32_t,32> ipc69_gprs{},ipc69_irqs{};
@@ -403,10 +425,12 @@ static uint32_t cache_sync_entry=0,cache_isync_entry=0;
        check(ipc69_active&&ipc69_step==9u&&ipc69_os_get==2u&&ipc69_disable==2u&&ipc69_restore==2u&&
              ipc69_bank==1u&&ipc69_mail==1u&&ctx.msr==ipc69_msr,
              "original IPC client initialization return state or dependency counts differ");
-       using Mail=undercover::wii::IpcMailbox;
-       check(ipc69_mailbox.read(Mail::Side::Broadway,Mail::PPCCTRL)==(ipc69_msg&0x39u)&&
-             !ipc69_mailbox.broadway_irq_level()&&!ipc69_mailbox.reply_pending(),
+       using Bus=undercover::wii::IosBus;using Mail=undercover::wii::IpcMailbox;using Irq=undercover::wii::HollywoodIrq;
+       check(ipc70_bus.read32(Bus::IPC+Mail::PPCCTRL)==(ipc69_msg&0x39u)&&
+             !ipc70_bus.external_irq_level()&&!ipc70_bus.services().event_pending(),
              "IPC startup mailbox readback or idle reply state differs");
+       check((ipc70_bus.read32(Bus::IPC+Irq::PPC_MASK).value_or(0u)&Irq::IPC_PPC)!=0u,
+             "original startup failed to enable native Hollywood IPC interrupt route");
        check(ctx.gpr[1]==ipc69_gprs[1]&&ctx.gpr[2]==ipc69_gprs[2]&&ctx.gpr[13]==ipc69_gprs[13],
              "IPC native return corrupted ABI stack or SDA registers");
        for(unsigned r=14;r<32u;++r)check(ctx.gpr[r]==ipc69_gprs[r],"IPC native return corrupted nonvolatile GPR");
@@ -1373,7 +1397,9 @@ uint32_t HW_Reg_Read32(uint32_t addr){
    if(ipc69_active){
      check(addr==0x0c003004u||addr==0x0d000034u,"unexpected IPC mask MMIO read");
      for(auto it=mmio_writes.rbegin();it!=mmio_writes.rend();++it)if(it->first==addr){
-       mmio_reads.emplace_back(addr,it->second);return it->second;
+       const auto actual=ipc70_bus.read32(addr);
+       check(actual&&*actual==it->second,"original IPC mask MMIO bus readback differs from trace");
+       mmio_reads.emplace_back(addr,*actual);return *actual;
      }
      check(false,"IPC mask read without initialized register");
    }
@@ -1466,11 +1492,13 @@ void HW_Reg_Write16(uint32_t addr,uint16_t value){
   mmio_writes.emplace_back(addr,uint32_t(value));
 }
 void HW_Reg_Write32(uint32_t addr,uint32_t value){
+   using Bus=undercover::wii::IosBus;using Irq=undercover::wii::HollywoodIrq;
+   if(addr==Bus::PI_MASK||addr==Bus::IPC+Irq::PPC_MASK||addr==Bus::MIRROR+Irq::PPC_MASK)
+     check(ipc70_bus.write32(addr,value),"native IOS interrupt bus rejected original mask write");
    if(ipc69_active){
      if(addr==0x0d000004u||addr==0x0d800004u){
        check(ipc69_step==8u&&ipc69_mail==0u&&value==ipc69_msg,"IPC mailbox write value/order differs");
-       ipc69_mailbox.write(undercover::wii::IpcMailbox::Side::Broadway,
-         undercover::wii::IpcMailbox::PPCCTRL,value);
+       check(ipc70_bus.write32(addr,value),"native IOS bus rejected original mailbox control write");
        ++ipc69_mail;
      }else check(ipc69_step==7u&&(addr==0x0c003004u||addr==0x0d000034u),"unexpected IPC mask MMIO write");
      mmio_writes.emplace_back(addr,value);return;
@@ -1786,7 +1814,7 @@ int main(int argc,char**argv){
     nwii::runtime::arena_flush_calls=nwii::runtime::arena_sc_calls=0;
      nwii::runtime::enable_entries=0;nwii::runtime::enable_before=0;
      nwii::runtime::ipc69_active=false;
-     nwii::runtime::ipc69_mailbox.reset();
+     nwii::runtime::ipc70_ram.cpu=&c;nwii::runtime::ipc70_bus.reset();
      nwii::runtime::stm70_entered=false;nwii::runtime::stm70_open=0;nwii::runtime::stm70_path=0;
      nwii::runtime::ipc69_step=nwii::runtime::ipc69_os_get=nwii::runtime::ipc69_disable=nwii::runtime::ipc69_restore=0;
      nwii::runtime::ipc69_bank=nwii::runtime::ipc69_mail=0;
