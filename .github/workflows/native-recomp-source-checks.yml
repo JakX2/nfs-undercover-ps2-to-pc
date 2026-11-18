@@ -61,6 +61,7 @@ jobs:
           python3 research/native_recomp/test_sc_loading_v101.py
           python3 research/native_recomp/test_sc_path_v102.py
           python3 research/native_recomp/test_sc_async_entry_v103.py
+          python3 research/native_recomp/diagnose_sc_async_v103.py 220
           python3 research/native_recomp/test_sc_async_submit_v104.py
           python3 research/native_recomp/diagnose_sc_status_v100.py 460
           python3 research/native_recomp/test_startup_tail_metadata_v90.py
