@@ -10,14 +10,14 @@ from make_osinit_execparams_v28 import text_at,SC,BLR,NOP
 from make_start_to_vectorcopy_v38 import word
 def verify(actual,owner):
     old=previous(owner);raw=owner.read_bytes();expected,_=sections_of(old);got,_=sections_of(actual)
-    def setword(pc,was,now):
+    def setword(pc,was,now,allow_original=False):
         hits=[(b,c) for b,c in expected if b<=pc and pc+4<=b+len(c)]
         if len(hits)!=1:raise ValueError("V65 geometry unmapped")
         b,c=hits[0];at=pc-b
-        if word(c,at)!=was:raise ValueError("V65 changed prior original code")
+        if word(c,at)!=was and not (allow_original and c[at:at+4]==now):raise ValueError("V65 changed prior original code")
         c[at:at+4]=now
     for lo,hi in RANGES:
-        for pc in range(lo,hi,4):setword(pc,NOP,text_at(raw,pc,4))
+        for pc in range(lo,hi,4):setword(pc,NOP,text_at(raw,pc,4),allow_original=(lo==RANGES[0][0]))
     for pc in GUARDS:
         setword(pc,NOP,struct.pack(">I",SC));setword(pc+4,NOP,struct.pack(">I",BLR))
     for pc in range(PREV_STOP,STOP+8,4):

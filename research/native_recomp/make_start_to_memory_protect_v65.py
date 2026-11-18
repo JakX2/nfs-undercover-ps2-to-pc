@@ -27,7 +27,13 @@ def make(owner):
         hits=[(b,c) for b,c in text if b<=lo and lo+len(body)<=b+len(c)]
         if len(hits)!=1:raise ValueError(f"V65 private fixture range {code} not mapped")
         b,c=hits[0];at=lo-b
-        if c[at:at+len(body)]!=expected:raise ValueError(f"V65 private fixture range {code} overlap")
+        prior=c[at:at+len(body)]
+        if code==0:
+            # The earlier cache/HID lane may have retained this exact original
+            # helper. Accept only original words or the old NOP padding.
+            if any(prior[i:i+4] not in (body[i:i+4],expected[i:i+4]) for i in range(0,len(body),4)):
+                raise ValueError(f"V65 private fixture range {code} overlap")
+        elif prior!=expected:raise ValueError(f"V65 private fixture range {code} overlap")
         c[at:at+len(body)]=body
     for i,(lo,hi) in enumerate(RANGES):install(lo,text_at(raw,lo,hi-lo),struct.pack(">I",NOP)*((hi-lo)//4),i)
     for i,addr in enumerate(GUARDS):install(addr,struct.pack(">II",SC,BLR),struct.pack(">II",NOP,NOP),4+i)
