@@ -10,7 +10,7 @@ EDITS = [
   ],
   [
     " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;",
-    " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;\n static unsigned post104_save=0,post104_alloc_head=0,post104_alloc=0,post104_disable=0,post104_restore=0,post104_flush=0,post104_sc=0,post104_submit=0;\n static uint32_t post104_flush_base=0,post104_flush_len=0;\n static uint64_t post104_flush_before=0;"
+    " static uint32_t post103_path=0,post103_mode=0,post103_callback=0,post103_copy_dst=0;\n static unsigned post104_save=0,post104_alloc_head=0,post104_alloc=0,post104_disable=0,post104_restore=0,post104_flush=0,post104_sc=0,post104_submit=0,post104_trace=0;\n static uint32_t post104_flush_base=0,post104_flush_len=0;\n static uint64_t post104_flush_before=0;"
   ],
   [
     "       if(addr==POST_OWNER&&ctx.lr==0x804f1eccu){",
@@ -26,7 +26,7 @@ EDITS = [
   ],
   [
     "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;",
-    "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;\n     nwii::runtime::post104_save=nwii::runtime::post104_alloc_head=nwii::runtime::post104_alloc=nwii::runtime::post104_disable=nwii::runtime::post104_restore=nwii::runtime::post104_flush=nwii::runtime::post104_sc=nwii::runtime::post104_submit=0;\n     nwii::runtime::post104_flush_base=nwii::runtime::post104_flush_len=0;\n     nwii::runtime::post104_flush_before=0;"
+    "     nwii::runtime::post103_path=nwii::runtime::post103_mode=nwii::runtime::post103_callback=nwii::runtime::post103_copy_dst=0;\n     nwii::runtime::post104_save=nwii::runtime::post104_alloc_head=nwii::runtime::post104_alloc=nwii::runtime::post104_disable=nwii::runtime::post104_restore=nwii::runtime::post104_flush=nwii::runtime::post104_sc=nwii::runtime::post104_submit=nwii::runtime::post104_trace=0;\n     nwii::runtime::post104_flush_base=nwii::runtime::post104_flush_len=0;\n     nwii::runtime::post104_flush_before=0;"
   ],
   [
     "       check(nwii::runtime::post103_async==1u&&",
@@ -59,6 +59,10 @@ EDITS = [
   [
     "     check(false,\"V98 unexpected NAND registration dependency\");",
     "     std::cout<<\"V104_FALLTHROUGH pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec\n              <<\" phase=\"<<post103_async<<\" cache=\"<<post104_sc<<std::endl;\n     check(false,\"V98 unexpected NAND registration dependency\");"
+  ],
+  [
+    " static bool submit72_trace(uint32_t addr,CPUContext&ctx){",
+    " static bool submit72_trace(uint32_t addr,CPUContext&ctx){\n   if(post103_async==1u&&post104_trace<24u){\n     ++post104_trace;\n     std::cout<<\"V104_TRACE seq=\"<<post104_trace<<\" pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n   }"
   ]
 ]
 
