@@ -49,6 +49,11 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             research/native_recomp/test_wii_stm_ios.cpp -o "$RUNNER_TEMP/stm-ios-test"
           "$RUNNER_TEMP/stm-ios-test"
+      - name: Test native Hollywood IRQ routing under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            research/native_recomp/test_wii_hollywood_irq.cpp -o "$RUNNER_TEMP/hollywood-irq-test"
+          "$RUNNER_TEMP/hollywood-irq-test"
       - name: Reject proprietary game fixture extensions
         run: |
           if git ls-files research/native_recomp | grep -E '\.(dol|elf|iso|gcm|gcz)$|/owner_PRIVATE\.'; then
