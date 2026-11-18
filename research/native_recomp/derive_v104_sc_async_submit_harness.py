@@ -55,6 +55,10 @@ EDITS = [
   [
     "     if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V98_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;",
     "     if(post103_async==1u){\n       std::cout<<\"V104_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n     }\n     if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V98_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;"
+  ],
+  [
+    "     check(false,\"V98 unexpected NAND registration dependency\");",
+    "     std::cout<<\"V104_FALLTHROUGH pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec\n              <<\" phase=\"<<post103_async<<\" cache=\"<<post104_sc<<std::endl;\n     check(false,\"V98 unexpected NAND registration dependency\");"
   ]
 ]
 
