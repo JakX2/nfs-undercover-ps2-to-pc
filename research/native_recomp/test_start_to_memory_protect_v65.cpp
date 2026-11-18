@@ -428,11 +428,13 @@ void trace_call(uint32_t addr, CPUContext&ctx){
     ++si_start_entries;++si_channel;
   }
   else if(addr==0x804b79dcu){
+    if(ctx.lr==0x80520fc4u||ctx.lr==0x80522464u)return; // earlier authentic paired-single/cache reads
     check(ctx.lr==0x805208dcu&&dsp.complete()&&ctx.gpr[1]==ORIGINAL_SP-8u-80u,
           "original post-audio HID2 read ABI differs");
     mi_hid_before=ctx.hid2;++mi_hid_reads;
   }
   else if(addr==0x804b79e4u){
+    if(ctx.lr==0x80520fccu||ctx.lr==0x80522524u)return; // earlier authentic paired-single/cache writes
     check(ctx.lr==0x805208e4u&&ctx.gpr[3]==(mi_hid_before&~0x40000000u),
           "original OSInit HID2 mask differs");
     ++mi_hid_writes;
