@@ -10,3 +10,5 @@ All 16 owner-trials must retain the deferred STM event, FS descriptor,
 shutdown callbacks, SC state and running thread. The test stops before
 IOS_OpenAsync writes a request or supplies any callback/return value.
 A missing guest config file must not be fabricated.
+
+Owner trial 44402480429 isolated an empty NUL-terminated SC input in the reduced guest fixture (bounded path pointer and copy destination coincide). V103 records this as `empty=1`, accepts the original error-path argument without substituting a pathname and never claims the configuration file was loaded. Real data availability remains a separate dependency.
