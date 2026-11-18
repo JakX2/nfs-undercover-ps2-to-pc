@@ -1,0 +1,3 @@
+# V74: original scheduler to native external interrupt entry (candidate)
+
+Extends verified V73 with original SelectThread and context get/save/load helpers. The original scheduler selects its idle context and executes OSEnableInterrupts; a genuine native IRQ is sampled only at the `mtmsr` boundary, using the verified IosBus and external exception-entry helper. The expected installed vector is independently derived from the private original template and OSInit's documented patch and vector index. Stops at genuine external vector PC `0x80000500`, before any vector or handler execution. Earlier random reserved MSR values are limited to valid ME/RI test seeds in this lane. Owner CI pending. No synthetic IOS return or guest scheduling bypass.
