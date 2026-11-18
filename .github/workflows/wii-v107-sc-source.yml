@@ -75,25 +75,10 @@ jobs:
           bash research/native_recomp/run_v107_sc_source_probe.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc107.log" 2>&1 || true
-          # V104 may still fail later. This diagnostic-only probe checks
-          # solely that its native compilation and SC input were observed.
-          grep -E '^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled)
-          grep -E '^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$' "$RUNNER_TEMP/sc107.log" | sort -u
-          echo 'PASS: V107 read-only original SC source provenance captured'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc107.log"
- "$RUNNER_TEMP/sc107.log" || true
-          grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)
-          grep -E '^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$' "$RUNNER_TEMP/sc107.log" | sort -u
-          echo 'PASS: V107 read-only original SC source provenance captured'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc107.log"
- "$RUNNER_TEMP/sc107.log" || true
-                    grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc107.log"
+          # Diagnostic-only: the later V104 submission can remain blocked.
+          grep -E '^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled)$' "$RUNNER_TEMP/sc107.log" || true
+          grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$' "$RUNNER_TEMP/sc107.log" || true
+          grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc107.log"
           grep -E '^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$' "$RUNNER_TEMP/sc107.log" | sort -u
           echo 'PASS: V107 read-only original SC source provenance captured'
       - name: Remove private owner and generated code
