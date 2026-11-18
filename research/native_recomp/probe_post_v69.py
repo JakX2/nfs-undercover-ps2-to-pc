@@ -61,6 +61,25 @@ def scan(raw,funcs):
         print("POST71_LEAF kind=nop target=0x00000000 size=0x0")
     else:
         print("POST71_LEAF kind=other target=0x00000000 size=0x0")
+    # Classify the immediate request-path leaves and the registered handler
+    # region. To avoid exposing original instructions, only emit control
+    # flow geometry and bounded read/write width categories.
+    for addr in (0x805293b0,0x8051afe0,0x8051905c,0x8051906c,0x805222c0):
+        size=funcs.get(addr,0)
+        if not 0<size<=MAX_SIZE:raise ValueError("missing V72 dependency")
+        code=get_text(raw,addr,size)
+        loads=stores=cache=0
+        for (op,) in struct.iter_unpack(">I",code):
+            major=op>>26
+            if major in (32,33,34,35,40,41,42,43):loads+=1
+            if major in (36,37,38,39,44,45):stores+=1
+            if major==31 and ((op>>1)&1023) in (54,86,246,278,470,982,1014):cache+=1
+        print(f"POST72_LEAF addr=0x{addr:08X} size=0x{size:X} loads={loads} stores={stores} cache={cache}")
+    # Search only the IPC handler interval already authenticated by V69.
+    for addr in sorted(a for a in funcs if 0x80519094<=a<0x805194c4):
+        if 0<funcs[addr]<=MAX_SIZE:
+            print(f"POST72_IRQ_CANDIDATE addr=0x{addr:08X}")
+            describe(raw,funcs,addr)
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()
