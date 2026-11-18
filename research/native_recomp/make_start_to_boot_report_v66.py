@@ -11,7 +11,7 @@ from make_start_to_vectorcopy_v38 import word
 STOP=0x80520908
 LOW=0x8051FD44
 RANGES=((LOW,0x8051FFC8),(0x805203C4,0x80520670),(0x8052701C,0x80527040),
-        (0x80521D18,0x80521D28),(0x80521D30,0x80521D3C))
+        (0x80521D18,0x80521D28),(0x80521D30,0x80521D40))
 DATA=((0x8060B7A8,600),(0x8070A898,24))
 EDGES=((PREV_STOP,0x805203C4),(0x80520904,0x80522F00),(0x8052040C,LOW),
        (0x8051FEC4,0x8052701C),(0x805205F8,0x80527034),(0x80520600,0x80527028),
@@ -25,19 +25,19 @@ def make(owner):
     if base!=0x80520670 or any(i!=1 and b<base and LOW<b+len(c) for i,(b,c) in enumerate(text)):
         raise ValueError("V66 original boot report extension overlaps inherited text")
     text[1]=(LOW,bytearray(struct.pack(">I",NOP)*((base-LOW)//4))+body)
-    def install(lo,body,expected):
+    def install(lo,body,expected,code):
         hits=[(b,c) for b,c in text if b<=lo and lo+len(body)<=b+len(c)]
-        if len(hits)!=1:raise ValueError("V66 original report span unmapped")
+        if len(hits)!=1:raise ValueError(f"V66 private fixture range {code} not mapped")
         b,c=hits[0];at=lo-b
-        if c[at:at+len(body)]!=expected:raise ValueError("V66 report overwrites inherited text")
+        if c[at:at+len(body)]!=expected:raise ValueError(f"V66 private fixture range {code} overlap")
         c[at:at+len(body)]=body
-    for lo,hi in RANGES:
+    for i,(lo,hi) in enumerate(RANGES):
         original=text_at(raw,lo,hi-lo)
-        if word(original,len(original)-4)!=BLR:raise ValueError("V66 original report helper return changed")
-        install(lo,original,struct.pack(">I",NOP)*((hi-lo)//4))
+        if word(original,len(original)-4)!=BLR:raise ValueError(f"V66 private fixture range {i} return")
+        install(lo,original,struct.pack(">I",NOP)*((hi-lo)//4),i)
     n=STOP-PREV_STOP
     install(PREV_STOP,text_at(raw,PREV_STOP,n)+struct.pack(">II",SC,BLR),
-            struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(n//4))
+            struct.pack(">II",SC,BLR)+struct.pack(">I",NOP)*(n//4),5)
     data=data_sections(old)
     if len(data)!=9:raise ValueError("V66 inherited data count changed")
     data.extend((a,data_at(raw,a,n)) for a,n in DATA)
