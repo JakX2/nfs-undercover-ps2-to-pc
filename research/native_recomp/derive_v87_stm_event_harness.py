@@ -59,6 +59,14 @@ EDITS = [
   [
     "V86 recovered continuous original __start->asynchronous STM submission entry assertions",
     "V87 recovered continuous original __start->asynchronous STM event registration assertions"
+  ],
+  [
+    "     if(addr==0x805222c0u){\n       check((ctx.lr==0x8051a29cu",
+    "     if(addr==0x805222c0u&&async86_submit==0u){\n       check((ctx.lr==0x8051a29cu"
+  ],
+  [
+    "     if(addr==0x80000c00u){\n       check((ctx.lr==0x8051a29cu",
+    "     if(addr==0x80000c00u&&async86_submit==0u){\n       check((ctx.lr==0x8051a29cu"
   ]
 ]
 
