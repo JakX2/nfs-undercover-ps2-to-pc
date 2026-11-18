@@ -83,6 +83,11 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             -fno-omit-frame-pointer -no-pie research/native_recomp/test_wii_guest_filesystem.cpp -o "$RUNNER_TEMP/guest-fs-test"
           "$RUNNER_TEMP/guest-fs-test"
+      - name: Test native read-only title metadata under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -no-pie research/native_recomp/test_wii_title_metadata.cpp -o "$RUNNER_TEMP/title-data-test"
+          "$RUNNER_TEMP/title-data-test"
       - name: Test enabled-interrupt cache syscall entry under sanitizers
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \

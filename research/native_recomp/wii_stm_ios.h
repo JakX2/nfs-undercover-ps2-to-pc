@@ -38,11 +38,12 @@ struct IosMemory {
 
 class StmIos {
 public:
-    enum : uint32_t { Open=1, Close=2, Read=3, Write=4, Seek=5, Ioctl=6, Reply=8,
+    enum : uint32_t { Open=1, Close=2, Read=3, Write=4, Seek=5, Ioctl=6, Ioctlv=7, Reply=8,
                      EventHook=0x1000, GetState=0x3001, Release=0x3002, FileStats=0x0b };
     enum : int32_t { Invalid=-4, NotFound=-6, QueueFull=-8,
-                     FsInvalid=-101, FsAccess=-102, FsMissing=-106, FsFull=-109 } ;
-    enum class Device : uint8_t { None, Immediate, Event, Fs, File };
+                     FsInvalid=-101, FsAccess=-102, FsMissing=-106, FsFull=-109, EsInvalid=-1017 };
+    enum class Device : uint8_t { None, Immediate, Event, Fs, File, Es };
+    enum : uint32_t { EsGetDataDir=0x1d, EsGetTitleId=0x20 };
     enum class Pump { Idle, Ack, Replied, Deferred, InvalidAddress, Busy };
     static constexpr unsigned DescriptorCount=24;
     explicit StmIos(IpcMailbox& mailbox,IosMemory& memory):mail_(mailbox),mem_(memory){}
@@ -56,6 +57,14 @@ public:
     bool mount_filesystem(std::shared_ptr<const GuestFiles> fs) noexcept {
         for(auto dev:fds_)if(dev==Device::Fs||dev==Device::File)return false;
         filesystem_=std::move(fs);return true;
+    }
+    // Only read-only metadata for the explicitly selected guest title.
+    // This does not establish permissions, validate tickets, launch
+    // titles, or change the identity of a running guest.
+    bool mount_title_metadata(std::optional<uint64_t> id) noexcept {
+        if(id&&!*id)return false;
+        for(auto dev:fds_)if(dev==Device::Es)return false;
+        title_metadata_=id;return true;
     }
     bool event_pending() const noexcept {return pending_.has_value();}
     unsigned queued_replies() const noexcept {return count_;}
@@ -117,6 +126,7 @@ private:
     struct FileHandle {GuestFiles::Blob data;uint32_t offset=0;};
     std::array<FileHandle,DescriptorCount> files_{};
     std::shared_ptr<const GuestFiles> filesystem_;
+    std::optional<uint64_t> title_metadata_;
     std::optional<Pending> pending_;
     std::array<Completion,8> replies_{};
     unsigned front_=0,count_=0;
@@ -175,6 +185,54 @@ private:
         }
         return FsInvalid;
     }
+    // Public ES query ABI: https://wiibrew.org/wiki//dev/es
+    // Implement only GetTitleId and GetTitleDir. No other ES commands.
+    static bool disjoint(uint32_t a,uint32_t n,uint32_t b,uint32_t m) {
+        return uint64_t(a)+n<=b||uint64_t(b)+m<=a;
+    }
+    bool es_range(const Request&r,uint32_t a,uint32_t n) const {
+        if(!n||!output_range(r.address,a,n))return false;
+        if(pending_&&(!disjoint(a,n,pending_->request,64u)||
+                      !disjoint(a,n,pending_->output,4u)))return false;
+        for(unsigned i=0;i<count_;++i)
+            if(!disjoint(a,n,replies_[(front_+i)%replies_.size()].address,64u))return false;
+        return true;
+    }
+    int32_t title_request(const Request&r){
+        if(!title_metadata_||r.command!=Ioctlv)return EsInvalid;
+        const bool id=r.a==EsGetTitleId&&r.b==0u&&r.c==1u;
+        const bool dir=r.a==EsGetDataDir&&r.b==1u&&r.c==1u;
+        if(!id&&!dir)return EsInvalid;
+        const uint32_t table_size=id?8u:16u;
+        if((r.d&3u)||!es_range(r,r.d,table_size))return EsInvalid;
+        const uint32_t input=dir?mem_.read32(r.d):0u;
+        const uint32_t input_size=dir?mem_.read32(r.d+4u):0u;
+        const uint32_t output=mem_.read32(r.d+(dir?8u:0u));
+        const uint32_t output_size=mem_.read32(r.d+(dir?12u:4u));
+        constexpr std::string_view path_template="/title/00000000/00000000/data";
+        constexpr uint32_t path_size=uint32_t(path_template.size()+1u);
+        if(output_size<(id?8u:path_size)||!es_range(r,output,output_size)||
+           !disjoint(output,output_size,r.d,table_size))return EsInvalid;
+        if(dir){
+            if(input_size!=8u||!es_range(r,input,input_size)||
+               !disjoint(input,input_size,r.d,table_size)||
+               !disjoint(input,input_size,output,output_size))return EsInvalid;
+            const uint64_t requested=uint64_t(mem_.read32(input))<<32|mem_.read32(input+4u);
+            if(requested!=*title_metadata_)return EsInvalid;
+            std::array<char,path_size> path{};
+            std::copy(path_template.begin(),path_template.end(),path.begin());
+            constexpr std::string_view digits="0123456789abcdef";
+            for(unsigned i=0;i<16u;++i){
+                const unsigned index=i<8u?7u+i:8u+i;
+                path[index]=digits[(*title_metadata_>>(60u-4u*i))&15u];
+            }
+            for(unsigned i=0;i<path.size();++i)mem_.write8(output+i,uint8_t(path[i]));
+        }else{
+            mem_.write32(output,uint32_t(*title_metadata_>>32));
+            mem_.write32(output+4u,uint32_t(*title_metadata_));
+        }
+        return 0;
+    }
     bool output_ok(const Request&r) const {
         // An output word may not overlap the complete 0x40-byte IPC request.
         return r.e>=4u&&r.d!=0u&&r.d<=0xffffffffu-3u&&mem_.valid(r.d,4)&&
@@ -189,6 +247,7 @@ private:
             if(*p=="/dev/stm/immediate")dev=Device::Immediate;
             else if(*p=="/dev/stm/eventhook")dev=Device::Event;
             else if(filesystem_&&*p=="/dev/fs")dev=Device::Fs;
+            else if(title_metadata_&&*p=="/dev/es"&&r.b==0u)dev=Device::Es;
             else if(filesystem_&&!p->starts_with("/dev/")){
                 if(!GuestFiles::valid_path(*p))return FsInvalid;
                 if(r.b!=1u)return FsAccess;
@@ -211,6 +270,7 @@ private:
             fds_[r.fd]=Device::None;files_[r.fd]={};return 0;
         }
         if(dev==Device::File)return file_request(r);
+        if(dev==Device::Es)return title_request(r);
         // Control device is real but unsupported operations remain errors.
         // Never report successful writes, format, mutation, or directory I/O.
         if(dev==Device::Fs)return r.command==Write?FsAccess:FsInvalid;
