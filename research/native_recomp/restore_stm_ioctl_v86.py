@@ -4,8 +4,7 @@ import argparse
 import struct
 from pathlib import Path
 
-from make_alarm_v47 import call_target
-from make_osinit_execparams_v28 import SC, BLR, NOP, text_at
+from make_osinit_execparams_v28 import SC, BLR, NOP, text_at, be32, target
 from make_start_to_irq_enable_v68 import replace
 from test_v77_continuous_ipc_ack_geometry import verify as verify_v77
 
@@ -20,7 +19,7 @@ def validate_body(body):
     if len(body)!=SIZE:
         raise ValueError("V86 original async IOS span size differs")
     for pc,dst in EDGES:
-        if call_target(body,IOCTL,pc)!=dst:
+        if target(be32(body,pc-IOCTL),pc,True)!=dst:
             raise ValueError("V86 original async IOS dependency differs")
 
 def restore(fixture,body):
