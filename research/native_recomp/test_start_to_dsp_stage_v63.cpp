@@ -1350,7 +1350,9 @@ int main(int argc,char**argv){
       c.mmu.write32(SHUTDOWN_NODE+4u,100u+trial);
       c.mmu.write32(SHUTDOWN_NODE+8u,0xAACA0000u+trial);
       c.mmu.write32(SHUTDOWN_NODE+12u,0xBBCA0000u+trial);
-      c.mmu.write32(SHUTDOWN_NODE+16u,0xCCCA0000u+trial);
+      // The former adjacent canary is the genuine DSP image's first word.
+      // Reload authenticated bytes instead of replacing them with a canary.
+      for(unsigned i=0;i<DSP_SIZE;++i)c.mmu.write8(DSP_SRC+i,nwii::runtime::dsp_image[i]);
       // Authored per-trial module globals/canaries, verifying the exact
       // three-word owner-original low-memory zeroing without overrun.
       c.mmu.write32(MODULE_PRE,0x6A6A6A6Au);
@@ -1814,7 +1816,9 @@ int main(int argc,char**argv){
             c.mmu.read32(SHUTDOWN_NODE+4u)==100u+trial,
             "original Wii shutdown-list node links/priority incorrect");
       check(c.mmu.read32(SHUTDOWN_NODE)==0xFACA0000u+trial &&
-            c.mmu.read32(SHUTDOWN_NODE+16u)==0xCCCA0000u+trial,
+            c.mmu.read32(SHUTDOWN_NODE+16u)==
+               ((uint32_t(nwii::runtime::dsp_image[0])<<24)|(uint32_t(nwii::runtime::dsp_image[1])<<16)|
+                (uint32_t(nwii::runtime::dsp_image[2])<<8)|nwii::runtime::dsp_image[3]),
             "original shutdown registration overwrote adjacent fields");
       for(uint32_t i=0;i<SYSCALL_LEN;++i){
         check(c.mmu.read8(SYSCALL_DEST+i)==original_syscall[i],
