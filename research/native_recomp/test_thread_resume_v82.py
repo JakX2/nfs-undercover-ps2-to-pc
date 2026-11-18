@@ -23,6 +23,12 @@ class ResumeThreadTest(unittest.TestCase):
         for old, new in EDITS:
             self.assertEqual(prev.count(old), 1)
         self.assertNotIn("ctx.mmu.write32(sleep73_queue", source)
+        self.assertIn("V82_IDLE_LOAD", source)
+        self.assertIn("V82_IDLE_RFI", source)
+        self.assertIn("ctx.pc==sched74_resume", source)
+        self.assertIn("resume82_idle_disable==1u", source)
+        self.assertIn("ctx.dispatch_saved_ctx==0u", source)
+        self.assertNotIn("ctx.gpr[3]=THREAD;", source)
     def test_runner(self):
         source = runner((HERE / "run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x805265D4 stage=82", source)

@@ -31,11 +31,11 @@ EDITS = [
   ],
   [
     "  echo 'V81 original ready thread assertion failed; details withheld' >&2",
-    "  grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V82 original thread resume assertion failed; details withheld' >&2"
+    "  grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' \"$work/private-native.log\" | sort -u || true\n  grep -E '^V82_IDLE_LOAD route=[01] ready=[01] idle=[01] clear=[01]$|^V82_IDLE_RFI regs=[01] status=[01] ready=[01] clear=[01]$' \"$work/private-native.log\" | sort -u || true\n  echo 'V82 original thread resume assertion failed; details withheld' >&2"
   ],
   [
     "echo 'V81_STAGE native_test_passed'",
-    "echo 'V82_STAGE native_test_passed'\ngrep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' \"$work/private-native.log\" | sort -u"
+    "echo 'V82_STAGE native_test_passed'\ngrep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' \"$work/private-native.log\" | sort -u\ngrep -E '^V82_IDLE_LOAD route=[01] ready=[01] idle=[01] clear=[01]$|^V82_IDLE_RFI regs=[01] status=[01] ready=[01] clear=[01]$' \"$work/private-native.log\" | sort -u || true"
   ]
 ]
 

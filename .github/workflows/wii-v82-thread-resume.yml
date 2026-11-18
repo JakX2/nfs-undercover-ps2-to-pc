@@ -93,6 +93,7 @@ jobs:
               grep -E '^V80_WAKE_ENTRY route=[01] waiting=[01] wire=[01] consumed=[01]$|^V82_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v82-focused.log" || true
               grep -E '^V81_READY_STATE route=[01] drained=[01] ready=[01] enrolled=[01] idle=[01]$' "$RUNNER_TEMP/v82-focused.log" || true
               grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' "$RUNNER_TEMP/v82-focused.log" || true
+              grep -E '^V82_IDLE_LOAD route=[01] ready=[01] idle=[01] clear=[01]$|^V82_IDLE_RFI regs=[01] status=[01] ready=[01] clear=[01]$' "$RUNNER_TEMP/v82-focused.log" || true
               echo 'V82 candidate failed; private logs withheld' >&2
               exit 1
             }
@@ -107,6 +108,7 @@ jobs:
           grep -E '^V80_WAKE_ENTRY route=[01] waiting=[01] wire=[01] consumed=[01]$|^V82_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/v82-focused.log"
           grep -E '^V81_READY_STATE route=[01] drained=[01] ready=[01] enrolled=[01] idle=[01]$' "$RUNNER_TEMP/v82-focused.log"
           grep -E '^V82_REPLY_RETURN clear=[01] ready=[01] route=[01]$|^V82_LOAD_CONTEXT selected=[01] running=[01] saved=[01]$|^V82_RESUME_STATE running=[01] stack=[01] queue=[01] route=[01]$' "$RUNNER_TEMP/v82-focused.log"
+          grep -E '^V82_IDLE_LOAD route=[01] ready=[01] idle=[01] clear=[01]$|^V82_IDLE_RFI regs=[01] status=[01] ready=[01] clear=[01]$' "$RUNNER_TEMP/v82-focused.log" || true
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x805265D4 stage=82' "$RUNNER_TEMP/v82-focused.log"
           echo 'PASS: V82 original sleeping thread resumed'
       - name: Remove private originals and generated code
