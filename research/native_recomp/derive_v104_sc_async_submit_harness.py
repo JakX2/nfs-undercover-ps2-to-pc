@@ -63,6 +63,18 @@ EDITS = [
   [
     " static bool submit72_trace(uint32_t addr,CPUContext&ctx){",
     " static bool submit72_trace(uint32_t addr,CPUContext&ctx){\n   if(post103_async==1u&&post104_trace<24u){\n     ++post104_trace;\n     std::cout<<\"V104_TRACE seq=\"<<post104_trace<<\" pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n   }"
+  ],
+  [
+    "void check(bool result,const char*why){if(!result)throw std::runtime_error(why);++checks;}",
+    "static uint32_t v104_last_hook=0,v104_last_lr=0;\nvoid check(bool result,const char*why){\n  if(!result){\n    if(std::strcmp(why,\"V98 unexpected NAND registration dependency\")==0)\n      std::cout<<\"V104_FAIL_HOOK pc=\"<<std::hex<<v104_last_hook<<\" lr=\"<<v104_last_lr<<std::dec<<std::endl;\n    throw std::runtime_error(why);\n  }\n  ++checks;\n}"
+  ],
+  [
+    "void trace_call(uint32_t addr, CPUContext&ctx){",
+    "void trace_call(uint32_t addr, CPUContext&ctx){\n   v104_last_hook=addr;v104_last_lr=ctx.lr;"
+  ],
+  [
+    "bool handle_syscall(CPUContext&ctx){",
+    "bool handle_syscall(CPUContext&ctx){\n  v104_last_hook=ctx.pc;v104_last_lr=ctx.lr;"
   ]
 ]
 

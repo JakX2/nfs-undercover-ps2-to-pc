@@ -45,6 +45,7 @@ class AsyncSubmitV104(unittest.TestCase):
         self.assertIn("nwii::runtime::post104_flush_before=0",actual)
         self.assertIn("V104 IOS_OpenAsync native cache syscall order or line count differs",actual)
         self.assertEqual(actual.count("V104_TRACE seq="),1)
+        self.assertEqual(actual.count("V104_FAIL_HOOK pc="),1)
         self.assertIn("ctx.lr==0x8051ab64u&&post103_alloc==1u&&post103_async==0u",actual)
         self.assertIn("ctx.lr==0x8051ad14u&&post103_alloc==1u&&post103_async==0u",actual)
         self.assertIn("ctx.lr==0x8051ab64u&&post104_alloc==1u",actual)

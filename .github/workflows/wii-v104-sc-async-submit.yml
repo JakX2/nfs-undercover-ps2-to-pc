@@ -123,6 +123,7 @@ jobs:
               grep -E '^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
               grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
               grep -E '^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
+              grep -E '^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
               echo 'V104 candidate failed; private logs withheld' >&2
               exit 1
             }
