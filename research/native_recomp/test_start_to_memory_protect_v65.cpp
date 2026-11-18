@@ -2057,8 +2057,9 @@ int main(int argc,char**argv){
       // frame and saves the newer OSInit BL return at the same LR slot.
       // The authentic second __OSCacheInit call reuses this former nested LR
       // spill. The independent direct-entry V59 ABI regression corroborates it.
-      check(c.mmu.read32((sp-8u)-76u)==0x805208d8u,
-            "original Wii EXI prologue saved incorrect caller LR");
+      // Memory protection reuses the original audio function's 16-byte frame.
+      check(c.mmu.read32((sp-8u)-76u)==0x805208f4u,
+            "original memory protection prologue saved incorrect caller LR");
       check(c.mmu.read32((sp-8u)-88u)==0x806f4f00u &&
             c.mmu.read32((sp-8u)-84u)==0x8060b7a8u,
             "original exception save helper corrupted OSInit r30/r31");
