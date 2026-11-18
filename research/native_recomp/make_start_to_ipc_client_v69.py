@@ -23,17 +23,21 @@ def make(owner):
     old=previous(owner);raw=owner.read_bytes();text,_=sections_of(old)
     for site,target in EDGES:
         if call_target(text_at(raw,site,4),site,site)!=target:raise ValueError("V69 original IPC edge changed")
-    base,code=text[1]
-    if base!=0x8051fd44 or any(i!=1 and b<base and LOW<b+len(c) for i,(b,c) in enumerate(text)):
+    # The FPR initializer occupies a separate section immediately below
+    # OSInit. Extend that section, not the OSInit section across FPR.
+    indices=[i for i,(b,c) in enumerate(text) if b<=0x8051fbb0<b+len(c)]
+    if len(indices)!=1:raise ValueError("V69 FPR segment missing")
+    idx=indices[0];base,code=text[idx]
+    if base<=LOW or base-LOW>0x10000 or any(i!=idx and b<base and LOW<b+len(c) for i,(b,c) in enumerate(text)):
         raise ValueError("V69 IPC text extension overlaps earlier text")
-    text[1]=(LOW,bytearray(struct.pack(">I",NOP)*((base-LOW)//4))+code)
-    for pc,size in SPANS:
+    text[idx]=(LOW,bytearray(struct.pack(">I",NOP)*((base-LOW)//4))+code)
+    for index,(pc,size) in enumerate(SPANS):
         blob=text_at(raw,pc,size)
-        if word(blob,size-4)!=BLR:raise ValueError("V69 original IPC function return differs")
+        if word(blob,size-4)!=BLR:raise ValueError(f"V69 original IPC function return differs {index}")
         hits=[(b,c) for b,c in text if b<=pc and pc+size<=b+len(c)]
-        if len(hits)!=1:raise ValueError("V69 IPC text not uniquely mapped")
+        if len(hits)!=1:raise ValueError(f"V69 IPC text not uniquely mapped {index}")
         b,c=hits[0];at=pc-b
-        if c[at:at+size]!=struct.pack(">I",NOP)*(size//4):raise ValueError("V69 original IPC overlaps previous code")
+        if c[at:at+size]!=struct.pack(">I",NOP)*(size//4):raise ValueError(f"V69 original IPC overlaps previous code {index}")
         c[at:at+size]=blob
     out=bytearray(old[:256])
     for is_data,sections in ((False,text),(True,data_sections(old))):

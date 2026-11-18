@@ -1,0 +1,3 @@
+# Native Hollywood IPC mailbox
+
+Independent C++ register model based on the public hardware bit layout. Supports shared 32-bit message registers, side-specific flag writes and write-one-to-clear semantics, IRQ enable bits, and combinational IRQ request levels. It does not implement latched Hollywood interrupt-controller state, asynchronous PPC delivery, IOS services, or actual Starlet execution. Explicit ARM-side writes drive ACK/reply, with no fabricated responses. Standalone optimized and ASan/UBSan builds passed 8192 exhaustive directional flag combinations plus request/ACK/reply and invalid-access tests. Next: route the owner-original IPC client register accesses into this component.

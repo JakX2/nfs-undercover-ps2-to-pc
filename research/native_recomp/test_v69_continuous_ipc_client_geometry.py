@@ -9,7 +9,9 @@ from make_start_to_si_sampling_v58 import data_sections
 from make_osinit_execparams_v28 import text_at,SC,BLR,NOP
 def verify(actual,owner):
     old=previous(owner);raw=owner.read_bytes();expected,_=sections_of(old);got,_=sections_of(actual)
-    base,body=expected[1];expected[1]=(LOW,bytearray(struct.pack(">I",NOP)*((base-LOW)//4))+body)
+    hits=[i for i,(b,c) in enumerate(expected) if b<=0x8051fbb0<b+len(c)]
+    if len(hits)!=1:raise ValueError("V69 FPR section missing")
+    i=hits[0];base,body=expected[i];expected[i]=(LOW,bytearray(struct.pack(">I",NOP)*((base-LOW)//4))+body)
     def put(pc,before,after):
         matches=[(b,c) for b,c in expected if b<=pc and pc+len(after)<=b+len(c)]
         if len(matches)!=1:raise ValueError("V69 geometry missing")
