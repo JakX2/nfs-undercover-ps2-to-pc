@@ -1,4 +1,4 @@
-# V59: original SIInit cold return candidate
+# V59: verified original SIInit cold return
 Restores the original four controller-type requests, SITransfer and low-level immediate transfer. SHA-authenticated initialized SI data are reloaded for every independent cold boot. The normal test has zero last-transfer timestamps and a realistic 243 MHz bus-clock input, so the first type request starts immediately, with the other three queued behind it. The device model validates the original status clear, zero command and transfer control. The controller responses are not delivered; alarm scheduling and response/interrupt callbacks remain explicit failing boundaries.
  
-Verification pending. This is not a complete controller implementation or game boot.
+Verified in private owner-original CI run [44207598845](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44207598845), commit 9fb366778c1000fd27766980eb7fbb077c6e4311. All sixteen cold boot trials passed through original SIInit and stopped at OSInit 0x805208CC. Exact first SI command/control, original timebase and three queued packet field values were checked; zero interpreter fallback and no fabricated guest device IDs. This is not a complete controller implementation or game boot.
