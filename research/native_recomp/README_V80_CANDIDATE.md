@@ -13,6 +13,5 @@ OSWakeupThread entry. The handler is not replaced, and no thread is awakened
 by host code. It stops *before* executing the wake routine, then the original
 scheduler and default thread return will be tackled separately.
 
-Status: source-only candidate, not yet owner-run. The V79 owner CI must pass
-before launching this extension. No new original bytes or generated C++ are
+Status: source-only candidate. V79 passed run 44231647130; V80 focused owner execution is now enabled for changes to its own files. No new original bytes or generated C++ are
 published.

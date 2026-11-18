@@ -1,6 +1,11 @@
 name: Wii V80 Original Reply Wake Entry
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v80*'
+      - '.github/workflows/wii-v80-reply-wake.yml'
 permissions:
   contents: read
 concurrency:
