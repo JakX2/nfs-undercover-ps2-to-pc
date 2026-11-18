@@ -1,3 +1,5 @@
 # V71: original IOS_Open to synchronous IPC submission (candidate)
 
 Restores authenticated owner IOS_Open at 0x80519944 (0x120 bytes), its original heap-allocation tail branch and 0x204-byte allocator, and the original cache flush path. Stops explicitly at synchronous submission entry `0x805195EC` without injecting a fake IOS return. The private metadata resolves the 4-byte dependency at `0x8051AD38` as a tail branch to `0x8051AB34`, rather than a profiling return. Native pathname cache flush, SC/rfi preservation, callsite and request argument shape are checked privately. Only bounded register-class masks are emitted. V70 remains independently verified. Owner CI pending.
+
+The V71 lane now inherits V70's verified MMIO bus adapter and includes a bounded SC entry accepting prior MSR.EE=1 only when no native device interrupt is pending. Native generation also forbids auto-detected HLE signature substitutions; this preserves actual original function bodies even when a signature matches an IOS SDK name. V71 owner verification is pending.
