@@ -89,7 +89,23 @@ int main(){
     call(S::Close,3,0);assert(!bus.services().is_open(3,S::Device::Es));
     assert(bus.services().is_open(2,S::Device::Fs)&&bus.services().mount_title_metadata({}));
     open("/dev/es",S::NotFound);
+    // Original SCReloadConfFileAsync may issue a bounded but empty path
+    // when optional configuration is absent. Verify failure propagation
+    // through real IPC ACK/reply interrupts without inventing a file.
+    ram.write32(req+32u,0xa1b2c3d4u);
+    ram.string(path,"");
+    call(S::Open,0,S::NotFound,path,1u);
+    ram.string(path,"/shared2/sys/SYSCONF");
+    call(S::Open,0,S::FsMissing,path,1u);
+    assert(ram.read32(req+32u)==0xa1b2c3d4u);
+    assert(bus.services().is_open(0,S::Device::Immediate)&&
+           bus.services().is_open(1,S::Device::Event)&&
+           bus.services().is_open(2,S::Device::Fs)&&
+           !bus.services().is_open(3,S::Device::Es));
+    assert(bus.services().event_pending()&&ram.read32(event)==S::Ioctl&&
+           ram.read32(eventout)==0x11112222u&&
+           bus.services().queued_replies()==0u&&!bus.external_irq_level());
     assert(bus.services().signal_event(0x20000u));reply(event,S::Ioctl,0);
     assert(ram.read32(eventout)==0x20000u&&bus.services().is_open(0,S::Device::Immediate));
-    std::cout<<"PASS: explicit read-only native title metadata queries, validated IOS vector lengths and independent deferred STM event\n";
+    std::cout<<"PASS: explicit read-only native title metadata queries, validated IOS vector lengths and independent deferred STM event and negative SC async file paths\n";
 }
