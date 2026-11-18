@@ -500,8 +500,9 @@ int main(int argc,char** argv)try{
           os[148].address==0x805208c0u &&
           branch(os[148].opcode,0x805208c0u)==CACHE &&
           os[149].address==0x805208c4u && branch(os[149].opcode,0x805208c4u)==EXI &&
-          os[150].address==OS_RET_STOP && os[150].opcode==0x44000002u,
-          "original OSInit IRQ/context native BL and bounded stop changed");
+          os[150].address==0x805208c8u && branch(os[150].opcode,0x805208c8u)==0x80532080u &&
+          os[151].address==OS_RET_STOP && os[151].opcode==0x44000002u,
+          "original OSInit IRQ/context/SI native BL and bounded stop changed");
   // __OSCacheInit was already authentically translated and executed from
    // __start. The same function must serve the second original OSInit BL.
    const auto& cache_code=funcs.at(CACHE).instructions;

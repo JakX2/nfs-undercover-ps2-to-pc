@@ -36,6 +36,13 @@ PY
 g++ -std=c++20 -O2 -Wall -Wextra -Werror "$here/test_exi_id_device_v56.cpp" -o "$work/exi-device-test"
 "$work/exi-device-test"
 python3 "$here/test_jump_table_patch_v58.py"
+g++ -std=c++20 -O2 -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" \
+  "$here/test_jump_table_analyzer_v58.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \
+  "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$root/nWiiAnalyzer/src/signature_scanner.cpp" \
+  -o "$work/jump-table-test" > "$work/jump-table-compile.log" 2>&1 || {
+    echo 'V58 original-free jump-table analyzer test compile failed' >&2; exit 1;
+  }
+"$work/jump-table-test"
 echo 'V58_STAGE runtime_cache_trace_verified'
 
 python3 "$here/make_start_to_si_sampling_v58.py" "$owner" "$work/private.dol"   > "$work/build-private.log" 2>&1 || {
