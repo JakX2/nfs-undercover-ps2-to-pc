@@ -30,7 +30,7 @@ EDITS = [
   ],
   [
     "           ++ack77_reply;observed_stop_pc=ctx.pc;++post_stops;ctx.is_running=false;\n           throw ExceptionStop{}; // stop before scheduler enable / original interrupt return",
-    "           ++ack77_reply;++reply79_enable;return true; // execute original scheduler enable\n         }\n         if(ack77_reply==1u&&reply79_irq==0u){\n           if(addr==0x80529940u){\n             check(reply79_enable==1u&&reply79_resched==0u&&ctx.lr==0x80526cb4u&&!(ctx.msr&0x8000u),\n                   \"V79 original reschedule entry differs\");\n             ++reply79_resched;return true;\n           }\n           if(addr==0x805229b4u){\n             check(reply79_resched==1u&&reply79_load==0u&&ctx.gpr[3]==IDLE_CONTEXT&&\n                   (ctx.lr==0x80526cbcu||ctx.lr==0x80526cc4u)&&!(ctx.msr&0x8000u),\n                   \"V79 original interrupt context-load ABI differs\");\n             ++reply79_load;return true;\n           }"
+    "           ++ack77_reply;++reply79_enable;return true; // execute original scheduler enable\n         }\n         if(ack77_reply==1u&&reply79_irq==0u){\n           if(addr==0x80529940u){\n             check(reply79_enable==1u&&reply79_resched==0u&&ctx.lr==0x80526cb4u&&!(ctx.msr&0x8000u),\n                   \"V79 original reschedule entry differs\");\n             ++reply79_resched;return true;\n           }\n           if(addr==0x80529718u){\n             check(reply79_resched==1u&&reply79_load==0u&&ctx.gpr[3]==0u&&\n                   !(ctx.msr&0x8000u),\n                   \"V79 reschedule selected unexpected scheduler state\");\n             return true;\n           }\n           if(addr==0x80522928u){\n             check(reply79_resched==1u&&ctx.lr==0x80529748u&&!(ctx.msr&0x8000u),\n                   \"V79 scheduler context getter call differs\");\n             return true;\n           }\n           if(addr==0x805229b4u){\n             check(reply79_resched==1u&&reply79_load==0u&&ctx.gpr[3]==IDLE_CONTEXT&&\n                   (ctx.lr==0x80526cbcu||ctx.lr==0x80526cc4u)&&!(ctx.msr&0x8000u),\n                   \"V79 original interrupt context-load ABI differs\");\n             ++reply79_load;return true;\n           }"
   ],
   [
     "bool process_pending_callbacks(CPUContext& ctx){\n  if(!sched74_enable||sched74_irq)return false;",
@@ -51,6 +51,10 @@ EDITS = [
   [
     "V77 recovered continuous original __start->ACK return and IOS reply assertions",
     "V79 recovered continuous original __start->reply processor entry assertions"
+  ],
+  [
+    "         check(false,\"unexpected original IPC ACK-only path dependency\");",
+    "         if(addr>=0x80400000u&&addr<0x80600000u&&ctx.lr>=0x80400000u&&ctx.lr<0x80600000u)\n           std::cout<<\"V79_DEPENDENCY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec\n                    <<\" phase=\"<<reply79_irq<<\" enable=\"<<reply79_enable<<\" resched=\"<<reply79_resched<<\" load=\"<<reply79_load<<std::endl;\n         check(false,\"unexpected original IPC ACK-only path dependency\");"
   ]
 ]
 

@@ -125,6 +125,7 @@ echo 'V79_STAGE native_compiled'
     "$work/private-native.log" "$work/harness.cpp" || \
     echo 'V71_NATIVE_ASSERTION id=000'
   grep -E '^V79_RFI_STATE resume=[01] regs=[01] waiting=[01]$|^V79_REPLY_ENTRY route=[01] wire=[01] waiting=[01] pending=[01]$|^V79_TRIAL_PASS trial=[0-9]{1,2}$' "$work/private-native.log" | sort -u || true
+  grep -E '^V79_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[01] enable=[01] resched=[01] load=[01]$' "$work/private-native.log" | sort -u || true
   echo 'V79 original reply entry assertion failed; details withheld' >&2
   grep -E '^V77_ACK_STATE ctrl=[01] flag=[01] waiting=[01] returned=[01] queued=[01] writes=[01] read=[01]$' "$work/private-native.log" | sort -u || true
   grep -E '^V76_DISPATCH_STATE index=[01] context=[01] route=[01] masked=[01] ack=[01] pi=[01] mask=[01]$' "$work/private-native.log" | sort -u || true
