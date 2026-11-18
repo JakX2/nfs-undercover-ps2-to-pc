@@ -83,7 +83,7 @@ public:
         if(mail_.request_pending()){
             if(count_>=replies_.size()-1u)return Pump::Busy;
             const uint32_t address=mail_.read(A,M::PPCMSG);
-            if(!request_span(address)|| (pending_&&pending_->request==address)||in_queue(address))
+            if(!request_span(address)||!disjoint_outstanding(address,64u))
                 return Pump::InvalidAddress;
             const Request r{address,mem_.read32(address),mem_.read32(address+8),
                 mem_.read32(address+12),mem_.read32(address+16),
@@ -135,10 +135,15 @@ private:
     bool request_span(uint32_t a) const {
         return a!=0u&&(a&31u)==0u&&a<=0xffffffffu-63u&&mem_.valid(a,64);
     }
-    bool in_queue(uint32_t a) const {
+    static bool disjoint(uint32_t a,uint32_t n,uint32_t b,uint32_t m) {
+        return uint64_t(a)+n<=b||uint64_t(b)+m<=a;
+    }
+    bool disjoint_outstanding(uint32_t a,uint32_t n) const {
+        if(pending_&&(!disjoint(a,n,pending_->request,64u)||
+                      !disjoint(a,n,pending_->output,4u)))return false;
         for(unsigned i=0;i<count_;++i)
-            if(replies_[(front_+i)%replies_.size()].address==a)return true;
-        return false;
+            if(!disjoint(a,n,replies_[(front_+i)%replies_.size()].address,64u))return false;
+        return true;
     }
     void enqueue(uint32_t a,uint32_t cmd,int32_t result){
         replies_[(front_+count_)%replies_.size()]={a,cmd,result};++count_;
@@ -154,7 +159,7 @@ private:
     }
     bool output_range(uint32_t request,uint32_t a,uint32_t n) const {
         return n==0u||(a!=0u&&uint64_t(a)+n<=0x100000000ull&&mem_.valid(a,n)&&
-            (uint64_t(a)+n<=request||uint64_t(request)+64u<=a));
+            disjoint(a,n,request,64u)&&disjoint_outstanding(a,n));
     }
     unsigned fs_handles() const {
         return unsigned(std::count(fds_.begin(),fds_.end(),Device::Fs)+
@@ -187,16 +192,8 @@ private:
     }
     // Public ES query ABI: https://wiibrew.org/wiki//dev/es
     // Implement only GetTitleId and GetTitleDir. No other ES commands.
-    static bool disjoint(uint32_t a,uint32_t n,uint32_t b,uint32_t m) {
-        return uint64_t(a)+n<=b||uint64_t(b)+m<=a;
-    }
     bool es_range(const Request&r,uint32_t a,uint32_t n) const {
-        if(!n||!output_range(r.address,a,n))return false;
-        if(pending_&&(!disjoint(a,n,pending_->request,64u)||
-                      !disjoint(a,n,pending_->output,4u)))return false;
-        for(unsigned i=0;i<count_;++i)
-            if(!disjoint(a,n,replies_[(front_+i)%replies_.size()].address,64u))return false;
-        return true;
+        return n&&output_range(r.address,a,n);
     }
     int32_t title_request(const Request&r){
         if(!title_metadata_||r.command!=Ioctlv)return EsInvalid;
@@ -234,9 +231,7 @@ private:
         return 0;
     }
     bool output_ok(const Request&r) const {
-        // An output word may not overlap the complete 0x40-byte IPC request.
-        return r.e>=4u&&r.d!=0u&&r.d<=0xffffffffu-3u&&mem_.valid(r.d,4)&&
-            (uint64_t(r.d)+4u<=r.address||uint64_t(r.address)+64u<=r.d);
+        return r.e>=4u&&output_range(r.address,r.d,4u);
     }
     std::optional<int32_t> dispatch(const Request&r){
         if(r.command==Open){

@@ -44,6 +44,14 @@ int main(){
     submit(event,S::Ioctl,1,S::EventHook,0,0,buf,32);ack(true);
     assert(ios.event_pending()&&ios.pump()==S::Pump::Idle&&mem.read32(event)==S::Ioctl);
     assert(mem.read32(buf)==0xaabbccdd);
+    // Attempt overlapping live request slots without writing the guest
+    // message itself; the broker must reject before ACK or dispatch.
+    for(uint32_t a:{event-32u,event,event+32u,buf}){
+        m.write(P,M::PPCMSG,a);m.write(P,M::PPCCTRL,enables|M::X1);
+        assert(ios.pump()==S::Pump::InvalidAddress&&m.request_pending());
+        m.write(P,M::PPCCTRL,enables);
+        assert(ios.event_pending()&&mem.read32(event)==S::Ioctl&&mem.read32(buf)==0xaabbccdd);
+    }
     submit(req,S::Ioctl,1,S::EventHook,0,0,buf,32);ack();reply(req,S::Ioctl,S::Invalid);
     assert(ios.signal_event(0x20000));assert(!ios.event_pending());
     reply(event,S::Ioctl,0);assert(mem.read32(buf)==0x20000&&mem.read32(buf+4)==0xa1b2c3d4);

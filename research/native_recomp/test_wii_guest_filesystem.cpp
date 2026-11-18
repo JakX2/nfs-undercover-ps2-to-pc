@@ -72,6 +72,10 @@ int main(){
     call(S::Read,3,0,out,4);call(S::Read,3,0,0,0);
     call(S::Seek,3,S::FsInvalid,1,2);call(S::Seek,3,S::FsInvalid,uint32_t(-6),2);
     call(S::Seek,3,0,0,0);call(S::Read,3,S::FsInvalid,request+4,2);
+    call(S::Read,3,S::FsInvalid,event+4,2);
+    call(S::Read,3,S::FsInvalid,eventout,4);
+    call(S::Ioctl,3,S::FsInvalid,S::FileStats,0,0,eventout-4,8);
+    call(S::Ioctl,0,S::Invalid,S::GetState,0,0,eventout,4);
     call(S::Read,3,S::FsInvalid,4095,2);
     call(S::Read,3,S::FsInvalid,out,0xffffffffu);
     call(S::Ioctl,3,S::FsInvalid,S::FileStats,0,0,request+60,8);
