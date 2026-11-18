@@ -80,6 +80,22 @@ def scan(raw,funcs):
         if 0<funcs[addr]<=MAX_SIZE:
             print(f"POST72_IRQ_CANDIDATE addr=0x{addr:08X}")
             describe(raw,funcs,addr)
+    # Bounded direct SDA accesses and conditional branch geometry in
+    # original send path / init helpers. Never emit opcodes or data values.
+    for addr in (0x805194c4,0x8051af28,0x805195ec,0x8051afe0):
+        size=funcs.get(addr,0)
+        if not 0<size<=MAX_SIZE:raise ValueError("missing V72 send predicate body")
+        for i,(op,) in enumerate(struct.iter_unpack(">I",get_text(raw,addr,size))):
+            pc=addr+4*i;major=op>>26;ra=(op>>16)&31
+            if ra in (2,13) and major in (32,34,40,42,36,38,44):
+                offset=op&0xffff
+                if offset&0x8000:offset-=0x10000
+                print(f"POST72_SDA func=0x{addr:08X} site=0x{pc:08X} base={ra} offset={offset} access={'load' if major in (32,34,40,42) else 'store'}")
+            if addr==0x805195ec and major==16:
+                disp=op&0xfffc
+                if disp&0x8000:disp-=0x10000
+                target=(disp if op&2 else pc+disp)&0xffffffff
+                print(f"POST72_BRANCH site=0x{pc:08X} target=0x{target:08X}")
     print("PASS: bounded authenticated post-V69 startup graph")
 def main():
     p=argparse.ArgumentParser();p.add_argument("dol",type=Path);p.add_argument("elf",type=Path);a=p.parse_args()

@@ -546,11 +546,40 @@ static bool open71_ram(uint32_t addr,uint32_t n){
    }
    return false;
  }
-static bool submit72_trace(uint32_t addr,CPUContext&ctx){
+// Original-free predicate-only audit of direct SDA reads. Owner bytes and
+ // runtime values remain private. Restrict to the synchronous submit body
+ // and queue helper; no data writes, branch forcing or register mutation.
+ static void submit72_audit(CPUContext&ctx,unsigned phase){
+   for(const auto& span:std::array<std::pair<uint32_t,uint32_t>,2>{{
+        {0x805195ecu,0x240u},{0x8051afe0u,0x80u}}}){
+     for(uint32_t pc=span.first;pc<span.first+span.second;pc+=4u){
+       const auto op=original_word(pc),major=op>>26,ra=(op>>16)&31u;
+       if((ra!=2u&&ra!=13u)||(major!=32u&&major!=34u&&major!=40u&&major!=42u))continue;
+       const uint32_t a=ctx.gpr[ra]+uint32_t(int32_t(int16_t(op)));
+       const unsigned n=major==32u?4u:major==34u?1u:2u;
+       if(!open71_ram(a,n))continue;
+       bool initialized=false,orig_nonzero=false,live_nonzero=false,match=true;
+       for(const auto& sec:stm70_owner->sections){
+         if(sec.is_bss||sec.is_text||sec.address>a||uint64_t(a)+n>uint64_t(sec.address)+sec.data.size())continue;
+         initialized=true;
+         for(unsigned i=0;i<n;++i){
+           const auto initial=sec.data[a-sec.address+i],live=ctx.mmu.read8(a+i);
+           orig_nonzero|=initial!=0;live_nonzero|=live!=0;match&=initial==live;
+         }
+         break;
+       }
+       if(!initialized){for(unsigned i=0;i<n;++i)live_nonzero|=ctx.mmu.read8(a+i)!=0;match=false;}
+       std::cout<<"V72_SDA phase="<<phase<<" site="<<std::hex<<pc<<" addr="<<a<<std::dec
+                <<" width="<<n<<" init="<<initialized<<" initial_nz="<<orig_nonzero
+                <<" live_nz="<<live_nonzero<<" equal="<<match<<std::endl;
+     }
+   }
+ }
+ static bool submit72_trace(uint32_t addr,CPUContext&ctx){
    if(!submit72_active)return false;
    if(addr==0x805293b0u){
      check(ctx.lr==0x80519630u,"IPC submission native queue initializer callsite differs");
-     return true;
+     submit72_audit(ctx,0u);return true;
    }
    if(addr==0x805222c0u){
      check(ctx.lr==0x8051963cu&&submit72_flush==0u,"IPC request flush callsite differs");
@@ -582,6 +611,7 @@ static bool submit72_trace(uint32_t addr,CPUContext&ctx){
    if(addr==0x8052a430u){
      using Bus=undercover::wii::IosBus;using Mail=undercover::wii::IpcMailbox;
      using Irq=undercover::wii::HollywoodIrq;using IOS=undercover::wii::StmIos;
+     submit72_audit(ctx,1u);
      std::cout<<"V72_SEND_STATE lr="<<(ctx.lr==OS_RET_OWNER)
                <<" msg="<<submit72_message<<" x1="<<submit72_x1<<" ee="<<bool(ctx.msr&0x8000u)
                <<" flush="<<submit72_flush<<" disable="<<submit72_disable
