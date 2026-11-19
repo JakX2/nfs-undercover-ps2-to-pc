@@ -55,6 +55,10 @@ EDITS = [
   [
     "       if(addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){",
     "       if(post110_strlen==0u&&addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){"
+  ],
+  [
+    "        check(nwii::runtime::ack77_reply==1u&&nwii::runtime::irq76_ipc==1u&&nwii::runtime::vector75_handler==1u&&nwii::runtime::sched74_irq==1u&&nwii::runtime::ipc69_active&&nwii::runtime::ipc69_step==9u&&",
+    "        std::cout<<\"V110_IPC_GATE ack=\"<<(nwii::runtime::ack77_reply==1u)\n                 <<\" dispatch=\"<<(nwii::runtime::irq76_ipc==1u)\n                 <<\" vector=\"<<(nwii::runtime::vector75_handler==1u)\n                 <<\" scheduler=\"<<(nwii::runtime::sched74_irq==1u)\n                 <<\" active=\"<<nwii::runtime::ipc69_active\n                 <<\" phase=\"<<(nwii::runtime::ipc69_step==9u)\n                 <<\" db=\"<<(nwii::runtime::db_entries==before_db+1u)\n                 <<\" os=\"<<(nwii::runtime::os_entries==before_os+1u)<<std::endl;\n        check(nwii::runtime::ack77_reply==1u&&nwii::runtime::irq76_ipc==1u&&nwii::runtime::vector75_handler==1u&&nwii::runtime::sched74_irq==1u&&nwii::runtime::ipc69_active&&nwii::runtime::ipc69_step==9u&&"
   ]
 ]
 def derive(source):

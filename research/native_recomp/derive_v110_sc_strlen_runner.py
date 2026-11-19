@@ -27,7 +27,7 @@ if "$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log
   echo 'V110_NATIVE_EXIT ok=1'
 else
   python3 "$here/classify_v67_native_failure.py" "$work/private-native.log" "$work/harness.cpp" || true
-  grep -E '^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V110_TRIAL_PASS trial=[0-9]{1,2}$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$' "$work/private-native.log" | sort -u || true
+  grep -E '^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01] db=[01] os=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V110_TRIAL_PASS trial=[0-9]{1,2}$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$' "$work/private-native.log" | sort -u || true
   echo 'V110_NATIVE_EXIT ok=0'
   exit 1
 fi
