@@ -20,6 +20,7 @@ on:
       - '.github/workflows/wii-v123-sc-post-leaf.yml'
       - '.github/workflows/wii-v124-sc-second-save.yml'
       - '.github/workflows/wii-v125-sc-helper.yml'
+      - '.github/workflows/wii-v127-osinit-first-bl.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - '.github/workflows/wii-v123-sc-post-leaf.yml'
       - '.github/workflows/wii-v124-sc-second-save.yml'
       - '.github/workflows/wii-v125-sc-helper.yml'
+      - '.github/workflows/wii-v127-osinit-first-bl.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -114,6 +116,8 @@ jobs:
           python3 research/native_recomp/test_sc_post_gpr_v126.py
           python3 research/native_recomp/test_v127_osinit_window.py
           python3 research/native_recomp/test_v127_osinit_restore.py
+          python3 research/native_recomp/test_v127_osinit_generator.py
+          python3 research/native_recomp/test_v127_osinit_first_bl.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
