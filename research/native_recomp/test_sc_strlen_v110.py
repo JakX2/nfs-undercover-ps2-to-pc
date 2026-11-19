@@ -35,6 +35,8 @@ class V110(unittest.TestCase):
     def test_workflow(self):
         y=(ROOT/".github/workflows/wii-v110-sc-strlen.yml").read_text()
         self.assertIn("run_v110_continuous_sc_strlen.sh",y)
+        self.assertIn("derive_v110_sc_strlen_runner.py",(HERE/"run_v110_continuous_sc_strlen.sh").read_text())
+        self.assertTrue((HERE/"derive_v110_sc_strlen_runner.py").is_file())
         self.assertIn("V110_STAGE native_test_passed",y)
         self.assertIn("pc=0x(8051E518|804F1E2C|8051E3DC) stage=110",y)
         self.assertNotIn("grep -Fx 'V107_SC_SOURCE",y)

@@ -79,9 +79,26 @@ jobs:
               grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc110.log" || true
               code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc110.log" | tail -n 1 | cut -d= -f2 || true)"
               if [[ "$code" =~ ^[0-9]{3}$ ]]; then
-                python3 research/native_recomp/diagnose_sc_nonempty_v110.py "$((10#$code))" || true
+                python3 research/native_recomp/diagnose_sc_strlen_v110.py "$((10#$code))" || true
               fi
-              grep -E '^V110_SC_SECOND_SOURCE order=[01] mapped=[01] terminated=[01] empty=[01] output=[01] abi=[01]$|^V110_SC_SECOND_COPY input=[01] bounded=[01]$|^V110_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$|^V110_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/sc110.log" | sort -u || true
+              grep -E '^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123] order=[01] mapped=[01] terminated=[01] empty=[01] output=[01] abi=[01]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V109_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$|^V110_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/sc110.log" | sort -u || true
+              echo 'V110 owner-original SC path candidate failed; private diagnostics withheld' >&2
+              exit 1
+            }
+          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc110.log"
+          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc110.log"
+          grep -Fx 'V110_NATIVE_EXIT ok=1' "$RUNNER_TEMP/sc110.log"
+          grep -Fx 'V110_STAGE native_test_passed' "$RUNNER_TEMP/sc110.log"
+          grep -Eq '^V110_SC_STRLEN input=1 bounded=1 empty=[01]$' "$RUNNER_TEMP/sc110.log"
+          grep -Eq '^V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=[123]$' "$RUNNER_TEMP/sc110.log"
+          grep -Eq '^BOOT_PROGRESS entry=0x8000403C pc=0x(8051E518|804F1E2C|8051E3DC) stage=110$' "$RUNNER_TEMP/sc110.log"
+          echo 'PASS: owner-original V110 SC strlen reached selected child'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc110.log"
+ "$RUNNER_TEMP/sc110.log" | sort -u || true
+              grep -E '^V109_SC_SECOND_SOURCE order=[01] mapped=[01] terminated=[01] empty=[01] output=[01] abi=[01]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V109_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$|^V110_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/sc110.log" | sort -u || true
               echo 'V110 owner-original SC path candidate failed; private diagnostics withheld' >&2
               exit 1
             }

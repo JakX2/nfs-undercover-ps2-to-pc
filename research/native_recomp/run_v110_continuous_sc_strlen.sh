@@ -2,14 +2,14 @@
 # V110: execute original nonempty SYSCONF pathname second copy privately.
 set -euo pipefail
 if (( $# != 2 )); then
-  echo 'usage: run_v110_continuous_sc_nonempty.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
+  echo 'usage: run_v110_continuous_sc_strlen.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2
   exit 2
 fi
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 umask 077
-python3 "$here/derive_v110_sc_nonempty_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh"
+python3 "$here/derive_v110_sc_strlen_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh"
 echo 'V110_WRAPPER derived'
 if ! bash -n "$work/run.sh" 2>"$work/runner-parse.log"; then
   echo 'V110_WRAPPER syntax_failed' >&2
