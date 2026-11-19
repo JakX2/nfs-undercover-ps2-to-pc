@@ -81,7 +81,7 @@ jobs:
               if [[ "$code" =~ ^[0-9]{3}$ ]]; then
                 python3 research/native_recomp/diagnose_sc_async_wrapper_v111.py "$((10#$code))" || true
               fi
-              grep -E '^V111_SC_ASYNC_ENTRY route=[01] copied=[01] path=[01] nonempty=[01] abi=[01] prior=[01]$|^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01] db=[01] os=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V111_TRIAL_PASS trial=[0-9]{1,2}$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$' "$RUNNER_TEMP/sc111.log" | sort -u || true
+              grep -E '^V111_TERMINAL open=[0-9] selected=[0-9] stop=[01]$|^V111_SC_ASYNC_ENTRY route=[01] copied=[01] path=[01] nonempty=[01] abi=[01] prior=[01]$|^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01] db=[01] os=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V111_TRIAL_PASS trial=[0-9]{1,2}$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$' "$RUNNER_TEMP/sc111.log" | sort -u || true
               echo 'V111 original SC async wrapper continuation failed; private diagnostics withheld' >&2
               exit 1
             }

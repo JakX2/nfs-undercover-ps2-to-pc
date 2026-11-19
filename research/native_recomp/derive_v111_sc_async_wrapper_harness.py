@@ -35,6 +35,14 @@ EDITS = [
   [
     "V110 recovered continuous original __start->nonempty SC strlen continuation assertions",
     "V111 recovered continuous original __start->nonempty SC IOS_OpenAsync entry assertions"
+  ],
+  [
+    "nwii::runtime::post90_route==1u&&nwii::runtime::post90_target==(nwii::runtime::post110_chosen==1u?0x8051e518u:nwii::runtime::post110_chosen==2u?0x804f1e2cu:0x8051e3dcu)&&",
+    "nwii::runtime::post90_route==1u&&nwii::runtime::post90_target==POST_OWNER&&"
+  ],
+  [
+    "check(nwii::runtime::post111_open==1u&&",
+    "std::cout<<\"V111_TERMINAL open=\"<<nwii::runtime::post111_open\n                 <<\" selected=\"<<nwii::runtime::post110_chosen\n                 <<\" stop=\"<<(nwii::runtime::post90_target==POST_OWNER)<<std::endl;\n       check(nwii::runtime::post111_open==1u&&"
   ]
 ]
 def derive(source):
