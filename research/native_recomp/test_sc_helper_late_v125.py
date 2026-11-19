@@ -3,7 +3,7 @@
 import struct
 import unittest
 from extend_private_text import NOP,STUB,unpack
-from restore_sc_helper_late_v125 import ENTRY,MAX_SPAN,restore,select_body
+from restore_sc_helper_late_v125 import ENTRY,MAX_SPAN,restore,select_body,placeholder_capacity
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 
@@ -37,6 +37,16 @@ class LateHelper(unittest.TestCase):
             restore(synthetic(NOP*4+bytes(data)+NOP*8),body)
         with self.assertRaises(ValueError):
             restore(synthetic(NOP*4+STUB+NOP*8),body)
+    def test_capacity_stops_before_restored_neighbor(self):
+        body=NOP*4+STUB+NOP*14+struct.pack(">I",0x7c0802a6)+NOP*8
+        fixture=synthetic(body)
+        self.assertEqual(placeholder_capacity(fixture),0x40)
+        with self.assertRaises(ValueError):
+            placeholder_capacity(synthetic(NOP*4+NOP*2+NOP*22))
+        # Exact insertion remains bounded by the next genuine instruction.
+        restored=NOP*11+struct.pack(">I",0x4e800020)
+        got=restore(fixture,restored)
+        self.assertEqual(got[-36:],fixture[-36:])
     def test_bounded_original_terminal(self):
         body=bytearray(NOP*(MAX_SPAN//4))
         struct.pack_into(">I",body,0,0x7c0802a6)

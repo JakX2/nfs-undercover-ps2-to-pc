@@ -18,8 +18,26 @@ NEXT_KNOWN=0x8051E71C
 MAX_SPAN=NEXT_KNOWN-ENTRY
 MIN_SPAN=8
 
-def select_body(owner:bytes)->bytes:
-    code=text_at(owner,ENTRY,MAX_SPAN)
+def placeholder_capacity(inherited:bytes)->int:
+    slots=unpack(inherited)
+    found=[(base,blob) for kind,index,base,blob in slots
+           if kind==0 and base<=ENTRY and ENTRY+8<=base+len(blob)]
+    if len(found)!=1:
+        raise ValueError("V125 helper entry not uniquely mapped")
+    base,blob=found[0]
+    offset=ENTRY-base
+    if bytes(blob[offset:offset+8])!=STUB:
+        raise ValueError("V125 helper entry not synthetic stub")
+    cap=min(MAX_SPAN,len(blob)-offset)
+    n=8
+    while n+4<=cap and bytes(blob[offset+n:offset+n+4])==NOP:
+        n+=4
+    return n
+
+def select_body(owner:bytes,max_len:int=MAX_SPAN)->bytes:
+    if not (MIN_SPAN<=max_len<=MAX_SPAN) or max_len%4:
+        raise ValueError("V125 helper available span invalid")
+    code=text_at(owner,ENTRY,max_len)
     terminal=struct.pack(">I",BLR)
     ends=[n+4 for n in range(4,len(code),4)
           if code[n:n+4]==terminal]
@@ -65,7 +83,8 @@ def make(fixture:Path,owner:Path)->bytes:
     raw=owner.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=ORIGINAL_SHA:
         raise ValueError("V125 owner SHA-256 validation failed")
-    return restore(fixture.read_bytes(),select_body(raw))
+    inherited=fixture.read_bytes()
+    return restore(inherited,select_body(raw,placeholder_capacity(inherited)))
 
 FAILURE_CODES=(
     "V125 original helper has no bounded return",
@@ -79,6 +98,9 @@ FAILURE_CODES=(
     "V125 unrelated original bytes changed",
     "private text patch does not match exact prior placeholder",
     "V125 owner SHA-256 validation failed",
+    "V125 helper entry not uniquely mapped",
+    "V125 helper entry not synthetic stub",
+    "V125 helper available span invalid",
 )
 def failure_code(exc:Exception)->int:
     try:
