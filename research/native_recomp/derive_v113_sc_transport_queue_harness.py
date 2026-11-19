@@ -13,8 +13,8 @@ EDITS = [
     " static uint64_t post112_flush_before=0;\n static unsigned post113_queue=0;"
   ],
   [
-    "       if(addr==POST_OWNER&&ctx.lr==0x80519924u){",
-    "       if(addr==0x805195ecu&&ctx.lr==0x80519924u){"
+    "if(addr==POST_OWNER&&ctx.lr==0x80519924u){",
+    "if(addr==0x805195ecu&&ctx.lr==0x80519924u){"
   ],
   [
     "         ++post112_submit;post90_target=addr;observed_stop_pc=ctx.pc;++post_stops;ctx.is_running=false;\n         throw ExceptionStop{}; // stop before native IPC submission and callback",
