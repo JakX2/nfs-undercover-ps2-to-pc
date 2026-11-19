@@ -99,6 +99,11 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             -fno-omit-frame-pointer -no-pie research/native_recomp/test_wii_guest_filesystem.cpp -o "$RUNNER_TEMP/guest-fs-test"
           "$RUNNER_TEMP/guest-fs-test"
+      - name: Test SC pathname through native IOS async request under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -no-pie research/native_recomp/test_wii_sc_guest_ipc.cpp -o "$RUNNER_TEMP/sc-guest-ipc"
+          "$RUNNER_TEMP/sc-guest-ipc"
       - name: Test native read-only title metadata under sanitizers
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
