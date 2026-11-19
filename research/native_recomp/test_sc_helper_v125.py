@@ -33,6 +33,18 @@ class V125(unittest.TestCase):
         self.assertIn("dispatch=1",format_report("what(): invalid indirect branch"))
         self.assertIn("runtime=1",format_report("terminate called after throwing an instance of 'std::runtime_error'"))
 
+    def test_generator_assertion_catalog_uses_generator_source(self):
+        from describe_v125_generator_assertion import describe,messages
+        from classify_v67_generator_failure import classify
+        from derive_v104_sc_async_submit_generator import derive as generated
+        source=generated((HERE/"generate_start_to_ipc_ack_v77.cpp").read_text())
+        labels=messages()
+        self.assertGreater(len(labels),80)
+        self.assertEqual(describe(80),labels[79])
+        self.assertEqual(classify(source,"V67 generator: "+labels[79]),80)
+        wf=(HERE.parents[1]/".github/workflows/wii-v125-sc-helper.yml").read_text()
+        self.assertIn("describe_v125_generator_assertion.py",wf)
+        self.assertIn("V104_STAGE generator_compiled",wf)
     def test_generated_target_diagnostic(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("V125_GENERATED_TARGET present=1",s)
