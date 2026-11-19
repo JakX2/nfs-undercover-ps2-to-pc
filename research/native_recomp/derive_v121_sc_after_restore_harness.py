@@ -48,9 +48,8 @@ EDITS=[
  ("V120_TRIAL_PASS trial=","V121_TRIAL_PASS trial="),
  ("V120 recovered continuous original __start->SC IOS X1 submission and interrupt-restore call entry assertions",
   "V121 recovered continuous original __start->SC IOS post-X1 continuation call assertions"),
- ("check(nwii::runtime::ack77_reply==1u&&nwii::runtime::irq76_ipc==1u&&nwii::runtime::vector75_handler==1u&&nwii::runtime::sched74_irq==1u&&nwii::runtime::ipc69_active&&nwii::runtime::ipc69_step==9u&&",
-  "std::cout<<\"V121_END_IPC ack=\"<<(nwii::runtime::ack77_reply==1u)\n            <<\" irq=\"<<(nwii::runtime::irq76_ipc==1u)\n            <<\" vector=\"<<(nwii::runtime::vector75_handler==1u)\n            <<\" scheduler=\"<<(nwii::runtime::sched74_irq==1u)\n            <<\" active=\"<<nwii::runtime::ipc69_active\n            <<\" phase=\"<<(nwii::runtime::ipc69_step==9u)\n            <<\" db=\"<<(nwii::runtime::db_entries==before_db+1u)\n            <<\" os=\"<<(nwii::runtime::os_entries==before_os+1u)<<std::endl;\n       check(nwii::runtime::ack77_reply==1u&&nwii::runtime::irq76_ipc==1u&&nwii::runtime::vector75_handler==1u&&nwii::runtime::sched74_irq==1u&&nwii::runtime::ipc69_active&&nwii::runtime::ipc69_step==9u&&"),
-
+ ("nwii::runtime::post90_target==POST_OWNER&&",
+  "nwii::runtime::post90_target==nwii::runtime::post121_next_pc&&")
 ]
 
 def derive(source):
