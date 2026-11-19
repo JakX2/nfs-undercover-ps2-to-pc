@@ -116,4 +116,25 @@ class V125(unittest.TestCase):
         for m in ("V124_NEXT_CALL pc=8051e5bc","V125_NEXT_CALL pc=[0-9a-f]{8}",
                   "stage=125","WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID"):
             self.assertIn(m,s)
+    def test_derivation_failure_is_bounded_and_private(self):
+        import os
+        wrapper=(HERE/"run_v125_continuous_sc_helper.sh").read_text()
+        workflow=(HERE.parents[1]/".github/workflows/wii-v125-sc-helper.yml").read_text()
+        self.assertIn("V125_DERIVATION result=failed kind=",wrapper)
+        self.assertIn("V125_DERIVATION result=failed kind=",workflow)
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            (root/"run_v125_continuous_sc_helper.sh").write_text(wrapper)
+            (root/"run_v79_continuous_reply_entry.sh").write_text("synthetic input")
+            (root/"derive_v125_sc_helper_runner.py").write_text(
+                "raise ValueError('V125 runner missing source anchor: SECRET_SENTINEL')\\n")
+            proc=subprocess.run(
+                ["bash",str(root/"run_v125_continuous_sc_helper.sh"),"unused","unused"],
+                capture_output=True,text=True,timeout=10)
+            self.assertEqual(proc.returncode,1)
+            self.assertEqual(proc.stdout,"")
+            self.assertEqual(proc.stderr.strip(),
+                             "V125_DERIVATION result=failed kind=missing_anchor")
+            self.assertNotIn("SECRET_SENTINEL",proc.stderr)
+
 if __name__=="__main__":unittest.main()
