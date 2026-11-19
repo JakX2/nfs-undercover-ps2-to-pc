@@ -43,7 +43,7 @@ def placeholder_capacity(inherited:bytes)->int:
         raise ValueError("V125 helper entry not uniquely mapped")
     base,blob=found[0]
     offset=ENTRY-base
-    if bytes(blob[offset:offset+8])!=STUB:
+    if bytes(blob[offset:offset+8]) not in (STUB,NOP*2):
         raise ValueError("V125 helper entry not synthetic stub")
     cap=min(MAX_SPAN,len(blob)-offset)
     n=8
@@ -76,7 +76,15 @@ def restore(old:bytes,body:bytes)->bytes:
              if kind==0 and base<=ENTRY and ENTRY+len(body)<=base+len(data)]
     if len(located)!=1:
         raise ValueError("V125 helper range not covered by inherited text")
-    expected=STUB+NOP*((len(body)-8)//4)
+    base,segment=located[0]
+    at=ENTRY-base
+    start=bytes(segment[at:at+8])
+    if start==STUB:
+        expected=STUB+NOP*((len(body)-8)//4)
+    elif start==NOP*2:
+        expected=NOP*(len(body)//4)
+    else:
+        raise ValueError("V125 helper entry not synthetic stub")
     result=install(old,[(ENTRY,expected,body)])
     if result[:256]!=old[:256] or len(result)!=len(old):
         raise ValueError("V125 inherited DOL header or layout modified")

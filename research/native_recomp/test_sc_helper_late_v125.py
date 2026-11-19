@@ -28,6 +28,16 @@ class LateHelper(unittest.TestCase):
         self.assertEqual(restore.__name__,"restore")
         with self.assertRaises(ValueError):
             restore(after,body)
+    def test_restores_all_nop_placeholder(self):
+        size=0x30
+        fixture=synthetic(NOP*4+NOP*(size//4)+NOP*8)
+        body=NOP*((size//4)-1)+struct.pack(">I",0x4e800020)
+        self.assertEqual(placeholder_capacity(fixture),size+32)
+        patched=restore(fixture,body)
+        self.assertEqual(patched[272:272+size],body)
+        self.assertEqual(patched[-32:],fixture[-32:])
+        with self.assertRaises(ValueError):
+            restore(patched,body)
     def test_rejects_unrelated_installed_code(self):
         size=0x30
         body=NOP*((size//4)-1)+struct.pack(">I",0x4e800020)
