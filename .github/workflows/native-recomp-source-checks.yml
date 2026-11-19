@@ -7,10 +7,12 @@ on:
     paths:
       - 'research/native_recomp/**'
       - '.github/workflows/native-recomp-source-checks.yml'
+      - '.github/workflows/wii-v113-sc-transport-queue.yml'
   pull_request:
     paths:
       - 'research/native_recomp/**'
       - '.github/workflows/native-recomp-source-checks.yml'
+      - '.github/workflows/wii-v113-sc-transport-queue.yml'
   workflow_dispatch:
 
 permissions:
