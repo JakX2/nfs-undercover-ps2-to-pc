@@ -52,7 +52,7 @@ EDITS=[
   "static uint64_t post125_enter_inst=0;\n static unsigned post125_trace_count=0;"),
  ("void trace_call(uint32_t addr, CPUContext&ctx){",
   "void trace_call(uint32_t addr, CPUContext&ctx){\n"
-  "   if(post124_next==1u&&post125_next==0u&&post125_trace_count<8u){\n"
+  "   if((post124_next==1u||(post123_next==1u&&addr==0x8051e5bcu&&ctx.lr==0x8051e054u))&&post125_next==0u&&post125_trace_count<8u){\n"
   "     ++post125_trace_count;\n"
   "     std::cout<<\"V125_TRACE_CALL seq=\"<<post125_trace_count<<\" pc=\"<<std::hex<<addr\n"
   "              <<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n"
