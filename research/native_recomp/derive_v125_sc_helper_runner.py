@@ -103,6 +103,12 @@ else
 fi
 """
     s=s[:a]+safe_block+s[b:]
+    # Surface only bounded diagnostic fields from the private generator log.
+    classifier='python3 "$here/classify_v67_generator_failure.py" "$work/generation.log" "$work/generator.cpp"'
+    if s.count(classifier)!=1:
+        raise ValueError("V125 generator failure classifier anchor missing or duplicated")
+    diagnostic='grep -E \'^V125_BAD_BRANCH site=[0-9a-f]{8} major=[0-9]{1,2} link=[01] absolute=[01]$\' "$work/generation.log" | head -n 1 || true'
+    s=s.replace(classifier,diagnostic+"\\n    "+classifier,1)
     generated='python3 "$here/derive_v104_sc_async_submit_generator.py"'
     if s.count(generated)!=1:
         raise ValueError("V125 generator runner reference missing or duplicated")
