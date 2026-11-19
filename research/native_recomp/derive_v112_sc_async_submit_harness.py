@@ -33,6 +33,10 @@ EDITS = [
     "check(nwii::runtime::post112_submit==1u&&nwii::runtime::post111_open==1u&&"
   ],
   [
+    "     check(false,\"V98 unexpected NAND registration dependency\");",
+    "     if(post111_open==1u&&post110_chosen==2u&&addr>=0x80004000u&&addr<0x80600000u&&\n        ctx.lr>=0x80004000u&&ctx.lr<0x80600000u)\n       std::cout<<\"V112_BOUNDARY pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr<<std::dec\n                <<\" save=\"<<post112_save<<\" alloc=\"<<post112_alloc<<\" restore=\"<<post112_restore\n                <<\" flush=\"<<post112_flush<<\" sc=\"<<post112_sc<<\" vector=\"<<post112_vector<<std::endl;\n     check(false,\"V98 unexpected NAND registration dependency\");"
+  ],
+  [
     "V111_TRIAL_PASS trial=",
     "V112_TRIAL_PASS trial="
   ],

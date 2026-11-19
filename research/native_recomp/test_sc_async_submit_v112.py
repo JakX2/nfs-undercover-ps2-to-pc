@@ -15,7 +15,7 @@ class V112(unittest.TestCase):
    current=current.replace(a,n,1)
   self.assertEqual(s,current)
   self.assertEqual(s,derive(base))
-  for marker in ("V112_ASYNC_SYSCALL","V112_ASYNC_SUBMIT","V112_TRIAL_PASS",
+  for marker in ("V112_ASYNC_SYSCALL","V112_ASYNC_SUBMIT","V112_BOUNDARY","V112_TRIAL_PASS",
                  "POST_OWNER=0x805195ecu"):
    self.assertEqual(s.count(marker),1)
   for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
