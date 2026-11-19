@@ -104,6 +104,7 @@ class V125(unittest.TestCase):
         s=(HERE.parents[1]/".github/workflows/wii-v125-sc-helper.yml").read_text()
         self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)
         self.assertIn("V125_GENERATED_TARGET present=[01]",s)
+        self.assertIn("V125_GEOMETRY_KIND import=[01]",s)
         self.assertEqual(s.count("              grep -E '^V110_WRAPPER"),1)
         for f in ("run_v125_continuous_sc_helper.sh","diagnose_sc_helper_v125.py"):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,s)

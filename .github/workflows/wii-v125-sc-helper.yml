@@ -109,6 +109,7 @@ jobs:
               grep -E '^V125_OPCODE_DETAIL major0=[0-9]{1,2} major1=[0-9]{1,2} xo0=[0-9]{1,4} zero0=[01] zero1=[01]$' "$RUNNER_TEMP/sc125.log" | sort -u || true
               grep -E '^V125_FIXTURE_CODE mapped=[01] owner=[01] zero=[01] nop=[01] same=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V125_GEOMETRY_KIND import=[01] type=[01] value=[01] other=[01]$' "$RUNNER_TEMP/sc125.log" || true
               echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2
               exit 1
             }
