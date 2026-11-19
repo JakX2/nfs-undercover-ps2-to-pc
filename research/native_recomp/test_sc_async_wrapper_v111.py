@@ -10,7 +10,11 @@ class V111(unittest.TestCase):
  def test_harness(self):
   base=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
   old=previous(base);s=derive(base)
-  for a,_ in EDITS:self.assertEqual(old.count(a),1,a[:100])
+  current=old
+  for before,after in EDITS:
+   self.assertEqual(current.count(before),1,before[:100])
+   current=current.replace(before,after,1)
+  self.assertEqual(current,s)
   self.assertEqual(s,derive(base))
   for k in ("V111_SC_ASYNC_ENTRY","V111_TRIAL_PASS","POST_OWNER=0x8051982cu"):
    self.assertEqual(s.count(k),1)
@@ -20,6 +24,7 @@ class V111(unittest.TestCase):
  def test_runner(self):
   s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
   self.assertIn("V111_STAGE native_test_passed",s)
+  self.assertIn("V111_SC_ASYNC_ENTRY",s)
   self.assertIn("V111_SC_ASYNC_ENTRY route=1 copied=1 path=1 nonempty=1 abi=1 prior=1",s)
   self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8051982C stage=111",s)
   self.assertIn('test "$branch" = 2',s)
