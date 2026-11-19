@@ -31,6 +31,7 @@ class V112(unittest.TestCase):
  def test_workflow(self):
   y=(HERE.parents[1]/".github/workflows/wii-v112-sc-async-submit.yml").read_text()
   self.assertIn("run_v112_continuous_sc_async_submit.sh",y)
+  self.assertIn("diagnose_sc_async_submit_v112.py",y)
   self.assertIn("pc=0x805195EC stage=112",y)
   self.assertEqual(y.count("- name: Remove private owner and generated code"),1)
 if __name__=="__main__":unittest.main()
