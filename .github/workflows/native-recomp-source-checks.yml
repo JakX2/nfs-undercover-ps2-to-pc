@@ -67,6 +67,7 @@ jobs:
           python3 research/native_recomp/test_sc_literal_restore_v108.py
           python3 research/native_recomp/test_sc_v108_classifier.py
           python3 research/native_recomp/test_sc_nonempty_v109.py
+          python3 research/native_recomp/diagnose_sc_nonempty_v109.py 266
           python3 research/native_recomp/test_sc_nonempty_classifier_v109.py
           python3 research/native_recomp/diagnose_sc_status_v100.py 460
           python3 research/native_recomp/test_startup_tail_metadata_v90.py
