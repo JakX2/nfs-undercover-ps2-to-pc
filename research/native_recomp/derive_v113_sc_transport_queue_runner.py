@@ -6,14 +6,14 @@ from derive_v112_sc_async_submit_runner import derive as previous
 def derive(source):
     s=previous(source)
     for old,new in (
-        ("derive_v111_sc_async_wrapper_harness.py","derive_v113_sc_transport_queue_harness.py"),
-        ("V111_TRIAL_PASS","V113_TRIAL_PASS"),
-        ("V111 recovered continuous original __start->nonempty SC IOS_OpenAsync entry assertions",
+        ("derive_v112_sc_async_submit_harness.py","derive_v113_sc_transport_queue_harness.py"),
+        ("V112_TRIAL_PASS","V113_TRIAL_PASS"),
+        ("V112 recovered continuous original __start->nonempty SC IOS_OpenAsync request assertions",
          "V113 recovered continuous original __start->SC IOS transport queue entry assertions"),
-        ("stop=0x8051982c","stop=0x805293b0"),
-        ("V111_STAGE native_test_passed","V113_STAGE native_test_passed"),
-        ("V111_NATIVE_EXIT","V113_NATIVE_EXIT"),
-        ("BOOT_PROGRESS entry=0x8000403C pc=0x8051982C stage=111",
+        ("stop=0x805195ec","stop=0x805293b0"),
+        ("V112_STAGE native_test_passed","V113_STAGE native_test_passed"),
+        ("V112_NATIVE_EXIT","V113_NATIVE_EXIT"),
+        ("BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=112",
          "BOOT_PROGRESS entry=0x8000403C pc=0x805293B0 stage=113"),
     ):
         if old not in s:raise ValueError("V112 runner source anchor missing: "+old)
