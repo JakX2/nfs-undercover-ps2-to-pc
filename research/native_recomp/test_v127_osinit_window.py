@@ -37,6 +37,16 @@ class V127Window(unittest.TestCase):
         struct.pack_into(">I",bad,0x90,SIZE-4)
         with self.assertRaises(ValueError):
             words(bytes(bad))
+    def test_private_audit_workflow(self):
+        wf=(HERE.parents[1]/".github/workflows/wii-v127-osinit-tail-audit.yml").read_text()
+        self.assertIn("WII_GHIDRA_PRIVATE_ENABLED",wf)
+        self.assertIn("59e8af244d1e8105a04029ec35b95baf34fc5084",wf)
+        self.assertIn("gdown==5.2.0",wf)
+        self.assertIn("make_v125_canonical_fixture.py",wf)
+        self.assertIn("diagnose_v127_osinit_tail.py",wf)
+        self.assertEqual(wf.count("Remove private owner, fixture and audit scratch"),1)
+        self.assertIn("V127_CANONICAL result=verified",wf)
+        self.assertNotIn("cat \"$RUNNER_TEMP/v127-canonical.dol\"",wf)
     def test_no_private_instruction_publication(self):
         s=(HERE/"diagnose_v127_osinit_tail.py").read_text()
         self.assertIn("hashlib.sha256(original).hexdigest()!=ORIGINAL_SHA",s)
