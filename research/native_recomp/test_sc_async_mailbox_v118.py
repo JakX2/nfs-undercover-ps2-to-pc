@@ -22,11 +22,15 @@ class V118(unittest.TestCase):
         self.assertEqual(actual,expected)
         self.assertEqual(actual,derive(source))
         for marker in ("POST_OWNER=0x8051905cu",
-                       "if(addr==POST_OWNER&&ctx.lr==0x805197b8u)",
+                       "if(post117_send==1u&&addr==POST_OWNER&&ctx.lr==0x805197b8u)",
                        "V118_CTRL_READ_ENTRY route=",
                        "post118_sleep==1u&&nwii::runtime::post117_send==1u",
                        "V118_WALK seq="):
             self.assertIn(marker,actual)
+        self.assertNotIn("if(addr==POST_OWNER&&ctx.lr==0x805197b8u){",actual)
+        # The same original helper is entered during an earlier synchronous request.
+        # The V118 stop must be armed only after V117's async transport entry.
+        self.assertEqual(actual.count("if(post117_send==1u&&addr==POST_OWNER&&ctx.lr==0x805197b8u)"),1)
         for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(marker),old.count(marker))
     def test_runner(self):

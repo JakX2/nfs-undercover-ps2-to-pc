@@ -15,7 +15,9 @@ EDITS = [
    }""",
   """     ++post117_send;return; // execute original register writer and MMIO
    }
-   if(addr==POST_OWNER&&ctx.lr==0x805197b8u){
+   // This helper is used earlier by the synchronous STM bootstrap too.
+   // Only observe the SC async request after its verified PPCMSG callsite.
+   if(post117_send==1u&&addr==POST_OWNER&&ctx.lr==0x805197b8u){
      using I=undercover::wii::StmIos;
      const bool route=post118_sleep==0u&&
           post117_send==1u&&post116_queue==1u&&post115_disable==1u;
