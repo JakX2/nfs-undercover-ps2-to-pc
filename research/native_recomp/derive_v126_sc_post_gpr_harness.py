@@ -60,7 +60,7 @@ EDITS=[
   "       ctx.mmu.read32(0x800000d4u)==THREAD&&\n"
   "       ctx.mmu.read32(0x800000e4u)==THREAD&&\n"
   "       ctx.mmu.read16(THREAD+712u)==2u;\n"
-  "   const bool stop=ctx.mmu.read32(ctx.pc)==0x44000002u;\n"
+  "   const bool stop=ctx.pc==0x8052096cu; // translated SC callback, not RAM fetch\n"
   "   std::cout<<\"V126_OSINIT_RETURN pc=\"<<std::hex<<ctx.pc<<\" lr=\"<<ctx.lr<<std::dec\n"
   "            <<\" route=\"<<route<<\" wire=\"<<wire<<\" abi=\"<<abi\n"
   "            <<\" stop=\"<<stop<<std::endl;\n"

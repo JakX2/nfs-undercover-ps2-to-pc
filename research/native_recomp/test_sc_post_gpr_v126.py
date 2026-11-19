@@ -20,7 +20,8 @@ class V126(unittest.TestCase):
                        "nwii::runtime::post90_target==nwii::runtime::post126_pc&&"):
             self.assertIn(marker,actual)
         self.assertIn("ctx.pc==0x8052096cu",actual)
-        self.assertIn("ctx.mmu.read32(ctx.pc)==0x44000002u",actual)
+        self.assertIn("const bool stop=ctx.pc==0x8052096cu",actual)
+        self.assertNotIn("ctx.mmu.read32(ctx.pc)==0x44000002u",actual)
         for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(marker),old.count(marker))
     def test_runner(self):
