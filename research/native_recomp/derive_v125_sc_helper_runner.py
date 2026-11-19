@@ -37,6 +37,8 @@ fi'''
     s=s.replace(fail,catalog+fail,1)
     status_line='  grep -E "^V125_EXCEPTION_STEPS delta=[0-9]{1,6}$" "$work/private-native.log" | sort -u || true\n'
     s=s.replace(fail,status_line+fail,1)
+    trace='  grep -E "^V125_TRACE_CALL seq=[0-9]{1,2} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V125_OPCODE_CLASS first_branch=[01] first_mem=[01] second_branch=[01] second_mem=[01]$" "$work/private-native.log" | sort -u || true\n'
+    s=s.replace(fail,trace+fail,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""

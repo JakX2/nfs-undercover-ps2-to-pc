@@ -46,6 +46,13 @@ class V125(unittest.TestCase):
         self.assertIn("V125_EXCEPTION_STEPS delta=[0-9]{1,6}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
         self.assertIn("dynamic_cast<const std::runtime_error*>(&e)",derived)
         self.assertIn("V125_EXCEPTION_SITE pc=[0-9a-f]{8}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
+    def test_bounded_call_trace(self):
+        source=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
+        derived=derive(source)
+        self.assertIn("V125_TRACE_CALL seq=",derived)
+        self.assertIn("V125_OPCODE_CLASS first_branch=",derived)
+        self.assertIn("post125_trace_count<8u",derived)
+        self.assertIn("V125_TRACE_CALL seq=[0-9]{1,2}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

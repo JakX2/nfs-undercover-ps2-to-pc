@@ -48,6 +48,27 @@ EDITS=[
   "V125 recovered continuous original __start->SC IOS SC helper continuation"),
  ("nwii::runtime::post90_target==nwii::runtime::post124_pc&&",
   "nwii::runtime::post90_target==nwii::runtime::post125_pc&&"),
+ ("static uint64_t post125_enter_inst=0;",
+  "static uint64_t post125_enter_inst=0;\n static unsigned post125_trace_count=0;"),
+ ("void trace_call(uint32_t addr, CPUContext&ctx){",
+  "void trace_call(uint32_t addr, CPUContext&ctx){\n"
+  "   if(post124_next==1u&&post125_next==0u&&post125_trace_count<8u){\n"
+  "     ++post125_trace_count;\n"
+  "     std::cout<<\"V125_TRACE_CALL seq=\"<<post125_trace_count<<\" pc=\"<<std::hex<<addr\n"
+  "              <<\" lr=\"<<ctx.lr<<std::dec<<std::endl;\n"
+  "     if(post125_trace_count==1u){\n"
+  "       const uint32_t a=ctx.mmu.read32(addr),b=ctx.mmu.read32(addr+4u);\n"
+  "       const unsigned op0=a>>26,op1=b>>26;\n"
+  "       const bool b0=op0==16u||op0==18u||op0==19u;\n"
+  "       const bool b1=op1==16u||op1==18u||op1==19u;\n"
+  "       const bool m0=op0>=32u&&op0<=55u;\n"
+  "       const bool m1=op1>=32u&&op1<=55u;\n"
+  "       std::cout<<\"V125_OPCODE_CLASS first_branch=\"<<b0<<\" first_mem=\"<<m0\n"
+  "                <<\" second_branch=\"<<b1<<\" second_mem=\"<<m1<<std::endl;\n"
+  "     }\n"
+  "   }"),
+ ("nwii::runtime::post125_enter_inst=0;",
+  "nwii::runtime::post125_enter_inst=0;\n     nwii::runtime::post125_trace_count=0;"),
  ("try{run_game(c);}catch(const ExceptionStop&){exception_stop=true;}",
   "try{run_game(c);}catch(const ExceptionStop&){exception_stop=true;}\n"
   "      catch(const std::exception& e){\n"

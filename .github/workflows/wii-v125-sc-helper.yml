@@ -102,6 +102,7 @@ jobs:
               grep -E '^V112_(WALK|BOUNDARY)|^V113_(WALK|BOUNDARY)' "$RUNNER_TEMP/sc125.log" | tail -n 20 || true
               grep -E '^V125_EXCEPTION_SITE pc=[0-9a-f]{8} lr=[0-9a-f]{8} phase=[01] kind=[01]$' "$RUNNER_TEMP/sc125.log" | sort -u || true
               grep -E '^V125_EXCEPTION_STEPS delta=[0-9]{1,6}$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc125.log" | sort -u || true
+              grep -E '^V125_TRACE_CALL seq=[0-9]{1,2} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V125_OPCODE_CLASS first_branch=[01] first_mem=[01] second_branch=[01] second_mem=[01]$' "$RUNNER_TEMP/sc125.log" | sort -u || true
               echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2
               exit 1
             }
