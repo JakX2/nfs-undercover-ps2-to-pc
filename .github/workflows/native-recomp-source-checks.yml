@@ -8,11 +8,13 @@ on:
       - 'research/native_recomp/**'
       - '.github/workflows/native-recomp-source-checks.yml'
       - '.github/workflows/wii-v113-sc-transport-queue.yml'
+      - '.github/workflows/wii-v114-sc-flush-syscall.yml'
   pull_request:
     paths:
       - 'research/native_recomp/**'
       - '.github/workflows/native-recomp-source-checks.yml'
       - '.github/workflows/wii-v113-sc-transport-queue.yml'
+      - '.github/workflows/wii-v114-sc-flush-syscall.yml'
   workflow_dispatch:
 
 permissions:
@@ -73,6 +75,7 @@ jobs:
           python3 research/native_recomp/test_sc_async_wrapper_v111.py
           python3 research/native_recomp/test_sc_async_submit_v112.py
           python3 research/native_recomp/test_sc_transport_queue_v113.py
+          python3 research/native_recomp/test_sc_flush_syscall_v114.py
           python3 research/native_recomp/test_sc_v109_workflow_gate.py
           python3 research/native_recomp/test_sc_v109_classifier.py
           python3 research/native_recomp/test_sc_nonempty_classifier_v109.py
