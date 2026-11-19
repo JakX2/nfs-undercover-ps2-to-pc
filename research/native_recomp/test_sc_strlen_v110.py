@@ -23,7 +23,7 @@ class V110(unittest.TestCase):
         self.assertEqual(result,derive(base))
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        for marker in ("derive_v110_sc_strlen_harness.py","V110_NATIVE_EXIT ok=1",
+        for marker in ("derive_v110_sc_strlen_harness.py","V110_HARNESS_MARKERS count=$marker_count","V110_NATIVE_EXIT ok=1",
                        "V110_NATIVE_EXIT ok=0","V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=[123]",
                        "BOOT_PROGRESS entry=0x8000403C pc=$target stage=110"):
             self.assertIn(marker,s)

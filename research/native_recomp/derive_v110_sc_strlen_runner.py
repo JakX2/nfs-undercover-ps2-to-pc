@@ -10,6 +10,13 @@ def derive(source):
     compiled="echo 'V104_STAGE native_compiled'"
     if s.count(compiled)!=1:raise ValueError("V110 compiled checkpoint absent")
     s=s[:s.index(compiled)+len(compiled)]+r"""
+# V110 source provenance is a bounded boolean, never generated private code.
+marker_count=0
+for name in V110_TRIAL_START V110_ASSERT_HOOK V110_SC_STRLEN V110_SC_CONTINUE; do
+  grep -Fq "$name" "$work/harness.cpp" && marker_count=$((marker_count+1))
+done
+echo "V110_HARNESS_MARKERS count=$marker_count"
+test "$marker_count" -eq 4
 if "$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1; then
   echo 'V110_NATIVE_EXIT ok=1'
 else
