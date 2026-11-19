@@ -127,7 +127,7 @@ class V125(unittest.TestCase):
             (root/"run_v125_continuous_sc_helper.sh").write_text(wrapper)
             (root/"run_v79_continuous_reply_entry.sh").write_text("synthetic input")
             (root/"derive_v125_sc_helper_runner.py").write_text(
-                "raise ValueError('V125 runner missing source anchor: SECRET_SENTINEL')\\n")
+                "raise ValueError('V125 runner missing source anchor: SECRET_SENTINEL')\n")
             proc=subprocess.run(
                 ["bash",str(root/"run_v125_continuous_sc_helper.sh"),"unused","unused"],
                 capture_output=True,text=True,timeout=10)
