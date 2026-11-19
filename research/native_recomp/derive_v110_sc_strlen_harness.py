@@ -43,6 +43,10 @@ EDITS = [
   [
     "       if((addr==0x8051e71cu&&ctx.lr==0x8051ddc8u)||\n          (addr==0x8051e518u&&ctx.lr==0x8051ddd8u)){",
     "       if(post101_child==0u&&((addr==0x8051e71cu&&ctx.lr==0x8051ddc8u)||\n          (addr==0x8051e518u&&ctx.lr==0x8051ddd8u))){"
+  ],
+  [
+    "  for(unsigned trial=0;trial<trials;++trial){\n    if(owner&&trial!=0u){",
+    "  for(unsigned trial=0;trial<trials;++trial){\n    if(owner)std::cout<<\"V110_TRIAL_START trial=\"<<(trial+1u)<<std::endl;\n    if(owner&&trial!=0u){"
   ]
 ]
 def derive(source):

@@ -15,7 +15,7 @@ class V110(unittest.TestCase):
         prior=previous(base)
         result=derive(base)
         for old,_ in EDITS:self.assertEqual(prior.count(old),1,old[:80])
-        for marker in ("V110_SC_STRLEN","V110_SC_CONTINUE","V110_TRIAL_PASS","POST_OWNER=0x8051e518u"):
+        for marker in ("V110_SC_STRLEN","V110_SC_CONTINUE","V110_TRIAL_PASS","V110_TRIAL_START","POST_OWNER=0x8051e518u"):
             self.assertEqual(result.count(marker),1)
         self.assertEqual(result.count("ctx.mmu.write"),prior.count("ctx.mmu.write"))
         self.assertEqual(result.count("seed_stm_data("),prior.count("seed_stm_data("))
