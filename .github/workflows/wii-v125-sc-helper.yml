@@ -110,43 +110,7 @@ jobs:
               grep -E '^V125_FIXTURE_CODE mapped=[01] owner=[01] zero=[01] nop=[01] same=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_KIND import=[01] type=[01] value=[01] other=[01]$' "$RUNNER_TEMP/sc125.log" || true
-              grep -E '^V125_STAGE_CHECK (after_probe|before_geometry|after_geometry|geometry_failure_branch)=1
-              echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2
-              exit 1
-            }
-          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V110_HARNESS_MARKERS count=4' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V125_NATIVE_EXIT ok=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V125_STAGE native_test_passed' "$RUNNER_TEMP/sc125.log"
-          grep -Eq '^V110_SC_STRLEN input=1 bounded=1 empty=[01]$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=2' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V111_SC_ASYNC_ENTRY route=1 copied=1 path=1 nonempty=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V113_FLUSH_ENTRY route=1 span=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V114_CACHE_SYSCALL route=1 flushed=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V115_VECTOR_ENTRY valid=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V115_DISABLE_ENTRY route=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V116_QUEUE_HELPER route=1 pointer=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V117_SEND_REG route=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V120_X1_RESTORE_ENTRY route=1 sent=1 wire=1 abi=1 prior=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V121_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V121_NEXT_CALL pc=80545150 lr=80519934 route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V122_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V122_NEXT_CALL pc=8054514c lr=804f1ed4 route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V123_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V123_NEXT_CALL pc=80545150 lr=8051de54 route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V124_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc125.log"
-          grep -Fx 'V124_NEXT_CALL pc=8051e5bc lr=8051e054 route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc125.log"
-          grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc125.log"
-          grep -E '^BOOT_PROGRESS entry=0x8000403C pc=0x[0-9A-F]{8} stage=125$' "$RUNNER_TEMP/sc125.log"
-          echo 'PASS: owner-original V125 executed SC helper and observed next call'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc125.log"
- "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V125_STAGE_CHECK (after_probe|before_geometry|after_geometry|geometry_failure_branch)=1$' "$RUNNER_TEMP/sc125.log" || true
               echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2
               exit 1
             }
