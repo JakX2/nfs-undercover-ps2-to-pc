@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
-"""Bounded compiler diagnostics for owner-free V110 C++ harness.
+"""Bounded original-free V110 harness compiler failure classifier.
 
-The harness is derived entirely from tracked independent source. Never
-print the compiler log, generated game translation or owner data.
+Never print the compiler log, game translation or owner resources.
+Only errors pointing to the independently tracked harness.cpp qualify.
 """
 from pathlib import Path
 import re
 import sys
 
+PATTERN=re.compile(
+    r"(?:^|[ /])(?:harness|test_start_to_ipc_ack_v77)\.cpp:(\d+):(\d+):\s+(?:fatal\s+)?error:",
+    re.MULTILINE,
+)
 def classify(log:str,source:str)->list[str]:
     lines=source.splitlines()
     hits=[]
-    for match in re.finditer(
-        r"(?:^|/)(?:harness|test_start_to_ipc_ack_v77)\\.cpp:(\\d+):(\\d+): (?:fatal )?error:",
-        log,re.MULTILINE,
-    ):
+    for match in PATTERN.finditer(log):
         n=int(match.group(1))
-        if not 1<=n<=len(lines):continue
-        if n in hits:continue
-        hits.append(n)
+        if 1<=n<=len(lines) and n not in hits:hits.append(n)
         if len(hits)>=3:break
-    # The snippet is independent original-free public test-harness source.
     out=[]
     for n in hits:
         out.append(f"V110_PUBLIC_CXX_LINE number={n}")
@@ -35,7 +33,7 @@ def classify(log:str,source:str)->list[str]:
         if "not declared" in line:kinds["undeclared"]+=1
         if "does not name a type" in line:kinds["type"]+=1
         if "convert" in line:kinds["conversion"]+=1
-    out.append("V110_PUBLIC_CXX_KIND "+" ".join(f"{key}={min(value,9)}" for key,value in kinds.items()))
+    out.append("V110_PUBLIC_CXX_KIND "+" ".join(f"{key}={min(v,9)}" for key,v in kinds.items()))
     return out
 
 def main():
@@ -43,5 +41,4 @@ def main():
     log=Path(sys.argv[1]).read_text(errors="replace")
     source=Path(sys.argv[2]).read_text(encoding="utf-8")
     for item in classify(log,source):print(item)
-
 if __name__=="__main__":main()
