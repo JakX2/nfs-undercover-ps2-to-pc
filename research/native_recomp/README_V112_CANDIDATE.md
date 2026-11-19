@@ -1,4 +1,4 @@
-# V112 candidate: nonempty original Wii SC IOS_OpenAsync request
+# V112 verified: nonempty original Wii SC IOS_OpenAsync request
 
 V111 verified 16 owner-original native trials through original
 IOS_OpenAsync entry for the authenticated nonempty SYSCONF path.
@@ -14,3 +14,5 @@ This proves request construction only, not async completion,
 the SC callback, full OSInit return or game boot.
 Owner binaries, private logs and generated translated game code
 remain inside the owner-only CI runner.
+
+Verified 16/16 owner-original trials on commit af467ece9c811b4b191ea23315622eabea757556, CI run 44481994173. Authentic IOS_OpenAsync request, cache syscall, path and mode reached 0x805195EC, before transport queue submission. V113 continues into that queue.
