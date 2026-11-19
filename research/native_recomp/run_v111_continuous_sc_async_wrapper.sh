@@ -11,7 +11,7 @@ echo 'V110_WRAPPER derived'
 if ! bash -n "$work/run.sh" 2>"$work/runner-parse.log";then
   echo 'V110_WRAPPER syntax_failed' >&2
   line="$(grep -Eo 'line [0-9]+' "$work/runner-parse.log" | head -n 1 || true)"
-  if [[ "$line" =~ ^line\\ [0-9]+$ ]]; then
+  if [[ "$line" =~ ^line[[:space:]][0-9]+$ ]]; then
     echo "V110_WRAPPER_SYNTAX $line" >&2
   fi
   exit 1
