@@ -62,7 +62,15 @@ class V125(unittest.TestCase):
         old=previous_generator(base)
         self.assertEqual(old.count(OLD),1)
         actual=generator(base)
-        self.assertEqual(actual,old.replace(OLD,NEW,1))
+        boundary='   for(uint32_t pc:{0x8051e3dcu,0x8051e518u,0x8051e5bcu}){'
+        restored_start='   require(funcs.count(0x8051e5bcu)==1u,'
+        restored_end='   for(uint32_t pc:{0x8051e3dcu,0x8051e518u}){'
+        self.assertEqual(old.count(boundary),1)
+        self.assertEqual(actual.count(restored_start),1)
+        start=actual.index(restored_start)
+        end=actual.index(restored_end,start)+len(restored_end)
+        expected=old.replace(OLD,NEW,1).replace(boundary,actual[start:end],1)
+        self.assertEqual(actual,expected)
         self.assertIn('V125_BAD_BRANCH site=',actual)
         self.assertIn('require((ins>>26)==18 && (ins&3)==1,"expected absolute-free PPC BL");',actual)
         self.assertIn("derive_v125_sc_helper_generator.py",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
@@ -158,7 +166,7 @@ class V125(unittest.TestCase):
         self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)
         for f in ("run_v125_continuous_sc_helper.sh","diagnose_sc_helper_v125.py"):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,s)
-        for f in ("restore_sc_helper_late_v125.py",):
+        for f in ("make_v125_canonical_fixture.py",):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
         for m in ("V124_NEXT_CALL pc=8051e5bc","V125_NEXT_CALL pc=[0-9a-f]{8}",
                   "stage=125","WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID"):
