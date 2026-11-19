@@ -18,7 +18,18 @@ def derive(source):
     source=previous(source)
     if source.count(OLD)!=1:
         raise ValueError("V125 generator expected-BL assertion anchor ambiguous")
-    return source.replace(OLD,NEW,1)
+    source=source.replace(OLD,NEW,1)
+    old_loop="   for(uint32_t pc:{0x8051e3dcu,0x8051e518u,0x8051e5bcu}){"
+    restored='''   require(funcs.count(0x8051e5bcu)==1u,"V125 authenticated SC helper missing");
+   const auto& sc_helper=funcs.at(0x8051e5bcu).instructions;
+   require(sc_helper.size()>=2u&&sc_helper.front().address==0x8051e5bcu&&
+           sc_helper.back().address<0x8051e71cu&&
+           sc_helper.back().opcode==0x4e800020u,
+           "V125 original SC helper translated geometry differs");
+   for(uint32_t pc:{0x8051e3dcu,0x8051e518u}){'''
+    if source.count(old_loop)!=1:
+        raise ValueError("V125 authentic SC helper guard insertion anchor ambiguous")
+    return source.replace(old_loop,restored,1)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

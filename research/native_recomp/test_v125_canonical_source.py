@@ -25,5 +25,6 @@ class CanonicalFixture(unittest.TestCase):
         self.assertIn('python3 "$here/make_start_to_ipc_ack_v77.py"',s)
         self.assertLess(s.index("V104_STAGE geometry_verified"),s.index("V125_CANONICAL result=verified"))
         self.assertIn('derive_v125_sc_helper_generator.py',s)
+        self.assertIn("V125_CANONICAL result=verified",s)
 if __name__=="__main__":
     unittest.main()

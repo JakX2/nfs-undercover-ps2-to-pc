@@ -7,6 +7,15 @@ from derive_v125_sc_helper_harness import derive,EDITS
 from derive_v125_sc_helper_runner import derive as runner
 HERE=Path(__file__).resolve().parent
 class V125(unittest.TestCase):
+    def test_generator_restored_function_guard(self):
+        from derive_v125_sc_helper_generator import derive as generate
+        original=(HERE/"generate_start_to_ipc_ack_v77.cpp").read_text()
+        actual=generate(original)
+        self.assertIn("V125 authenticated SC helper missing",actual)
+        self.assertIn("V125 original SC helper translated geometry differs",actual)
+        self.assertIn("sc_helper.back().address<0x8051e71cu",actual)
+        self.assertIn("for(uint32_t pc:{0x8051e3dcu,0x8051e518u}){",actual)
+        self.assertNotIn("for(uint32_t pc:{0x8051e3dcu,0x8051e518u,0x8051e5bcu}){",actual)
     def test_harness(self):
         src=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
         old=previous(src);actual=derive(src);expected=old
@@ -128,7 +137,7 @@ class V125(unittest.TestCase):
 
         for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):
             self.assertIn(marker,script)
-        self.assertIn("restore_sc_helper_late_v125.py",script)
+        self.assertIn("make_v125_canonical_fixture.py",script)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",
