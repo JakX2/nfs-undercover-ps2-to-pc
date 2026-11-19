@@ -59,8 +59,9 @@ class LateHelper(unittest.TestCase):
         body=NOP*4+STUB+NOP*14+struct.pack(">I",0x7c0802a6)+NOP*8
         fixture=synthetic(body)
         self.assertEqual(placeholder_capacity(fixture),0x40)
-        with self.assertRaises(ValueError):
-            placeholder_capacity(synthetic(NOP*4+NOP*2+NOP*22))
+        # All-NOP placeholders are explicitly allowed after V104.
+        # The capacity remains bounded by the canonical segment and MAX_SPAN.
+        self.assertEqual(placeholder_capacity(synthetic(NOP*4+NOP*2+NOP*22)),0x60)
         # Exact insertion remains bounded by the next genuine instruction.
         restored=NOP*11+struct.pack(">I",0x4e800020)
         got=restore(fixture,restored)
