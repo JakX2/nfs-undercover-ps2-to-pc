@@ -67,6 +67,25 @@ def make(fixture:Path,owner:Path)->bytes:
         raise ValueError("V125 owner SHA-256 validation failed")
     return restore(fixture.read_bytes(),select_body(raw))
 
+FAILURE_CODES=(
+    "V125 original helper has no bounded return",
+    "V125 original helper size outside bounded neighbor",
+    "V125 original helper code not authenticated",
+    "V125 helper body shape differs",
+    "V125 helper range not covered by inherited text",
+    "V125 inherited DOL header or layout modified",
+    "V125 private DOL section set changed",
+    "V125 private section metadata changed",
+    "V125 unrelated original bytes changed",
+    "private text patch does not match exact prior placeholder",
+    "V125 owner SHA-256 validation failed",
+)
+def failure_code(exc:Exception)->int:
+    try:
+        return FAILURE_CODES.index(str(exc))+1
+    except ValueError:
+        return 0
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("inherited_private_fixture",type=Path)
@@ -79,8 +98,9 @@ def main():
         result=make(args.inherited_private_fixture,args.authenticated_owner)
         with args.output_private_fixture.open("xb") as out:
             out.write(result)
-    except Exception:
-        # Do not publish private paths, opcodes, instruction text or exceptions.
+    except Exception as exc:
+        # Only a fixed numeric category is published, never raw private text.
+        print(f"V125_LATE_DETAIL code={failure_code(exc):02d}")
         print("V125_LATE_RESTORE ok=0")
         raise SystemExit(1)
     print("V125_LATE_RESTORE ok=1")
