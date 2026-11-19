@@ -30,7 +30,12 @@ class V109(unittest.TestCase):
                       "BOOT_PROGRESS entry=0x8000403C pc=0x80544AC0 stage=109"):
             self.assertIn(label,s)
         self.assertIn("^V109_SC_SECOND_SOURCE order=[01] mapped=[01]",s)
-        self.assertIn("V104 original IOS_OpenAsync request submit failed; details withheld",s)
+        self.assertIn("V109_NATIVE_EXIT ok=1",s)
+        self.assertIn("V109_NATIVE_EXIT ok=0",s)
+        self.assertIn("V109_STAGE native_test_passed",s)
+        self.assertEqual(s.count('"$work/native" "$work/private.dol" owner "$owner"'),1)
+        self.assertNotIn("V104_SUCCESS_GATE",s)
+        self.assertLess(s.index("V104_STAGE native_compiled"),s.index("V109_NATIVE_EXIT ok=1"))
         self.assertIn("derive_v108_sc_literal_restore_harness.py",str(
             (HERE/"derive_v108_sc_literal_runner.py").read_text()))
         with tempfile.TemporaryDirectory() as td:
