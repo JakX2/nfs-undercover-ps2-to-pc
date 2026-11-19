@@ -30,6 +30,22 @@ class V110(unittest.TestCase):
                                  new.count("{")-new.count("}"))
                 self.assertEqual(old.count("(")-old.count(")"),
                                  new.count("(")-new.count(")"))
+    def test_public_terminal_predicates(self):
+        # Inspect only the independently authored derived C++ test. The
+        # private Wii owner file is never opened or surfaced here.
+        base=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
+        source=derive(base)
+        label='"continuous startup did not execute original IPC client"'
+        self.assertEqual(source.count(label),1)
+        end=source.index(label)
+        start=source.rfind("check(",0,end)
+        self.assertGreaterEqual(start,0)
+        self.assertLess(end-start,4000)
+        condition=source[start+6:end]
+        for i,predicate in enumerate(condition.replace("\n"," ").split("&&")):
+            expr=predicate.strip()
+            if expr:
+                print(f"V110_PUBLIC_IPC_CONDITION i={i} expr={expr[:160]}",flush=True)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for marker in ("derive_v110_sc_strlen_harness.py","V110_HARNESS_MARKERS count=$marker_count","V110_NATIVE_EXIT ok=1",
