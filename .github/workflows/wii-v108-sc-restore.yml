@@ -79,7 +79,7 @@ jobs:
           grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$' "$RUNNER_TEMP/sc108.log" || true
           grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc108.log"
           grep -Fx 'V107_SC_SOURCE mapped=1 empty=1 original_literal=1' "$RUNNER_TEMP/sc108.log"
-          grep -E '^V108_SC_GATE owner=[01] empty=[01] span=[01]$' "$RUNNER_TEMP/sc108.log" || true
+          grep -Fx 'V108_SC_GATE owner=1 empty=1 span=1' "$RUNNER_TEMP/sc108.log"
           grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" || true
           # Decode only an exact public test-harness assertion label.
           # Original executable data and native private diagnostics stay local.
