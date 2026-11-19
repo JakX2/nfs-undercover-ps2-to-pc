@@ -43,6 +43,10 @@ class V120(unittest.TestCase):
             file.write_text(actual,encoding="utf-8")
             subprocess.run(["bash","-n",str(file)],check=True)
 
+    def test_diag_import(self):
+        from diagnose_sc_x1_sleep_v120 import describe
+        self.assertTrue(callable(describe))
+
     def test_workflow(self):
         wf=(HERE.parents[1]/".github/workflows/wii-v120-sc-x1-sleep.yml").read_text(encoding="utf-8")
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)

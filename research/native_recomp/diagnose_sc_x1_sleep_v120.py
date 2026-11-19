@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 from classify_v38_native_failure import STRING
-from derive_v120_sc_x1_restore_harness import derive
+from derive_v120_sc_x1_sleep_harness import derive
 
 def describe(index:int)->str:
     if index<1:
