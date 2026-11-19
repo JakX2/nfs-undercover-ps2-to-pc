@@ -34,7 +34,18 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'Owner Wii staging failed after three bounded attempts' >&2
+            exit 1
+          fi
       - name: Prepare pinned original-free NWii runtime and cache traces
         run: |
           set -euo pipefail

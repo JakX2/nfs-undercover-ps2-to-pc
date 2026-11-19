@@ -54,6 +54,9 @@ class V116(unittest.TestCase):
                        "WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID",
                        "'.github/workflows/wii-v116-sc-queue-helper.yml'"):
             self.assertIn(marker,s)
+        self.assertIn("for attempt in 1 2 3; do",s)
+        self.assertIn("staged != 1",s)
+        self.assertIn("stage_owner_wii_gdown.py",s)
         self.assertNotIn("run_v115_continuous_sc_async_submit.sh",s)
 
 if __name__=="__main__":
