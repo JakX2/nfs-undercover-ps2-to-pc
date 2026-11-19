@@ -51,6 +51,14 @@ EDITS = [
   [
     "       if(addr==POST_OWNER&&ctx.lr==0x804f1eccu){",
     "       if(addr==0x8051982cu&&ctx.lr==0x804f1eccu){"
+  ],
+  [
+    "       if(addr==INT_DISABLE&&ctx.lr==0x8051ab64u&&post111_alloc==1u){",
+    "       if(addr==INT_DISABLE&&ctx.lr==0x8051ab64u&&post111_alloc==1u&&post112_alloc==0u){"
+  ],
+  [
+    "       if(addr==INT_RESTORE&&ctx.lr==0x8051ad14u&&post111_alloc==1u){",
+    "       if(addr==INT_RESTORE&&ctx.lr==0x8051ad14u&&post111_alloc==1u&&post112_alloc==0u){"
   ]
 ]
 def derive(source):
