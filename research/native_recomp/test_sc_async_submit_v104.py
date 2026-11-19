@@ -82,13 +82,13 @@ class AsyncSubmitV104(unittest.TestCase):
             records+=["V104_ASYNC_SAVE route=1","V104_ASYNC_CACHE bounded=1",
                       "V104_ASYNC_SYSCALL order=1 lines=1",
                       "V104_ASYNC_SUBMIT route=1 request=1 mode=1 path=1 abi=1 prior=1",
-                      "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync native submit assertions; mode=owner trials=16 stop=0x805195ec"]
+                      "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync request submit assertions; mode=owner trials=16 stop=0x805195ec"]
             log.write_text("\n".join(records)+"\n")
             ok=subprocess.run(["bash",str(run)],capture_output=True,text=True)
             self.assertEqual(ok.returncode,0,ok.stderr)
             self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104",ok.stdout)
             for missing in ("V104_TRIAL_PASS trial=7","V104_ASYNC_CACHE bounded=1",
-                            "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync native submit assertions; mode=owner trials=16 stop=0x805195ec"):
+                            "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync request submit assertions; mode=owner trials=16 stop=0x805195ec"):
                 log.write_text("\n".join(x for x in records if x!=missing)+"\n")
                 self.assertNotEqual(subprocess.run(["bash",str(run)],capture_output=True).returncode,0)
             log.write_text("\n".join(records+["V104_TRIAL_PASS trial=7"])+"\n")
