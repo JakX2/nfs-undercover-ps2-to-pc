@@ -37,8 +37,8 @@ EDITS = [
     ++post_stops;ctx.is_running=false;
     throw ExceptionStop{}; // stop before authentic syscall vector, never synthesize completion
   }"""),
-    ("     nwii::runtime::post113_flush=0;",
-     "     nwii::runtime::post113_flush=0;\n     nwii::runtime::post114_syscall=0;\n     nwii::runtime::post114_base=nwii::runtime::post114_len=0;\n     nwii::runtime::post114_before=0;"),
+    ("nwii::runtime::post113_flush=0;",
+     "nwii::runtime::post113_flush=0;\n     nwii::runtime::post114_syscall=0;\n     nwii::runtime::post114_base=nwii::runtime::post114_len=0;\n     nwii::runtime::post114_before=0;"),
     ("check(nwii::runtime::post113_flush==1u&&",
      "check(nwii::runtime::post114_syscall==1u&&nwii::runtime::post113_flush==1u&&"),
     ("V113_TRIAL_PASS trial=", "V114_TRIAL_PASS trial="),
