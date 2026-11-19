@@ -22,7 +22,7 @@ def derive(source):
     if s.count(need)!=1:raise ValueError("V112 pass marker differs")
     s=s.replace(need,need+"""
 grep -Fxq 'V112_ASYNC_SUBMIT route=1 wire=1 mode=1 path=1 abi=1 prior=1' "$log"
-grep -Fxq 'V113_FLUSH_ENTRY route=1 span=1 abi=1 prior=1' "$log"
+grep -Fx 'V113_FLUSH_ENTRY route=1 span=1 abi=1 prior=1' "$log"
 grep -E '^V112_ASYNC_SYSCALL order=[01] lines=[01]$|^V112_ASYNC_SUBMIT route=[01] wire=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$log" | sort -u""")
     return s
 def main():
