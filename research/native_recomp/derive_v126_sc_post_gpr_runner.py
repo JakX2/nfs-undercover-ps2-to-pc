@@ -7,7 +7,7 @@ EDITS=[
  ("derive_v125_sc_helper_harness.py","derive_v126_sc_post_gpr_harness.py"),
  ("V125_TRIAL_PASS","V126_TRIAL_PASS"),
  ("V125 recovered continuous original __start->SC IOS SC helper continuation",
-  "V126 recovered continuous original __start->SC IOS post-helper GPR-save and next call"),
+  "V126 recovered continuous original __start->SC IOS post-helper GPR-save and OSInit return"),
  ("V125_STAGE native_test_passed","V126_STAGE native_test_passed"),
  ("V125_NATIVE_EXIT","V126_NATIVE_EXIT"),
  ("stage=125","stage=126")
@@ -24,11 +24,11 @@ def derive(source):
     if s.count(good)!=1:raise ValueError("V126 native success marker missing")
     s=s.replace(good,good+"""
 grep -Fx 'V125_NEXT_CALL pc=80545150 lr=8051e05c route=1 wire=1 abi=1 text=1' "$log" | head -n 1
-grep -E '^V126_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$log" | sort -u
-test "$(grep -Ec '^V126_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$log")" -eq 16 """.rstrip(),1)
-    old="candidate=\"$(grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8}"
-    if s.count(old)!=1:raise ValueError("V126 original-free candidate marker differs")
-    s=s.replace(old,"candidate=\"$(grep -E '^V126_NEXT_CALL pc=[0-9a-f]{8}",1)
+grep -Fx 'V126_OSINIT_RETURN pc=8052096c lr=8052096c route=1 wire=1 abi=1 stop=1' "$log" | head -n 1
+test "$(grep -Fc 'V126_OSINIT_RETURN pc=8052096c lr=8052096c route=1 wire=1 abi=1 stop=1' "$log")" -eq 16 """.rstrip(),1)
+    progress='echo "BOOT_PROGRESS entry=0x8000403C pc=0x${candidate^^} stage=126"'
+    if s.count(progress)!=1:raise ValueError("V126 original progress anchor differs")
+    s=s.replace(progress,"echo 'BOOT_PROGRESS entry=0x8000403C pc=0x8052096C stage=126'",1)
     return s
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

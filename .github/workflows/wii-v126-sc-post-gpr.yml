@@ -1,4 +1,4 @@
-name: Wii V126 Original SC Post-GPR Next Call
+name: Wii V126 Original SC Post-GPR OSInit Return
 on:
   workflow_dispatch:
   push:
@@ -130,6 +130,7 @@ jobs:
               grep -E '^V125_LATE_PREFIX kind=[0-4]$' "$RUNNER_TEMP/sc126.log" || true
               grep -E '^V125_GEOMETRY_STATUS ok=[01]$' "$RUNNER_TEMP/sc126.log" || true
               grep -E '^V125_BAD_BRANCH site=[0-9a-f]{8} major=[0-9]{1,2} link=[01] absolute=[01]$' "$RUNNER_TEMP/sc126.log" || true
+              grep -E '^V126_OSINIT_RETURN pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] stop=[01]$' "$RUNNER_TEMP/sc126.log" || true
               echo 'V126 next original call after GPR save failed; private diagnostics withheld' >&2
               exit 1
             }
@@ -162,9 +163,9 @@ jobs:
           grep -Fx 'V124_NEXT_CALL pc=8051e5bc lr=8051e054 route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc126.log"
           grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc126.log"
           grep -Fx 'V125_NEXT_CALL pc=80545150 lr=8051e05c route=1 wire=1 abi=1 text=1' "$RUNNER_TEMP/sc126.log"
-          grep -E '^V126_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 abi=1 text=1$' "$RUNNER_TEMP/sc126.log"
-          grep -E '^BOOT_PROGRESS entry=0x8000403C pc=0x[0-9A-F]{8} stage=126$' "$RUNNER_TEMP/sc126.log"
-          echo 'PASS: owner-original V126 executed post-SC GPR save and observed next call'
+          grep -Fx 'V126_OSINIT_RETURN pc=8052096c lr=8052096c route=1 wire=1 abi=1 stop=1' "$RUNNER_TEMP/sc126.log"
+          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8052096C stage=126' "$RUNNER_TEMP/sc126.log"
+          echo 'PASS: owner-original V126 executed post-SC GPR save and returned into OSInit boundary'
       - name: Remove private owner and generated code
         if: always()
         run: |
