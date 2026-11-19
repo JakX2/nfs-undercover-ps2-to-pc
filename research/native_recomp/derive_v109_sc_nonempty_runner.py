@@ -27,6 +27,14 @@ grep -Eq '^PASS: [0-9]+ V109 recovered continuous original __start->nonempty SC 
 echo 'PASS: original Wii nonempty SC path executed second authentic string copy'
 echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80544AC0 stage=109'
 """
+    # The inherited V104 failure trap cannot see the V109 predicates
+    # unless the inner owner runner explicitly relays them. Emit only
+    # fixed boolean fields and the known original-free diagnostic label.
+    failure="  echo 'V104 original IOS_OpenAsync request submit failed; details withheld' >&2"
+    if s.count(failure)!=1:raise ValueError("V109 failure relay anchor absent")
+    relay="""  grep -E '^V109_SC_SECOND_SOURCE order=[01] mapped=[01] terminated=[01] empty=[01] output=[01] abi=[01]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V109_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$' "$work/private-native.log" | sort -u || true
+"""
+    s=s.replace(failure,relay+failure,1)
     return s[:s.index(start)]+success
 
 def main():
