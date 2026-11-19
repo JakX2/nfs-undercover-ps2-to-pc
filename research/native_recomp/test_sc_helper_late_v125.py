@@ -42,7 +42,7 @@ class LateHelper(unittest.TestCase):
         struct.pack_into(">I",body,0,0x7c0802a6)
         struct.pack_into(">I",body,0x2c,0x4e800020)
         self.assertEqual(MAX_SPAN,0x160)
-        sample=synthetic(bytes(body))
+        sample=synthetic(NOP*4+bytes(body))
         self.assertEqual(len(select_body(sample)),0x30)
     def test_runner_must_patch_late(self):
         import inspect

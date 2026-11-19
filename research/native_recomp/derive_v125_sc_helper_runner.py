@@ -21,8 +21,7 @@ def derive(source):
     geometry='python3 "$here/test_v77_continuous_ipc_ack_geometry.py"'
     if s.count(build)!=1 or s.count(geometry)!=1:
         raise ValueError("V125 fixture hooks missing or duplicated")
-    s=s.replace(build,'python3 "$here/make_start_to_sc_helper_v125.py"',1)
-    s=s.replace(geometry,'python3 "$here/test_v125_sc_helper_geometry.py"',1)
+    # Preserve inherited V77 root; V89..V104 restorers require the exact base.
     fail="  echo 'V125_NATIVE_EXIT ok=0'"
     if s.count(fail)!=1:raise ValueError("V125 fail marker missing")
     s=s.replace(fail,"  grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] text=[01]$' \"$work/private-native.log\" | sort -u || true\n"+fail,1)
@@ -68,14 +67,14 @@ grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$work/private
     coverage='python3 "$here/diagnose_v125_fixture_coverage.py" "$work/private.dol" "$owner"'
     if s.count(coverage)!=1:raise ValueError("V125 coverage marker missing")
     s=s.replace(coverage,coverage+"\necho 'V125_STAGE_CHECK after_probe=1'",1)
-    geometry='python3 "$here/test_v125_sc_helper_geometry.py"'
+    geometry='python3 "$here/test_v77_continuous_ipc_ack_geometry.py"'
     if s.count(geometry)!=1:raise ValueError("V125 geometry marker missing")
     s=s.replace(geometry,"echo 'V125_STAGE_CHECK before_geometry=1'\n"+geometry,1)
     stages=("echo 'V104_STAGE geometry_verified'","echo 'V79_STAGE geometry_verified'")
     selected=[mark for mark in stages if s.count(mark)==1]
     if len(selected)!=1:raise ValueError("V125 geometry stage marker ambiguous")
     s=s.replace(selected[0],"echo 'V125_STAGE_CHECK after_geometry=1'\n"+selected[0],1)
-    command='python3 "$here/test_v125_sc_helper_geometry.py" "$work/private.dol" "$owner"   > "$work/private-geometry.log" 2>&1 || {'
+    command='python3 "$here/test_v77_continuous_ipc_ack_geometry.py" "$work/private.dol" "$owner"   > "$work/private-geometry.log" 2>&1 || {'
     if s.count(command)!=1:
         raise ValueError("V125 geometry command guard missing")
     s=s.replace(command,command+"\n    echo 'V125_STAGE_CHECK geometry_failure_branch=1'",1)
@@ -92,7 +91,7 @@ grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$work/private
        old_block.count("V125_STAGE_CHECK geometry_failure_branch=1")!=1:
         raise ValueError("V125 inherited geometry safety guard missing")
     safe_block="""echo 'V125_STAGE_CHECK before_geometry=1'
-if python3 "$here/test_v125_sc_helper_geometry.py" "$work/private.dol" "$owner" \
+if python3 "$here/test_v77_continuous_ipc_ack_geometry.py" "$work/private.dol" "$owner" \
   > "$work/private-geometry.log" 2>&1; then
   echo 'V125_GEOMETRY_STATUS ok=1'
 else
@@ -122,6 +121,18 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
     old="candidate=\"$(grep -E '^V124_NEXT_CALL pc=[0-9a-f]{8}"
     if s.count(old)!=1:raise ValueError("V125 dynamic candidate anchor")
     s=s.replace(old,"candidate=\"$(grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8}",1)
+    late_at="echo 'V104_STAGE geometry_verified'"
+    if s.count(late_at)!=1:
+        raise ValueError("V125 late fixture checkpoint unavailable")
+    late='''python3 "$here/restore_sc_helper_late_v125.py" "$work/private.dol" "$owner" "$work/sc-helper-v125.dol" \
+  > "$work/restore-helper-v125.log" 2>&1 || {
+  echo 'V125_LATE_RESTORE ok=0'
+  exit 1
+}
+mv -- "$work/sc-helper-v125.dol" "$work/private.dol"
+echo 'V125_LATE_RESTORE ok=1'
+'''
+    s=s.replace(late_at,late_at+"\n"+late,1)
     return s
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

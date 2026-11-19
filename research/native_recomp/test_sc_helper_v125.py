@@ -112,8 +112,8 @@ class V125(unittest.TestCase):
             extent(raw)
         self.assertTrue(MAX_SPAN>=MIN_SPAN>=0x20)
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("make_start_to_sc_helper_v125.py",script)
-        self.assertIn("test_v125_sc_helper_geometry.py",script)
+        self.assertIn("make_start_to_ipc_ack_v77.py",script)
+        self.assertIn("test_v77_continuous_ipc_ack_geometry.py",script)
         self.assertNotIn('python3 "$here/test_v77_continuous_ipc_ack_geometry.py"',script)
         self.assertLess(script.index("V125_STAGE_CHECK before_geometry=1"),
                         script.index('python3 "$here/test_v125_sc_helper_geometry.py"'))
@@ -128,7 +128,7 @@ class V125(unittest.TestCase):
 
         for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):
             self.assertIn(marker,script)
-        self.assertNotIn("test_v77_continuous_ipc_ack_geometry.py",script)
+        self.assertIn("restore_sc_helper_late_v125.py",script)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",
@@ -149,7 +149,7 @@ class V125(unittest.TestCase):
         self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)
         for f in ("run_v125_continuous_sc_helper.sh","diagnose_sc_helper_v125.py"):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,s)
-        for f in ("make_start_to_sc_helper_v125.py","test_v125_sc_helper_geometry.py"):
+        for f in ("restore_sc_helper_late_v125.py",):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
         for m in ("V124_NEXT_CALL pc=8051e5bc","V125_NEXT_CALL pc=[0-9a-f]{8}",
                   "stage=125","WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID"):
