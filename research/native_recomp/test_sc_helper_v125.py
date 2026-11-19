@@ -97,6 +97,11 @@ class V125(unittest.TestCase):
         self.assertIn("V125_GEOMETRY_FAILURE code=[0-9]{1,2}",script)
         self.assertIn("V125_GEOMETRY_KIND import=1",script)
         self.assertIn("V125_STAGE_CHECK geometry_failure_branch=1",script)
+        self.assertIn("if python3 \"$here/test_v125_sc_helper_geometry.py\"",script)
+        self.assertIn("V125_GEOMETRY_STATUS ok=1",script)
+        self.assertIn("V125_GEOMETRY_STATUS ok=0",script)
+        self.assertEqual(script.count("V125_GEOMETRY_STATUS ok=0"),1)
+
         for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):
             self.assertIn(marker,script)
         self.assertNotIn("test_v77_continuous_ipc_ack_geometry.py",script)

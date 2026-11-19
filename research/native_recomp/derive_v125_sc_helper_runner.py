@@ -79,6 +79,30 @@ grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$work/private
     if s.count(command)!=1:
         raise ValueError("V125 geometry command guard missing")
     s=s.replace(command,command+"\n    echo 'V125_STAGE_CHECK geometry_failure_branch=1'",1)
+    # Replace the entire inherited geometry shell block. Inserting a newline
+    # into the command head alone can change the errexit/OR-list semantics.
+    begin="echo 'V125_STAGE_CHECK before_geometry=1'\n"+command
+    after="echo 'V125_STAGE_CHECK after_geometry=1'"
+    if s.count(begin)!=1 or s.count(after)!=1:
+        raise ValueError("V125 conditional geometry block not unique")
+    a=s.index(begin)
+    b=s.index(after,a)
+    old_block=s[a:b]
+    if old_block.count("V125_GEOMETRY_KIND import=1")!=1 or \
+       old_block.count("V125_STAGE_CHECK geometry_failure_branch=1")!=1:
+        raise ValueError("V125 inherited geometry safety guard missing")
+    safe_block="""echo 'V125_STAGE_CHECK before_geometry=1'
+if python3 "$here/test_v125_sc_helper_geometry.py" "$work/private.dol" "$owner" \
+  > "$work/private-geometry.log" 2>&1; then
+  echo 'V125_GEOMETRY_STATUS ok=1'
+else
+  echo 'V125_STAGE_CHECK geometry_failure_branch=1'
+"""+classify+"""  echo 'V125_GEOMETRY_STATUS ok=0'
+  echo 'V71 STM geometry guard failed' >&2
+  exit 1
+fi
+"""
+    s=s[:a]+safe_block+s[b:]
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""
