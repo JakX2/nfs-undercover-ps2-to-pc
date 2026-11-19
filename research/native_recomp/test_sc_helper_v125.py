@@ -19,6 +19,14 @@ class V125(unittest.TestCase):
             self.assertIn(m,actual)
         for m in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(m),old.count(m))
+    def test_runtime_shape(self):
+        from classify_v125_runtime_shape import format_report
+        text="terminate called after throwing an instance of std::runtime_error\n  what(): unsupported instruction"
+        value=format_report(text)
+        self.assertIn("exception=1",value)
+        self.assertIn("missing=1",value)
+        self.assertIn("fault=0",value)
+        self.assertNotIn("unsupported instruction",value)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",
