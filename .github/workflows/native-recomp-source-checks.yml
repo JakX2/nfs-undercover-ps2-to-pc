@@ -17,6 +17,7 @@ on:
       - '.github/workflows/wii-v120-sc-x1-sleep.yml'
       - '.github/workflows/wii-v121-sc-after-restore.yml'
       - '.github/workflows/wii-v122-sc-post-save.yml'
+      - '.github/workflows/wii-v123-sc-post-leaf.yml'
   pull_request:
     paths:
       - 'research/native_recomp/**'
@@ -31,6 +32,7 @@ on:
       - '.github/workflows/wii-v120-sc-x1-sleep.yml'
       - '.github/workflows/wii-v121-sc-after-restore.yml'
       - '.github/workflows/wii-v122-sc-post-save.yml'
+      - '.github/workflows/wii-v123-sc-post-leaf.yml'
   workflow_dispatch:
 
 permissions:
@@ -100,6 +102,7 @@ jobs:
           python3 research/native_recomp/test_sc_x1_sleep_v120.py
           python3 research/native_recomp/test_sc_after_restore_v121.py
           python3 research/native_recomp/test_sc_post_save_v122.py
+          python3 research/native_recomp/test_sc_post_leaf_v123.py
           python3 research/native_recomp/test_sc_v109_workflow_gate.py
           python3 research/native_recomp/test_sc_v109_classifier.py
           python3 research/native_recomp/test_sc_nonempty_classifier_v109.py
