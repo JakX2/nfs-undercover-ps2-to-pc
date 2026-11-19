@@ -56,6 +56,22 @@ class V125(unittest.TestCase):
         self.assertIn("post125_trace_count<8u",derived)
         self.assertIn("post123_next==1u&&addr==0x8051e5bcu&&ctx.lr==0x8051e054u",derived)
         self.assertIn("V125_TRACE_CALL seq=[0-9]{1,2}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
+    def test_fixture_coverage_boolean_only(self):
+        import struct
+        from diagnose_v125_fixture_coverage import PC,inspect,render
+        raw=bytearray(264)
+        struct.pack_into(">III",raw,0,256,0x8051E5BC,8)
+        # DOL text offset, guest address, and size occupy independent columns.
+        struct.pack_into(">I",raw,0,256)
+        struct.pack_into(">I",raw,0x48,PC)
+        struct.pack_into(">I",raw,0x90,8)
+        raw[256:264]=struct.pack(">II",0x60000000,0x60000000)
+        earlier=bytes(raw)
+        raw[256:264]=struct.pack(">II",0x7c0802a6,0x60000000)
+        output=render(inspect(earlier,bytes(raw)))
+        self.assertIn("mapped=1 owner=1 zero=0 nop=1 same=0",output)
+        self.assertNotIn("7c0802a6",output)
+        self.assertIn("diagnose_v125_fixture_coverage.py",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

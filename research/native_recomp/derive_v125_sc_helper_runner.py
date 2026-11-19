@@ -41,6 +41,10 @@ fi'''
     s=s.replace(fail,trace+fail,1)
     detail='  grep -E "^V125_OPCODE_DETAIL major0=[0-9]{1,2} major1=[0-9]{1,2} xo0=[0-9]{1,4} zero0=[01] zero1=[01]$" "$work/private-native.log" | sort -u || true\n'
     s=s.replace(fail,detail+fail,1)
+    fixture_stage="echo 'V104_STAGE fixture_generated'"
+    if s.count(fixture_stage)!=1:raise ValueError("V125 fixture stage unavailable")
+    coverage='python3 "$here/diagnose_v125_fixture_coverage.py" "$work/private.dol" "$owner"'
+    s=s.replace(fixture_stage,fixture_stage+"\n"+coverage,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""
