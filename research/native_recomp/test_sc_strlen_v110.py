@@ -40,4 +40,6 @@ class V110(unittest.TestCase):
         self.assertIn("V110_STAGE native_test_passed",y)
         self.assertIn("pc=0x(8051E518|804F1E2C|8051E3DC) stage=110",y)
         self.assertNotIn("grep -Fx 'V107_SC_SOURCE",y)
+        self.assertEqual(y.count("- name: Remove private owner and generated code"),1)
+        self.assertTrue(y.rstrip().endswith('rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc110.log"'))
 if __name__=="__main__":unittest.main()
