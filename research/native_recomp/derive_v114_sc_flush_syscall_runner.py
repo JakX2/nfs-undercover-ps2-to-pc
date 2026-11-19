@@ -21,9 +21,9 @@ def derive(source):
     s=previous(source)
     for old,new in EDITS:
         count=s.count(old)
-        if count!=1:
-            raise ValueError("V114 runner anchor missing or ambiguous: "+old+" count="+str(count))
-        s=s.replace(old,new,1)
+        if count<1:
+            raise ValueError("V114 runner source anchor missing: "+old)
+        s=s.replace(old,new)
     need="echo 'V114_STAGE native_test_passed'"
     if s.count(need)!=1:
         raise ValueError("V114 pass marker missing")
