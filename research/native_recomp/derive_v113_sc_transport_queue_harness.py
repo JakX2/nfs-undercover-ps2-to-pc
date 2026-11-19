@@ -44,7 +44,9 @@ EDITS = [
 def derive(source):
     source=previous(source)
     for old,new in EDITS:
-        if source.count(old)!=1:raise ValueError("V113 source anchor missing or ambiguous: "+old[:90])
+        if source.count(old)!=1:
+            nearby=[line.strip()[:110] for line in source.splitlines() if "80519924u" in line][:5]
+            raise ValueError("V113 source anchor missing or ambiguous: "+old[:90]+" available="+repr(nearby))
         source=source.replace(old,new,1)
     return source
 def main():
