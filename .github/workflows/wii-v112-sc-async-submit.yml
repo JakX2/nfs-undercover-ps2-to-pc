@@ -101,22 +101,3 @@ jobs:
         if: always()
         run: |
           rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc112.log"
- "$RUNNER_TEMP/sc112.log" | sort -u || true
-              echo 'V112 original IOS_OpenAsync request candidate failed; private diagnostics withheld' >&2
-              exit 1
-            }
-          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V110_HARNESS_MARKERS count=4' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V112_NATIVE_EXIT ok=1' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V112_STAGE native_test_passed' "$RUNNER_TEMP/sc112.log"
-          grep -Eq '^V110_SC_STRLEN input=1 bounded=1 empty=[01]$' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=2' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V111_SC_ASYNC_ENTRY route=1 copied=1 path=1 nonempty=1 abi=1 prior=1' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'V112_ASYNC_SUBMIT route=1 wire=1 mode=1 path=1 abi=1 prior=1' "$RUNNER_TEMP/sc112.log"
-          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=112' "$RUNNER_TEMP/sc112.log"
-          echo 'PASS: owner-original V112 SC request reached native IOS submit'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc112.log"
