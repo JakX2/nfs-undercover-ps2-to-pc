@@ -28,3 +28,17 @@ echo 'PASS: original Wii nonempty SC path executed second authentic string copy'
 echo 'BOOT_PROGRESS entry=0x8000403C pc=0x80544AC0 stage=109'
 """
     return s[:s.index(start)]+success
+
+def main():
+    import argparse
+    from pathlib import Path
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source",type=Path)
+    parser.add_argument("output",type=Path)
+    args=parser.parse_args()
+    result=derive(args.source.read_text(encoding="utf-8"))
+    with args.output.open("x",encoding="utf-8") as out:
+        out.write(result)
+
+if __name__=="__main__":
+    main()

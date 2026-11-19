@@ -32,4 +32,15 @@ class V109(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             f=Path(td)/"run.sh";f.write_text(s)
             subprocess.run(["bash","-n",str(f)],check=True)
+            # The owner wrapper invokes the derivation script as a CLI,
+            # not by importing derive(). Exercise that exact path too.
+            cli=Path(td)/"cli.sh"
+            subprocess.run(["python3",str(HERE/"derive_v109_sc_nonempty_runner.py"),
+                            str(HERE/"run_v79_continuous_reply_entry.sh"),str(cli)],check=True)
+            self.assertTrue(cli.is_file())
+            self.assertEqual(cli.read_text(),s)
+            subprocess.run(["bash","-n",str(cli)],check=True)
+            blocked=subprocess.run(["python3",str(HERE/"derive_v109_sc_nonempty_runner.py"),
+                                    str(HERE/"run_v79_continuous_reply_entry.sh"),str(cli)],capture_output=True)
+            self.assertNotEqual(blocked.returncode,0)
 if __name__=="__main__":unittest.main()
