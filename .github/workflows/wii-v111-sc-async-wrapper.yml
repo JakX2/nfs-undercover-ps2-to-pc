@@ -91,16 +91,9 @@ jobs:
           grep -Fx 'V111_NATIVE_EXIT ok=1' "$RUNNER_TEMP/sc111.log"
           grep -Fx 'V111_STAGE native_test_passed' "$RUNNER_TEMP/sc111.log"
           grep -Eq '^V110_SC_STRLEN input=1 bounded=1 empty=[01]$' "$RUNNER_TEMP/sc111.log"
-          grep -Eq '^V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=2 "$RUNNER_TEMP/sc111.log"
+          grep -Fx 'V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=2' "$RUNNER_TEMP/sc111.log"
           grep -Fx 'V111_SC_ASYNC_ENTRY route=1 copied=1 path=1 nonempty=1 abi=1 prior=1' "$RUNNER_TEMP/sc111.log"
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8051982C stage=111' "$RUNNER_TEMP/sc111.log"
-          echo 'PASS: owner-original V111 SC wrapper reached IOS_OpenAsync'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc111.log"
- "$RUNNER_TEMP/sc111.log"
-          grep -Eq '^BOOT_PROGRESS entry=0x8000403C pc=0x(8051E518|804F1E2C|8051E3DC) stage=110$' "$RUNNER_TEMP/sc111.log"
           echo 'PASS: owner-original V111 SC wrapper reached IOS_OpenAsync'
       - name: Remove private owner and generated code
         if: always()
