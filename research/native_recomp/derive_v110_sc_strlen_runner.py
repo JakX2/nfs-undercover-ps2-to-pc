@@ -11,7 +11,8 @@ def derive(source):
     # original-free harness excerpt around a bounded public line number.
     marker='python3 "$here/classify_v77_compile_failure.py" "$work/native-compile.log" "$unit"'
     if s.count(marker)!=1:raise ValueError("V110 compiler diagnostics anchor differs")
-    s=s.replace(marker,marker+'\n      if [[ "$unit" == harness ]]; then python3 "$here/diagnose_v110_compile.py" "$work/native-compile.log" "$work/harness.cpp"; fi',1)
+    s=s.replace(marker,marker+chr(10)+
+        '      if [[ "$unit" == harness ]]; then python3 "$here/diagnose_v110_compile.py" "$work/native-compile.log" "$work/harness.cpp"; fi',1)
     compiled="echo 'V104_STAGE native_compiled'"
     if s.count(compiled)!=1:raise ValueError("V110 compiled checkpoint absent")
     s=s[:s.index(compiled)+len(compiled)]+r"""
