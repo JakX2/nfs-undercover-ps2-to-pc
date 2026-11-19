@@ -62,6 +62,16 @@ def derive(source):
     # No private fixture text, paths, game code, or arbitrary log lines
     # are printed by the owner runner.
     success="""echo 'V104_STAGE native_test_passed'
+# Bounded, source-owned checkpoint diagnostics. Values reveal only
+# whether exact test predicates passed, never private guest data.
+log="$work/private-native.log"
+count="$(grep -Ec '^V104_TRIAL_PASS trial=[0-9]{1,2}$' "$log" || true)"
+save=0; grep -Fxq 'V104_ASYNC_SAVE route=1' "$log" && save=1 || true
+cache=0; grep -Fxq 'V104_ASYNC_CACHE bounded=1' "$log" && cache=1 || true
+sc=0; grep -Fxq 'V104_ASYNC_SYSCALL order=1 lines=1' "$log" && sc=1 || true
+submit=0; grep -Fxq 'V104_ASYNC_SUBMIT route=1 request=1 mode=1 path=1 abi=1 prior=1' "$log" && submit=1 || true
+terminal=0; grep -Eq '^PASS: [0-9]+ V104 recovered continuous original __start->IOS_OpenAsync native submit assertions; mode=owner trials=16 stop=0x805195ec$' "$log" && terminal=1 || true
+echo "V104_SUCCESS_GATE count=$count save=$save cache=$cache sc=$sc submit=$submit terminal=$terminal"
 for trial in $(seq 1 16); do
   grep -Fxq "V104_TRIAL_PASS trial=$trial" "$work/private-native.log"
 done
