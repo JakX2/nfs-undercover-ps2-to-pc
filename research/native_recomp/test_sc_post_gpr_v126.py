@@ -26,6 +26,7 @@ class V126(unittest.TestCase):
     def test_runner(self):
         src=(HERE/"run_v79_continuous_reply_entry.sh").read_text()
         actual=runner(src)
+        self.assertIn("V126_OSINIT_RETURN pc=[0-9a-f]{8} lr=[0-9a-f]{8}",actual)
         for marker in ("make_v125_canonical_fixture.py",
                        "V125_CANONICAL result=verified",
                        "V125_NEXT_CALL pc=80545150 lr=8051e05c",

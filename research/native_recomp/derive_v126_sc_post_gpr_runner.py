@@ -20,6 +20,7 @@ def derive(source):
     fail="  echo 'V126_NATIVE_EXIT ok=0'"
     if s.count(fail)!=1:raise ValueError("V126 failure marker missing")
     s=s.replace(fail,"  grep -E '^V126_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] text=[01]$' \"$work/private-native.log\" | sort -u || true\n"+fail,1)
+    s=s.replace(fail,"  grep -E '^V126_OSINIT_RETURN pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] stop=[01]$' \"$work/private-native.log\" | sort -u || true\n"+fail,1)
     good="echo 'V126_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V126 native success marker missing")
     s=s.replace(good,good+"""
