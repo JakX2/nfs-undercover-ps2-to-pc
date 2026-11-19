@@ -39,6 +39,10 @@ EDITS = [
   [
     "V109 recovered continuous original __start->nonempty SC second string copy assertions",
     "V110 recovered continuous original __start->nonempty SC strlen continuation assertions"
+  ],
+  [
+    "       if((addr==0x8051e71cu&&ctx.lr==0x8051ddc8u)||\n          (addr==0x8051e518u&&ctx.lr==0x8051ddd8u)){",
+    "       if(post101_child==0u&&((addr==0x8051e71cu&&ctx.lr==0x8051ddc8u)||\n          (addr==0x8051e518u&&ctx.lr==0x8051ddd8u))){"
   ]
 ]
 def derive(source):
