@@ -13,6 +13,7 @@ on:
       - '.github/workflows/wii-v116-sc-queue-helper.yml'
       - '.github/workflows/wii-v117-sc-send-register.yml'
       - '.github/workflows/wii-v118-sc-async-mailbox.yml'
+      - '.github/workflows/wii-v119-sc-control-write.yml'
   pull_request:
     paths:
       - 'research/native_recomp/**'
@@ -23,6 +24,7 @@ on:
       - '.github/workflows/wii-v116-sc-queue-helper.yml'
       - '.github/workflows/wii-v117-sc-send-register.yml'
       - '.github/workflows/wii-v118-sc-async-mailbox.yml'
+      - '.github/workflows/wii-v119-sc-control-write.yml'
   workflow_dispatch:
 
 permissions:
@@ -88,6 +90,7 @@ jobs:
           python3 research/native_recomp/test_sc_queue_helper_v116.py
           python3 research/native_recomp/test_sc_send_register_v117.py
           python3 research/native_recomp/test_sc_async_mailbox_v118.py
+          python3 research/native_recomp/test_sc_control_write_v119.py
           python3 research/native_recomp/test_sc_v109_workflow_gate.py
           python3 research/native_recomp/test_sc_v109_classifier.py
           python3 research/native_recomp/test_sc_nonempty_classifier_v109.py
