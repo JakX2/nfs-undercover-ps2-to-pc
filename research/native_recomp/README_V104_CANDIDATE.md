@@ -10,3 +10,5 @@ the actual guest request with the previously captured SC file path
 and mode. It does not call the dispatcher or invent a success reply.
 Pending STM event, FS descriptor, and scheduler context are preserved.
 Native async IPC submission and callbacks remain separate next stages.
+
+V104 owner-native code passed 16/16 on run 44416185164 but the outer CI runner failed after the native success. Replaced informational post-success grep chains with strict 16-trial, required ABI/cache/request predicate, and exact PASS verification before emitting BOOT_PROGRESS. No guest runtime or game behavior altered.

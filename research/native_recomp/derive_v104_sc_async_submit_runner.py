@@ -55,17 +55,32 @@ def derive(source):
         source = source.replace(old, new, 1)
     out=source.replace("V103_STAGE", "V104_STAGE").replace("V103_TRIAL_PASS", "V104_TRIAL_PASS")
     anchor="echo 'V104_STAGE native_test_passed'"
-    if out.count(anchor)!=1:raise ValueError("V104 native success trap anchor absent")
-    out=out.replace(anchor, "trap 'echo V104_RUNNER_POSTFAIL line=$LINENO >&2' ERR"+chr(10)+anchor,1)
-    # Informational grep pipelines can legitimately have no matches on
-    # a conditional startup path. They must not override a successful
-    # 16-trial native test. The final exact PASS marker remains required.
-    boundary="grep -Eq '^PASS: "
-    start=out.index(anchor)
-    end=out.index(boundary,start)
-    visible=out[start:end]
-    visible=visible.replace(" | sort -u"+chr(10)," | sort -u || true"+chr(10))
-    return out[:start]+visible+out[end:]
+    if out.count(anchor)!=1:raise ValueError("V104 native success anchor missing")
+    # Keep successful game-code execution distinct from informational grep
+    # filters. Verify the complete 16-trial checkpoint and critical
+    # predicates before advertising the original async submit boundary.
+    # No private fixture text, paths, game code, or arbitrary log lines
+    # are printed by the owner runner.
+    success="""echo 'V104_STAGE native_test_passed'
+for trial in $(seq 1 16); do
+  grep -Fxq "V104_TRIAL_PASS trial=$trial" "$work/private-native.log"
+done
+test "$(grep -Ec '^V104_TRIAL_PASS trial=[0-9]{1,2}$' "$work/private-native.log")" -eq 16
+grep -Fxq 'V104_ASYNC_SAVE route=1' "$work/private-native.log"
+grep -Fxq 'V104_ASYNC_CACHE bounded=1' "$work/private-native.log"
+grep -Fxq 'V104_ASYNC_SYSCALL order=1 lines=1' "$work/private-native.log"
+grep -Fxq 'V104_ASYNC_SUBMIT route=1 request=1 mode=1 path=1 abi=1 prior=1' "$work/private-native.log"
+grep -Eq '^PASS: [0-9]+ V104 recovered continuous original __start->IOS_OpenAsync native submit assertions; mode=owner trials=16 stop=0x805195ec$' "$work/private-native.log"
+grep -E '^V104_ASYNC_(SAVE route=1|CACHE bounded=1|SYSCALL order=1 lines=1|SUBMIT route=1 request=1 mode=1 path=1 abi=1 prior=1)$' "$work/private-native.log" | sort -u
+echo 'PASS: original Wii continuous __start constructed authentic IOS_OpenAsync request'
+echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104'
+"""
+    # This is the final trailer of the V79-derived owner-local runner;
+    # all authenticated fixture checks, generation, compile, and native
+    # execution retain their original ordering and failure semantics.
+    if not out.rstrip().endswith("echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104'"):
+        raise ValueError("V104 unexpected owner-runner trailer")
+    return out[:out.index(anchor)]+success
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
