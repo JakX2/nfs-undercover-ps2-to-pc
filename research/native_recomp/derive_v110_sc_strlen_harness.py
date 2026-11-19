@@ -18,7 +18,7 @@ EDITS = [
   ],
   [
     "         ++post109_return;post90_target=addr;observed_stop_pc=ctx.pc;\n         ++post_stops;ctx.is_running=false;throw ExceptionStop{};",
-    "         const uint32_t source=ctx.gpr[3];\n         bool valid=source!=0u&&open71_ram(source,1u)&&post110_strlen==0u;\n         unsigned n=0u;\n         if(valid)for(;n<256u;++n){\n           if(!open71_ram(source+n,1u)){valid=false;break;}\n           if(ctx.mmu.read8(source+n)==0u)break;\n         }\n         valid&=n<256u;\n         std::cout<<\"V110_SC_STRLEN input=\"<<valid<<\" bounded=\"<<(n<256u)\n                  <<\" empty=\"<<(n==0u)<<std::endl;\n         check(valid,\"V110 original second SC length input differs\");\n         post110_source=source;post110_length=n;\n         ++post109_return;++post110_strlen;\n         return true; // original PowerPC strlen executes\n       }"
+    "         const uint32_t source=ctx.gpr[3];\n         bool valid=source!=0u&&open71_ram(source,1u)&&post110_strlen==0u;\n         unsigned n=0u;\n         if(valid)for(;n<256u;++n){\n           if(!open71_ram(source+n,1u)){valid=false;break;}\n           if(ctx.mmu.read8(source+n)==0u)break;\n         }\n         valid&=n<256u;\n         std::cout<<\"V110_SC_STRLEN input=\"<<valid<<\" bounded=\"<<(n<256u)\n                  <<\" empty=\"<<(n==0u)<<std::endl;\n         check(valid,\"V110 original second SC length input differs\");\n         post110_source=source;post110_length=n;\n         ++post109_return;++post110_strlen;\n         return true; // original PowerPC strlen executes"
   ],
   [
     "     if(addr==0x8051e5bcu&&ctx.lr==0x8051e8f8u){",
