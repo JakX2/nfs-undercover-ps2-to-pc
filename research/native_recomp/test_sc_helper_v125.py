@@ -51,6 +51,8 @@ class V125(unittest.TestCase):
         derived=derive(source)
         self.assertIn("V125_TRACE_CALL seq=",derived)
         self.assertIn("V125_OPCODE_CLASS first_branch=",derived)
+        self.assertIn("V125_OPCODE_DETAIL major0=",derived)
+        self.assertIn("V125_OPCODE_DETAIL major0=[0-9]{1,2}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
         self.assertIn("post125_trace_count<8u",derived)
         self.assertIn("post123_next==1u&&addr==0x8051e5bcu&&ctx.lr==0x8051e054u",derived)
         self.assertIn("V125_TRACE_CALL seq=[0-9]{1,2}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))

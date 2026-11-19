@@ -65,6 +65,9 @@ EDITS=[
   "       const bool m1=op1>=32u&&op1<=55u;\n"
   "       std::cout<<\"V125_OPCODE_CLASS first_branch=\"<<b0<<\" first_mem=\"<<m0\n"
   "                <<\" second_branch=\"<<b1<<\" second_mem=\"<<m1<<std::endl;\n"
+  "       std::cout<<\"V125_OPCODE_DETAIL major0=\"<<op0<<\" major1=\"<<op1\n"
+  "                <<\" xo0=\"<<((a>>1u)&1023u)<<\" zero0=\"<<(a==0u)\n"
+  "                <<\" zero1=\"<<(b==0u)<<std::endl;\n"
   "     }\n"
   "   }"),
  ("nwii::runtime::post125_enter_inst=0;",
