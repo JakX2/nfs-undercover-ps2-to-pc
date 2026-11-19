@@ -18,6 +18,23 @@ NEXT_KNOWN=0x8051E71C
 MAX_SPAN=NEXT_KNOWN-ENTRY
 MIN_SPAN=8
 
+def prefix_kind(inherited:bytes,owner:bytes)->int:
+    """0=unmapped, 1=SC/BLR stub, 2=NOP pair, 3=authenticated, 4=other."""
+    slots=unpack(inherited)
+    found=[(base,blob) for kind,index,base,blob in slots
+           if kind==0 and base<=ENTRY and ENTRY+8<=base+len(blob)]
+    if len(found)!=1:
+        return 0
+    base,blob=found[0]
+    prefix=bytes(blob[ENTRY-base:ENTRY-base+8])
+    if prefix==STUB:
+        return 1
+    if prefix==NOP*2:
+        return 2
+    if prefix==text_at(owner,ENTRY,8):
+        return 3
+    return 4
+
 def placeholder_capacity(inherited:bytes)->int:
     slots=unpack(inherited)
     found=[(base,blob) for kind,index,base,blob in slots
@@ -122,6 +139,12 @@ def main():
             out.write(result)
     except Exception as exc:
         # Only a fixed numeric category is published, never raw private text.
+        try:
+            kind=prefix_kind(args.inherited_private_fixture.read_bytes(),
+                             args.authenticated_owner.read_bytes())
+        except Exception:
+            kind=0
+        print(f"V125_LATE_PREFIX kind={kind}")
         print(f"V125_LATE_DETAIL code={failure_code(exc):02d}")
         print("V125_LATE_RESTORE ok=0")
         raise SystemExit(1)

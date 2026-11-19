@@ -126,6 +126,7 @@ jobs:
               grep -E '^V125_STAGE_CHECK (after_probe|before_geometry|after_geometry|geometry_failure_branch)=1$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_LATE_RESTORE ok=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_LATE_DETAIL code=[0-9]{2}$' "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V125_LATE_PREFIX kind=[0-4]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_STATUS ok=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_BAD_BRANCH site=[0-9a-f]{8} major=[0-9]{1,2} link=[01] absolute=[01]$' "$RUNNER_TEMP/sc125.log" || true
               echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2

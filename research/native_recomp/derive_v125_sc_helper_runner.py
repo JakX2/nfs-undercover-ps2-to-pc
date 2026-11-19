@@ -126,6 +126,7 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
         raise ValueError("V125 late fixture checkpoint unavailable")
     late='''python3 "$here/restore_sc_helper_late_v125.py" "$work/private.dol" "$owner" "$work/sc-helper-v125.dol" \
   > "$work/restore-helper-v125.log" 2>&1 || {
+  grep -E '^V125_LATE_PREFIX kind=[0-4]$' "$work/restore-helper-v125.log" || true
   grep -E '^V125_LATE_DETAIL code=[0-9]{2}$' "$work/restore-helper-v125.log" || true
   echo 'V125_LATE_RESTORE ok=0'
   exit 1

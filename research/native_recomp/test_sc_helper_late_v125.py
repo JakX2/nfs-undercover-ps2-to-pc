@@ -37,6 +37,14 @@ class LateHelper(unittest.TestCase):
             restore(synthetic(NOP*4+bytes(data)+NOP*8),body)
         with self.assertRaises(ValueError):
             restore(synthetic(NOP*4+STUB+NOP*8),body)
+    def test_prefix_classifies_synthetic_and_authenticated(self):
+        from restore_sc_helper_late_v125 import prefix_kind
+        fake=synthetic(NOP*4+STUB+NOP*8)
+        owner=synthetic(NOP*4+struct.pack(">II",0x7c0802a6,0x4e800020)+NOP*8)
+        self.assertEqual(prefix_kind(fake,owner),1)
+        self.assertEqual(prefix_kind(synthetic(NOP*4+NOP*2+NOP*8),owner),2)
+        self.assertEqual(prefix_kind(owner,owner),3)
+        self.assertEqual(prefix_kind(synthetic(NOP*4+b"\x00"*8+NOP*8),owner),4)
     def test_capacity_stops_before_restored_neighbor(self):
         body=NOP*4+STUB+NOP*14+struct.pack(">I",0x7c0802a6)+NOP*8
         fixture=synthetic(body)
