@@ -54,6 +54,12 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
     old="candidate=\"$(grep -E '^V124_NEXT_CALL pc=[0-9a-f]{8}"
     if s.count(old)!=1:raise ValueError("V125 dynamic candidate anchor")
     s=s.replace(old,"candidate=\"$(grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8}",1)
+    build='python3 "$here/make_start_to_ipc_ack_v77.py"'
+    geometry='python3 "$here/test_v77_continuous_ipc_ack_geometry.py"'
+    if s.count(build)!=1 or s.count(geometry)!=1:
+        raise ValueError("V125 fixture hooks missing or duplicated")
+    s=s.replace(build,'python3 "$here/make_start_to_sc_helper_v125.py"',1)
+    s=s.replace(geometry,'python3 "$here/test_v125_sc_helper_geometry.py"',1)
     return s
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

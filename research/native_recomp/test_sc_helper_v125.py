@@ -72,6 +72,24 @@ class V125(unittest.TestCase):
         self.assertIn("mapped=1 owner=1 zero=0 nop=1 same=0",output)
         self.assertNotIn("7c0802a6",output)
         self.assertIn("diagnose_v125_fixture_coverage.py",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
+    def test_fixture_builder_placeholder_bounds(self):
+        import struct
+        from make_start_to_sc_helper_v125 import ENTRY,extent,NOP_WORD,MAX_SPAN,MIN_SPAN
+        from make_start_to_irq_enable_v68 import replace as patch
+        raw=bytearray(256+0x80)
+        struct.pack_into(">I",raw,0,256)
+        struct.pack_into(">I",raw,0x48,ENTRY)
+        struct.pack_into(">I",raw,0x90,0x80)
+        raw[256:256+0x80]=NOP_WORD*(0x80//4)
+        raw[256+0x40:256+0x44]=struct.pack(">I",0x4E800020)
+        self.assertEqual(extent(raw),0x40)
+        patch(raw,ENTRY,NOP_WORD*(0x40//4),struct.pack(">I",0x7c0802a6)*(0x40//4))
+        with self.assertRaises(ValueError):
+            extent(raw)
+        self.assertTrue(MAX_SPAN>=MIN_SPAN>=0x20)
+        script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        self.assertIn("make_start_to_sc_helper_v125.py",script)
+        self.assertIn("test_v125_sc_helper_geometry.py",script)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",
@@ -87,6 +105,8 @@ class V125(unittest.TestCase):
         self.assertEqual(s.count("              grep -E '^V110_WRAPPER"),1)
         for f in ("run_v125_continuous_sc_helper.sh","diagnose_sc_helper_v125.py"):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,s)
+        for f in ("make_start_to_sc_helper_v125.py","test_v125_sc_helper_geometry.py"):
+            self.assertTrue((HERE/f).is_file());self.assertIn(f,runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
         for m in ("V124_NEXT_CALL pc=8051e5bc","V125_NEXT_CALL pc=[0-9a-f]{8}",
                   "stage=125","WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID"):
             self.assertIn(m,s)

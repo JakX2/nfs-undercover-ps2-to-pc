@@ -87,6 +87,8 @@ jobs:
           test -f research/native_recomp/diagnose_sc_helper_v125.py
           test -f research/native_recomp/classify_v125_runtime_shape.py
           test -f research/native_recomp/diagnose_v125_fixture_coverage.py
+          test -f research/native_recomp/make_start_to_sc_helper_v125.py
+          test -f research/native_recomp/test_v125_sc_helper_geometry.py
           bash research/native_recomp/run_v125_continuous_sc_helper.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc125.log" 2>&1 || {
