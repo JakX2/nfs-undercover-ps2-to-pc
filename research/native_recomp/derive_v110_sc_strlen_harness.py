@@ -10,7 +10,7 @@ EDITS = [
   ],
   [
     " static std::vector<uint8_t> post109_expected;",
-    " static std::vector<uint8_t> post109_expected;\n static unsigned post110_strlen=0,post110_next=0;\n static uint32_t post110_source=0,post110_length=0,post110_chosen=0;"
+    " static std::vector<uint8_t> post109_expected;\n static unsigned post110_strlen=0,post110_next=0;\n static uint32_t post110_source=0,post110_length=0,post110_chosen=0;\n static uint64_t post110_before_db=0,post110_before_os=0;"
   ],
   [
     "       if(addr==POST_OWNER&&ctx.lr==0x8051e7a4u){",
@@ -22,7 +22,7 @@ EDITS = [
   ],
   [
     "     if(addr==0x8051e5bcu&&ctx.lr==0x8051e8f8u){",
-    "     if(post110_strlen==1u&&post110_next==0u&&\n        ((addr==0x8051e518u&&ctx.lr==0x8051ddd8u)||\n         (addr==0x804f1e2cu&&ctx.lr==0x8051de3cu)||\n         (addr==0x8051e3dcu&&ctx.lr==0x8051e78cu))){\n       using I=undercover::wii::StmIos;\n       const bool routed=post109_return==1u&&post109_copy==1u&&post102_strlen==1u;\n       bool data=!post109_expected.empty()&&post109_dst!=0u&&\n                 ctx.mmu.read8(post110_source+post110_length)==0u;\n       if(data)for(unsigned i=0;i<post109_expected.size();++i)\n         data&=ctx.mmu.read8(post109_dst+i)==post109_expected[i];\n       const bool abi=ctx.msr==ipc69_msr&&ctx.gpr[1]<post98_root_stack&&\n              ctx.mmu.read16(THREAD+712u)==2u&&ctx.mmu.read32(0x800000d4u)==THREAD&&\n              ctx.mmu.read32(0x800000e4u)==THREAD;\n       const bool prior=ipc70_bus.services().is_open(2u,I::Device::Fs)&&\n              !ipc70_bus.services().is_open(3u,I::Device::Es)&&\n              ipc70_bus.services().event_pending()&&ipc70_bus.services().queued_replies()==0u&&\n              !ipc70_bus.external_irq_level();\n       post110_chosen=addr==0x8051e518u?1u:addr==0x804f1e2cu?2u:3u;\n       std::cout<<\"V110_SC_CONTINUE route=\"<<routed<<\" data=\"<<data<<\" abi=\"<<abi\n                <<\" prior=\"<<prior<<\" branch=\"<<post110_chosen<<std::endl;\n       check(routed&&data&&abi&&prior,\"V110 original SC length did not return into authentic child\");\n       std::cout<<\"V110_IPC_GATE ack=\"<<(ack77_reply==1u)\n                <<\" dispatch=\"<<(irq76_ipc==1u)\n                <<\" vector=\"<<(vector75_handler==1u)\n                <<\" scheduler=\"<<(sched74_irq==1u)\n                <<\" active=\"<<ipc69_active\n                <<\" phase=\"<<(ipc69_step==9u)<<std::endl;\n       ++post110_next;post90_target=addr;observed_stop_pc=ctx.pc;\n       ++post_stops;ctx.is_running=false;throw ExceptionStop{};\n     }\n     if(addr==0x8051e5bcu&&ctx.lr==0x8051e8f8u){"
+    "     if(post110_strlen==1u&&post110_next==0u&&\n        ((addr==0x8051e518u&&ctx.lr==0x8051ddd8u)||\n         (addr==0x804f1e2cu&&ctx.lr==0x8051de3cu)||\n         (addr==0x8051e3dcu&&ctx.lr==0x8051e78cu))){\n       using I=undercover::wii::StmIos;\n       const bool routed=post109_return==1u&&post109_copy==1u&&post102_strlen==1u;\n       bool data=!post109_expected.empty()&&post109_dst!=0u&&\n                 ctx.mmu.read8(post110_source+post110_length)==0u;\n       if(data)for(unsigned i=0;i<post109_expected.size();++i)\n         data&=ctx.mmu.read8(post109_dst+i)==post109_expected[i];\n       const bool abi=ctx.msr==ipc69_msr&&ctx.gpr[1]<post98_root_stack&&\n              ctx.mmu.read16(THREAD+712u)==2u&&ctx.mmu.read32(0x800000d4u)==THREAD&&\n              ctx.mmu.read32(0x800000e4u)==THREAD;\n       const bool prior=ipc70_bus.services().is_open(2u,I::Device::Fs)&&\n              !ipc70_bus.services().is_open(3u,I::Device::Es)&&\n              ipc70_bus.services().event_pending()&&ipc70_bus.services().queued_replies()==0u&&\n              !ipc70_bus.external_irq_level();\n       post110_chosen=addr==0x8051e518u?1u:addr==0x804f1e2cu?2u:3u;\n       std::cout<<\"V110_SC_CONTINUE route=\"<<routed<<\" data=\"<<data<<\" abi=\"<<abi\n                <<\" prior=\"<<prior<<\" branch=\"<<post110_chosen<<std::endl;\n       check(routed&&data&&abi&&prior,\"V110 original SC length did not return into authentic child\");\n       std::cout<<\"V110_IPC_GATE ack=\"<<(ack77_reply==1u)\n                <<\" dispatch=\"<<(irq76_ipc==1u)\n                <<\" vector=\"<<(vector75_handler==1u)\n                <<\" scheduler=\"<<(sched74_irq==1u)\n                <<\" active=\"<<ipc69_active\n                <<\" phase=\"<<(ipc69_step==9u)\n                <<\" db=\"<<(db_entries==post110_before_db+1u)\n                <<\" os=\"<<(os_entries==post110_before_os+1u)<<std::endl;\n       ++post110_next;post90_target=addr;observed_stop_pc=ctx.pc;\n       ++post_stops;ctx.is_running=false;throw ExceptionStop{};\n     }\n     if(addr==0x8051e5bcu&&ctx.lr==0x8051e8f8u){"
   ],
   [
     "     nwii::runtime::post109_expected.clear();",
@@ -55,6 +55,10 @@ EDITS = [
   [
     "       if(addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){",
     "       if(post110_strlen==0u&&addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){"
+  ],
+  [
+    "    const auto before_os=nwii::runtime::os_entries;",
+    "    const auto before_os=nwii::runtime::os_entries;\n    nwii::runtime::post110_before_db=before_db;\n    nwii::runtime::post110_before_os=before_os;"
   ]
 ]
 def derive(source):
