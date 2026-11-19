@@ -81,7 +81,7 @@ jobs:
               if [[ "$code" =~ ^[0-9]{3}$ ]]; then
                 python3 research/native_recomp/diagnose_sc_strlen_v110.py "$((10#$code))" || true
               fi
-              grep -E '^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01] db=[01] os=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V110_TRIAL_PASS trial=[0-9]{1,2}$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$' "$RUNNER_TEMP/sc110.log" | sort -u || true
+              grep -E '^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V110_TRIAL_PASS trial=[0-9]{1,2}$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$' "$RUNNER_TEMP/sc110.log" | sort -u || true
               echo 'V110 original SC strlen continuation failed; private diagnostics withheld' >&2
               exit 1
             }
