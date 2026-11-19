@@ -17,8 +17,8 @@ class V113(unittest.TestCase):
   self.assertEqual(s,derive(base))
   self.assertEqual(s.count("if(addr==0x805195ecu&&ctx.lr==0x80519924u)"),2)
   self.assertNotIn("if(addr==POST_OWNER&&ctx.lr==0x80519924u)",s)
-  self.assertEqual(s.count("V113_QUEUE_ENTRY"),1)
-  self.assertEqual(s.count("POST_OWNER=0x805293b0u"),1)
+  self.assertEqual(s.count("V113_FLUSH_ENTRY"),1)
+  self.assertEqual(s.count("POST_OWNER=0x805222c0u"),1)
   for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
    self.assertEqual(s.count(marker),old.count(marker))
  def test_workflow_paths_and_provenance(self):
@@ -32,11 +32,11 @@ class V113(unittest.TestCase):
   self.assertIn("'.github/workflows/wii-v113-sc-transport-queue.yml'",workflow)
   self.assertIn("^V112_ASYNC_SUBMIT",workflow)
   self.assertIn("^V112_ASYNC_SYSCALL",workflow)
-  self.assertIn("V113_QUEUE_ENTRY route=1 queue=1 abi=1 prior=1",workflow)
+  self.assertIn("V113_FLUSH_ENTRY route=1 span=1 abi=1 prior=1",workflow)
  def test_runner(self):
   s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-  for m in ("BOOT_PROGRESS entry=0x8000403C pc=0x805293B0 stage=113",
-            "V113_QUEUE_ENTRY route=1 queue=1 abi=1 prior=1"):
+  for m in ("BOOT_PROGRESS entry=0x8000403C pc=0x805222C0 stage=113",
+            "V113_FLUSH_ENTRY route=1 span=1 abi=1 prior=1"):
    self.assertIn(m,s)
   with tempfile.TemporaryDirectory() as td:
    p=Path(td)/"run.sh";p.write_text(s)
