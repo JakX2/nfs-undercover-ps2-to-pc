@@ -1,55 +1,103 @@
-# NFS Undercover PS2/Wii → Carbon PC
+# Need for Speed: Undercover (Wii/PS2) → Native PC
 
-Research repository for an **offline native-format porting investigation**. This is **not yet a playable PC port**.
+**An experimental native Windows PC port of the Wii/PlayStation 2 version of *Need for Speed: Undercover*.**
 
-## Original-source world-stream findings
+The project's primary approach is **ahead-of-time (AOT) static recompilation of the original Wii PowerPC executable** using [NWiiRecomp](https://github.com/NWiiRecomp/NWiiRecomp), together with a native runtime that recreates the Wii environment the game expects. The aim is to preserve the Wii/PS2 game's behavior while running it natively on PC, rather than substituting the existing PC version or running the game through an emulator.
 
-**V6, 2026-11-05:** Carbon PC RB section 299 uses two serialized eSolid header values: 73 solids with `0x00000016`, and four with `0x00400016`. The version-aware offline reader verifies all 77 indexed identities and six post-scene group matches. Across seven RB sections, **20/20** `0x37250` record groups have identical model-hash candidate fields at `+0x44` and `+0x4C`, backed by local scenery and solid indexes. This is *not* evidence of pointer semantics or runtime registration.
+> **Current status: research and active development. This is not a playable port.** There is no downloadable Windows game build, working frontend, rendered game frame, or verified gameplay yet.
 
-An independent, bounded scan of 961 Carbon PC RA sections found **no match for the exact RB-specific post-scene sequence**; RA's format must be investigated separately. This is a format-profile negative, not evidence that RA lacks scenery or models.
+## Project status
 
-Read [V6 findings and limitations](research/CARBON_PC_POSTSCENE_V6_VARIANT_AND_RA.md) and the earlier [V5 original-source controls](research/CARBON_PC_POSTSCENE_ORIGINAL_RB_V5.md).
+| Area | Status |
+| --- | --- |
+| Wii executable analysis | Original Wii DOL and symbol-rich ELF examined in owner-private workflows |
+| PowerPC → native C++ translation | NWiiRecomp AOT translation exercised; whole-image translation and C++ syntax checks demonstrated, but not a complete linked game |
+| Continuous original startup | Authenticated, bounded native execution from the Wii `__start` entry (`0x8000403C`) through substantial Wii OS initialization and later service paths |
+| Wii OS and runtime | Selected CPU, memory, interrupt, cache, IPC, filesystem and system-service paths tested; device support remains incomplete |
+| System Configuration (SC) | Original-data restoration verified in a focused owner-private test; newer nonempty-path continuation remains experimental |
+| Game `main()` | Not reached in a verified full startup |
+| Rendering, frontend and gameplay | Not implemented or verified as a working Windows game |
 
-## Prototype experiment: November 7, 2026
+**A test checkpoint is not a boot.** Native tests may stop deliberately at a known original instruction and use controlled device responses. Passing such a test proves that specific execution path and its assertions, not a complete Wii hardware implementation or a running game.
 
-A source-only [V8 Windows prototype readiness runbook](research/CARBON_PC_FIRST_RUNTIME_PROTO_V8_RUNBOOK.md) documents a 55-test V7/V8 handoff for a reversible Undercover PS2 texture-in-Carbon PC test. V8 verifies both installed RB files plus required Python dependencies before staging; any installation and restoration require explicit owner-controlled actions.
+Track development in [the native recompilation research branch](https://github.com/JakX2/nfs-undercover-ps2-to-pc/tree/research/wii-native-recomp-preflight), [draft PR #36](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/36), and [GitHub Actions](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions). The status here summarizes verified work as of **November 19, 2026**; individual experiments and branch commits move faster than this overview.
 
-The owner launched Carbon PC with the staged Undercover texture stream and restored the original afterward. **No imported texture was visibly verified**; no in-game imported model or playable port has been established.
+## How the port is being built
 
-## Undercover scenery material coverage: V9 (2026-11-05)
+```text
+Owner-provided Wii DOL + ELF
+             |
+             v
+   Verify SHA-256 / analyze PPC
+             |
+             v
+       NWiiRecomp AOT
+             |
+             v
+    Native C++ game functions
+             |
+             +----> PowerPC CPU state and memory runtime
+             +----> Wii OS / IOS / IPC / filesystem services
+             +----> Graphics / audio / input compatibility (future work)
+             |
+             v
+      Native Windows game
+         (long-term goal)
+```
 
-A read-only owner-original audit reproduced **268 PS2 eSolid occurrences and 76,348 triangles** across eight geometry packs. **46/48** texture identities actually used by Undercover RB scenery have indexed images in the source RB packs. A stricter external-bank scan found **none of the two remaining identities in fully validated PS2 texture indexes** within Undercover `GLOBAL`, `FRONTEND`, `CARS`, or `Unknown`. The car bank uses unsupported image layouts in this specific parser, so this is **not a global absence claim**. Prefer the six fully image-backed source geometry packs when preparing a constrained offline native-asset test; no in-game world import has been proven.
+**Wii is the current executable baseline.** The PS2 version is relevant to the project's intended game content and compatibility goals, but PS2 binaries are not being presented as already recompilable by the Wii pipeline. Work on the Carbon PC resource bridge is a separate, lower-priority experiment, not the main port architecture.
 
-See [V9 source-bank audit](research/UNDERCOVER_PS2_EXTERNAL_MATERIAL_IMAGE_V9.md). The standalone Python V9 scanner and 35 synthetic tests are delivered in the separate source-only research kit.
+### What has been demonstrated
 
-## First source-backed scenery candidate: V10 (2026-11-05)
+- Authentic original Wii PowerPC functions have been translated to native C++ and executed in owner-private tests. The continuous-startup lane begins at the game's genuine `__start`, not an artificially entered downstream function.
+- Startup testing has exercised Wii OS initialization, exception and interrupt handling, cache and memory setup, and selected IOS, system-management, filesystem, title-service and System Configuration paths.
+- The separate direct-entry `OSInit` V68 regression reached its controlled stop at `0x804EFA34`. It must **not** be confused with progress from continuous `__start` execution.
+- A private full-image experiment translated the Wii executable into **112 C++ shards plus a dispatcher**, with **113/113 syntax-only checks passing**. That is not a full object build, link or functioning game executable.
+- Focused V108 owner-original CI validated restoration of original initialized SC pathname data. V109 nonempty-path execution is still under validation and must not be described as completed game initialization.
 
-A private read-only Undercover PS2 RB audit selected **section 241, geometry pack 0, model ordinal 6 (zero-based)** as an 8-triangle, one-texture, scenery-referenced offline geometry candidate. A larger **144-triangle** candidate is section 241 / pack 0 / model ordinal 42. These are source asset ordinals, not proven Carbon PC scene objects.
+The critical measurement is how far **uninterrupted original startup execution** reaches on the path toward `main()`, followed by a genuine first native frame. Internal stage numbers describe bounded tests; they are not a percentage-complete metric.
 
-The new [V10 gate](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/ps2-map-swap-as-pc-port-oracle/research/world_bridge/UNDERCOVER_PC_FIRST_MODEL_V10_GATE.md) resides in draft PR #33. Its single-model PC-shaped geometry/DXT5 candidate, strict full-table texture closure and native parser tests passed a **1,560/1,560** clean-checkout synthetic suite. **The V10 end-to-end converter has not yet been run on these original candidates or verified in Carbon PC.** See the [source-backed selection report](research/UNDERCOVER_PC_FIRST_MODEL_SOURCE_V10.md).
+## Testing and CI
 
-## V11 original model and external-bundle loader research
+The repository separates two kinds of evidence:
 
-Owner-original Undercover PS2 model data was decoded into two **PC-shaped offline geometry candidates**, preserving **8/8** and **144/144** original XYZ/UV/material triangles. The 144-triangle candidate has 288 source vertex samples, one backed material identity and 11 original VIF strips. An external Carbon resource-loader candidate (XNFSModFiles) was also checked statically against the owner's original PE32 `NFSC.exe`; five documented addresses map to executable code. **No native Carbon model registration or rendering has been verified.** See [V11 original-source geometry and external-loader evidence](research/UNDERCOVER_PC_V11_ORIGINAL_MODEL_AND_LOADER_PREFLIGHT.md).
+**Public, source-only checks** use independently authored synthetic inputs to test translator/runtime code, checkpoint reporting, script integrity and regression guards. They do not require any retail game files and cannot establish a new original-game boot checkpoint.
 
-The optional source-only V11 OBJ preview implementation and PE compatibility preflight are in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33). GitHub Actions has passed **1,604/1,604** synthetic tests on the draft branch. The offline preview can display owner-generated geometry locally but does not make Undercover playable in Carbon.
+**Owner-private original-code checks** stage SHA-256-verified Wii inputs in temporary CI workspace storage, generate translated C++ locally, run native regression tests and report bounded results. Proprietary inputs, generated game code, raw original instruction slices and private traces must not enter public Git history, logs or artifacts.
 
-## V12 native eSolid header controls: 205 exact PC matches
+Useful entry points:
 
-A **209-model original Carbon PC ↔ Carbon PS2 same-identity comparison** found a minimal PS2 header transform: zero the high 16 bits of the word at normalized eSolid offset `+0x14`. That yields **205/209 byte-identical native Carbon PC headers**. The four exceptions differ only in a special PC version flag and remain explicitly unsupported. The transform changes only **1 or 2 bytes** in the two selected original Undercover model headers while retaining complete offline PC-shaped geometry readback for **8/8 and 144/144 faces**. **No loader or game-side model rendering is proven.**
+- [`research/native_recomp/`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/tree/research/wii-native-recomp-preflight/research/native_recomp) contains the Wii recompilation research, native runtime helpers, original-free tests and per-stage notes on the research branch.
+- [`boot_progress.py`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/wii-native-recomp-preflight/research/native_recomp/boot_progress.py) handles exact entry/stop-PC reporting and comparisons without claiming progress from a failed or uninstrumented run.
+- [Continuous startup CI](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/wii-native-recomp-preflight/.github/workflows/wii-continuous-startup.yml), [PowerPC runtime CI](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/wii-native-recomp-preflight/.github/workflows/wii-ppc-runtime.yml) and [full-image translation probe](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/wii-native-recomp-preflight/.github/workflows/wii-full-recomp-probe.yml) provide complementary checks.
+- [Boot-first runbook](https://github.com/JakX2/nfs-undercover-ps2-to-pc/blob/research/wii-native-recomp-preflight/research/native_recomp/BOOT_FIRST_RUNBOOK.md) explains checkpoint interpretation and the difference between continuous-start and direct-entry tests.
 
-The opt-in transform and tests are in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33); the complete synthetic CI suite passed **1,626/1,626 tests**. Read the [V12 original-source controls and limitations](research/UNDERCOVER_PC_V12_NATIVE_ESOLID_HEADER_CONTROL.md).
+For a source-only checkpoint-driver test after checking out the research branch:
 
-## Research code and work in progress
+```bash
+python3 -m unittest discover -s research/native_recomp -p 'test_boot_progress.py' -v
+```
 
-[Draft source-only research PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33) hosts the broader experimental world-bridge code and tests. The separate V6 version-aware parser is included in the downloadable V6 research kit, not yet committed to that PR. The public V6 report is aggregate-only.
+This command tests the reporting driver only. It does **not** launch or recompile *Undercover*.
 
-Next: establish a safe Carbon native resource load, then registered single-model geometry plus texture identity, scene references and visibility. Four section-299 special eSolid header versions remain distinct and are not automatically mapped from PS2. RA's distinct section layouts remain a separate research workstream.
+## Development priorities
 
-Earlier work includes V41 native scenery conversion and V43–V46 scenery spatial/opaque-chunk analysis. All are offline format-research milestones.
+1. Continue the real Wii `__start` path through remaining OS, IOS and game startup dependencies, asserting exact observed guest PCs and original state transitions.
+2. Replace test-only device callbacks where needed with faithful runtime semantics for interrupts, memory, IPC, storage, timers, audio and input.
+3. Produce a complete native build that enters the original game's `main()` and survives its resource-loading sequence.
+4. Render the first authentic native frame, bring up the frontend, then validate controls, world loading, physics, audio and gameplay.
+5. Package and test a reproducible Windows build that works with legally obtained owner-provided game data.
 
-## Distribution and runtime boundaries
+The immediate goal is **working game startup**, not a higher milestone counter.
 
-No original game files, extracted asset payloads, models, textures, executable patches or modified retail archives are distributed here. All game-source analysis uses privately supplied originals.
+## Earlier Carbon PC experiments
 
-**No Undercover gameplay, native in-game rendering, world streaming, collision or driveable PC build has been verified.**
+Before the Wii native-recompilation work became the priority, this repository investigated reusing *Need for Speed: Carbon* PC's resource formats to bring across Undercover PS2/Wii content. That separate work includes eSolid geometry and texture decoding, world-stream comparisons, offline model conversion and a reversible in-game texture-staging experiment.
+
+These experiments did **not** establish a working Undercover world import, native model rendering or playable Carbon-based port. Historical references include [V6 world-stream findings](research/CARBON_PC_POSTSCENE_V6_VARIANT_AND_RA.md), [V9 material coverage](research/UNDERCOVER_PS2_EXTERNAL_MATERIAL_IMAGE_V9.md), and [V12 eSolid header controls](research/UNDERCOVER_PC_V12_NATIVE_ESOLID_HEADER_CONTROL.md). Broader work remains in [draft PR #33](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/33).
+
+## Downloads, rights and distribution
+
+This repository is a research and development project. **It does not distribute Nintendo/EA game executables, ELF/DOL files, extracted game assets, proprietary PowerPC instruction dumps, or generated C++ containing translated original game code.** Any owner-original analysis is performed on separately provided files and its public outputs are limited to independently authored code and safe validation summaries.
+
+There is currently **no installable or playable native Windows release**. This project is unofficial and is not affiliated with or endorsed by Electronic Arts, Nintendo or the original game's developers.
