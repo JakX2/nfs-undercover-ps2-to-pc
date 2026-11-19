@@ -26,6 +26,7 @@ class V121(unittest.TestCase):
                   "post121_next_pc=addr;post121_next_lr=ctx.lr;",
                   "nwii::runtime::post90_target:POST_SYNTH"):
             self.assertIn(m,actual)
+        self.assertEqual(actual.count("V121_END_IPC ack="),1)
         for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(marker),prior.count(marker))
 
