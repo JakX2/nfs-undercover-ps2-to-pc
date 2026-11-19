@@ -89,9 +89,9 @@ jobs:
           bash research/native_recomp/run_v125_continuous_sc_helper.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc125.log" 2>&1 || {
-              grep -E '^V125_GENERATED_TARGET present=[01]$|^V125_RUNTIME_SHAPE exception=[01] fault=[01] missing=[01] memory=[01] limit=[01] stop=[01] lookup=[01] dispatch=[01] state=[01]$' "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V125_GENERATED_TARGET present=[01]$|^V125_RUNTIME_SHAPE exception=[01] fault=[01] missing=[01] memory=[01] limit=[01] stop=[01] lookup=[01] dispatch=[01] state=[01] runtime=[01] range=[01] logic=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V110_WRAPPER (derived|syntax_ok|syntax_failed)$|^V110_WRAPPER_SYNTAX line=[0-9]+$|^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled)$' "$RUNNER_TEMP/sc125.log" || true
-              grep -E '^V110_PUBLIC_CXX_LINE number=[0-9]{1,5}$|^V110_PUBLIC_CXX_KIND expected=[0-9] undeclared=[0-9] type=[0-9] conversion=[0-9]|^V125_NATIVE_EXIT ok=[01]$|^V125_RUNTIME_SHAPE exception=[01] fault=[01] missing=[01] memory=[01] limit=[01] stop=[01] lookup=[01] dispatch=[01] state=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V110_PUBLIC_CXX_LINE number=[0-9]{1,5}$|^V110_PUBLIC_CXX_KIND expected=[0-9] undeclared=[0-9] type=[0-9] conversion=[0-9]|^V125_NATIVE_EXIT ok=[01]$|^V125_RUNTIME_SHAPE exception=[01] fault=[01] missing=[01] memory=[01] limit=[01] stop=[01] lookup=[01] dispatch=[01] state=[01] runtime=[01] range=[01] logic=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc125.log" || true
               code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc125.log" | tail -n 1 | cut -d= -f2 || true)"
               if [[ "$code" =~ ^[0-9]{3}$ ]]; then
                 python3 research/native_recomp/diagnose_sc_helper_v125.py "$((10#$code))" || true

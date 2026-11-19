@@ -29,6 +29,10 @@ class V125(unittest.TestCase):
         self.assertIn("lookup=1",format_report("what(): unordered_map::at"))
         self.assertIn("fault=0",value)
         self.assertNotIn("unsupported instruction",value)
+        self.assertIn("dispatch=0",format_report("V110_IPC_GATE dispatch=1"))
+        self.assertIn("dispatch=1",format_report("what(): invalid indirect branch"))
+        self.assertIn("runtime=1",format_report("terminate called after throwing an instance of 'std::runtime_error'"))
+
     def test_generated_target_diagnostic(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("V125_GENERATED_TARGET present=1",s)
