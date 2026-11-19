@@ -47,6 +47,10 @@ EDITS = [
   [
     " static bool submit72_trace(uint32_t addr,CPUContext&ctx){",
     " static bool submit72_trace(uint32_t addr,CPUContext&ctx){\n   if(post110_next==1u&&post111_wrapper==1u){\n     static unsigned v112_walk=0;\n     if(v112_walk<20u){\n       ++v112_walk;\n       std::cout<<\"V112_WALK index=\"<<v112_walk<<\" pc=\"<<std::hex<<addr<<\" lr=\"<<ctx.lr\n                <<std::dec<<\" open=\"<<post111_open<<\" save=\"<<post112_save\n                <<\" alloc=\"<<post112_alloc<<\" flush=\"<<post112_flush<<std::endl;\n     }\n   }"
+  ],
+  [
+    "       if(addr==POST_OWNER&&ctx.lr==0x804f1eccu){",
+    "       if(addr==0x8051982cu&&ctx.lr==0x804f1eccu){"
   ]
 ]
 def derive(source):

@@ -15,6 +15,8 @@ class V112(unittest.TestCase):
    current=current.replace(a,n,1)
   self.assertEqual(s,current)
   self.assertEqual(s,derive(base))
+  self.assertIn("if(addr==0x8051982cu&&ctx.lr==0x804f1eccu)",s)
+  self.assertNotIn("if(addr==POST_OWNER&&ctx.lr==0x804f1eccu)",s)
   for marker in ("V112_ASYNC_SYSCALL","V112_ASYNC_SUBMIT","V112_BOUNDARY","V112_TRIAL_PASS",
                  "POST_OWNER=0x805195ecu"):
    self.assertEqual(s.count(marker),1)
