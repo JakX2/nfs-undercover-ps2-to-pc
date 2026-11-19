@@ -88,6 +88,22 @@ int main(){
     submit(async_request,S::Open,0,path,1);
     ack(S::Pump::Ack);
     reply(async_request,S::Open,S::FsMissing);
+    // System Configuration is an ordinary read-only IOS file, never a
+    // special success-only shortcut. A guest-supplied fixture is required.
+    ram.string(path,"/shared2/sys/SYSCONF");
+    submit(async_request,S::Open,0,path,1);
+    ack(S::Pump::Ack);reply(async_request,S::Open,S::FsMissing);
+    assert(files->add("/shared2/sys/SYSCONF",{0x53,0x43,0x66,0x67,0x10}));
+    submit(async_request,S::Open,0,path,1);
+    ack(S::Pump::Ack);reply(async_request,S::Open,5);
+    assert(bus.services().is_open(5,S::Device::File));
+    submit(async_request,S::Read,5,out+64,8);
+    ack(S::Pump::Ack);reply(async_request,S::Read,5);
+    for(unsigned i=0;i<5;++i)
+        assert(ram.read8(out+64+i)==std::array<uint8_t,5>{0x53,0x43,0x66,0x67,0x10}[i]);
+    submit(async_request,S::Close,5);
+    ack(S::Pump::Ack);reply(async_request,S::Close,0);
+    assert(!bus.services().is_open(5,S::Device::File));
     assert(bus.services().event_pending()&&ram.read32(event)==S::Ioctl&&
            ram.read32(eventout)==0xaabbccddu&&
            bus.services().queued_replies()==0u);
