@@ -90,6 +90,7 @@ class V125(unittest.TestCase):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("make_start_to_sc_helper_v125.py",script)
         self.assertIn("test_v125_sc_helper_geometry.py",script)
+        self.assertIn("V125_GEOMETRY_FAILURE code=[0-9]{1,2}",script)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

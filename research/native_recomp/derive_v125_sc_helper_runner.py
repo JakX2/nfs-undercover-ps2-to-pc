@@ -45,6 +45,10 @@ fi'''
     if s.count(fixture_stage)!=1:raise ValueError("V125 fixture stage unavailable")
     coverage='python3 "$here/diagnose_v125_fixture_coverage.py" "$work/private.dol" "$owner"'
     s=s.replace(fixture_stage,fixture_stage+"\n"+coverage,1)
+    fail_marker="echo 'V71 STM geometry guard failed' >&2"
+    if s.count(fail_marker)!=1:raise ValueError("V125 missing private geometry failure gate")
+    s=s.replace(fail_marker,
+                'grep -E "^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$" "$work/private-geometry.log" || true\n'+fail_marker,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""

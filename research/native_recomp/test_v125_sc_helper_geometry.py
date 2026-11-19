@@ -40,5 +40,21 @@ if __name__=="__main__":
     p.add_argument("private_fixture",type=Path)
     p.add_argument("original_owner",type=Path)
     a=p.parse_args()
-    verify(a.private_fixture.read_bytes(),a.original_owner)
+    try:
+        verify(a.private_fixture.read_bytes(),a.original_owner)
+    except Exception as exc:
+        labels=(
+            "V125 fixture header/layout modified",
+            "V125 inherited data sections modified",
+            "V125 translated text section geometry modified",
+            "V125 private helper does not map uniquely",
+            "V125 helper fixture overlaps inherited code",
+            "V125 fixture differs outside authenticated helper span",
+            "V125 original helper has no verified NOP-only fixture range",
+            "V125 original Wii SHA-256 validation failed",
+            "V125 authentic helper entry missing",
+        )
+        code=(labels.index(str(exc))+1) if str(exc) in labels else 0
+        print(f"V125_GEOMETRY_FAILURE code={code} valueerror={int(isinstance(exc,ValueError))}")
+        raise SystemExit(1)
     print("PASS: V125 authenticated private helper geometry")
