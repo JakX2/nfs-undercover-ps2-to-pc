@@ -29,6 +29,8 @@ class V109(unittest.TestCase):
                       "V109_SC_NEXT_LENGTH route=1 data=1 prior=1",
                       "BOOT_PROGRESS entry=0x8000403C pc=0x80544AC0 stage=109"):
             self.assertIn(label,s)
+        self.assertIn("^V109_SC_SECOND_SOURCE order=[01] mapped=[01]",s)
+        self.assertIn("V104 original IOS_OpenAsync request submit failed; details withheld",s)
         self.assertIn("derive_v108_sc_literal_restore_harness.py",str(
             (HERE/"derive_v108_sc_literal_runner.py").read_text()))
         with tempfile.TemporaryDirectory() as td:
