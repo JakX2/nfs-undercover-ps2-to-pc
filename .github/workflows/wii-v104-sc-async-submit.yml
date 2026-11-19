@@ -126,6 +126,7 @@ jobs:
               grep -E '^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/v104-focused.log" | sort -u || true
               grep -E '^V104_RUNNER_POSTFAIL line=[0-9]+$' "$RUNNER_TEMP/v104-focused.log" || true
               grep -E '^V104_SUCCESS_GATE count=[0-9]{1,3} save=[01] cache=[01] sc=[01] submit=[01] terminal=[01]$' "$RUNNER_TEMP/v104-focused.log" || true
+              grep -E '^V104_WRAPPER_STAGE (derived|syntax_ok)$' "$RUNNER_TEMP/v104-focused.log" || true
               echo 'V104 candidate failed; private logs withheld' >&2
               exit 1
             }

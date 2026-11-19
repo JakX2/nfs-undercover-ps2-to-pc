@@ -11,5 +11,7 @@ work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 umask 077
 python3 "$here/derive_v104_sc_async_submit_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh"
+echo 'V104_WRAPPER_STAGE derived'
 bash -n "$work/run.sh"
+echo 'V104_WRAPPER_STAGE syntax_ok'
 V104_SOURCE_ROOT="$here" bash "$work/run.sh" "$1" "$2"
