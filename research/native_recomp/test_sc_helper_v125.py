@@ -92,6 +92,9 @@ class V125(unittest.TestCase):
         self.assertIn("test_v125_sc_helper_geometry.py",script)
         self.assertIn("V125_GEOMETRY_FAILURE code=[0-9]{1,2}",script)
         self.assertIn("V125_GEOMETRY_KIND import=1",script)
+        for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):
+            self.assertIn(marker,script)
+        self.assertNotIn("test_v77_continuous_ipc_ack_geometry.py",script)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

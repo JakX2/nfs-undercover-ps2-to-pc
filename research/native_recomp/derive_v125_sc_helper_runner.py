@@ -59,6 +59,16 @@ else echo 'V125_GEOMETRY_KIND import=0 type=0 value=0 other=1'; fi
 grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$work/private-geometry.log" || true
 '''
     s=s.replace(gate,classify+gate,1)
+    coverage='python3 "$here/diagnose_v125_fixture_coverage.py" "$work/private.dol" "$owner"'
+    if s.count(coverage)!=1:raise ValueError("V125 coverage marker missing")
+    s=s.replace(coverage,coverage+"\necho 'V125_STAGE_CHECK after_probe=1'",1)
+    geometry='python3 "$here/test_v125_sc_helper_geometry.py"'
+    if s.count(geometry)!=1:raise ValueError("V125 geometry marker missing")
+    s=s.replace(geometry,"echo 'V125_STAGE_CHECK before_geometry=1'\n"+geometry,1)
+    stages=("echo 'V104_STAGE geometry_verified'","echo 'V79_STAGE geometry_verified'")
+    selected=[mark for mark in stages if s.count(mark)==1]
+    if len(selected)!=1:raise ValueError("V125 geometry stage marker ambiguous")
+    s=s.replace(selected[0],"echo 'V125_STAGE_CHECK after_geometry=1'\n"+selected[0],1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""
