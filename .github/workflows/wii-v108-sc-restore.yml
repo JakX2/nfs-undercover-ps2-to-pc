@@ -80,26 +80,12 @@ jobs:
           grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc108.log"
           grep -Fx 'V107_SC_SOURCE mapped=1 empty=1 original_literal=1' "$RUNNER_TEMP/sc108.log"
           grep -Fx 'V108_SC_GATE owner=1 empty=1 span=1' "$RUNNER_TEMP/sc108.log"
-          grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}          # Decode only an exact public test-harness assertion label.
-          # Original executable data and native private diagnostics stay local.
+          grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" || true
+          # Source-owned assertion ID only. No private crash text is emitted.
           code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
           if [[ "$code" =~ ^[0-9]{3}$ ]]; then
             python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
           fi
-          grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
-          # Public callsite IDs only, never guest filenames, code, or buffers.
-          grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # The subsequent V104 submit may still fail; do not claim boot.
-          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          echo 'PASS: original SC initialized literal restored at original guest input'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
- "$RUNNER_TEMP/sc108.log" || true
-          # Report only original function/return addresses from source-owned
-          # bounded hooks. Never print private guest data or raw native logs.
-          grep -E '^V104_FAIL_HOOK pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$|^V104_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$|^V104_FALLTHROUGH pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[0-2] cache=[0-2]
           # Decode only an exact public test-harness assertion label.
           # Original executable data and native private diagnostics stay local.
           code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
@@ -107,77 +93,8 @@ jobs:
             python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
           fi
           grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
-          # Public callsite IDs only, never guest filenames, code, or buffers.
-          grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # The subsequent V104 submit may still fail; do not claim boot.
-          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          echo 'PASS: original SC initialized literal restored at original guest input'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
- "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # Decode only an exact public test-harness assertion label.
-          # Original executable data and native private diagnostics stay local.
-          code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
-          if [[ "$code" =~ ^[0-9]{3}$ ]]; then
-            python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
-          fi
-          grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
-          # Public callsite IDs only, never guest filenames, code, or buffers.
-          grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # The subsequent V104 submit may still fail; do not claim boot.
-          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          echo 'PASS: original SC initialized literal restored at original guest input'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
- "$RUNNER_TEMP/sc108.log" || true
-          # Decode only an exact public test-harness assertion label.
-          # Original executable data and native private diagnostics stay local.
-          code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
-          if [[ "$code" =~ ^[0-9]{3}$ ]]; then
-            python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
-          fi
-          grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
-          # Public callsite IDs only, never guest filenames, code, or buffers.
-          grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # The subsequent V104 submit may still fail; do not claim boot.
-          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          echo 'PASS: original SC initialized literal restored at original guest input'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
- "$RUNNER_TEMP/sc108.log" || true
-          # Report only original function/return addresses from source-owned
-          # bounded hooks. Never print private guest data or raw native logs.
-          grep -E '^V104_FAIL_HOOK pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$|^V104_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$|^V104_FALLTHROUGH pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[0-2] cache=[0-2]
-          # Decode only an exact public test-harness assertion label.
-          # Original executable data and native private diagnostics stay local.
-          code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
-          if [[ "$code" =~ ^[0-9]{3}$ ]]; then
-            python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
-          fi
-          grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
-          # Public callsite IDs only, never guest filenames, code, or buffers.
-          grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # The subsequent V104 submit may still fail; do not claim boot.
-          grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc108.log" | sort -u || true
-          echo 'PASS: original SC initialized literal restored at original guest input'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc108.log"
- "$RUNNER_TEMP/sc108.log" | sort -u || true
-          # Decode only an exact public test-harness assertion label.
-          # Original executable data and native private diagnostics stay local.
-          code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc108.log" | tail -n 1 | cut -d= -f2 || true)"
-          if [[ "$code" =~ ^[0-9]{3}$ ]]; then
-            python3 research/native_recomp/diagnose_sc_literal_restore_v108.py "$((10#$code))"
-          fi
-          grep -Fx 'V108_SC_RESTORE owner=1 empty_before=1 exact=1' "$RUNNER_TEMP/sc108.log"
+          # Only source-owned original function/return address predicates.
+          grep -E '^V104_FAIL_HOOK pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$|^V104_FALLTHROUGH pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5} phase=[0-2] cache=[0-2]$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
           # Public callsite IDs only, never guest filenames, code, or buffers.
           grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc108.log" | sort -u || true
           # The subsequent V104 submit may still fail; do not claim boot.
