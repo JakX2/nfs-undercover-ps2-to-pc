@@ -90,6 +90,10 @@ class V125(unittest.TestCase):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("make_start_to_sc_helper_v125.py",script)
         self.assertIn("test_v125_sc_helper_geometry.py",script)
+        self.assertNotIn('python3 "$here/test_v77_continuous_ipc_ack_geometry.py"',script)
+        self.assertLess(script.index("V125_STAGE_CHECK before_geometry=1"),
+                        script.index('python3 "$here/test_v125_sc_helper_geometry.py"'))
+
         self.assertIn("V125_GEOMETRY_FAILURE code=[0-9]{1,2}",script)
         self.assertIn("V125_GEOMETRY_KIND import=1",script)
         for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):

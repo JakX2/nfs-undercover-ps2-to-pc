@@ -17,6 +17,12 @@ def derive(source):
     for a,b in EDITS:
         if a not in s:raise ValueError("V125 runner missing source anchor: "+a)
         s=s.replace(a,b)
+    build='python3 "$here/make_start_to_ipc_ack_v77.py"'
+    geometry='python3 "$here/test_v77_continuous_ipc_ack_geometry.py"'
+    if s.count(build)!=1 or s.count(geometry)!=1:
+        raise ValueError("V125 fixture hooks missing or duplicated")
+    s=s.replace(build,'python3 "$here/make_start_to_sc_helper_v125.py"',1)
+    s=s.replace(geometry,'python3 "$here/test_v125_sc_helper_geometry.py"',1)
     fail="  echo 'V125_NATIVE_EXIT ok=0'"
     if s.count(fail)!=1:raise ValueError("V125 fail marker missing")
     s=s.replace(fail,"  grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] text=[01]$' \"$work/private-native.log\" | sort -u || true\n"+fail,1)
@@ -78,12 +84,6 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
     old="candidate=\"$(grep -E '^V124_NEXT_CALL pc=[0-9a-f]{8}"
     if s.count(old)!=1:raise ValueError("V125 dynamic candidate anchor")
     s=s.replace(old,"candidate=\"$(grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8}",1)
-    build='python3 "$here/make_start_to_ipc_ack_v77.py"'
-    geometry='python3 "$here/test_v77_continuous_ipc_ack_geometry.py"'
-    if s.count(build)!=1 or s.count(geometry)!=1:
-        raise ValueError("V125 fixture hooks missing or duplicated")
-    s=s.replace(build,'python3 "$here/make_start_to_sc_helper_v125.py"',1)
-    s=s.replace(geometry,'python3 "$here/test_v125_sc_helper_geometry.py"',1)
     return s
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
