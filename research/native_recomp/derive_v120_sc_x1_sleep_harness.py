@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""V120 execute original asynchronous IPC X1 register write into original thread-sleep call."""
+"""V120 execute original asynchronous IPC X1 register write into original interrupt-restore call."""
 import argparse
 from pathlib import Path
 from derive_v119_sc_control_write_harness import derive as previous
 
 EDITS = [
- ("POST_OWNER=0x8051906cu", "POST_OWNER=0x8052a430u"),
+ ("POST_OWNER=0x8051906cu", "POST_OWNER=0x805265d4u"),
  (" static unsigned post119_control=0;",
-  " static unsigned post119_control=0;\n static unsigned post120_sleep=0,post120_walk=0;"),
+  " static unsigned post119_control=0;\n static unsigned post120_restore=0,post120_walk=0;"),
  ("if(post118_sleep==1u&&post117_send==1u&&addr==POST_OWNER&&ctx.lr==0x805197c8u){",
   "if(post118_sleep==1u&&post117_send==1u&&addr==0x8051906cu&&ctx.lr==0x805197c8u){"),
  ("""     ++post119_control;post90_target=addr;observed_stop_pc=ctx.pc;
@@ -16,11 +16,11 @@ EDITS = [
    if(post117_send==1u&&post118_sleep==0u&&post118_walk<16u){""",
   """     ++post119_control;return; // execute original IPC X1 control-register writer
    }
-   if(post119_control==1u&&addr==POST_OWNER&&ctx.lr==0x805197d8u){
+   if(post119_control==1u&&addr==POST_OWNER&&ctx.lr==0x805197e0u){
      using B=undercover::wii::IosBus;
      using M=undercover::wii::IpcMailbox;
      using I=undercover::wii::StmIos;
-     const bool route=post120_sleep==0u&&post117_send==1u&&
+     const bool route=post120_restore==0u&&post117_send==1u&&
           post118_sleep==1u&&post118_reads>0u&&post119_control==1u;
      const bool sent=post118_msg==1u&&post118_x1==1u;
      const auto msg=ipc70_bus.read32(B::IPC+M::PPCMSG);
@@ -37,26 +37,26 @@ EDITS = [
           !ipc70_bus.services().is_open(3u,I::Device::Es)&&
           ipc70_bus.services().event_pending()&&
           ipc70_bus.services().queued_replies()==0u&&!ipc70_bus.external_irq_level();
-     std::cout<<"V120_X1_SLEEP_ENTRY route="<<route<<" sent="<<sent
+     std::cout<<"V120_X1_RESTORE_ENTRY route="<<route<<" sent="<<sent
               <<" wire="<<wire<<" abi="<<abi<<" prior="<<prior<<std::endl;
      check(route&&sent&&wire&&abi&&prior,
-           "V120 original IOS X1 submission did not reach genuine sleep call");
-     ++post120_sleep;post90_target=addr;observed_stop_pc=ctx.pc;
+           "V120 original IOS X1 submission did not reach authentic interrupt-restore call");
+     ++post120_restore;post90_target=addr;observed_stop_pc=ctx.pc;
      ++post_stops;ctx.is_running=false;throw ExceptionStop{};
    }
-   if(post119_control==1u&&post120_sleep==0u&&post120_walk<16u){
+   if(post119_control==1u&&post120_restore==0u&&post120_walk<16u){
      ++post120_walk;
      std::cout<<"V120_WALK seq="<<post120_walk<<" pc="<<std::hex<<addr
               <<" lr="<<ctx.lr<<std::dec<<" x1="<<post118_x1<<std::endl;
    }
    if(post117_send==1u&&post118_sleep==0u&&post118_walk<16u){"""),
  ("nwii::runtime::post119_control=0;",
-  "nwii::runtime::post119_control=0;\n     nwii::runtime::post120_sleep=nwii::runtime::post120_walk=0;"),
+  "nwii::runtime::post119_control=0;\n     nwii::runtime::post120_restore=nwii::runtime::post120_walk=0;"),
  ("check(nwii::runtime::post119_control==1u&&",
-  "check(nwii::runtime::post120_sleep==1u&&nwii::runtime::post119_control==1u&&"),
+  "check(nwii::runtime::post120_restore==1u&&nwii::runtime::post119_control==1u&&"),
  ("V119_TRIAL_PASS trial=","V120_TRIAL_PASS trial="),
  ("V119 recovered continuous original __start->SC IOS control-register read return and write-helper entry assertions",
-  "V120 recovered continuous original __start->SC IOS X1 submission and thread-sleep call entry assertions")
+  "V120 recovered continuous original __start->SC IOS X1 submission and interrupt-restore call entry assertions")
 ]
 
 def derive(source):

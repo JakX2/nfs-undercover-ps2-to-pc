@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# V120 original nonempty SC request through original PPCCTRL X1 submission to thread-sleep entry.
+# V120 original nonempty SC request through original PPCCTRL X1 submission to interrupt-restore entry.
 set -euo pipefail
 if (( $# != 2 ));then echo 'usage: run_v120_continuous_sc_x1_sleep.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2;exit 2;fi
 here="$(cd "$(dirname "$0")" && pwd)"

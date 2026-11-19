@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Original-free V120 X1 IPC control write and sleep entry validation."""
+"""Original-free V120 X1 IPC control write and interrupt restore entry validation."""
 from pathlib import Path
 import subprocess
 import tempfile
@@ -21,12 +21,12 @@ class V120(unittest.TestCase):
             expected=expected.replace(before,after,1)
         self.assertEqual(actual,expected)
         self.assertEqual(actual,derive(base))
-        for marker in ("POST_OWNER=0x8052a430u",
-                       "if(post119_control==1u&&addr==POST_OWNER&&ctx.lr==0x805197d8u)",
-                       "V120_X1_SLEEP_ENTRY route=",
+        for marker in ("POST_OWNER=0x805265d4u",
+                       "if(post119_control==1u&&addr==POST_OWNER&&ctx.lr==0x805197e0u)",
+                       "V120_X1_RESTORE_ENTRY route=",
                        "post118_msg==1u&&post118_x1==1u",
                        "(*ctrl&M::X1)!=0u",
-                       "post120_sleep==1u&&nwii::runtime::post119_control==1u"):
+                       "post120_restore==1u&&nwii::runtime::post119_control==1u"):
             self.assertIn(marker,actual)
         for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(marker),old.count(marker))
@@ -34,8 +34,8 @@ class V120(unittest.TestCase):
     def test_runner(self):
         src=(HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8")
         actual=runner(src)
-        for marker in ("BOOT_PROGRESS entry=0x8000403C pc=0x8052A430 stage=120",
-                       "V120_X1_SLEEP_ENTRY route=1 sent=1 wire=1 abi=1 prior=1",
+        for marker in ("BOOT_PROGRESS entry=0x8000403C pc=0x805265D4 stage=120",
+                       "V120_X1_RESTORE_ENTRY route=1 sent=1 wire=1 abi=1 prior=1",
                        "V120_NATIVE_EXIT ok=1"):
             self.assertIn(marker,actual)
         with tempfile.TemporaryDirectory() as td:
@@ -51,8 +51,8 @@ class V120(unittest.TestCase):
             self.assertTrue((HERE/f).is_file(),f)
             self.assertIn(f,wf)
         for marker in ("'.github/workflows/wii-v120-sc-x1-sleep.yml'",
-                       "V120_X1_SLEEP_ENTRY route=1 sent=1 wire=1 abi=1 prior=1",
-                       "BOOT_PROGRESS entry=0x8000403C pc=0x8052A430 stage=120",
+                       "V120_X1_RESTORE_ENTRY route=1 sent=1 wire=1 abi=1 prior=1",
+                       "BOOT_PROGRESS entry=0x8000403C pc=0x805265D4 stage=120",
                        "WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID",
                        "V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1"):
             self.assertIn(marker,wf)
