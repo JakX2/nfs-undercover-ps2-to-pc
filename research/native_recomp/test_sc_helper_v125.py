@@ -38,6 +38,11 @@ class V125(unittest.TestCase):
         self.assertIn("V125_GENERATED_TARGET present=1",s)
         self.assertIn("V125_GENERATED_TARGET present=0",s)
         self.assertIn("func_8051[eE]5[bB][cC]",s)
+    def test_exception_site(self):
+        derived=derive((HERE/"test_start_to_ipc_ack_v77.cpp").read_text())
+        self.assertIn("V125_EXCEPTION_SITE pc=",derived)
+        self.assertIn("dynamic_cast<const std::runtime_error*>(&e)",derived)
+        self.assertIn("V125_EXCEPTION_SITE pc=[0-9a-f]{8}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

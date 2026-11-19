@@ -30,6 +30,9 @@ else
   echo 'V125_GENERATED_TARGET present=0'
 fi'''
     s=s.replace(stage,stage+"\n"+target,1)
+    marker="  echo 'V125_NATIVE_EXIT ok=0'"
+    if s.count(marker)!=1:raise ValueError("V125 exception output anchor")
+    s=s.replace(marker,"  grep -E '^V125_EXCEPTION_SITE pc=[0-9a-f]{8} lr=[0-9a-f]{8} phase=[01] kind=[01]$' \"$work/private-native.log\" | sort -u || true\n"+marker,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""

@@ -100,6 +100,7 @@ jobs:
               grep -E '^V118_CTRL_READ_ENTRY' "$RUNNER_TEMP/sc125.log" | head -n 8 || true
               grep -E '^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/sc125.log" | sort -u | tail -n 28 || true
               grep -E '^V112_(WALK|BOUNDARY)|^V113_(WALK|BOUNDARY)' "$RUNNER_TEMP/sc125.log" | tail -n 20 || true
+              grep -E '^V125_EXCEPTION_SITE pc=[0-9a-f]{8} lr=[0-9a-f]{8} phase=[01] kind=[01]$' "$RUNNER_TEMP/sc125.log" | sort -u || true
               echo 'V125 original SC helper next call candidate failed; private diagnostics withheld' >&2
               exit 1
             }

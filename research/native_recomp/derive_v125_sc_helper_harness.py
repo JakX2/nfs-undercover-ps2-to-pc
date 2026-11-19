@@ -47,7 +47,15 @@ EDITS=[
  ("V124 recovered continuous original __start->SC IOS second register-save call and successor",
   "V125 recovered continuous original __start->SC IOS SC helper continuation"),
  ("nwii::runtime::post90_target==nwii::runtime::post124_pc&&",
-  "nwii::runtime::post90_target==nwii::runtime::post125_pc&&")
+  "nwii::runtime::post90_target==nwii::runtime::post125_pc&&"),
+ ("try{run_game(c);}catch(const ExceptionStop&){exception_stop=true;}",
+  "try{run_game(c);}catch(const ExceptionStop&){exception_stop=true;}\n"
+  "      catch(const std::exception& e){\n"
+  "        std::cout<<\"V125_EXCEPTION_SITE pc=\"<<std::hex<<c.pc<<\" lr=\"<<c.lr<<std::dec\n"
+  "                 <<\" phase=\"<<(nwii::runtime::post124_next==1u)\n"
+  "                 <<\" kind=\"<<(dynamic_cast<const std::runtime_error*>(&e)!=nullptr)<<std::endl;\n"
+  "        throw;\n"
+  "      }")
 ]
 def derive(source):
     s=previous(source)
