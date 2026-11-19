@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive read-only V107 provenance observer from the existing V104 build."""
+"""Derive read-only V107 provenance observer from the V104 strict runner."""
 from derive_v104_sc_async_submit_runner import derive as previous
 def derive(source):
     s=previous(source)
@@ -7,5 +7,15 @@ def derive(source):
     if s.count(old)!=1:raise ValueError("V107 runner original source anchor missing")
     s=s.replace(old,"derive_v107_sc_source_probe_harness.py",1)
     marker="^V104_ASYNC_SAVE route=[01]$"
-    if s.count(marker)!=2:raise ValueError("V107 bounded diagnostic relay missing")
-    return s.replace(marker,marker+"|^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$")
+    provenance="^V107_SC_SOURCE mapped=[01] empty=[01] original_literal=[01]$"
+    # Diagnostic failure relay is still present once. The strict V104
+    # success trailer intentionally omits old optional grep pipelines.
+    # Keep the bounded read-only provenance relay on both paths.
+    if s.count(marker)!=1:raise ValueError("V107 bounded failure relay missing")
+    s=s.replace(marker,marker+"|"+provenance,1)
+    anchor="echo 'V104_STAGE native_test_passed'"
+    if s.count(anchor)!=1:raise ValueError("V107 strict success anchor missing")
+    s=s.replace(anchor,anchor+"\n"+
+         "grep -E '"+provenance+"' \"$work/private-native.log\" | sort -u || true",1)
+    if s.count(provenance)!=2:raise ValueError("V107 provenance relay count differs")
+    return s
