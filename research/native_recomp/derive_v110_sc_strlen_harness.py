@@ -51,6 +51,10 @@ EDITS = [
   [
     "    throw std::runtime_error(why);",
     "    std::cout<<\"V110_ASSERT_HOOK pc=\"<<std::hex<<v104_last_hook<<\" lr=\"<<v104_last_lr<<std::dec<<std::endl;\n    throw std::runtime_error(why);"
+  ],
+  [
+    "       if(addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){",
+    "       if(post102_next==0u&&addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){"
   ]
 ]
 def derive(source):
