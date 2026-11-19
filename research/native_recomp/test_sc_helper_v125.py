@@ -114,6 +114,7 @@ class V125(unittest.TestCase):
         self.assertTrue(s.rstrip().endswith('rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc125.log"'))
         self.assertIn("V125_GENERATED_TARGET present=[01]",s)
         self.assertIn("V125_GEOMETRY_KIND import=[01]",s)
+        self.assertIn("verify_v125_owner_fixture.py",s)
         self.assertIn("grep -Fx 'V110_WRAPPER derived'",s)
         self.assertIn("grep -Fx 'V110_WRAPPER syntax_ok'",s)
         self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)

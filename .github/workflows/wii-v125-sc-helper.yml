@@ -46,6 +46,11 @@ jobs:
             echo 'Owner Wii staging failed after three bounded attempts' >&2
             exit 1
           fi
+      - name: Independently verify V125 private fixture restoration
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py \
+            "$RUNNER_TEMP/originals/NfsMWRelease.dol"
       - name: Prepare pinned original-free NWii runtime and cache traces
         run: |
           set -euo pipefail
