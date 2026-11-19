@@ -115,14 +115,7 @@ jobs:
           grep -Fx 'V115_DISABLE_ENTRY route=1 abi=1 prior=1' "$RUNNER_TEMP/sc119.log"
           grep -Fx 'V116_QUEUE_HELPER route=1 pointer=1 abi=1 prior=1' "$RUNNER_TEMP/sc119.log"
           grep -Fx 'V117_SEND_REG route=1 abi=1 prior=1' "$RUNNER_TEMP/sc119.log"
-          grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]
-          grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8051906C stage=119' "$RUNNER_TEMP/sc119.log"
-          echo 'PASS: owner-original V119 SC request reached IPC control-write helper'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc119.log"
- "$RUNNER_TEMP/sc119.log"
+          grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]$' "$RUNNER_TEMP/sc119.log"
           grep -Fx 'V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1' "$RUNNER_TEMP/sc119.log"
           grep -Fx 'BOOT_PROGRESS entry=0x8000403C pc=0x8051906C stage=119' "$RUNNER_TEMP/sc119.log"
           echo 'PASS: owner-original V119 SC request reached IPC control-write helper'
