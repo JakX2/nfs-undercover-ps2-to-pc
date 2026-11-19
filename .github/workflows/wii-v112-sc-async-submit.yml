@@ -83,7 +83,7 @@ jobs:
               fi
               grep -E '^V112_ASYNC_SUBMIT route=[01] wire=[01] mode=[01] path=[01] abi=[01] prior=[01]$|^V112_ASYNC_SYSCALL order=[01] lines=[01]$|^V111_TERMINAL open=[0-9] selected=[0-9] stop=[01]$|^V111_SC_ASYNC_ENTRY route=[01] copied=[01] path=[01] nonempty=[01] abi=[01] prior=[01]$|^V110_IPC_GATE ack=[01] dispatch=[01] vector=[01] scheduler=[01] active=[01] phase=[01] db=[01] os=[01]$|^V110_ASSERT_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V110_TRIAL_START trial=[0-9]{1,2}$|^V112_TRIAL_PASS trial=[0-9]{1,2}$|^V110_SC_STRLEN input=[01] bounded=[01] empty=[01]$|^V110_SC_CONTINUE route=[01] data=[01] abi=[01] prior=[01] branch=[123]$|^V109_SC_SECOND_COPY input=[01] bounded=[01]$' "$RUNNER_TEMP/sc112.log" | sort -u || true
               grep -E '^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_TRACE seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/sc112.log" | sort -u | tail -n 28 || true
-              grep -E '^V112_BOUNDARY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} next=[01] open=[01] chosen=[0-3] save=[01] alloc=[01] restore=[01] flush=[01] sc=[01] vector=[01]$' "$RUNNER_TEMP/sc112.log" | sort -u || true
+              grep -E '^V112_BOUNDARY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} ' "$RUNNER_TEMP/sc112.log" | sort -u || true
               echo 'V112 original IOS_OpenAsync request candidate failed; private diagnostics withheld' >&2
               exit 1
             }
