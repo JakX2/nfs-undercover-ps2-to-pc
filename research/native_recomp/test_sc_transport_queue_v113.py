@@ -11,10 +11,11 @@ class V113(unittest.TestCase):
   base=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
   old=previous(base);s=derive(base);current=old
   for a,n in EDITS:
-   self.assertEqual(current.count(a),1,a[:100]);current=current.replace(a,n,1)
+   count=2 if a=="if(addr==POST_OWNER&&ctx.lr==0x80519924u){" else 1
+   self.assertEqual(current.count(a),count,a[:100]);current=current.replace(a,n,count)
   self.assertEqual(s,current)
   self.assertEqual(s,derive(base))
-  self.assertIn("if(addr==0x805195ecu&&ctx.lr==0x80519924u)",s)
+  self.assertEqual(s.count("if(addr==0x805195ecu&&ctx.lr==0x80519924u)"),2)
   self.assertNotIn("if(addr==POST_OWNER&&ctx.lr==0x80519924u)",s)
   self.assertEqual(s.count("V113_QUEUE_ENTRY"),1)
   self.assertEqual(s.count("POST_OWNER=0x805293b0u"),1)

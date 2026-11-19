@@ -44,10 +44,10 @@ EDITS = [
 def derive(source):
     source=previous(source)
     for old,new in EDITS:
-        if source.count(old)!=1:
-            nearby=[line.strip()[:110] for line in source.splitlines() if "80519924u" in line][:5]
-            raise ValueError("V113 source anchor missing or ambiguous: "+old[:90]+" available="+repr(nearby))
-        source=source.replace(old,new,1)
+        expected=2 if old=="if(addr==POST_OWNER&&ctx.lr==0x80519924u){" else 1
+        if source.count(old)!=expected:
+            raise ValueError("V113 source anchor count differs: "+old[:90])
+        source=source.replace(old,new,expected)
     return source
 def main():
     p=argparse.ArgumentParser(description=__doc__)
