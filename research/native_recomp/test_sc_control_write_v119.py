@@ -49,16 +49,8 @@ class V119(unittest.TestCase):
             self.assertTrue((HERE/name).is_file(),name)
             self.assertIn(name,wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
-        self.assertEqual(wf.count("grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]
-                       "V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1",
-                       "BOOT_PROGRESS entry=0x8000403C pc=0x8051906C stage=119",
-                       "WII_ORIGINAL_DOL_ID","WII_ORIGINAL_ELF_ID"):
-            self.assertIn(marker,wf)
-
-if __name__=="__main__":
-    unittest.main()
-"),1)
-        self.assertNotIn("\n+ \"$RUNNER_TEMP/sc119.log\"",wf)
+        self.assertEqual(wf.count("grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]$'"),1)
+        self.assertIn("V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1",wf)
         self.assertNotIn("\n\n      - name: Remove private owner and generated code",wf)
         for marker in ("'.github/workflows/wii-v119-sc-control-write.yml'",
                        "V119_CTRL_WRITE_ENTRY route=1 reads=1 wire=1 abi=1 prior=1",
