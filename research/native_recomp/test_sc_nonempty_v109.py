@@ -14,9 +14,11 @@ class V109(unittest.TestCase):
         old=previous(base);s=derive(base)
         for a,_ in EDITS:self.assertEqual(old.count(a),1,a[:80])
         self.assertEqual(s,derive(base))
-        for key in ("V109_SC_SECOND_COPY","V109_SC_NEXT_LENGTH","V109_TRIAL_PASS",
+        for key in ("V109_SC_SECOND_SOURCE","V109_SC_SECOND_COPY","V109_SC_NEXT_LENGTH","V109_TRIAL_PASS",
                     "POST_OWNER=0x80544ac0u"):
             self.assertEqual(s.count(key),1,key)
+        self.assertIn("valid&=term&&output",s)
+        self.assertIn("!post109_expected.empty()",s)
         self.assertEqual(s.count("ctx.mmu.write"),old.count("ctx.mmu.write"))
         self.assertEqual(s.count("seed_stm_data("),old.count("seed_stm_data("))
         self.assertEqual(s.count("ipc70_bus.reset()"),old.count("ipc70_bus.reset()"))
