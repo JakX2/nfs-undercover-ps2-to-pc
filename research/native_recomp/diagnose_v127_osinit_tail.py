@@ -26,10 +26,20 @@ def classify(original:tuple[int,...],fixture:tuple[int,...])->dict[str,int]:
       "return_count":sum(w==BLR for w in original),
       "nop_count":sum(w==NOP for w in original),
       "syscall_count":sum(major(w)==17 for w in original),
+      "major0":major(original[0]),
+      "major1":major(original[1]),
+      "major2":major(original[2]),
+      "major3":major(original[3]),
+      "link_mask":sum((1<<i) for i,w in enumerate(original)
+                      if major(w) in (16,18,19) and (w&1)),
+      "direct_mask":sum((1<<i) for i,w in enumerate(original)
+                        if major(w)==18),
+
     }
 def report(data:dict[str,int])->str:
     fields=("placeholder","changed","first_branch","first_syscall",
-            "branch_count","return_count","nop_count","syscall_count")
+            "branch_count","return_count","nop_count","syscall_count",
+            "major0","major1","major2","major3","link_mask","direct_mask")
     return "V127_OSINIT_WINDOW "+" ".join(f"{k}={data[k]}" for k in fields)
 
 def main()->int:
