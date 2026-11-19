@@ -48,12 +48,7 @@ EDITS=[
  ("V120_TRIAL_PASS trial=","V121_TRIAL_PASS trial="),
  ("V120 recovered continuous original __start->SC IOS X1 submission and interrupt-restore call entry assertions",
   "V121 recovered continuous original __start->SC IOS post-X1 continuation call assertions"),
- ("observed_stop_pc!=(owner?POST_OWNER:POST_SYNTH)",
-  "observed_stop_pc!=(owner?post121_next_pc:POST_SYNTH)"),
- ("observed_stop_pc==(owner?POST_OWNER:POST_SYNTH)",
-  "observed_stop_pc==(owner?post121_next_pc:POST_SYNTH)"),
- ("<<(owner?POST_OWNER:POST_SYNTH)",
-  "<<(owner?post121_next_pc:POST_SYNTH)")
+
 ]
 
 def derive(source):

@@ -23,9 +23,8 @@ class V121(unittest.TestCase):
         self.assertEqual(actual,derive(base))
         for m in ("V121_NEXT_CALL pc=",
                   "post121_next==1u&&nwii::runtime::post120_restore==1u",
-                  "observed_stop_pc==(owner?post121_next_pc:POST_SYNTH)",
-                  "observed_stop_pc!=(owner?post121_next_pc:POST_SYNTH)",
-                  "<<(owner?post121_next_pc:POST_SYNTH)"):
+                  "post121_next_pc=addr;post121_next_lr=ctx.lr;",
+                  "nwii::runtime::post90_target:POST_SYNTH"):
             self.assertIn(m,actual)
         for marker in ("ctx.mmu.write","seed_stm_data(","ipc70_bus.reset()"):
             self.assertEqual(actual.count(marker),prior.count(marker))
