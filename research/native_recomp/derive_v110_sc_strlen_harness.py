@@ -57,6 +57,10 @@ EDITS = [
     "       if(post110_strlen==0u&&addr==0x804f1e2cu&&ctx.lr==0x8051de3cu){"
   ],
   [
+    "nwii::runtime::post90_route==1u&&nwii::runtime::post90_target==POST_OWNER&&",
+    "nwii::runtime::post90_route==1u&&nwii::runtime::post90_target==(nwii::runtime::post110_chosen==1u?0x8051e518u:nwii::runtime::post110_chosen==2u?0x804f1e2cu:0x8051e3dcu)&&"
+  ],
+  [
     "    const auto before_os=nwii::runtime::os_entries;",
     "    const auto before_os=nwii::runtime::os_entries;\n    nwii::runtime::post110_before_db=before_db;\n    nwii::runtime::post110_before_os=before_os;"
   ]
