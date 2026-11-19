@@ -47,6 +47,10 @@ EDITS = [
   [
     "  for(unsigned trial=0;trial<trials;++trial){\n    if(owner&&trial!=0u){",
     "  for(unsigned trial=0;trial<trials;++trial){\n    if(owner)std::cout<<\"V110_TRIAL_START trial=\"<<(trial+1u)<<std::endl;\n    if(owner&&trial!=0u){"
+  ],
+  [
+    "    throw std::runtime_error(why);",
+    "    std::cout<<\"V110_ASSERT_HOOK pc=\"<<std::hex<<v104_last_hook<<\" lr=\"<<v104_last_lr<<std::dec<<std::endl;\n    throw std::runtime_error(why);"
   ]
 ]
 def derive(source):
