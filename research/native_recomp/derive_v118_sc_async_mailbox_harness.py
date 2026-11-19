@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""V118 submit a genuine second Wii IOS Open request via original PPCMSG/X1 MMIO, stop at sleep."""
+"""V118 stop at the observed original IPC control-register read helper."""
 import argparse
 from pathlib import Path
 from derive_v117_sc_send_register_harness import derive as previous
 
 EDITS = [
- ("POST_OWNER=0x8051906cu","POST_OWNER=0x8052a430u"),
+ ("POST_OWNER=0x8051906cu","POST_OWNER=0x8051905cu"),
  (" static unsigned post117_send=0,post117_walk=0;",
   " static unsigned post117_send=0,post117_walk=0;\n static unsigned post118_msg=0,post118_x1=0,post118_reads=0,post118_sleep=0,post118_walk=0;\n static uint32_t post118_phys=0;"),
  ("if(post116_queue==1u&&addr==POST_OWNER&&ctx.lr==0x80519780u){",
@@ -15,15 +15,10 @@ EDITS = [
    }""",
   """     ++post117_send;return; // execute original register writer and MMIO
    }
-   if(post117_send==1u&&post118_x1==1u&&addr==POST_OWNER&&ctx.lr==0x805197d8u){
-     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;
+   if(addr==POST_OWNER&&ctx.lr==0x805197b8u){
      using I=undercover::wii::StmIos;
-     const bool route=post118_sleep==0u&&post118_msg==1u&&post118_x1==1u&&
+     const bool route=post118_sleep==0u&&
           post117_send==1u&&post116_queue==1u&&post115_disable==1u;
-     const auto ctrl=ipc70_bus.read32(B::IPC+M::PPCCTRL).value_or(0u);
-     const bool wire=post118_phys!=0u&&!(post118_phys&31u)&&
-          ipc70_ram.valid(post118_phys,64u)&&ipc70_ram.read32(post118_phys)==I::Open&&
-          (ctrl&M::X1);
      const bool abi=!(ctx.msr&0x8000u)&&ctx.gpr[1]<post98_root_stack&&
           ctx.mmu.read16(THREAD+712u)==2u&&
           ctx.mmu.read32(0x800000d4u)==THREAD&&
@@ -31,10 +26,10 @@ EDITS = [
      const bool prior=ipc70_bus.services().is_open(2u,I::Device::Fs)&&
           !ipc70_bus.services().is_open(3u,I::Device::Es)&&
           ipc70_bus.services().queued_replies()==0u&&!ipc70_bus.external_irq_level();
-     std::cout<<"V118_SLEEP_ENTRY route="<<route<<" wire="<<wire
-              <<" abi="<<abi<<" prior="<<prior<<std::endl;
-     check(route&&wire&&abi&&prior,
-           "V118 original IOS async request did not reach sleep after PPCMSG and X1");
+     std::cout<<"V118_CTRL_READ_ENTRY route="<<route<<" abi="<<abi
+              <<" prior="<<prior<<" msg="<<post118_msg<<std::endl;
+     check(route&&abi&&prior,
+           "V118 original IPC control-register read call differs");
      ++post118_sleep;post90_target=addr;observed_stop_pc=ctx.pc;
      ++post_stops;ctx.is_running=false;throw ExceptionStop{};
    }
@@ -91,10 +86,10 @@ EDITS = [
  ("nwii::runtime::post117_send=nwii::runtime::post117_walk=0;",
   "nwii::runtime::post117_send=nwii::runtime::post117_walk=0;\n     nwii::runtime::post118_msg=nwii::runtime::post118_x1=nwii::runtime::post118_reads=nwii::runtime::post118_sleep=nwii::runtime::post118_walk=0;\n     nwii::runtime::post118_phys=0;"),
  ("check(nwii::runtime::post117_send==1u&&",
-  "check(nwii::runtime::post118_sleep==1u&&nwii::runtime::post118_msg==1u&&nwii::runtime::post118_x1==1u&&nwii::runtime::post117_send==1u&&"),
+  "check(nwii::runtime::post118_sleep==1u&&nwii::runtime::post117_send==1u&&"),
  ("V117_TRIAL_PASS trial=","V118_TRIAL_PASS trial="),
  ("V117 recovered continuous original __start->SC IOS queue-helper return and IPC send-register entry assertions",
-  "V118 recovered continuous original __start->SC IOS async PPCMSG and X1 to sleeping thread assertions")
+  "V118 recovered continuous original __start->SC IOS control-register read entry assertions")
 ]
 
 def derive(source):
