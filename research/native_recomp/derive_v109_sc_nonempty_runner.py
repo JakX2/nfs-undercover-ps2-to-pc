@@ -16,8 +16,8 @@ def derive(source):
     failure="  echo 'V104 original IOS_OpenAsync request submit failed; details withheld' >&2"
     diag="^V109_SC_SECOND_SOURCE order=[01] mapped=[01] terminated=[01] empty=[01] output=[01] abi=[01]$"
     if s.count(failure)!=1:raise ValueError("V109 native failure relay anchor differs")
-    s=s.replace(failure,
-        "  grep -E '"+diag+"' \\"$work/private-native.log\\" | sort -u || true"+chr(10)+failure,1)
+    relay = "  grep -E '" + diag + "' " + '"$work/private-native.log"' + " | sort -u || true"
+    s=s.replace(failure,relay+chr(10)+failure,1)
     start="echo 'V104_STAGE native_test_passed'"
     if s.count(start)!=1 or not s.rstrip().endswith(
         "echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104'"):
