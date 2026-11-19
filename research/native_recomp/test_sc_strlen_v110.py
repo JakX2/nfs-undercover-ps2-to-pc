@@ -21,6 +21,14 @@ class V110(unittest.TestCase):
         self.assertEqual(result.count("seed_stm_data("),prior.count("seed_stm_data("))
         self.assertEqual(result.count("ipc70_bus.reset()"),prior.count("ipc70_bus.reset()"))
         self.assertEqual(result,derive(base))
+    def test_public_compiler_context(self):
+        # This is derived exclusively from independently authored source.
+        # The private game executable is neither loaded nor printed.
+        base=(HERE/"test_start_to_ipc_ack_v77.cpp").read_text()
+        lines=derive(base).splitlines()
+        self.assertGreater(len(lines),1610)
+        for line in range(1601,1611):
+            print(f"V110_PUBLIC_CPP_CONTEXT line={line} text={lines[line-1].strip()[:180]}",flush=True)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for marker in ("derive_v110_sc_strlen_harness.py","V110_HARNESS_MARKERS count=$marker_count","V110_NATIVE_EXIT ok=1",
