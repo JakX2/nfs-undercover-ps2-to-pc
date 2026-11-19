@@ -94,6 +94,7 @@ jobs:
           test -f research/native_recomp/diagnose_v125_fixture_coverage.py
           test -f research/native_recomp/make_start_to_sc_helper_v125.py
           test -f research/native_recomp/restore_sc_helper_late_v125.py
+          test -f research/native_recomp/make_v125_canonical_fixture.py
           test -f research/native_recomp/test_v125_sc_helper_geometry.py
           test -f research/native_recomp/describe_v125_generator_assertion.py
           test -f research/native_recomp/derive_v125_sc_helper_generator.py
@@ -124,7 +125,7 @@ jobs:
               grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_KIND import=[01] type=[01] value=[01] other=[01]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_STAGE_CHECK (after_probe|before_geometry|after_geometry|geometry_failure_branch)=1$' "$RUNNER_TEMP/sc125.log" || true
-              grep -E '^V125_LATE_RESTORE ok=[01]$' "$RUNNER_TEMP/sc125.log" || true
+              grep -E '^V125_LATE_RESTORE ok=[01]$|^V125_CANONICAL result=(failed|verified)$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_LATE_DETAIL code=[0-9]{2}$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_LATE_PREFIX kind=[0-4]$' "$RUNNER_TEMP/sc125.log" || true
               grep -E '^V125_GEOMETRY_STATUS ok=[01]$' "$RUNNER_TEMP/sc125.log" || true
@@ -137,6 +138,7 @@ jobs:
           grep -Fx 'V110_HARNESS_MARKERS count=4' "$RUNNER_TEMP/sc125.log"
           grep -Fx 'V125_NATIVE_EXIT ok=1' "$RUNNER_TEMP/sc125.log"
           grep -Fx 'V125_LATE_RESTORE ok=1' "$RUNNER_TEMP/sc125.log"
+          grep -Fx 'V125_CANONICAL result=verified' "$RUNNER_TEMP/sc125.log"
           grep -Fx 'V125_STAGE native_test_passed' "$RUNNER_TEMP/sc125.log"
           grep -Eq '^V110_SC_STRLEN input=1 bounded=1 empty=[01]$' "$RUNNER_TEMP/sc125.log"
           grep -Fx 'V110_SC_CONTINUE route=1 data=1 abi=1 prior=1 branch=2' "$RUNNER_TEMP/sc125.log"

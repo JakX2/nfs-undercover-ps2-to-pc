@@ -111,6 +111,7 @@ jobs:
           python3 research/native_recomp/test_sc_helper_v125.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
+          python3 research/native_recomp/test_v125_canonical_source.py
           python3 research/native_recomp/test_sc_v109_workflow_gate.py
           python3 research/native_recomp/test_sc_v109_classifier.py
           python3 research/native_recomp/test_sc_nonempty_classifier_v109.py

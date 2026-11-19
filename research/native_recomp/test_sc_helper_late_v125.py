@@ -76,7 +76,7 @@ class LateHelper(unittest.TestCase):
         import inspect
         from derive_v125_sc_helper_runner import derive
         shell=derive((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn('restore_sc_helper_late_v125.py',shell)
+        self.assertIn('make_v125_canonical_fixture.py',shell)
         self.assertIn('python3 "$here/make_start_to_ipc_ack_v77.py"',shell)
         self.assertNotIn('python3 "$here/make_start_to_sc_helper_v125.py"',shell)
         self.assertLess(shell.index("V104_STAGE geometry_verified"),shell.index("V125_LATE_RESTORE"))

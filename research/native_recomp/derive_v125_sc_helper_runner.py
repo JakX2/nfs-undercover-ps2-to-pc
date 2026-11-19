@@ -124,7 +124,7 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
     late_at="echo 'V104_STAGE geometry_verified'"
     if s.count(late_at)!=1:
         raise ValueError("V125 late fixture checkpoint unavailable")
-    late='''python3 "$here/restore_sc_helper_late_v125.py" "$work/private.dol" "$owner" "$work/sc-helper-v125.dol" \
+    late='''python3 "$here/make_v125_canonical_fixture.py" "$owner" "$work/sc-helper-v125.dol" \
   > "$work/restore-helper-v125.log" 2>&1 || {
   grep -E '^V125_LATE_PREFIX kind=[0-4]$' "$work/restore-helper-v125.log" || true
   grep -E '^V125_LATE_DETAIL code=[0-9]{2}$' "$work/restore-helper-v125.log" || true
@@ -133,6 +133,7 @@ test "$(grep -Ec '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=1 wire=1 a
 }
 mv -- "$work/sc-helper-v125.dol" "$work/private.dol"
 echo 'V125_LATE_RESTORE ok=1'
+echo 'V125_CANONICAL result=verified'
 '''
     s=s.replace(late_at,late_at+"\n"+late,1)
     return s
