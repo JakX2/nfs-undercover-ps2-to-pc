@@ -49,6 +49,16 @@ fi'''
     if s.count(fail_marker)!=1:raise ValueError("V125 missing private geometry failure gate")
     s=s.replace(fail_marker,
                 'grep -E "^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$" "$work/private-geometry.log" || true\n'+fail_marker,1)
+    gate="echo 'V71 STM geometry guard failed' >&2"
+    if s.count(gate)!=1:raise ValueError("V125 geometry branch not unique")
+    classify='''
+if grep -Eiq 'ModuleNotFoundError|ImportError' "$work/private-geometry.log"; then echo 'V125_GEOMETRY_KIND import=1 type=0 value=0 other=0'
+elif grep -Eiq 'TypeError|AttributeError' "$work/private-geometry.log"; then echo 'V125_GEOMETRY_KIND import=0 type=1 value=0 other=0'
+elif grep -Eiq 'ValueError' "$work/private-geometry.log"; then echo 'V125_GEOMETRY_KIND import=0 type=0 value=1 other=0'
+else echo 'V125_GEOMETRY_KIND import=0 type=0 value=0 other=1'; fi
+grep -E '^V125_GEOMETRY_FAILURE code=[0-9]{1,2} valueerror=[01]$' "$work/private-geometry.log" || true
+'''
+    s=s.replace(gate,classify+gate,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""
