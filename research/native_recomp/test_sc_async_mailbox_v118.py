@@ -33,6 +33,8 @@ class V118(unittest.TestCase):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))
         self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8051905C stage=118",script)
         self.assertIn("V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]",script)
+        self.assertIn('grep -E \'^V118_CTRL_READ_ENTRY route=[01]',script)
+        self.assertIn('"$work/private-native.log" | sort -u || true',script)
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/"run.sh"
             path.write_text(script,encoding="utf-8")

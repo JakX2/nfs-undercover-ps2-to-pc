@@ -25,6 +25,25 @@ def derive(source):
     mark="echo 'V118_STAGE native_test_passed'"
     if s.count(mark)!=1:
         raise ValueError("V118 runner pass marker absent/ambiguous")
+    failure="echo 'V118_NATIVE_EXIT ok=0'"
+    if s.count(failure)!=1:
+        raise ValueError("V118 native failure marker missing or ambiguous")
+    s=s.replace(failure, """
+grep -E '^V118_CTRL_READ_ENTRY route=[01] abi=[01] prior=[01] msg=[0-9]{1,2}$|^V118_PPCMSG wire=[01] path=[01]$|^V118_PPCCTRL route=[01] request=[01]$|^V118_WALK seq=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} msg=[0-9]{1,2} x1=[0-9]{1,2}
+grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]$' "$log" """.rstrip())
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("source",type=Path)
+    p.add_argument("output",type=Path)
+    a=p.parse_args()
+    with a.output.open("x",encoding="utf-8") as out:
+        out.write(derive(a.source.read_text(encoding="utf-8")))
+
+if __name__=="__main__":
+    main()
+ "$work/private-native.log" | sort -u || true
+"""+failure,1)
     return s.replace(mark,mark+"""
 grep -E '^V118_CTRL_READ_ENTRY route=1 abi=1 prior=1 msg=[01]$' "$log" """.rstrip())
 
