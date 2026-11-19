@@ -103,6 +103,10 @@ else
 fi
 """
     s=s[:a]+safe_block+s[b:]
+    generated='python3 "$here/derive_v104_sc_async_submit_generator.py"'
+    if s.count(generated)!=1:
+        raise ValueError("V125 generator runner reference missing or duplicated")
+    s=s.replace(generated,'python3 "$here/derive_v125_sc_helper_generator.py"',1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""

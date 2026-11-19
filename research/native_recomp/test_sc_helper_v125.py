@@ -36,7 +36,7 @@ class V125(unittest.TestCase):
     def test_generator_assertion_catalog_uses_generator_source(self):
         from describe_v125_generator_assertion import describe,messages
         from classify_v67_generator_failure import classify
-        from derive_v104_sc_async_submit_generator import derive as generated
+        from derive_v125_sc_helper_generator import derive as generated
         source=generated((HERE/"generate_start_to_ipc_ack_v77.cpp").read_text())
         labels=messages()
         self.assertGreater(len(labels),80)
@@ -45,6 +45,18 @@ class V125(unittest.TestCase):
         wf=(HERE.parents[1]/".github/workflows/wii-v125-sc-helper.yml").read_text()
         self.assertIn("describe_v125_generator_assertion.py",wf)
         self.assertIn("V104_STAGE generator_compiled",wf)
+    def test_generator_branch_trace_preserves_guard(self):
+        from derive_v125_sc_helper_generator import derive as generator
+        from derive_v125_sc_helper_generator import OLD,NEW
+        from derive_v104_sc_async_submit_generator import derive as previous_generator
+        base=(HERE/"generate_start_to_ipc_ack_v77.cpp").read_text()
+        old=previous_generator(base)
+        self.assertEqual(old.count(OLD),1)
+        actual=generator(base)
+        self.assertEqual(actual,old.replace(OLD,NEW,1))
+        self.assertIn('V125_BAD_BRANCH site=',actual)
+        self.assertIn('require((ins>>26)==18 && (ins&3)==1,"expected absolute-free PPC BL");',actual)
+        self.assertIn("derive_v125_sc_helper_generator.py",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
     def test_generated_target_diagnostic(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("V125_GENERATED_TARGET present=1",s)
