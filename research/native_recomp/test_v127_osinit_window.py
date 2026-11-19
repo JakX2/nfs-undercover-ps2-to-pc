@@ -24,7 +24,7 @@ class V127Window(unittest.TestCase):
         self.assertEqual(got["placeholder"],1)
         self.assertEqual(got["changed"],1)
         self.assertEqual(got["first_branch"],1)
-        self.assertEqual(got["branch_count"],1)
+        self.assertEqual(got["branch_count"],2)  # direct BL plus opcode-19 BLR
         self.assertEqual(got["return_count"],1)
         self.assertEqual(got["syscall_count"],1)
         message=report(got)
