@@ -96,6 +96,7 @@ class V125(unittest.TestCase):
 
         self.assertIn("V125_GEOMETRY_FAILURE code=[0-9]{1,2}",script)
         self.assertIn("V125_GEOMETRY_KIND import=1",script)
+        self.assertIn("V125_STAGE_CHECK geometry_failure_branch=1",script)
         for marker in ("V125_STAGE_CHECK after_probe=1","V125_STAGE_CHECK before_geometry=1","V125_STAGE_CHECK after_geometry=1"):
             self.assertIn(marker,script)
         self.assertNotIn("test_v77_continuous_ipc_ack_geometry.py",script)
@@ -112,7 +113,9 @@ class V125(unittest.TestCase):
         self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)
         self.assertIn("V125_GENERATED_TARGET present=[01]",s)
         self.assertIn("V125_GEOMETRY_KIND import=[01]",s)
-        self.assertEqual(s.count("              grep -E '^V110_WRAPPER"),1)
+        self.assertIn("grep -Fx 'V110_WRAPPER derived'",s)
+        self.assertIn("grep -Fx 'V110_WRAPPER syntax_ok'",s)
+        self.assertEqual(s.count("      - name: Remove private owner and generated code"),1)
         for f in ("run_v125_continuous_sc_helper.sh","diagnose_sc_helper_v125.py"):
             self.assertTrue((HERE/f).is_file());self.assertIn(f,s)
         for f in ("make_start_to_sc_helper_v125.py","test_v125_sc_helper_geometry.py"):
