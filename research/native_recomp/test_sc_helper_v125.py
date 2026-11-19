@@ -41,6 +41,8 @@ class V125(unittest.TestCase):
     def test_exception_site(self):
         derived=derive((HERE/"test_start_to_ipc_ack_v77.cpp").read_text())
         self.assertIn("V125_EXCEPTION_SITE pc=",derived)
+        self.assertIn("post125_enter_inst=ctx.inst_count",derived)
+        self.assertIn("V125_EXCEPTION_STEPS delta=",derived)
         self.assertIn("dynamic_cast<const std::runtime_error*>(&e)",derived)
         self.assertIn("V125_EXCEPTION_SITE pc=[0-9a-f]{8}",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
     def test_runner(self):

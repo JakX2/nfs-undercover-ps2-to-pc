@@ -33,6 +33,8 @@ fi'''
     marker="  echo 'V125_NATIVE_EXIT ok=0'"
     if s.count(marker)!=1:raise ValueError("V125 exception output anchor")
     s=s.replace(marker,"  grep -E '^V125_EXCEPTION_SITE pc=[0-9a-f]{8} lr=[0-9a-f]{8} phase=[01] kind=[01]$' \"$work/private-native.log\" | sort -u || true\n"+marker,1)
+    catalog='  python3 "$here/classify_v67_native_failure.py" "$work/private-native.log" "$work/harness.cpp" || true\n'
+    s=s.replace(fail,catalog+fail,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""

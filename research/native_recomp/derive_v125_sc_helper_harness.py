@@ -5,14 +5,14 @@ from derive_v124_sc_second_save_harness import derive as previous
 import argparse
 EDITS=[
  (" static uint32_t post124_pc=0,post124_lr=0;",
-  " static uint32_t post124_pc=0,post124_lr=0;\n static unsigned post125_next=0;\n static uint32_t post125_pc=0,post125_lr=0;"),
+  " static uint32_t post124_pc=0,post124_lr=0;\n static unsigned post125_next=0;\n static uint32_t post125_pc=0,post125_lr=0;\n static uint64_t post125_enter_inst=0;"),
  ("""     post124_pc=addr;post124_lr=ctx.lr;++post124_next;
      post90_target=addr;observed_stop_pc=ctx.pc;
      ++post_stops;ctx.is_running=false;throw ExceptionStop{};
    }""",
   """     check(addr==0x8051e5bcu&&ctx.lr==0x8051e054u,
            "V125 original SC helper callsite differs");
-     post124_pc=addr;post124_lr=ctx.lr;++post124_next;return;
+     post124_pc=addr;post124_lr=ctx.lr;++post124_next;post125_enter_inst=ctx.inst_count;return;
    }
    if(post124_next==1u&&post125_next==0u){
      using B=undercover::wii::IosBus;
@@ -40,7 +40,7 @@ EDITS=[
      ++post_stops;ctx.is_running=false;throw ExceptionStop{};
    }"""),
  ("nwii::runtime::post124_next=nwii::runtime::post124_pc=nwii::runtime::post124_lr=0;",
-  "nwii::runtime::post124_next=nwii::runtime::post124_pc=nwii::runtime::post124_lr=0;\n     nwii::runtime::post125_next=nwii::runtime::post125_pc=nwii::runtime::post125_lr=0;"),
+  "nwii::runtime::post124_next=nwii::runtime::post124_pc=nwii::runtime::post124_lr=0;\n     nwii::runtime::post125_next=nwii::runtime::post125_pc=nwii::runtime::post125_lr=0;\n     nwii::runtime::post125_enter_inst=0;"),
  ("check(nwii::runtime::post124_next==1u&&nwii::runtime::post123_next==1u&&",
   "check(nwii::runtime::post125_next==1u&&nwii::runtime::post124_next==1u&&nwii::runtime::post123_next==1u&&"),
  ("V124_TRIAL_PASS trial=","V125_TRIAL_PASS trial="),
@@ -54,6 +54,8 @@ EDITS=[
   "        std::cout<<\"V125_EXCEPTION_SITE pc=\"<<std::hex<<c.pc<<\" lr=\"<<c.lr<<std::dec\n"
   "                 <<\" phase=\"<<(nwii::runtime::post124_next==1u)\n"
   "                 <<\" kind=\"<<(dynamic_cast<const std::runtime_error*>(&e)!=nullptr)<<std::endl;\n"
+  "        std::cout<<\"V125_EXCEPTION_STEPS delta=\"<<(c.inst_count>=nwii::runtime::post125_enter_inst ?\n"
+  "                   std::min<uint64_t>(c.inst_count-nwii::runtime::post125_enter_inst,999999u) : 0u)<<std::endl;\n"
   "        throw;\n"
   "      }")
 ]
