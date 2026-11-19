@@ -25,8 +25,15 @@ class V125(unittest.TestCase):
         value=format_report(text)
         self.assertIn("exception=1",value)
         self.assertIn("missing=1",value)
+        self.assertIn("lookup=0",value)
+        self.assertIn("lookup=1",format_report("what(): unordered_map::at"))
         self.assertIn("fault=0",value)
         self.assertNotIn("unsupported instruction",value)
+    def test_generated_target_diagnostic(self):
+        s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        self.assertIn("V125_GENERATED_TARGET present=1",s)
+        self.assertIn("V125_GENERATED_TARGET present=0",s)
+        self.assertIn("func_8051[eE]5[bB][cC]",s)
     def test_runner(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",

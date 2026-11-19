@@ -22,6 +22,14 @@ def derive(source):
     s=s.replace(fail,"  grep -E '^V125_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8} route=[01] wire=[01] abi=[01] text=[01]$' \"$work/private-native.log\" | sort -u || true\n"+fail,1)
     private='  python3 "$here/classify_v125_runtime_shape.py" "$work/private-native.log" || true\n'
     s=s.replace(fail,private+fail,1)
+    stage="echo 'V104_STAGE generation_complete'"
+    if s.count(stage)!=1:raise ValueError("V125 generated target reporting anchor missing")
+    target='''if grep -Eiq "func_8051[eE]5[bB][cC]" "$work/generated/output.cpp"; then
+  echo 'V125_GENERATED_TARGET present=1'
+else
+  echo 'V125_GENERATED_TARGET present=0'
+fi'''
+    s=s.replace(stage,stage+"\n"+target,1)
     good="echo 'V125_STAGE native_test_passed'"
     if s.count(good)!=1:raise ValueError("V125 pass marker missing")
     s=s.replace(good,good+"""
