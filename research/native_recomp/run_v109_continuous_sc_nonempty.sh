@@ -11,6 +11,14 @@ trap 'rm -rf -- "$work"' EXIT
 umask 077
 python3 "$here/derive_v109_sc_nonempty_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh"
 echo 'V109_WRAPPER derived'
-bash -n "$work/run.sh"
+if ! bash -n "$work/run.sh" 2>"$work/runner-parse.log"; then
+  echo 'V109_WRAPPER syntax_failed' >&2
+  # Source-only numeric location, never the private owner executable.
+  line="$(grep -Eo 'line [0-9]+' "$work/runner-parse.log" | head -n 1 || true)"
+  if [[ "$line" =~ ^line\ [0-9]+$ ]]; then
+    echo "V109_WRAPPER_SYNTAX $line" >&2
+  fi
+  exit 1
+fi
 echo 'V109_WRAPPER syntax_ok'
 V109_SOURCE_ROOT="$here" bash "$work/run.sh" "$1" "$2"

@@ -75,7 +75,7 @@ jobs:
           bash research/native_recomp/run_v109_continuous_sc_nonempty.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc109.log" 2>&1 || {
-              grep -E '^V109_WRAPPER (derived|syntax_ok)$|^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/sc109.log" || true
+              grep -E '^V109_WRAPPER (derived|syntax_ok|syntax_failed)$|^V109_WRAPPER_SYNTAX line=[0-9]+$|^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/sc109.log" || true
               grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc109.log" || true
               grep -E '^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V109_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$|^V109_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/sc109.log" | sort -u || true
               echo 'V109 owner-original SC path candidate failed; private diagnostics withheld' >&2
@@ -105,7 +105,7 @@ jobs:
           grep -E '^V104_FALLTHROUGH pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} phase=[0-9]{1,2} cache=[0-9]{1,2}$|^V104_FAIL_HOOK pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V104_DEPENDENCY pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$|^V98_DEPENDENCY pc=80[45][0-9a-f]{5} lr=80[45][0-9a-f]{5}$' "$RUNNER_TEMP/sc109.log" | sort -u || true
           # The subsequent V104 submit may still fail; do not claim boot.
           grep -E '^V103_SC_DIAG prior_nonempty=[01] path_ptr=[01] copy_span=[01] pointer_equal=[01] arg_empty=[01] copy_equal=[01]$|^V104_ASYNC_SUBMIT route=[01] request=[01] mode=[01] path=[01] abi=[01] prior=[01]$' "$RUNNER_TEMP/sc109.log" | sort -u || true
-          grep -E '^V109_WRAPPER (derived|syntax_ok)$' "$RUNNER_TEMP/sc109.log"
+          grep -E '^V109_WRAPPER (derived|syntax_ok|syntax_failed)$|^V109_WRAPPER_SYNTAX line=[0-9]+$' "$RUNNER_TEMP/sc109.log"
           grep -Fx 'V109_STAGE native_test_passed' "$RUNNER_TEMP/sc109.log"
           grep -Fx 'V109_SC_SECOND_COPY input=1 bounded=1' "$RUNNER_TEMP/sc109.log"
           grep -Fx 'V109_SC_NEXT_LENGTH route=1 data=1 prior=1' "$RUNNER_TEMP/sc109.log"
