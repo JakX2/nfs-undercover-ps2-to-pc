@@ -74,7 +74,13 @@ jobs:
           umask 077
           bash research/native_recomp/run_v109_continuous_sc_nonempty.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
-            > "$RUNNER_TEMP/sc109.log" 2>&1 || true
+            > "$RUNNER_TEMP/sc109.log" 2>&1 || {
+              grep -E '^V109_WRAPPER (derived|syntax_ok)$|^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled|native_test_passed)$' "$RUNNER_TEMP/sc109.log" || true
+              grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc109.log" || true
+              grep -E '^V109_SC_SECOND_COPY input=[01] bounded=[01]$|^V109_SC_NEXT_LENGTH route=[01] data=[01] prior=[01]$|^V109_TRIAL_PASS trial=[0-9]{1,2}$' "$RUNNER_TEMP/sc109.log" | sort -u || true
+              echo 'V109 owner-original SC path candidate failed; private diagnostics withheld' >&2
+              exit 1
+            }
           grep -E '^V104_STAGE (runtime_cache_trace_verified|fixture_generated|geometry_verified|generator_compiled|generation_complete|native_compiled)$' "$RUNNER_TEMP/sc109.log" || true
           grep -E '^V77_(HARNESS_LINE|GENERATOR_LINE) [0-9]+$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$' "$RUNNER_TEMP/sc109.log" || true
           grep -Fx 'V104_STAGE native_compiled' "$RUNNER_TEMP/sc109.log"
