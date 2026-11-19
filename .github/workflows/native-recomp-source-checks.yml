@@ -112,6 +112,7 @@ jobs:
           python3 research/native_recomp/test_sc_second_save_v124.py
           python3 research/native_recomp/test_sc_helper_v125.py
           python3 research/native_recomp/test_sc_post_gpr_v126.py
+          python3 research/native_recomp/test_v127_osinit_window.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
