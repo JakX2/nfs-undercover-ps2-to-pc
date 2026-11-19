@@ -23,6 +23,7 @@ class V111(unittest.TestCase):
   self.assertIn("V111_SC_ASYNC_ENTRY route=1 copied=1 path=1 nonempty=1 abi=1 prior=1",s)
   self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x8051982C stage=111",s)
   self.assertIn('test "$branch" = 2',s)
+  self.assertIn('V111_NATIVE_EXIT ok=0',s)
   with tempfile.TemporaryDirectory() as td:
    p=Path(td)/"run.sh";p.write_text(s)
    subprocess.run(["bash","-n",str(p)],check=True)
