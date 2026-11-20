@@ -170,12 +170,7 @@ jobs:
           grep -Fx 'V169_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc170.log"
           grep -E '^V169_SC_REPLY_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=[01] flag=[01] reply=[01] wire=[01] ready=[01] status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc170.log" | sort -u
           grep -Fx 'V170_SC_REPLY_READ_NEXT verified=1' "$RUNNER_TEMP/sc170.log"
-          grep -E '^V170_SC_REPLY_READ_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=[01] irq=[01] reply=[01] wire=[01] status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc170.log"
- "$RUNNER_TEMP/sc170.log" | sort -u
+          grep -E '^V170_SC_REPLY_READ_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=[01] irq=[01] reply=[01] wire=[01] status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc170.log" | sort -u
           echo 'PASS: genuine SC Y1 reply processor control read reached next guest call'
       - name: Remove private owner and generated code
         if: always()
