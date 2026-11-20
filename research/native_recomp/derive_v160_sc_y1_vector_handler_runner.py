@@ -9,6 +9,8 @@ NEW='python3 "$here/derive_v160_sc_y1_vector_handler_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V159_SC_Y1_VECTOR verified=1'"
 ENTRY="V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1"
+ABI_PATTERN=r'^V160_SC_VECTOR_ABI index=[01] thread=[01] idle=[01] sr0=[01] sr1=[01]$'
+ABI_PASS=r'^V160_SC_VECTOR_ABI index=1 thread=[01] idle=[01] sr0=[01] sr1=[01]$'
 PATTERN=r'^V160_SC_VECTOR_HANDLER vector=[01] masked=[01] irq=[01] advanced=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PASS=r'^V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=[0-9a-f]{8}$'
 
@@ -18,10 +20,13 @@ def derive(source: str)->str:
         raise ValueError("V160 inherited original Y1 vector runner source differs")
     s=s.replace(OLD,NEW,1)
     s=s.replace(FAIL,'  grep -Fx "'+ENTRY+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+ABI_PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -Fx '{ENTRY}' "$log" | sort -u
 test "$(grep -Fxc '{ENTRY}' "$log")" -eq 16
+grep -E '{ABI_PASS}' "$log" | sort -u
+test "$(grep -Ec '{ABI_PASS}' "$log")" -eq 16
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
 echo 'V160_SC_VECTOR_HANDLER verified=1'
