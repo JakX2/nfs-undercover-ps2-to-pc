@@ -14,6 +14,7 @@ from derive_v158_sc_rfi_restore_harness import (
     derive as previous, STATE, RESET, RFI_OBSERVER,
     NEXT_TRIAL as PREVIOUS_TRIAL,
 )
+from derive_v154_sc_scheduler_next_harness import V154_CHECK
 
 STOP='''    ++v158_rfi_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -46,6 +47,14 @@ CONTINUE='''    ++v158_rfi_seen;
     ++v159_vector_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }'''
+VECTOR_GATE='''             nwii::runtime::v154_next_seen==1u&&
+             ((c.pc>=0x80400000u&&c.pc<0x80600000u&&!c.is_running)||
+              (nwii::runtime::v159_vector_seen==1u&&
+               c.pc==undercover::wii::ExternalVector&&
+               c.srr0==nwii::runtime::v158_expected_pc&&
+               c.srr1==(nwii::runtime::v158_expected_msr&
+                         undercover::wii::ExternalSrr1Mask)&&
+               !c.is_running));'''
 NEXT_TRIAL='''       check(nwii::runtime::v159_vector_seen==1u&&
              nwii::runtime::v158_rfi_seen==1u&&
              c.pc==undercover::wii::ExternalVector&&
@@ -68,6 +77,7 @@ def derive(source: str)->str:
     s=once(s,STATE,STATE+"\n static unsigned v159_vector_seen=0;")
     s=once(s,RESET,RESET+"\n     nwii::runtime::v159_vector_seen=0u;")
     s=once(s,STOP,CONTINUE)
+    s=once(s,V154_CHECK,VECTOR_GATE)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return s
 
