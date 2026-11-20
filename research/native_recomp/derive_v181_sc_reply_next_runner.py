@@ -2,7 +2,7 @@
 """V181 sixteen owner-original SYSCONF reply successor native trials."""
 import argparse
 from pathlib import Path
-from derive_v181_sc_reply_next_runner import derive as previous
+from derive_v180_sc_reply_next_runner import derive as previous
 
 OLD='python3 "$here/derive_v179_sc_reply_next_harness.py"'
 NEW='python3 "$here/derive_v181_sc_reply_next_harness.py"'
