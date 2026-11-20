@@ -24,6 +24,11 @@ class V133(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             f=Path(td)/"run.sh";f.write_text(text)
             subprocess.run(["bash","-n",str(f)],check=True)
+    def test_wrapper_selects_existing_runner(self):
+        source=(HERE/"run_v133_sc_sda_state.sh").read_text()
+        self.assertIn("derive_v133_sc_sda_runner.py",source)
+        self.assertNotIn("derive_v133_sc_sda_state_runner.py",source)
+        self.assertTrue((HERE/"derive_v133_sc_sda_runner.py").exists())
     def test_workflow(self):
         w=(HERE.parents[1]/".github/workflows/wii-v133-sc-sda-state.yml").read_text()
         self.assertIn("V133_STATUS_PROBE verified=1",w)

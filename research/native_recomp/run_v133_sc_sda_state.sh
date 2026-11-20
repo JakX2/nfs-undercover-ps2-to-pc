@@ -6,7 +6,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 umask 077
-if ! python3 "$here/derive_v133_sc_sda_state_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh" 2>"$work/derive.log"; then
+if ! python3 "$here/derive_v133_sc_sda_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh" 2>"$work/derive.log"; then
   python3 - "$work/derive.log" <<'PY'
 from pathlib import Path
 import sys
