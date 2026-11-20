@@ -12,7 +12,7 @@ from derive_v140_sc_irq_entry_harness import derive as previous
 
 STATE = " static unsigned post136_disable=0,post136_restore=0,post136_seen=0;"
 RESET = ("nwii::runtime::post136_disable=nwii::runtime::post136_restore="
-         "\n     nwii::runtime::post136_seen=0;")
+         "nwii::runtime::post136_seen=0;")
 INJECT = "     // Record the original callable stop, not the newly selected vector."
 TRACE = ("void trace_call(uint32_t addr, CPUContext&ctx){"
          "\n   if(submit72_trace(addr,ctx))return;")
