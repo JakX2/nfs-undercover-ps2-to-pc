@@ -37,6 +37,20 @@ NEXT_OBSERVER=OBSERVER.replace(
            ((*irq_before&V153Irq::IPC_PPC)==0u)&&
            !ipc70_bus.external_irq_level();
      const bool v153_queued=ipc70_bus.services().queued_replies()==1u;
+     const bool v153_req_present=req.has_value()&&*req!=0u;
+     const bool v153_req_aligned=v153_req_present&&((*req&31u)==0u);
+     const bool v153_req_mapped=v153_req_aligned&&ipc70_ram.valid(*req,64u);
+     const bool v153_req_open=v153_req_mapped&&
+           ipc70_ram.read32(*req)==V153Ios::Open;
+     const bool v153_prior=post118_msg==1u&&post118_x1==1u&&
+           post118_phys!=0u&&ipc70_ram.valid(post118_phys,64u);
+     const bool v153_same=v153_prior&&v153_req_present&&*req==post118_phys;
+     std::cout<<"V153_SC_PRE route="<<route<<" present="<<v153_req_present
+              <<" aligned="<<v153_req_aligned<<" mapped="<<v153_req_mapped
+              <<" open="<<v153_req_open<<" prior="<<v153_prior
+              <<" same="<<v153_same<<" clear="<<cleared
+              <<" queued="<<v153_queued
+              <<" masked="<<(!(ctx.msr&V153Bus::MSR_EE))<<std::endl;
      check(route&&request&&cleared&&v153_queued&&!(ctx.msr&V153Bus::MSR_EE),
            "V153 SC reply scheduling boundary or outstanding native request differs");
      undercover::wii::IosYieldScheduler scheduler(ipc70_bus);
