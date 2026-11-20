@@ -140,6 +140,7 @@ jobs:
           python3 research/native_recomp/test_sc_status_writer_sites.py
           python3 research/native_recomp/test_v133_sc_sda.py
           python3 research/native_recomp/test_v134_sc_sda_writers.py
+          python3 research/native_recomp/test_v135_sc_flow.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
