@@ -96,7 +96,9 @@ class V178(unittest.TestCase):
         self.assertEqual(after.count("unexpected original IPC ACK-only path dependency"),
                          before.count("unexpected original IPC ACK-only path dependency"))
         for token in ("phase=v177_next_seen==1u", "active=v178_burst_seen==0u",
-                      "v178_calls", "V178_IPC_DEP phase=", "ctx.gpr[13]==v147_first_r13"):
+                      "v178_calls", "V178_IPC_DEP phase=", "ctx.gpr[13]==v147_first_r13",
+                      "dispatched=irq76_dispatch!=0u", "ipc_phase=irq76_ipc!=0u",
+                      "acked=ack77_reply!=0u", "submitted=submit72_active"):
             self.assertIn(token,V178_IPC_DIAGNOSTIC)
         self.assertIn('check(false,"unexpected original IPC ACK-only path dependency");',
                       V178_IPC_DIAGNOSTIC)
@@ -105,6 +107,7 @@ class V178(unittest.TestCase):
         self.assertTrue(V178_IPC_DIAGNOSTIC.lstrip().startswith("{"))
         self.assertTrue(V178_IPC_DIAGNOSTIC.rstrip().endswith("}"))
         self.assertEqual(V178_IPC_DIAGNOSTIC.count('check(false,"unexpected original IPC ACK-only path dependency");'),1)
+        self.assertIn('dispatch=[01] ipc=[01] ack=[01] submitted=[01]',DEP)
 
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
