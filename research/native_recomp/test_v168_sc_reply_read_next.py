@@ -50,6 +50,27 @@ class V168(unittest.TestCase):
         self.assertIn("Irq::IPC_PPC",OBSERVATION)
         self.assertEqual(new.count("V168_SC_REPLY_NEXT y1="),1)
 
+    def test_earlier_trial_pc_checks_admit_only_verified_v168_pair(self):
+        after=derive(self.base)
+        for label in (
+            "V166 second SC reply nested interrupt restore did not reach real guest call",
+            "V167 original SC reply IPC handler did not reach first real guest leaf",
+        ):
+            marker='"'+label+'");'
+            self.assertEqual(after.count(marker),1)
+            end=after.index(marker)
+            start=after.rfind("check(",0,end)
+            self.assertGreaterEqual(start,0)
+            segment=after[start:end]
+            self.assertIn("v168_next_seen==1u",segment)
+            self.assertIn("c.pc==nwii::runtime::v168_target_pc",segment)
+            self.assertIn("c.lr==nwii::runtime::v168_target_lr",segment)
+            self.assertIn("c.pc>=0x80400000u",segment)
+            self.assertIn("!c.is_running",segment)
+        # Prior tests must still depend on their original state and success.
+        self.assertIn("nwii::runtime::v166_next_seen==1u",after)
+        self.assertIn("nwii::runtime::v167_next_seen==1u",after)
+
     def test_no_forged_guest_cpu_or_ios_acknowledgement(self):
         old=previous(self.base)
         new=derive(self.base)
