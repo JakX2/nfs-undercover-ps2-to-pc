@@ -93,12 +93,39 @@ def classify(data: str)->str:
                     script="inline_cache_line_"+str(int(lines[-1]))
     return f"V178_FAILURE_STAGE phase={stage} reason={reason} script={script}"
 
+V38_STAGES=(
+    "v29_runtime_verified",
+    "hid4_runtime_verified",
+    "fixture_generated",
+    "geometry_verified",
+    "negative_guards_verified",
+    "generator_compiled",
+    "generation_complete",
+    "native_compiled",
+    "native_test_passed",
+)
+EXCEPTION_NAMES=(
+    "FileNotFoundError", "ModuleNotFoundError", "ImportError", "AssertionError",
+    "ValueError", "TypeError", "RuntimeError", "OSError", "KeyError",
+    "IndexError", "NameError", "PermissionError",
+)
+
+def details(data: str)->str:
+    phases=[name for name in V38_STAGES if re.search(
+        r"(?m)^V38_STAGE "+re.escape(name)+r"$",data)]
+    v38=phases[-1] if phases else "none"
+    candidates=re.findall(r"(?m)^([A-Za-z]+Error|AssertionError):",data)
+    kind=candidates[-1] if candidates and candidates[-1] in EXCEPTION_NAMES else "none"
+    return f"V178_FAILURE_DETAIL v38={v38} exception={kind}"
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("log",type=Path)
     a=p.parse_args()
     # Read only the owner's bounded local CI log; this file is never uploaded.
-    print(classify(a.log.read_text(encoding="utf-8",errors="replace")))
+    data=a.log.read_text(encoding="utf-8",errors="replace")
+    print(classify(data))
+    print(details(data))
 
 if __name__=="__main__":
     main()
