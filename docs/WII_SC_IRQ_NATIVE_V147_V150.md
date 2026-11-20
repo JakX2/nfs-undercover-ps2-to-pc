@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V163
+# Wii SC IPC native execution: V147–V165
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -27,9 +27,11 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V161 | Second original external interrupt handler executed to dispatcher `0x80526A3C` with exception index `4`, `THREAD` running, saved PC and MSR matching and Y1/IPC asserted | [V161](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44679753422) |
 | V162 | Second original IRQ dispatcher at `0x80526A3C` entered native timebase helper `0x8052A824` with LR `0x80526C84`, Y1 IRQ and SYSCONF file reply intact | [V162](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44680677864) |
 | V163 | Original second-IRQ timebase helper `0x8052A824` returned to the dispatcher, which entered scheduler-disable `0x805293F8` with LR `0x80526C98`; Y1, SYSCONF reply and masked CPU interrupt state preserved | [V163](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681052087) |
+| V164 | Original second-IRQ scheduler `0x805293F8` executed to `OSDisableInterrupts` `0x805265AC` (LR `0x8052940C`); independent owner-native harnesses passed 16/16 each | [V164 strict](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681512657), [V164 independent](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681463181) |
+| V165 | Original nested `OSDisableInterrupts` ran and entered `OSRestoreInterrupts` `0x805265D4` (LR `0x8052941C`); Y1 and file reply preserved in independent 16-trial harnesses | [V165](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682040210), [independent](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682032534) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V163 introduce no replacement guest
+original-path regression gates. V147–V165 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -56,6 +58,8 @@ V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=8052097
 V161_SC_Y1_DISPATCH index=1 context=1 saved_pc=1 saved_msr=1 running=1 masked=1 irq=1 advanced=1 pc=80526a3c lr=80520970
 V162_SC_REPLY_NEXT irq=1 reply=1 guest=1 masked=1 caller=1 pc=8052a824 lr=80526c84
 V163_SC_Y1_DISABLE irq=1 reply=1 masked=1 guest=1 caller=1 pc=805293f8 lr=80526c98
+V164_SC_Y1_NESTED irq=1 reply=1 masked=1 guest=1 caller=1 target=1 pc=805265ac lr=8052940c
+V165_SC_POST_OSDI irq=1 reply=1 masked=1 guest=1 caller=1 ipc=0 helper=1 pc=805265d4 lr=8052941c
 ~~~
 
 ## Corrected test-phase ownership
@@ -136,10 +140,13 @@ hardware emulation.
    first-interrupt observers were scoped to their original phase; no
    guest code or IOS reply state was changed. V163 **verified** the original timebase helper completed and entered
    scheduler-disable `0x805293F8` (LR `0x80526C98`) with the published
-   file reply and Y1 pending. V164 should execute the guest scheduler-disable
-   body into its nested interrupt helper, keeping first-interrupt checks
-   scoped to their original phase. The second IPC reply callback and SC
-   ready-status transition are unverified.
+   file reply and Y1 pending. V164 **verified** its original nested `OSDisableInterrupts` entry at
+   `0x805265AC` (LR `0x8052940C`), and V165 **verified** original code
+   executing to `OSRestoreInterrupts` at `0x805265D4` (LR `0x8052941C`).
+   Independent original-game CI runs for both checkpoints agree. V166 should
+   execute the restore helper to the next legitimate dispatcher call.
+   Complete second IPC reply handling, async SC callback, and ready-status
+   transition remain unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
