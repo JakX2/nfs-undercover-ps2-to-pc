@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 from derive_v154_sc_scheduler_next_harness import (
     derive as previous, STATE, RESET, OBSERVER as PREVIOUS_OBSERVER,
-    TRIAL as PREVIOUS_TRIAL, V146_ONCE
+    TRIAL_NEXT as PREVIOUS_TRIAL, V146_ONCE
 )
 
 STOP='''     ++v154_next_seen;
