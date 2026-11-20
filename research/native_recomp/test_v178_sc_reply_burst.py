@@ -10,7 +10,7 @@ from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
     V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_SCOPED,
-    V83_PATTERN, scope_v83_observer,
+    V83_ASSERTION, scope_v83_observer,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE
 
@@ -72,10 +72,12 @@ class V178(unittest.TestCase):
     def test_v83_synchronous_open_observer_is_phase_limited(self):
         before=previous(self.base)
         after=derive(self.base)
-        self.assertEqual(len(V83_PATTERN.findall(before)),1)
-        self.assertEqual(len(V83_PATTERN.findall(after)),1)
-        self.assertNotIn("open83_second==0u",V83_PATTERN.search(before).group(0))
-        self.assertIn("open83_second==0u",V83_PATTERN.search(after).group(0))
+        self.assertEqual(len(V83_ASSERTION.findall(before)),1)
+        self.assertEqual(len(V83_ASSERTION.findall(after)),1)
+        self.assertIn('if(open83_second==0u){',after)
+        self.assertNotIn('if(open83_second==0u){',before)
+        self.assertEqual(before.count('V83 unexpected original synchronous submit continuation dependency'),
+                         after.count('V83 unexpected original synchronous submit continuation dependency'))
         with self.assertRaises(ValueError):
             scope_v83_observer("invalid")
         # V83 must still detect its original second STM open.
