@@ -30,6 +30,7 @@ on:
       - '.github/workflows/wii-v137-ios-liveness.yml'
       - '.github/workflows/wii-v138-sc-request.yml'
       - '.github/workflows/wii-v139-sc-ios-ack.yml'
+      - '.github/workflows/wii-v140-sc-irq-entry.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -58,6 +59,7 @@ on:
       - '.github/workflows/wii-v137-ios-liveness.yml'
       - '.github/workflows/wii-v138-sc-request.yml'
       - '.github/workflows/wii-v139-sc-ios-ack.yml'
+      - '.github/workflows/wii-v140-sc-irq-entry.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -153,6 +155,7 @@ jobs:
           python3 research/native_recomp/test_v137_ios_liveness.py
           python3 research/native_recomp/test_v138_ios_request.py
           python3 research/native_recomp/test_v139_sc_ios_service.py
+          python3 research/native_recomp/test_v140_sc_irq_entry.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
