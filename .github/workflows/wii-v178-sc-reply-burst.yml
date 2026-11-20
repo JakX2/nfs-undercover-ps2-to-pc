@@ -10,7 +10,7 @@ permissions:
   contents: read
 concurrency:
   group: wii-v178-sc-reply-burst-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   owner-sc-burst-v178:
     if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'

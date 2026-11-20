@@ -172,6 +172,10 @@ class V178(unittest.TestCase):
         self.assertIn("run_v178_sc_reply_burst.sh",wf)
         self.assertIn("V178_SC_BURST verified=1",wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
+        # A running authenticated owner-native trial must not be canceled
+        # on each successive research commit. GitHub retains the newest
+        # queued revision while the active trial completes.
+        self.assertIn("  cancel-in-progress: false",wf)
 
 if __name__=="__main__":
     unittest.main()
