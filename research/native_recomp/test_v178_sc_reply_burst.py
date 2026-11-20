@@ -11,8 +11,9 @@ from derive_v178_sc_reply_burst_harness import (
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
     V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_SCOPED,
     V83_ASSERTION, scope_v83_observer,
+    V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
 )
-from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE
+from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
 
 HERE=Path(__file__).resolve().parent
 
@@ -87,6 +88,19 @@ class V178(unittest.TestCase):
                        '++open83_free_restore;'):
             self.assertEqual(before.count(marker),after.count(marker),marker)
 
+    def test_later_ack_fallback_logs_only_bounded_callsite_without_bypass(self):
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V77_LEGACY_FALLTHROUGH),1)
+        self.assertEqual(after.count(V178_IPC_DIAGNOSTIC),1)
+        self.assertEqual(after.count("unexpected original IPC ACK-only path dependency"),
+                         before.count("unexpected original IPC ACK-only path dependency"))
+        for token in ("v177_next_seen==1u", "v178_burst_seen==0u",
+                      "v178_calls", "V178_IPC_DEP masked=", "ctx.gpr[13]==v147_first_r13"):
+            self.assertIn(token,V178_IPC_DIAGNOSTIC)
+        self.assertIn('check(false,"unexpected original IPC ACK-only path dependency");',
+                      V178_IPC_DIAGNOSTIC)
+
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)
         after=derive(self.base)
@@ -145,6 +159,8 @@ class V178(unittest.TestCase):
         self.assertFalse(re.fullmatch(PASS,good.replace("calls=6","calls=7")))
         self.assertFalse(re.fullmatch(PASS,good.replace("guest=1","guest=0")))
         self.assertTrue(re.fullmatch(TRACE,"V178_SC_TRACE step=6 pc=805229b4 lr=80545120"))
+        self.assertTrue(re.fullmatch(DEP,"V178_IPC_DEP masked=1 text=0 tracked=1 calls=0 pc=80000c00 lr=80545120"))
+        self.assertFalse(re.fullmatch(DEP,"V178_IPC_DEP masked=1 text=0 tracked=1 calls=7 pc=80000c00 lr=80545120"))
         self.assertFalse(re.fullmatch(TRACE,"V178_SC_TRACE step=7 pc=805229b4 lr=80545120"))
         with tempfile.TemporaryDirectory() as temp:
             p=Path(temp)/"runner.sh"
