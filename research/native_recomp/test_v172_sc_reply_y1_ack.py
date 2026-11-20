@@ -32,12 +32,10 @@ class V172(unittest.TestCase):
         self.assertIn("if(v171_distinct_seen==1u&&v172_y1_ack_seen==0u",ACK)
         self.assertIn("(value&M::Y1)!=0u",ACK)
         self.assertIn("((*control&M::Y1)==0u)",ACK)
-        self.assertIn("Irq::IPC_PPC",ACK) if False else None
         self.assertIn("HollywoodIrq::IPC_PPC",ACK)
         self.assertIn("ipc70_bus.external_irq_level()",ACK)
         self.assertIn("ipc70_ram.cpu->lr==0x8051910cu",ACK)
         self.assertIn("ipc70_ram.cpu->gpr[13]==v147_first_r13",ACK)
-        self.assertIn("ctx.is_running=false",CONTINUE) if False else None
         self.assertIn("ipc70_ram.cpu->is_running=false",ACK)
         self.assertIn("ctx.is_running=false",after)
         self.assertIn("ctx.mmu.read8(",after)
