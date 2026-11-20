@@ -9,6 +9,7 @@ from derive_v177_sc_reply_next_harness import derive as previous
 from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
+    V111_ACTIVE, V111_SCOPED,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE
 
@@ -42,6 +43,18 @@ class V178(unittest.TestCase):
         self.assertIn("v178_last_inst=ctx.inst_count",OBSERVATION)
         self.assertEqual(after.count("V178_SC_BURST calls="),1)
         self.assertEqual(after.count("V178_SC_TRACE step="),1)
+
+    def test_v111_first_phase_copy_stays_verified_but_not_reapplied_to_reply(self):
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V111_ACTIVE),1)
+        self.assertEqual(after.count(V111_SCOPED),1)
+        self.assertNotIn(V111_ACTIVE,after)
+        self.assertIn("post111_open==0u",V111_SCOPED)
+        self.assertEqual(before.count("++post111_copy;return true;"),
+                         after.count("++post111_copy;return true;"))
+        self.assertEqual(before.count("++post111_open;post90_target=addr;"),
+                         after.count("++post111_open;post90_target=addr;"))
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)
