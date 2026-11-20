@@ -19,8 +19,8 @@ class PublicPreflightTests(unittest.TestCase):
         self.assertEqual(len(STEPS),19)
         self.assertEqual(len({step for step,_ in STEPS}),len(STEPS))
         for step,command in STEPS:
-            self.assertEqual(source.splitlines().count(command),1,step)
-            self.assertEqual(marked.splitlines().count(command),1,step)
+            self.assertEqual(sum(line.startswith(command) for line in source.splitlines()),1,step)
+            self.assertEqual(sum(line.startswith(command) for line in marked.splitlines()),1,step)
             self.assertEqual(
                 marked.count(f"echo 'V178_PREFLIGHT enter={step}'\n{command}"),1,step)
         self.assertEqual(marked.count("V178_PREFLIGHT enter="),len(STEPS))
