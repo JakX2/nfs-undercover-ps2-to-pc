@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+"""Privacy-safe V178 owner runner stage classifier, never echoes private data.
+
+The owner job captures stdout/stderr in a private, deleted log. This utility
+reads it, reports only an allowlisted stage and failure category. It never
+prints lines, paths, addresses, messages or generated source from that log.
+"""
+import argparse
+import re
+from pathlib import Path
+
+STAGES=(
+    "runtime_cache_trace_verified",
+    "fixture_generated",
+    "geometry_verified",
+    "generator_compiled",
+    "generation_complete",
+    "native_compiled",
+    "native_test_passed",
+)
+SAFE_REASONS=(
+    ("verify_runtime", ("V71 inherited performance/HID4 runtime invalid",)),
+    ("cache_trace", ("V71 reused verified V40", "AssertionError")),
+    ("analyzer_compile", (
+        "V72 original-free jump-table analyzer test compile failed",
+        "V72 original-free tail-root analyzer compile failed",
+    )),
+    ("fixture", ("V71 fixture construction failed", "V71 STM geometry guard failed")),
+    ("generator_compile", ("V73 generator compilation failed",)),
+    ("generator_runtime", ("V72 original PPC generator guards failed",)),
+    ("native_compile", ("V72 original translated native compilation failed",)),
+    ("native_assertion", ("V67_NATIVE_ASSERTION id=", "V71_NATIVE_ASSERTION id=")),
+    ("python_error", ("Traceback (most recent call last):",)),
+    ("unexpected_exit", ("Segmentation fault", "Aborted", "Killed", "Terminated")),
+)
+
+def classify(data: str)->str:
+    if len(data)>25_000_000:
+        raise ValueError("owner output exceeds public classifier bound")
+    # Use the last *completed* trusted stage marker, not a guessed milestone.
+    phases=[s for s in STAGES if re.search(
+        r"(?m)^V79_STAGE "+re.escape(s)+r"$",data)]
+    if phases:
+        stage=phases[-1]
+    elif "V110_WRAPPER syntax_ok" in data:
+        stage="runner_preflight"
+    elif "V110_WRAPPER derived" in data:
+        stage="runner_syntax"
+    else:
+        stage="wrapper"
+    reason="unclassified"
+    for name,strings in SAFE_REASONS:
+        if any(s in data for s in strings):
+            reason=name
+            break
+    return f"V178_FAILURE_STAGE phase={stage} reason={reason}"
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("log",type=Path)
+    a=p.parse_args()
+    # Read only the owner's bounded local CI log; this file is never uploaded.
+    print(classify(a.log.read_text(encoding="utf-8",errors="replace")))
+
+if __name__=="__main__":
+    main()
