@@ -72,6 +72,7 @@ V162_PC='''             (c.pc==undercover::wii::ExternalVector||
 V162_FINAL_PC='''             (c.pc==0x80526a3cu||
               (nwii::runtime::v162_next_seen==1u&&
                c.pc>=0x80400000u&&c.pc<0x80600000u))&&!c.is_running,'''
+V161_NEXT_PC='''             c.pc==0x80526a3cu&&!c.is_running,'''
 NEXT_TRIAL='''       check(nwii::runtime::v162_next_seen==1u&&
              nwii::runtime::v161_dispatch_seen==1u&&
              nwii::runtime::v160_handler_seen==1u&&
@@ -87,6 +88,8 @@ def once(s: str,old: str,new: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    if PREVIOUS_TRIAL.count(V161_NEXT_PC)!=1:
+        raise ValueError('V162 V161 final trial PC gate changed')
     for pattern in (STOP,OLDER_V76,OLDER_V143,V161_PC,V161_FINAL_PC):
         if s.count(pattern)!=1:
             raise ValueError(f"V162 inherited IRQ observer differs: {pattern[:65]}")
@@ -101,8 +104,9 @@ def derive(source: str)->str:
     s=once(s,OLDER_V76,SCOPED_V76)
     s=once(s,OLDER_V143,SCOPED_V143)
     s=once(s,V161_PC,V162_PC)
+    s=once(s,V161_FINAL_PC,V162_FINAL_PC)
     s=once(s,PREVIOUS_TRIAL,
-           PREVIOUS_TRIAL.replace(V161_FINAL_PC,V162_FINAL_PC,1)+"\n"+NEXT_TRIAL)
+           PREVIOUS_TRIAL.replace(V161_NEXT_PC,V162_FINAL_PC,1)+"\n"+NEXT_TRIAL)
     return s
 
 if __name__=="__main__":
