@@ -26,8 +26,7 @@ CONTINUE='''     check(addr==0x805229b4u&&ctx.lr==0x80526cbcu&&
      ++v157_next_seen;
      return; // execute original context restoration, including RFI
    }'''
-CALLBACK_ANCHOR='''bool process_pending_callbacks(CPUContext& ctx){
-  if(ack77_reply==1u&&reply79_irq==0u){'''
+CALLBACK_ANCHOR='''bool process_pending_callbacks(CPUContext& ctx){'''
 RFI_OBSERVER='''bool process_pending_callbacks(CPUContext& ctx){
   if(v141_live&&v157_next_seen==1u&&v158_rfi_seen==0u&&
      ctx.pc==sched74_resume&&ctx.inst_count>v158_load_inst){
@@ -65,7 +64,7 @@ RFI_OBSERVER='''bool process_pending_callbacks(CPUContext& ctx){
     ++v158_rfi_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }
-  if(ack77_reply==1u&&reply79_irq==0u){'''
+'''
 NEXT_TRIAL='''       check(nwii::runtime::v158_rfi_seen==1u&&
              nwii::runtime::v157_next_seen==1u&&
              nwii::runtime::v156_next_seen==1u&&
