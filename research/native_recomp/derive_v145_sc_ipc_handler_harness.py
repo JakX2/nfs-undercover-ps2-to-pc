@@ -62,6 +62,7 @@ def derive(source):
     s=one(s,STATE,STATE+"\n static unsigned v145_ipc_seen=0;\n static uint64_t v145_disable_inst=0;")
     s=one(s,RESET,RESET+"\n     nwii::runtime::v145_ipc_seen=0u;\n     nwii::runtime::v145_disable_inst=0u;")
     s=one(s,STOP,NEXT)
+    s=one(s,"   if(v141_live&&v144_disable_seen==1u&&addr==0x80519318u){","   // V98's NAND registration observer is still active in the inherited\n   // test harness. The later SC interrupt reuses the original interrupt\n   // helpers, but is not part of NAND registration or the second SC retry.\n   // Let the verified native guest helper execute without applying the old\n   // V98 \"IOS must be idle\" assertion at this different IRQ phase.\n   if(v141_live&&v144_disable_seen==1u&&\n      (addr==INT_DISABLE||addr==INT_RESTORE)&&\n      ctx.lr>=0x805293f8u&&ctx.lr<0x80529434u){\n     const bool masked=(ctx.msr&0x8000u)==0u;\n     const bool pending=ipc70_bus.services().queued_replies()==1u&&\n                        ipc70_bus.external_irq_level();\n     check(masked&&pending,\n           \"V145 original SC dispatcher nested IRQ helper lost pending IOS state\");\n     return;\n   }\n   if(v141_live&&v144_disable_seen==1u&&addr==0x80519318u){")
     s=one(s,TRIAL,NEXT_TRIAL)
     # V136's two callsite observers belong only to its second SC retry.
     # A later external IRQ legitimately calls the same interrupt helpers;
