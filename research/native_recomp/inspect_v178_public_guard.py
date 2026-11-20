@@ -41,6 +41,21 @@ def main()->None:
         ("V83", 'V83 unexpected original synchronous submit continuation dependency'),
         ("V77","if(irq76_ipc){"),
     )
+    # A diagnostic from original code showed a legacy SET call 0x8000443C
+    # before V141. Identify which earlier test-owned observer intercepted it
+    # in V177 and which scope V178 narrowed. Restrict to public source.
+    for label,data in (("before",before),("after",after)):
+        rows=data.splitlines()
+        for token in ("if(post97_return==1u&&post98_node",
+                      "if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u"):
+            first=next((i for i,row in enumerate(rows) if token in row),None)
+            if first is None:continue
+            for i in range(first,min(first+245,len(rows))):
+                row=rows[i]
+                if any(t in row for t in ("addr==SET","addr==0x8000443c",
+                   "0x8052f9e4","return true","if(addr==","if(post111",
+                   "if(post98","check(false")):
+                    print(f"V178_SET_WINDOW {label} line={i+1} {row[:155]}")
     for tag,token in needles:
         for version,data in (("before",before),("after",after)):
             rows=data.splitlines()
