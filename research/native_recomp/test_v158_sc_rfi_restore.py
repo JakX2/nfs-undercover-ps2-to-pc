@@ -27,6 +27,10 @@ class V158(unittest.TestCase):
         self.assertNotIn(STOP,new)
         self.assertIn(CONTINUE,new)
         self.assertIn(RFI_OBSERVER,new)
+        self.assertEqual(new.count("bool process_pending_callbacks(CPUContext& ctx){"),1)
+        self.assertEqual(old.count("if(ack77_reply==1u&&reply79_irq==0u){"),
+                         new.count("if(ack77_reply==1u&&reply79_irq==0u){"))
+        self.assertNotIn("if(ack77_reply==1u&&reply79_irq==0u){",RFI_OBSERVER)
         self.assertIn(NEXT_TRIAL,new)
         self.assertIn("addr==0x805229b4u&&ctx.lr==0x80526cbcu",CONTINUE)
         self.assertIn("ctx.gpr[3]==IDLE_CONTEXT",CONTINUE)
