@@ -21,6 +21,15 @@ CONTINUE='''     check(addr==0x8051906cu&&ctx.lr==0x80519380u,
      ++v148_distinct_seen;++v149_helper_seen;
      return;
    }'''
+# V118 monitors the original SC X1 submission. Once that genuine request
+# was submitted (post118_x1 == 1), the same hardware writer is reused by the
+# later SC IRQ. Do not reinterpret its Y2 W1C as a second X1 submission.
+V118_OLD='''   if(post117_send==1u){
+     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;
+     using I=undercover::wii::StmIos;'''
+V118_NEW='''   if(post117_send==1u&&post118_x1==0u){
+     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;
+     using I=undercover::wii::StmIos;'''
 MMIO_OLD='''     check(ipc70_bus.write32(addr,value),"native bus rejected original ACK MMIO write");
      mmio_writes.emplace_back(addr,value);return;'''
 MMIO_NEW='''     check(ipc70_bus.write32(addr,value),"native bus rejected original ACK MMIO write");
@@ -71,6 +80,7 @@ def derive(source:str)->str:
     s=once(s,RESET,RESET+'''
      nwii::runtime::v149_helper_seen=nwii::runtime::v149_ack_seen=0u;''')
     s=once(s,STOP,CONTINUE)
+    s=once(s,V118_OLD,V118_NEW)
     s=once(s,MMIO_OLD,MMIO_NEW)
     s=once(s,TRIAL,NEXT_TRIAL)
     return s
