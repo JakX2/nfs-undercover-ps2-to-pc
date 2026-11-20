@@ -12,8 +12,9 @@ from derive_v178_sc_reply_burst_harness import (
     V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_ASSERTION, scope_v98_fallback,
     V83_ASSERTION, scope_v83_observer,
     V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
+    V77_SUBMIT_FALLTHROUGH, V178_SUBMIT_DIAGNOSTIC,
 )
-from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
+from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, SUBMIT
 
 HERE=Path(__file__).resolve().parent
 
@@ -121,6 +122,31 @@ class V178(unittest.TestCase):
         self.assertEqual(V178_IPC_DIAGNOSTIC.count('check(false,"unexpected original IPC ACK-only path dependency");'),1)
         self.assertIn('dispatch=[01] ipc=[01] ack=[01] submitted=[01]',DEP)
 
+
+    def test_later_submission_fallback_reports_only_guest_callsite(self):
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V77_SUBMIT_FALLTHROUGH),1)
+        self.assertEqual(after.count(V178_SUBMIT_DIAGNOSTIC),1)
+        self.assertEqual(
+            before.count("unexpected original IPC submission dependency"),
+            after.count("unexpected original IPC submission dependency"))
+        self.assertIn('check(false,"unexpected original IPC submission dependency");',
+                      V178_SUBMIT_DIAGNOSTIC)
+        for field in ("phase=v177_next_seen==1u", "burst=v178_burst_seen==0u",
+                      "active=submit72_active", "v178_calls", "irq76_dispatch",
+                      "irq76_ipc", "ack77_reply", "ctx.gpr[13]==v147_first_r13",
+                      "ctx.inst_count>v178_start_inst"):
+            self.assertIn(field,V178_SUBMIT_DIAGNOSTIC)
+        self.assertTrue(re.fullmatch(
+            SUBMIT,
+            "V178_SUBMIT_DEP phase=1 burst=1 active=1 calls=0 irq=1 ipc=1 "
+            "ack=1 text=0 lowmem=1 tracked=1 progressed=1 pc=8000443c lr=80545120"))
+        self.assertFalse(re.fullmatch(SUBMIT,
+            "V178_SUBMIT_DEP phase=1 burst=1 active=1 calls=7 irq=1 ipc=1 "
+            "ack=1 text=0 lowmem=1 tracked=1 progressed=1 pc=8000443c lr=80545120"))
+        self.assertNotIn('ctx.mmu.write',V178_SUBMIT_DIAGNOSTIC)
+        self.assertNotIn('ipc70_bus.write',V178_SUBMIT_DIAGNOSTIC)
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)

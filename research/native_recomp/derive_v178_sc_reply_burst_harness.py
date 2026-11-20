@@ -141,6 +141,31 @@ def scope_v83_observer(s: str)->str:
 # callback. Do not disable it or whitelist unknown PPC functions. First emit
 # only bounded guest callsite/counter data so a genuine new callee can be
 # classified without exposing the private owner executable or stack.
+# Read-only V77 stale-submission observer telemetry at the V177 frontier.
+# Preserve the legacy failure until the genuine guest callsite is measured.
+V77_SUBMIT_FALLTHROUGH='''   check(false,"unexpected original IPC submission dependency");return true;'''
+V178_SUBMIT_DIAGNOSTIC='''   { // Read-only original-free callsite diagnostic, preserves the fail-fast assertion.
+     const bool phase=v177_next_seen==1u;
+     const bool burst=v178_burst_seen==0u;
+     const bool active=submit72_active;
+     const bool irq=irq76_dispatch!=0u;
+     const bool ipc=irq76_ipc!=0u;
+     const bool ack=ack77_reply!=0u;
+     const bool in_text=addr>=0x80400000u&&addr<0x80600000u;
+     const bool lowmem=addr>=0x80000000u&&addr<0x80010000u;
+     const bool tracked=ctx.gpr[13]==v147_first_r13;
+     const bool progressed=ctx.inst_count>v178_start_inst;
+     std::cout<<"V178_SUBMIT_DEP phase="<<phase<<" burst="<<burst
+              <<" active="<<active<<" calls="<<v178_calls
+              <<" irq="<<irq<<" ipc="<<ipc<<" ack="<<ack
+              <<" text="<<in_text<<" lowmem="<<lowmem
+              <<" tracked="<<tracked<<" progressed="<<progressed
+              <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+              <<std::dec<<std::endl;
+     check(false,"unexpected original IPC submission dependency");
+   }
+   return true;'''
+
 V77_LEGACY_FALLTHROUGH='''         check(false,"unexpected original IPC ACK-only path dependency");'''
 V178_IPC_DIAGNOSTIC='''         { // One compound statement preserves any inherited single-line if guard.
            // Read-only bounded fields, original V77 assertion still active.
@@ -225,6 +250,7 @@ def derive(source: str)->str:
     s=scope_v98_fallback(s)
     s=scope_v83_observer(s)
     s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
+    s=once(s,V77_SUBMIT_FALLTHROUGH,V178_SUBMIT_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
