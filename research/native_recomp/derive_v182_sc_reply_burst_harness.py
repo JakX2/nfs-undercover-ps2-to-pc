@@ -17,6 +17,45 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# The later original 0x805222E8 cache syscall is verified to reach V112's
+# completed phase, then generic audio-only fallback. Execute the authenticated
+# installed native PPC syscall vector in the observed late IOS_OpenAsync phase.
+# This is one bounded distinct syscall, not a host completion or a fabricated
+# guest state transition.
+V182_NATIVE_CACHE_SC='''    if(own&&v181_next_seen==1u&&v182_burst_seen==0u&&
+       ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){
+      using Bus=undercover::wii::IosBus;
+      check(v182_cache_sc==0u&&v182_calls==3u&&
+            post112_sc==1u&&post112_vector==1u&&post112_flush==1u&&
+            ctx.gpr[13]==v147_first_r13&&
+            ctx.mmu.get_ptr(ctx.gpr[13]-3176u)!=nullptr&&
+            ctx.mmu.read8(ctx.gpr[13]-3176u)==1u&&
+            ctx.guest_flush_count>post112_flush_before&&
+            !ipc70_bus.external_irq_level()&&
+            !ipc70_bus.external_exception_pending(ctx.msr),
+            "V182 late original IOS_OpenAsync cache syscall phase or ABI differs");
+      const uint32_t pc=ctx.pc,msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;
+      const auto gp=ctx.gpr;
+      native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,
+          !ipc70_bus.external_irq_level(),
+          [](auto& c){func_80000C00(c);});
+      check(ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr&&
+            ctx.hid0==hid&&ctx.ctr==ctr&&
+            ctx.gpr[13]==v147_first_r13,
+            "V182 original PPC cache syscall did not restore guest ABI");
+      for(unsigned reg=0u;reg<32u;++reg)
+        if(reg!=9u&&reg!=10u)
+          check(ctx.gpr[reg]==gp[reg],
+                "V182 original native cache syscall changed unrelated GPR");
+      ++v182_cache_sc;
+      std::cout<<"V182_CACHE_SC guest=1 vector=1"
+               <<" sc="<<v182_cache_sc
+               <<" status="<<ctx.mmu.read8(ctx.gpr[13]-3176u)
+               <<" pc="<<std::hex<<pc<<" lr="<<lr<<std::dec<<std::endl;
+      return true;
+    }
+'''
+
 # V182 original trace: late V112 callback has post112_sc=1,
 # post112_vector=1, flush=1 and order=0. The first V112 syscall was
 # previously completed. Preserve the original one-shot contract exactly
@@ -183,7 +222,7 @@ def widen_prior(source: str)->str:
 def derive(source: str)->str:
     s=previous(source)
     s=once(s,V112_SYSCALL_DISPATCH,V182_SYSCALL_SCOPED)
-    s=once(s,BASE_SC_FALLBACK,V182_SC_FALLBACK)
+    s=once(s,BASE_SC_FALLBACK,V182_NATIVE_CACHE_SC+V182_SC_FALLBACK)
     s=once(s,V112_SYSCALL_GUARD,V182_V112_TELEMETRY)
     if PREVIOUS_FOLLOWUP.count(STOP)!=1:
         raise ValueError("V182 authenticated V181 owner stop differs")
@@ -192,14 +231,16 @@ def derive(source: str)->str:
  static uint64_t v182_start_inst=0u,v182_last_inst=0u;
  static uint32_t v182_status_before=0u,v182_final_status=0u;
  static uint32_t v182_target_pc=0u,v182_target_lr=0u;
- static std::array<uint32_t,8> v182_trace_pc{},v182_trace_lr{};''')
+ static std::array<uint32_t,8> v182_trace_pc{},v182_trace_lr{};
+ static unsigned v182_cache_sc=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v182_calls=nwii::runtime::v182_burst_seen=0u;
      nwii::runtime::v182_start_inst=nwii::runtime::v182_last_inst=0u;
      nwii::runtime::v182_status_before=nwii::runtime::v182_final_status=0u;
      nwii::runtime::v182_target_pc=nwii::runtime::v182_target_lr=0u;
      nwii::runtime::v182_trace_pc.fill(0u);
-     nwii::runtime::v182_trace_lr.fill(0u);''')
+     nwii::runtime::v182_trace_lr.fill(0u);
+     nwii::runtime::v182_cache_sc=0u;''')
     s=once(s,PREVIOUS_FOLLOWUP,PREVIOUS_FOLLOWUP.replace(STOP,CONTINUE,1))
     s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)

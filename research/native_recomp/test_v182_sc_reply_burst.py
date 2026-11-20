@@ -10,10 +10,10 @@ from derive_v182_sc_reply_burst_harness import (
     derive, STOP, CONTINUE, OBSERVER, PAIR, NEXT_TRIAL, MAX_CALLS,
     V112_SYSCALL_GUARD, V182_V112_TELEMETRY,
     V112_SYSCALL_DISPATCH, V182_SYSCALL_SCOPED,
-    BASE_SC_FALLBACK, V182_SC_FALLBACK,
+    BASE_SC_FALLBACK, V182_SC_FALLBACK, V182_NATIVE_CACHE_SC,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE
 
 HERE=Path(__file__).resolve().parent
 
@@ -49,6 +49,23 @@ class V182(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_late_cache_syscall_executes_original_vector_and_preserves_abi(self):
+        self.assertIn("ctx.pc==0x805222e8u&&ctx.lr==0x80519904u",V182_NATIVE_CACHE_SC)
+        self.assertIn("v181_next_seen==1u&&v182_burst_seen==0u",V182_NATIVE_CACHE_SC)
+        self.assertIn("v182_cache_sc==0u&&v182_calls==3u",V182_NATIVE_CACHE_SC)
+        self.assertIn("post112_sc==1u&&post112_vector==1u&&post112_flush==1u",V182_NATIVE_CACHE_SC)
+        self.assertIn("native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector",V182_NATIVE_CACHE_SC)
+        self.assertIn("[](auto& c){func_80000C00(c);}",V182_NATIVE_CACHE_SC)
+        self.assertIn("ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr",V182_NATIVE_CACHE_SC)
+        self.assertIn("++v182_cache_sc;",V182_NATIVE_CACHE_SC)
+        self.assertIn("return true;",V182_NATIVE_CACHE_SC)
+        self.assertEqual(self.after.count(V182_NATIVE_CACHE_SC),1)
+        self.assertTrue(re.fullmatch(
+            CACHE,"V182_CACHE_SC guest=1 vector=1 sc=1 status=1 pc=805222e8 lr=80519904"))
+        for forbidden in ("ctx.mmu.write8(", "ctx.mmu.write16(", "ctx.mmu.write32(",
+                          "ipc70_bus.write32(", "scheduler.service_one(", "ipc70_bus.tick("):
+            self.assertNotIn(forbidden,V182_NATIVE_CACHE_SC)
 
     def test_first_v112_syscall_only_and_late_cache_fallback_diagnostic(self):
         self.assertEqual(self.before.count(V112_SYSCALL_DISPATCH),1)
@@ -102,6 +119,7 @@ class V182(unittest.TestCase):
         self.assertIn("derive_v182_sc_reply_burst_harness.py",script)
         self.assertIn("V181_SC_NEXT verified=1",script)
         self.assertIn("V182_SC_BURST verified=1",script)
+        self.assertIn("V182_CACHE_SC verified=1",script)
         self.assertIn('trap \'rm -rf -- "$work"\' EXIT',script)
         good=("V182_SC_BURST calls=8 clean=1 reply=1 queue=1 guest=1 "
               "caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 "
@@ -114,6 +132,13 @@ class V182(unittest.TestCase):
             output=Path(td)/"runner.sh"
             output.write_text(script,encoding="utf-8")
             subprocess.run(["bash","-n",str(output)],check=True)
+
+    def test_public_assertion_labels_use_this_exact_derived_v182_catalog(self):
+        from diagnose_v182_sc_reply_burst import describe
+        self.assertIn("V112 original IOS_OpenAsync native cache syscall differs",
+                      [describe(i) for i in range(1,2000)])
+        with self.assertRaises(ValueError): describe(0)
+        with self.assertRaises(ValueError): describe(10000)
 
     def test_original_private_job_is_separate(self):
         wf=(HERE.parents[1]/".github/workflows/wii-v182-sc-reply-burst.yml").read_text(encoding="utf-8")
