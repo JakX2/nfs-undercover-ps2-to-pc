@@ -48,7 +48,7 @@ class V180(unittest.TestCase):
 
     def test_inherited_checkpoints_are_kept_but_accept_valid_native_pc(self):
         self.assertGreaterEqual(len(PAIR.findall(self.before)),7)
-        self.assertEqual(len(PAIR.findall(self.after)),len(PAIR.findall(self.before))
+        self.assertEqual(len(PAIR.findall(self.after)),len(PAIR.findall(self.before)))
         for marker in ("V166 second SC reply nested interrupt restore did not reach real guest call",
                        "V178 original SC reply burst did not reach bounded native checkpoint",
                        "V179 original SC reply continuation did not enter next PPC callee"):
