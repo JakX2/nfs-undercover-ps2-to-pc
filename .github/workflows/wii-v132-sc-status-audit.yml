@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v132*'
+      - 'research/native_recomp/audit_sc_status_writer_sites.py'
+      - 'research/native_recomp/test_sc_status_writer_sites.py'
       - '.github/workflows/wii-v132-sc-status-audit.yml'
 permissions:
   contents: read
@@ -51,6 +53,12 @@ jobs:
           set -euo pipefail
           umask 077
           python3 research/native_recomp/diagnose_v132_sc_status.py \
+            "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Audit possible direct writes to the SC status byte
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/test_sc_status_writer_sites.py
+          python3 research/native_recomp/audit_sc_status_writer_sites.py \
             "$RUNNER_TEMP/originals/NfsMWRelease.dol"
       - name: Remove private owner Wii executable
         if: always()
