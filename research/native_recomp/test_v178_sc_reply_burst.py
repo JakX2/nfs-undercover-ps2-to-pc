@@ -9,7 +9,7 @@ from derive_v177_sc_reply_next_harness import derive as previous
 from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
-    V111_ACTIVE, V111_SCOPED,
+    V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_SCOPED,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE
 
@@ -55,6 +55,18 @@ class V178(unittest.TestCase):
                          after.count("++post111_copy;return true;"))
         self.assertEqual(before.count("++post111_open;post90_target=addr;"),
                          after.count("++post111_open;post90_target=addr;"))
+
+    def test_v98_nand_registration_completes_once_and_never_replays_in_reply(self):
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V98_ACTIVE),1)
+        self.assertEqual(after.count(V98_SCOPED),1)
+        self.assertNotIn(V98_ACTIVE,after)
+        self.assertIn("post98_return==0u",V98_SCOPED)
+        self.assertEqual(before.count("++post98_return;"),
+                         after.count("++post98_return;"))
+        self.assertEqual(before.count("V98 unexpected NAND registration dependency"),
+                         after.count("V98 unexpected NAND registration dependency"))
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)
