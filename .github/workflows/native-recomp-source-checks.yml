@@ -64,6 +64,7 @@ on:
       - '.github/workflows/wii-v170-sc-reply-read.yml'
       - '.github/workflows/wii-v171-sc-reply-distinct.yml'
       - '.github/workflows/wii-v172-sc-y1-ack.yml'
+      - '.github/workflows/wii-v173-sc-after-y1-ack.yml'
       - '.github/workflows/wii-v172-sc-reply-y1-ack.yml'
       - '.github/workflows/wii-v170-sc-reply-read-next.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
@@ -129,6 +130,7 @@ on:
       - '.github/workflows/wii-v170-sc-reply-read.yml'
       - '.github/workflows/wii-v171-sc-reply-distinct.yml'
       - '.github/workflows/wii-v172-sc-y1-ack.yml'
+      - '.github/workflows/wii-v173-sc-after-y1-ack.yml'
       - '.github/workflows/wii-v172-sc-reply-y1-ack.yml'
       - '.github/workflows/wii-v170-sc-reply-read-next.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
@@ -262,6 +264,7 @@ jobs:
           python3 research/native_recomp/test_v170_sc_reply_read.py
           python3 research/native_recomp/test_v171_sc_reply_distinct.py
           python3 research/native_recomp/test_v172_sc_y1_ack.py
+          python3 research/native_recomp/test_v173_sc_after_y1_ack.py
           python3 research/native_recomp/test_v172_sc_reply_y1_ack.py
           python3 research/native_recomp/test_v170_sc_reply_read_next.py
           python3 research/native_recomp/test_v164_sc_y1_disable_next.py
