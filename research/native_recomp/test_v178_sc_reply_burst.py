@@ -9,7 +9,7 @@ from derive_v177_sc_reply_next_harness import derive as previous
 from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
-    V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_SCOPED,
+    V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_FALLTHROUGH, V98_SCOPED_FALLTHROUGH,
     V83_ASSERTION, scope_v83_observer,
     V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
 )
@@ -58,17 +58,26 @@ class V178(unittest.TestCase):
         self.assertEqual(before.count("++post111_open;post90_target=addr;"),
                          after.count("++post111_open;post90_target=addr;"))
 
-    def test_v98_nand_registration_completes_once_and_never_replays_in_reply(self):
+    def test_v98_retains_original_sc_startup_handlers_and_limits_only_nand_fallback(self):
         before=previous(self.base)
         after=derive(self.base)
+        # V98 contains the later V99+ original SET/FILL/COPY call handlers.
+        # Disabling the entire V98 observer skipped these calls and triggered
+        # an unrelated V77 IPC fallback at startup before V141.
         self.assertEqual(before.count(V98_ACTIVE),1)
-        self.assertEqual(after.count(V98_SCOPED),1)
-        self.assertNotIn(V98_ACTIVE,after)
-        self.assertIn("post98_return==0u",V98_SCOPED)
-        self.assertEqual(before.count("++post98_return;"),
-                         after.count("++post98_return;"))
+        self.assertEqual(after.count(V98_ACTIVE),1)
+        self.assertEqual(before.count(V98_FALLTHROUGH),1)
+        self.assertEqual(after.count(V98_SCOPED_FALLTHROUGH),1)
+        self.assertIn("post98_return==0u",V98_SCOPED_FALLTHROUGH)
+        for marker in ("if(addr==SET&&ctx.lr==0x8052f9e4u)",
+                       "if(addr==FILL&&ctx.lr==0x80004454u)",
+                       "if(addr==COPY&&(ctx.lr==0x8052f9f4u||ctx.lr==0x8052fa04u))",
+                       "++post99_set;return true;",
+                       "++post98_return;"):
+            self.assertEqual(before.count(marker),after.count(marker),marker)
         self.assertEqual(before.count("V98 unexpected NAND registration dependency"),
                          after.count("V98 unexpected NAND registration dependency"))
+        self.assertNotIn("post97_return==1u&&post98_node&&post98_return==0u",after)
 
     def test_v83_synchronous_open_observer_is_phase_limited(self):
         before=previous(self.base)
