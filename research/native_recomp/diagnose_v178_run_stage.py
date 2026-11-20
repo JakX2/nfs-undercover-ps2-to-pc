@@ -75,7 +75,7 @@ def classify(data: str)->str:
         elif stage=="runner_preflight":
             # Inspect only traceback references to checked-in PUBLIC
             # research scripts. Never echo any arbitrary/private file name.
-            frames=re.findall(r'File "([^"\\r\\n]+)", line [0-9]{1,6}',data)
+            frames=re.findall(r'File "([^"]+)", line [0-9]{1,6}',data)
             allowed={p.name for p in Path(__file__).parent.glob("*.py")}
             hits=[]
             for frame in frames:
