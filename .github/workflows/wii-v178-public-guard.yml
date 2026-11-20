@@ -1,0 +1,24 @@
+name: Wii V178 Public ACK Guard Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/inspect_v178_public_guard.py'
+      - '.github/workflows/wii-v178-public-guard.yml'
+permissions:
+  contents: read
+jobs:
+  public-ack-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compare original-free V177 and V178 ACK-only fallback guards
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/inspect_v178_public_guard.py
+          python3 research/native_recomp/inspect_v178_public_guard.py
