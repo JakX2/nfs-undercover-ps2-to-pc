@@ -9,7 +9,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: wii-v182-sc-reply-burst-${{ github.ref }}
+  # Dedicated concurrency namespace avoids blocking corrected diagnostics behind
+  # a historical V182 test run with excessive assertion-catalog derivations.
+  group: wii-v182-sc-reply-burst-revalidated-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   public-original-free-v182:
