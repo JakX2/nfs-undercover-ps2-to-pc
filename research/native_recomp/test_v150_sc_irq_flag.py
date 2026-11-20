@@ -34,7 +34,7 @@ class V150(unittest.TestCase):
         now=derive(self.base)
         for fragment in ("check(ipc70_bus.write32(addr,value)",
                          "mmio_writes.emplace_back(addr,value);"):
-            self.assertIn(fragment,MMIO_CONTINUE if fragment.startswith("mmio_writes") else prior)
+            self.assertIn(fragment,now)
         for phrase in ("addr==B::IPC+H::PPC_FLAG",
                        "(value&H::IPC_PPC)!=0u",
                        "((*flags&H::IPC_PPC)==0u)",
