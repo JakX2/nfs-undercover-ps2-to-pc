@@ -129,8 +129,8 @@ static void test_ios_read_only() {
         return result;
     };
     ram.cstring(path,S::Path);
-    expect(call(IOS::Open,0,path,0)==IOS::NotFound,
-           "opened config without explicit filesystem root");
+    expect(call(IOS::Open,0,path,0)==IOS::FsAccess,
+           "opened read-only guest SYSCONF with write mode");
     expect(call(IOS::Open,0,path,1)==0,"read-only guest SYSCONF open failed");
     expect(bus.services().is_open(0,IOS::Device::File), "SYSCONF file descriptor type");
     expect(!bus.services().mount_filesystem(std::make_shared<GuestFiles>()),
