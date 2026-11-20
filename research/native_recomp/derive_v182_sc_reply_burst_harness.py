@@ -25,6 +25,14 @@ MAX_CALLS=8
 V182_NATIVE_CACHE_SC='''    if(own&&v181_next_seen==1u&&v182_burst_seen==0u&&
        ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){
       using Bus=undercover::wii::IosBus;
+      std::cout<<"V182_CACHE_PRE phase=1 calls="<<v182_calls
+               <<" sc="<<post112_sc<<" vector="<<post112_vector
+               <<" flush="<<post112_flush
+               <<" lines="<<(ctx.guest_flush_count>post112_flush_before)
+               <<" hid4="<<(ctx.hid4==0x83900000u)
+               <<" ee="<<((ctx.msr&Bus::MSR_EE)!=0u)
+               <<" pc="<<std::hex<<ctx.pc<<" lr="<<ctx.lr
+               <<std::dec<<std::endl;
       check(v182_cache_sc==0u&&v182_calls==3u&&
             post112_sc==1u&&post112_vector==1u&&post112_flush==1u&&
             ctx.gpr[13]==v147_first_r13&&
@@ -39,6 +47,13 @@ V182_NATIVE_CACHE_SC='''    if(own&&v181_next_seen==1u&&v182_burst_seen==0u&&
       native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,
           !ipc70_bus.external_irq_level(),
           [](auto& c){func_80000C00(c);});
+      std::cout<<"V182_CACHE_AFTER pcok="<<(ctx.pc==pc+4u)
+               <<" msr="<<(ctx.msr==msr)
+               <<" lr="<<(ctx.lr==lr)
+               <<" hid0="<<(ctx.hid0==hid)
+               <<" hid4="<<(ctx.hid4==0x83900000u)
+               <<" ctr="<<(ctx.ctr==ctr)
+               <<std::endl;
       check(ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr&&
             ctx.hid0==hid&&ctx.ctr==ctr&&
             ctx.gpr[13]==v147_first_r13,

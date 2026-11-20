@@ -13,7 +13,7 @@ from derive_v182_sc_reply_burst_harness import (
     BASE_SC_FALLBACK, V182_SC_FALLBACK, V182_NATIVE_CACHE_SC,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER
 
 HERE=Path(__file__).resolve().parent
 
@@ -59,6 +59,13 @@ class V182(unittest.TestCase):
         self.assertIn("[](auto& c){func_80000C00(c);}",V182_NATIVE_CACHE_SC)
         self.assertIn("ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr",V182_NATIVE_CACHE_SC)
         self.assertIn("++v182_cache_sc;",V182_NATIVE_CACHE_SC)
+        self.assertIn("V182_CACHE_PRE phase=1",V182_NATIVE_CACHE_SC)
+        self.assertIn("V182_CACHE_AFTER pcok=",V182_NATIVE_CACHE_SC)
+        self.assertTrue(re.fullmatch(
+            PRE,"V182_CACHE_PRE phase=1 calls=3 sc=1 vector=1 flush=1 lines=1 "
+                "hid4=1 ee=1 pc=805222e8 lr=80519904"))
+        self.assertTrue(re.fullmatch(
+            AFTER,"V182_CACHE_AFTER pcok=1 msr=1 lr=1 hid0=1 hid4=1 ctr=1"))
         self.assertIn("return true;",V182_NATIVE_CACHE_SC)
         self.assertEqual(self.after.count(V182_NATIVE_CACHE_SC),1)
         self.assertTrue(re.fullmatch(

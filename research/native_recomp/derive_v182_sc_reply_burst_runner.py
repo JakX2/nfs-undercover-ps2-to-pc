@@ -10,6 +10,8 @@ FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V181_SC_NEXT verified=1'"
 DEP=r'^V182_V112_DEP phase=[01] op=[01] flush=[0-9]{1,2} sc=[0-9]{1,2} vector=[0-9]{1,2} order=[01] count=[01] calls=[0-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 FALLBACK=r'^V182_SC_FALLBACK phase=1 prior=[0-9]{1,2} vector=[0-9]{1,2} flush=[0-9]{1,2} burst=[0-8] mapped=[01] status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+PRE=r'^V182_CACHE_PRE phase=1 calls=[0-8] sc=[0-9]{1,2} vector=[0-9]{1,2} flush=[0-9]{1,2} lines=[01] hid4=[01] ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+AFTER=r'^V182_CACHE_AFTER pcok=[01] msr=[01] lr=[01] hid0=[01] hid4=[01] ctr=[01]$'
 CACHE=r'^V182_CACHE_SC guest=1 vector=1 sc=1 status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 TRACE=r'^V182_SC_TRACE step=[1-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PATTERN=r'^V182_SC_BURST calls=[1-8] clean=[01] reply=[01] queue=[01] guest=[01] caller=[01] coherent=[01] mapped=[01] before=[0-9]{1,3} status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
@@ -25,7 +27,9 @@ def derive(source: str)->str:
         +'  grep -E "'+TRACE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+DEP+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+FALLBACK+'" "$work/private-native.log" | sort -u || true\n'
-        +'  grep -E "'+CACHE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+        +'  grep -E "'+CACHE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+AFTER+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
