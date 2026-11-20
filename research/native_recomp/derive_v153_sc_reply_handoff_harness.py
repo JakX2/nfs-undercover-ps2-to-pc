@@ -5,6 +5,9 @@ V152 proved the authentic SC dispatcher reaches 0x80529434 from 0x80526CB0
 after PPCCTRL Y2 and Hollywood PPC_FLAG W1C. Unlike the older V77 STM request,
 this SC request is a read-only SYSCONF file open with a returned file descriptor.
 
+Note: inherited V79 rewrites POST_OWNER to 0x805190C0, so do not use that alias
+for the SC post-IRQ boundary at 0x80529434.
+
 At this precise guest function boundary, authorize *one* deterministic native
 IosYieldScheduler step and inspect its real reply wire, mailbox and interrupt.
 All original PPC instructions and previously queued IOS request bytes remain
@@ -25,7 +28,7 @@ NEXT_OBSERVER=OBSERVER.replace(
      using V153Mail=undercover::wii::IpcMailbox;
      using V153Irq=undercover::wii::HollywoodIrq;
      using V153Ios=undercover::wii::StmIos;
-     const bool route=addr==POST_OWNER&&ctx.lr==0x80526cb0u;
+     const bool route=addr==0x80529434u&&ctx.lr==0x80526cb0u;
      const auto req=ipc70_bus.read32(V153Bus::IPC+V153Mail::PPCMSG);
      const bool request=req.has_value()&&*req!=0u&&
            !(*req&31u)&&ipc70_ram.valid(*req,64u)&&
@@ -99,7 +102,7 @@ NEXT_TRIAL='''       using V153Bus=undercover::wii::IosBus;
        const auto v153_fd=nwii::runtime::v153_fd;
        const bool v153_bridge=nwii::runtime::v153_bridge_seen==1u&&
              nwii::runtime::v152_next_seen==1u&&
-             c.pc==POST_OWNER&&c.lr==0x80526cb0u&&!c.is_running;
+             c.pc==0x80529434u&&c.lr==0x80526cb0u&&!c.is_running;
        const bool v153_wire=nwii::runtime::ipc70_ram.valid(v153_phys,64u)&&
              nwii::runtime::ipc70_ram.read32(v153_phys)==V153Ios::Reply&&
              nwii::runtime::ipc70_ram.read32(v153_phys+4u)==v153_fd&&
