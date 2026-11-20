@@ -20,7 +20,7 @@ STAGES=(
 )
 SAFE_REASONS=(
     ("verify_runtime", ("V71 inherited performance/HID4 runtime invalid",)),
-    ("cache_trace", ("V71 reused verified V40", "AssertionError")),
+
     ("analyzer_compile", (
         "V72 original-free jump-table analyzer test compile failed",
         "V72 original-free tail-root analyzer compile failed",
