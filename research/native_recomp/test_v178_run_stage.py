@@ -48,6 +48,17 @@ class StageTests(unittest.TestCase):
             self.assertEqual(classify(raw),expected)
             self.assertNotIn("secret",classify(raw))
 
+    def test_inline_original_free_preflight_pinpoints_only_bounded_line(self):
+        raw=('V110_WRAPPER syntax_ok\n'
+             'Traceback (most recent call last):\n'
+             '  File "<stdin>", line 10, in <module>\n'
+             'AssertionError\n'
+             'PRIVATE_FILE=/secret/owner.bin\n')
+        self.assertEqual(classify(raw),
+            'V178_FAILURE_STAGE phase=runner_preflight reason=python_error script=inline_cache_line_10')
+        self.assertEqual(classify(raw.replace('line 10','line 999')),
+            'V178_FAILURE_STAGE phase=runner_preflight reason=python_error script=none')
+
     def test_unknown_failure_class_is_explicit(self):
         self.assertEqual(classify(""),"V178_FAILURE_STAGE phase=wrapper reason=unclassified script=none")
 
