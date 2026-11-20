@@ -15,8 +15,6 @@ def derive(source):
       ("V127_STAGE native_test_passed","V128_STAGE native_test_passed"),
       ("V127_NATIVE_EXIT","V128_NATIVE_EXIT"),
       ("stage=127","stage=128"),
-      ("V127 recovered original OSInit first authenticated BL after post-SC GPR save",
-       "V128 recovered original 71-instruction OSInit next function and successor"),
     )
     for old,new in changes:
         if old not in s:raise ValueError("V128 runner source anchor missing: "+old)

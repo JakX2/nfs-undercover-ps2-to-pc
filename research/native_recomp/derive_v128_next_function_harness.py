@@ -44,8 +44,6 @@ EDITS=[
  ("check(nwii::runtime::post127_next==1u&&nwii::runtime::post125_next==1u&&",
   "check(nwii::runtime::post128_next==1u&&nwii::runtime::post127_next==1u&&nwii::runtime::post125_next==1u&&"),
  ("V127_TRIAL_PASS trial=","V128_TRIAL_PASS trial="),
- ("V127 recovered original OSInit first authenticated BL after post-SC GPR save",
-  "V128 recovered original 71-instruction OSInit next function and successor"),
  ("nwii::runtime::post90_target==nwii::runtime::post127_pc&&",
   "nwii::runtime::post90_target==nwii::runtime::post128_pc&&")
 ]
