@@ -171,6 +171,7 @@ jobs:
           python3 research/native_recomp/test_v143_sc_irq_time.py
           python3 research/native_recomp/test_v144_sc_irq_disable.py
           python3 research/native_recomp/test_v145_sc_ipc_handler.py
+          python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
