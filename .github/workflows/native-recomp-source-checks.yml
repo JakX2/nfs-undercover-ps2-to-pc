@@ -42,6 +42,7 @@ on:
       - '.github/workflows/wii-v149-sc-ipc-ack.yml'
       - '.github/workflows/wii-v150-sc-irq-flag.yml'
       - '.github/workflows/wii-v151-sc-post-flag.yml'
+      - '.github/workflows/wii-v152-sc-post-helper.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -82,6 +83,7 @@ on:
       - '.github/workflows/wii-v149-sc-ipc-ack.yml'
       - '.github/workflows/wii-v150-sc-irq-flag.yml'
       - '.github/workflows/wii-v151-sc-post-flag.yml'
+      - '.github/workflows/wii-v152-sc-post-helper.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -189,6 +191,7 @@ jobs:
           python3 research/native_recomp/test_v149_sc_ipc_ack.py
           python3 research/native_recomp/test_v150_sc_irq_flag.py
           python3 research/native_recomp/test_v151_sc_post_flag.py
+          python3 research/native_recomp/test_v152_sc_post_helper.py
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 683
           python3 research/native_recomp/test_v125_owner_fixture_source.py
