@@ -130,16 +130,19 @@ def scope_v83_observer(s: str)->str:
 # only bounded guest callsite/counter data so a genuine new callee can be
 # classified without exposing the private owner executable or stack.
 V77_LEGACY_FALLTHROUGH='''         check(false,"unexpected original IPC ACK-only path dependency");'''
-V178_IPC_DIAGNOSTIC='''         if(v177_next_seen==1u&&v178_burst_seen==0u){
-           const bool masked=(ctx.msr&0x8000u)==0u;
-           const bool in_text=addr>=0x80400000u&&addr<0x80600000u;
-           const bool tracked=ctx.gpr[13]==v147_first_r13;
-           std::cout<<"V178_IPC_DEP masked="<<masked
-                    <<" text="<<in_text<<" tracked="<<tracked
-                    <<" calls="<<v178_calls
-                    <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
-                    <<std::dec<<std::endl;
-         }
+V178_IPC_DIAGNOSTIC='''         // Read-only phase classification at the unchanged fail-closed V77 gate.
+         const bool phase=v177_next_seen==1u;
+         const bool live=v141_live!=0u;
+         const bool active=v178_burst_seen==0u;
+         const bool masked=(ctx.msr&0x8000u)==0u;
+         const bool in_text=addr>=0x80400000u&&addr<0x80600000u;
+         const bool tracked=ctx.gpr[13]==v147_first_r13;
+         std::cout<<"V178_IPC_DEP phase="<<phase<<" live="<<live
+                  <<" active="<<active<<" masked="<<masked
+                  <<" text="<<in_text<<" tracked="<<tracked
+                  <<" calls="<<v178_calls
+                  <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+                  <<std::dec<<std::endl;
          check(false,"unexpected original IPC ACK-only path dependency");'''
 
 PAIR=re.compile(
