@@ -34,6 +34,7 @@ CONTINUE='''     using V158Mem=undercover::wii::IosBus;
               <<" idle="<<idle<<" thread="<<thread<<std::endl;
      check(route&&masked&&aligned&&mapped,
            "V158 original SC context-loader pointer/ABI is invalid");
+     v158_selected_idle=idle;v158_selected_thread=thread;
      v158_expected_pc=ctx.mmu.read32(selected+408u);
      v158_expected_msr=ctx.mmu.read32(selected+412u);
      v158_expected_lr=ctx.mmu.read32(selected+132u);
@@ -73,15 +74,23 @@ RFI_OBSERVER='''bool process_pending_callbacks(CPUContext& ctx){
           ctx.xer==v158_expected_xer;
     const bool waiting=ctx.mmu.read16(THREAD+712u)==4u&&
           ctx.mmu.read32(sleep73_queue)==THREAD;
+    const bool running=ctx.mmu.read16(THREAD+712u)==2u;
+    const bool ready_thread=ctx.mmu.read16(THREAD+712u)==1u;
+    const bool linked=ctx.mmu.read32(sleep73_queue)==THREAD||
+          ctx.mmu.read32(sleep73_queue+4u)==THREAD;
+    const bool lifecycle=v158_selected_thread?running:
+          (v158_selected_idle&&waiting);
     const bool ee=(ctx.msr&V158Bus::MSR_EE)!=0u;
     const bool ready=ipc70_bus.external_exception_pending(ctx.msr);
     const bool coherent=ready==(ee&&ipc70_bus.external_irq_level());
     const bool old_pc=ctx.pc==sched74_resume;
     std::cout<<"V158_SC_RFI pc="<<pc<<" msr="<<msr
              <<" regs="<<gprs<<" waiting="<<waiting
+             <<" running="<<running<<" ready_thread="<<ready_thread
+             <<" linked="<<linked<<" lifecycle="<<lifecycle
              <<" irq="<<irq<<" reply="<<reply<<" coherent="<<coherent
              <<" ee="<<ee<<" ready="<<ready<<" old_pc="<<old_pc<<std::endl;
-    check(pc&&msr&&gprs&&waiting&&irq&&reply&&coherent,
+    check(pc&&msr&&gprs&&lifecycle&&irq&&reply&&coherent,
           "V158 original SC OSLoadContext did not restore guest-selected context");
     ++v158_rfi_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -106,12 +115,14 @@ def derive(source: str)->str:
     s=once(s,STATE,STATE+'''
  static unsigned v158_rfi_seen=0;
  static uint64_t v158_load_inst=0;
+ static bool v158_selected_idle=false,v158_selected_thread=false;
  static std::array<uint32_t,32> v158_expected_gprs{};
  static uint32_t v158_expected_pc=0,v158_expected_msr=0;
  static uint32_t v158_expected_lr=0,v158_expected_ctr=0,v158_expected_xer=0;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v158_rfi_seen=0u;
      nwii::runtime::v158_load_inst=0u;
+     nwii::runtime::v158_selected_idle=nwii::runtime::v158_selected_thread=false;
      nwii::runtime::v158_expected_gprs.fill(0u);
      nwii::runtime::v158_expected_pc=nwii::runtime::v158_expected_msr=0u;
      nwii::runtime::v158_expected_lr=nwii::runtime::v158_expected_ctr=
