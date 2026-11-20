@@ -38,7 +38,6 @@ class V161(unittest.TestCase):
         self.assertIn("ctx.inst_count>v161_handler_inst",OBSERVER)
         self.assertIn("ctx.mmu.read32(THREAD+408u)==v158_expected_pc",OBSERVER)
         self.assertIn("ctx.mmu.read32(THREAD+412u)==v158_expected_msr",OBSERVER)
-        self.assertIn("undercover::wii::IpcMailbox::",OBSERVER) if False else None
         self.assertIn("Mail::Y1",OBSERVER)
         self.assertIn("Irq::IPC_PPC",OBSERVER)
         self.assertEqual(after.count("V161_SC_Y1_DISPATCH index="),1)
