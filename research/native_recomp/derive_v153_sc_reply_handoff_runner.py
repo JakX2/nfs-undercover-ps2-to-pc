@@ -8,8 +8,8 @@ OLD='python3 "$here/derive_v152_sc_post_helper_harness.py"'
 NEW='python3 "$here/derive_v153_sc_reply_handoff_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V152_SC_POST_HELPER verified=1'"
-PATTERN=r'^V153_SC_REPLY bridge=[01] wire=[01] mail=[01] drained=[01] irq=[01]$'
-PASS="V153_SC_REPLY bridge=1 wire=1 mail=1 drained=1 irq=1"
+PATTERN=r'^V153_SC_REPLY route=[01] cleared=[01] service=[01] wire=[01] fd=[01] signal=[01]$'
+PASS="V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1"
 
 def derive(source: str) -> str:
     s=previous(source)
@@ -20,6 +20,7 @@ def derive(source: str) -> str:
     s=s.replace(DONE,DONE+f"""
 grep -Fx '{PASS}' "$log" | sort -u
 test "$(grep -Fxc '{PASS}' "$log")" -eq 16
+grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=1 drained=1 irq=1' "$log" | sort -u
 echo 'V153_SC_REPLY verified=1'
 """,1)
     return s
