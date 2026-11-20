@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V150
+# Wii SC IPC native execution: V147–V151
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -14,9 +14,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V148 | One further native read-helper invocation; next distinct helper `0x8051906C`, LR `0x80519380` | [V148](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44666572933) |
 | V149 | Original IPC PPCCTRL write-one-to-clear removes Y2; IOS reply still queued and Hollywood IRQ still asserted | [V149](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44667819372) |
 | V150 | Original IPC Hollywood PPC_FLAG write-one-to-clear removes the IPC latch; Broadway external IRQ level falls while IOS reply stays queued | [V150](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44668304691) |
+| V151 | After authentic MMIO acknowledgments, original handler advances to helper `0x8051B060`, LR `0x805193A4`; Y2 and IPC flag remain clear, IRQ level low and IOS reply still queued | [V151](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44668844111) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V150 introduce no replacement guest
+original-path regression gates. V147–V151 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -27,6 +28,7 @@ V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=1 target=80
 V148_SC_IPC_DISTINCT first=1 caller=1 advanced=1 masked=1 queued=1 irq=1 reads=1 target=8051906c lr=80519380
 V149_SC_IPC_ACK write=1 w1c=1 queued=1 irq=1 guest=1
 V150_SC_IRQ_CLEAR write=1 w1c=1 ctrl=1 irq_down=1 queued=1 guest=1
+V151_SC_AFTER_FLAG cleared=1 irq_down=1 queued=1 masked=1 progressed=1 text=1 target=8051b060 lr=805193a4
 ~~~
 
 ## Corrected test-phase ownership
@@ -50,7 +52,7 @@ After authentic W1C of PPCCTRL Y2, the separate Hollywood interrupt latch
 remains asserted until the original PPC_FLAG write clears it. That ordering
 is now verified in the *same* owner-original execution chain.
 
-A queued IOS reply is deliberately **not** published by V149 or V150. The
+A queued IOS reply is deliberately **not** published by V149–V151. The
 separate deterministic `IosYieldScheduler` may service it at a valid guest
 yield boundary once the preceding interrupt is fully acknowledged. This
 is not Starlet ARM execution or an accurate timing/coherency model.
@@ -61,10 +63,11 @@ hardware emulation.
 
 ## Next execution gates
 
-1. Resume original guest code after V150's PPC_FLAG clear and verify the
-   original IRQ handler's remaining return path, saved context and interrupt
-   restore. V151 is the currently proposed read-only successor probe and
-   must be assessed separately; a submitted workflow is **not** verification.
+1. V151 **verified** the first post-flag guest helper `0x8051B060` at
+   return address `0x805193A4`. Continue original IRQ handler's remaining
+   helper calls and return path, preserving the interrupted context and
+   guest interrupt restore. Do not count handler entry or helper entry as
+   a completed interrupt return.
 2. Deliver the queued IOS reply with one scheduler-authorized native service
    step, not from MMIO writes or test-owned success stubs. Verify reply
    registers, interrupt vector and queue transitions.
