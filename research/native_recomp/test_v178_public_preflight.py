@@ -46,6 +46,30 @@ class PublicPreflightTests(unittest.TestCase):
         with self.assertRaises(ValueError):derive(source+"\n"+first+"\n")
         with self.assertRaises(ValueError):derive(derive(source))
 
+    def test_wrapper_redacts_preflight_exception_text_and_paths(self):
+        wrapper=(HERE/"run_v178_sc_reply_burst.sh").read_text(encoding="utf-8")
+        start='python3 - "$work/derive.log" <<'+"'PY'\n"
+        self.assertEqual(wrapper.count(start),1)
+        code=wrapper.split(start,1)[1].split("\nPY\n",1)[0]
+        with tempfile.TemporaryDirectory() as td:
+            private=Path(td)/"derive.log"
+            raw=("Traceback (most recent call last):\n"
+                 '  File "/private/secret/owner.dol", line 999\n'
+                 "ValueError: V178 public preflight command cache_verify count=0\n"
+                 "PRIVATE_TOKEN=0123456789deadbeef\n")
+            private.write_text(raw,encoding="utf-8")
+            p=subprocess.run(["python3","-",str(private)],input=code,
+                             text=True,capture_output=True,check=True)
+            self.assertIn("V178_DERIVATION result=failed kind=other_value_error",p.stderr)
+            self.assertIn("V178_PUBLIC_PREFLIGHT_ERROR step=cache_verify count=0",p.stderr)
+            for secret in ("owner.dol","deadbeef","/private/","PRIVATE_TOKEN"):
+                self.assertNotIn(secret,p.stdout+p.stderr)
+            private.write_text(raw.replace("cache_verify","private_secret"),encoding="utf-8")
+            p=subprocess.run(["python3","-",str(private)],input=code,
+                             text=True,capture_output=True,check=True)
+            self.assertNotIn("V178_PUBLIC_PREFLIGHT_ERROR",p.stdout+p.stderr)
+        subprocess.run(["bash","-n",str(HERE/"run_v178_sc_reply_burst.sh")],check=True)
+
     def test_markers_never_contain_private_data_or_addresses(self):
         source=BASE.read_text(encoding="utf-8")
         script=derive(source)
