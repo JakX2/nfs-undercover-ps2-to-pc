@@ -21,6 +21,7 @@ on:
       - '.github/workflows/wii-v124-sc-second-save.yml'
       - '.github/workflows/wii-v125-sc-helper.yml'
       - '.github/workflows/wii-v127-osinit-first-bl.yml'
+      - '.github/workflows/wii-v128-next-function-execution.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -40,6 +41,7 @@ on:
       - '.github/workflows/wii-v124-sc-second-save.yml'
       - '.github/workflows/wii-v125-sc-helper.yml'
       - '.github/workflows/wii-v127-osinit-first-bl.yml'
+      - '.github/workflows/wii-v128-next-function-execution.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -121,6 +123,7 @@ jobs:
           python3 research/native_recomp/test_v128_next_function_probe.py
           python3 research/native_recomp/test_v128_next_function_restore.py
           python3 research/native_recomp/test_v128_next_function_generator.py
+          python3 research/native_recomp/test_v128_next_function_harness.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
