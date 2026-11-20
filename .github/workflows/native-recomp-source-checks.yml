@@ -144,6 +144,7 @@ jobs:
           python3 research/native_recomp/test_v134_sc_sda_writers.py
           python3 research/native_recomp/test_v135_sc_flow.py
           python3 research/native_recomp/test_v136_second_retry.py
+          python3 research/native_recomp/test_v137_ios_liveness.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
