@@ -95,8 +95,8 @@ class V178(unittest.TestCase):
         self.assertEqual(after.count(V178_IPC_DIAGNOSTIC),1)
         self.assertEqual(after.count("unexpected original IPC ACK-only path dependency"),
                          before.count("unexpected original IPC ACK-only path dependency"))
-        for token in ("v177_next_seen==1u", "v178_burst_seen==0u",
-                      "v178_calls", "V178_IPC_DEP masked=", "ctx.gpr[13]==v147_first_r13"):
+        for token in ("phase=v177_next_seen==1u", "active=v178_burst_seen==0u",
+                      "v178_calls", "V178_IPC_DEP phase=", "ctx.gpr[13]==v147_first_r13"):
             self.assertIn(token,V178_IPC_DIAGNOSTIC)
         self.assertIn('check(false,"unexpected original IPC ACK-only path dependency");',
                       V178_IPC_DIAGNOSTIC)
@@ -159,8 +159,9 @@ class V178(unittest.TestCase):
         self.assertFalse(re.fullmatch(PASS,good.replace("calls=6","calls=7")))
         self.assertFalse(re.fullmatch(PASS,good.replace("guest=1","guest=0")))
         self.assertTrue(re.fullmatch(TRACE,"V178_SC_TRACE step=6 pc=805229b4 lr=80545120"))
-        self.assertTrue(re.fullmatch(DEP,"V178_IPC_DEP masked=1 text=0 tracked=1 calls=0 pc=80000c00 lr=80545120"))
-        self.assertFalse(re.fullmatch(DEP,"V178_IPC_DEP masked=1 text=0 tracked=1 calls=7 pc=80000c00 lr=80545120"))
+        self.assertTrue(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=0 pc=80000c00 lr=0"))
+        self.assertFalse(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=7 pc=80000c00 lr=0"))
+        self.assertNotIn("if(v177_next_seen==1u&&v178_burst_seen==0u)",V178_IPC_DIAGNOSTIC)
         self.assertFalse(re.fullmatch(TRACE,"V178_SC_TRACE step=7 pc=805229b4 lr=80545120"))
         with tempfile.TemporaryDirectory() as temp:
             p=Path(temp)/"runner.sh"
