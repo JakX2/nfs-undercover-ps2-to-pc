@@ -91,7 +91,7 @@ jobs:
           bash research/native_recomp/run_v153_sc_reply_handoff.sh \
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc153.log" 2>&1 || {
-              grep -E '^V153_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_ok|syntax_failed)$|^V140_SC_IRQ_ENTRY pending=[01] vector=[01] saved=[01] regs=[01] queued=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc153.log" | sort -u || true
+              grep -E '^V153_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_ok|syntax_failed)$|^V140_SC_IRQ_ENTRY pending=[01] vector=[01] saved=[01] regs=[01] queued=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V77_HARNESS_LINE [0-9]{1,6}$|^V77_WARNING [a-z0-9-]+$|^V79_STAGE [a-z0-9_]+$' "$RUNNER_TEMP/sc153.log" | sort -u || true
               echo 'V153 original SC post-IRQ reply handoff failed; owner-private details withheld' >&2
               exit 1
             }
