@@ -63,6 +63,14 @@ def derive(source):
     s=one(s,RESET,RESET+"\n     nwii::runtime::v145_ipc_seen=0u;\n     nwii::runtime::v145_disable_inst=0u;")
     s=one(s,STOP,NEXT)
     s=one(s,TRIAL,NEXT_TRIAL)
+    # V136's two callsite observers belong only to its second SC retry.
+    # A later external IRQ legitimately calls the same interrupt helpers;
+    # preserve the original V136 checks before the third SC entry, then
+    # relinquish the helper addresses to the subsequent IRQ instrumentation.
+    for addr in ("0x805265acu", "0x805265d4u"):
+        before=f"if(post130_next==1u&&addr=={addr})"
+        after=f"if(post130_next==1u&&post136_seen==0u&&addr=={addr})"
+        s=one(s,before,after)
     return s
 
 if __name__=="__main__":
