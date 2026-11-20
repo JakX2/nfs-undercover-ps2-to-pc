@@ -9,6 +9,7 @@ from derive_v171_sc_reply_distinct_harness import derive as previous
 from derive_v172_sc_y1_ack_harness import (
     derive, STATE, RESET, STOP, CONTINUE, MMIO_ANCHOR,
     MMIO_OBSERVER, PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior_pc_gates,
+    V153_MAIL_OLD, V153_MAIL_NEW,
 )
 from derive_v172_sc_y1_ack_runner import derive as runner, PASS
 HERE=Path(__file__).resolve().parent
@@ -25,6 +26,12 @@ class V172(unittest.TestCase):
         self.assertNotIn(STOP,after)
         self.assertIn(CONTINUE,after)
         self.assertIn(MMIO_OBSERVER,after)
+        self.assertEqual(before.count(V153_MAIL_OLD),1)
+        self.assertNotIn(V153_MAIL_OLD,after)
+        self.assertEqual(after.count(V153_MAIL_NEW),1)
+        self.assertIn("v172_ack_seen==1u",V153_MAIL_NEW)
+        self.assertIn("((*v153_ctrl&V153Mail::Y2)==0u)",V153_MAIL_NEW)
+        self.assertIn("((*v153_flags&V153Irq::IPC_PPC)!=0u)",V153_MAIL_NEW)
         self.assertIn(NEXT_TRIAL,after)
         self.assertIn("addr==0x8051906cu&&ctx.lr==0x8051910cu",CONTINUE)
         self.assertIn("return; // execute original guest PPCCTRL writer",CONTINUE)
