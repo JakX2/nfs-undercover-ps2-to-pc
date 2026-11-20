@@ -78,6 +78,21 @@ NEXT_TRIAL='''       check(nwii::runtime::v172_ack_seen==1u&&
              c.lr==0x8051910cu&&
              !c.is_running,
              "V172 original SC Y1 reply PPCCTRL ACK was not performed by game code");'''
+# The earlier V153 checkpoint proved the SC reply was published with Y1
+# asserted. After this milestone's real guest write-one-to-clear, the same
+# end-of-trial snapshot must permit Y1=0 ONLY with authenticated V172 ACK.
+# Hollywood PPC_FLAG remains separately asserted here.
+V153_MAIL_OLD='''       const bool v153_mail=v153_ctrl.has_value()&&v153_flags.has_value()&&
+             ((*v153_ctrl&V153Mail::Y1)!=0u)&&
+             ((*v153_ctrl&V153Mail::Y2)==0u)&&
+             ((*v153_flags&V153Irq::IPC_PPC)!=0u);'''
+V153_MAIL_NEW='''       const bool v153_mail=v153_ctrl.has_value()&&v153_flags.has_value()&&
+             (((*v153_ctrl&V153Mail::Y1)!=0u)||
+              (nwii::runtime::v172_ack_seen==1u&&
+               ((*v153_ctrl&V153Mail::Y1)==0u)))&&
+             ((*v153_ctrl&V153Mail::Y2)==0u)&&
+             ((*v153_flags&V153Irq::IPC_PPC)!=0u);'''
+
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v171_target_pc&&'
     r'\s*c\.lr==nwii::runtime::v171_target_lr')
@@ -129,6 +144,7 @@ def derive(source: str)->str:
      nwii::runtime::v172_stop_pc=nwii::runtime::v172_stop_lr=0u;''')
     s=once(s,STOP,CONTINUE)
     s=once(s,MMIO_ANCHOR,MMIO_OBSERVER)
+    s=once(s,V153_MAIL_OLD,V153_MAIL_NEW)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return widen_prior_pc_gates(s)
 
