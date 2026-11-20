@@ -14,8 +14,7 @@ STATE = " static unsigned post136_disable=0,post136_restore=0,post136_seen=0;"
 RESET = ("nwii::runtime::post136_disable=nwii::runtime::post136_restore="
          "nwii::runtime::post136_seen=0;")
 INJECT = "     // Record the original callable stop, not the newly selected vector."
-TRACE = ("void trace_call(uint32_t addr, CPUContext&ctx){"
-         "\n   if(submit72_trace(addr,ctx))return;")
+TRACE = "void trace_call(uint32_t addr, CPUContext&ctx){"
 TRIAL = '       std::cout<<"V130_TRIAL_PASS trial="'
 
 VARS = """ 
@@ -67,7 +66,7 @@ ENTRY_OBSERVER = """void trace_call(uint32_t addr, CPUContext&ctx){
      ++v141_handler_seen;
      ctx.is_running=false;throw ExceptionStop{};
    }
-   if(submit72_trace(addr,ctx))return;"""
+"""
 
 RESET_EXTRA = """ 
      nwii::runtime::v141_live=false;
