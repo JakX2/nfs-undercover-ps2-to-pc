@@ -52,6 +52,15 @@ V150 similarly scopes V146's first-IPC-helper assertion to
 `v146_leaf_seen == 0`, so subsequent genuine calls do not trigger a
 one-time test observer.
 
+V153 exposed a second phase-ownership hazard: the inherited V79 reply
+harness repoints `POST_OWNER` to `0x805190C0` for the older STM reply
+processor, whereas the later genuine SC post-IRQ scheduler call is at
+`0x80529434` (LR `0x80526CB0`). V153 now validates this authentic SC
+callsite explicitly. Its result is the original SYSCONF `IOS_Open` file
+descriptor, **not** the earlier STM `IOS_Open` zero-result assumption.
+V155 must likewise limit any inherited IRQ-disable observer to its
+original phase while preserving the actual SC request and Y1 signaling.
+
 ## Hardware and runtime boundaries
 
 The native `IosBus` models Broadway IPC registers and Hollywood IPC flags.
@@ -60,12 +69,11 @@ remains asserted until the original PPC_FLAG write clears it. That ordering
 is now verified in the *same* owner-original execution chain.
 
 A queued IOS reply is deliberately **not** published by V149–V152. V153
-publishes it through exactly one native IOS scheduler step after authentic
-PPCCTRL Y2 and Hollywood flag W1C at the verified post-interrupt guest
-call boundary. The
-separate deterministic `IosYieldScheduler` may service it at a valid guest
-yield boundary once the preceding interrupt is fully acknowledged. This
-is not Starlet ARM execution or an accurate timing/coherency model.
+publishes it through exactly one deterministic native `IosYieldScheduler`
+step at the authenticated guest yield boundary, after PPCCTRL Y2 and
+Hollywood flag W1C. Its successful reply raises a fresh Y1 interrupt;
+this is **not** Starlet ARM execution, IOS timing emulation or proof
+of delivery to the game's async SC completion callback.
 
 The reduced private fixture still includes explicitly synthesized device
 services and a test-created SYSCONF file. Neither is proof of complete Wii
