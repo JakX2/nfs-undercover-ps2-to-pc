@@ -18,10 +18,25 @@ int main(){
     auto wr=[&](uint32_t a,uint32_t v){assert(bus.write32(a,v));};
     auto rd=[&](uint32_t a){auto v=bus.read32(a);assert(v);return *v;};
     auto ack=[&](uint32_t bit){
+        // A guest PPCCTRL Y1/Y2 W1C cannot clear Hollywood's separate
+        // latched IPC interrupt. This ordering is exercised by the original
+        // Wii SYSCONF reply path, including its second Y1 interrupt.
+        assert(bit==M::Y1||bit==M::Y2);
+        assert((rd(B::IPC+M::PPCCTRL)&bit)!=0u);
+        assert((rd(B::IPC+H::PPC_FLAG)&H::IPC_PPC)!=0u);
         wr(B::IPC+M::PPCCTRL,en|bit);
+        assert((rd(B::MIRROR+M::PPCCTRL)&bit)==0u);
+        assert((rd(B::IPC+H::PPC_FLAG)&H::IPC_PPC)!=0u);
+        assert((rd(B::PI_CAUSE)&H::PI_HOLLYWOOD)!=0u);
+        assert(bus.external_irq_level());
+        assert(bus.external_exception_pending(B::MSR_EE));
+        assert(!bus.external_exception_pending(0u));
         assert(bus.tick()==S::Pump::Busy); // IRQ latch still pending
         wr(B::MIRROR+H::PPC_FLAG,H::IPC_PPC);
+        assert((rd(B::IPC+H::PPC_FLAG)&H::IPC_PPC)==0u);
+        assert((rd(B::PI_CAUSE)&H::PI_HOLLYWOOD)==0u);
         assert(!bus.external_irq_level());
+        assert(!bus.external_exception_pending(B::MSR_EE));
     };
     unsigned n=0;for(char ch:std::string_view("/dev/stm/immediate"))mem.write8(path+n++,uint8_t(ch));
     mem.write8(path+n,0);mem.write32(req,S::Open);mem.write32(req+12,path);
