@@ -33,6 +33,25 @@ def main()->None:
     after=v178(base)
     for row in public_window(before,"before")+public_window(after,"after"):
         print(row)
+    # Compare only source-owned phase dispatchers which V178 narrows.
+    # No owner bytes or game-derived output are used here.
+    needles=(
+        ("V98", "if(post97_return==1u&&post98_node)"),
+        ("V111","if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u)"),
+        ("V83", 'V83 unexpected original synchronous submit continuation dependency'),
+        ("V77","if(irq76_ipc){"),
+    )
+    for tag,token in needles:
+        for version,data in (("before",before),("after",after)):
+            rows=data.splitlines()
+            found=[i for i,l in enumerate(rows) if token in l]
+            print(f"V178_PHASE_GUARD tag={tag} version={version} hits={len(found)}")
+            for index in found[:2]:
+                lo=max(0,index-3)
+                hi=min(len(rows),index+27)
+                for at in range(lo,hi):
+                    print(f"V178_PHASE_{tag}_{version.upper()} {at+1} {rows[at][:155]}")
+
 
 if __name__=="__main__":
     main()
