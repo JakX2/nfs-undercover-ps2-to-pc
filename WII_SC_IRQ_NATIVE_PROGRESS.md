@@ -1,8 +1,8 @@
-# Wii SC IRQ native continuation: V141-V144
+# Wii SC IRQ native continuation: V141-V145
 
-Status: **four verified owner-original native checkpoints**. V145 is a proposed
-IPC handler-entry test and must not be treated as verified until its dedicated
-owner run passes.
+Status: **five verified owner-original native checkpoints** through V145.
+V146 is an experimental original IPC first-leaf execution checkpoint and is
+not verified until the owner-original native trial passes.
 
 The private test image is constructed from the SHA-256-authenticated owner's Wii
 DOL. Original PowerPC instructions are emitted to private temporary native C++
@@ -19,18 +19,29 @@ executables, extracted instruction words, translated game code or game assets.
 | V142 | `0x80526A3C` | [run 44659554589](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44659554589) | Original exception handler continues into IRQ dispatcher with saved nonvolatile registers, LR, CTR, XER, SRR0 and SRR1. |
 | V143 | `0x8052A824` | [run 44659969306](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44659969306) | Dispatcher calls original timebase helper with expected LR, masked MSR and pending IOS request; actual translated native instruction count advances. |
 | V144 | `0x805293F8` | [run 44660338019](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44660338019) | Original timebase helper returns and dispatcher enters scheduler-disable helper; native instruction count advances. |
+| V145 | `0x80519318` | [run 44662161325](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44662161325) | Original scheduler disable completes; IRQ dispatcher selects registered slot 27 and enters the authentic PowerPC IPC handler with the original exception context and SC IOS ACK still pending. |
 
-All four V141-V144 owner-original runs required **16/16** matching trials, in
+All five V141-V145 owner-original runs required **16/16** matching trials, in
 addition to preserving prior test gates. Their unit-test companions are invoked
 by `.github/workflows/native-recomp-source-checks.yml`.
 
 ## Next frontier: original IPC IRQ delivery
 
-V145 targets the registered interrupt-handler entry at `0x80519318`, IRQ slot
-27, after the authentic scheduler-disable routine. The intended proof requires
-the original dispatcher to select its registered function pointer, preserve the
-exception context, and keep the IOS SC acknowledgment genuinely pending. The
-V145 GitHub Actions workflow is `.github/workflows/wii-v145-sc-ipc.yml`.
+V145 **verified** the registered interrupt-handler entry at `0x80519318`,
+IRQ slot 27, after the authentic scheduler-disable routine. The original
+dispatcher selected the registered function pointer, preserved its exception
+context, and kept the IOS SC acknowledgment genuinely pending.
+
+The V145 native path initially encountered two **harness-only** false
+assertions from earlier milestones: V136 treated the later IRQ helper call as
+part of its second retry, and V98 still expected idle IOS state after NAND
+registration. The scoped corrections preserve those original phase checks and
+allow only authentically located scheduler IRQ helper calls to proceed.
+No original instruction body or guest status is altered.
+
+V146 targets the first original helper call from inside the registered IPC
+handler. See `.github/workflows/wii-v146-sc-ipc-leaf.yml`. Reaching a helper
+is not equivalent to acknowledging the interrupt or completing a reply.
 
 Once selected, the original handler must execute its hardware notification
 clear and resume IPC processing. A queued IOS ACK is **not** the same as a guest
@@ -59,7 +70,7 @@ synthetic skip.
 
 Reproduce the relevant stage from GitHub Actions by manually dispatching
 `wii-v141-sc-vector.yml`, `wii-v142-sc-dispatch.yml`,
-`wii-v143-sc-time.yml` or `wii-v144-sc-disable.yml` on
+`wii-v143-sc-time.yml`, `wii-v144-sc-disable.yml` or `wii-v145-sc-ipc.yml` on
 `research/wii-native-recomp-preflight`. Private owner-staging requires the
 preconfigured DOL/ELF ID secrets and the private-enable repository variable.
 The workflows erase owner binaries and generated translation after execution;
