@@ -17,6 +17,27 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# The late 0x805222E8 syscall reaches authentic vector 0x80000C00,
+# which must not be classified as the first V71 IOS_Open cache syscall.
+# Narrowly recognize that original guest vector only while the V182
+# authenticated late cache syscall is on the call stack.
+V182_VECTOR_OBSERVER='''  if(v182_cache_active&&addr==SYSCALL_DEST){
+    using Bus=undercover::wii::IosBus;
+    check(v182_cache_vector_seen==0u&&ctx.pc==SYSCALL_DEST&&
+          ctx.srr0==0x805222ecu&&ctx.lr==0x80519904u&&
+          ctx.gpr[13]==v147_first_r13&&
+          (ctx.msr&Bus::MSR_EE)==0u&&
+          !ipc70_bus.external_irq_level(),
+          "V182 late original cache vector guest ABI or return address differs");
+    ++v182_cache_vector_seen;
+    std::cout<<"V182_CACHE_VECTOR entered=1"
+             <<" resume="<<(ctx.srr0==0x805222ecu)
+             <<" masked="<<((ctx.msr&Bus::MSR_EE)==0u)
+             <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr<<std::dec<<std::endl;
+    return; // original translated syscall vector executes unchanged
+  }
+'''
+
 # The later original 0x805222E8 cache syscall is verified to reach V112's
 # completed phase, then generic audio-only fallback. Execute the authenticated
 # installed native PPC syscall vector in the observed late IOS_OpenAsync phase.
@@ -44,9 +65,13 @@ V182_NATIVE_CACHE_SC='''    if(own&&v181_next_seen==1u&&v182_burst_seen==0u&&
             "V182 late original IOS_OpenAsync cache syscall phase or ABI differs");
       const uint32_t pc=ctx.pc,msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;
       const auto gp=ctx.gpr;
+      v182_cache_active=true;
       native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,
           !ipc70_bus.external_irq_level(),
           [](auto& c){func_80000C00(c);});
+      v182_cache_active=false;
+      check(v182_cache_vector_seen==1u,
+            "V182 authentic late native cache vector did not execute once");
       std::cout<<"V182_CACHE_AFTER pcok="<<(ctx.pc==pc+4u)
                <<" msr="<<(ctx.msr==msr)
                <<" lr="<<(ctx.lr==lr)
@@ -247,7 +272,9 @@ def derive(source: str)->str:
  static uint32_t v182_status_before=0u,v182_final_status=0u;
  static uint32_t v182_target_pc=0u,v182_target_lr=0u;
  static std::array<uint32_t,8> v182_trace_pc{},v182_trace_lr{};
- static unsigned v182_cache_sc=0u;''')
+ static unsigned v182_cache_sc=0u;
+ static unsigned v182_cache_vector_seen=0u;
+ static bool v182_cache_active=false;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v182_calls=nwii::runtime::v182_burst_seen=0u;
      nwii::runtime::v182_start_inst=nwii::runtime::v182_last_inst=0u;
@@ -255,9 +282,11 @@ def derive(source: str)->str:
      nwii::runtime::v182_target_pc=nwii::runtime::v182_target_lr=0u;
      nwii::runtime::v182_trace_pc.fill(0u);
      nwii::runtime::v182_trace_lr.fill(0u);
-     nwii::runtime::v182_cache_sc=0u;''')
+     nwii::runtime::v182_cache_sc=0u;
+     nwii::runtime::v182_cache_vector_seen=0u;
+     nwii::runtime::v182_cache_active=false;''')
     s=once(s,PREVIOUS_FOLLOWUP,PREVIOUS_FOLLOWUP.replace(STOP,CONTINUE,1))
-    s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
+    s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+V182_VECTOR_OBSERVER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return widen_prior(s)
 

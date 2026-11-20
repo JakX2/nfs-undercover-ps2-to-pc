@@ -11,9 +11,10 @@ from derive_v182_sc_reply_burst_harness import (
     V112_SYSCALL_GUARD, V182_V112_TELEMETRY,
     V112_SYSCALL_DISPATCH, V182_SYSCALL_SCOPED,
     BASE_SC_FALLBACK, V182_SC_FALLBACK, V182_NATIVE_CACHE_SC,
+    V182_VECTOR_OBSERVER,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER, VECTOR
 
 HERE=Path(__file__).resolve().parent
 
@@ -50,6 +51,20 @@ class V182(unittest.TestCase):
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
 
+    def test_late_authentic_vector_execution_is_phase_scoped(self):
+        self.assertIn("v182_cache_active&&addr==SYSCALL_DEST",V182_VECTOR_OBSERVER)
+        self.assertIn("ctx.srr0==0x805222ecu&&ctx.lr==0x80519904u",V182_VECTOR_OBSERVER)
+        self.assertIn("v182_cache_vector_seen==0u",V182_VECTOR_OBSERVER)
+        self.assertIn("return; // original translated syscall vector executes unchanged",
+                      V182_VECTOR_OBSERVER)
+        self.assertIn(V182_VECTOR_OBSERVER,self.after)
+        self.assertTrue(re.fullmatch(
+            VECTOR,"V182_CACHE_VECTOR entered=1 resume=1 masked=1 pc=80000c00 lr=80519904"))
+        self.assertFalse(re.fullmatch(
+            VECTOR,"V182_CACHE_VECTOR entered=0 resume=1 masked=1 pc=80000c00 lr=80519904"))
+        self.assertNotIn("ctx.mmu.write",V182_VECTOR_OBSERVER)
+        self.assertNotIn("ipc70_bus.write",V182_VECTOR_OBSERVER)
+
     def test_late_cache_syscall_executes_original_vector_and_preserves_abi(self):
         self.assertIn("ctx.pc==0x805222e8u&&ctx.lr==0x80519904u",V182_NATIVE_CACHE_SC)
         self.assertIn("v181_next_seen==1u&&v182_burst_seen==0u",V182_NATIVE_CACHE_SC)
@@ -59,6 +74,9 @@ class V182(unittest.TestCase):
         self.assertIn("[](auto& c){func_80000C00(c);}",V182_NATIVE_CACHE_SC)
         self.assertIn("ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr",V182_NATIVE_CACHE_SC)
         self.assertIn("++v182_cache_sc;",V182_NATIVE_CACHE_SC)
+        self.assertIn("v182_cache_active=true;",V182_NATIVE_CACHE_SC)
+        self.assertIn("v182_cache_active=false;",V182_NATIVE_CACHE_SC)
+        self.assertIn("v182_cache_vector_seen==1u",V182_NATIVE_CACHE_SC)
         self.assertIn("V182_CACHE_PRE phase=1",V182_NATIVE_CACHE_SC)
         self.assertIn("V182_CACHE_AFTER pcok=",V182_NATIVE_CACHE_SC)
         self.assertTrue(re.fullmatch(
