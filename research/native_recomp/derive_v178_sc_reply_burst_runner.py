@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 from derive_v177_sc_reply_next_runner import derive as previous
+from instrument_v178_public_preflight import derive as mark_public_preflight
 
 OLD='python3 "$here/derive_v177_sc_reply_next_harness.py"'
 NEW='python3 "$here/derive_v178_sc_reply_burst_harness.py"'
@@ -28,7 +29,7 @@ test "$trace_count" -ge 16
 test "$trace_count" -le 96
 echo 'V178_SC_BURST verified=1'
 """,1)
-    return s
+    return mark_public_preflight(s)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
