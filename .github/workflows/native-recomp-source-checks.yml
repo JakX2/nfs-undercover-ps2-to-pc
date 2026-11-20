@@ -130,6 +130,7 @@ jobs:
           python3 research/native_recomp/test_v128_next_function_harness.py
           python3 research/native_recomp/test_v129_irq_disable.py
           python3 research/native_recomp/test_v130_irq_restore.py
+          python3 research/native_recomp/test_v131_osinit_retry.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
