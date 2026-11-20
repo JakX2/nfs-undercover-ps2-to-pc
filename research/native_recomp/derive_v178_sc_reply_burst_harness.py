@@ -95,6 +95,12 @@ OBSERVATION='''void trace_call(uint32_t addr, CPUContext&ctx){
 V111_ACTIVE='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u){'''
 V111_SCOPED='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u&&
         post111_open==0u){'''
+# NAND callback-registration tracing from V98 is also a one-time phase:
+# post98_return is incremented at its verified original parent return.
+# The later SC reply call chain must not be classified as another NAND
+# registration dependency just because post97_return and post98_node persist.
+V98_ACTIVE='''   if(post97_return==1u&&post98_node){'''
+V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
 
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
@@ -151,6 +157,7 @@ def widen_prior(s: str)->str:
 def derive(source: str)->str:
     s=previous(source)
     s=once(s,V111_ACTIVE,V111_SCOPED)
+    s=once(s,V98_ACTIVE,V98_SCOPED)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
