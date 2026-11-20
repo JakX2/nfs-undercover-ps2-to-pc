@@ -270,6 +270,7 @@ jobs:
           python3 research/native_recomp/test_v172_sc_y1_ack.py
           python3 research/native_recomp/test_v173_sc_after_y1_ack.py
           python3 research/native_recomp/test_v174_sc_post_reply_helper.py
+          python3 research/native_recomp/diagnose_v175_sc_reply_next.py --public-cpp-line 3207
           python3 research/native_recomp/test_v175_sc_reply_next.py
           python3 research/native_recomp/test_v172_sc_reply_y1_ack.py
           python3 research/native_recomp/test_v170_sc_reply_read_next.py
