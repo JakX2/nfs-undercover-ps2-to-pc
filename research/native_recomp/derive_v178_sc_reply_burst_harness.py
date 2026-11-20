@@ -125,6 +125,23 @@ def scope_v83_observer(s: str)->str:
                  statement+'\n'+m.group('indent')+'}')
     return s[:m.start()]+replacement+s[m.end():]
 
+# The old V77 "ACK-only" fallback can be reached by a later reply-side
+# callback. Do not disable it or whitelist unknown PPC functions. First emit
+# only bounded guest callsite/counter data so a genuine new callee can be
+# classified without exposing the private owner executable or stack.
+V77_LEGACY_FALLTHROUGH='''         check(false,"unexpected original IPC ACK-only path dependency");'''
+V178_IPC_DIAGNOSTIC='''         if(v177_next_seen==1u&&v178_burst_seen==0u){
+           const bool masked=(ctx.msr&0x8000u)==0u;
+           const bool in_text=addr>=0x80400000u&&addr<0x80600000u;
+           const bool tracked=ctx.gpr[13]==v147_first_r13;
+           std::cout<<"V178_IPC_DEP masked="<<masked
+                    <<" text="<<in_text<<" tracked="<<tracked
+                    <<" calls="<<v178_calls
+                    <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+                    <<std::dec<<std::endl;
+         }
+         check(false,"unexpected original IPC ACK-only path dependency");'''
+
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
     r'\s*c\.lr==nwii::runtime::v177_target_lr')
@@ -182,6 +199,7 @@ def derive(source: str)->str:
     s=once(s,V111_ACTIVE,V111_SCOPED)
     s=once(s,V98_ACTIVE,V98_SCOPED)
     s=scope_v83_observer(s)
+    s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
