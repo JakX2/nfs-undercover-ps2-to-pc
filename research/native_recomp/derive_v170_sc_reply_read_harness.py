@@ -80,7 +80,7 @@ NEXT_TRIAL='''       check(nwii::runtime::v170_next_seen==1u&&
              "V170 original SC Y1 reply read did not reach next native function");'''
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v169_target_pc&&'
-    r'\s+c\.lr==nwii::runtime::v169_target_lr')
+    r'\s*c\.lr==nwii::runtime::v169_target_lr')
 
 def widen_trial_endpoints(s: str)->str:
     # Include one further *actual* native call without dropping any
