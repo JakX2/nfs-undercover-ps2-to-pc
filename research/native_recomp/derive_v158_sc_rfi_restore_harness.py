@@ -3,7 +3,7 @@
 
 V157 proved the original dispatcher schedules OSLoadContext at 0x805229B4
 from 0x80526CBC. Allow original translated PowerPC function to execute until
-the genuine saved PC/MSR and GPR context are restored by RFI, then stop in the
+the guest-selected saved PC/MSR and GPR context are restored by RFI, then stop in the
 already-used guest scheduling callback before entering a new reply interrupt.
 This is a read-only restoration proof, not a synthetic RFI, guest register
 rewrite, Starlet response, or forced external IRQ.
@@ -18,18 +18,38 @@ from derive_v157_sc_rescheduler_next_harness import (
 STOP='''     ++v157_next_seen;
      ctx.is_running=false;throw ExceptionStop{};
    }'''
-CONTINUE='''     check(addr==0x805229b4u&&ctx.lr==0x80526cbcu&&
-           ctx.gpr[3]==IDLE_CONTEXT&&!(ctx.msr&0x8000u),
-           "V158 original SC context-loader entry ABI differs from V157 evidence");
+CONTINUE='''     using V158Mem=undercover::wii::IosBus;
+     const uint32_t selected=ctx.gpr[3];
+     const bool route=addr==0x805229b4u&&ctx.lr==0x80526cbcu;
+     const bool masked=(ctx.msr&V158Mem::MSR_EE)==0u;
+     const bool aligned=(selected&3u)==0u;
+     const bool range=(selected>=0x80000000u&&selected<=0x81800000u-416u)||
+           (selected>=0x90000000u&&selected<=0x94000000u-416u);
+     const bool mapped=range&&ctx.mmu.get_ptr(selected)!=nullptr&&
+           ctx.mmu.get_ptr(selected+412u)!=nullptr;
+     const bool idle=selected==IDLE_CONTEXT;
+     const bool thread=selected==THREAD;
+     std::cout<<"V158_SC_LOAD_ARG route="<<route<<" masked="<<masked
+              <<" aligned="<<aligned<<" mapped="<<mapped
+              <<" idle="<<idle<<" thread="<<thread<<std::endl;
+     check(route&&masked&&aligned&&mapped,
+           "V158 original SC context-loader pointer/ABI is invalid");
+     v158_expected_pc=ctx.mmu.read32(selected+408u);
+     v158_expected_msr=ctx.mmu.read32(selected+412u);
+     v158_expected_lr=ctx.mmu.read32(selected+132u);
+     v158_expected_ctr=ctx.mmu.read32(selected+136u);
+     v158_expected_xer=ctx.mmu.read32(selected+140u);
+     for(unsigned i=0u;i<32u;++i)
+       v158_expected_gprs[i]=ctx.mmu.read32(selected+4u*i);
      v158_load_inst=ctx.inst_count;
      std::cout<<"V158_SC_LOAD_ENTRY route=1"<<std::endl;
      ++v157_next_seen;
-     return; // execute original context restoration, including RFI
+     return; // execute original guest-selected context restoration, including RFI
    }'''
 CALLBACK_ANCHOR='''bool process_pending_callbacks(CPUContext& ctx){'''
 RFI_OBSERVER='''bool process_pending_callbacks(CPUContext& ctx){
   if(v141_live&&v157_next_seen==1u&&v158_rfi_seen==0u&&
-     ctx.pc==sched74_resume&&ctx.inst_count>v158_load_inst){
+     ctx.pc==v158_expected_pc&&ctx.inst_count>v158_load_inst){
     using V158Bus=undercover::wii::IosBus;
     using V158Mail=undercover::wii::IpcMailbox;
     using V158Irq=undercover::wii::HollywoodIrq;
@@ -46,21 +66,23 @@ RFI_OBSERVER='''bool process_pending_callbacks(CPUContext& ctx){
           ipc70_ram.read32(v153_phys+4u)==v153_fd&&
           ipc70_bus.services().queued_replies()==0u&&
           ipc70_bus.services().is_open(v153_fd,V158Ios::Device::File);
-    const bool pc=ctx.pc==sched74_resume;
-    const bool msr=ctx.msr==vector75_srr1;
-    const bool gprs=ctx.gpr==vector75_gprs&&
-          ctx.lr==vector75_lr&&ctx.ctr==vector75_ctr&&ctx.xer==vector75_xer;
+    const bool pc=ctx.pc==v158_expected_pc;
+    const bool msr=ctx.msr==v158_expected_msr;
+    const bool gprs=ctx.gpr==v158_expected_gprs&&
+          ctx.lr==v158_expected_lr&&ctx.ctr==v158_expected_ctr&&
+          ctx.xer==v158_expected_xer;
     const bool waiting=ctx.mmu.read16(THREAD+712u)==4u&&
           ctx.mmu.read32(sleep73_queue)==THREAD;
     const bool ee=(ctx.msr&V158Bus::MSR_EE)!=0u;
     const bool ready=ipc70_bus.external_exception_pending(ctx.msr);
     const bool coherent=ready==(ee&&ipc70_bus.external_irq_level());
+    const bool old_pc=ctx.pc==sched74_resume;
     std::cout<<"V158_SC_RFI pc="<<pc<<" msr="<<msr
              <<" regs="<<gprs<<" waiting="<<waiting
              <<" irq="<<irq<<" reply="<<reply<<" coherent="<<coherent
-             <<" ee="<<ee<<" ready="<<ready<<std::endl;
+             <<" ee="<<ee<<" ready="<<ready<<" old_pc="<<old_pc<<std::endl;
     check(pc&&msr&&gprs&&waiting&&irq&&reply&&coherent,
-          "V158 original SC OSLoadContext did not restore saved external context");
+          "V158 original SC OSLoadContext did not restore guest-selected context");
     ++v158_rfi_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }
@@ -81,8 +103,19 @@ def derive(source: str)->str:
     s=previous(source)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V158 predecessor OSLoadContext stop changed")
-    s=once(s,STATE,STATE+"\n static unsigned v158_rfi_seen=0;\n static uint64_t v158_load_inst=0;")
-    s=once(s,RESET,RESET+"\n     nwii::runtime::v158_rfi_seen=0u;\n     nwii::runtime::v158_load_inst=0u;")
+    s=once(s,STATE,STATE+'''
+ static unsigned v158_rfi_seen=0;
+ static uint64_t v158_load_inst=0;
+ static std::array<uint32_t,32> v158_expected_gprs{};
+ static uint32_t v158_expected_pc=0,v158_expected_msr=0;
+ static uint32_t v158_expected_lr=0,v158_expected_ctr=0,v158_expected_xer=0;''')
+    s=once(s,RESET,RESET+'''
+     nwii::runtime::v158_rfi_seen=0u;
+     nwii::runtime::v158_load_inst=0u;
+     nwii::runtime::v158_expected_gprs.fill(0u);
+     nwii::runtime::v158_expected_pc=nwii::runtime::v158_expected_msr=0u;
+     nwii::runtime::v158_expected_lr=nwii::runtime::v158_expected_ctr=
+         nwii::runtime::v158_expected_xer=0u;''')
     s=once(s,STOP,CONTINUE)
     s=once(s,CALLBACK_ANCHOR,RFI_OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
