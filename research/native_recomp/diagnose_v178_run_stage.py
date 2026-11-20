@@ -73,12 +73,24 @@ def classify(data: str)->str:
         if mentioned:
             script=mentioned[-1][:-3]
         elif stage=="runner_preflight":
-            # V79 has exactly one inline Python preflight at this stage:
-            # a source-only cache/emitter anchor check. Its bounded line
-            # number identifies the failed assertion without leaking text.
-            lines=re.findall(r'File "<stdin>", line ([0-9]{1,3})',data)
-            if lines and 1<=int(lines[-1])<=40:
-                script="inline_cache_line_"+str(int(lines[-1]))
+            # Inspect only traceback references to checked-in PUBLIC
+            # research scripts. Never echo any arbitrary/private file name.
+            frames=re.findall(r'File "([^"\\r\\n]+)", line [0-9]{1,6}',data)
+            allowed={p.name for p in Path(__file__).parent.glob("*.py")}
+            hits=[]
+            for frame in frames:
+                base=Path(frame).name
+                normalized=frame.replace(chr(92),"/")
+                if ("/research/native_recomp/" in normalized and
+                    base in allowed and base.endswith(".py")):
+                    hits.append(base)
+            if hits:
+                script=hits[-1][:-3]
+            else:
+                # V79 also runs a small inline source-only cache check.
+                lines=re.findall(r'File "<stdin>", line ([0-9]{1,3})',data)
+                if lines and 1<=int(lines[-1])<=40:
+                    script="inline_cache_line_"+str(int(lines[-1]))
     return f"V178_FAILURE_STAGE phase={stage} reason={reason} script={script}"
 
 def main():
