@@ -14,6 +14,7 @@ from derive_v178_sc_reply_burst_harness import (
     V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
     V77_SUBMIT_FALLTHROUGH, V178_SUBMIT_DIAGNOSTIC,
     V77_SUBMIT_ACTIVE, V178_SUBMIT_SCOPED,
+    V77_IPC_CLIENT_DISPATCH, V178_IPC_CLIENT_SCOPED,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, SUBMIT
 
@@ -123,6 +124,27 @@ class V178(unittest.TestCase):
         self.assertEqual(V178_IPC_DIAGNOSTIC.count('check(false,"unexpected original IPC ACK-only path dependency");'),1)
         self.assertIn('dispatch=[01] ipc=[01] ack=[01] submitted=[01]',DEP)
 
+
+    def test_v77_ipc_client_observer_is_scoped_after_original_reply(self):
+        # The early IPCCltInit function was proven long before V177.
+        # Its broad call classifier must not reclassify a later real memcpy
+        # as an IPC client initialization dependency.
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V77_IPC_CLIENT_DISPATCH),1)
+        self.assertEqual(after.count(V178_IPC_CLIENT_SCOPED),1)
+        self.assertNotIn(V77_IPC_CLIENT_DISPATCH,after)
+        self.assertIn("(ipc69_active&&v177_next_seen==0u)",V178_IPC_CLIENT_SCOPED)
+        self.assertIn("||addr==0x805194c4u",V178_IPC_CLIENT_SCOPED)
+        self.assertIn("ipc69_entry(addr,ctx);return;",V178_IPC_CLIENT_SCOPED)
+        for marker in (
+            'check(false,"unexpected original IPC client native dependency");',
+            "IPC client must follow verified original interrupt enable",
+            "IPC original interrupt mask bank call differs",
+            "++ipc69_restore;",
+            "++ipc69_disable;",
+            "++ipc69_bank;"):
+            self.assertEqual(before.count(marker),after.count(marker),marker)
 
     def test_v77_submission_observer_is_scoped_at_authenticated_reply_phase(self):
         # Owner original at V178: five guest entries followed by low-memory

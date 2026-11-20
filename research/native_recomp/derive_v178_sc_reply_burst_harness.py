@@ -150,6 +150,15 @@ def scope_v83_observer(s: str)->str:
 # V77 submission observer after that verified milestone. The generic COPY
 # handler and the real translated memcpy still execute; earlier V72/V77 checks
 # and IOS emulation are unchanged.
+# V77 IPCCltInit's client observer is an early-phase call classifier. After
+# the original V177 reply-callee entry it was still swallowing unrelated
+# function calls (the measured next low-memory memcpy 0x80004338 is one),
+# because ipc69_active remains true by design. Retire *only the broad
+# observer dispatch* after the authenticated V177 boundary. Preserve the
+# original IPCCltInit entry check, native code, and MMIO state.
+V77_IPC_CLIENT_DISPATCH='''   if(ipc69_active||addr==0x805194c4u){ipc69_entry(addr,ctx);return;}'''
+V178_IPC_CLIENT_SCOPED='''   if((ipc69_active&&v177_next_seen==0u)||addr==0x805194c4u){ipc69_entry(addr,ctx);return;}'''
+
 V77_SUBMIT_ACTIVE='''   if(!submit72_active)return false;'''
 V178_SUBMIT_SCOPED='''   if(!submit72_active||v177_next_seen==1u)return false;'''
 
@@ -261,6 +270,7 @@ def derive(source: str)->str:
     s=scope_v83_observer(s)
     s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
     s=once(s,V77_SUBMIT_ACTIVE,V178_SUBMIT_SCOPED)
+    s=once(s,V77_IPC_CLIENT_DISPATCH,V178_IPC_CLIENT_SCOPED)
     s=once(s,V77_SUBMIT_FALLTHROUGH,V178_SUBMIT_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
