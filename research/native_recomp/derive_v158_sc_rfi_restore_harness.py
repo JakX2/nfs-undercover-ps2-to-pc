@@ -22,6 +22,7 @@ CONTINUE='''     check(addr==0x805229b4u&&ctx.lr==0x80526cbcu&&
            ctx.gpr[3]==IDLE_CONTEXT&&!(ctx.msr&0x8000u),
            "V158 original SC context-loader entry ABI differs from V157 evidence");
      v158_load_inst=ctx.inst_count;
+     std::cout<<"V158_SC_LOAD_ENTRY route=1"<<std::endl;
      ++v157_next_seen;
      return; // execute original context restoration, including RFI
    }'''
