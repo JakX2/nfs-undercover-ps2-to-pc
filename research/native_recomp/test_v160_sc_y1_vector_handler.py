@@ -9,6 +9,7 @@ from derive_v159_sc_y1_vector_harness import derive as previous
 from derive_v160_sc_y1_vector_handler_harness import (
     derive, STATE, RESET, STOP, CONTINUE, TRACE, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, V159_PC, V160_PC,
+    V159_SRR, V160_ENTRY_PROOF,
 )
 from derive_v160_sc_y1_vector_handler_runner import derive as runner, ENTRY, PASS, ABI_PASS
 
@@ -42,6 +43,12 @@ class V160(unittest.TestCase):
         self.assertEqual(prior.count(V159_PC),2)
         self.assertEqual(after.count(V159_PC),1)
         self.assertEqual(after.count(V160_PC),1)
+        self.assertEqual(PREVIOUS_TRIAL.count(V159_SRR),1)
+        self.assertNotIn(V159_SRR,after)
+        self.assertIn(V160_ENTRY_PROOF,after)
+        self.assertNotIn("c.srr0==nwii::runtime::v158_expected_pc",NEXT_TRIAL)
+        # SRR0/SRR1 remain verified exactly at vector entry, before original
+        # translated vector instructions legitimately manipulate them.
         self.assertEqual(after.count("V160_SC_VECTOR_ENTRY saved="),1)
         self.assertEqual(after.count("V160_SC_VECTOR_HANDLER vector="),1)
         self.assertIn("const bool index=ctx.gpr[3]==4u",TRACE)
