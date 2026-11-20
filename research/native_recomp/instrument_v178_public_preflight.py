@@ -27,7 +27,6 @@ STEPS=(
     ("bat_test", '"$work/bat-test"'),
     ("dcbz_patch", 'python3 "$here/test_dcbz_patch_v67.py"'),
     ("dcbz_test", '"$work/dcbz-test"'),
-    ("preflight_done", "echo 'V79_STAGE runtime_cache_trace_verified'"),
 )
 
 def derive(script: str)->str:
