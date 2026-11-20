@@ -11,6 +11,9 @@ def derive(source):
         if a not in s:raise ValueError("V127 runner source anchor missing: "+a)
         s=s.replace(a,b)
     s=s.replace("V126","V127")
+    inherited='python3 "$here/derive_v126_sc_post_gpr_harness.py"'
+    if s.count(inherited)!=1:raise ValueError("V127 original GPR harness selection ambiguous")
+    s=s.replace(inherited,'python3 "$here/derive_v127_osinit_first_bl_harness.py"',1)
     s=s.replace("stage=126","stage=127")
     s=s.replace("V127 recovered continuous original __start->SC IOS post-helper GPR-save and next call",
                 "V127 recovered original OSInit first authenticated BL after post-SC GPR save")

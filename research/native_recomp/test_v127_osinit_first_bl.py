@@ -30,12 +30,14 @@ class V127(unittest.TestCase):
         for marker in ("make_v125_canonical_fixture.py",
                        "V125_CANONICAL result=verified","restore_v127_osinit_tail.py",
                        "V127_OSINIT_RESTORE ok=1","derive_v127_osinit_first_bl_generator.py",
+                       'python3 "$here/derive_v127_osinit_first_bl_harness.py"',
                        "V127_NEXT_CALL pc=[0-9a-f]{8} lr=[0-9a-f]{8}",
                        "V125_NEXT_CALL pc=80545150 lr=8051e05c",
                        "BOOT_PROGRESS entry=0x8000403C pc=0x${candidate^^} stage=127",
                        "V127_NATIVE_EXIT ok=1"):
             self.assertIn(marker,actual)
         self.assertIn("V127_NATIVE_COUNTS start=",actual)
+        self.assertNotIn('python3 "$here/derive_v126_sc_post_gpr_harness.py"',actual)
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/"run.sh";path.write_text(actual)
             subprocess.run(["bash","-n",str(path)],check=True)
