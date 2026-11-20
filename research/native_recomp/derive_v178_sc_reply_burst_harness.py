@@ -102,6 +102,15 @@ V111_SCOPED='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u
 V98_ACTIVE='''   if(post97_return==1u&&post98_node){'''
 V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
 
+# The V83 original synchronous submit observer handles the transition to
+# the *second* STM IOS_Open exactly once. It previously remained armed when
+# the later completed SC reply traversed a reused native helper, and the
+# V83 catch-all classified that legitimate later call as an unexpected
+# synchronous continuation. Keep all original V83 checks until its verified
+# second-open boundary, then disarm that observer without touching guest code.
+V83_ACTIVE='''   if(resume82_stop==1u&&!open84_active){'''
+V83_SCOPED='''   if(resume82_stop==1u&&!open84_active&&open83_second==0u){'''
+
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
     r'\s*c\.lr==nwii::runtime::v177_target_lr')
@@ -158,6 +167,7 @@ def derive(source: str)->str:
     s=previous(source)
     s=once(s,V111_ACTIVE,V111_SCOPED)
     s=once(s,V98_ACTIVE,V98_SCOPED)
+    s=once(s,V83_ACTIVE,V83_SCOPED)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
