@@ -1,0 +1,166 @@
+name: Wii V164 Original SC Y1 Nested Disable Helper
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v164*'
+      - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v164-sc-y1-disable-next-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  owner-sc-nested-v164:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned owner Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'Owner Wii staging failed after three bounded attempts' >&2
+            exit 1
+          fi
+      - name: Independently verify V125 private fixture restoration
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py \
+            "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Prepare pinned original-free NWii runtime and cache traces
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+          echo 'PASS: V72 focused runtime prerequisites prepared and original-free source guards passed'
+      - name: Execute original second SC reply IRQ scheduler-disable into nested helper
+        run: |
+          set -euo pipefail
+          umask 077
+          bash research/native_recomp/run_v164_sc_y1_disable_next.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/sc164.log" 2>&1 || {
+              grep -E '^V164_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_ok|syntax_failed)$|^V140_SC_IRQ_ENTRY pending=[01] vector=[01] saved=[01] regs=[01] queued=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$|^V77_COMPILE_UNIT (harness|generated|loader|generator)$|^V77_HARNESS_LINE [0-9]{1,6}$|^V77_WARNING [a-z0-9-]+$|^V79_STAGE [a-z0-9_]+$|^V153_SC_PRE route=[01] present=[01] aligned=[01] mapped=[01] open=[01] prior=[01] same=[01] clear=[01] queued=[01] masked=[01]$|^V154_SC_SCHED_NEXT signal=[01] reply=[01] guest=[01] target=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V155_SC_AFTER_DISABLE y1=[01] reply=[01] progressed=[01] call=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V156_SC_AFTER_RESTORE irq=[01] reply=[01] progress=[01] text=[01] coherent=[01] ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V157_SC_RESCHED_NEXT y1=[01] reply=[01] progressed=[01] target=[01] coherent=[01] ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V158_SC_LOAD_ENTRY route=[01]$|^V158_SC_LOAD_ARG route=[01] masked=[01] aligned=[01] mapped=[01] idle=[01] thread=[01]$|^V158_SC_RFI pc=[01] msr=[01] regs=[01] waiting=[01] running=[01] ready_thread=[01] linked=[01] lifecycle=[01] irq=[01] reply=[01] coherent=[01] ee=[01] ready=[01] old_pc=[01]$|^V159_SC_Y1_VECTOR pending=[01] safe=[01] entered=[01] vector=[01] regs=[01] masked=[01]$|^V160_SC_VECTOR_ENTRY saved=[01] regs=[01] bytes=[01] masked=[01]$|^V160_SC_VECTOR_ABI index=[01] thread=[01] idle=[01] sr0=[01] sr1=[01]$|^V160_SC_VECTOR_HANDLER vector=[01] masked=[01] irq=[01] advanced=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V161_SC_Y1_DISPATCH index=[01] context=[01] saved_pc=[01] saved_msr=[01] running=[01] masked=[01] irq=[01] advanced=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V162_SC_REPLY_NEXT irq=[01] reply=[01] guest=[01] masked=[01] caller=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V163_SC_Y1_DISABLE irq=[01] reply=[01] masked=[01] guest=[01] caller=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V164_SC_DISABLE_NEXT irq=[01] reply=[01] masked=[01] stepped=[01] caller=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u || true
+              code="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc164.log" |
+                tail -n 1 | cut -d= -f2 || true)"
+              if [[ "$code" =~ ^[0-9]{3}$ && "$code" != "000" ]]; then
+                python3 research/native_recomp/diagnose_v164_sc_y1_disable_next.py "$((10#$code))" || true
+              fi
+              echo 'V164 original second SC reply IRQ scheduler nested helper failed; owner-private details withheld' >&2
+              exit 1
+            }
+          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V136_SECOND_RETRY verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V137_IOS_PROBE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V138_REQUEST_PROBE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V139_SC_ACK verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V140_SC_IRQ_ENTRY verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V140_SC_IRQ_ENTRY pending=1 vector=1 saved=1 regs=1 queued=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V141_SC_VECTOR verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V141_SC_VECTOR vector=1 handler=1 saved=1 queued=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V142_SC_DISPATCH verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V142_SC_DISPATCH route=1 regs=1 status=1 pending=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V143_SC_TIME verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V143_SC_TIME time=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V144_SC_DISABLE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V144_SC_DISABLE route=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V145_SC_IPC verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V145_SC_IPC dispatch=1 context=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V146_SC_IPC_LEAF verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V146_SC_IPC_LEAF call=1 masked=1 queued=1 stepped=1 target=(8051905c|8051906c|8051b060)$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V147_SC_IPC_NEXT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V148_SC_IPC_DISTINCT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V148_SC_IPC_DISTINCT first=1 caller=1 advanced=1 masked=1 queued=1 irq=[01] reads=[0-9]{1,2} target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V149_SC_IPC_ACK verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V149_SC_IPC_ACK write=1 w1c=1 queued=1 irq=1 guest=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V150_SC_IRQ_CLEAR verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V150_SC_IRQ_CLEAR write=1 w1c=1 ctrl=1 irq_down=1 queued=1 guest=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V151_SC_AFTER_FLAG verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V151_SC_AFTER_FLAG cleared=1 irq_down=1 queued=1 masked=1 progressed=1 text=1 target=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V152_SC_POST_HELPER verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V152_SC_POST_HELPER clean=1 idle=1 queued=1 guest=1 text=1 target=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V153_SC_REPLY verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=1 drained=1 irq=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V154_SC_SCHED_NEXT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V154_SC_SCHED_NEXT signal=1 reply=1 guest=1 target=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V155_SC_AFTER_DISABLE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V155_SC_AFTER_DISABLE y1=1 reply=1 progressed=1 call=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V156_SC_AFTER_RESTORE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V156_SC_AFTER_RESTORE irq=1 reply=1 progress=1 text=1 coherent=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V157_SC_RESCHED_NEXT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V157_SC_RESCHED_NEXT y1=1 reply=1 progressed=1 target=1 coherent=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V158_SC_RFI verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V158_SC_RFI pc=1 msr=1 regs=1 waiting=0 running=1 ready_thread=0 linked=[01] lifecycle=1 irq=1 reply=1 coherent=1 ee=1 ready=1 old_pc=[01]$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V159_SC_Y1_VECTOR verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V159_SC_Y1_VECTOR pending=1 safe=1 entered=1 vector=1 regs=1 masked=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V160_SC_VECTOR_HANDLER verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -E '^V160_SC_VECTOR_ABI index=1 thread=[01] idle=[01] sr0=[01] sr1=[01]$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -E '^V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V161_SC_Y1_DISPATCH verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V161_SC_Y1_DISPATCH index=1 context=1 saved_pc=[01] saved_msr=[01] running=[01] masked=1 irq=1 advanced=1 pc=80526a3c lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V162_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V162_SC_REPLY_NEXT irq=1 reply=1 guest=1 masked=1 caller=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V163_SC_Y1_DISABLE verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -Fx 'V163_SC_Y1_DISABLE irq=1 reply=1 masked=1 guest=1 caller=1 pc=805293f8 lr=80526c98' "$RUNNER_TEMP/sc164.log" | sort -u
+          grep -Fx 'V164_SC_DISABLE_NEXT verified=1' "$RUNNER_TEMP/sc164.log"
+          grep -E '^V164_SC_DISABLE_NEXT irq=1 reply=1 masked=1 stepped=1 caller=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc164.log" | sort -u
+          echo 'PASS: original second SC reply scheduler entered native nested helper'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc164.log"
