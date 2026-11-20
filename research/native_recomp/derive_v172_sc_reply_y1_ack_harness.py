@@ -70,6 +70,22 @@ def add_ack_observer(s: str)->str:
         raise ValueError("V172 original Broadway MMIO bus write anchor differs")
     return s.replace(MMIO_ANCHOR,MMIO_ANCHOR+"\n"+ACK.rstrip("\n"),1)
 
+# V153 originally proves the reply became pending at a *previous* original
+# guest checkpoint. Its end-of-trial Y1=1 assertion is no longer current
+# after the *original* guest clears Y1 in V172. Retain the earlier strict
+# branch before this authenticated checkpoint, and permit Y1=0 only once
+# this derivation has independently observed the real W1C write.
+V153_MAIL_OLD='''       const bool v153_mail=v153_ctrl.has_value()&&v153_flags.has_value()&&
+             ((*v153_ctrl&V153Mail::Y1)!=0u)&&
+             ((*v153_ctrl&V153Mail::Y2)==0u)&&
+             ((*v153_flags&V153Irq::IPC_PPC)!=0u);'''
+V153_MAIL_NEW='''       const bool v153_mail=v153_ctrl.has_value()&&v153_flags.has_value()&&
+             (((*v153_ctrl&V153Mail::Y1)!=0u)||
+              (nwii::runtime::v172_y1_ack_seen==1u&&
+               ((*v153_ctrl&V153Mail::Y1)==0u)))&&
+             ((*v153_ctrl&V153Mail::Y2)==0u)&&
+             ((*v153_flags&V153Irq::IPC_PPC)!=0u);'''
+
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v171_target_pc&&'
     r'\s*c\.lr==nwii::runtime::v171_target_lr')
@@ -123,6 +139,7 @@ def derive(source: str)->str:
     s=once(s,RESET,RESET+"\n     nwii::runtime::v172_y1_ack_seen=0u;")
     s=once(s,STOP,CONTINUE)
     s=add_ack_observer(s)
+    s=once(s,V153_MAIL_OLD,V153_MAIL_NEW)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return extend_earlier_gates(s)
 
