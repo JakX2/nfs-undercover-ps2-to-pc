@@ -109,7 +109,7 @@ V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
 # synchronous continuation. Keep all original V83 checks until its verified
 # second-open boundary, then disarm that observer without touching guest code.
 V83_PATTERN=re.compile(
-    r'(?m)^(?P<indent>[ \\t]*)if\\(resume82_stop==1u(?P<suffix>[^)\\n]*)\\)\\{$')
+    r'(?m)^(?P<indent>[ \t]*)if\(resume82_stop==1u(?P<suffix>[^)\n]*)\)\{$')
 
 def scope_v83_observer(s: str)->str:
     hits=list(V83_PATTERN.finditer(s))
