@@ -11,7 +11,7 @@ from derive_v153_sc_reply_handoff_harness import (
     derive, OBSERVER, NEXT_OBSERVER, NEXT_TRIAL,
     STATE, RESET, TRIAL,
 )
-from derive_v153_sc_reply_handoff_runner import derive as runner, PASS
+from derive_v153_sc_reply_handoff_runner import derive as runner, PASS, PRE_PATTERN
 
 HERE=Path(__file__).resolve().parent
 
@@ -70,6 +70,11 @@ class V153(unittest.TestCase):
                        'test "$(grep -Fxc'):
             self.assertIn(marker,script)
         self.assertEqual(PASS,"V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1")
+        self.assertIn(PRE_PATTERN,script)
+        self.assertTrue(re.fullmatch(PRE_PATTERN,
+            "V153_SC_PRE route=1 present=1 aligned=1 mapped=1 open=1 prior=1 same=1 clear=1 queued=1 masked=1"))
+        self.assertFalse(re.fullmatch(PRE_PATTERN,
+            "V153_SC_PRE addr=80420000 route=1 present=1 aligned=1 mapped=1 open=1 prior=1 same=1 clear=1 queued=1 masked=1"))
         with tempfile.TemporaryDirectory() as d:
             f=Path(d)/"run.sh"
             f.write_text(script,encoding="utf-8")
