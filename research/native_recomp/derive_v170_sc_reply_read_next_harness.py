@@ -70,7 +70,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
 '''
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v169_target_pc&&'
-    r'(?P<space>\s+)c\.lr==nwii::runtime::v169_target_lr')
+    r'(?P<space>\s*)c\.lr==nwii::runtime::v169_target_lr')
 
 NEXT_TRIAL='''       check(nwii::runtime::v170_next_seen==1u&&
              nwii::runtime::v169_next_seen==1u&&
