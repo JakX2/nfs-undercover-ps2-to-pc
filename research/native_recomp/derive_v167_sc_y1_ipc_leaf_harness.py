@@ -12,8 +12,7 @@ from pathlib import Path
 from derive_v166_sc_post_restore_harness import (
     derive as previous, STATE, RESET, TRACE_ANCHOR,
     OBSERVER as PREVIOUS_OBSERVER, NEXT_TRIAL as PREVIOUS_TRIAL,
-    V166_FINAL,V166_CHECK,V165_TRIAL_END as V165_OLD_TRIAL,
-    V166_TRIAL_END as V166_OLD_TRIAL,
+    V166_FINAL,V166_CHECK,V166_TRIAL_END as V166_OLD_TRIAL,
 )
 
 STOP='''    v166_target_pc=addr;v166_target_lr=ctx.lr;
@@ -130,9 +129,11 @@ def derive(source: str)->str:
     s=previous(source)
     if PREVIOUS_OBSERVER.count(STOP)!=1 or PREVIOUS_TRIAL.count(V166_TRIAL_END)!=1:
         raise ValueError("V167 inherited original second IPC handler stop differs")
-    for anchor in (V166_FINAL,V166_CHECK,V166_OLD_TRIAL):
+    for anchor in (V166_FINAL,V166_CHECK):
         if s.count(anchor)!=1:
             raise ValueError(f"V167 predecessor end-of-trial proof changed: {anchor[:65]}")
+    if s.count(V166_OLD_TRIAL)!=2:
+        raise ValueError("V167 V165/V166 end-of-trial PC predicates changed")
     s=once(s,STATE,STATE+'''
  static unsigned v167_leaf_seen=0;
  static uint64_t v167_start_inst=0;
@@ -145,9 +146,8 @@ def derive(source: str)->str:
     s=once(s,TRACE_ANCHOR,OBSERVATION)
     s=once(s,V166_FINAL,V167_FINAL)
     s=once(s,V166_CHECK,V167_CHECK)
-    s=once(s,V166_OLD_TRIAL,V167_V165_TRIAL)
-    s=once(s,PREVIOUS_TRIAL,
-           PREVIOUS_TRIAL.replace(V166_TRIAL_END,V167_V166_TRIAL,1)+"\n"+NEXT_TRIAL)
+    s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
+    s=s.replace(V166_OLD_TRIAL,V167_V166_TRIAL)
     return s
 
 if __name__=="__main__":
