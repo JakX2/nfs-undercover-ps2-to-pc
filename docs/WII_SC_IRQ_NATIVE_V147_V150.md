@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V165
+# Wii SC IPC native execution: V147–V166
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -29,9 +29,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V163 | Original second-IRQ timebase helper `0x8052A824` returned to the dispatcher, which entered scheduler-disable `0x805293F8` with LR `0x80526C98`; Y1, SYSCONF reply and masked CPU interrupt state preserved | [V163](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681052087) |
 | V164 | Original second-IRQ scheduler `0x805293F8` executed to `OSDisableInterrupts` `0x805265AC` (LR `0x8052940C`); independent owner-native harnesses passed 16/16 each | [V164 strict](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681512657), [V164 independent](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44681463181) |
 | V165 | Original nested `OSDisableInterrupts` ran and entered `OSRestoreInterrupts` `0x805265D4` (LR `0x8052941C`); Y1 and file reply preserved in independent 16-trial harnesses | [V165](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682040210), [independent](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682032534) |
+| V166 | Original nested `OSRestoreInterrupts` executed and entered registered IPC handler `0x80519318` at LR `0x80526CAC`; Y1 file reply preserved, MSR EE=0 and IRQ not immediately deliverable | [V166](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682537449) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V165 introduce no replacement guest
+original-path regression gates. V147–V166 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -60,6 +61,7 @@ V162_SC_REPLY_NEXT irq=1 reply=1 guest=1 masked=1 caller=1 pc=8052a824 lr=80526c
 V163_SC_Y1_DISABLE irq=1 reply=1 masked=1 guest=1 caller=1 pc=805293f8 lr=80526c98
 V164_SC_Y1_NESTED irq=1 reply=1 masked=1 guest=1 caller=1 target=1 pc=805265ac lr=8052940c
 V165_SC_POST_OSDI irq=1 reply=1 masked=1 guest=1 caller=1 ipc=0 helper=1 pc=805265d4 lr=8052941c
+V166_SC_POST_RESTORE irq=1 reply=1 guest=1 call=1 coherent=1 ee=0 ready=0 ipc=1 helper=0 pc=80519318 lr=80526cac
 ~~~
 
 ## Corrected test-phase ownership
@@ -143,10 +145,13 @@ hardware emulation.
    file reply and Y1 pending. V164 **verified** its original nested `OSDisableInterrupts` entry at
    `0x805265AC` (LR `0x8052940C`), and V165 **verified** original code
    executing to `OSRestoreInterrupts` at `0x805265D4` (LR `0x8052941C`).
-   Independent original-game CI runs for both checkpoints agree. V166 should
-   execute the restore helper to the next legitimate dispatcher call.
-   Complete second IPC reply handling, async SC callback, and ready-status
-   transition remain unverified.
+   Independent original-game CI runs for both checkpoints agree. V166
+   **verified** the original nested OSRestore returned to the registered
+   IPC handler `0x80519318` (LR `0x80526CAC`), preserving the Y1 reply with
+   MSR EE masked. V167 should continue the handler's original response-read
+   and Y1 ACK instructions without forcing an IOS callback. Complete IPC
+   reply handling, async SC callback and ready-status transition remain
+   unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
