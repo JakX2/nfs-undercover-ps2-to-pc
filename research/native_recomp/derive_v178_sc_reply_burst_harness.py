@@ -108,25 +108,22 @@ V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
 # V83 catch-all classified that legitimate later call as an unexpected
 # synchronous continuation. Keep all original V83 checks until its verified
 # second-open boundary, then disarm that observer without touching guest code.
-V83_PATTERN=re.compile(
-    r'(?m)^(?P<indent>[ \t]*)if\(resume82_stop==1u(?P<suffix>[^)\n]*)\)\{$')
+V83_ASSERTION=re.compile(
+    r'(?m)^(?P<indent>[ \t]*)check\(false,\s*'
+    r'"V83 unexpected original synchronous submit continuation dependency"\);\s*$')
 
 def scope_v83_observer(s: str)->str:
-    hits=list(V83_PATTERN.finditer(s))
+    # Keep the V83 original phase assertions intact, including their
+    # one-time second STM open proof. Only silence the *fallthrough*
+    # catch-all after that proof has actually executed.
+    hits=list(V83_ASSERTION.finditer(s))
     if len(hits)!=1:
-        # Only independently written C++-harness control-flow conditions
-        # are inspected. No proprietary executable data or instruction bytes.
-        candidates=[line.strip() for line in s.splitlines()
-                    if 'resume82_stop==1u' in line][:5]
-        raise ValueError(f"V178 synchronous STM guard count={len(hits)} "
-                         f"candidates={candidates}")
+        raise ValueError(f"V178 original V83 fallthrough assertion count={len(hits)}")
     m=hits[0]
-    suffix=m.group('suffix')
-    if "open83_second" in suffix:
-        raise ValueError("V178 synchronous guard already owns later phase")
-    changed=(m.group('indent')+'if(resume82_stop==1u&&open83_second==0u'+
-             suffix+'){')
-    return s[:m.start()]+changed+s[m.end():]
+    statement=s[m.start():m.end()]
+    replacement=(m.group('indent')+'if(open83_second==0u){\n'+
+                 statement+'\n'+m.group('indent')+'}')
+    return s[:m.start()]+replacement+s[m.end():]
 
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
