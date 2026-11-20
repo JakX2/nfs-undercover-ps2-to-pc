@@ -95,12 +95,15 @@ OBSERVATION='''void trace_call(uint32_t addr, CPUContext&ctx){
 V111_ACTIVE='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u){'''
 V111_SCOPED='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u&&
         post111_open==0u){'''
-# NAND callback-registration tracing from V98 is also a one-time phase:
-# post98_return is incremented at its verified original parent return.
-# The later SC reply call chain must not be classified as another NAND
-# registration dependency just because post97_return and post98_node persist.
+# The V98 outer observer is ALSO the verified V99+ SC startup observer.
+# Do NOT scope the entire block to post98_return==0: its later SET/FILL/COPY
+# handlers must remain accessible when NAND registration has returned.
+# Scope only V98's original catch-all, preserving its early-phase proof.
 V98_ACTIVE='''   if(post97_return==1u&&post98_node){'''
-V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
+V98_FALLTHROUGH='''      check(false,"V98 unexpected NAND registration dependency");'''
+V98_SCOPED_FALLTHROUGH='''      if(post98_return==0u){
+        check(false,"V98 unexpected NAND registration dependency");
+      }'''
 
 # The V83 original synchronous submit observer handles the transition to
 # the *second* STM IOS_Open exactly once. It previously remained armed when
@@ -208,7 +211,9 @@ def widen_prior(s: str)->str:
 def derive(source: str)->str:
     s=previous(source)
     s=once(s,V111_ACTIVE,V111_SCOPED)
-    s=once(s,V98_ACTIVE,V98_SCOPED)
+    if s.count(V98_ACTIVE)!=1:
+        raise ValueError("V178 original V98 SC startup observer guard differs")
+    s=once(s,V98_FALLTHROUGH,V98_SCOPED_FALLTHROUGH)
     s=scope_v83_observer(s)
     s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
