@@ -36,9 +36,12 @@ class V160(unittest.TestCase):
         self.assertIn("ctx.srr1==(v158_expected_msr&undercover::wii::ExternalSrr1Mask)",TRACE)
         self.assertIn("ctx.gpr==v158_expected_gprs",TRACE)
         self.assertIn("ctx.inst_count>v160_start_inst",TRACE)
-        self.assertEqual(prior.count(V159_PC),1)
-        self.assertNotIn(V159_PC,after)
-        self.assertIn(V160_PC,after)
+        # The earlier V153 gate must retain its original exception-vector
+        # alternative; only V159's final stop predicate is extended to the
+        # authentic handler entry. No generic out-of-text PC allowance.
+        self.assertEqual(prior.count(V159_PC),2)
+        self.assertEqual(after.count(V159_PC),1)
+        self.assertEqual(after.count(V160_PC),1)
         self.assertEqual(after.count("V160_SC_VECTOR_ENTRY saved="),1)
         self.assertEqual(after.count("V160_SC_VECTOR_HANDLER vector="),1)
 
