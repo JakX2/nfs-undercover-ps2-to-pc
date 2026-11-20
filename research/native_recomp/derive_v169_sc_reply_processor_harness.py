@@ -66,8 +66,6 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
-OLD_V79='''         if(addr==POST_OWNER){'''
-SCOPED_V79='''         if(addr==POST_OWNER&&v168_next_seen==0u){'''
 NEXT_TRIAL='''       check(nwii::runtime::v169_next_seen==1u&&
              nwii::runtime::v168_next_seen==1u&&
              nwii::runtime::v167_next_seen==1u&&
@@ -130,7 +128,6 @@ def derive(source: str)->str:
      nwii::runtime::v169_target_pc=nwii::runtime::v169_target_lr=0u;''')
     s=once(s,STOP,CONTINUE)
     s=once(s,TRACE_ANCHOR,OBSERVER)
-    s=once(s,OLD_V79,SCOPED_V79)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return extend_old_trial_endpoints(s)
 
