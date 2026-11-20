@@ -10,8 +10,9 @@ from derive_v173_sc_after_y1_ack_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVER,
     PREVIOUS_TRIAL, NEXT_TRIAL, V172_FINAL_END, V173_FINAL_END,
     V172_FINAL_EXTENDED, PAIR, widen_prior_gates,
+    V173_V153_MAIL, V153_IRQ_NEW,
 )
-from derive_v173_sc_after_y1_ack_runner import derive as runner, PASS
+from derive_v173_sc_after_y1_ack_runner import derive as runner, PASS, HW_PASS
 HERE=Path(__file__).resolve().parent
 
 class V173(unittest.TestCase):
@@ -31,6 +32,7 @@ class V173(unittest.TestCase):
         self.assertIn(V173_FINAL_END,after)
         self.assertNotIn(V172_FINAL_EXTENDED,after)
         self.assertIn("v173_start_inst=ipc70_ram.cpu->inst_count",CONTINUE)
+        self.assertIn("v173_mmio_after_y1=mmio_writes.size()",CONTINUE)
         self.assertIn("++v172_ack_seen",CONTINUE)
         self.assertNotIn("ipc70_ram.cpu->is_running=false",CONTINUE)
         self.assertIn("return to the *original* translated PPCCTRL writer",CONTINUE)
@@ -42,6 +44,15 @@ class V173(unittest.TestCase):
         self.assertIn("ctx.mmu.read8(sda)",OBSERVER)
         self.assertIn("v173_target_pc=addr;v173_target_lr=ctx.lr",OBSERVER)
         self.assertEqual(after.count("V173_SC_AFTER_Y1_ACK y1clear="),1)
+        self.assertIn("for(size_t i=v173_mmio_after_y1;i<mmio_writes.size();++i)",OBSERVER)
+        self.assertIn("write.first==Bus::IPC+Irq::PPC_FLAG",OBSERVER)
+        self.assertIn("write.second&Irq::IPC_PPC",OBSERVER)
+        self.assertIn("check(flag_ack,",OBSERVER)
+        self.assertIn("++v173_flag_ack_seen;",OBSERVER)
+        self.assertEqual(after.count("V173_SC_HW_FLAG_W1C guest=1 count="),1)
+        self.assertIn(V173_V153_MAIL,after)
+        self.assertIn(V153_IRQ_NEW,after)
+        self.assertIn("v173_flag_ack_seen==1u",NEXT_TRIAL)
 
     def test_prior_native_end_checks_retained(self):
         after=derive(self.base)
@@ -91,6 +102,9 @@ class V173(unittest.TestCase):
               "guest=1 caller=1 coherent=1 mapped=1 status=1 "
               "read=1 write=0 pc=8051905c lr=80519128")
         self.assertTrue(re.fullmatch(PASS,good))
+        self.assertEqual(HW_PASS,
+            "V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1")
+        self.assertIn("grep -Fx '{HW_PASS}'",script)
         self.assertFalse(re.fullmatch(PASS,good.replace("y1clear=1","y1clear=0")))
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"run.sh";p.write_text(script,encoding="utf-8")
@@ -100,6 +114,7 @@ class V173(unittest.TestCase):
         wf=(HERE.parents[1]/".github/workflows/wii-v173-sc-after-y1-ack.yml").read_text(encoding="utf-8")
         self.assertIn("run_v173_sc_after_y1_ack.sh",wf)
         self.assertIn("V173_SC_AFTER_Y1_ACK verified=1",wf)
+        self.assertIn("V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1",wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
 
 if __name__=="__main__":
