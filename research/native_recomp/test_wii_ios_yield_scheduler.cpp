@@ -111,7 +111,7 @@ int main(){
             "explicit event did not complete on guest service boundary");
 
     // Invalid physical request may not publish success or raise an IRQ.
-    request_submit(0x1ff0u,S::Open,0,name);
+    request_submit(0x1fe0u,S::Open,0,name);
     const auto invalid=scheduler.service_one(B::MSR_EE);
     require(invalid.progress==S::Pump::InvalidAddress&&!invalid.broadway_irq_level&&
             !invalid.guest_exception_ready&&bus.services().queued_replies()==0u,
