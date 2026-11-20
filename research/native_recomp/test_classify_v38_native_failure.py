@@ -20,6 +20,18 @@ class ClassifyTests(unittest.TestCase):
         self.assertEqual(classify(PUBLIC,"  what(): /private/original_wii/never-share.dol"),0)
         self.assertEqual(classify(PUBLIC,"random binary data \x00 \x02"),0)
 
+    def test_four_digit_public_assertion_catalog(self):
+        # Entirely synthetic, deterministic source strings; no owner data.
+        source="".join(f'check(true,"public-only-{i:05d}");\\n' for i in range(1050))
+        result=classify(source,"  what(): public-only-01049\\n")
+        self.assertEqual(result,1050)
+        self.assertEqual(classify(source,"  what(): private-guess-01049\\n"),0)
+
+    def test_catalog_above_four_digit_bound_fails_closed(self):
+        source="".join(f'check(true,"public-only-{i:05d}");\\n' for i in range(10001))
+        with self.assertRaisesRegex(ValueError,"4-digit"):
+            classify(source,"  what(): public-only-10000\\n")
+
     def test_public_source_has_deterministic_identifier(self):
         self.assertNotEqual(classify(PUBLIC,"  what(): first source-only assertion\n"),
                             classify(PUBLIC,"  what(): second source-only assertion\n"))
