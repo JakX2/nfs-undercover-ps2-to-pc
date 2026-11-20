@@ -209,6 +209,7 @@ jobs:
           python3 research/native_recomp/test_v155_sc_after_disable.py
           python3 research/native_recomp/test_v156_sc_after_restore.py
           python3 research/native_recomp/test_v157_sc_rescheduler_next.py
+          python3 research/native_recomp/diagnose_v158_public_callback_anchor.py
           python3 research/native_recomp/test_v158_sc_rfi_restore.py
           python3 research/native_recomp/diagnose_v153_sc_reply_handoff.py 462
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
