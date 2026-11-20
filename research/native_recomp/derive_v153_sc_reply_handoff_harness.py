@@ -36,8 +36,8 @@ NEXT_OBSERVER=OBSERVER.replace(
            ((*ctrl_before&V153Mail::Y2)==0u)&&
            ((*irq_before&V153Irq::IPC_PPC)==0u)&&
            !ipc70_bus.external_irq_level();
-     const bool queued=ipc70_bus.services().queued_replies()==1u;
-     check(route&&request&&cleared&&queued&&!(ctx.msr&V153Bus::MSR_EE),
+     const bool v153_queued=ipc70_bus.services().queued_replies()==1u;
+     check(route&&request&&cleared&&v153_queued&&!(ctx.msr&V153Bus::MSR_EE),
            "V153 SC reply scheduling boundary or outstanding native request differs");
      undercover::wii::IosYieldScheduler scheduler(ipc70_bus);
      const auto state=scheduler.service_one(ctx.msr);
