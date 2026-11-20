@@ -10,7 +10,7 @@ from derive_v162_sc_reply_next_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     OLDER_V76, SCOPED_V76, OLDER_V143, SCOPED_V143,
     PREVIOUS_TRIAL, NEXT_TRIAL, V161_PC, V162_PC,
-    V161_FINAL_PC, V162_FINAL_PC,
+    V161_FINAL_PC, V162_FINAL_PC, V161_NEXT_PC,
 )
 from derive_v162_sc_reply_next_runner import derive as runner, PASS
 
@@ -32,6 +32,11 @@ class V162(unittest.TestCase):
         self.assertIn(NEXT_TRIAL,new)
         self.assertIn(V162_PC,new)
         self.assertIn(V162_FINAL_PC,new)
+        self.assertEqual(prior.count(V161_FINAL_PC),1)
+        self.assertEqual(prior.count(V161_NEXT_PC),1)
+        self.assertEqual(new.count(V162_FINAL_PC),2)
+        self.assertNotIn(V161_FINAL_PC,new)
+        self.assertNotIn(V161_NEXT_PC,new)
         self.assertEqual(new.count("V162_SC_REPLY_NEXT irq="),1)
         self.assertIn("ctx.inst_count>v162_dispatch_inst",OBSERVATION)
         self.assertIn("ctx.gpr[13]==v147_first_r13",OBSERVATION)
