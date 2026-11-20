@@ -8,7 +8,7 @@ from pathlib import Path
 from derive_v158_sc_rfi_restore_harness import derive as previous
 from derive_v159_sc_y1_vector_harness import (
     derive, STOP, CONTINUE, RFI_OBSERVER, STATE, RESET,
-    PREVIOUS_TRIAL, NEXT_TRIAL,
+    PREVIOUS_TRIAL, NEXT_TRIAL, V154_CHECK, VECTOR_GATE,
 )
 from derive_v159_sc_y1_vector_runner import derive as runner, PASS
 
@@ -26,6 +26,12 @@ class V159(unittest.TestCase):
         self.assertNotIn(STOP,actual)
         self.assertIn(CONTINUE,actual)
         self.assertIn(NEXT_TRIAL,actual)
+        self.assertEqual(prior.count(V154_CHECK),1)
+        self.assertIn(VECTOR_GATE,actual)
+        self.assertNotIn(V154_CHECK,actual)
+        self.assertIn("c.pc==undercover::wii::ExternalVector",VECTOR_GATE)
+        self.assertIn("c.srr0==nwii::runtime::v158_expected_pc",VECTOR_GATE)
+        self.assertIn("c.srr1==(nwii::runtime::v158_expected_msr&",VECTOR_GATE)
         self.assertIn("ipc70_bus.external_exception_pending(ctx.msr)",CONTINUE)
         self.assertIn("!ctx.dispatch_saved_ctx",CONTINUE)
         self.assertIn("v158_selected_thread",CONTINUE)
