@@ -18,8 +18,10 @@ def classify(source: str, private_log: str) -> int:
     for candidate in ERROR.findall(private_log):
         if candidate in messages:
             index=messages.index(candidate)+1
-            if index>999:
-                raise ValueError("too many public assertion strings")
+            # Four-digit IDs are needed for the growing original-free native
+            # harness. Never derive labels from any private game material.
+            if index>9999:
+                raise ValueError("public assertion catalog exceeds 4-digit bound")
             return index
     return 0
 
