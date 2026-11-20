@@ -10,6 +10,9 @@ FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V181_SC_NEXT verified=1'"
 DEP=r'^V182_V112_DEP phase=[01] op=[01] flush=[0-9]{1,2} sc=[0-9]{1,2} vector=[0-9]{1,2} order=[01] count=[01] calls=[0-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 FALLBACK=r'^V182_SC_FALLBACK phase=1 prior=[0-9]{1,2} vector=[0-9]{1,2} flush=[0-9]{1,2} burst=[0-8] mapped=[01] status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+REQUEST=r'^V182_REQUEST_SC guest=1 vector=1 sc=1 status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+REQUEST_PRE=r'^V182_REQUEST_PRE phase=1 calls=[0-8] prior=[0-9]{1,2} flush=[0-9]{1,2} async=[0-9]{1,2} hid4=[01] ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+REQUEST_VECTOR=r'^V182_REQUEST_VECTOR entered=1 resume=[01] masked=[01] pc=80000c00 lr=[0-9a-f]{8}$'
 V114=r'^V182_V114_DEP phase=1 syscall=[0-9]{1,2} flush=[0-9]{1,2} cache=[0-9]{1,2} calls=[0-8] route=[01] flushed=[01] abi=[01] prior=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 VECTOR=r'^V182_CACHE_VECTOR entered=1 resume=[01] masked=[01] pc=80000c00 lr=[0-9a-f]{8}$'
 PRE=r'^V182_CACHE_PRE phase=1 calls=[0-8] sc=[0-9]{1,2} vector=[0-9]{1,2} flush=[0-9]{1,2} lines=[01] hid4=[01] ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
@@ -33,7 +36,10 @@ def derive(source: str)->str:
         +'  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+AFTER+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+VECTOR+'" "$work/private-native.log" | sort -u || true\n'
-        +'  grep -E "'+V114+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+        +'  grep -E "'+V114+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+REQUEST+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+REQUEST_PRE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+REQUEST_VECTOR+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
@@ -45,6 +51,11 @@ grep -E '{CACHE}' "$log" | sort -u
 test "$(grep -Ec '{CACHE}' "$log")" -eq 16
 grep -E '{VECTOR}' "$log" | sort -u
 test "$(grep -Ec '{VECTOR}' "$log")" -eq 16
+grep -E '{REQUEST}' "$log" | sort -u
+test "$(grep -Ec '{REQUEST}' "$log")" -eq 16
+grep -E '{REQUEST_VECTOR}' "$log" | sort -u
+test "$(grep -Ec '{REQUEST_VECTOR}' "$log")" -eq 16
+echo 'V182_REQUEST_SC verified=1'
 echo 'V182_CACHE_VECTOR verified=1'
 echo 'V182_CACHE_SC verified=1'
 echo 'V182_SC_BURST verified=1'

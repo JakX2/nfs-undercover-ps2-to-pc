@@ -12,9 +12,11 @@ from derive_v182_sc_reply_burst_harness import (
     V112_SYSCALL_DISPATCH, V182_SYSCALL_SCOPED,
     BASE_SC_FALLBACK, V182_SC_FALLBACK, V182_NATIVE_CACHE_SC,
     V182_VECTOR_OBSERVER, V114_SYSCALL_ASSERTION, V182_V114_DIAGNOSTIC,
+    V114_DISPATCH, V182_V114_SCOPED,
+    V182_REQUEST_VECTOR_OBSERVER, V182_REQUEST_CACHE_SC,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER, VECTOR, V114
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER, VECTOR, V114, REQUEST, REQUEST_PRE, REQUEST_VECTOR
 
 HERE=Path(__file__).resolve().parent
 
@@ -50,6 +52,32 @@ class V182(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_second_original_request_syscall_is_phase_scoped_and_executes_guest(self):
+        self.assertEqual(self.before.count(V114_DISPATCH),1)
+        self.assertEqual(self.after.count(V182_V114_SCOPED),1)
+        self.assertIn("post114_syscall==0u",V182_V114_SCOPED)
+        self.assertEqual(self.after.count(V182_REQUEST_CACHE_SC),1)
+        self.assertIn("ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu",V182_REQUEST_CACHE_SC)
+        self.assertIn("v182_cache_sc==1u&&v182_calls==5u",V182_REQUEST_CACHE_SC)
+        self.assertIn("post114_syscall==1u&&post113_flush==1u",V182_REQUEST_CACHE_SC)
+        self.assertIn("native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector",V182_REQUEST_CACHE_SC)
+        self.assertIn("[](auto& c){func_80000C00(c);}",V182_REQUEST_CACHE_SC)
+        self.assertIn("v182_request_vector_seen==1u&&ctx.pc==pc+4u",V182_REQUEST_CACHE_SC)
+        self.assertIn("v182_request_active&&addr==SYSCALL_DEST",V182_REQUEST_VECTOR_OBSERVER)
+        self.assertIn("ctx.srr0==0x805222ecu&&ctx.lr==0x8051963cu",V182_REQUEST_VECTOR_OBSERVER)
+        self.assertIn("return; // original translated second cache vector executes unchanged",V182_REQUEST_VECTOR_OBSERVER)
+        for token in ("ctx.mmu.write8(", "ctx.mmu.write16(", "ctx.mmu.write32(",
+                      "ipc70_bus.write32(", "scheduler.service_one(", "ipc70_bus.tick("):
+            self.assertNotIn(token,V182_REQUEST_CACHE_SC)
+            self.assertNotIn(token,V182_REQUEST_VECTOR_OBSERVER)
+        self.assertTrue(re.fullmatch(
+            REQUEST_PRE,"V182_REQUEST_PRE phase=1 calls=5 prior=1 flush=1 async=1 "
+                        "hid4=1 ee=0 pc=805222e8 lr=8051963c"))
+        self.assertTrue(re.fullmatch(
+            REQUEST_VECTOR,"V182_REQUEST_VECTOR entered=1 resume=1 masked=1 pc=80000c00 lr=8051963c"))
+        self.assertTrue(re.fullmatch(
+            REQUEST,"V182_REQUEST_SC guest=1 vector=1 sc=1 status=1 pc=805222e8 lr=8051963c"))
 
     def test_late_v114_request_flush_reports_state_without_bypassing_assertion(self):
         self.assertEqual(self.before.count(V114_SYSCALL_ASSERTION),1)
@@ -159,6 +187,7 @@ class V182(unittest.TestCase):
         self.assertIn("V181_SC_NEXT verified=1",script)
         self.assertIn("V182_SC_BURST verified=1",script)
         self.assertIn("V182_CACHE_SC verified=1",script)
+        self.assertIn("V182_REQUEST_SC verified=1",script)
         self.assertIn('trap \'rm -rf -- "$work"\' EXIT',script)
         good=("V182_SC_BURST calls=8 clean=1 reply=1 queue=1 guest=1 "
               "caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 "

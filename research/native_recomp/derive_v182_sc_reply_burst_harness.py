@@ -17,6 +17,72 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# V182 original: after five further calls, the earlier V114 request
+# syscall is revisited with syscall=1 flush=1 async-cache=1 and mismatching
+# historical ABI. Keep V114's first-call assertion unchanged, scope only its
+# dispatch guard, and run the authentic installed PPC syscall vector for the
+# second observed 0x805222E8 entry (LR 0x8051963C).
+V114_DISPATCH='''if(v114_owner&&post113_flush==1u&&ctx.pc==POST_OWNER&&ctx.lr==0x8051963cu){'''
+V182_V114_SCOPED='''if(v114_owner&&post113_flush==1u&&post114_syscall==0u&&ctx.pc==POST_OWNER&&ctx.lr==0x8051963cu){'''
+V182_REQUEST_VECTOR_OBSERVER='''  if(v182_request_active&&addr==SYSCALL_DEST){
+    using Bus=undercover::wii::IosBus;
+    check(v182_request_vector_seen==0u&&ctx.pc==SYSCALL_DEST&&
+          ctx.srr0==0x805222ecu&&ctx.lr==0x8051963cu&&
+          ctx.gpr[13]==v147_first_r13&&
+          (ctx.msr&Bus::MSR_EE)==0u&&
+          !ipc70_bus.external_irq_level(),
+          "V182 second original cache vector guest ABI differs");
+    ++v182_request_vector_seen;
+    std::cout<<"V182_REQUEST_VECTOR entered=1"
+             <<" resume="<<(ctx.srr0==0x805222ecu)
+             <<" masked="<<((ctx.msr&Bus::MSR_EE)==0u)
+             <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr<<std::dec<<std::endl;
+    return; // original translated second cache vector executes unchanged
+  }
+'''
+V182_REQUEST_CACHE_SC='''  if(ctx.mmu.read32(0x80000048u)==0x004e5090u&&
+     v181_next_seen==1u&&v182_burst_seen==0u&&
+     ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu){
+    using Bus=undercover::wii::IosBus;
+    std::cout<<"V182_REQUEST_PRE phase=1 calls="<<v182_calls
+             <<" prior="<<post114_syscall
+             <<" flush="<<post113_flush
+             <<" async="<<v182_cache_sc
+             <<" hid4="<<(ctx.hid4==0x83900000u)
+             <<" ee="<<((ctx.msr&Bus::MSR_EE)!=0u)
+             <<" pc="<<std::hex<<ctx.pc<<" lr="<<ctx.lr<<std::dec<<std::endl;
+    check(v182_request_sc==0u&&v182_request_vector_seen==0u&&
+          v182_cache_sc==1u&&v182_calls==5u&&
+          post114_syscall==1u&&post113_flush==1u&&
+          ctx.gpr[13]==v147_first_r13&&ctx.hid4==0x83900000u&&
+          ctx.mmu.get_ptr(ctx.gpr[13]-3176u)!=nullptr&&
+          ctx.mmu.read8(ctx.gpr[13]-3176u)==1u&&
+          !ipc70_bus.external_irq_level()&&
+          !ipc70_bus.external_exception_pending(ctx.msr),
+          "V182 second original request cache syscall phase or guest ABI invalid");
+    const uint32_t pc=ctx.pc,msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;
+    const auto gp=ctx.gpr;
+    v182_request_active=true;
+    native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,
+        !ipc70_bus.external_irq_level(),
+        [](auto& c){func_80000C00(c);});
+    v182_request_active=false;
+    check(v182_request_vector_seen==1u&&ctx.pc==pc+4u&&
+          ctx.msr==msr&&ctx.lr==lr&&ctx.hid0==hid&&ctx.ctr==ctr&&
+          ctx.gpr[13]==v147_first_r13,
+          "V182 second native original cache vector failed CPU ABI restore");
+    for(unsigned reg=0u;reg<32u;++reg)
+      if(reg!=9u&&reg!=10u)
+        check(ctx.gpr[reg]==gp[reg],
+              "V182 second native cache syscall altered unrelated GPR");
+    ++v182_request_sc;
+    std::cout<<"V182_REQUEST_SC guest=1 vector=1 sc="<<v182_request_sc
+             <<" status="<<unsigned(ctx.mmu.read8(ctx.gpr[13]-3176u))
+             <<" pc="<<std::hex<<pc<<" lr="<<lr<<std::dec<<std::endl;
+    return true;
+  }
+'''
+
 # Later original request-flush calls can revisit the previously verified
 # V114 one-shot syscall observer. First retain the failure and record only
 # phase counters and bounded booleans, before any phase-scoping decision.
@@ -280,9 +346,12 @@ def widen_prior(source: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V114_DISPATCH,V182_V114_SCOPED)
     s=once(s,V114_SYSCALL_ASSERTION,V182_V114_DIAGNOSTIC)
     s=once(s,V112_SYSCALL_DISPATCH,V182_SYSCALL_SCOPED)
     s=once(s,BASE_SC_FALLBACK,V182_NATIVE_CACHE_SC+V182_SC_FALLBACK)
+    s=once(s,'bool handle_syscall(CPUContext&ctx){',
+           'bool handle_syscall(CPUContext&ctx){\n'+V182_REQUEST_CACHE_SC)
     s=once(s,V112_SYSCALL_GUARD,V182_V112_TELEMETRY)
     if PREVIOUS_FOLLOWUP.count(STOP)!=1:
         raise ValueError("V182 authenticated V181 owner stop differs")
@@ -294,7 +363,9 @@ def derive(source: str)->str:
  static std::array<uint32_t,8> v182_trace_pc{},v182_trace_lr{};
  static unsigned v182_cache_sc=0u;
  static unsigned v182_cache_vector_seen=0u;
- static bool v182_cache_active=false;''')
+ static bool v182_cache_active=false;
+ static unsigned v182_request_sc=0u,v182_request_vector_seen=0u;
+ static bool v182_request_active=false;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v182_calls=nwii::runtime::v182_burst_seen=0u;
      nwii::runtime::v182_start_inst=nwii::runtime::v182_last_inst=0u;
@@ -304,9 +375,11 @@ def derive(source: str)->str:
      nwii::runtime::v182_trace_lr.fill(0u);
      nwii::runtime::v182_cache_sc=0u;
      nwii::runtime::v182_cache_vector_seen=0u;
-     nwii::runtime::v182_cache_active=false;''')
+     nwii::runtime::v182_cache_active=false;
+     nwii::runtime::v182_request_sc=nwii::runtime::v182_request_vector_seen=0u;
+     nwii::runtime::v182_request_active=false;''')
     s=once(s,PREVIOUS_FOLLOWUP,PREVIOUS_FOLLOWUP.replace(STOP,CONTINUE,1))
-    s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+V182_VECTOR_OBSERVER+'\n'+OBSERVER)
+    s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+V182_VECTOR_OBSERVER+'\n'+V182_REQUEST_VECTOR_OBSERVER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return widen_prior(s)
 
