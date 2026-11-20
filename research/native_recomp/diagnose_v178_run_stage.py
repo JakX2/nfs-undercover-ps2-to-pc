@@ -34,6 +34,20 @@ SAFE_REASONS=(
     ("unexpected_exit", ("Segmentation fault", "Aborted", "Killed", "Terminated")),
 )
 
+# Exact allowlisted *public test script basenames* only. The classifier
+# deliberately never includes a private traceback filename in output.
+PREFLIGHT_SCRIPTS=(
+    "verify_perf_combo_v29.py",
+    "apply_cache_events_v43.py",
+    "apply_cache_trace_v44.py",
+    "test_jump_table_patch_v58.py",
+    "apply_explicit_tail_roots_v71.py",
+    "apply_explicit_backward_tails_v76.py",
+    "test_native_lowmem_patch_v63.py",
+    "test_dcbz_patch_v67.py",
+    "derive_v178_sc_reply_burst_harness.py",
+)
+
 def classify(data: str)->str:
     if len(data)>25_000_000:
         raise ValueError("owner output exceeds public classifier bound")
@@ -53,7 +67,12 @@ def classify(data: str)->str:
         if any(s in data for s in strings):
             reason=name
             break
-    return f"V178_FAILURE_STAGE phase={stage} reason={reason}"
+    script="none"
+    if reason=="python_error":
+        mentioned=[name for name in PREFLIGHT_SCRIPTS if name in data]
+        if mentioned:
+            script=mentioned[-1][:-3]
+    return f"V178_FAILURE_STAGE phase={stage} reason={reason} script={script}"
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
