@@ -17,7 +17,8 @@ class V145(unittest.TestCase):
         for anchor in (STATE,RESET,STOP,TRIAL):
             self.assertEqual(prior.count(anchor),1,anchor[:75])
         now=derive(original)
-        self.assertIn(NEXT,now)
+        self.assertIn("++v144_disable_seen;v145_disable_inst=ctx.inst_count;return;",now)
+        self.assertIn("if(v141_live&&v144_disable_seen==1u&&addr==0x80519318u){",now)
         self.assertIn(NEXT_TRIAL,now)
         self.assertIn("V145 original SC dispatcher nested IRQ helper lost pending IOS state",now)
         self.assertIn("(addr==INT_DISABLE||addr==INT_RESTORE)",now)
