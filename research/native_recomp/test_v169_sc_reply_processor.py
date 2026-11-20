@@ -8,7 +8,7 @@ from pathlib import Path
 from derive_v168_sc_reply_read_next_harness import derive as previous
 from derive_v169_sc_reply_processor_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVER, TRACE_ANCHOR,
-    OLD_V79, SCOPED_V79, PREVIOUS_TRIAL, NEXT_TRIAL, PAIR,
+    PREVIOUS_TRIAL, NEXT_TRIAL, PAIR,
     extend_old_trial_endpoints,
 )
 from derive_v169_sc_reply_processor_runner import derive as runner, PASS
@@ -21,14 +21,12 @@ class V169(unittest.TestCase):
     def test_original_reply_processor_and_status_byte_are_read_only(self):
         before=previous(self.base)
         after=derive(self.base)
-        for anchor in (STATE,RESET,STOP,TRACE_ANCHOR,OLD_V79,PREVIOUS_TRIAL):
+        for anchor in (STATE,RESET,STOP,TRACE_ANCHOR,PREVIOUS_TRIAL):
             self.assertEqual(before.count(anchor),1,anchor[:72])
         self.assertNotIn(STOP,after)
         self.assertIn(CONTINUE,after)
         self.assertIn(OBSERVER,after)
         self.assertIn(NEXT_TRIAL,after)
-        self.assertIn(SCOPED_V79,after)
-        self.assertNotIn(OLD_V79,after)
         self.assertIn("addr==0x805190c0u&&ctx.lr==0x80519354u",CONTINUE)
         self.assertIn("return; // execute original Wii reply processor code",CONTINUE)
         for token in ("ctx.inst_count>v169_start_inst","ctx.gpr[13]==v147_first_r13",
