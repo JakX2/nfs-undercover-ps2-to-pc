@@ -9,7 +9,7 @@ from classify_v38_native_failure import STRING
 from derive_v178_sc_reply_burst_harness import derive
 
 def describe(index: int)->str:
-    if not 1<=index<=999:
+    if not 1<=index<=9999:
         raise ValueError("V178 assertion index outside public numeric bound")
     original=Path(__file__).with_name("test_start_to_ipc_ack_v77.cpp").read_text(encoding="utf-8")
     public=derive(original)
@@ -35,6 +35,6 @@ if __name__=="__main__":
             # executable, translated functions or private CI logs are read.
             print(f"V178_PUBLIC_CPP_LINE {index} {rows[index-1][:160]}")
     elif a.index is not None:
-        print(f"V178_PUBLIC_ASSERTION id={a.index:03d} label={describe(a.index)}")
+        print(f"V178_PUBLIC_ASSERTION id={a.index:04d} label={describe(a.index)}")
     else:
         p.error("supply a source-owned public line or assertion index")
