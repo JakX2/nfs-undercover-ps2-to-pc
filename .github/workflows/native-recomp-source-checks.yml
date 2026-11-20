@@ -137,6 +137,7 @@ jobs:
           python3 research/native_recomp/test_v131_osinit_retry.py
           python3 research/native_recomp/test_v131_retry_native.py
           python3 research/native_recomp/test_v132_sc_status.py
+          python3 research/native_recomp/test_sc_status_writer_sites.py
           python3 research/native_recomp/test_v133_sc_sda.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
