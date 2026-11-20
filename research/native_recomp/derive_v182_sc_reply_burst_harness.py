@@ -22,8 +22,8 @@ MAX_CALLS=8
 # historical ABI. Keep V114's first-call assertion unchanged, scope only its
 # dispatch guard, and run the authentic installed PPC syscall vector for the
 # second observed 0x805222E8 entry (LR 0x8051963C).
-V114_DISPATCH='''if(v114_owner&&post113_flush==1u&&ctx.pc==POST_OWNER&&ctx.lr==0x8051963cu){'''
-V182_V114_SCOPED='''if(v114_owner&&post113_flush==1u&&post114_syscall==0u&&ctx.pc==POST_OWNER&&ctx.lr==0x8051963cu){'''
+V114_DISPATCH='''if(v114_owner&&post113_flush==1u&&ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu){'''
+V182_V114_SCOPED='''if(v114_owner&&post113_flush==1u&&post114_syscall==0u&&ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu){'''
 V182_REQUEST_VECTOR_OBSERVER='''  if(v182_request_active&&addr==SYSCALL_DEST){
     using Bus=undercover::wii::IosBus;
     check(v182_request_vector_seen==0u&&ctx.pc==SYSCALL_DEST&&
