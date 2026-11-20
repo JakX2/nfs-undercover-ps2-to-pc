@@ -32,9 +32,11 @@ OBSERVATION='''void trace_call(uint32_t addr, CPUContext&ctx){
     using IOS=undercover::wii::StmIos;
     const auto ctrl=ipc70_bus.read32(Bus::IPC+Mail::PPCCTRL);
     const auto flag=ipc70_bus.read32(Bus::IPC+Irq::PPC_FLAG);
-    const bool y1=ctrl.has_value()&&flag.has_value()&&
+    const auto arm=ipc70_bus.read32(Bus::IPC+Mail::ARMMSG);
+    const bool y1=ctrl.has_value()&&flag.has_value()&&arm.has_value()&&
           ((*ctrl&Mail::Y1)!=0u)&&((*ctrl&Mail::Y2)==0u)&&
-          ((*flag&Irq::IPC_PPC)!=0u)&&ipc70_bus.external_irq_level();
+          ((*flag&Irq::IPC_PPC)!=0u)&&*arm==v153_phys&&
+          ipc70_bus.external_irq_level();
     const bool reply=ipc70_ram.valid(v153_phys,64u)&&
           ipc70_ram.read32(v153_phys)==IOS::Reply&&
           ipc70_ram.read32(v153_phys+4u)==v153_fd&&
