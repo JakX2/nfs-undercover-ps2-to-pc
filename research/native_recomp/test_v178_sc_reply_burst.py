@@ -9,7 +9,7 @@ from derive_v177_sc_reply_next_harness import derive as previous
 from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
-    V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_FALLTHROUGH, V98_SCOPED_FALLTHROUGH,
+    V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_ASSERTION, scope_v98_fallback,
     V83_ASSERTION, scope_v83_observer,
     V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
 )
@@ -66,9 +66,12 @@ class V178(unittest.TestCase):
         # an unrelated V77 IPC fallback at startup before V141.
         self.assertEqual(before.count(V98_ACTIVE),1)
         self.assertEqual(after.count(V98_ACTIVE),1)
-        self.assertEqual(before.count(V98_FALLTHROUGH),1)
-        self.assertEqual(after.count(V98_SCOPED_FALLTHROUGH),1)
-        self.assertIn("post98_return==0u",V98_SCOPED_FALLTHROUGH)
+        self.assertEqual(len(V98_ASSERTION.findall(before)),1)
+        self.assertEqual(len(V98_ASSERTION.findall(after)),1)
+        self.assertIn("if(post98_return==0u){",after)
+        self.assertNotIn("if(post98_return==0u){",before)
+        with self.assertRaises(ValueError):
+            scope_v98_fallback("invalid")
         for marker in ("if(addr==SET&&ctx.lr==0x8052f9e4u)",
                        "if(addr==FILL&&ctx.lr==0x80004454u)",
                        "if(addr==COPY&&(ctx.lr==0x8052f9f4u||ctx.lr==0x8052fa04u))",
@@ -177,8 +180,8 @@ class V178(unittest.TestCase):
         self.assertFalse(re.fullmatch(PASS,good.replace("calls=6","calls=7")))
         self.assertFalse(re.fullmatch(PASS,good.replace("guest=1","guest=0")))
         self.assertTrue(re.fullmatch(TRACE,"V178_SC_TRACE step=6 pc=805229b4 lr=80545120"))
-        self.assertTrue(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=0 pc=80000c00 lr=0"))
-        self.assertFalse(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=7 pc=80000c00 lr=0"))
+        self.assertTrue(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=0 dispatch=1 ipc=1 ack=0 submitted=1 pc=80000c00 lr=0"))
+        self.assertFalse(re.fullmatch(DEP,"V178_IPC_DEP phase=0 live=0 active=1 masked=1 text=0 tracked=1 calls=7 dispatch=1 ipc=1 ack=0 submitted=1 pc=80000c00 lr=0"))
         self.assertNotIn("if(v177_next_seen==1u&&v178_burst_seen==0u)",V178_IPC_DIAGNOSTIC)
         self.assertFalse(re.fullmatch(TRACE,"V178_SC_TRACE step=7 pc=805229b4 lr=80545120"))
         with tempfile.TemporaryDirectory() as temp:
