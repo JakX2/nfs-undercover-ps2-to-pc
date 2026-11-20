@@ -32,7 +32,7 @@ class V153(unittest.TestCase):
         self.assertIn("queued_replies()==1u",NEXT_OBSERVER)
         self.assertIn("const bool v153_queued=",NEXT_OBSERVER)
         self.assertIn("cleared&&v153_queued&&",NEXT_OBSERVER)
-        self.assertNotIn("const bool queued=",NEXT_OBSERVER)
+        self.assertEqual(NEXT_OBSERVER.count("const bool queued="),1)
         self.assertIn("scheduler.service_one(ctx.msr)",NEXT_OBSERVER)
         self.assertIn("V153Ios::Device::File",NEXT_OBSERVER)
         self.assertIn("ctx.is_running=false;throw ExceptionStop{};",NEXT_OBSERVER)
