@@ -29,10 +29,13 @@ class V153(unittest.TestCase):
         self.assertIn(NEXT_TRIAL,now)
         self.assertNotIn(OBSERVER,now)
         self.assertIn("addr==POST_OWNER&&ctx.lr==0x80526cb0u",NEXT_OBSERVER)
-        self.assertIn("irq76_ipc==1u&&ack77_reply==0u",NEXT_OBSERVER)
-        self.assertNotIn("ctx.is_running=false;throw ExceptionStop{};",NEXT_OBSERVER)
+        self.assertIn("queued_replies()==1u",NEXT_OBSERVER)
+        self.assertIn("scheduler.service_one(ctx.msr)",NEXT_OBSERVER)
+        self.assertIn("V153Ios::Device::File",NEXT_OBSERVER)
+        self.assertIn("ctx.is_running=false;throw ExceptionStop{};",NEXT_OBSERVER)
         self.assertIn("++v153_bridge_seen;",NEXT_OBSERVER)
-        self.assertEqual(now.count("V153_SC_REPLY bridge="),1)
+        self.assertEqual(now.count("V153_SC_REPLY route="),1)
+        self.assertEqual(now.count("V153_SC_REPLY_STATE bridge="),1)
 
     def test_no_extra_guest_or_device_changes(self):
         earlier=previous(self.source)
@@ -41,6 +44,9 @@ class V153(unittest.TestCase):
                       "ipc70_ram.write8(", "ipc70_bus.write32(",
                       "ipc70_bus.tick(", "v139_scheduler.service_one("):
             self.assertEqual(earlier.count(token),now.count(token),token)
+        self.assertEqual(now.count("scheduler.service_one(ctx.msr)"),
+                         earlier.count("scheduler.service_one(ctx.msr)")+1)
+        self.assertIn("V153Ios::Pump::Replied",NEXT_OBSERVER)
         for pattern in (r"ctx\.gpr\[[^\]]+\]\s*=(?!=)",
                         r"ctx\.cr\[0\]\.eq\s*=(?!=)",
                         r"ctx\.msr\s*=(?!=)"):
@@ -60,7 +66,7 @@ class V153(unittest.TestCase):
                        "V153_SC_REPLY verified=1",
                        'test "$(grep -Fxc'):
             self.assertIn(marker,script)
-        self.assertEqual(PASS,"V153_SC_REPLY bridge=1 wire=1 mail=1 drained=1 irq=1")
+        self.assertEqual(PASS,"V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1")
         with tempfile.TemporaryDirectory() as d:
             f=Path(d)/"run.sh"
             f.write_text(script,encoding="utf-8")
