@@ -33,12 +33,21 @@ class V158(unittest.TestCase):
         self.assertNotIn("if(ack77_reply==1u&&reply79_irq==0u){",RFI_OBSERVER)
         self.assertIn(NEXT_TRIAL,new)
         self.assertIn("addr==0x805229b4u&&ctx.lr==0x80526cbcu",CONTINUE)
-        self.assertIn("ctx.gpr[3]==IDLE_CONTEXT",CONTINUE)
+        self.assertIn("selected==IDLE_CONTEXT",CONTINUE)
+        self.assertIn("selected==THREAD",CONTINUE)
+        self.assertIn("ctx.mmu.get_ptr(selected+412u)!=nullptr",CONTINUE)
+        self.assertIn("v158_expected_pc=ctx.mmu.read32(selected+408u)",CONTINUE)
+        self.assertIn("v158_expected_msr=ctx.mmu.read32(selected+412u)",CONTINUE)
+        self.assertIn("v158_expected_gprs[i]=ctx.mmu.read32(selected+4u*i)",CONTINUE)
         self.assertIn("V158_SC_LOAD_ENTRY route=1",CONTINUE)
-        self.assertIn("ctx.pc==sched74_resume&&ctx.inst_count>v158_load_inst",RFI_OBSERVER)
-        self.assertIn("ctx.msr==vector75_srr1",RFI_OBSERVER)
-        self.assertIn("ctx.gpr==vector75_gprs",RFI_OBSERVER)
-        self.assertIn("ctx.lr==vector75_lr",RFI_OBSERVER)
+        self.assertIn('V158_SC_LOAD_ARG route=',CONTINUE)
+        self.assertIn('ctx.mmu.read32(selected+132u)',CONTINUE)
+        self.assertIn('ctx.mmu.read32(selected+136u)',CONTINUE)
+        self.assertIn('ctx.mmu.read32(selected+140u)',CONTINUE)
+        self.assertIn("ctx.pc==v158_expected_pc&&ctx.inst_count>v158_load_inst",RFI_OBSERVER)
+        self.assertIn("ctx.msr==v158_expected_msr",RFI_OBSERVER)
+        self.assertIn("ctx.gpr==v158_expected_gprs",RFI_OBSERVER)
+        self.assertIn("ctx.lr==v158_expected_lr",RFI_OBSERVER)
         self.assertIn("V158Ios::Device::File",RFI_OBSERVER)
         self.assertIn("V158Mail::Y1",RFI_OBSERVER)
         self.assertIn("V158Irq::IPC_PPC",RFI_OBSERVER)
@@ -72,9 +81,9 @@ class V158(unittest.TestCase):
             self.assertIn(marker,script)
         for ee in ("0","1"):
             self.assertTrue(re.fullmatch(PASS,
-                f"V158_SC_RFI pc=1 msr=1 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee={ee} ready={ee}"))
+                f"V158_SC_RFI pc=1 msr=1 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee={ee} ready={ee} old_pc=0"))
         self.assertFalse(re.fullmatch(PASS,
-                "V158_SC_RFI pc=1 msr=0 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee=1 ready=1"))
+                "V158_SC_RFI pc=1 msr=0 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee=1 ready=1 old_pc=0"))
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"runner.sh"
             p.write_text(script,encoding="utf-8")
