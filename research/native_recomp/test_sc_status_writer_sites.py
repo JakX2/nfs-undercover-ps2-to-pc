@@ -27,6 +27,7 @@ def fake_dol(sections):
 
 class ScWriterAudit(unittest.TestCase):
     def test_original_byte_load_contract(self):
+        self.assertEqual(STATUS_REGISTER, 29)
         verify_status_load(opword(STATUS_LOAD_OP, STATUS_REGISTER, STATUS_BASE, STATUS_OFFSET))
         for word in (opword(32, 3, 13, STATUS_OFFSET),
                      opword(34, 4, 13, STATUS_OFFSET),
