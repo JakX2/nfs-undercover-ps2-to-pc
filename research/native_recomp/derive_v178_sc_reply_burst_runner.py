@@ -10,6 +10,7 @@ NEW='python3 "$here/derive_v178_sc_reply_burst_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V177_SC_REPLY_NEXT verified=1'"
 TRACE=r'^V178_SC_TRACE step=[1-6] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+DEP=r'^V178_IPC_DEP masked=[01] text=[01] tracked=[01] calls=[0-6] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PATTERN=r'^V178_SC_BURST calls=[1-6] clean=[01] reply=[01] guest=[01] caller=[01] coherent=[01] mapped=[01] before=[0-9]{1,3} status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PASS=r'^V178_SC_BURST calls=[1-6] clean=[01] reply=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 
@@ -19,7 +20,8 @@ def derive(source: str)->str:
         raise ValueError("V178 private original runner inherited guard count differs")
     s=s.replace(OLD,NEW,1)
     s=s.replace(FAIL,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
-        +'  grep -E "'+TRACE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+        +'  grep -E "'+TRACE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+DEP+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
