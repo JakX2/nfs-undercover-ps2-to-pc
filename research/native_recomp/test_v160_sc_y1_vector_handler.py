@@ -10,7 +10,7 @@ from derive_v160_sc_y1_vector_handler_harness import (
     derive, STATE, RESET, STOP, CONTINUE, TRACE, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, V159_PC, V160_PC,
 )
-from derive_v160_sc_y1_vector_handler_runner import derive as runner, ENTRY, PASS
+from derive_v160_sc_y1_vector_handler_runner import derive as runner, ENTRY, PASS, ABI_PASS
 
 HERE=Path(__file__).resolve().parent
 
@@ -44,6 +44,12 @@ class V160(unittest.TestCase):
         self.assertEqual(after.count(V160_PC),1)
         self.assertEqual(after.count("V160_SC_VECTOR_ENTRY saved="),1)
         self.assertEqual(after.count("V160_SC_VECTOR_HANDLER vector="),1)
+        self.assertIn("const bool index=ctx.gpr[3]==4u",TRACE)
+        self.assertIn("const bool thread=ctx.gpr[4]==THREAD",TRACE)
+        self.assertIn("const bool idle=ctx.gpr[4]==IDLE_CONTEXT",TRACE)
+        self.assertIn("const bool abi=index&&(thread||idle)",TRACE)
+        self.assertIn("check(vector&&abi&&masked&&irq&&advanced,",TRACE)
+        self.assertEqual(after.count("V160_SC_VECTOR_ABI index="),1)
 
     def test_hardware_exception_occurs_once_and_does_not_forge_cpu_state(self):
         old=previous(self.original)
@@ -70,6 +76,10 @@ class V160(unittest.TestCase):
                       'test "$(grep -Fxc'):
             self.assertIn(token,script)
         self.assertEqual(ENTRY,"V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1")
+        self.assertTrue(re.fullmatch(ABI_PASS,
+            "V160_SC_VECTOR_ABI index=1 thread=1 idle=0 sr0=0 sr1=0"))
+        self.assertFalse(re.fullmatch(ABI_PASS,
+            "V160_SC_VECTOR_ABI index=0 thread=1 idle=0 sr0=0 sr1=0"))
         self.assertTrue(re.fullmatch(PASS,
             "V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=80000528"))
         self.assertFalse(re.fullmatch(PASS,
