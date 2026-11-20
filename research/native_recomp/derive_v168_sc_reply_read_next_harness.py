@@ -145,6 +145,13 @@ def extend_prior_trial_gate(s: str, label: str)->str:
     if start<0 or end-start>1500:
         raise ValueError(f"V168 inherited trial check span differs: {label}")
     part=s[start:end]
+    # V168's inherited V167 terminal gate may already have been extended
+    # by the preceding V167_LAST -> V168_LAST replacement. Accept that only
+    # when all three authenticated next-call guards are present exactly once.
+    if (part.count("v168_next_seen==1u")==1 and
+        part.count("c.pc==nwii::runtime::v168_target_pc")==1 and
+        part.count("c.lr==nwii::runtime::v168_target_lr")==1):
+        return s
     v168='''(nwii::runtime::v168_next_seen==1u&&
                c.pc==nwii::runtime::v168_target_pc&&
                c.lr==nwii::runtime::v168_target_lr)'''
