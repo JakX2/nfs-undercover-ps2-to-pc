@@ -27,6 +27,8 @@ on:
       - '.github/workflows/wii-v131-retry-state.yml'
       - '.github/workflows/wii-v133-sc-sda-state.yml'
       - '.github/workflows/wii-v136-sc-second-retry.yml'
+      - '.github/workflows/wii-v137-ios-liveness.yml'
+      - '.github/workflows/wii-v138-sc-request.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -52,6 +54,8 @@ on:
       - '.github/workflows/wii-v131-retry-state.yml'
       - '.github/workflows/wii-v133-sc-sda-state.yml'
       - '.github/workflows/wii-v136-sc-second-retry.yml'
+      - '.github/workflows/wii-v137-ios-liveness.yml'
+      - '.github/workflows/wii-v138-sc-request.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -145,6 +149,7 @@ jobs:
           python3 research/native_recomp/test_v135_sc_flow.py
           python3 research/native_recomp/test_v136_second_retry.py
           python3 research/native_recomp/test_v137_ios_liveness.py
+          python3 research/native_recomp/test_v138_ios_request.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
