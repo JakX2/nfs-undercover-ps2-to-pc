@@ -124,7 +124,7 @@ def widen_prior(source: str)->str:
         "V178 original SC reply burst did not reach bounded native checkpoint",
         "V179 original SC reply continuation did not enter next PPC callee",
         "V180 original SC reply successor did not reach another native function",
-        "V181 original second allocator call did not reach next native guest function",
+        "V181 original SC reply successor did not reach another native function",
     ):
         marker='"'+label+'");'
         if updated.count(marker)!=1:

@@ -52,7 +52,7 @@ class V182(unittest.TestCase):
         self.assertEqual(len(PAIR.findall(self.after)),len(PAIR.findall(self.before)))
         for label in ("V178 original SC reply burst did not reach bounded native checkpoint",
                       "V180 original SC reply successor did not reach another native function",
-                      "V181 original second allocator call did not reach next native guest function"):
+                      "V181 original SC reply successor did not reach another native function"):
             end=self.after.index('"'+label+'");')
             start=self.after.rfind("check(",0,end)
             self.assertIn("v182_burst_seen==1u",self.after[start:end])
