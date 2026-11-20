@@ -14,7 +14,7 @@ from pathlib import Path
 from derive_v172_sc_y1_ack_harness import (
     derive as previous, STATE, RESET,
     MMIO_OBSERVER as PREVIOUS_OBSERVER, NEXT_TRIAL as PREVIOUS_TRIAL,
-    TRACE_ANCHOR,
+    TRACE_ANCHOR, V153_MAIL_NEW as V172_V153_MAIL,
 )
 
 STOP='''       v172_stop_pc=ipc70_ram.cpu->pc;
@@ -23,6 +23,7 @@ STOP='''       v172_stop_pc=ipc70_ram.cpu->pc;
        ipc70_ram.cpu->is_running=false;throw ExceptionStop{};
      }'''
 CONTINUE='''       v173_start_inst=ipc70_ram.cpu->inst_count;
+       v173_mmio_after_y1=mmio_writes.size();
        v172_stop_pc=ipc70_ram.cpu->pc;
        v172_stop_lr=ipc70_ram.cpu->lr;
        ++v172_ack_seen;
@@ -40,6 +41,16 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     const auto arm=ipc70_bus.read32(Bus::IPC+Mail::ARMMSG);
     const bool y1clear=ctrl.has_value()&&((*ctrl&Mail::Y1)==0u);
     const bool flagup=flag.has_value()&&((*flag&Irq::IPC_PPC)!=0u);
+    unsigned original_flag_w1c=0u;
+    for(size_t i=v173_mmio_after_y1;i<mmio_writes.size();++i){
+      const auto& write=mmio_writes[i];
+      if((write.first==Bus::IPC+Irq::PPC_FLAG||
+          write.first==Bus::MIRROR+Irq::PPC_FLAG)&&
+         (write.second&Irq::IPC_PPC)!=0u)
+        ++original_flag_w1c;
+    }
+    const bool flag_ack=original_flag_w1c==1u&&
+          !flagup&&!ipc70_bus.external_irq_level();
     const bool wire=arm.has_value()&&*arm==v153_phys;
     const bool reply=ipc70_ram.valid(v153_phys,64u)&&
           ipc70_ram.read32(v153_phys)==IOS::Reply&&
@@ -62,8 +73,14 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
              <<" coherent="<<coherent<<" mapped="<<mapped
              <<" status="<<status<<" read="<<read<<" write="<<write
              <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr<<std::dec<<std::endl;
+    std::cout<<"V173_SC_HW_FLAG_W1C guest=1 count="<<original_flag_w1c
+             <<" cleared="<<(!flagup)
+             <<" irq_down="<<(!ipc70_bus.external_irq_level())<<std::endl;
+    check(flag_ack,
+          "V173 original SC reply did not clear Hollywood IPC latch via guest W1C");
     check(y1clear&&guest&&caller&&coherent&&mapped,
           "V173 original guest Y1 W1C did not resume to valid PPC callee");
+    ++v173_flag_ack_seen;
     v173_target_pc=addr;v173_target_lr=ctx.lr;
     ++v173_next_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -72,7 +89,8 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v172_stop_pc&&'
     r'\s*c\.lr==nwii::runtime::v172_stop_lr')
-NEXT_TRIAL='''       check(nwii::runtime::v173_next_seen==1u&&
+NEXT_TRIAL='''       check(nwii::runtime::v173_flag_ack_seen==1u&&
+             nwii::runtime::v173_next_seen==1u&&
              nwii::runtime::v172_ack_seen==1u&&
              nwii::runtime::v171_distinct_seen==1u&&
              nwii::runtime::v170_next_seen==1u&&
@@ -95,6 +113,26 @@ V173_FINAL_END='''             (((c.pc==nwii::runtime::v172_stop_pc&&
 V172_FINAL_EXTENDED='''             ((c.pc==nwii::runtime::v172_stop_pc&&c.lr==nwii::runtime::v172_stop_lr)||(nwii::runtime::v173_next_seen==1u&&c.pc==nwii::runtime::v173_target_pc&&c.lr==nwii::runtime::v173_target_lr))&&
              c.lr==0x8051910cu&&
              !c.is_running,'''
+
+# The V153 snapshot was taken while the *second* reply interrupt was
+# pending. At the newer V173 stop, authentic guest code has acknowledged both
+# Y1 (V172) and Hollywood PPC_FLAG (V173). Only the observed guest W1C
+# authorizes relaxing the later snapshot; the earlier original checkpoint
+# still demands the asserted interrupt.
+V173_V153_MAIL=V172_V153_MAIL.replace(
+    '''             ((*v153_flags&V153Irq::IPC_PPC)!=0u);''',
+    '''             (((*v153_flags&V153Irq::IPC_PPC)!=0u)||
+              (nwii::runtime::v173_flag_ack_seen==1u&&
+               ((*v153_flags&V153Irq::IPC_PPC)==0u)));''')
+V153_IRQ_OLD='''       const bool v153_irq=nwii::runtime::ipc70_bus.external_irq_level()&&
+             !nwii::runtime::ipc70_bus.external_exception_pending(c.msr)&&
+             (c.msr&V153Bus::MSR_EE)==0u;'''
+V153_IRQ_NEW='''       const bool v153_irq=
+             (nwii::runtime::ipc70_bus.external_irq_level()||
+              (nwii::runtime::v173_flag_ack_seen==1u&&
+               !nwii::runtime::ipc70_bus.external_irq_level()))&&
+             !nwii::runtime::ipc70_bus.external_exception_pending(c.msr)&&
+             (c.msr&V153Bus::MSR_EE)==0u;'''
 
 def widen_prior_gates(s: str)->str:
     replacement=('((c.pc==nwii::runtime::v172_stop_pc&&'
@@ -135,15 +173,21 @@ def derive(source: str)->str:
     if PREVIOUS_OBSERVER.count(STOP)!=1 or PREVIOUS_TRIAL.count(V172_FINAL_END)!=1:
         raise ValueError("V173 inherited authentic PPCCTRL Y1 ACK boundary differs")
     s=once(s,STATE,STATE+'''
- static unsigned v173_next_seen=0;
+ static unsigned v173_next_seen=0,v173_flag_ack_seen=0;
  static uint64_t v173_start_inst=0;
+ static size_t v173_mmio_after_y1=0;
  static uint32_t v173_target_pc=0,v173_target_lr=0;''')
     s=once(s,RESET,RESET+'''
-     nwii::runtime::v173_next_seen=0u;
+     nwii::runtime::v173_next_seen=nwii::runtime::v173_flag_ack_seen=0u;
      nwii::runtime::v173_start_inst=0u;
+     nwii::runtime::v173_mmio_after_y1=0u;
      nwii::runtime::v173_target_pc=nwii::runtime::v173_target_lr=0u;''')
     s=once(s,STOP,CONTINUE)
     s=once(s,TRACE_ANCHOR,OBSERVER)
+    if V173_V153_MAIL==V172_V153_MAIL:
+        raise ValueError("V173 V153 Hollywood latch assertion anchor changed")
+    s=once(s,V172_V153_MAIL,V173_V153_MAIL)
+    s=once(s,V153_IRQ_OLD,V153_IRQ_NEW)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     s=widen_prior_gates(s)
     return once(s,V172_FINAL_EXTENDED,V173_FINAL_END)
