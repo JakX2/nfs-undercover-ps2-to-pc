@@ -14,11 +14,10 @@ ANCHOR = '     std::cout<<"V137_IOS_LIVENESS x1="'
 ADDITION = '''     const bool v139_request=v138_valid&&v138_cmd==V138Ios::Open&&
            v138_kind==4u&&v138_mode==1u;
      check(v139_request,"V139 original SC request is not SYSCONF read-only open");
-     auto v139_files=std::make_shared<undercover::wii::GuestFiles>();
-     const bool v139_generated=undercover::wii::SysconfImage::add_to(*v139_files);
-     const bool v139_mounted=v139_generated&&
-           ipc70_bus.services().mount_filesystem(v139_files);
-     check(v139_mounted,"V139 native IOS could not mount test SYSCONF before request");
+     // /dev/fs is already open here: resource mounts belong at reset.
+     const bool v139_mounted=ipc70_bus.services().is_open(
+           2u,undercover::wii::StmIos::Device::Fs);
+     check(v139_mounted,"V139 original guest FS descriptor is not open");
      undercover::wii::IosYieldScheduler v139_scheduler(ipc70_bus);
      const auto v139_state=v139_scheduler.service_one(ctx.msr);
      const bool v139_ack=v139_state.progress==undercover::wii::StmIos::Pump::Ack;
@@ -40,6 +39,20 @@ def derive(source: str) -> str:
     if s.count(ANCHOR)!=1:
         raise ValueError("V139 request classification/IOS observer anchor changed")
     s=s.replace(ANCHOR,ADDITION,1)
+    # V92 mounted an intentionally empty native filesystem before the
+    # original game opened /dev/fs. Add SYSCONF to that same namespace
+    # at the same trial boundary, without resetting guest/device state.
+    mount_before=('     check(nwii::runtime::ipc70_bus.services().mount_filesystem('
+                  'std::make_shared<undercover::wii::GuestFiles>()),\n'
+                  '           "V92 explicit empty native guest filesystem mount rejected");')
+    mount_after=('     auto v139_sc_files=std::make_shared<undercover::wii::GuestFiles>();\n'
+                 '     check(undercover::wii::SysconfImage::add_to(*v139_sc_files),'
+                 '"V139 synthetic SYSCONF creation failed");\n'
+                 '     check(nwii::runtime::ipc70_bus.services().mount_filesystem(v139_sc_files),\n'
+                 '           "V92 explicit empty native guest filesystem mount rejected");')
+    if s.count(mount_before)!=1:
+        raise ValueError("V139 original V92 filesystem mount anchor differs")
+    s=s.replace(mount_before,mount_after,1)
     return ('#include "wii_sysconf_image.h"\n'
             '#include "wii_ios_yield_scheduler.h"\n' + s)
 
