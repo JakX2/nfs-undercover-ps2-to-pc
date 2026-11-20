@@ -17,6 +17,25 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# Later original request-flush calls can revisit the previously verified
+# V114 one-shot syscall observer. First retain the failure and record only
+# phase counters and bounded booleans, before any phase-scoping decision.
+V114_SYSCALL_ASSERTION='''check(route&&flushed&&abi&&prior,"V114 original IOS request flush syscall ABI differs");'''
+V182_V114_DIAGNOSTIC='''{ // Preserve the V114 request-flush assertion and reveal only late phase counters.
+      if(v181_next_seen==1u&&v182_burst_seen==0u){
+        std::cout<<"V182_V114_DEP phase=1"
+                 <<" syscall="<<post114_syscall
+                 <<" flush="<<post113_flush
+                 <<" cache="<<v182_cache_sc
+                 <<" calls="<<v182_calls
+                 <<" route="<<route<<" flushed="<<flushed
+                 <<" abi="<<abi<<" prior="<<prior
+                 <<" pc="<<std::hex<<ctx.pc<<" lr="<<ctx.lr<<std::dec
+                 <<std::endl;
+      }
+      check(route&&flushed&&abi&&prior,"V114 original IOS request flush syscall ABI differs");
+    }'''
+
 # The late 0x805222E8 syscall reaches authentic vector 0x80000C00,
 # which must not be classified as the first V71 IOS_Open cache syscall.
 # Narrowly recognize that original guest vector only while the V182
@@ -90,7 +109,7 @@ V182_NATIVE_CACHE_SC='''    if(own&&v181_next_seen==1u&&v182_burst_seen==0u&&
       ++v182_cache_sc;
       std::cout<<"V182_CACHE_SC guest=1 vector=1"
                <<" sc="<<v182_cache_sc
-               <<" status="<<ctx.mmu.read8(ctx.gpr[13]-3176u)
+               <<" status="<<unsigned(ctx.mmu.read8(ctx.gpr[13]-3176u))
                <<" pc="<<std::hex<<pc<<" lr="<<lr<<std::dec<<std::endl;
       return true;
     }
@@ -261,6 +280,7 @@ def widen_prior(source: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V114_SYSCALL_ASSERTION,V182_V114_DIAGNOSTIC)
     s=once(s,V112_SYSCALL_DISPATCH,V182_SYSCALL_SCOPED)
     s=once(s,BASE_SC_FALLBACK,V182_NATIVE_CACHE_SC+V182_SC_FALLBACK)
     s=once(s,V112_SYSCALL_GUARD,V182_V112_TELEMETRY)

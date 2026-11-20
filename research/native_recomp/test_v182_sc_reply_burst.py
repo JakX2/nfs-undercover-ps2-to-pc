@@ -11,10 +11,10 @@ from derive_v182_sc_reply_burst_harness import (
     V112_SYSCALL_GUARD, V182_V112_TELEMETRY,
     V112_SYSCALL_DISPATCH, V182_SYSCALL_SCOPED,
     BASE_SC_FALLBACK, V182_SC_FALLBACK, V182_NATIVE_CACHE_SC,
-    V182_VECTOR_OBSERVER,
+    V182_VECTOR_OBSERVER, V114_SYSCALL_ASSERTION, V182_V114_DIAGNOSTIC,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER, VECTOR
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK, CACHE, PRE, AFTER, VECTOR, V114
 
 HERE=Path(__file__).resolve().parent
 
@@ -51,6 +51,19 @@ class V182(unittest.TestCase):
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
 
+    def test_late_v114_request_flush_reports_state_without_bypassing_assertion(self):
+        self.assertEqual(self.before.count(V114_SYSCALL_ASSERTION),1)
+        self.assertEqual(self.after.count(V182_V114_DIAGNOSTIC),1)
+        self.assertIn("v181_next_seen==1u&&v182_burst_seen==0u",V182_V114_DIAGNOSTIC)
+        self.assertIn('check(route&&flushed&&abi&&prior,"V114 original IOS request flush syscall ABI differs");',
+                      V182_V114_DIAGNOSTIC)
+        self.assertTrue(re.fullmatch(
+            V114,"V182_V114_DEP phase=1 syscall=1 flush=1 cache=1 calls=3 "
+                 "route=0 flushed=0 abi=1 prior=1 pc=805222e8 lr=8051963c"))
+        self.assertEqual(self.before.count("V114 original IOS request flush syscall ABI differs"),
+                         self.after.count("V114 original IOS request flush syscall ABI differs"))
+        self.assertNotIn("ctx.mmu.write",V182_V114_DIAGNOSTIC)
+
     def test_late_authentic_vector_execution_is_phase_scoped(self):
         self.assertIn("v182_cache_active&&addr==SYSCALL_DEST",V182_VECTOR_OBSERVER)
         self.assertIn("ctx.srr0==0x805222ecu&&ctx.lr==0x80519904u",V182_VECTOR_OBSERVER)
@@ -74,6 +87,7 @@ class V182(unittest.TestCase):
         self.assertIn("[](auto& c){func_80000C00(c);}",V182_NATIVE_CACHE_SC)
         self.assertIn("ctx.pc==pc+4u&&ctx.msr==msr&&ctx.lr==lr",V182_NATIVE_CACHE_SC)
         self.assertIn("++v182_cache_sc;",V182_NATIVE_CACHE_SC)
+        self.assertIn("unsigned(ctx.mmu.read8(ctx.gpr[13]-3176u))",V182_NATIVE_CACHE_SC)
         self.assertIn("v182_cache_active=true;",V182_NATIVE_CACHE_SC)
         self.assertIn("v182_cache_active=false;",V182_NATIVE_CACHE_SC)
         self.assertIn("v182_cache_vector_seen==1u",V182_NATIVE_CACHE_SC)
