@@ -3,7 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from diagnose_v178_run_stage import classify, STAGES, PREFLIGHT_SCRIPTS
+from diagnose_v178_run_stage import classify, details, STAGES, PREFLIGHT_SCRIPTS
 
 class StageTests(unittest.TestCase):
     def test_successive_runner_stages(self):
@@ -69,6 +69,19 @@ class StageTests(unittest.TestCase):
             'V178_FAILURE_STAGE phase=runner_preflight reason=python_error script=test_v178_run_stage')
         self.assertNotIn('/tmp/', classify(raw))
         self.assertNotIn('original_owner_tool', classify(raw))
+
+    def test_v38_stage_and_exception_are_bounded(self):
+        data=("V38_STAGE v29_runtime_verified\n"
+              "V38_STAGE native_compiled\n"
+              "Traceback (most recent call last):\n"
+              "FileNotFoundError: private owner /mnt/originals/secret.dol\n")
+        self.assertEqual(details(data),
+                         "V178_FAILURE_DETAIL v38=native_compiled exception=FileNotFoundError")
+        self.assertEqual(details("some raw private text\n"),
+                         "V178_FAILURE_DETAIL v38=none exception=none")
+        self.assertEqual(details(data+"\nSpecialPrivateError: no\n"),
+                         "V178_FAILURE_DETAIL v38=native_compiled exception=none")
+        self.assertNotIn("originals",details(data))
 
     def test_unknown_failure_class_is_explicit(self):
         self.assertEqual(classify(""),"V178_FAILURE_STAGE phase=wrapper reason=unclassified script=none")
