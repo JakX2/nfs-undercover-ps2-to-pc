@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V159
+# Wii SC IPC native execution: V147–V160
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -23,9 +23,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V157 | Original rescheduler at `0x80529940` ran into context load at `0x805229B4` (LR `0x80526CBC`); SYSCONF reply and Y1 IRQ preserved, MSR EE still 0 | [V157](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44675438829) |
 | V158 | Original `OSLoadContext` restored the game-selected running thread via RFI: saved PC, MSR, GPRs, LR, CTR and XER matched; MSR EE=1 and Y1 interrupt deliverable | [V159 suite verifies V158](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44678053006) |
 | V159 | Existing native Broadway external-IRQ bridge accepted the pending SYSCONF Y1 reply: SRR0/SRR1 saved, general registers preserved, PC entered installed vector `0x80000500`, and MSR interrupts masked | [V159](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44678053006) |
+| V160 | Original installed guest vector instructions ran from `0x80000500` to handler `0x80526CE0` with exception index 4, `THREAD` context, and Y1 IRQ preserved. SRRs verified at vector entry, not assumed invariant through guest prologue | [V160](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44679151214) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V159 introduce no replacement guest
+original-path regression gates. V147–V160 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -46,6 +47,9 @@ V156_SC_AFTER_RESTORE irq=1 reply=1 progress=1 text=1 coherent=1 ee=0 ready=0 pc
 V157_SC_RESCHED_NEXT y1=1 reply=1 progressed=1 target=1 coherent=1 ee=0 ready=0 pc=805229b4 lr=80526cbc
 V158_SC_RFI pc=1 msr=1 regs=1 waiting=0 running=1 ready_thread=0 linked=0 lifecycle=1 irq=1 reply=1 coherent=1 ee=1 ready=1 old_pc=0
 V159_SC_Y1_VECTOR pending=1 safe=1 entered=1 vector=1 regs=1 masked=1
+V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1
+V160_SC_VECTOR_ABI index=1 thread=1 idle=0 sr0=0 sr1=0
+V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=80520970
 ~~~
 
 ## Corrected test-phase ownership
@@ -116,9 +120,11 @@ hardware emulation.
    **verified** the selected RUNNING thread's original RFI restoration,
    including PC, MSR EE=1, registers, and pending Y1 IRQ readiness. V159
    **verified** the existing native PowerPC exception bridge entered the
-   installed vector with original saved SRR0/SRR1. V160 must execute the
-   translated original vector instructions until the original OS handler.
-   The second IRQ handler and async SC callback have not yet completed.
+   installed vector with original saved SRR0/SRR1. V160 **verified** the
+   translated original exception-vector instructions reached the Wii OS
+   handler `0x80526CE0` with index 4 and the RUNNING thread's context.
+   V161 should execute the handler into the original IRQ dispatcher. A
+   complete second IPC reply handler and SC callback are not yet verified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
