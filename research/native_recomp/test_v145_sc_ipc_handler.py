@@ -19,6 +19,10 @@ class V145(unittest.TestCase):
         now=derive(original)
         self.assertIn(NEXT,now)
         self.assertIn(NEXT_TRIAL,now)
+        self.assertIn("V145 original SC dispatcher nested IRQ helper lost pending IOS state",now)
+        self.assertIn("(addr==INT_DISABLE||addr==INT_RESTORE)",now)
+        self.assertIn("ctx.lr>=0x805293f8u&&ctx.lr<0x80529434u",now)
+        self.assertEqual(now.count("V145 original SC dispatcher nested IRQ helper lost pending IOS state"),1)
         # The V136 retry observer must not capture IRQ helper calls
         # after the third SC status entry. Its assertions still run
         # unaltered during the actual second SC retry.
