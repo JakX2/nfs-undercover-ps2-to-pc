@@ -33,6 +33,7 @@ on:
       - '.github/workflows/wii-v140-sc-irq-entry.yml'
       - '.github/workflows/wii-v141-sc-vector.yml'
       - '.github/workflows/wii-v142-sc-dispatch.yml'
+      - '.github/workflows/wii-v143-sc-time.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -64,6 +65,7 @@ on:
       - '.github/workflows/wii-v140-sc-irq-entry.yml'
       - '.github/workflows/wii-v141-sc-vector.yml'
       - '.github/workflows/wii-v142-sc-dispatch.yml'
+      - '.github/workflows/wii-v143-sc-time.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -162,6 +164,7 @@ jobs:
           python3 research/native_recomp/test_v140_sc_irq_entry.py
           python3 research/native_recomp/test_v141_sc_vector.py
           python3 research/native_recomp/test_v142_sc_dispatch.py
+          python3 research/native_recomp/test_v143_sc_irq_time.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
