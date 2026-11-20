@@ -8,8 +8,8 @@ OLD='python3 "$here/derive_v157_sc_rescheduler_next_harness.py"'
 NEW='python3 "$here/derive_v158_sc_rfi_restore_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V157_SC_RESCHED_NEXT verified=1'"
-PATTERN=r'^V158_SC_RFI pc=[01] msr=[01] regs=[01] waiting=[01] irq=[01] reply=[01] coherent=[01] ee=[01] ready=[01]$'
-PASS=r'^V158_SC_RFI pc=1 msr=1 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee=[01] ready=[01]$'
+PATTERN=r'^V158_SC_RFI pc=[01] msr=[01] regs=[01] waiting=[01] irq=[01] reply=[01] coherent=[01] ee=[01] ready=[01] old_pc=[01]$'
+PASS=r'^V158_SC_RFI pc=1 msr=1 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee=[01] ready=[01] old_pc=[01]$'
 
 def derive(source: str)->str:
     s=previous(source)
@@ -17,7 +17,8 @@ def derive(source: str)->str:
         raise ValueError("V158 owner-original native runner predecessor gates differ")
     s=s.replace(OLD,NEW,1)
     s=s.replace(FAIL,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
-        +'  grep -Fx "V158_SC_LOAD_ENTRY route=1" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+        +'  grep -Fx "V158_SC_LOAD_ENTRY route=1" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "^V158_SC_LOAD_ARG route=[01] masked=[01] aligned=[01] mapped=[01] idle=[01] thread=[01]$" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -Fx 'V158_SC_LOAD_ENTRY route=1' "$log" | sort -u
 test "$(grep -Fxc 'V158_SC_LOAD_ENTRY route=1' "$log")" -eq 16
