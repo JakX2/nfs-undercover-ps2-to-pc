@@ -100,6 +100,12 @@ class V178(unittest.TestCase):
             self.assertIn(token,V178_IPC_DIAGNOSTIC)
         self.assertIn('check(false,"unexpected original IPC ACK-only path dependency");',
                       V178_IPC_DIAGNOSTIC)
+        # Earlier derivations can guard the V77 fail-fast using an unbraced
+        # if statement. Multiple inserted statements would escape that guard.
+        self.assertTrue(V178_IPC_DIAGNOSTIC.lstrip().startswith("{"))
+        self.assertTrue(V178_IPC_DIAGNOSTIC.rstrip().endswith("}"))
+        self.assertEqual(V178_IPC_DIAGNOSTIC.count('check(false,"unexpected original IPC ACK-only path dependency");'),1)
+
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)
