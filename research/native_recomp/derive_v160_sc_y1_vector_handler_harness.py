@@ -76,6 +76,11 @@ TRACE='''void trace_call(uint32_t addr, CPUContext&ctx){
   }
 '''
 V159_PC='''             c.pc==undercover::wii::ExternalVector&&'''
+V159_SRR='''             c.srr0==nwii::runtime::v158_expected_pc&&
+             c.srr1==(nwii::runtime::v158_expected_msr&
+                       undercover::wii::ExternalSrr1Mask)&&'''
+V160_ENTRY_PROOF='''             nwii::runtime::v160_vector_seen==1u&&
+             nwii::runtime::v160_handler_seen==1u&&'''
 V160_PC='''             (c.pc==undercover::wii::ExternalVector||
               (nwii::runtime::v160_handler_seen==1u&&
                c.pc==0x80526ce0u))&&'''
@@ -83,9 +88,7 @@ NEXT_TRIAL='''       check(nwii::runtime::v160_vector_seen==1u&&
              nwii::runtime::v160_handler_seen==1u&&
              nwii::runtime::v159_vector_seen==1u&&
              nwii::runtime::v158_rfi_seen==1u&&
-             c.pc==0x80526ce0u&&
-             c.srr0==nwii::runtime::v158_expected_pc&&
-             !c.is_running,
+             c.pc==0x80526ce0u&&!c.is_running,
              "V160 did not execute original SC Y1 exception vector to handler");'''
 
 def once(s: str,old: str,new: str)->str:
@@ -95,7 +98,9 @@ def once(s: str,old: str,new: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
-    if V159_CONTINUE.count(STOP)!=1 or PREVIOUS_TRIAL.count(V159_PC)!=1:
+    if (V159_CONTINUE.count(STOP)!=1 or
+        PREVIOUS_TRIAL.count(V159_PC)!=1 or
+        PREVIOUS_TRIAL.count(V159_SRR)!=1):
         raise ValueError("V160 inherited authenticated reply IRQ vector differs")
     s=once(s,STATE,STATE+'''
  static unsigned v160_vector_seen=0,v160_handler_seen=0;
@@ -106,7 +111,8 @@ def derive(source: str)->str:
     s=once(s,STOP,CONTINUE)
     s=once(s,TRACE_ANCHOR,TRACE)
     s=once(s,PREVIOUS_TRIAL,
-           PREVIOUS_TRIAL.replace(V159_PC,V160_PC,1)+"\n"+NEXT_TRIAL)
+           PREVIOUS_TRIAL.replace(V159_PC,V160_PC,1).
+           replace(V159_SRR,V160_ENTRY_PROOF,1)+"\n"+NEXT_TRIAL)
     return s
 
 if __name__=="__main__":
