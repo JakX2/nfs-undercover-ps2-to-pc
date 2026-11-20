@@ -49,6 +49,7 @@ on:
       - '.github/workflows/wii-v156-sc-after-restore.yml'
       - '.github/workflows/wii-v157-sc-rescheduler-next.yml'
       - '.github/workflows/wii-v158-sc-rfi-restore.yml'
+      - '.github/workflows/wii-v159-sc-y1-vector.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -96,6 +97,7 @@ on:
       - '.github/workflows/wii-v156-sc-after-restore.yml'
       - '.github/workflows/wii-v157-sc-rescheduler-next.yml'
       - '.github/workflows/wii-v158-sc-rfi-restore.yml'
+      - '.github/workflows/wii-v159-sc-y1-vector.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -211,6 +213,7 @@ jobs:
           python3 research/native_recomp/test_v157_sc_rescheduler_next.py
           python3 research/native_recomp/diagnose_v158_public_callback_anchor.py
           python3 research/native_recomp/test_v158_sc_rfi_restore.py
+          python3 research/native_recomp/test_v159_sc_y1_vector.py
           python3 research/native_recomp/diagnose_v153_sc_reply_handoff.py 462
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 683
