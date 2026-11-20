@@ -8,7 +8,7 @@ from pathlib import Path
 
 from derive_v171_sc_reply_distinct_harness import derive as previous
 from derive_v172_sc_reply_y1_ack_harness import (
-    derive, STATE, RESET, STOP, CONTINUE, ACK, MMIO_NEW,
+    derive, STATE, RESET, STOP, CONTINUE, ACK, MMIO_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, add_ack_observer, extend_earlier_gates,
 )
 from derive_v172_sc_reply_y1_ack_runner import derive as runner, PASS
@@ -21,7 +21,7 @@ class V172(unittest.TestCase):
     def test_original_reply_writer_performs_authenticated_bus_w1c(self):
         before=previous(self.base)
         after=derive(self.base)
-        for token in (STATE,RESET,STOP,PREVIOUS_TRIAL,MMIO_NEW):
+        for token in (STATE,RESET,STOP,PREVIOUS_TRIAL,MMIO_ANCHOR):
             self.assertEqual(before.count(token),1,token[:74])
         self.assertNotIn(STOP,after)
         self.assertIn(CONTINUE,after)
