@@ -130,8 +130,9 @@ def scope_v83_observer(s: str)->str:
 # only bounded guest callsite/counter data so a genuine new callee can be
 # classified without exposing the private owner executable or stack.
 V77_LEGACY_FALLTHROUGH='''         check(false,"unexpected original IPC ACK-only path dependency");'''
-V178_IPC_DIAGNOSTIC='''         // Read-only phase classification at the unchanged fail-closed V77 gate.
-         const bool phase=v177_next_seen==1u;
+V178_IPC_DIAGNOSTIC='''         { // One compound statement preserves any inherited single-line if guard.
+           // Read-only bounded fields, original V77 assertion still active.
+           const bool phase=v177_next_seen==1u;
          const bool live=v141_live!=0u;
          const bool active=v178_burst_seen==0u;
          const bool masked=(ctx.msr&0x8000u)==0u;
@@ -143,7 +144,8 @@ V178_IPC_DIAGNOSTIC='''         // Read-only phase classification at the unchang
                   <<" calls="<<v178_calls
                   <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
                   <<std::dec<<std::endl;
-         check(false,"unexpected original IPC ACK-only path dependency");'''
+           check(false,"unexpected original IPC ACK-only path dependency");
+         }'''
 
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
