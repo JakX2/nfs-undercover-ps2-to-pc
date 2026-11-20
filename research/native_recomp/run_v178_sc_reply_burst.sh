@@ -9,6 +9,7 @@ umask 077
 if ! python3 "$here/derive_v178_sc_reply_burst_runner.py" "$here/run_v79_continuous_reply_entry.sh" "$work/run.sh" 2>"$work/derive.log"; then
   python3 - "$work/derive.log" <<'PY'
 from pathlib import Path
+import re
 import sys
 log=Path(sys.argv[1]).read_text(encoding="utf-8",errors="replace")
 if "missing source anchor:" in log or "missing anchor:" in log or "anchor missing" in log:
@@ -23,6 +24,18 @@ elif "ValueError" in log:
     kind="other_value_error"
 else:
     kind="other_error"
+# Only static, repository-owned breadcrumbs may leave the private runner.
+allowed={
+    "runtime_verify","cache_verify","exi_compile","exi_test",
+    "jump_patch","jump_test","tail_roots","backward_tails",
+    "tail_test","sram_compile","sram_test","hollywood_test",
+    "vector_test","lowmem_patch","dsp_test","bat_test",
+    "dcbz_patch","dcbz_test","preflight_done",
+}
+m=re.search(r"V178 public preflight command ([a-z_]{1,32}) count=([0-9]{1,3})",log)
+if m and m.group(1) in allowed:
+    print("V178_PUBLIC_PREFLIGHT_ERROR step="+m.group(1)+
+          " count="+m.group(2),file=sys.stderr)
 print("V178_DERIVATION result=failed kind="+kind,file=sys.stderr)
 PY
   exit 1
