@@ -138,10 +138,16 @@ V178_IPC_DIAGNOSTIC='''         { // One compound statement preserves any inheri
          const bool masked=(ctx.msr&0x8000u)==0u;
          const bool in_text=addr>=0x80400000u&&addr<0x80600000u;
          const bool tracked=ctx.gpr[13]==v147_first_r13;
+         const bool dispatched=irq76_dispatch!=0u;
+         const bool ipc_phase=irq76_ipc!=0u;
+         const bool acked=ack77_reply!=0u;
+         const bool submitted=submit72_active;
          std::cout<<"V178_IPC_DEP phase="<<phase<<" live="<<live
                   <<" active="<<active<<" masked="<<masked
                   <<" text="<<in_text<<" tracked="<<tracked
                   <<" calls="<<v178_calls
+                  <<" dispatch="<<dispatched<<" ipc="<<ipc_phase
+                  <<" ack="<<acked<<" submitted="<<submitted
                   <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
                   <<std::dec<<std::endl;
            check(false,"unexpected original IPC ACK-only path dependency");
