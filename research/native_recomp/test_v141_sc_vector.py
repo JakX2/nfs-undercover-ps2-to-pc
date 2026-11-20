@@ -27,8 +27,12 @@ class V141(unittest.TestCase):
         self.assertIn("run_game(c);",now)
         self.assertIn("ctx.is_running=false;throw ExceptionStop{}",now)
         for forbidden in ("ctx.mmu.write32(", "ctx.mmu.write8(",
-                          "ipc70_ram.write8(", "ctx.gpr[3]=", "ctx.cr[0].eq="):
+                          "ipc70_ram.write8("):
             self.assertEqual(now.count(forbidden),old.count(forbidden))
+        # Compare actual assignment operators, not comparison expressions (==).
+        import re
+        for pattern in (r"ctx\.gpr\[3\]\s*=(?!=)",r"ctx\.cr\[0\]\.eq\s*=(?!=)"):
+            self.assertEqual(len(re.findall(pattern,now)),len(re.findall(pattern,old)))
         self.assertEqual(now.count("V141_SC_VECTOR vector="),1)
 
     def test_fail_closed_native_runner(self):
