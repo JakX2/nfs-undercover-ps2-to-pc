@@ -118,6 +118,7 @@ jobs:
           python3 research/native_recomp/test_v127_osinit_restore.py
           python3 research/native_recomp/test_v127_osinit_generator.py
           python3 research/native_recomp/test_v127_osinit_first_bl.py
+          python3 research/native_recomp/test_v128_next_function_probe.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py
