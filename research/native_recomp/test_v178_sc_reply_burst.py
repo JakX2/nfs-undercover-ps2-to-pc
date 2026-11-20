@@ -13,6 +13,7 @@ from derive_v178_sc_reply_burst_harness import (
     V83_ASSERTION, scope_v83_observer,
     V77_LEGACY_FALLTHROUGH, V178_IPC_DIAGNOSTIC,
     V77_SUBMIT_FALLTHROUGH, V178_SUBMIT_DIAGNOSTIC,
+    V77_SUBMIT_ACTIVE, V178_SUBMIT_SCOPED,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, SUBMIT
 
@@ -122,6 +123,27 @@ class V178(unittest.TestCase):
         self.assertEqual(V178_IPC_DIAGNOSTIC.count('check(false,"unexpected original IPC ACK-only path dependency");'),1)
         self.assertIn('dispatch=[01] ipc=[01] ack=[01] submitted=[01]',DEP)
 
+
+    def test_v77_submission_observer_is_scoped_at_authenticated_reply_phase(self):
+        # Owner original at V178: five guest entries followed by low-memory
+        # memcpy 0x80004338, LR 0x804F1EB4. The former V77 catch-all was
+        # incorrectly consuming this genuine call after the SC reply phase.
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V77_SUBMIT_ACTIVE),1)
+        self.assertEqual(after.count(V178_SUBMIT_SCOPED),1)
+        self.assertNotIn(V77_SUBMIT_ACTIVE,after)
+        self.assertIn("v177_next_seen==1u",V178_SUBMIT_SCOPED)
+        self.assertNotIn("v178_calls",V178_SUBMIT_SCOPED)
+        self.assertIn("COPY=0x80004338u",self.base)
+        self.assertIn("constexpr std::array<uint32_t,5> data{INIT,FLUSH,COPY,FILL,SET}",after)
+        for marker in (
+            'check(false,"unexpected original IPC submission dependency");',
+            "++submit72_ack;",
+            "IPC request flush callsite differs",
+            "original external IRQ dispatcher changed waiting thread before IPC handler",
+            "if(submit72_trace(addr,ctx))return;"):
+            self.assertEqual(before.count(marker),after.count(marker),marker)
 
     def test_later_submission_fallback_reports_only_guest_callsite(self):
         before=previous(self.base)

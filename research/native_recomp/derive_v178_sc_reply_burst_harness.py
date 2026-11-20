@@ -143,6 +143,16 @@ def scope_v83_observer(s: str)->str:
 # classified without exposing the private owner executable or stack.
 # Read-only V77 stale-submission observer telemetry at the V177 frontier.
 # Preserve the legacy failure until the genuine guest callsite is measured.
+# The measured owner-original V178 path made five native guest calls and then
+# reached the genuine low-memory COPY helper 0x80004338 (LR 0x804F1EB4).
+# Legacy V77 submit72_trace's catch-all intercepted it with submit72_active=1,
+# despite v177_next_seen=1 after authentic IPC reply progress. Retire only the
+# V77 submission observer after that verified milestone. The generic COPY
+# handler and the real translated memcpy still execute; earlier V72/V77 checks
+# and IOS emulation are unchanged.
+V77_SUBMIT_ACTIVE='''   if(!submit72_active)return false;'''
+V178_SUBMIT_SCOPED='''   if(!submit72_active||v177_next_seen==1u)return false;'''
+
 V77_SUBMIT_FALLTHROUGH='''   check(false,"unexpected original IPC submission dependency");return true;'''
 V178_SUBMIT_DIAGNOSTIC='''   { // Read-only original-free callsite diagnostic, preserves the fail-fast assertion.
      const bool phase=v177_next_seen==1u;
@@ -250,6 +260,7 @@ def derive(source: str)->str:
     s=scope_v98_fallback(s)
     s=scope_v83_observer(s)
     s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
+    s=once(s,V77_SUBMIT_ACTIVE,V178_SUBMIT_SCOPED)
     s=once(s,V77_SUBMIT_FALLTHROUGH,V178_SUBMIT_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
