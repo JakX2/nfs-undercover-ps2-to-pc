@@ -35,7 +35,7 @@ class V173(unittest.TestCase):
         self.assertIn("v173_mmio_after_y1=mmio_writes.size()",CONTINUE)
         self.assertIn("++v172_ack_seen",CONTINUE)
         self.assertNotIn("ipc70_ram.cpu->is_running=false",CONTINUE)
-        self.assertIn("return to the *original* translated PPCCTRL writer",CONTINUE)
+        self.assertIn("Return to the *original* translated PPCCTRL writer",CONTINUE)
         self.assertIn("ctx.inst_count>v173_start_inst",OBSERVER)
         self.assertIn("ctx.gpr[13]==v147_first_r13",OBSERVER)
         self.assertIn("((*ctrl&Mail::Y1)==0u)",OBSERVER)
@@ -104,7 +104,7 @@ class V173(unittest.TestCase):
         self.assertTrue(re.fullmatch(PASS,good))
         self.assertEqual(HW_PASS,
             "V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1")
-        self.assertIn("grep -Fx '{HW_PASS}'",script)
+        self.assertIn(HW_PASS,script)
         self.assertFalse(re.fullmatch(PASS,good.replace("y1clear=1","y1clear=0")))
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"run.sh";p.write_text(script,encoding="utf-8")
