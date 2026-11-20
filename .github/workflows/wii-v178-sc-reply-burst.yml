@@ -97,6 +97,7 @@ jobs:
               if [[ "$code" =~ ^[0-9]{3}$ && "$code" != "000" ]]; then
                 python3 research/native_recomp/diagnose_v178_sc_reply_burst.py "$((10#$code))" || true
               fi
+              python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc178.log" || true
               echo 'V178 original SC reply burst execution failed; owner-private details withheld' >&2
               exit 1
             }
