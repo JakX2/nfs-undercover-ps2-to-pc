@@ -53,6 +53,7 @@ on:
       - '.github/workflows/wii-v160-sc-y1-vector-handler.yml'
       - '.github/workflows/wii-v161-sc-y1-dispatch.yml'
       - '.github/workflows/wii-v162-sc-reply-next.yml'
+      - '.github/workflows/wii-v163-sc-y1-disable.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -104,6 +105,7 @@ on:
       - '.github/workflows/wii-v160-sc-y1-vector-handler.yml'
       - '.github/workflows/wii-v161-sc-y1-dispatch.yml'
       - '.github/workflows/wii-v162-sc-reply-next.yml'
+      - '.github/workflows/wii-v163-sc-y1-disable.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -223,6 +225,7 @@ jobs:
           python3 research/native_recomp/test_v160_sc_y1_vector_handler.py
           python3 research/native_recomp/test_v161_sc_y1_dispatch.py
           python3 research/native_recomp/test_v162_sc_reply_next.py
+          python3 research/native_recomp/test_v163_sc_y1_disable.py
           python3 research/native_recomp/diagnose_v153_sc_reply_handoff.py 462
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 683
