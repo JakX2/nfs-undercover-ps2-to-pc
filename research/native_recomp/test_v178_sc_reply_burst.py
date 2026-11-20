@@ -10,6 +10,7 @@ from derive_v178_sc_reply_burst_harness import (
     derive, STATE, RESET, STOP, CONTINUE, OBSERVATION, TRACE_ANCHOR,
     PREVIOUS_TRIAL, NEXT_TRIAL, PAIR, widen_prior, MAX_CALLS,
     V111_ACTIVE, V111_SCOPED, V98_ACTIVE, V98_SCOPED,
+    V83_ACTIVE, V83_SCOPED,
 )
 from derive_v178_sc_reply_burst_runner import derive as runner, PASS, TRACE
 
@@ -67,6 +68,20 @@ class V178(unittest.TestCase):
                          after.count("++post98_return;"))
         self.assertEqual(before.count("V98 unexpected NAND registration dependency"),
                          after.count("V98 unexpected NAND registration dependency"))
+
+    def test_v83_synchronous_open_observer_is_phase_limited(self):
+        before=previous(self.base)
+        after=derive(self.base)
+        self.assertEqual(before.count(V83_ACTIVE),1)
+        self.assertEqual(after.count(V83_SCOPED),1)
+        self.assertNotIn(V83_ACTIVE,after)
+        self.assertIn("open83_second==0u",V83_SCOPED)
+        # V83 must still detect its original second STM open.
+        for marker in ('++open83_second;', 
+                       'V83 first original IOS_Open did not return to next STM open',
+                       'V83 unexpected original synchronous submit continuation dependency',
+                       '++open83_free_restore;'):
+            self.assertEqual(before.count(marker),after.count(marker),marker)
 
     def test_only_authentic_guest_pc_lr_endpoints_widen_preceding_trials(self):
         before=previous(self.base)
