@@ -133,9 +133,10 @@ def derive(source: str)->str:
      nwii::runtime::v179_start_inst=0u;
      nwii::runtime::v179_status_before=0u;
      nwii::runtime::v179_target_pc=nwii::runtime::v179_target_lr=0u;''')
-    s=once(s,STOP,CONTINUE)
-    s=once(s,PREVIOUS_OBSERVER,
-           PREVIOUS_OBSERVER.replace(OBSERVER_HEADER,OBSERVER_HEADER+'\n'+FOLLOWUP,1))
+    updated_observer=PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1)
+    updated_observer=updated_observer.replace(
+        OBSERVER_HEADER,OBSERVER_HEADER+'\n'+FOLLOWUP,1)
+    s=once(s,PREVIOUS_OBSERVER,updated_observer)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
     return widen_prior(s)
 
