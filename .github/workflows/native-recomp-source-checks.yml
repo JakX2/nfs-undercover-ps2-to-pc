@@ -174,6 +174,13 @@ jobs:
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
             research/native_recomp/test_wii_hollywood_irq.cpp -o "$RUNNER_TEMP/hollywood-irq-test"
           "$RUNNER_TEMP/hollywood-irq-test"
+      - name: Test guest-yield native IOS scheduler under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -no-pie \
+            research/native_recomp/test_wii_ios_yield_scheduler.cpp \
+            -o "$RUNNER_TEMP/ios-yield-scheduler"
+          "$RUNNER_TEMP/ios-yield-scheduler"
       - name: Test integrated IOS MMIO bus under sanitizers
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
