@@ -59,6 +59,17 @@ class StageTests(unittest.TestCase):
         self.assertEqual(classify(raw.replace('line 10','line 999')),
             'V178_FAILURE_STAGE phase=runner_preflight reason=python_error script=none')
 
+    def test_public_traceback_is_whitelisted_without_private_path(self):
+        raw=('V110_WRAPPER syntax_ok\n'
+             'Traceback (most recent call last):\n'
+             '  File "/tmp/research/native_recomp/test_v178_run_stage.py", line 33\n'
+             '  File "/private/research/secret/original_owner_tool.py", line 1\n'
+             'ValueError: secret bytes 123456\n')
+        self.assertEqual(classify(raw),
+            'V178_FAILURE_STAGE phase=runner_preflight reason=python_error script=test_v178_run_stage')
+        self.assertNotIn('/tmp/', classify(raw))
+        self.assertNotIn('original_owner_tool', classify(raw))
+
     def test_unknown_failure_class_is_explicit(self):
         self.assertEqual(classify(""),"V178_FAILURE_STAGE phase=wrapper reason=unclassified script=none")
 
