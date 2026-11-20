@@ -35,6 +35,7 @@ class V127(unittest.TestCase):
                        "BOOT_PROGRESS entry=0x8000403C pc=0x${candidate^^} stage=127",
                        "V127_NATIVE_EXIT ok=1"):
             self.assertIn(marker,actual)
+        self.assertIn("V127_NATIVE_COUNTS start=",actual)
         with tempfile.TemporaryDirectory() as td:
             path=Path(td)/"run.sh";path.write_text(actual)
             subprocess.run(["bash","-n",str(path)],check=True)
