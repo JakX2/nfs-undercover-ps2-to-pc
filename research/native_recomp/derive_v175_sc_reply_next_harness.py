@@ -21,11 +21,11 @@ STOP='''    v174_target_pc=addr;v174_target_lr=ctx.lr;
   }'''
 CONTINUE='''    check(addr==0x80522af4u&&ctx.lr==0x80519290u,
           "V175 original SC reply successor callsite differs from V174");
-    const uint32_t sc=ctx.gpr[13]-3176u;
-    check(ctx.mmu.get_ptr(sc)!=nullptr&&ctx.mmu.read8(sc)==1u,
+    const uint32_t v175_sc=ctx.gpr[13]-3176u;
+    check(ctx.mmu.get_ptr(v175_sc)!=nullptr&&ctx.mmu.read8(v175_sc)==1u,
           "V175 original SC status differs from verified V174 callback frontier");
     v175_start_inst=ctx.inst_count;
-    v175_sda_before=ctx.mmu.read8(sc);
+    v175_sda_before=ctx.mmu.read8(v175_sc);
     v174_target_pc=addr;v174_target_lr=ctx.lr;
     ++v174_next_seen;
     return; // execute the original 0x80522AF4 PowerPC function
