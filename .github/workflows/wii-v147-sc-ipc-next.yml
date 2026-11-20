@@ -116,12 +116,7 @@ jobs:
           grep -Fx 'V146_SC_IPC_LEAF verified=1' "$RUNNER_TEMP/sc147.log"
           grep -E '^V146_SC_IPC_LEAF call=1 masked=1 queued=1 stepped=1 target=(8051905c|8051906c|8051b060)$' "$RUNNER_TEMP/sc147.log" | sort -u
           grep -Fx 'V147_SC_IPC_NEXT verified=1' "$RUNNER_TEMP/sc147.log"
-          grep -E '^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc147.log"
- "$RUNNER_TEMP/sc147.log" | sort -u
+          grep -E '^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$' "$RUNNER_TEMP/sc147.log" | sort -u
           echo 'PASS: owner-original SC IPC first leaf executed and reached the next handler-owned call'
       - name: Remove private owner and generated code
         if: always()
