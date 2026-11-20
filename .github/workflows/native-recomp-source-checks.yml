@@ -61,6 +61,7 @@ on:
       - '.github/workflows/wii-v167-sc-reply-leaf.yml'
       - '.github/workflows/wii-v168-sc-reply-read-next.yml'
       - '.github/workflows/wii-v169-sc-reply-processor.yml'
+      - '.github/workflows/wii-v170-sc-reply-read.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
@@ -121,6 +122,7 @@ on:
       - '.github/workflows/wii-v167-sc-reply-leaf.yml'
       - '.github/workflows/wii-v168-sc-reply-read-next.yml'
       - '.github/workflows/wii-v169-sc-reply-processor.yml'
+      - '.github/workflows/wii-v170-sc-reply-read.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
@@ -249,6 +251,7 @@ jobs:
           python3 research/native_recomp/test_v167_sc_reply_leaf.py
           python3 research/native_recomp/test_v168_sc_reply_read_next.py
           python3 research/native_recomp/test_v169_sc_reply_processor.py
+          python3 research/native_recomp/test_v170_sc_reply_read.py
           python3 research/native_recomp/test_v164_sc_y1_disable_next.py
           python3 research/native_recomp/diagnose_v153_sc_reply_handoff.py 462
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
