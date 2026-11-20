@@ -52,6 +52,11 @@ class V158(unittest.TestCase):
         self.assertIn("V158Mail::Y1",RFI_OBSERVER)
         self.assertIn("V158Irq::IPC_PPC",RFI_OBSERVER)
         self.assertIn("ready==(ee&&ipc70_bus.external_irq_level())",RFI_OBSERVER)
+        self.assertIn("v158_selected_thread?running:", RFI_OBSERVER)
+        self.assertIn("ready_thread=", RFI_OBSERVER)
+        self.assertIn("lifecycle=", RFI_OBSERVER)
+        self.assertIn("ee=", RFI_OBSERVER)
+        self.assertIn("ready=", RFI_OBSERVER)
         self.assertEqual(new.count("V158_SC_RFI pc="),1)
 
     def test_no_artificial_rfi_irq_or_ios_pump(self):
@@ -79,11 +84,19 @@ class V158(unittest.TestCase):
                        'test "$(grep -Ec',
                        'test "$(grep -Fxc'):
             self.assertIn(marker,script)
-        for ee in ("0","1"):
-            self.assertTrue(re.fullmatch(PASS,
-                f"V158_SC_RFI pc=1 msr=1 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee={ee} ready={ee} old_pc=0"))
-        self.assertFalse(re.fullmatch(PASS,
-                "V158_SC_RFI pc=1 msr=0 regs=1 waiting=1 irq=1 reply=1 coherent=1 ee=1 ready=1 old_pc=0"))
+        example=("V158_SC_RFI pc=1 msr=1 regs=1 waiting=0 running=1 "
+                 "ready_thread=0 linked=0 lifecycle=1 irq=1 reply=1 "
+                 "coherent=1 ee=1 ready=1 old_pc=0")
+        self.assertTrue(re.fullmatch(PASS, example))
+        self.assertTrue(re.fullmatch(PASS, example.replace("linked=0", "linked=1")))
+        for bad in (
+            example.replace("pc=1", "pc=0"),
+            example.replace("running=1", "running=0"),
+            example.replace("lifecycle=1", "lifecycle=0"),
+            example.replace("ee=1 ready=1", "ee=0 ready=0"),
+            example.replace("reply=1", "reply=0"),
+        ):
+            self.assertFalse(re.fullmatch(PASS, bad))
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/"runner.sh"
             p.write_text(script,encoding="utf-8")
