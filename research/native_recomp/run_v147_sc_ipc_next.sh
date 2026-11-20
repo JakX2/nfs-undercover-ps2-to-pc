@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # V147 owner-original Wii SC ACK to authenticated PPC external vector.
 set -euo pipefail
-if (( $# != 2 ));then echo 'usage: run_v147_sc_ipc_leaf.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2;exit 2;fi
+if (( $# != 2 ));then echo 'usage: run_v147_sc_ipc_next.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2;exit 2;fi
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
@@ -27,14 +27,14 @@ print("V147_DERIVATION result=failed kind="+kind,file=sys.stderr)
 PY
   exit 1
 fi
-echo 'V110_WRAPPER derived'
+echo 'V147_WRAPPER derived'
 if ! bash -n "$work/run.sh" 2>"$work/runner-parse.log";then
-  echo 'V110_WRAPPER syntax_failed' >&2
+  echo 'V147_WRAPPER syntax_failed' >&2
   line="$(grep -Eo 'line [0-9]+' "$work/runner-parse.log" | head -n 1 || true)"
   if [[ "$line" =~ ^line[[:space:]][0-9]+$ ]]; then
-    echo "V110_WRAPPER_SYNTAX $line" >&2
+    echo "V147_WRAPPER_SYNTAX $line" >&2
   fi
   exit 1
 fi
-echo 'V110_WRAPPER syntax_ok'
-V110_SOURCE_ROOT="$here" bash "$work/run.sh" "$1" "$2"
+echo 'V147_WRAPPER syntax_ok'
+V147_SOURCE_ROOT="$here" bash "$work/run.sh" "$1" "$2"
