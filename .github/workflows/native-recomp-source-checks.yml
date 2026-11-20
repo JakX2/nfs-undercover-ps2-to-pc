@@ -57,6 +57,7 @@ on:
       - '.github/workflows/wii-v164-sc-y1-nested-helper.yml'
       - '.github/workflows/wii-v165-sc-after-osdi.yml'
       - '.github/workflows/wii-v165-sc-y1-post-osdi.yml'
+      - '.github/workflows/wii-v166-sc-post-restore.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
@@ -113,6 +114,7 @@ on:
       - '.github/workflows/wii-v164-sc-y1-nested-helper.yml'
       - '.github/workflows/wii-v165-sc-after-osdi.yml'
       - '.github/workflows/wii-v165-sc-y1-post-osdi.yml'
+      - '.github/workflows/wii-v166-sc-post-restore.yml'
       - '.github/workflows/wii-v164-sc-y1-disable-next.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
@@ -237,6 +239,7 @@ jobs:
           python3 research/native_recomp/test_v164_sc_y1_nested_helper.py
           python3 research/native_recomp/test_v165_sc_after_osdi.py
           python3 research/native_recomp/test_v165_sc_y1_post_osdi.py
+          python3 research/native_recomp/test_v166_sc_post_restore.py
           python3 research/native_recomp/test_v164_sc_y1_disable_next.py
           python3 research/native_recomp/diagnose_v153_sc_reply_handoff.py 462
           python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py 407
