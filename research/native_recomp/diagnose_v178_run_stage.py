@@ -118,6 +118,17 @@ def details(data: str)->str:
     kind=candidates[-1] if candidates and candidates[-1] in EXCEPTION_NAMES else "none"
     return f"V178_FAILURE_DETAIL v38={v38} exception={kind}"
 
+PIPELINE_NAMES=("fixture_make","fixture_geometry","generator_compile",
+                "generation","native_compile","native_test")
+PIPELINE_MATCH=re.compile(
+    r"(?m)^V178_PIPELINE enter=("+ "|".join(PIPELINE_NAMES) +r")$")
+
+def pipeline(data: str)->str:
+    found=PIPELINE_MATCH.findall(data)
+    final=found[-1] if found else "none"
+    completed="V178_PREFLIGHT complete=dcbz_test" in data
+    return f"V178_FAILURE_PIPELINE preflight={int(completed)} last={final}"
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("log",type=Path)
@@ -126,6 +137,7 @@ def main():
     data=a.log.read_text(encoding="utf-8",errors="replace")
     print(classify(data))
     print(details(data))
+    print(pipeline(data))
 
 if __name__=="__main__":
     main()

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from instrument_v178_public_preflight import derive, STEPS
+from instrument_v178_public_preflight import derive, STEPS, PHASES
 from derive_v178_sc_reply_burst_runner import derive as derive_runner
 
 HERE=Path(__file__).resolve().parent
@@ -24,6 +24,11 @@ class PublicPreflightTests(unittest.TestCase):
             self.assertEqual(
                 marked.count(f"echo 'V178_PREFLIGHT enter={step}'\n{command}"),1,step)
         self.assertEqual(marked.count("V178_PREFLIGHT enter="),len(STEPS))
+        self.assertEqual(marked.count("V178_PREFLIGHT complete=dcbz_test"),1)
+        for phase,command in PHASES:
+            self.assertEqual(sum(l.startswith(command) for l in source.splitlines()),1,phase)
+            self.assertEqual(marked.count(f"echo 'V178_PIPELINE enter={phase}'"),1,phase)
+            self.assertEqual(sum(l.startswith(command) for l in marked.splitlines()),1,phase)
         with tempfile.TemporaryDirectory() as td:
             script=Path(td)/"public.sh"
             script.write_text(marked,encoding="utf-8")
@@ -38,6 +43,8 @@ class PublicPreflightTests(unittest.TestCase):
         self.assertIn("V178_SC_BURST verified=1",script)
         self.assertIn('trap \'rm -rf -- "$work"\' EXIT',script)
         self.assertEqual(script.count("V178_PREFLIGHT enter="),len(STEPS))
+        self.assertEqual(script.count("V178_PREFLIGHT complete=dcbz_test"),1)
+        self.assertLessEqual(script.count("V178_PIPELINE enter="),len(PHASES))
 
     def test_fail_closed_on_missing_or_ambiguous_step(self):
         source=BASE.read_text(encoding="utf-8")

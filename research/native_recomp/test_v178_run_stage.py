@@ -3,7 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from diagnose_v178_run_stage import classify, details, STAGES, PREFLIGHT_SCRIPTS
+from diagnose_v178_run_stage import classify, details, pipeline, STAGES, PREFLIGHT_SCRIPTS
 
 class StageTests(unittest.TestCase):
     def test_successive_runner_stages(self):
@@ -99,6 +99,19 @@ class StageTests(unittest.TestCase):
                     .read_text(encoding="utf-8"))
         self.assertIn("index>9999",classifier)
         self.assertEqual(flow.count("      - name: Remove private owner and generated code"),1)
+
+    def test_pipeline_milestones_are_private_data_safe(self):
+        raw=("V178_PREFLIGHT complete=dcbz_test\n"
+             "V178_PIPELINE enter=fixture_make\n"
+             "V178_PIPELINE enter=generator_compile\n"
+             "secret file /private/owner.dol SECRET=123456\n")
+        self.assertEqual(pipeline(raw),
+            "V178_FAILURE_PIPELINE preflight=1 last=generator_compile")
+        self.assertEqual(pipeline("secret"),
+            "V178_FAILURE_PIPELINE preflight=0 last=none")
+        self.assertEqual(pipeline("V178_PIPELINE enter=private_secret\n"),
+            "V178_FAILURE_PIPELINE preflight=0 last=none")
+        self.assertNotIn("owner.dol",pipeline(raw))
 
     def test_unknown_failure_class_is_explicit(self):
         self.assertEqual(classify(""),"V178_FAILURE_STAGE phase=wrapper reason=unclassified script=none")
