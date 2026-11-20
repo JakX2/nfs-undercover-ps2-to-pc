@@ -20,6 +20,7 @@ class V131Decode(unittest.TestCase):
         final=(18<<26)|(((0x805293B0-(CALL+12))&0x03fffffc))|1
         d=analyze((first,compare,conditional,final))
         self.assertEqual(d["cmp_reg"],3)
+        self.assertEqual(d["compare_imm"],0)
         self.assertEqual(d["compare_zero"],1)
         self.assertEqual(d["retry_back"],1)
         self.assertEqual(d["retry_on_equal"],1)

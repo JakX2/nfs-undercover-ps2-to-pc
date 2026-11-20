@@ -24,6 +24,7 @@ on:
       - '.github/workflows/wii-v128-next-function-execution.yml'
       - '.github/workflows/wii-v129-irq-disable.yml'
       - '.github/workflows/wii-v130-irq-restore.yml'
+      - '.github/workflows/wii-v131-retry-state.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   pull_request:
     paths:
@@ -46,6 +47,7 @@ on:
       - '.github/workflows/wii-v128-next-function-execution.yml'
       - '.github/workflows/wii-v129-irq-disable.yml'
       - '.github/workflows/wii-v130-irq-restore.yml'
+      - '.github/workflows/wii-v131-retry-state.yml'
       - '.github/workflows/wii-v126-sc-post-gpr.yml'
   workflow_dispatch:
 
@@ -131,6 +133,7 @@ jobs:
           python3 research/native_recomp/test_v129_irq_disable.py
           python3 research/native_recomp/test_v130_irq_restore.py
           python3 research/native_recomp/test_v131_osinit_retry.py
+          python3 research/native_recomp/test_v131_retry_native.py
           python3 research/native_recomp/test_v125_owner_fixture_source.py
           python3 research/native_recomp/test_sc_helper_late_v125.py
           python3 research/native_recomp/test_v125_canonical_source.py

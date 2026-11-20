@@ -32,16 +32,17 @@ def analyze(words:tuple[int,int,int,int])->dict[str,int]:
     bi=(words[2]>>16)&31
     reg=(cmpword>>16)&31
     bf=(cmpword>>23)&7
-    compare_zero=int((cmpword&0xFFFF)==0)
+    compare_imm=cmpword&0xFFFF
+    compare_zero=int(compare_imm==0)
     test_eq=int(bi==bf*4+2 and not (bo&16))
-    return dict(cmp_reg=reg,cmp_field=bf,compare_zero=compare_zero,
+    return dict(cmp_reg=reg,cmp_field=bf,compare_imm=compare_imm,compare_zero=compare_zero,
                 branch_bo=bo,branch_bi=bi,branch_target=branch16_dest(words[2],CONDITION),
                 retry_back=int(branch16_dest(words[2],CONDITION)==CALL),
                 tests_equal=test_eq,retry_on_equal=int(test_eq and bool(bo&8)),
                 next_call=follow)
 
 def report(d:dict[str,int])->str:
-    fields=("cmp_reg","cmp_field","compare_zero","branch_bo","branch_bi",
+    fields=("cmp_reg","cmp_field","compare_imm","compare_zero","branch_bo","branch_bi",
             "retry_back","tests_equal","retry_on_equal")
     return "V131_OSINIT_RETRY "+" ".join(f"{k}={d[k]}" for k in fields)+(
          f" branch_target={d['branch_target']:08x} next_call={d['next_call']:08x}")
