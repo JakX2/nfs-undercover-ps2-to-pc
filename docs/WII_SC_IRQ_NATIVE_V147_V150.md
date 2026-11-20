@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V176
+# Wii SC IPC native execution: V147–V177
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -40,9 +40,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V174 | Original function `0x80522294` executed to next call at `0x80522AF4` (LR `0x80519290`) with cleared IRQs, original file reply intact, and SDA `r13-3176` still `1` | [V174](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44691938187) |
 | V175 | Original `0x80522AF4` function executed and called `0x805228CC` with LR `0x80519298`; both IPC ACKs remained complete, original SYSCONF reply mapped and pending queue drained, SDA byte stayed `1` | [V175](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44694948902) |
 | V176 | Original `0x805228CC` function executed and reached genuine `0x804F0E04` at LR `0x805192AC` with clean IPC flags, intact SYSCONF reply and SDA byte still `1` | [V176](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44695642562) |
+| V177 | Original `0x804F0E04` callee executed and called `0x80545100` (LR `0x804F1E40`) with cleared IPC IRQ, preserved IOS_Open reply, and SDA byte still `1` | [V177](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44696303958) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V176 introduce no replacement guest
+original-path regression gates. V147–V177 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -84,6 +85,7 @@ V173_SC_AFTER_Y1_ACK y1clear=1 flag=0 wire=1 reply=1 guest=1 caller=1 coherent=1
 V174_SC_POST_REPLY_HELPER cleared=1 reply=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 pc=80522af4 lr=80519290
 V175_SC_REPLY_NEXT clean=1 wire=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 pc=805228cc lr=80519298
 V176_SC_REPLY_NEXT clean=1 wire=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 osinit=0 pc=804f0e04 lr=805192ac
+V177_SC_REPLY_NEXT clean=1 wire=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 ipc=0 pc=80545100 lr=804f1e40
 ~~~
 
 ## Corrected test-phase ownership
@@ -195,9 +197,12 @@ hardware emulation.
    `0x80519298`, with SDA still `1` and the hardware ACKs complete.
    V176 **verified** this original `0x805228CC` body then entered
    `0x804F0E04` (LR `0x805192AC`) with the reply and IPC ACKs coherent,
-   SDA still `1`. V177 is following the original new callee and checking
-   its actual successor. Async SC callback completion, SDA ready-state
-   transition and OSInit retry exit remain unverified.
+   SDA still `1`. V177 **verified** the original `0x804F0E04` callee called
+   `0x80545100` (LR `0x804F1E40`), with the original reply retained and
+   SDA still `1`. V178 is tracing a bounded six-call continuation, with
+   a read-only stop if original game code changes SDA. Async SC callback
+   completion, SDA ready-state transition and OSInit retry exit are
+   still unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
