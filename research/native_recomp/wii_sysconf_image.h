@@ -52,7 +52,7 @@ public:
             {"BT.MOT", opts.rumble, 0x3fbau},
             {"BT.SPKV", opts.speaker_volume, 0x3fbcu},
             {"IPL.AR", opts.widescreen, 0x3ff8u},
-            {"IPL.E60", opts.eurgb60, 0x3ffeeu},
+            {"IPL.E60", opts.eurgb60, 0x3feeu},
             {"IPL.LNG", opts.language, 0x3fe4u},
             {"IPL.PGS", opts.progressive, 0x3fdeu},
             {"IPL.SND", opts.sound, 0x3fd8u},
