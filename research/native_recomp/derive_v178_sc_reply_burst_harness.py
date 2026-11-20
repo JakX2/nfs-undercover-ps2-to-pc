@@ -100,10 +100,19 @@ V111_SCOPED='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u
 # handlers must remain accessible when NAND registration has returned.
 # Scope only V98's original catch-all, preserving its early-phase proof.
 V98_ACTIVE='''   if(post97_return==1u&&post98_node){'''
-V98_FALLTHROUGH='''      check(false,"V98 unexpected NAND registration dependency");'''
-V98_SCOPED_FALLTHROUGH='''      if(post98_return==0u){
-        check(false,"V98 unexpected NAND registration dependency");
-      }'''
+V98_ASSERTION=re.compile(
+    r'(?m)^(?P<indent>[ \t]*)check\(false,\s*'
+    r'"V98 unexpected NAND registration dependency"\);[ \t]*$')
+
+def scope_v98_fallback(s: str)->str:
+    hits=list(V98_ASSERTION.finditer(s))
+    if len(hits)!=1:
+        raise ValueError(f"V178 original NAND fallback count={len(hits)}")
+    m=hits[0]
+    statement=s[m.start():m.end()]
+    indent=m.group("indent")
+    return (s[:m.start()]+indent+"if(post98_return==0u){\n"+
+            statement+"\n"+indent+"}"+s[m.end():])
 
 # The V83 original synchronous submit observer handles the transition to
 # the *second* STM IOS_Open exactly once. It previously remained armed when
@@ -213,7 +222,7 @@ def derive(source: str)->str:
     s=once(s,V111_ACTIVE,V111_SCOPED)
     if s.count(V98_ACTIVE)!=1:
         raise ValueError("V178 original V98 SC startup observer guard differs")
-    s=once(s,V98_FALLTHROUGH,V98_SCOPED_FALLTHROUGH)
+    s=scope_v98_fallback(s)
     s=scope_v83_observer(s)
     s=once(s,V77_LEGACY_FALLTHROUGH,V178_IPC_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
