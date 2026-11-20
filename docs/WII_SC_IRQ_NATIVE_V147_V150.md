@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V161
+# Wii SC IPC native execution: V147–V162
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -25,9 +25,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V159 | Existing native Broadway external-IRQ bridge accepted the pending SYSCONF Y1 reply: SRR0/SRR1 saved, general registers preserved, PC entered installed vector `0x80000500`, and MSR interrupts masked | [V159](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44678053006) |
 | V160 | Original installed guest vector instructions ran from `0x80000500` to handler `0x80526CE0` with exception index 4, `THREAD` context, and Y1 IRQ preserved. SRRs verified at vector entry, not assumed invariant through guest prologue | [V160](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44679151214) |
 | V161 | Second original external interrupt handler executed to dispatcher `0x80526A3C` with exception index `4`, `THREAD` running, saved PC and MSR matching and Y1/IPC asserted | [V161](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44679753422) |
+| V162 | Second original IRQ dispatcher at `0x80526A3C` entered native timebase helper `0x8052A824` with LR `0x80526C84`, Y1 IRQ and SYSCONF file reply intact | [V162](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44680677864) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V161 introduce no replacement guest
+original-path regression gates. V147–V162 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -52,6 +53,7 @@ V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1
 V160_SC_VECTOR_ABI index=1 thread=1 idle=0 sr0=0 sr1=0
 V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=80520970
 V161_SC_Y1_DISPATCH index=1 context=1 saved_pc=1 saved_msr=1 running=1 masked=1 irq=1 advanced=1 pc=80526a3c lr=80520970
+V162_SC_REPLY_NEXT irq=1 reply=1 guest=1 masked=1 caller=1 pc=8052a824 lr=80526c84
 ~~~
 
 ## Corrected test-phase ownership
@@ -127,9 +129,12 @@ hardware emulation.
    handler `0x80526CE0` with index 4 and the RUNNING thread's context.
    V161 **verified** the real external handler executed through to
    `0x80526A3C`, preserving the running thread context, saved PC/MSR, and
-   Y1/IPC hardware state. V162 should continue the second dispatcher to
-   its next authentic helper without applying stale first-IRQ assertions.
-   A complete second IPC reply handler and SC callback remain unverified.
+   Y1/IPC hardware state. V162 **verified** the second dispatcher entered
+   original timebase helper `0x8052A824` (LR `0x80526C84`). The earlier
+   first-interrupt observers were scoped to their original phase; no
+   guest code or IOS reply state was changed. V163 should execute the
+   original timebase helper to scheduler-disable `0x805293F8`. The second
+   IPC reply callback and SC ready-status transition are unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
