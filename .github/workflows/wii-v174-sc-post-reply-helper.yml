@@ -179,12 +179,7 @@ jobs:
           grep -E '^V173_SC_AFTER_Y1_ACK y1clear=1 flag=[01] wire=[01] reply=[01] guest=1 caller=1 coherent=1 mapped=1 status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc174.log" | sort -u
           grep -Fx 'V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1' "$RUNNER_TEMP/sc174.log" | sort -u
           grep -Fx 'V174_SC_POST_REPLY_HELPER verified=1' "$RUNNER_TEMP/sc174.log"
-          grep -E '^V174_SC_POST_REPLY_HELPER cleared=1 reply=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc174.log"
- "$RUNNER_TEMP/sc174.log" | sort -u
+          grep -E '^V174_SC_POST_REPLY_HELPER cleared=1 reply=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc174.log" | sort -u
           echo 'PASS: original SC Y1 reply function executed to next guest call'
       - name: Remove private owner and generated code
         if: always()
