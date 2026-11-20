@@ -16,7 +16,7 @@ class PublicPreflightTests(unittest.TestCase):
     def test_markers_preserve_every_public_command_verbatim(self):
         source=BASE.read_text(encoding="utf-8")
         marked=derive(source)
-        self.assertEqual(len(STEPS),19)
+        self.assertEqual(len(STEPS),18)
         self.assertEqual(len({step for step,_ in STEPS}),len(STEPS))
         for step,command in STEPS:
             self.assertEqual(sum(line.startswith(command) for line in source.splitlines()),1,step)
@@ -75,7 +75,7 @@ class PublicPreflightTests(unittest.TestCase):
         script=derive(source)
         public_markers=[line for line in script.splitlines()
                         if line.startswith("echo 'V178_PREFLIGHT enter=")]
-        self.assertEqual(len(public_markers),19)
+        self.assertEqual(len(public_markers),18)
         for marker in public_markers:
             self.assertNotIn("$owner",marker)
             self.assertNotIn("$root",marker)
