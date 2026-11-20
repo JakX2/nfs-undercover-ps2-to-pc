@@ -44,9 +44,16 @@ TRACE='''void trace_call(uint32_t addr, CPUContext&ctx){
       return; // allow original guest exception vector instructions to run
     }
     if(addr==0x80526ce0u){
-      const bool vector=v160_vector_seen==1u&&
-            ctx.srr0==v158_expected_pc&&
-            ctx.srr1==(v158_expected_msr&undercover::wii::ExternalSrr1Mask);
+      // SRR0/SRR1 were authenticated at vector entry; original PPC vector
+      // instructions may update them before entering the C exception body.
+      const bool vector=v160_vector_seen==1u&&ctx.pc==addr;
+      const bool index=ctx.gpr[3]==4u;
+      const bool thread=ctx.gpr[4]==THREAD;
+      const bool idle=ctx.gpr[4]==IDLE_CONTEXT;
+      const bool abi=index&&(thread||idle);
+      const bool sr0=ctx.srr0==v158_expected_pc;
+      const bool sr1=ctx.srr1==
+            (v158_expected_msr&undercover::wii::ExternalSrr1Mask);
       const bool masked=(ctx.msr&undercover::wii::IosBus::MSR_EE)==0u&&
             !ipc70_bus.external_exception_pending(ctx.msr);
       const bool irq=ipc70_bus.external_irq_level()&&
@@ -54,11 +61,14 @@ TRACE='''void trace_call(uint32_t addr, CPUContext&ctx){
                     undercover::wii::IpcMailbox::PPCCTRL).value_or(0u)&
                     undercover::wii::IpcMailbox::Y1)!=0u;
       const bool advanced=ctx.inst_count>v160_start_inst&&ctx.pc==addr;
+      std::cout<<"V160_SC_VECTOR_ABI index="<<index
+               <<" thread="<<thread<<" idle="<<idle
+               <<" sr0="<<sr0<<" sr1="<<sr1<<std::endl;
       std::cout<<"V160_SC_VECTOR_HANDLER vector="<<vector
                <<" masked="<<masked<<" irq="<<irq
                <<" advanced="<<advanced
                <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr<<std::dec<<std::endl;
-      check(vector&&masked&&irq&&advanced,
+      check(vector&&abi&&masked&&irq&&advanced,
             "V160 original installed SC external vector did not reach handler");
       ++v160_handler_seen;
       ctx.is_running=false;throw ExceptionStop{};
