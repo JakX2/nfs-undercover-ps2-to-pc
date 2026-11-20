@@ -19,6 +19,17 @@ class V145(unittest.TestCase):
         now=derive(original)
         self.assertIn(NEXT,now)
         self.assertIn(NEXT_TRIAL,now)
+        # The V136 retry observer must not capture IRQ helper calls
+        # after the third SC status entry. Its assertions still run
+        # unaltered during the actual second SC retry.
+        for addr in ("0x805265acu","0x805265d4u"):
+            before=f"if(post130_next==1u&&addr=={addr})"
+            after=f"if(post130_next==1u&&post136_seen==0u&&addr=={addr})"
+            self.assertEqual(prior.count(before),1)
+            self.assertEqual(now.count(before),0)
+            self.assertEqual(now.count(after),1)
+        self.assertIn("V136 second original SC critical section out of order",now)
+        self.assertIn("V136 second original SC restore mismatch",now)
         for marker in ("ctx.ctr==addr","ctx.gpr[3]==27u",
                        "ctx.mmu.read32(IRQ_TABLE+27u*4u)==addr",
                        "ctx.inst_count>v145_disable_inst"):
