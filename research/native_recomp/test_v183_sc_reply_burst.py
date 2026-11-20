@@ -10,8 +10,9 @@ from derive_v183_sc_reply_burst_harness import (
     derive, STOP, CONTINUE, OBSERVER, PAIR, NEXT_TRIAL, MAX_CALLS,
     PREVIOUS_OBSERVER, widen_prior,
     V77_IRQ_CATCHALL, V183_IRQ_DIAGNOSTIC,
+    V77_ACK_MMIO_CATCHALL, V183_ACK_MMIO_DIAGNOSTIC,
 )
-from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
+from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, ACK
 
 HERE=Path(__file__).resolve().parent
 
@@ -48,6 +49,25 @@ class V183(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_late_ipc_ack_mmio_fallback_only_reports_public_hardware_category(self):
+        self.assertEqual(self.before.count(V77_ACK_MMIO_CATCHALL),1)
+        self.assertEqual(self.after.count(V183_ACK_MMIO_DIAGNOSTIC),1)
+        self.assertIn("v182_burst_seen==1u&&v183_burst_seen==0u",V183_ACK_MMIO_DIAGNOSTIC)
+        self.assertIn("ack77_reply!=0u",V183_ACK_MMIO_DIAGNOSTIC)
+        self.assertIn("addr==B::IPC+M::PPCMSG",V183_ACK_MMIO_DIAGNOSTIC)
+        self.assertIn('check(false,"unexpected original IPC ACK MMIO write");',
+                      V183_ACK_MMIO_DIAGNOSTIC)
+        self.assertEqual(self.before.count("unexpected original IPC ACK MMIO write"),
+                         self.after.count("unexpected original IPC ACK MMIO write"))
+        self.assertTrue(re.fullmatch(
+            ACK,"V183_ACK_MMIO_DEP phase=1 acked=1 submit=1 first=1 "
+                "msg=1 ctrl=0 flags=0 requests=1 calls=0 addr=d000000"))
+        self.assertFalse(re.fullmatch(
+            ACK,"V183_ACK_MMIO_DEP phase=1 acked=1 submit=1 first=1 "
+                "msg=1 ctrl=0 flags=0 requests=1 calls=9 addr=d000000"))
+        self.assertNotIn("ctx.mmu.write",V183_ACK_MMIO_DIAGNOSTIC)
+        self.assertNotIn("ipc70_bus.write",V183_ACK_MMIO_DIAGNOSTIC)
 
     def test_historical_irq_dispatch_fallback_is_diagnostic_only(self):
         self.assertEqual(self.before.count(V77_IRQ_CATCHALL),1)

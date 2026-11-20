@@ -17,6 +17,26 @@ from derive_v182_sc_reply_burst_harness import (
 )
 
 MAX_CALLS=8
+# The V183 genuine IPC sender entered the historical ACK-only MMIO
+# classifier after prior ACK completion. Preserve its guard and print only
+# category flags and hardware address; never private game bytes or payload.
+V77_ACK_MMIO_CATCHALL='''check(false,"unexpected original IPC ACK MMIO write");'''
+V183_ACK_MMIO_DIAGNOSTIC='''{ // Keep the first IPC ACK guard fail-closed, report late bus operation only.
+        const bool phase=v182_burst_seen==1u&&v183_burst_seen==0u;
+        const bool acked=ack77_reply!=0u;
+        const bool submitted=submit72_active;
+        const bool first=submit72_message==1u&&submit72_x1==1u;
+        const bool msg=addr==B::IPC+M::PPCMSG||addr==B::MIRROR+M::PPCMSG;
+        const bool ctrl=addr==B::IPC+M::PPCCTRL||addr==B::MIRROR+M::PPCCTRL;
+        const bool flags=addr==B::IPC+H::PPC_FLAG||addr==B::MIRROR+H::PPC_FLAG;
+        std::cout<<"V183_ACK_MMIO_DEP phase="<<phase
+                 <<" acked="<<acked<<" submit="<<submitted<<" first="<<first
+                 <<" msg="<<msg<<" ctrl="<<ctrl<<" flags="<<flags
+                 <<" requests="<<v182_request_sc<<" calls="<<v183_calls
+                 <<" addr="<<std::hex<<addr<<std::dec<<std::endl;
+        check(false,"unexpected original IPC ACK MMIO write");
+      }'''
+
 # Owner-original V183 encountered the historical V77 IRQ dispatcher
 # catch-all after verified V182. Log only source-owned phase/callsite flags
 # without relaxing any earlier real IRQ dispatcher assertions.
@@ -167,6 +187,7 @@ def widen_prior(source: str)->str:
 def derive(source: str)->str:
     s=previous(source)
     s=once(s,V77_IRQ_CATCHALL,V183_IRQ_DIAGNOSTIC)
+    s=once(s,V77_ACK_MMIO_CATCHALL,V183_ACK_MMIO_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V183 inherited V182 original guest stop differs")
     s=once(s,STATE,STATE+'''
