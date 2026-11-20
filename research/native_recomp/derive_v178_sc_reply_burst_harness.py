@@ -108,8 +108,25 @@ V98_SCOPED='''   if(post97_return==1u&&post98_node&&post98_return==0u){'''
 # V83 catch-all classified that legitimate later call as an unexpected
 # synchronous continuation. Keep all original V83 checks until its verified
 # second-open boundary, then disarm that observer without touching guest code.
-V83_ACTIVE='''   if(resume82_stop==1u&&!open84_active){'''
-V83_SCOPED='''   if(resume82_stop==1u&&!open84_active&&open83_second==0u){'''
+V83_PATTERN=re.compile(
+    r'(?m)^(?P<indent>[ \\t]*)if\\(resume82_stop==1u(?P<suffix>[^)\\n]*)\\)\\{$')
+
+def scope_v83_observer(s: str)->str:
+    hits=list(V83_PATTERN.finditer(s))
+    if len(hits)!=1:
+        # Only independently written C++-harness control-flow conditions
+        # are inspected. No proprietary executable data or instruction bytes.
+        candidates=[line.strip() for line in s.splitlines()
+                    if 'resume82_stop==1u' in line][:5]
+        raise ValueError(f"V178 synchronous STM guard count={len(hits)} "
+                         f"candidates={candidates}")
+    m=hits[0]
+    suffix=m.group('suffix')
+    if "open83_second" in suffix:
+        raise ValueError("V178 synchronous guard already owns later phase")
+    changed=(m.group('indent')+'if(resume82_stop==1u&&open83_second==0u'+
+             suffix+'){')
+    return s[:m.start()]+changed+s[m.end():]
 
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
@@ -167,7 +184,7 @@ def derive(source: str)->str:
     s=previous(source)
     s=once(s,V111_ACTIVE,V111_SCOPED)
     s=once(s,V98_ACTIVE,V98_SCOPED)
-    s=once(s,V83_ACTIVE,V83_SCOPED)
+    s=scope_v83_observer(s)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
