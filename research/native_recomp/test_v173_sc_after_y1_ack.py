@@ -98,7 +98,7 @@ class V173(unittest.TestCase):
                       "V173_SC_AFTER_Y1_ACK verified=1",
                       'test "$(grep -Ec'):
             self.assertIn(token,script)
-        good=("V173_SC_AFTER_Y1_ACK y1clear=1 flag=1 wire=1 reply=1 "
+        good=("V173_SC_AFTER_Y1_ACK y1clear=1 flag=0 wire=1 reply=1 "
               "guest=1 caller=1 coherent=1 mapped=1 status=1 "
               "read=1 write=0 pc=8051905c lr=80519128")
         self.assertTrue(re.fullmatch(PASS,good))
