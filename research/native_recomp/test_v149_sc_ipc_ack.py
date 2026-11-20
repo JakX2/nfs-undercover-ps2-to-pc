@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from derive_v148_sc_ipc_distinct_harness import derive as previous
 from derive_v149_sc_ipc_ack_harness import (
-    derive, STATE, RESET, STOP, CONTINUE, MMIO_OLD, MMIO_NEW, NEXT_TRIAL,
+    derive, STATE, RESET, STOP, CONTINUE, MMIO_OLD, MMIO_NEW,
+    V118_OLD, V118_NEW, NEXT_TRIAL,
 )
 from derive_v149_sc_ipc_ack_runner import derive as runner, PASS
 HERE=Path(__file__).resolve().parent
@@ -21,6 +22,10 @@ class V149(unittest.TestCase):
         after=derive(self.original)
         for marker in (STATE,RESET,STOP,MMIO_OLD):
             self.assertEqual(before.count(marker),1,marker[:64])
+        self.assertEqual(before.count(V118_OLD),1)
+        self.assertEqual(after.count(V118_OLD),0)
+        self.assertEqual(after.count(V118_NEW),1)
+        self.assertIn('post118_x1==0u',V118_NEW)
         self.assertIn(CONTINUE,after)
         self.assertIn(MMIO_NEW,after)
         self.assertIn(NEXT_TRIAL,after)
