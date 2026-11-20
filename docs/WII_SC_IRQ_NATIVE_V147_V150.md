@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V172
+# Wii SC IPC native execution: V147–V174
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -36,9 +36,11 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V170 | Original reply processor continued its first control read and reached another genuine control-read at `0x8051905C`, LR `0x805190FC`; Y1 and file reply remain valid and SDA `r13-3176` remains `1` | [V170](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44686557216) |
 | V171 | Original Y1 reply processor reached distinct IPC writer `0x8051906C` from LR `0x8051910C` after the read helper; Y1 and IRQ still asserted, reply valid, and SDA byte still `1`; original W1C store not yet executed | [V171](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44687093305) |
 | V172 | Original PPCCTRL writer performed authentic Y1 W1C through native MMIO; Y1 cleared, separate Hollywood PPC_FLAG/IRQ remained asserted, IOS_Open reply intact, SDA byte still `1` | [V172 independent](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44688756137), [V172 canonical](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44688756136) |
+| V173 | After original PPCCTRL Y1 W1C, guest performed exactly one authenticated Hollywood PPC_FLAG IPC W1C, IRQ level fell, then entered function `0x80522294` (LR `0x80519124`) with SDA byte still `1` | [V173](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44691122594) |
+| V174 | Original function `0x80522294` executed to next call at `0x80522AF4` (LR `0x80519290`) with cleared IRQs, original file reply intact, and SDA `r13-3176` still `1` | [V174](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44691938187) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V172 introduce no replacement guest
+original-path regression gates. V147–V174 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -75,6 +77,9 @@ V170_SC_REPLY_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=1 flag=1 reply=1 wire
 V171_SC_DISTINCT guest=1 caller=1 coherent=1 mapped=1 y1=1 irq=1 wire=1 reply=1 status=1 changed=0 write=1 reads=0 pc=8051906c lr=8051910c
 V172_SC_Y1_ACK w1c=1 flag=1 irq=1 wire=1 reply=1 guest=1 wrote=1 mapped=1 status=1 pc=8051906c lr=8051910c
 V172_SC_REPLY_Y1_ACK write=1 cleared=1 latched=1 guest=1 reply=1 mapped=1 status=1
+V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1
+V173_SC_AFTER_Y1_ACK y1clear=1 flag=0 wire=1 reply=1 guest=1 caller=1 coherent=1 mapped=1 status=1 read=0 write=0 pc=80522294 lr=80519124
+V174_SC_POST_REPLY_HELPER cleared=1 reply=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=1 changed=0 pc=80522af4 lr=80519290
 ~~~
 
 ## Corrected test-phase ownership
@@ -177,10 +182,13 @@ hardware emulation.
    still pending and SDA status `1`. V172 **verified** original guest execution through PPCCTRL Y1 W1C,
    with the Y1 mailbox bit cleared, the separate Hollywood IPC interrupt
    still latched, the SYSCONF file reply preserved, and the SDA byte still
-   `1`. Both independently authored 16-trial suites agree. V173 should
-   execute the original PPCCTRL writer's remainder and identify the next
-   genuine reply-handler call. The Hollywood latch W1C, complete async SC
-   callback and OSInit retry exit remain unverified.
+   `1`. Both independently authored 16-trial suites agree. V173 **verified** that the original guest next performed one Hollywood
+   PPC_FLAG W1C and reached `0x80522294` from `0x80519124`, deasserting
+   the physical IRQ. V174 **verified** the guest function then executed to
+   the next authentic call `0x80522AF4` (LR `0x80519290`), with original
+   SYSCONF reply preserved and SDA status still `1`. V175 should execute
+   that successor to its next guest transition. The complete async SC
+   callback, SDA ready transition and OSInit retry exit are unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
