@@ -9,7 +9,7 @@ NEW='python3 "$here/derive_v147_sc_ipc_next_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V146_SC_IPC_LEAF verified=1'"
 PATTERN=r'^V147_SC_IPC_NEXT first=[01] caller=[01] progressed=[01] masked=[01] queued=[01] irq=[01] target=[0-9a-f]{8} lr=[0-9a-f]{8}$'
-PASS=r'^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[0-4][0-9a-f]{3}$'
+PASS=r'^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$'
 
 def derive(source: str) -> str:
     s=previous(source)
