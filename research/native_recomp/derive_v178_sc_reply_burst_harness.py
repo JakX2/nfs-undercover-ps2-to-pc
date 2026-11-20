@@ -88,6 +88,14 @@ OBSERVATION='''void trace_call(uint32_t addr, CPUContext&ctx){
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
+# The V111 async-path observer remains true after its first completed
+# IOS_OpenAsync entry. The later SC reply callee reuses the same allocator
+# pathname-copy helper. Keep the initial V111 proof intact, but stop
+# misclassifying second-phase genuine calls as the first pathname copy.
+V111_ACTIVE='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u){'''
+V111_SCOPED='''     if(post110_next==1u&&post110_chosen==2u&&post111_wrapper==1u&&
+        post111_open==0u){'''
+
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v177_target_pc&&'
     r'\s*c\.lr==nwii::runtime::v177_target_lr')
@@ -142,6 +150,7 @@ def widen_prior(s: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V111_ACTIVE,V111_SCOPED)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V178 inherited original 0x80545100 guest checkpoint differs")
     s=once(s,STATE,STATE+'''
