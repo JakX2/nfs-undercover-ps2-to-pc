@@ -130,6 +130,41 @@ NEXT_TRIAL='''       check(nwii::runtime::v168_next_seen==1u&&
              !c.is_running,
              "V168 original SC Y1 register read did not reach second guest leaf");'''
 
+def extend_prior_trial_gate(s: str, label: str)->str:
+    """Expand only a named predecessor's end-PC test, not its state checks.
+
+    The original V166/V167 native assertions belong to checkpoints at earlier
+    caller boundaries. V168 executes one further authentic guest BL. Reuse the
+    same preserved state requirements but permit the verified V168 target/LR.
+    """
+    marker='"'+label+'");'
+    if s.count(marker)!=1:
+        raise ValueError(f"V168 inherited trial label not unique: {label}")
+    end=s.index(marker)
+    start=s.rfind("check(",0,end)
+    if start<0 or end-start>1500:
+        raise ValueError(f"V168 inherited trial check span differs: {label}")
+    part=s[start:end]
+    v168='''(nwii::runtime::v168_next_seen==1u&&
+               c.pc==nwii::runtime::v168_target_pc&&
+               c.lr==nwii::runtime::v168_target_lr)'''
+    old_or='''               c.lr==nwii::runtime::v167_target_lr))&&'''
+    new_or='''               c.lr==nwii::runtime::v167_target_lr)||
+              '''+v168+''')&&'''
+    old_simple='''             c.pc==nwii::runtime::v167_target_pc&&
+             c.lr==nwii::runtime::v167_target_lr&&'''
+    new_simple='''             ((c.pc==nwii::runtime::v167_target_pc&&
+               c.lr==nwii::runtime::v167_target_lr)||
+              '''+v168+''')&&'''
+    if part.count(old_or)==1:
+        part=part.replace(old_or,new_or,1)
+    elif part.count(old_simple)==1:
+        part=part.replace(old_simple,new_simple,1)
+    else:
+        raise ValueError(f"V168 legacy PC/LR gate not recognized: {label}")
+    return s[:start]+part+s[end:]
+
+
 def once(s: str,old: str,new: str)->str:
     count=s.count(old)
     if count!=1:
@@ -158,6 +193,10 @@ def derive(source: str)->str:
     s=once(s,V167_TRIAL_END,V168_TRIAL_END)
     s=once(s,PREVIOUS_TRIAL,
            PREVIOUS_TRIAL.replace(V167_LAST,V168_LAST,1)+"\n"+NEXT_TRIAL)
+    s=extend_prior_trial_gate(
+        s,"V166 second SC reply nested interrupt restore did not reach real guest call")
+    s=extend_prior_trial_gate(
+        s,"V167 original SC reply IPC handler did not reach first real guest leaf")
     return s
 
 if __name__=="__main__":
