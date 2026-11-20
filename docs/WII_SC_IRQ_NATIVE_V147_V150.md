@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V168
+# Wii SC IPC native execution: V147–V169
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -32,9 +32,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V166 | Original nested `OSRestoreInterrupts` executed and entered registered IPC handler `0x80519318` at LR `0x80526CAC`; Y1 file reply preserved, MSR EE=0 and IRQ not immediately deliverable | [V166](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44682537449) |
 | V167 | Original registered IPC handler `0x80519318` executed to IPC register-read helper `0x8051905C` from LR `0x8051933C`; Y1 and file reply preserved | [V167](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44683189825) |
 | V168 | Original second-reply IPC control read ran into authenticated Y1 reply processor `0x805190C0` (LR `0x80519354`) with Y1, ARMMSG reply address, SYSCONF descriptor, and EE mask intact; inherited V166/V167 stop assertions extended only for verified next PC/LR | [V168](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44684732606) |
+| V169 | Executed original Y1 IPC reply processor `0x805190C0` into control-read `0x8051905C`, LR `0x805190E8`; original Y1, ARMMSG, file reply intact; SDA `r13 - 3176` remained `1` (no completion yet) | [V169](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44685739872) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V168 introduce no replacement guest
+original-path regression gates. V147–V169 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -66,6 +67,7 @@ V165_SC_POST_OSDI irq=1 reply=1 masked=1 guest=1 caller=1 ipc=0 helper=1 pc=8052
 V166_SC_POST_RESTORE irq=1 reply=1 guest=1 call=1 coherent=1 ee=0 ready=0 ipc=1 helper=0 pc=80519318 lr=80526cac
 V167_SC_REPLY_LEAF y1=1 reply=1 guest=1 masked=1 caller=1 read=1 pc=8051905c lr=8051933c
 V168_SC_REPLY_NEXT y1=1 reply=1 guest=1 masked=1 caller=1 read=0 other=1 pc=805190c0 lr=80519354
+V169_SC_REPLY_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=1 flag=1 reply=1 wire=1 ready=0 status=1 read=1 write=0 pc=8051905c lr=805190e8
 ~~~
 
 ## Corrected test-phase ownership
@@ -157,11 +159,13 @@ hardware emulation.
    `0x8051933C`. This is a different callsite from the first request
    IRQ, supporting the original reply-side branch. V168 **verified** the original read helper ran and reached the
    Y1 IPC reply processor `0x805190C0` (LR `0x80519354`) with the native
-   reply pointer and file descriptor intact. V169 should execute the
-   authentic processor body and record its next PowerPC call, actual
-   Y1/IRQ state and current SDA byte without writing status or forcing
-   reply callbacks. Complete IPC reply processing and the async SC
-   callback/ready-status transition remain unverified.
+   reply pointer and file descriptor intact. V169 **verified** the authentic reply processor calls the PPC
+   read helper `0x8051905C` at LR `0x805190E8`, with Y1 and the
+   SYSCONF response still present. The original `r13 - 3176` byte is
+   still `1`, so the SC ready transition is not yet proved. V170 should
+   execute this read into the next legitimate original call, observing
+   any genuine Y1/IRQ acknowledgment and SC status changes. The full
+   async SC callback and OSInit retry exit remain unverified.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
