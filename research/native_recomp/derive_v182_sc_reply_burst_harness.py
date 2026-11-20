@@ -17,6 +17,26 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# V182 owner original reached the inherited V112 async cache-syscall
+# assertion after V181's second allocator call. Preserve its assertion and
+# record only bounded phase/counter/address fields before attempting to scope.
+V112_SYSCALL_GUARD='''check(order&&count,"V112 original IOS_OpenAsync native cache syscall differs");'''
+V182_V112_TELEMETRY='''{ // Observe late repeated syscall without changing the original V112 guard.
+      const bool late=v181_next_seen==1u&&v182_burst_seen==0u;
+      if(late){
+        std::cout<<"V182_V112_DEP phase="<<late
+                 <<" op="<<(post111_open==1u)
+                 <<" flush="<<post112_flush<<" sc="<<post112_sc
+                 <<" vector="<<post112_vector
+                 <<" order="<<order<<" count="<<count
+                 <<" calls="<<v182_calls
+                 <<" pc="<<std::hex<<ctx.pc<<" lr="<<ctx.lr
+                 <<std::dec<<std::endl;
+      }
+      check(order&&count,"V112 original IOS_OpenAsync native cache syscall differs");
+    }'''
+
+
 STOP='''    v181_target_pc=addr;v181_target_lr=ctx.lr;
     ++v181_next_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -137,6 +157,7 @@ def widen_prior(source: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V112_SYSCALL_GUARD,V182_V112_TELEMETRY)
     if PREVIOUS_FOLLOWUP.count(STOP)!=1:
         raise ValueError("V182 authenticated V181 owner stop differs")
     s=once(s,STATE,STATE+'''

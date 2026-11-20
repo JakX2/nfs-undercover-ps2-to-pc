@@ -8,9 +8,10 @@ from pathlib import Path
 from derive_v181_sc_reply_next_harness import derive as previous
 from derive_v182_sc_reply_burst_harness import (
     derive, STOP, CONTINUE, OBSERVER, PAIR, NEXT_TRIAL, MAX_CALLS,
+    V112_SYSCALL_GUARD, V182_V112_TELEMETRY,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
 
 HERE=Path(__file__).resolve().parent
 
@@ -46,6 +47,23 @@ class V182(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_late_v112_failure_only_prints_bounded_phase_without_bypass(self):
+        self.assertEqual(self.before.count(V112_SYSCALL_GUARD),1)
+        self.assertEqual(self.after.count(V182_V112_TELEMETRY),1)
+        self.assertEqual(self.after.count("V112 original IOS_OpenAsync native cache syscall differs"),
+                         self.before.count("V112 original IOS_OpenAsync native cache syscall differs"))
+        self.assertIn("v181_next_seen==1u&&v182_burst_seen==0u",V182_V112_TELEMETRY)
+        self.assertIn('check(order&&count,"V112 original IOS_OpenAsync native cache syscall differs");',
+                      V182_V112_TELEMETRY)
+        self.assertTrue(re.fullmatch(
+            DEP,"V182_V112_DEP phase=1 op=1 flush=1 sc=1 vector=1 order=0 "
+                "count=0 calls=0 pc=805222e8 lr=80519904"))
+        self.assertFalse(re.fullmatch(
+            DEP,"V182_V112_DEP phase=1 op=1 flush=1 sc=1 vector=1 order=0 "
+                "count=0 calls=9 pc=805222e8 lr=80519904"))
+        self.assertNotIn("ctx.mmu.write",V182_V112_TELEMETRY)
+        self.assertNotIn("ipc70_bus.write",V182_V112_TELEMETRY)
 
     def test_final_original_guest_endpoint_validates_prior_milestones(self):
         self.assertGreaterEqual(len(PAIR.findall(self.before)),7)
