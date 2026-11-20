@@ -17,6 +17,31 @@ from derive_v181_sc_reply_next_harness import (
 )
 
 MAX_CALLS=8
+# V182 original trace: late V112 callback has post112_sc=1,
+# post112_vector=1, flush=1 and order=0. The first V112 syscall was
+# previously completed. Preserve the original one-shot contract exactly
+# while allowing the later authentic syscall to reach its actual handler.
+V112_SYSCALL_DISPATCH='''if(own&&post111_open==1u&&ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){'''
+V182_SYSCALL_SCOPED='''if(own&&post111_open==1u&&post112_sc==0u&&ctx.pc==0x805222e8u&&ctx.lr==0x80519904u){'''
+
+# Observe the old generic cache fallback in case no later-phase handler
+# owns this second authentic 0x805222E8 guest syscall. Retain its assertion.
+BASE_SC_FALLBACK='''if(own&&ctx.pc==0x805222e8u){'''
+V182_SC_FALLBACK='''if(own&&ctx.pc==0x805222e8u){
+    if(v181_next_seen==1u&&v182_burst_seen==0u){
+      const uint32_t sc_addr=ctx.gpr[13]-3176u;
+      const bool mapped=ctx.mmu.get_ptr(sc_addr)!=nullptr;
+      const uint32_t sc=mapped?ctx.mmu.read8(sc_addr):0u;
+      std::cout<<"V182_SC_FALLBACK phase=1"
+               <<" prior="<<post112_sc
+               <<" vector="<<post112_vector
+               <<" flush="<<post112_flush
+               <<" burst="<<v182_calls
+               <<" mapped="<<mapped<<" status="<<sc
+               <<" pc="<<std::hex<<ctx.pc<<" lr="<<ctx.lr<<std::dec
+               <<std::endl;
+    }'''
+
 # V182 owner original reached the inherited V112 async cache-syscall
 # assertion after V181's second allocator call. Preserve its assertion and
 # record only bounded phase/counter/address fields before attempting to scope.
@@ -157,6 +182,8 @@ def widen_prior(source: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V112_SYSCALL_DISPATCH,V182_SYSCALL_SCOPED)
+    s=once(s,BASE_SC_FALLBACK,V182_SC_FALLBACK)
     s=once(s,V112_SYSCALL_GUARD,V182_V112_TELEMETRY)
     if PREVIOUS_FOLLOWUP.count(STOP)!=1:
         raise ValueError("V182 authenticated V181 owner stop differs")

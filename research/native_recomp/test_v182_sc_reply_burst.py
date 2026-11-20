@@ -9,9 +9,11 @@ from derive_v181_sc_reply_next_harness import derive as previous
 from derive_v182_sc_reply_burst_harness import (
     derive, STOP, CONTINUE, OBSERVER, PAIR, NEXT_TRIAL, MAX_CALLS,
     V112_SYSCALL_GUARD, V182_V112_TELEMETRY,
+    V112_SYSCALL_DISPATCH, V182_SYSCALL_SCOPED,
+    BASE_SC_FALLBACK, V182_SC_FALLBACK,
     PREVIOUS_FOLLOWUP, widen_prior,
 )
-from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
+from derive_v182_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, FALLBACK
 
 HERE=Path(__file__).resolve().parent
 
@@ -47,6 +49,24 @@ class V182(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_first_v112_syscall_only_and_late_cache_fallback_diagnostic(self):
+        self.assertEqual(self.before.count(V112_SYSCALL_DISPATCH),1)
+        self.assertEqual(self.after.count(V182_SYSCALL_SCOPED),1)
+        self.assertNotIn(V112_SYSCALL_DISPATCH,self.after)
+        self.assertIn("post112_sc==0u",V182_SYSCALL_SCOPED)
+        self.assertIn("ctx.pc==0x805222e8u&&ctx.lr==0x80519904u",V182_SYSCALL_SCOPED)
+        self.assertEqual(self.before.count(BASE_SC_FALLBACK),1)
+        self.assertEqual(self.after.count(V182_SC_FALLBACK),1)
+        self.assertIn("V182_SC_FALLBACK phase=1",V182_SC_FALLBACK)
+        self.assertIn("v181_next_seen==1u&&v182_burst_seen==0u",V182_SC_FALLBACK)
+        self.assertTrue(re.fullmatch(
+            FALLBACK,"V182_SC_FALLBACK phase=1 prior=1 vector=1 flush=1 burst=3 "
+                     "mapped=1 status=1 pc=805222e8 lr=80519904"))
+        self.assertNotIn("ctx.mmu.write",V182_SC_FALLBACK)
+        self.assertNotIn("ipc70_bus.write",V182_SC_FALLBACK)
+        self.assertEqual(self.before.count("original cache flush did not reach authentic syscall"),
+                         self.after.count("original cache flush did not reach authentic syscall"))
 
     def test_late_v112_failure_only_prints_bounded_phase_without_bypass(self):
         self.assertEqual(self.before.count(V112_SYSCALL_GUARD),1)
