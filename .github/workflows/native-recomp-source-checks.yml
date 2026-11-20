@@ -281,6 +281,7 @@ jobs:
           python3 research/native_recomp/test_v177_sc_reply_next.py
           python3 research/native_recomp/test_v178_sc_reply_burst.py
           python3 research/native_recomp/test_v178_run_stage.py
+          python3 research/native_recomp/test_v178_public_preflight.py
           python3 research/native_recomp/test_v172_sc_reply_y1_ack.py
           python3 research/native_recomp/test_v170_sc_reply_read_next.py
           python3 research/native_recomp/test_v164_sc_y1_disable_next.py
