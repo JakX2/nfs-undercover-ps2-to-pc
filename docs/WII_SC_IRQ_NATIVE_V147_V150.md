@@ -1,4 +1,4 @@
-# Wii SC IPC native execution: V147–V153
+# Wii SC IPC native execution: V147–V154
 
 Owner-original progress log, 2026-11-20. All game executable bytes, assets,
 generated translations and native test fixtures remain private. These checkpoints
@@ -17,9 +17,10 @@ continuous `__start` owner test, not through Dolphin or a general PPC interprete
 | V151 | After authentic MMIO acknowledgments, original handler advances to helper `0x8051B060`, LR `0x805193A4`; Y2 and IPC flag remain clear, IRQ level low and IOS reply still queued | [V151](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44668844111) |
 | V152 | Original helper `0x8051B060` runs; first next call is `0x80529434` from `0x80526CB0`. Original hardware ACK remains cleared, IRQ low, IOS reply queued | [V152](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44669548950) |
 | V153 | At original post-IRQ call `0x80529434`, deterministic native IOS publishes queued SYSCONF `IOS_Open` reply; valid file descriptor, Y1 and fresh Broadway IRQ asserted, queue drained; stops before helper body | [V153](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44672900601) |
+| V154 | Executed original post-IRQ scheduler helper `0x80529434` and entered original interrupt-disable helper `0x805265AC` from `0x80529448`; published Y1, IRQ, and SYSCONF reply preserved | [V154](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44673444700) |
 
 Each milestone uses **16 owner-original native trials** and retains the previous
-original-path regression gates. V147–V153 introduce no replacement guest
+original-path regression gates. V147–V154 introduce no replacement guest
 instructions or forced SC status bytes. The host MMIO bus does implement the
 explicit documented hardware W1C semantics.
 
@@ -34,6 +35,7 @@ V151_SC_AFTER_FLAG cleared=1 irq_down=1 queued=1 masked=1 progressed=1 text=1 ta
 V152_SC_POST_HELPER clean=1 idle=1 queued=1 guest=1 text=1 target=80529434 lr=80526cb0
 V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1
 V153_SC_REPLY_STATE bridge=1 wire=1 mail=1 drained=1 irq=1
+V154_SC_SCHED_NEXT signal=1 reply=1 guest=1 target=1 pc=805265ac lr=80529448
 ~~~
 
 ## Corrected test-phase ownership
@@ -76,10 +78,11 @@ hardware emulation.
    original IRQ dispatcher return and saved-context restoration. A helper
    entry is not proof that the entire interrupt has returned.
 2. V153 **verified** the queued SYSCONF `IOS_Open` reply publication at
-   the original guest's `0x80529434` callsite. V154 should execute that
-   scheduler helper's original code and reach a genuine successor without
-   test-owned state writes. The newly asserted Y1 IRQ still needs authentic
-   interrupt handling and eventual original SC callback execution.
+   the original guest's `0x80529434` callsite. V154 **verified** the original
+   scheduler's next helper `0x805265AC` at LR `0x80529448` with Y1 and the
+   file reply intact. V155 should continue this original helper through the
+   next function entry; a complete scheduler return and second reply IRQ
+   still require independent native execution proof.
 3. Resume the original SC async callback and verify any actual guest write
    to SDA status byte at `r13 - 3176`, including value changes.
 4. Allow original OSInit's `0x8052096C` retry to leave its loop only through
