@@ -17,6 +17,31 @@ from derive_v182_sc_reply_burst_harness import (
 )
 
 MAX_CALLS=8
+# Owner-original V183 encountered the historical V77 IRQ dispatcher
+# catch-all after verified V182. Log only source-owned phase/callsite flags
+# without relaxing any earlier real IRQ dispatcher assertions.
+V77_IRQ_CATCHALL='''check(false,"unexpected original IRQ dispatcher dependency");'''
+V183_IRQ_DIAGNOSTIC='''{ // Preserve fail-fast and report bounded original-phase callsite only.
+       const bool phase=v182_burst_seen==1u&&v183_burst_seen==0u;
+       const bool submitted=submit72_active;
+       const bool dispatcher=irq76_dispatch!=0u;
+       const bool ipc=irq76_ipc!=0u;
+       const bool prior=v177_next_seen==1u;
+       const bool tracked=ctx.gpr[13]==v147_first_r13;
+       const bool masked=(ctx.msr&0x8000u)==0u;
+       const bool mapped=ctx.mmu.get_ptr(ctx.gpr[13]-3176u)!=nullptr;
+       const unsigned sc=mapped?ctx.mmu.read8(ctx.gpr[13]-3176u):0u;
+       std::cout<<"V183_IRQ_DEP phase="<<phase
+                <<" submit="<<submitted<<" dispatch="<<dispatcher
+                <<" ipc="<<ipc<<" prior="<<prior
+                <<" tracked="<<tracked<<" masked="<<masked
+                <<" mapped="<<mapped<<" status="<<sc
+                <<" calls="<<v183_calls
+                <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+                <<std::dec<<std::endl;
+       check(false,"unexpected original IRQ dispatcher dependency");
+     }'''
+
 STOP='''    v182_target_pc=addr;v182_target_lr=ctx.lr;
     v182_final_status=status;
     ++v182_burst_seen;
@@ -141,6 +166,7 @@ def widen_prior(source: str)->str:
 
 def derive(source: str)->str:
     s=previous(source)
+    s=once(s,V77_IRQ_CATCHALL,V183_IRQ_DIAGNOSTIC)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V183 inherited V182 original guest stop differs")
     s=once(s,STATE,STATE+'''

@@ -8,6 +8,7 @@ OLD='python3 "$here/derive_v182_sc_reply_burst_harness.py"'
 NEW='python3 "$here/derive_v183_sc_reply_burst_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V182_SC_BURST verified=1'"
+DEP=r'^V183_IRQ_DEP phase=[01] submit=[01] dispatch=[01] ipc=[01] prior=[01] tracked=[01] masked=[01] mapped=[01] status=[0-9]{1,3} calls=[0-8] pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$'
 TRACE=r'^V183_SC_TRACE step=[1-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PATTERN=r'^V183_SC_BURST calls=[1-8] clean=[01] reply=[01] queue=[01] guest=[01] caller=[01] coherent=[01] mapped=[01] before=[0-9]{1,3} status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PASS=r'^V183_SC_BURST calls=[1-8] clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
@@ -19,7 +20,8 @@ def derive(source: str)->str:
     s=s.replace(OLD,NEW,1)
     s=s.replace(FAIL,
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
-        +'  grep -E "'+TRACE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+        +'  grep -E "'+TRACE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+DEP+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

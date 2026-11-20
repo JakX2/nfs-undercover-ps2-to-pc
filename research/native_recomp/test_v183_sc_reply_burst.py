@@ -9,8 +9,9 @@ from derive_v182_sc_reply_burst_harness import derive as previous
 from derive_v183_sc_reply_burst_harness import (
     derive, STOP, CONTINUE, OBSERVER, PAIR, NEXT_TRIAL, MAX_CALLS,
     PREVIOUS_OBSERVER, widen_prior,
+    V77_IRQ_CATCHALL, V183_IRQ_DIAGNOSTIC,
 )
-from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE
+from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP
 
 HERE=Path(__file__).resolve().parent
 
@@ -47,6 +48,25 @@ class V183(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",OBSERVER)
         self.assertNotIn("ipc70_bus.write",OBSERVER)
         self.assertNotIn("scheduler.service_one",OBSERVER)
+
+    def test_historical_irq_dispatch_fallback_is_diagnostic_only(self):
+        self.assertEqual(self.before.count(V77_IRQ_CATCHALL),1)
+        self.assertEqual(self.after.count(V183_IRQ_DIAGNOSTIC),1)
+        self.assertEqual(
+            self.before.count("unexpected original IRQ dispatcher dependency"),
+            self.after.count("unexpected original IRQ dispatcher dependency"))
+        self.assertIn("v182_burst_seen==1u&&v183_burst_seen==0u",V183_IRQ_DIAGNOSTIC)
+        self.assertIn('check(false,"unexpected original IRQ dispatcher dependency");',
+                      V183_IRQ_DIAGNOSTIC)
+        self.assertTrue(re.fullmatch(
+            DEP,"V183_IRQ_DEP phase=1 submit=1 dispatch=1 ipc=1 prior=1 "
+                "tracked=1 masked=1 mapped=1 status=1 calls=0 "
+                "pc=8051905c lr=805197a0"))
+        self.assertFalse(re.fullmatch(
+            DEP,"V183_IRQ_DEP phase=1 submit=1 dispatch=1 ipc=1 prior=1 "
+                "tracked=1 masked=1 mapped=1 status=1 calls=9 "
+                "pc=8051905c lr=805197a0"))
+        self.assertNotIn("ctx.mmu.write",V183_IRQ_DIAGNOSTIC)
 
     def test_prior_authenticated_pc_lr_endpoints_accept_new_native_stop(self):
         self.assertGreaterEqual(len(PAIR.findall(self.before)),7)
