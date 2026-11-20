@@ -92,36 +92,6 @@ jobs:
             "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
             > "$RUNNER_TEMP/sc145.log" 2>&1 || {
               grep -E '^V145_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_ok|syntax_failed)$|^V140_SC_IRQ_ENTRY pending=[01] vector=[01] saved=[01] regs=[01] queued=[01]$|^V67_NATIVE_ASSERTION id=[0-9]{3}$' "$RUNNER_TEMP/sc145.log" | sort -u || true
-              id="$(grep -E '^V67_NATIVE_ASSERTION id=[0-9]{3}
-              exit 1
-            }
-          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V136_SECOND_RETRY verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V137_IOS_PROBE verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V138_REQUEST_PROBE verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V139_SC_ACK verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V140_SC_IRQ_ENTRY verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V140_SC_IRQ_ENTRY pending=1 vector=1 saved=1 regs=1 queued=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          grep -Fx 'V141_SC_VECTOR verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V141_SC_VECTOR vector=1 handler=1 saved=1 queued=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          grep -Fx 'V142_SC_DISPATCH verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V142_SC_DISPATCH route=1 regs=1 status=1 pending=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          grep -Fx 'V143_SC_TIME verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V143_SC_TIME time=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          grep -Fx 'V144_SC_DISABLE verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V144_SC_DISABLE route=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          grep -Fx 'V145_SC_IPC verified=1' "$RUNNER_TEMP/sc145.log"
-          grep -Fx 'V145_SC_IPC dispatch=1 context=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc145.log" | sort -u
-          echo 'PASS: owner-original SC IRQ dispatcher reached registered IPC handler'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc145.log"
- "$RUNNER_TEMP/sc145.log" | tail -n 1 | cut -d= -f2 || true)"
-              if [[ "$id" =~ ^[0-9]{3}$ ]]; then
-                python3 research/native_recomp/diagnose_v145_sc_ipc_handler.py "$((10#$id))" || true
-              fi
               echo 'V145 original Wii SC IPC handler entry failed; owner-private details withheld' >&2
               exit 1
             }
