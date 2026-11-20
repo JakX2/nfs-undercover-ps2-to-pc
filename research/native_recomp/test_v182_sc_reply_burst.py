@@ -135,8 +135,10 @@ class V182(unittest.TestCase):
 
     def test_public_assertion_labels_use_this_exact_derived_v182_catalog(self):
         from diagnose_v182_sc_reply_burst import describe
-        self.assertIn("V112 original IOS_OpenAsync native cache syscall differs",
-                      [describe(i) for i in range(1,2000)])
+        from classify_v38_native_failure import STRING
+        labels=sorted(set(STRING.findall(self.after)))
+        target="V112 original IOS_OpenAsync native cache syscall differs"
+        self.assertEqual(describe(labels.index(target)+1),target)
         with self.assertRaises(ValueError): describe(0)
         with self.assertRaises(ValueError): describe(10000)
 
