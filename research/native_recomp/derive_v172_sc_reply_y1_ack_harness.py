@@ -16,7 +16,8 @@ from derive_v171_sc_reply_distinct_harness import (
     derive as previous, STATE, RESET, OBSERVER as PREVIOUS_OBSERVER,
     TRACE_ANCHOR, NEXT_TRIAL as PREVIOUS_TRIAL,
 )
-from derive_v149_sc_ipc_ack_harness import MMIO_NEW
+MMIO_ANCHOR='''     check(ipc70_bus.write32(addr,value),"native bus rejected original ACK MMIO write");
+     mmio_writes.emplace_back(addr,value);'''
 
 STOP='''    ++v171_distinct_seen;
     v171_target_pc=addr;v171_target_lr=ctx.lr;
@@ -27,7 +28,7 @@ CONTINUE='''    check(addr==0x8051906cu&&ctx.lr==0x8051910cu,
     ++v171_distinct_seen;
     return; // run actual Wii PPC IPC control-store helper
   }'''
-OLD_RETURN='''     return;'''
+
 ACK='''     if(v171_distinct_seen==1u&&v172_y1_ack_seen==0u&&
         (addr==B::IPC+M::PPCCTRL||addr==B::MIRROR+M::PPCCTRL)){
        const auto control=ipc70_bus.read32(B::IPC+M::PPCCTRL);
@@ -62,10 +63,12 @@ ACK='''     if(v171_distinct_seen==1u&&v172_y1_ack_seen==0u&&
 # observer. Do not displace it, only add a second-phase observation before
 # its final return. Reject ambiguous or duplicated writer callback shapes.
 def add_ack_observer(s: str)->str:
-    if s.count(MMIO_NEW)!=1 or MMIO_NEW.count(OLD_RETURN)!=1:
-        raise ValueError("V172 native bus writer hook differs from verified V149")
-    old=MMIO_NEW.replace(OLD_RETURN,ACK+OLD_RETURN,1)
-    return s.replace(MMIO_NEW,old,1)
+    # Later milestones appended authentic IRQ checks inside this writer
+    # callback, so the *entire* V149 MMIO block is no longer verbatim.
+    # This two-line bus-write anchor stays unique across all successors.
+    if s.count(MMIO_ANCHOR)!=1:
+        raise ValueError("V172 original Broadway MMIO bus write anchor differs")
+    return s.replace(MMIO_ANCHOR,MMIO_ANCHOR+"\n"+ACK.rstrip("\n"),1)
 
 PAIR=re.compile(
     r'c\.pc==nwii::runtime::v171_target_pc&&'
