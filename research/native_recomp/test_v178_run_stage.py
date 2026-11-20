@@ -83,6 +83,23 @@ class StageTests(unittest.TestCase):
                          "V178_FAILURE_DETAIL v38=native_compiled exception=none")
         self.assertNotIn("originals",details(data))
 
+    def test_classifier_contract_matches_owner_workflow(self):
+        # Only public files are inspected. A private failure must be reduced
+        # to an ID before any user-visible CI output.
+        flow=(Path(__file__).resolve().parents[2]/
+              ".github/workflows/wii-v178-sc-reply-burst.yml").read_text(encoding="utf-8")
+        self.assertIn("V67_NATIVE_ASSERTION id=[0-9]{3,4}",flow)
+        self.assertNotIn("V178_NATIVE_ASSERTION id=[0-9]{4}",flow)
+        self.assertIn('"$code" != "000"',flow)
+        self.assertIn('"$code" != "0000"',flow)
+        decoder=(Path(__file__).with_name("diagnose_v178_sc_reply_burst.py")
+                 .read_text(encoding="utf-8"))
+        self.assertIn("1<=index<=9999",decoder)
+        classifier=(Path(__file__).with_name("classify_v38_native_failure.py")
+                    .read_text(encoding="utf-8"))
+        self.assertIn("index>9999",classifier)
+        self.assertEqual(flow.count("      - name: Remove private owner and generated code"),1)
+
     def test_unknown_failure_class_is_explicit(self):
         self.assertEqual(classify(""),"V178_FAILURE_STAGE phase=wrapper reason=unclassified script=none")
 
