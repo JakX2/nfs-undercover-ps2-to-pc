@@ -12,7 +12,7 @@ from derive_v178_sc_reply_burst_harness import derive as v178
 HERE=Path(__file__).resolve().parent
 NEEDLE='check(false,"unexpected original IPC ACK-only path dependency");'
 MAX_ROW=155
-PRE_ROWS=22
+PRE_ROWS=76
 
 def public_window(source: str, tag: str)->list[str]:
     rows=source.splitlines()
