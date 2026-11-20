@@ -15,8 +15,8 @@ from pathlib import Path
 STATUS_READ_PC = 0x8052F84C
 STATUS_OFFSET = -3176
 STATUS_BASE = 13
-STATUS_REGISTER = 3
-STATUS_LOAD_OP = 34  # lbz, not lwz
+STATUS_REGISTER = 29
+STATUS_LOAD_OP = 34  # original instruction is lbz r29, -3176(r13)
 MAX_PUBLIC_SITES = 16
 STORES = {
     36: ("stw", 4), 37: ("stwu", 4),
