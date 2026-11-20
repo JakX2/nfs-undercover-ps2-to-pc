@@ -92,8 +92,7 @@ V173_FINAL_END='''             (((c.pc==nwii::runtime::v172_stop_pc&&
                c.pc==nwii::runtime::v173_target_pc&&
                c.lr==nwii::runtime::v173_target_lr))&&
              !c.is_running,'''
-V172_FINAL_EXTENDED='''             ((c.pc==nwii::runtime::v172_stop_pc&&c.lr==nwii::runtime::v172_stop_lr)||
-                 (nwii::runtime::v173_next_seen==1u&&c.pc==nwii::runtime::v173_target_pc&&c.lr==nwii::runtime::v173_target_lr))&&
+V172_FINAL_EXTENDED='''             ((c.pc==nwii::runtime::v172_stop_pc&&c.lr==nwii::runtime::v172_stop_lr)||(nwii::runtime::v173_next_seen==1u&&c.pc==nwii::runtime::v173_target_pc&&c.lr==nwii::runtime::v173_target_lr))&&
              c.lr==0x8051910cu&&
              !c.is_running,'''
 
