@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from derive_v180_sc_reply_next_runner import derive as previous
 
-OLD='python3 "$here/derive_v179_sc_reply_next_harness.py"'
+OLD='python3 "$here/derive_v180_sc_reply_next_harness.py"'
 NEW='python3 "$here/derive_v181_sc_reply_next_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V180_SC_NEXT verified=1'"
