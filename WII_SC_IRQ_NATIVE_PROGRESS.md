@@ -1,9 +1,10 @@
-# Wii SC IRQ native continuation: V141-V199
+# Wii SC IRQ native continuation: V141-V203
 
-Status: **V199 owner-original second IOS timebase/scheduler transition verified (16/16 trials)**.
-V200, continuing the second IRQ dispatcher to its original registered
-IPC handler, is **not verified** until its separate owner-original trial passes. This document retains the earlier V141-V145
-checkpoints as historical evidence, not as the current development frontier.
+Status: **V203 owner-original second IOS control-write helper entry verified (16/16 trials)**.
+V200-V203 now independently confirm the original second-Y2 dispatcher, registered
+IPC handler, first read helper, repeated read and the distinct control-write
+helper entry. **V204 acknowledgment execution is not yet verified.**
+Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
@@ -32,6 +33,10 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V197 | [16-trial run 44863349099](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44863349099) | Executed authentic original second Y2 handler and entered IRQ dispatcher at `PC=0x80526A3C`; saved nonvolatile GPRs, SRR0/SRR1, LR/CTR/XER and unconsumed second IOS reply all verified. Owner-original and source-only CI passed 16/16. |
 | V198 | [16-trial run 44864067516](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44864067516) | Original second IRQ dispatcher called genuine timebase helper `PC=0x8052A824 / LR=0x80526C84`; EE masked, queued IOS completion intact, instruction count advanced. Corrected instrumentation validates prior V197 saved exception frame rather than incorrectly assuming live SRR0 is preserved. Owner-original and public CI passed. |
 | V199 | [16-trial run 44864292383](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44864292383) | Original second Y2 timebase helper executed into native scheduler-disable helper `PC=0x805293F8 / LR=0x80526C98`; EE masked, real IOS completion still pending, authentic guest execution progress, 16/16 owner and source-only checks passed. |
+| V200 | [16-trial run 44866053683](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866053683) | Executed original scheduler-disable and IRQ slot 27 dispatch to installed IPC handler `PC=0x80519318 / LR=0x80526CAC`. Verified second interrupt frame, masked MSR.EE and queued native IOS completion. Earlier V98 NAND idle-queue observer was narrowly phase-scoped rather than bypassing original code. Owner-original and public tests passed. |
+| V201 | [16-trial run 44866283734](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866283734) | Original second-Y2 IPC handler body executed to its first original read helper at `PC=0x8051905C / LR=0x8051933C`, with one IOS completion still queued and no synthetic hardware ACK. Owner-original and public tests passed. |
+| V202 | [16-trial run 44866481776](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866481776) | Original read helper executed and returned to the IPC handler, which called `0x8051905C` again with `LR=0x8051935C`. Original second-Y2 reply remains pending. Owner-original and public tests passed. |
+| V203 | [16-trial run 44866697625](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866697625) | Following one more original IPC read, the second IRQ entered distinct control-write helper `PC=0x8051906C / LR=0x80519380`. All 16 owner-original trials and public tests passed. **The helper has not yet executed its Y2 MMIO acknowledgment.** |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -40,21 +45,21 @@ masked guest MSR. The V191-V194 owner-original trace proves a closed SC
 initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
-**Current verified PowerPC frontier: `PC=0x805293F8`, LR `0x80526C98`**,
-the original scheduler-disable helper reached during the *second* genuine
-Y2 interrupt. V195 hardware entry, V196 installed vector execution, V197
-exception-handler dispatch, V198 original timebase entry and V199 native
-timebase return to scheduler-disable are independently verified through
-16-trial owner-original execution.
+**Current verified PowerPC frontier: `PC=0x8051906C`, LR `0x80519380`**,
+the authentic control-write helper reached from the registered IPC handler
+during the *second* genuine Y2 interrupt. V200-V203 extend the verified
+second-interrupt path beyond the scheduler disable and through the original
+handler and control reads, with 16-trial owner-original evidence per stage.
+At V203, EE remains masked and the second IOS completion is still queued.
 
-**V200 (unverified):** continue the genuine original scheduler-disable
-helper and dispatcher until the registered PowerPC IPC handler is selected.
-The first IRQ used original handler `0x80519318` at V145; the second
-interrupt must verify its actual handler, interrupt frame, LR, masked EE,
-and pending IOS completion rather than assume the same path. No host-side
-reply publication or synthetic SC status change should be introduced.
+**V204 (unverified):** execute the actual guest PPC control-write helper
+and establish whether it issues the genuine Hollywood IPC `Y2` W1C. Test
+the real native MMIO write and resulting mailbox/IRQ state; do not directly
+clear any device register, pump IOS, rewrite SC status or fabricate replies.
+Keep the subsequent IRQ flag acknowledgment and IOS reply publication as
+separate checks.
 
-**Not yet achieved:** final acknowledgment/publication of the *second* IOS
+**Not yet achieved:** PPCCTRL Y2 acknowledgment and final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
 `main`, first frame, frontend, gameplay or a complete Windows port.
 
