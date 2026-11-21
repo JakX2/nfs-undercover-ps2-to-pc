@@ -209,12 +209,47 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     ++v208_reply_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }'''
+TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
+TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
+  // Observe only the original second IOS_OpenAsync entry. The real
+  // original Wii PowerPC routine receives path in r3 and mode in r4,
+  // then writes their physical/path and scalar/mode values to the
+  // standard request ABI slots. No original instruction is replaced.
+  if(v177_next_seen==1u&&v183_second_msg==0u&&
+     v208_async_seen==0u&&addr==0x8051982cu){
+    const uint32_t path=ctx.gpr[3],mode=ctx.gpr[4];
+    const bool tracked=ctx.gpr[13]==v147_first_r13;
+    const bool pathmap=ctx.mmu.get_ptr(path)!=nullptr;
+    const bool pathslash=pathmap&&ctx.mmu.read8(path)==uint8_t('/');
+    const bool modevalid=mode<=3u;
+    const bool modemem2=mode>=0x90000000u&&mode<0x94000000u;
+    const bool modemapped=modemem2&&ctx.mmu.get_ptr(mode)!=nullptr;
+    const bool modeslash=modemapped&&ctx.mmu.read8(mode)==uint8_t('/');
+    v208_async_path=path;v208_async_mode=mode;
+    ++v208_async_seen;
+    std::cout<<"V208_Y2_ASYNC_ENTRY seen="<<(v208_async_seen==1u)
+             <<" tracked="<<tracked<<" pathmap="<<pathmap
+             <<" pathslash="<<pathslash<<" modevalid="<<modevalid
+             <<" modemem2="<<modemem2<<" modeslash="<<modeslash
+             <<" lr="<<std::hex<<ctx.lr<<std::dec<<std::endl;
+    return; // execute original IOS_OpenAsync unmodified
+  }
+'''
 SEND='''      // Observe only the actual guest-owned second IPC request at PPCMSG.
       // Keep its source arguments privately for a post-ACK stability check.
       const uint32_t a=ipc70_ram.read32(value+12u);
       const uint32_t b=ipc70_ram.read32(value+16u);
       v208_send_path=a;v208_send_mode=b;
       ++v208_send_seen;
+      const bool prior_async=v208_async_seen==1u;
+      const bool path_same=prior_async&&a==(v208_async_path&0x1fffffffu);
+      const bool mode_same=prior_async&&b==v208_async_mode;
+      const bool path_is_mode=prior_async&&a==v208_async_mode;
+      const bool mode_is_path=prior_async&&b==v208_async_path;
+      std::cout<<"V208_Y2_ASYNC_LINK witnessed="<<prior_async
+               <<" path_same="<<path_same<<" mode_same="<<mode_same
+               <<" path_is_mode="<<path_is_mode
+               <<" mode_is_path="<<mode_is_path<<std::endl;
       const bool ptr=a!=0u&&ipc70_ram.valid(a,1u);
       const bool slash=ptr&&ipc70_ram.read8(a)==uint8_t('/');
       // Authentic guest PPCMSG write provenance: no RAM writes, no
@@ -324,12 +359,17 @@ def derive(source:str)->str:
  static unsigned v208_reply_seen=0u;
  static uint32_t v208_fd=0u;
  static unsigned v208_send_seen=0u;
- static uint32_t v208_send_path=0u,v208_send_mode=0u;''')
+ static uint32_t v208_send_path=0u,v208_send_mode=0u;
+ static unsigned v208_async_seen=0u;
+ static uint32_t v208_async_path=0u,v208_async_mode=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
      nwii::runtime::v208_fd=0u;
      nwii::runtime::v208_send_seen=0u;
-     nwii::runtime::v208_send_path=nwii::runtime::v208_send_mode=0u;''')
+     nwii::runtime::v208_send_path=nwii::runtime::v208_send_mode=0u;
+     nwii::runtime::v208_async_seen=0u;
+     nwii::runtime::v208_async_path=nwii::runtime::v208_async_mode=0u;''')
+    s=once(s,TRACE_ANCHOR,TRACE_HOOK)
     s=once(s,'      v183_second_phys=value;',SEND)
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,PUBLISH,1))
     s=once(s,PREVIOUS_END,NEXT_END)
