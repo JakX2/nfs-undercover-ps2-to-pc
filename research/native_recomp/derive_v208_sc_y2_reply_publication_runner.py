@@ -19,6 +19,15 @@ def derive(source:str)->str:
     if s.count(fail)!=1:
         raise ValueError("V208 original-native runner failure anchor changed")
     s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    # The inherited V178 failure classifier can exit before the later V130
+    # diagnostics. Emit only bounded public Boolean/PC/LR telemetry first;
+    # never leak private native stdout or generated guest code.
+    native_fail='  python3 "$here/classify_v67_native_failure.py" \\\n'
+    if s.count(native_fail)!=1:
+        raise ValueError("V208 owner-native failure classification boundary changed")
+    s=s.replace(native_fail,
+        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\\n'
+        +native_fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
