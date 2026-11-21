@@ -16,6 +16,7 @@ SEND_PATTERN=r'^V208_Y2_SEND witness=[01] ptr=[01] slash=[01] mode_valid=[01] mo
 STABLE_PATTERN=r'^V208_Y2_STABLE sent=[01] path=[01] mode=[01]$'
 SWAP_PATTERN=r'^V208_Y2_SWAP path_mode=[01] mode_mem2=[01] mode_mapped=[01] mode_slash=[01] mode_string=[01]$'
 LAYOUT_PATTERN=r'^V208_Y2_LAYOUT ptr0c=[01] ptr10=[01] ptr14=[01] ptr18=[01] ptr1c=[01] mode0c=[01] mode10=[01] mode14=[01] mode18=[01] mode1c=[01]$'
+BASE_PATTERN=r'^V208_Y2_BASE old_valid=[01] old_reply=[01] old_path=[01] old_mode=[01] old_open=[01] same_ptr=[01]$'
 
 def derive(source:str)->str:
     s=previous(source)
@@ -33,6 +34,7 @@ def derive(source:str)->str:
     s=s.replace(fail,'  grep -E "'+STABLE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+SWAP_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+LAYOUT_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+BASE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

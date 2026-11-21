@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -118,6 +118,15 @@ class V208(unittest.TestCase):
         self.assertNotIn("<<alt14",PUBLISH)
         self.assertNotIn("<<alt18",PUBLISH)
         self.assertNotIn("<<alt1c",PUBLISH)
+        base="V208_Y2_BASE old_valid=1 old_reply=1 old_path=1 old_mode=1 old_open=1 same_ptr=0"
+        self.assertIsNotNone(re.fullmatch(BASE_PATTERN,base))
+        self.assertIsNone(re.fullmatch(BASE_PATTERN,base+" guest=/private"))
+        self.assertIn("V208_Y2_BASE",PUBLISH)
+        self.assertIn("read32(v153_phys+12u)",PUBLISH)
+        self.assertIn("read32(v153_phys+16u)",PUBLISH)
+        self.assertIn("services().is_open(v153_fd",PUBLISH)
+        self.assertNotIn("<<first_path<<",PUBLISH)
+        self.assertNotIn("<<first_mode<<",PUBLISH)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",

@@ -125,6 +125,26 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
              <<" mode14="<<modeclass(alt14)
              <<" mode18="<<modeclass(alt18)
              <<" mode1c="<<modeclass(alt1c)<<std::endl;
+    // Compare against the authenticated prior first SC SYSCONF IOS reply,
+    // whose request buffer was accepted by the native filesystem. No raw
+    // game string, request pointer or descriptor is printed.
+    const bool first_valid=v153_phys!=0u&&ipc70_ram.valid(v153_phys,64u);
+    const uint32_t first_path=first_valid?ipc70_ram.read32(v153_phys+12u):0u;
+    const uint32_t first_mode=first_valid?ipc70_ram.read32(v153_phys+16u):0xffffffffu;
+    const bool first_reply=first_valid&&
+          ipc70_ram.read32(v153_phys)==IOS::Reply;
+    const bool first_pathok=first_valid&&pathclass(first_path);
+    const bool first_modeok=first_valid&&modeclass(first_mode);
+    const bool first_open=first_reply&&
+          ipc70_bus.services().is_open(v153_fd,IOS::Device::File);
+    const bool same_ptr=first_valid&&first_path==mode_arg;
+    std::cout<<"V208_Y2_BASE old_valid="<<first_valid
+             <<" old_reply="<<first_reply
+             <<" old_path="<<first_pathok
+             <<" old_mode="<<first_modeok
+             <<" old_open="<<first_open
+             <<" same_ptr="<<same_ptr<<std::endl;
+
     const bool path_zero=path_arg==0u;
     const bool path_mapped=!path_zero&&ipc70_ram.valid(path_arg,1u);
     const bool mode_valid=mode_arg<=3u;
