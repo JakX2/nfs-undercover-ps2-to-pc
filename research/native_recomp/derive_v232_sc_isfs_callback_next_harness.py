@@ -16,6 +16,15 @@ from derive_v231_sc_y1_isfs_callback_harness import (
 )
 from derive_v194_osrestore_next_harness import STATE, RESET, once
 
+# The legacy open71_trace is a first IOS_Open allocator ABI probe.
+# It is not a general iosAlloc/iosFree monitor. Once V231 authenticates
+# the later ISFS reply callback, its expected first-open LR/stack can no
+# longer be applied to a different original Wii allocation/free.
+OPEN71_OLD=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
+   if(!stm70_open)return false;'''
+OPEN71_SCOPED=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
+   if(!stm70_open||v231_callback_seen==1u)return false;'''
+
 STOP='''    v231_target_pc=addr;v231_target_lr=ctx.lr;
     ++v231_callback_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -111,6 +120,9 @@ NEXT_END='''      using B=undercover::wii::IosBus;
 
 def derive(source:str)->str:
     s=previous(source)
+    # Guard only this historically first-open probe, not the actual
+    # allocator, IOS service, callback or original guest registers.
+    s=once(s,OPEN71_OLD,OPEN71_SCOPED)
     if PREVIOUS_OBSERVER.count(STOP)!=1 or s.count(PREVIOUS_END)!=1:
         raise ValueError("V232 authenticated V231 callback entry changed")
     s=once(s,STATE,STATE+'''

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v231_sc_y1_isfs_callback_harness import derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END
-from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, OPEN71_OLD, OPEN71_SCOPED
+from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, OPEN71_OLD, OPEN71_SCOPED, OPEN71_OLD, OPEN71_SCOPED
 from derive_v232_sc_isfs_callback_next_runner import derive as runner, PATTERN, PASS
 from derive_v232_nand_callback_generator import derive as derive_generator, NEW_ROOTS
 HERE=Path(__file__).resolve().parent
@@ -35,6 +35,15 @@ class V232(unittest.TestCase):
                   "V232_ISFS_NEXT","++v232_next_seen"):
             self.assertIn(m,OBSERVER)
         with self.assertRaises(ValueError):derive("missing original-free fixture")
+    def test_original_first_open_allocator_observer_is_phase_specific(self):
+        self.assertIn(OPEN71_OLD,self.before)
+        self.assertNotIn(OPEN71_OLD,self.after)
+        self.assertIn(OPEN71_SCOPED,self.after)
+        self.assertEqual(self.after.count(OPEN71_SCOPED),1)
+        self.assertIn("v231_callback_seen==1u",OPEN71_SCOPED)
+        self.assertNotIn("ctx.mmu.write",OPEN71_SCOPED)
+        self.assertNotIn("ipc70_ram.write",OPEN71_SCOPED)
+
     def test_callback_generator_aot_analysis_only(self):
         src=(HERE/"generate_start_to_ipc_ack_v77.cpp").read_text(encoding="utf-8")
         result=derive_generator(src)
