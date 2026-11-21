@@ -276,6 +276,30 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
           ctx.mmu.read32(parent+8u)==undercover::wii::StmIos::Open;
     const bool r3_ptr=ctx.mmu.get_ptr(ctx.gpr[3])!=nullptr;
     const bool r4_path=mode_slash;
+    // Determine whether this was a direct callback, an intermediate
+    // ISFS callback, or a differently mapped request. Emit only classes.
+    const bool cb_text=callback>=0x80400000u&&callback<0x80600000u;
+    const bool cb_physical=callback>=0x00400000u&&callback<0x00600000u;
+    const bool cb_isfs=callback==0x804f1e2cu;
+    const bool cb_isfs_adapter=callback==0x804f0e04u;
+    const bool ctr_text=ctx.ctr>=0x80400000u&&ctx.ctr<0x80600000u;
+    const bool ctr_isfs_adapter=ctx.ctr==0x804f0e04u;
+    const bool same_ctr=parent_mapped&&ctx.ctr==callback;
+    const bool from_first=parent_mapped&&
+          parent==(v153_phys|0x80000000u);
+    const bool from_second=parent_mapped&&
+          parent==(v183_second_phys|0x80000000u);
+    const bool cb_data_mem2=parent_mapped&&
+          ctx.mmu.read32(parent+36u)>=0x90000000u&&
+          ctx.mmu.read32(parent+36u)<0x94000000u;
+    std::cout<<"V208_Y2_CB_CLASS text="<<cb_text
+             <<" physical="<<cb_physical<<" isfs="<<cb_isfs
+             <<" isfs_cb="<<cb_isfs_adapter
+             <<" ctr_text="<<ctr_text
+             <<" ctr_isfs_cb="<<ctr_isfs_adapter
+             <<" same_ctr="<<same_ctr
+             <<" first="<<from_first<<" second="<<from_second
+             <<" user_mem2="<<cb_data_mem2<<std::endl;
     std::cout<<"V208_Y2_CB_ABI return="<<ipc_reply_return
              <<" parent="<<parent_mapped<<" target="<<target
              <<" ctr="<<ctr_target<<" result="<<r3_result

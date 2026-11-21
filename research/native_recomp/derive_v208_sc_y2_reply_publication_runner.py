@@ -28,6 +28,7 @@ GPR_FLOW_PATTERN=r'^V208_Y2_GPR_FLOW witnessed=[01] mode_same=[01] first_valid=[
 PROVENANCE_PATTERN=r'^V208_Y2_PROVENANCE saved=[01] nand=[01] log=[01] other=[01] path_stack=[01] stack_slash=[01] r31_scalar=[01] r4_eq_r31=[01]$'
 CALLER_PATTERN=r'^V208_Y2_CALLER text=[01] aligned=[01] frame=[01] pc=[0-9a-f]{1,8}$'
 CALLBACK_PATTERN=r'^V208_Y2_CB_ABI return=[01] parent=[01] target=[01] ctr=[01] result=[01] userdata=[01] reply=[01] open=[01] r3ptr=[01] r4path=[01]$'
+CALLBACK_CLASS_PATTERN=r'^V208_Y2_CB_CLASS text=[01] physical=[01] isfs=[01] isfs_cb=[01] ctr_text=[01] ctr_isfs_cb=[01] same_ctr=[01] first=[01] second=[01] user_mem2=[01]$'
 
 def derive(source:str)->str:
     s=previous(source)
@@ -57,6 +58,7 @@ def derive(source:str)->str:
     s=s.replace(fail,'  grep -E "'+PROVENANCE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+CALLER_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+CALLBACK_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+CALLBACK_CLASS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND, TRACE_HOOK
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN, CALLBACK_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN, CALLBACK_PATTERN, CALLBACK_CLASS_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -213,6 +213,16 @@ class V208(unittest.TestCase):
         self.assertNotRegex(TRACE_HOOK,r"<<\\s*callback\\b")
         self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
         self.assertIn("V208_Y2_CB_ABI",script)
+        classified=("V208_Y2_CB_CLASS text=1 physical=0 isfs=0 isfs_cb=1 "
+                    "ctr_text=1 ctr_isfs_cb=1 same_ctr=1 first=1 second=0 user_mem2=1")
+        self.assertIsNotNone(re.fullmatch(CALLBACK_CLASS_PATTERN,classified))
+        self.assertIsNone(re.fullmatch(CALLBACK_CLASS_PATTERN,classified+" callback=private"))
+        self.assertIn("V208_Y2_CB_CLASS",TRACE_HOOK)
+        self.assertIn("callback==0x804f0e04u",TRACE_HOOK)
+        self.assertIn("parent==(v153_phys|0x80000000u)",TRACE_HOOK)
+        self.assertNotRegex(TRACE_HOOK,r"<<\s*callback\b")
+        self.assertNotRegex(TRACE_HOOK,r"<<\s*parent\b")
+        self.assertIn("V208_Y2_CB_CLASS",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
                 "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
         pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "
