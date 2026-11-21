@@ -151,7 +151,7 @@ jobs:
           grep -E '^V152_SC_POST_HELPER clean=1 idle=1 queued=1 guest=1 text=1 target=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc193.log" | sort -u
           grep -Fx 'V153_SC_REPLY verified=1' "$RUNNER_TEMP/sc193.log"
           grep -Fx 'V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1' "$RUNNER_TEMP/sc193.log" | sort -u
-          grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0' "$RUNNER_TEMP/sc193.log" | sort -u
+          grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' "$RUNNER_TEMP/sc193.log" | sort -u
           grep -Fx 'V154_SC_SCHED_NEXT verified=1' "$RUNNER_TEMP/sc193.log"
           grep -E '^V154_SC_SCHED_NEXT signal=1 reply=1 guest=1 target=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc193.log" | sort -u
           grep -Fx 'V155_SC_AFTER_DISABLE verified=1' "$RUNNER_TEMP/sc193.log"

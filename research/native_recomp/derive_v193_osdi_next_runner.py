@@ -33,6 +33,17 @@ def derive(source: str)->str:
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
     )
     s=s.replace(success,success+"\n"+diagnostic,1)
+
+    # The original V153 first-reply proof is unchanged. V191/V192 finished
+    # with MSR.EE=1, making the pending second IRQ immediately deliverable;
+    # authentic V193 OSDisableInterrupts now masks EE before the next PPC call.
+    # Consequently the terminal V153 second-request *snapshot* returns
+    # to irq=1 even though Y2 and the pending IOS completion remain queued.
+    old_v153 = """grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0' "$log" | sort -u"""
+    new_v153 = """grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' "$log" | sort -u"""
+    if s.count(old_v153)!=1:
+        raise ValueError("V193 inherited V153 EE-enabled terminal snapshot changed")
+    s=s.replace(old_v153,new_v153,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

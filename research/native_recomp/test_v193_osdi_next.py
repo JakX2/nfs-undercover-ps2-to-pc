@@ -57,6 +57,8 @@ class V193(unittest.TestCase):
         self.assertIn("V192_OSINIT_NEXT verified=1",script)
         self.assertIn("V193_GUEST_PROBE next=$v193_next state=$v193_state",script)
         self.assertIn("V193_OSDI_NEXT verified=1",script)
+        self.assertIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1",script)
+        self.assertNotIn("grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0'",script)
         good=("V193_OSDI_NEXT y2=1 flag=1 queue=1 guest=1 coherent=1 mapped=1 "
               "caller=1 sc=1 ee=0 ready=0 r3=1 eq=1 pc=805265d4 lr=8052f850")
         self.assertTrue(re.fullmatch(PASS,good))
@@ -71,6 +73,8 @@ class V193(unittest.TestCase):
         wf=(HERE.parents[1]/".github/workflows/wii-v193-osdi-next.yml").read_text()
         self.assertIn("run_v193_osdi_next.sh",wf)
         self.assertIn("V193_OSDI_NEXT verified=1",wf)
+        self.assertIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1",wf)
+        self.assertNotIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0",wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
         self.assertNotIn("upload-artifact",wf)
 
