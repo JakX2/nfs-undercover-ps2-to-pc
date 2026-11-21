@@ -252,6 +252,36 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
              <<" frame="<<frame<<" pc="<<std::hex
              <<(text&&aligned?source_lr:0u)<<std::dec<<std::endl;
 
+    // The authenticated saved LR is immediately after the real
+    // IpcReplyHandler indirect BCTRL. Distinguish an unintended callback
+    // target from a regular direct ISFS_OpenAsync invocation, without
+    // exporting request pointers, paths, instruction words or callbacks.
+    const bool ipc_reply_return=source_lr==0x805192acu;
+    const uint32_t parent=ctx.gpr[31];
+    const bool parent_mapped=parent!=0u&&!(parent&3u)&&
+          parent<=0xfffffffbu&&
+          ctx.mmu.get_ptr(parent)!=nullptr&&
+          ctx.mmu.get_ptr(parent+39u)!=nullptr;
+    const uint32_t callback=parent_mapped?
+          ctx.mmu.read32(parent+32u):0u;
+    const bool target=parent_mapped&&callback==0x804f1e2cu;
+    const bool ctr_target=ctx.ctr==0x804f1e2cu;
+    const bool r3_result=parent_mapped&&
+          ctx.gpr[3]==ctx.mmu.read32(parent+4u);
+    const bool r4_userdata=parent_mapped&&
+          ctx.gpr[4]==ctx.mmu.read32(parent+36u);
+    const bool callback_reply=parent_mapped&&
+          ctx.mmu.read32(parent)==undercover::wii::StmIos::Reply;
+    const bool callback_open=parent_mapped&&
+          ctx.mmu.read32(parent+8u)==undercover::wii::StmIos::Open;
+    const bool r3_ptr=ctx.mmu.get_ptr(ctx.gpr[3])!=nullptr;
+    const bool r4_path=mode_slash;
+    std::cout<<"V208_Y2_CB_ABI return="<<ipc_reply_return
+             <<" parent="<<parent_mapped<<" target="<<target
+             <<" ctr="<<ctr_target<<" result="<<r3_result
+             <<" userdata="<<r4_userdata<<" reply="<<callback_reply
+             <<" open="<<callback_open<<" r3ptr="<<r3_ptr
+             <<" r4path="<<r4_path<<std::endl;
     std::cout<<"V208_Y2_PROVENANCE saved="<<lr_mapped
              <<" nand="<<caller_nand<<" log="<<caller_log
              <<" other="<<caller_other

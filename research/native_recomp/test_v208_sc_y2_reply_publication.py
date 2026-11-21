@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND, TRACE_HOOK
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN, CALLBACK_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -198,6 +198,21 @@ class V208(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(CALLER_PATTERN,caller))
         self.assertIsNone(re.fullmatch(CALLER_PATTERN,caller+" data=/private"))
         self.assertIn("V208_Y2_CALLER",script)
+        # Verify only original-free booleans. The live guest request,
+        # pointers, callback address and filename must never be logged.
+        callback=("V208_Y2_CB_ABI return=1 parent=1 target=1 ctr=1 "
+                  "result=1 userdata=1 reply=1 open=1 r3ptr=0 r4path=1")
+        self.assertIsNotNone(re.fullmatch(CALLBACK_PATTERN,callback))
+        self.assertIsNone(re.fullmatch(CALLBACK_PATTERN,callback+" path=/private"))
+        self.assertIn("V208_Y2_CB_ABI",TRACE_HOOK)
+        self.assertIn("source_lr==0x805192acu",TRACE_HOOK)
+        self.assertIn("ctx.mmu.read32(parent+32u)",TRACE_HOOK)
+        self.assertIn("ctx.mmu.read32(parent+36u)",TRACE_HOOK)
+        self.assertIn("ctx.gpr[3]==ctx.mmu.read32(parent+4u)",TRACE_HOOK)
+        self.assertNotIn("<<parent",TRACE_HOOK)
+        self.assertNotIn("<<callback",TRACE_HOOK)
+        self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
+        self.assertIn("V208_Y2_CB_ABI",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
                 "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
         pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "
