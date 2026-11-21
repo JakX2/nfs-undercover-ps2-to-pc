@@ -241,6 +241,17 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
           ctx.mmu.read8(sp+40u)==uint8_t('/');
     const bool r31_mode=ctx.gpr[31]<=3u;
     const bool mode_equal=m==ctx.gpr[31];
+    // Source only the saved *executable* return address from the
+    // original ISFS frame. Addresses outside authenticated Wii text
+    // are suppressed, as are all game data and stack pointer values.
+    const bool frame=ctx.gpr[11]==sp+32u;
+    const bool text=lr_mapped&&source_lr>=0x80400000u&&
+          source_lr<0x80600000u;
+    const bool aligned=lr_mapped&&(source_lr&3u)==0u;
+    std::cout<<"V208_Y2_CALLER text="<<text<<" aligned="<<aligned
+             <<" frame="<<frame<<" pc="<<std::hex
+             <<(text&&aligned?source_lr:0u)<<std::dec<<std::endl;
+
     std::cout<<"V208_Y2_PROVENANCE saved="<<lr_mapped
              <<" nand="<<caller_nand<<" log="<<caller_log
              <<" other="<<caller_other
