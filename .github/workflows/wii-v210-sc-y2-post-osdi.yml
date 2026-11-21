@@ -289,12 +289,7 @@ jobs:
           grep -Fx 'V209_SC_Y2_OSDI_NEXT verified=1' "$RUNNER_TEMP/sc210.log"
           grep -E '^V209_Y2_OSDI y2=1 irq_down=[01] queue=[01] open=[01] replied=[01] guest=1 caller=1 coherent=1 mapped=1 sc=[0-9]{1,3} ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc210.log" | sort -u
           grep -Fx 'V210_SC_Y2_POST_OSDI verified=1' "$RUNNER_TEMP/sc210.log"
-          grep -E '^V210_Y2_NEXT y2=1 flag=1 irq_down=[01] queue=[01] open=[01] replied=[01] guest=1 caller=1 coherent=1 mapped=1 sc=[0-9]{1,3} ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc210.log"
- "$RUNNER_TEMP/sc210.log" | sort -u
+          grep -E '^V210_Y2_NEXT y2=1 flag=1 irq_down=[01] queue=[01] open=[01] replied=[01] guest=1 caller=1 coherent=1 mapped=1 sc=[0-9]{1,3} ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc210.log" | sort -u
           echo 'PASS: original second Y2 post-OSDI guest successor reached'
       - name: Remove private owner and generated code
         if: always()
