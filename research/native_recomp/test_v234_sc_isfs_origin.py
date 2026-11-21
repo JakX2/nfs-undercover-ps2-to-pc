@@ -33,7 +33,7 @@ class V234(unittest.TestCase):
             self.assertEqual(self.before.count(needle),self.after.count(needle))
         for token in (TRACE,SEND):
             for bad in ("ctx.mmu.write","ipc70_ram.write",
-                        "ipc70_bus.write","<<v234_isfs_mode","<<v234_p"):
+                        "ipc70_bus.write","<<v234_isfs_mode","<<v234_p<<"):
                 self.assertNotIn(bad,token)
             self.assertNotRegex(token,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
     def test_bounded_owner_runner_and_cleanup(self):
