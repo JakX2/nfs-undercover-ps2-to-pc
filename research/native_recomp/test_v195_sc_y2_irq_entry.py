@@ -22,9 +22,13 @@ class V195(unittest.TestCase):
         self.assertNotIn("V195_SC_Y2_VECTOR",self.before)
         self.assertEqual(self.after.count("V195_SC_Y2_VECTOR pending="),1)
         pos=self.after.index(IRQ)
-        self.assertGreater(pos,self.after.index("original BSS byte not zero"))
-        self.assertGreater(pos,self.after.index("original interrupt-disable MSR.EE side effect changed"))
-        self.assertLess(pos,self.after.index("unexpected syscall/interpreter fallback"))
+        # Owner-mode V77 reaches this check and immediately 'continue's.
+        # All subsequent BSS assertions belong to an unreachable legacy
+        # synthetic/late path. The IRQ adapter must not live there.
+        self.assertGreater(pos,self.after.index('std::cout<<"V77_TRIAL_PASS trial="'))
+        self.assertLess(pos,self.after.index("original BSS byte not zero"))
+        self.assertTrue(self.after[pos+len(IRQ):].lstrip().startswith("continue;"))
+        self.assertEqual(self.after.count('std::cout<<"V77_TRIAL_PASS trial="'),1)
         self.assertIn("oldpc==0x8052f830u&&oldlr==0x80520970u",IRQ)
         self.assertIn("nwii::runtime::v194_next_seen==1u",IRQ)
         self.assertIn("irq74_vector,safe",IRQ)

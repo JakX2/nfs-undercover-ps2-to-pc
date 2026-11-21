@@ -11,10 +11,8 @@ import argparse
 from pathlib import Path
 from derive_v194_osrestore_next_harness import derive as previous
 
-TAIL='''      check(c.mmu.read32(0x80036004u)==0xDEADBEEFu,"synthetic store overran neighboring word");
-    }
-  }
-  check(nwii::runtime::unknown_calls==0&&nwii::runtime::interpreter_calls==0,"unexpected syscall/interpreter fallback");'''
+TAIL='''        std::cout<<"V77_TRIAL_PASS trial="<<trial+1u<<std::endl;
+        continue;'''
 IRQ='''    // Bounded hardware exception after all authenticated guest state checks.
     // No guest instruction, IRQ latch acknowledgment or IOS service is faked.
     if(owner){
@@ -60,9 +58,12 @@ def derive(source:str)->str:
     s=previous(source)
     if s.count(TAIL)!=1 or s.count("V194_RESTORE_STATE guest=")!=1:
         raise ValueError("V195 original-free authenticated trial tail changed")
-    insertion='  }\n  check(nwii::runtime::unknown_calls'
+    # V77's owner-specific verification returns through this 'continue',
+    # bypassing later synthetic-only BSS and startup assertions entirely.
+    # Attach the hardware entry to the *reachable* owner test boundary.
+    insertion='        continue;'
     if TAIL.count(insertion)!=1:
-        raise ValueError("V195 end of trial is not unique")
+        raise ValueError("V195 owner trial continue changed")
     return s.replace(TAIL,TAIL.replace(insertion,IRQ+insertion,1),1)
 
 if __name__=="__main__":
