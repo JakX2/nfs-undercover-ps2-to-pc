@@ -32,12 +32,14 @@ class V252(unittest.TestCase):
                   "c.pc==0x8051e06cu",
                   "c.lr==0x804f0f54u",
                   "c.ctr==0x8051e06cu",
-                  "v244_cb_registered&&v244_cb_abi",
+                  "nwii::runtime::v244_cb_registered&&nwii::runtime::v244_cb_abi",
                   "v244_nested_target==0x8051e06cu",
-                  "v250_nand_seen==1u&&v252_nand_entry_seen==1u",
+                  "nwii::runtime::v250_nand_seen==1u&&nwii::runtime::v252_nand_entry_seen==1u",
                   "v183_second_phys==0u",
                   "V252_NAND_GUEST checked="):
             self.assertIn(x,VERIFY)
+        self.assertIn("nwii::runtime::v250_candidate_mode",VERIFY)
+        self.assertIn("nwii::runtime::ipc70_ram.valid(",VERIFY)
         with self.assertRaises(ValueError):derive("unmatched source")
 
     def test_no_guest_mutation_and_unchanged_baseline_mode(self):

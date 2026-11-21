@@ -28,19 +28,19 @@ BOUNDED_STOP='''    ++v250_nand_seen;
     ctx.is_running=false;throw ExceptionStop{};'''
 VERIFY='''      check(exception_stop,"exception initialization did not reach exact test-only syscall");
       if(v250_probe){
-        const bool checkpoint=v250_candidate_mode&&v250_cb_seen==1u&&
-              v250_nand_seen==1u&&v252_nand_entry_seen==1u&&
-              v244_cb_seen==1u&&v244_cb_registered&&v244_cb_abi&&
-              v244_nested_target==0x8051e06cu;
+        const bool checkpoint=nwii::runtime::v250_candidate_mode&&nwii::runtime::v250_cb_seen==1u&&
+              nwii::runtime::v250_nand_seen==1u&&nwii::runtime::v252_nand_entry_seen==1u&&
+              nwii::runtime::v244_cb_seen==1u&&nwii::runtime::v244_cb_registered&&nwii::runtime::v244_cb_abi&&
+              nwii::runtime::v244_nested_target==0x8051e06cu;
         const bool regs=c.pc==0x8051e06cu&&c.lr==0x804f0f54u&&
               c.ctr==0x8051e06cu&&!c.is_running&&
-              v250_initial_sp>=c.gpr[1]&&
-              v250_initial_sp-c.gpr[1]==16u&&
-              c.inst_count>v250_initial_inst;
-        const bool real_reply=v153_phys!=0u&&
-              ipc70_ram.valid(v153_phys,64u)&&
-              ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply;
-        const bool before_second=v183_second_phys==0u;
+              nwii::runtime::v250_initial_sp>=c.gpr[1]&&
+              nwii::runtime::v250_initial_sp-c.gpr[1]==16u&&
+              c.inst_count>nwii::runtime::v250_initial_inst;
+        const bool real_reply=nwii::runtime::v153_phys!=0u&&
+              nwii::runtime::ipc70_ram.valid(nwii::runtime::v153_phys,64u)&&
+              nwii::runtime::ipc70_ram.read32(nwii::runtime::v153_phys)==undercover::wii::StmIos::Reply;
+        const bool before_second=nwii::runtime::v183_second_phys==0u;
         const bool result=checkpoint&&regs&&real_reply&&before_second;
         std::cout<<"V252_NAND_GUEST checked="<<checkpoint
                  <<" regs="<<regs<<" reply="<<real_reply
