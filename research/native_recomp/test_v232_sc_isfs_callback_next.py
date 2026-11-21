@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v231_sc_y1_isfs_callback_harness import derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END
-from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END
+from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, OPEN71_OLD, OPEN71_SCOPED
 from derive_v232_sc_isfs_callback_next_runner import derive as runner, PATTERN, PASS
 from derive_v232_nand_callback_generator import derive as derive_generator, NEW_ROOTS
 HERE=Path(__file__).resolve().parent
@@ -23,9 +23,13 @@ class V232(unittest.TestCase):
         self.assertIn(CONTINUE,self.after)
         self.assertIn(OBSERVER,self.after)
         self.assertIn(NEXT_END,self.after)
+        self.assertEqual(self.before.count(OPEN71_OLD),1)
+        self.assertEqual(self.after.count(OPEN71_SCOPED),1)
+        self.assertIn("if(v231_callback_seen==1u)return false;",OPEN71_SCOPED)
+        self.assertNotIn(OPEN71_OLD,self.after)
         self.assertNotIn(PREVIOUS_END,self.after)
         for m in ("v231_callback_seen==1u","ctx.inst_count>v232_start_inst",
-                  "ctx.lr>=0x804f0e04u","ctx.lr<0x804f0f84u",
+                  "ctx.lr>=0x80400000u","ctx.lr<0x80600000u",
                   "data+256u","data+260u",
                   "ctx.gpr[3]==uint32_t(IOS::Invalid)",
                   "V232_ISFS_NEXT","++v232_next_seen"):
@@ -56,7 +60,7 @@ class V232(unittest.TestCase):
                        "V232_SC_ISFS_CALLBACK_NEXT verified=1"):
             self.assertIn(marker,script)
         good=("V232_ISFS_NEXT clear=1 wire=1 guest=1 sc=1 mapped=1 "
-              "selected=1 nested=1 result=1 userdata=1 pc=8051e06c lr=804f0f54")
+              "selected=1 from_isfs=1 nested=1 result=1 userdata=1 pc=8051e06c lr=804f0f54")
         self.assertNotIn("derive_v232_nand_callback_generator.py",script)
         self.assertNotIn("V232_NAND_CALLBACK_ROOT verified=1",script)
         self.assertIsNotNone(re.fullmatch(PASS,good))

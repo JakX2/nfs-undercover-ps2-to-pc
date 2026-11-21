@@ -31,7 +31,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
      v232_next_seen==0u&&ctx.pc==addr&&
      addr>=0x80400000u&&addr<0x80600000u&&
      ctx.inst_count>v232_start_inst&&
-     ctx.lr>=0x804f0e04u&&ctx.lr<0x804f0f84u){
+     ctx.lr>=0x80400000u&&ctx.lr<0x80600000u){
     using B=undercover::wii::IosBus;
     using M=undercover::wii::IpcMailbox;
     using H=undercover::wii::HollywoodIrq;
@@ -51,6 +51,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
           ctx.mmu.get_ptr(data)!=nullptr&&
           ctx.mmu.get_ptr(data+263u)!=nullptr;
     const bool selected=mapped&&ctx.mmu.read32(data+256u)==addr;
+    const bool from_isfs=ctx.lr>=0x804f0e04u&&ctx.lr<0x804f0f84u;
     const bool nested=addr==0x8051e06cu&&ctx.lr==0x804f0f54u;
     const bool result=ctx.gpr[3]==uint32_t(IOS::Invalid);
     const bool userdata=mapped&&ctx.gpr[4]==ctx.mmu.read32(data+260u);
@@ -62,6 +63,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     std::cout<<"V232_ISFS_NEXT clear="<<clear<<" wire="<<wire
              <<" guest="<<guest<<" sc="<<sc
              <<" mapped="<<mapped<<" selected="<<selected
+             <<" from_isfs="<<from_isfs
              <<" nested="<<nested<<" result="<<result
              <<" userdata="<<userdata
              <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
@@ -73,6 +75,13 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
+OPEN71_OLD=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
+   if(!stm70_open)return false;'''
+OPEN71_SCOPED=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
+   // The original V71 first-open allocator ABI must not be rechecked
+   // after the third reply has entered the separate ISFS completion.
+   if(v231_callback_seen==1u)return false;
+   if(!stm70_open)return false;'''
 NEXT_END='''      using B=undercover::wii::IosBus;
       using M=undercover::wii::IpcMailbox;
       using H=undercover::wii::HollywoodIrq;
@@ -97,7 +106,7 @@ NEXT_END='''      using B=undercover::wii::IosBus;
             !c.is_running&&c.pc==nwii::runtime::v232_next_pc&&
             c.lr==nwii::runtime::v232_next_lr&&
             c.pc>=0x80400000u&&c.pc<0x80600000u&&
-            c.lr>=0x804f0e04u&&c.lr<0x804f0f84u,
+            c.lr>=0x80400000u&&c.lr<0x80600000u,
             "V232 original ISFS callback did not enter native successor");'''
 
 def derive(source:str)->str:
@@ -113,6 +122,7 @@ def derive(source:str)->str:
      nwii::runtime::v232_start_inst=0u;
      nwii::runtime::v232_next_pc=nwii::runtime::v232_next_lr=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
+    s=once(s,OPEN71_OLD,OPEN71_SCOPED)
     s=once(s,TRACE_ANCHOR,OBSERVER)
     s=once(s,PREVIOUS_END,NEXT_END)
     return s

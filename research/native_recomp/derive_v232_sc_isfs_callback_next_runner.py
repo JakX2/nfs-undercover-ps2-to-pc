@@ -9,8 +9,8 @@ from derive_v231_sc_y1_isfs_callback_runner import derive as previous
 OLD='python3 "$here/derive_v231_sc_y1_isfs_callback_harness.py"'
 NEW='python3 "$here/derive_v232_sc_isfs_callback_next_harness.py"'
 DONE="echo 'V231_SC_Y1_ISFS_CALLBACK verified=1'"
-PATTERN=r'^V232_ISFS_NEXT clear=[01] wire=[01] guest=[01] sc=[01] mapped=[01] selected=[01] nested=[01] result=[01] userdata=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
-PASS=r'^V232_ISFS_NEXT clear=1 wire=1 guest=1 sc=1 mapped=[01] selected=[01] nested=[01] result=[01] userdata=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+PATTERN=r'^V232_ISFS_NEXT clear=[01] wire=[01] guest=[01] sc=[01] mapped=[01] selected=[01] from_isfs=[01] nested=[01] result=[01] userdata=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+PASS=r'^V232_ISFS_NEXT clear=1 wire=1 guest=1 sc=1 mapped=[01] selected=[01] from_isfs=[01] nested=[01] result=[01] userdata=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 
 def derive(source:str)->str:
     s=previous(source)
