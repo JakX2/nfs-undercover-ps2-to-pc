@@ -134,6 +134,7 @@ jobs:
               grep -E '^V237_CHAIN isfs=[0-8] save=[0-8] strn=[0-8] alloc=[0-8] copy=[0-8] ios=[0-8] stack=[01] saved_lr=[01] r27valid=[01] r27source=[01] arg_r27=[01] path_r30=[01]$|^V237_SECOND stack=[01] saved_lr=[01] r27valid=[01] r27source=[01] arg_r27=[01] path_r30=[01] same_r30=[01]$' "$RUNNER_TEMP/sc238.log" | sort -u || true
               grep -E '^V238_SOURCE saves=[0-8] second=[01] nand=[01] logging=[01] other=[01] r11=[01] modevalid=[01] pathvalid=[01] sysconf=[01] same_ios_mode=[01] ios_invalid=[01]$|^V238_SAVE seq=[1-8] mapped=[01] nand=[01] logging=[01] other=[01] r11=[01] mode=[01] srcmode=[01] path=[01] sysconf=[01] nandcb=[01]$' "$RUNNER_TEMP/sc238.log" | sort -u || true
               grep -E '^V238_COMPILE_DIAG found=[01] kind=(none|duplicate|undeclared|member|conversion|expected|other) symbol=(sp|caller|nand|logging|other|r11|mode|srcmode|nandcb|pathptr|chars|pathmapped|terminated|validpath|sysconf|mapped|seq|v238_save_count|v238_source_seen|v238_second_mode|v238_second_modevalid|v238_second_r11|ctx|v237_counts) line=[0-9]{1,6}$' "$RUNNER_TEMP/sc238.log" | sort -u || true
+              grep -E '^V238_COMPILE_SOURCE public=[01] v238=[01] group=(other|stack|abi|return|mode|callback|caller_class|path|sequence|v238|v238_state)$' "$RUNNER_TEMP/sc238.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc238.log" || true
               echo 'V214 negative IOS reply owner test failed; owner-private details withheld' >&2
               exit 1

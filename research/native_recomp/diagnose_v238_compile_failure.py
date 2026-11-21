@@ -42,9 +42,42 @@ def diagnose(log: str) -> str:
     return (f"V238_COMPILE_DIAG found=1 kind={kind} "
             f"symbol={symbol} line={line}")
 
+
+PUBLIC_VAR = re.compile(
+    r"\b(v238_[A-Za-z_0-9]+|v237_[A-Za-z_0-9]+|"
+    r"sp|caller|nand|logging|other|r11|mode|srcmode|nandcb|"
+    r"pathptr|chars|pathmapped|terminated|validpath|sysconf|mapped|seq)\b"
+)
+def explain_source(log: str, public_harness: str) -> str:
+    """Only public C++ line classifiers. Never emit any line or private symbol."""
+    m = ERROR.search(log)
+    rows = public_harness.splitlines()
+    if not m or int(m.group(1))<1 or int(m.group(1))>len(rows):
+        return "V238_COMPILE_SOURCE public=0 v238=0 group=other"
+    index = int(m.group(1))-1
+    row = rows[index]
+    matches = PUBLIC_VAR.findall(row)
+    groups = {
+      "sp":"stack","r11":"abi","caller":"return","mode":"mode",
+      "srcmode":"mode","nandcb":"callback","nand":"caller_class",
+      "logging":"caller_class","other":"caller_class",
+      "pathptr":"path","chars":"path","pathmapped":"path",
+      "terminated":"path","validpath":"path","sysconf":"path",
+      "mapped":"stack","seq":"sequence"
+    }
+    name = next((x for x in matches if x.startswith("v238_")), None)
+    if name is not None:
+        group="v238_state" if "v238_second_" in name or "v238_save_count" in name else "v238"
+    else:
+        group=next((groups[x] for x in matches if x in groups), "other")
+    return f"V238_COMPILE_SOURCE public=1 v238={int('v238_' in row)} group={group}"
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("private_compile_log", type=Path)
+    p.add_argument("public_harness", type=Path)
     a = p.parse_args()
-    print(diagnose(a.private_compile_log.read_text(
-        encoding="utf-8", errors="replace")))
+    private_log=a.private_compile_log.read_text(encoding="utf-8", errors="replace")
+    public_source=a.public_harness.read_text(encoding="utf-8", errors="replace")
+    print(diagnose(private_log))
+    print(explain_source(private_log, public_source))

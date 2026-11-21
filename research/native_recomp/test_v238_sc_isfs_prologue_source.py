@@ -55,6 +55,17 @@ class V238(unittest.TestCase):
         self.assertEqual(diagnose("confidential compiler message"),
             "V238_COMPILE_DIAG found=0 kind=none symbol=other line=0")
         self.assertIn("diagnose_v238_compile_failure.py",script)
+        from diagnose_v238_compile_failure import explain_source
+        source="void trace_call(){}\nconst bool mode = true;"
+        self.assertEqual(explain_source(
+            "harness.cpp:2:14: error: redeclaration of 'mode'",source),
+            "V238_COMPILE_SOURCE public=1 v238=0 group=mode")
+        self.assertEqual(explain_source("unknown",source),
+            "V238_COMPILE_SOURCE public=0 v238=0 group=other")
+        self.assertEqual(explain_source(
+            "harness.cpp:2:14: error: redeclaration of 'v238_second_mode'",
+            "static int x;\nstatic bool v238_second_mode=false;"),
+            "V238_COMPILE_SOURCE public=1 v238=1 group=v238_state")
 
         wf=(HERE.parents[1]/".github/workflows/wii-v238-sc-isfs-prologue-source.yml").read_text()
         for marker in ("run_v238_sc_isfs_prologue_source.sh",
