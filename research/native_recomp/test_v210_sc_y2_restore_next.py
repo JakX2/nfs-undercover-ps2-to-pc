@@ -53,7 +53,7 @@ class V210(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNotNone(re.fullmatch(PATTERN,good.replace("guest=1","guest=0")))
         self.assertIsNone(re.fullmatch(PASS,good.replace("coherent=1","coherent=0")))
-        wf=(HERE.parents[1]/".github/workflows/wii-v209-sc-y2-osdi-next.yml").read_text()
+        wf=(HERE.parents[1]/".github/workflows/wii-v210-sc-y2-restore-next.yml").read_text()
         self.assertIn("run_v210_sc_y2_restore_next.sh",wf)
         self.assertIn("test_v210_sc_y2_restore_next.py",wf)
         self.assertIn("V210_SC_Y2_RESTORE_NEXT verified=1",wf)
