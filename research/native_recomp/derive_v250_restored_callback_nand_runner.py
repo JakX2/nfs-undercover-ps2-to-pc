@@ -40,6 +40,7 @@ if timeout 90 "$work/v250-native" "$work/private-v248.dol" owner-callback "$owne
   echo 'V250_STAGE execute=1'
 else
   python3 "$V110_SOURCE_ROOT/classify_v178_native_failure.py" "$work/v250-native.log" "$work/v250-harness.cpp" || true
+  python3 "$V110_SOURCE_ROOT/diagnose_v250_native_phase.py" "$work/v250-native.log" "$work/v250-harness.cpp" || true
   grep -E '^V250_CB_BEGIN candidate=1 reply=[01] captured=1$|^V250_NAND_BCTRL auth=[01] frame16=[01] link=[01] ctr=[01] abi=[01] userdata=[01] progressed=[01] reply=[01]$' "$work/v250-native.log" | sort -u || true
   echo 'V250_STAGE execute=0'
   exit 1

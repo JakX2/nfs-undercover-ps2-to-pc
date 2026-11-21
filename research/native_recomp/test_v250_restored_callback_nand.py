@@ -73,6 +73,14 @@ class V250(unittest.TestCase):
         self.assertIsNone(re.fullmatch(TRIAL,"V250_TRIAL_PASS trial=17"))
         self.assertNotIn("cat \"$work",STAGE)
         self.assertNotIn("upload-artifact",STAGE)
+        from diagnose_v250_native_phase import describe
+        pub='check(false,"V250 sample public assertion");'
+        log='V250_CB_BEGIN candidate=1 reply=1 captured=1\\nwhat(): V250 sample public assertion'
+        self.assertEqual(describe(log,pub),
+            "V250_PUBLIC_FAILURE id=0001 label=V250 sample public assertion callback=1 nand=0 trials=0")
+        self.assertEqual(describe("what(): PRIVATE_SECRET",pub),
+            "V250_PUBLIC_FAILURE id=0000 label=other callback=0 nand=0 trials=0")
+        self.assertIn("diagnose_v250_native_phase.py",STAGE)
         self.assertNotIn('cat "$work/v250-native.log"',STAGE)
         workflow=(HERE.parents[1]/".github/workflows/wii-v250-restored-callback-nand.yml").read_text()
         for marker in ('run_v250_restored_callback_nand.sh',
