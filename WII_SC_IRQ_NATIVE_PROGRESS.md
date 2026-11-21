@@ -1,11 +1,54 @@
-# Wii SC IRQ native continuation: V141-V244
+# Wii SC IRQ native continuation: V141-V249
 
-Status: **V244 original callback stack/LR mismatch verified (16/16 owner-original): the registered nested target is a NAND callback, but the subsequent observed ISFS prologue retains the outer IPC handler LR and a single 32-byte stack frame.**
+Status: **V249 privately restored the original Wii `_isfsFuncCb` and `nandOpenCallback` PowerPC bodies, regenerated their AOT translations, and independently compiled and linked them into a native executable. The existing owner-original V244 baseline remains independently verified (16/16 trials); native execution of the restored callback bodies is the unverified V250 frontier.**
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
 **Second IOS reply transport and native PowerPC exception handling are verified for the authentic −4 result, including full Y1 acknowledgment, cache invalidation, original context setup, indirect `_isfsFuncCb` entry, and later translated execution in `ISFS_OpenAsync`. Direct observation of the nested NAND/SC completion callback and SC status transition is still pending; OSInit retry exit is not achieved.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
+
+## Private callback root-cause isolation: V245-V249 (2026-11-21)
+
+The owner ELF's symbol table independently confirms four exact callback
+ranges used by the test fixture and AOT audit:
+`_isfsFuncCb` (`0x804F0E04`, 384 bytes), `ISFS_OpenAsync`
+(`0x804F1E2C`, 184 bytes), `nandOpenCallback`
+(`0x8051E06C`, 120 bytes), and `IpcReplyHandler`
+(`0x805190C0`, 600 bytes). The original game text and translated
+instruction bodies remain strictly private.
+
+The [owner-verified V248 AOT run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44894547414)
+compared the earlier, reduced synthetic-startup DOL with the authenticated
+original. That test fixture had **96 NOP words** replacing
+`_isfsFuncCb` and **30 NOP words** replacing
+`nandOpenCallback`. As a result, its earlier AOT dispatch table
+contained their entry points but not the original callback prologues
+or genuine indirect `bctrl` instructions. The *unmodified original
+Wii ELF* does contain the complete callback bodies.
+
+V248 restored **only those two authenticated callback ranges** into
+an ephemeral owner-side DOL and regenerated native C++. The owner
+audit confirmed `fixture_cb=1`, `fixture_nand=1`,
+`cb_prologue=1`, `cb_bctrl=1`, `cb_link=1`,
+`cb_ctr=1` and all callback/ISFS/NAND dispatch-table entries.
+The original ISFS and IPC control-function ranges stayed unchanged.
+
+The [V249 owner-original link run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44895228490)
+then compiled the separately regenerated callback AOT unit and linked
+it against the independently written native harness and runtime
+without replacing or executing the existing baseline binary:
+
+`V249_AOT_LINK owner=1 restore=1 mapping=1 different=1 compiled=1 linked=1 executable=1`
+
+**Verified:** original callbacks are present in authenticated Wii text,
+recovered reversibly in the private fixture, translated into native
+C++, and compiled/linked into a private executable. Baseline V244
+behavior is preserved for comparison. **Not yet verified:** execution
+of the restored `_isfsFuncCb` prologue, its original nested NAND
+callback `bctrl`, callback completion, SC readiness transition, or
+OSInit exit. V250 isolates the first restored `bctrl` and requires
+the guest's actual stack delta, CTR, linked LR and callback arguments
+before claiming any further execution milestone.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
@@ -273,7 +316,7 @@ two-stage route means a missing nominal `ISFS_OpenAsync` trace alone
 does not prove a bad dispatch or AOT error. No proprietary instruction
 words or translated function bodies are stored in the repository.
 
-**Next unverified:** inspect the private NWiiRecomp-generated C++ entry/body/dispatcher mapping at callback `0x804F0E04`, original indirect `bctrl` at `0x804F0F50` and NAND nested target `0x8051E06C`. Verify why first observed ISFS work follows with outer LR and unchanged callback-stack frame. Introduce a minimal original-free translation/dispatch fix with synthetic PPC tests only after that discrepancy is localized, then rerun owner-original V244 and subsequent startup gates. Do not forge request arguments or suppress `IOS_Open=-4`.
+**Next unverified:** inspect the private NWiiRecomp-generated C++ entry/body/dispatcher mapping at callback `0x804F0E04`, original indirect `bctrl` at `0x804F0F50` and NAND nested target `0x8051E06C`. V245-V249 identified and reversibly restored two callback bodies that the reduced test fixture had replaced with NOPs, then independently compiled and linked the restored AOT code. V250 must now execute that *separate private native candidate* and compare the actual NAND callback entry stack, CTR and linked LR with the original Wii ABI. Do not forge request arguments or suppress `IOS_Open=-4`.
 **Not yet achieved:** successful second SYSCONF `IOS_Open`, completion of the second Y1 `IpcReplyHandler` and indirect ISFS callback,
 SC status transition to ready, exit from OSInit retry into original
 `main`, first frame, frontend, gameplay or a complete Windows port.
