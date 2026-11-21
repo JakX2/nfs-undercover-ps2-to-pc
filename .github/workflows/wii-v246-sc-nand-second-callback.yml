@@ -1,0 +1,125 @@
+name: Wii V246 Original Nested NAND Callback and CTR Provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v246*'
+      - '.github/workflows/wii-v246-sc-nand-second-callback.yml'
+permissions:
+  contents: read
+concurrency:
+  # Dedicated concurrency namespace avoids blocking corrected diagnostics behind
+  # a historical V182 test run with excessive assertion-catalog derivations.
+  group: wii-v246-sc-nand-second-callback-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  public-original-free-v246:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test V246 nested NAND callback and CTR at ISFS
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/derive_v246_sc_nand_second_callback_harness.py research/native_recomp/derive_v246_sc_nand_second_callback_runner.py research/native_recomp/test_v246_sc_nand_second_callback.py research/native_recomp/diagnose_v246_sc_nand_second_callback.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v246_sc_nand_second_callback.py' -v
+          bash -n research/native_recomp/run_v246_sc_nand_second_callback.sh
+          python3 research/native_recomp/diagnose_v246_sc_nand_second_callback.py 588
+  owner-nand-callback-v246:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned owner Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'Owner Wii staging failed after three bounded attempts' >&2
+            exit 1
+          fi
+      - name: Independently verify V125 private fixture restoration
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py \
+            "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Prepare pinned original-free NWii runtime and cache traces
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+          echo 'PASS: V72 focused runtime prerequisites prepared and original-free source guards passed'
+      - name: Observe authentic second NAND callback from original Wii guest
+        run: |
+          set -euo pipefail
+          umask 077
+          bash research/native_recomp/run_v246_sc_nand_second_callback.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/sc246.log" 2>&1 || {
+              # Original-free, bounded diagnostics only. Never print owner log.
+              grep -E '^V246_SECOND_TARGET outer=[01] nested=[01] text=[01] isfs=[01] nand=[01] cb=[01] null=[01]$|^V246_SECOND_CTR known=[01] match=[01] isfs=[01] nand=[01] cb=[01] text=[01] outer_lr=[01]$|^V178_DERIVATION result=failed kind=[a-z_]{1,32}$|^V67_NATIVE_ASSERTION id=[0-9]{3,4}$|^V110_WRAPPER (derived|syntax_ok|syntax_failed)$' "$RUNNER_TEMP/sc246.log" | sort -u || true
+              echo 'V246 original NAND callback/CTR diagnosis failed; private details withheld' >&2
+              exit 1
+            }
+          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc246.log"
+          grep -Fx 'V244_SC_CALLBACK_LINK verified=1' "$RUNNER_TEMP/sc246.log"
+          grep -Fx 'V246_SC_NAND_SECOND_CALLBACK verified=1' "$RUNNER_TEMP/sc246.log"
+          grep -E '^V246_SECOND_TARGET outer=[01] nested=[01] text=[01] isfs=[01] nand=[01] cb=[01] null=[01]$' "$RUNNER_TEMP/sc246.log" | sort -u
+          grep -E '^V246_SECOND_CTR known=[01] match=[01] isfs=[01] nand=[01] cb=[01] text=[01] outer_lr=[01]$' "$RUNNER_TEMP/sc246.log" | sort -u
+          echo 'PASS: real nested NAND callback address and CTR classified'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc246.log"
