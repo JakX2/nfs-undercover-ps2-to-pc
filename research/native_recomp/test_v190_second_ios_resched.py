@@ -8,7 +8,7 @@ from pathlib import Path
 from derive_v189_second_ios_restore_harness import derive as previous
 from derive_v190_second_ios_resched_harness import (derive,STOP,CONTINUE,OBSERVER,
     NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE,
-    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
+    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY)
 from derive_v190_second_ios_resched_runner import derive as runner,PATTERN,PASS,STATE,PASS_STATE
 HERE=Path(__file__).resolve().parent
 class V190(unittest.TestCase):
@@ -76,6 +76,16 @@ class V190(unittest.TestCase):
                          self.after.count("V95 duplicate allocator wrapper"))
         self.assertEqual(self.before.count("++open71_profile;"),
                          self.after.count("++open71_profile;"))
+
+    def test_v95_query_entry_is_scoped_to_first_title_query_only(self):
+        self.assertEqual(self.before.count(V95_QUERY_ENTRY),1)
+        self.assertEqual(self.after.count(V190_SCOPED_QUERY_ENTRY),1)
+        self.assertIn("v189_next_seen==1u&&v186_ack_seen==1u",V190_SCOPED_QUERY_ENTRY)
+        self.assertIn("v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u",
+                      V190_SCOPED_QUERY_ENTRY)
+        self.assertIn("v190_next_seen==0u",V190_SCOPED_QUERY_ENTRY)
+        self.assertEqual(self.before.count("V95 ES open cleanup missing"),
+                         self.after.count("V95 ES open cleanup missing"))
 
     def test_v95_owner_duplicate_diagnostic_is_bounded_and_passive(self):
         self.assertIn(V95_ALLOCATOR_ASSERT,self.before)

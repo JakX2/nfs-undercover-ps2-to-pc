@@ -93,6 +93,11 @@ V190_V95_DIAGNOSTIC='''if(open71_profile!=0u){
                    <<std::endl;
         }
         check(open71_profile==0u,"V95 duplicate allocator wrapper");'''
+V95_QUERY_ENTRY='''if(post94_active&&post94_return==1u&&addr==0x8051a62cu&&ctx.lr==0x804f0bd8u){'''
+V190_SCOPED_QUERY_ENTRY='''if(post94_active&&post94_return==1u&&addr==0x8051a62cu&&ctx.lr==0x804f0bd8u&&
+      !(v189_next_seen==1u&&v186_ack_seen==1u&&
+        v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
+        v190_next_seen==0u)){'''
 PAIR=re.compile(r'c\.pc==nwii::runtime::v189_target_pc&&\s*c\.lr==nwii::runtime::v189_target_lr')
 NEXT_TRIAL='''       using V190Bus=undercover::wii::IosBus;
        using V190Irq=undercover::wii::HollywoodIrq;
@@ -167,8 +172,9 @@ def derive(source: str)->str:
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+'\n'+NEXT_TRIAL)
-    return once(once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE),
-                V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
+    s=once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
+    s=once(s,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY)
+    return once(s,V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
