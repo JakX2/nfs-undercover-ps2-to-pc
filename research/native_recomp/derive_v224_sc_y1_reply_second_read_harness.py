@@ -90,7 +90,7 @@ def derive(source:str)->str:
     s=once(s,RESET,RESET+'''
      nwii::runtime::v224_second_seen=0u;
      nwii::runtime::v224_first_inst=0u;''')
-    s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONT,1))
+    s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,TRACE_ANCHOR,OBSERVER)
     s=once(s,PREVIOUS_END,NEXT_END)
     return s
