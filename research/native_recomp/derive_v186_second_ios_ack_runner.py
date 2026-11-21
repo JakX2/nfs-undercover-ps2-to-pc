@@ -39,35 +39,23 @@ def derive(source: str)->str:
         '  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+ACK+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
-    # The original owner native command is the only valid runtime failure
-    # boundary. Inject before its private error classifier, not next to an
-    # inherited V130 exit tag that may belong to an unrelated earlier phase.
-    native_cmd='"$work/native" "$work/private.dol" owner "$owner"'
-    native_catch=native_cmd+' > "$work/private-native.log" 2>&1 || {'
-    if s.count(native_catch)!=1:
-        # This is checked-in original-free shell source. No owner content is
-        # ever involved in derivation; print only coarse shape diagnostics.
-        lines=[line for line in s.splitlines() if native_cmd in line]
-        if len(lines)!=1:
-            raise ValueError(f"V186 native command count={len(lines)}")
-        line=lines[0]
-        raise ValueError("V186 native command shape:"
-                         f" pipe={int('||' in line)}"
-                         f" negated={int('if !' in line)}"
-                         f" redirect={int('private-native.log' in line)}"
-                         f" braced={int('{' in line)}"
-                         f" length={len(line)} public_line={line.strip()!r}")
+    # The inherited V110+ native branch is a successful if/then command.
+    # Record the exact public event counts BEFORE its historical success
+    # assertions. Never echo private stdout, paths, return values or bytes.
+    native_cmd='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1; then'
+    if s.count(native_cmd)!=1:
+        raise ValueError("V186 owner-native successful if/then boundary changed")
     counts=(
         "  v186_pre=$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\n"
         "  v186_ack=$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\n"
         "  v186_state=$(grep -c '^V186_ACK_STATE ' \"$work/private-native.log\" || true)\n"
         "  v186_v185=$(grep -c '^V185_IPC_ENTRY ' \"$work/private-native.log\" || true)\n"
-        "  for count in \"$v186_pre\" \"$v186_ack\" \"$v186_state\" \"$v186_v185\"; do\n"
-        "    [[ \"$count\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
+        "  for n in \"$v186_pre\" \"$v186_ack\" \"$v186_state\" \"$v186_v185\"; do\n"
+        "    [[ \"$n\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
         "  done\n"
-        "  echo \"V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185\"\n"
+        "  echo \"V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185\"\n"
     )
-    s=s.replace(native_catch,native_catch+"\n"+counts,1)
+    s=s.replace(native_cmd,native_cmd+"\n"+counts,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS_PRE}' "$log" | sort -u
 test "$(grep -Ec '{PASS_PRE}' "$log")" -eq 16

@@ -107,25 +107,21 @@ class V186(unittest.TestCase):
         self.assertIn("V77_COMPILE_UNIT",s)
         self.assertIn("V67_NATIVE_ASSERTION",s)
 
-    def test_native_failure_probe_only_at_real_original_execution_catch(self):
+    def test_native_success_probe_at_actual_if_then_branch(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        native_catch='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1 || {'
-        self.assertEqual(s.count(native_catch),1)
-        self.assertIn("V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185",s)
-        self.assertEqual(s.count("V186_NATIVE_FAILURE pre="),1)
-        self.assertGreater(s.index("V186_NATIVE_FAILURE pre="),s.index(native_catch))
-        self.assertLess(s.index("V186_NATIVE_FAILURE pre="),s.index('python3 "$here/classify_v67_native_failure.py"'))
+        native_call='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1; then'
+        self.assertEqual(s.count(native_call),1)
+        self.assertIn("V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185",s)
+        self.assertEqual(s.count("V186_NATIVE_SUCCESS pre="),1)
+        self.assertGreater(s.index("V186_NATIVE_SUCCESS pre="),s.index(native_call))
         self.assertIn("grep -c '^V186_IOS_PRE '",s)
         self.assertIn("grep -c '^V186_SECOND_ACK '",s)
         self.assertIn("grep -c '^V186_ACK_STATE '",s)
-
-    def test_public_only_native_runtime_failure_counters(self):
-        s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185",s)
-        self.assertIn("grep -c '^V186_IOS_PRE '",s)
-        self.assertIn("grep -c '^V186_SECOND_ACK '",s)
-        self.assertIn("grep -c '^V186_ACK_STATE '",s)
-        self.assertIn("classify_v67_native_failure.py",s)
+        self.assertIn("V130_NATIVE_EXIT ok=0",s)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/"derived.sh"
+            path.write_text(s,encoding="utf-8")
+            subprocess.run(["bash","-n",str(path)],check=True)
 
     def test_source_guards_and_owner_private_workflow(self):
         with self.assertRaises(ValueError):derive("invalid")
