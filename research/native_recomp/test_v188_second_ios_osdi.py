@@ -58,6 +58,19 @@ class V188(unittest.TestCase):
         with self.assertRaises(ValueError):derive("invalid")
         with self.assertRaises(ValueError):widen_prior("invalid")
 
+    def test_v186_and_v187_derived_guest_predicates_accept_authentic_v188_stop(self):
+        for begin,end in (
+            ("const bool v186_guest=","const bool v186_mail="),
+            ("const bool v187_guest=","const bool v187_queue="),
+        ):
+            first=self.after.index(begin);last=self.after.index(end,first)
+            self.assertIn("v188_next_seen==1u",self.after[first:last])
+            self.assertIn("c.pc==nwii::runtime::v188_target_pc",self.after[first:last])
+        self.assertEqual(self.before.count("V186_ACK_STATE guest="),
+                         self.after.count("V186_ACK_STATE guest="))
+        self.assertEqual(self.before.count("V187_SC_STATE guest="),
+                         self.after.count("V187_SC_STATE guest="))
+
     def test_private_owner_runner_checks_sixteen_and_bash(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("derive_v188_second_ios_osdi_harness.py",s)

@@ -114,8 +114,6 @@ def widen_prior(source: str)->str:
         "V171 original SC reply processor did not reach distinct native callee",
         "V182 original SC reply call burst did not reach authenticated native stop",
         "V185 original IPC Y1 reader did not reach authentic native successor",
-        "V186 original second IOS_Open ACK did not leave valid guest boundary",
-        "V187 original second ACK successor did not retain valid native IOS state",
     ):
         marker='"'+label+'");'
         if updated.count(marker)!=1:
@@ -124,6 +122,18 @@ def widen_prior(source: str)->str:
         start=updated.rfind("check(",0,end)
         if start<0 or end-start>16000 or "v188_next_seen==1u" not in updated[start:end]:
             raise ValueError(f"V188 earlier original proof rejects successor: {label}")
+    # V186/V187 validate a computed v*_guest predicate, not an inline
+    # PC/LR comparison in their final check() call. Verify the definition
+    # itself includes the authenticated V188 endpoint.
+    for begin,end in (
+        ("const bool v186_guest=","const bool v186_mail="),
+        ("const bool v187_guest=","const bool v187_queue="),
+    ):
+        if updated.count(begin)!=1 or updated.count(end)!=1:
+            raise ValueError(f"V188 inherited variable guest predicate changed: {begin}")
+        i=updated.index(begin);j=updated.index(end,i)
+        if "v188_next_seen==1u" not in updated[i:j]:
+            raise ValueError(f"V188 inherited variable guest predicate rejects new stop: {begin}")
     return updated
 
 def derive(source: str)->str:
