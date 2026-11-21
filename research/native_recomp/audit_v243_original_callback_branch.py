@@ -74,7 +74,9 @@ def private_audit(data: bytes) -> dict[str, bool]:
     if not (have_cb and have_isfs):
         raise ValueError("expected callback/ISFS symbols absent or invalid")
     header = HEADER.unpack_from(data)
-    shoff, shentsize, shnum = header[6], header[12], header[13]
+    # ELF32 header indices: [11] e_shentsize, [12] e_shnum,
+    # [13] e_shstrndx. Do not mistake section-string index for count.
+    shoff, shentsize, shnum = header[6], header[11], header[12]
     if shentsize != SECTION.size or shoff + shnum * SECTION.size > len(data):
         raise ValueError("private ELF section geometry changed")
     spans = []

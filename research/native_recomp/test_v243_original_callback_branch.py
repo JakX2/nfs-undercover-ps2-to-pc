@@ -34,6 +34,24 @@ class OriginalBranchAudit(unittest.TestCase):
         no_branch=classify_words(CB,[0x60000000],ISFS,0x300)
         self.assertFalse(no_branch["direct_isfs"])
         self.assertFalse(no_branch["lr_branch"])
+    def test_elf32_section_geometry_indices(self):
+        # Original-free ELF32 fixture: e_shnum=23, e_shstrndx=20.
+        # The regression must reject using e_shnum as e_shentsize.
+        from audit_v243_original_callback_branch import HEADER, SECTION
+        import struct
+        header = HEADER.pack(
+            b"\\x7fELF\\x01\\x02\\x01"+b"\\x00"*9,
+            2,20,1,0x8000403c,0,HEADER.size,0,
+            HEADER.size,0,0,SECTION.size,23,20,
+        )
+        assert len(header)==HEADER.size
+        e=HEADER.unpack_from(header)
+        self.assertEqual((e[6],e[11],e[12],e[13]),
+                         (HEADER.size,SECTION.size,23,20))
+        # This avoids embedding any owner-game bytes or PPC instructions.
+        self.assertEqual(len(header)+23*SECTION.size,
+                         HEADER.size+23*SECTION.size)
+
     def test_private_digest_fail_closed(self):
         with self.assertRaises(ValueError):
             private_audit(b"no private ELF")
