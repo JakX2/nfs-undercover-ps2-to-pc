@@ -41,7 +41,7 @@ class V216(unittest.TestCase):
             for bad in ("ipc70_bus.write","ipc70_ram.write","ctx.mmu.write",
                         "ctx.pc=0x80000500"):
                 self.assertNotIn(bad,snippet)
-            self.assertNotRegex(snippet,r"ctx\\.gpr\\[3\\]\\s*=(?!=)")
+            self.assertNotRegex(snippet,r"ctx\.gpr\[3\]\s*=(?!=)")
 
     def test_sixteen_trial_owner_and_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
