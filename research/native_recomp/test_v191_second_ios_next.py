@@ -75,6 +75,8 @@ class V191(unittest.TestCase):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("V191_GUEST_PROBE next=$v191_next state=$v191_state",script)
         self.assertIn("V186_NATIVE_SUCCESS pre=$v186_pre",script)
+        self.assertIn("V191_SHELL_GUARD line=$LINENO code=$?",script)
+        self.assertEqual(script.count("V191_SHELL_GUARD"),1)
         self.assertIn("grep -Ec '^V191_SC_NEXT '",script)
         self.assertIn("grep -Ec '^V190_SC_STATE '",script)
 

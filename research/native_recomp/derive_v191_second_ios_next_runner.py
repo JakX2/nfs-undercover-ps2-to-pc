@@ -18,6 +18,16 @@ def derive(source: str)->str:
     if s.count(OLD)!=1 or s.count(FAIL)!=1 or s.count(DONE)!=1:
         raise ValueError("V191 owner native runner inherited V190 gates differ")
     s=s.replace(OLD,NEW,1)
+    # The native process is successful in 16/16 trials, but inherited
+    # retrospective shell gates can still fail. Record only the line
+    # number and exit status of a failing public shell command, never
+    # a shell command, private path, translated source, or guest data.
+    shell_head="set -euo pipefail\n"
+    if s.count(shell_head)!=1:
+        raise ValueError("V191 original runner strict shell mode changed")
+    shell_trap='''trap 'echo "V191_SHELL_GUARD line=$LINENO code=$?"' ERR
+'''
+    s=s.replace(shell_head,shell_head+shell_trap,1)
     s=s.replace(FAIL,
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
