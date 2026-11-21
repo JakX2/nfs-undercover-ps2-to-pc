@@ -33,15 +33,31 @@ V178_TAIL_NEXT='''        (v254_next_seen==1u&&addr==0x8052fa60u&&
          ctx.lr==0x8051e0b8u)||
         (v257_next_seen==1u&&addr==0x8051ad3cu&&
          ctx.lr==0x804f0f68u)))'''
-V178_NESTED='''    // V258 owner-original observed this exact nested PPC call from the
-    // authenticated 0x8051AD3C callee (16-run fixture, candidate only).
-    // V178 was a reduced earlier SC reply observer: do not misclassify
-    // this single later native guest call as that historical callee.
+V178_NESTED='''    // This opt-in restored guest callback is beyond the reduced V178
+    // callback fixture. Verify its first two owner-observed nested calls,
+    // then trace only bounded, valid native guest calls in this phase.
+    // The historical V178 assertion remains active in all other modes.
     if(v250_candidate_mode&&v257_next_seen==1u&&
-       v258_return_seen==0u&&ctx.inst_count>v258_callee_inst&&
-       addr==0x805265acu&&ctx.lr==0x8051ad64u&&
-       ctx.gpr[13]==v147_first_r13)
-      return;
+       v258_return_seen==0u&&ctx.inst_count>v258_callee_inst){
+      ++v258_nested_guest_calls;
+      const bool code=ctx.pc==addr&&
+            addr>=0x80000000u&&addr<0x80600000u&&
+            (addr&3u)==0u;
+      const bool caller=ctx.lr>=0x80000000u&&
+            ctx.lr<0x80600000u&&(ctx.lr&3u)==0u;
+      const bool regs=ctx.gpr[13]==v147_first_r13;
+      const bool coherent=ipc70_bus.external_exception_pending(ctx.msr)==
+            (((ctx.msr&undercover::wii::IosBus::MSR_EE)!=0u)&&
+             ipc70_bus.external_irq_level());
+      const bool first=v258_nested_guest_calls!=1u||
+            (addr==0x805265acu&&ctx.lr==0x8051ad64u);
+      const bool second=v258_nested_guest_calls!=2u||
+            (addr==0x805265d4u&&ctx.lr==0x8051af08u);
+      check(code&&caller&&regs&&coherent&&first&&second&&
+            v258_nested_guest_calls<=12u,
+            "V258 restored NAND nested call exceeds verified bounded phase");
+      return; // instrumentation only; original AOT call still executes
+    }
 '''
 V178_CHECK='''    check(addr==0x80545100u&&ctx.lr==0x804f1e40u,
           "V178 owner-original SC reply callee differs from V177 proof");'''
@@ -121,11 +137,11 @@ def derive(source:str)->str:
             s.count(CALLBACK_ANCHOR)!=1):
         raise ValueError("V258 verified V257 original callee seam changed")
     s=once(s,STATE,STATE+'''
- static unsigned v258_return_seen=0u;
+ static unsigned v258_return_seen=0u,v258_nested_guest_calls=0u;
  static uint64_t v258_callee_inst=0u;
  static uint32_t v258_return_sc=0u;''')
     s=once(s,RESET,RESET+'''
-     nwii::runtime::v258_return_seen=0u;
+     nwii::runtime::v258_return_seen=nwii::runtime::v258_nested_guest_calls=0u;
      nwii::runtime::v258_callee_inst=0u;
      nwii::runtime::v258_return_sc=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
