@@ -23,6 +23,8 @@ ASYNC_PATTERN=r'^V208_Y2_ASYNC_ENTRY seen=[01] tracked=[01] pathmap=[01] pathsla
 ASYNC_LINK_PATTERN=r'^V208_Y2_ASYNC_LINK witnessed=[01] path_same=[01] mode_same=[01] path_is_mode=[01] mode_is_path=[01]$'
 ISFS_PATTERN=r'^V208_Y2_ISFS_ENTRY seen=1 count=([1-9]|[12][0-9]|3[0-2]) nand=[01] logging=[01] mapped=[01] slash=[01] modevalid=[01] modemem2=[01] modeslash=[01]$'
 ISFS_TO_IOS_PATTERN=r'^V208_Y2_ISFS_TO_IOS witnessed=[01] mode=[01] copy=[01] source_slash=[01] dest_slash=[01] modevalid=[01]$'
+PROLOGUE_PATTERN=r'^V208_Y2_PROLOGUE seen=[01] mapped=[01] slash=[01] mode_valid=[01] mode_mem2=[01] mode_slash=[01]$'
+GPR_FLOW_PATTERN=r'^V208_Y2_GPR_FLOW witnessed=[01] mode_same=[01] first_valid=[01] ios_valid=[01] first_slash=[01] ios_slash=[01]$'
 
 def derive(source:str)->str:
     s=previous(source)
@@ -47,6 +49,8 @@ def derive(source:str)->str:
     s=s.replace(fail,'  grep -E "'+ASYNC_LINK_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+ISFS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+ISFS_TO_IOS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+PROLOGUE_PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+GPR_FLOW_PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

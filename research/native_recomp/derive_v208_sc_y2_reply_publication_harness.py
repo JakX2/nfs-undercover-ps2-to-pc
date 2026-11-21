@@ -211,6 +211,30 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
   }'''
 TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
+  // The verified V177-to-V178 transition enters ISFS_OpenAsync's original
+  // prologue save helper. Observe r3/r4 *before* the guest function copies
+  // its arguments into preserved PPC registers. This distinguishes
+  // bad caller ABI from an issue inside ISFS or translated register saves.
+  if(v176_next_seen==1u&&v177_next_seen==0u&&
+     v208_prologue_seen==0u&&addr==0x80545100u&&
+     ctx.lr==0x804f1e40u&&ctx.pc==addr){
+    const uint32_t p=ctx.gpr[3],m=ctx.gpr[4];
+    const bool mapped=ctx.mmu.get_ptr(p)!=nullptr;
+    const bool slash=mapped&&ctx.mmu.read8(p)==uint8_t('/');
+    const bool valid=m<=3u;
+    const bool virt=m>=0x90000000u&&m<0x94000000u;
+    const bool mapped_mode=virt&&ctx.mmu.get_ptr(m)!=nullptr;
+    const bool mode_slash=mapped_mode&&ctx.mmu.read8(m)==uint8_t('/');
+    v208_prologue_path=p;v208_prologue_mode=m;
+    v208_prologue_inst=ctx.inst_count;
+    v208_prologue_slash=slash;v208_prologue_valid=valid;
+    ++v208_prologue_seen;
+    std::cout<<"V208_Y2_PROLOGUE seen="<<(v208_prologue_seen==1u)
+             <<" mapped="<<mapped<<" slash="<<slash
+             <<" mode_valid="<<valid<<" mode_mem2="<<virt
+             <<" mode_slash="<<mode_slash<<std::endl;
+    // No return. Preserve all inherited original guest call observers.
+  }
   // Genuine ISFS_OpenAsync caller ABI before the IOS_OpenAsync wrapper.
   // Whitelisted return-site classes distinguish NAND open and logging.
   if(v208_async_seen==0u&&v183_second_msg==0u&&
@@ -249,6 +273,16 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
     const bool modemem2=mode>=0x90000000u&&mode<0x94000000u;
     const bool modemapped=modemem2&&ctx.mmu.get_ptr(mode)!=nullptr;
     const bool modeslash=modemapped&&ctx.mmu.read8(mode)==uint8_t('/');
+    const bool captured=v208_prologue_seen==1u;
+    const bool mode_same=captured&&mode==v208_prologue_mode;
+    const bool from_prologue=ctx.inst_count>v208_prologue_inst;
+    const bool prologue=from_prologue&&captured;
+    std::cout<<"V208_Y2_GPR_FLOW witnessed="<<prologue
+             <<" mode_same="<<mode_same
+             <<" first_valid="<<v208_prologue_valid
+             <<" ios_valid="<<modevalid
+             <<" first_slash="<<v208_prologue_slash
+             <<" ios_slash="<<pathslash<<std::endl;
     // Compare the original ISFS input ABI to the IOS wrapper's input
     // without logging the pathname, pointers or private owner bytes.
     const bool from_isfs=v208_isfs_seen>=1u&&
@@ -412,7 +446,11 @@ def derive(source:str)->str:
  static uint32_t v208_async_path=0u,v208_async_mode=0u;
  static unsigned v208_isfs_seen=0u;
  static uint32_t v208_isfs_path=0u,v208_isfs_mode=0u;
- static uint64_t v208_isfs_inst=0u;''')
+ static uint64_t v208_isfs_inst=0u;
+ static uint32_t v208_prologue_path=0u,v208_prologue_mode=0u;
+ static bool v208_prologue_slash=false,v208_prologue_valid=false;
+ static unsigned v208_prologue_seen=0u;
+ static uint64_t v208_prologue_inst=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
      nwii::runtime::v208_fd=0u;
@@ -422,7 +460,11 @@ def derive(source:str)->str:
      nwii::runtime::v208_async_path=nwii::runtime::v208_async_mode=0u;
      nwii::runtime::v208_isfs_seen=0u;
      nwii::runtime::v208_isfs_path=nwii::runtime::v208_isfs_mode=0u;
-     nwii::runtime::v208_isfs_inst=0u;''')
+     nwii::runtime::v208_isfs_inst=0u;
+     nwii::runtime::v208_prologue_seen=0u;
+     nwii::runtime::v208_prologue_path=nwii::runtime::v208_prologue_mode=0u;
+     nwii::runtime::v208_prologue_slash=nwii::runtime::v208_prologue_valid=false;
+     nwii::runtime::v208_prologue_inst=0u;''')
     s=once(s,TRACE_ANCHOR,TRACE_HOOK)
     s=once(s,'      v183_second_phys=value;',SEND)
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,PUBLISH,1))
