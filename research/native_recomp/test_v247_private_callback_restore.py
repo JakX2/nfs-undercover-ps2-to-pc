@@ -40,8 +40,10 @@ class V247(unittest.TestCase):
         inverted=install(restored,[(a,original,current)
                                   for a,current,original in patches])
         self.assertEqual(inverted,old)
-        with self.assertRaises(PatchError):
+        with self.assertRaises(PatchError) as short_image:
             select_patches(own,b"short")
+        self.assertEqual(short_image.exception.stage,"select")
+        self.assertEqual(short_image.exception.kind,"range")
         bad=bytearray(old)
         bad[256:260]=bytes((170,187,204,221))
         with self.assertRaises(PatchError) as error:
