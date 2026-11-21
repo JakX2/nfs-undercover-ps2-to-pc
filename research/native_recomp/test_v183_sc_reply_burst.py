@@ -11,8 +11,9 @@ from derive_v183_sc_reply_burst_harness import (
     PREVIOUS_OBSERVER, widen_prior,
     V77_IRQ_CATCHALL, V183_IRQ_DIAGNOSTIC,
     V77_ACK_MMIO_CATCHALL, V183_ACK_MMIO_DIAGNOSTIC,
+    V183_WRITE32_ENTRY, V183_SECOND_SEND,
 )
-from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, ACK
+from derive_v183_sc_reply_burst_runner import derive as runner, PASS, TRACE, DEP, ACK, SECOND_MSG, SECOND_CTRL
 
 HERE=Path(__file__).resolve().parent
 
@@ -39,9 +40,11 @@ class V183(unittest.TestCase):
 
     def test_no_guest_or_ios_writes_and_inherited_vector_proofs_preserved(self):
         for token in ("ctx.mmu.write8(", "ctx.mmu.write16(", "ctx.mmu.write32(",
-                      "ipc70_ram.write8(", "ipc70_bus.write32(",
-                      "scheduler.service_one(ctx.msr)", "ipc70_bus.tick("):
+                      "ipc70_ram.write8(", "scheduler.service_one(ctx.msr)",
+                      "ipc70_bus.tick("):
             self.assertEqual(self.before.count(token),self.after.count(token),token)
+        self.assertEqual(self.after.count("ipc70_bus.write32("),
+                         self.before.count("ipc70_bus.write32(")+2)
         for tag in ("V182_SC_BURST calls=", "V182_REQUEST_SC guest=1",
                     "V182_CACHE_SC guest=1", "V182_CACHE_VECTOR entered=1",
                     "V181_SC_NEXT clean=", "V179_SC_NEXT clean="):
@@ -68,6 +71,33 @@ class V183(unittest.TestCase):
                 "msg=1 ctrl=0 flags=0 requests=1 calls=9 addr=d000000"))
         self.assertNotIn("ctx.mmu.write",V183_ACK_MMIO_DIAGNOSTIC)
         self.assertNotIn("ipc70_bus.write",V183_ACK_MMIO_DIAGNOSTIC)
+
+    def test_second_guest_request_uses_only_native_ipc_mailbox(self):
+        self.assertEqual(self.before.count(V183_WRITE32_ENTRY),1)
+        self.assertEqual(self.after.count(V183_SECOND_SEND),1)
+        self.assertIn("v182_burst_seen==1u&&v183_burst_seen==0u",V183_SECOND_SEND)
+        self.assertIn("irq76_ipc!=0u&&ack77_reply==1u",V183_SECOND_SEND)
+        self.assertIn("submit72_message==1u&&submit72_x1==1u",V183_SECOND_SEND)
+        self.assertIn("v182_request_sc==1u&&v182_calls==8u",V183_SECOND_SEND)
+        self.assertIn("ipc70_ram.valid(value,64u)",V183_SECOND_SEND)
+        self.assertIn("!(value&31u)",V183_SECOND_SEND)
+        self.assertIn("ipc70_bus.services().queued_replies()==0u",V183_SECOND_SEND)
+        self.assertIn("cmd<=undercover::wii::StmIos::Ioctlv",V183_SECOND_SEND)
+        self.assertIn("ipc70_bus.write32(addr,value)",V183_SECOND_SEND)
+        self.assertIn("mmio_writes.emplace_back(addr,value)",V183_SECOND_SEND)
+        self.assertIn("v183_second_ctrl==0u",V183_SECOND_SEND)
+        self.assertIn("V183_SECOND_MSG phase=1",V183_SECOND_SEND)
+        self.assertIn("V183_SECOND_CTRL phase=1",V183_SECOND_SEND)
+        self.assertNotIn("service_one(",V183_SECOND_SEND)
+        self.assertNotIn(".tick(",V183_SECOND_SEND)
+        self.assertNotIn("ctx.mmu.write",V183_SECOND_SEND)
+        self.assertNotIn("ipc70_ram.write",V183_SECOND_SEND)
+        self.assertEqual(
+            self.before.count("unexpected original IPC ACK MMIO write"),
+            self.after.count("unexpected original IPC ACK MMIO write"))
+        self.assertEqual(
+            self.before.count("original PPCMSG writes invalid request pointer"),
+            self.after.count("original PPCMSG writes invalid request pointer"))
 
     def test_historical_irq_dispatch_fallback_is_diagnostic_only(self):
         self.assertEqual(self.before.count(V77_IRQ_CATCHALL),1)
@@ -99,6 +129,20 @@ class V183(unittest.TestCase):
             self.assertIn("v183_burst_seen==1u",self.after[start:end])
         with self.assertRaises(ValueError):derive("invalid")
         with self.assertRaises(ValueError):widen_prior("invalid")
+
+    def test_second_ipc_log_patterns_bound_without_payload(self):
+        self.assertTrue(re.fullmatch(
+            SECOND_MSG, "V183_SECOND_MSG phase=1 prior=1 idle=1 aligned=1 "
+            "mapped=1 known=1 open=0 read=1 ioctl=0 calls=0"))
+        self.assertFalse(re.fullmatch(
+            SECOND_MSG, "V183_SECOND_MSG phase=1 prior=1 idle=1 aligned=1 "
+            "mapped=1 known=1 open=0 read=1 ioctl=0 calls=9"))
+        self.assertTrue(re.fullmatch(
+            SECOND_CTRL, "V183_SECOND_CTRL phase=1 prior=1 msg=1 wire=1 "
+            "clear=1 x1=1 calls=0"))
+        self.assertFalse(re.fullmatch(
+            SECOND_CTRL, "V183_SECOND_CTRL phase=1 prior=1 msg=1 wire=1 "
+            "clear=1 x1=1 calls=9"))
 
     def test_runner_sixteen_owner_trials_and_private_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))

@@ -20,6 +20,77 @@ MAX_CALLS=8
 # The V183 genuine IPC sender entered the historical ACK-only MMIO
 # classifier after prior ACK completion. Preserve its guard and print only
 # category flags and hardware address; never private game bytes or payload.
+# Native request forwarding retains V77 ACK checks in their original phase.
+# The owner V183 trace verified that the first post-V182 MMIO operation was
+# PPCMSG at 0x0D000000, after the original reply ACK completed.
+V183_WRITE32_ENTRY='''void HW_Reg_Write32(uint32_t addr,uint32_t value){'''
+V183_SECOND_SEND='''  // V183 owner-authenticated post-reply request. The legacy V77 IRQ ACK
+  // classifier remains armed for the *first* reply, but a later original
+  // PPCMSG/PPCCTRL pair belongs to a distinct IOS request. Forward only this
+  // bounded sequence to the existing original-free native mailbox.
+  // Do not synthesize an ACK, IOS reply, interrupt or scheduler tick.
+  if(v182_burst_seen==1u&&v183_burst_seen==0u){
+    using B=undercover::wii::IosBus;
+    using M=undercover::wii::IpcMailbox;
+    const bool msg=addr==B::IPC+M::PPCMSG||addr==B::MIRROR+M::PPCMSG;
+    const bool ctrl=addr==B::IPC+M::PPCCTRL||addr==B::MIRROR+M::PPCCTRL;
+    if(msg&&v183_second_msg==0u){
+      const auto status=ipc70_bus.read32(B::IPC+M::PPCCTRL);
+      const bool idle=status.has_value()&&((*status&(M::X1|M::Y1|M::Y2))==0u)&&
+          !ipc70_bus.external_irq_level()&&
+          ipc70_bus.services().queued_replies()==0u;
+      const bool aligned=value!=0u&&!(value&31u);
+      const bool mapped=aligned&&ipc70_ram.valid(value,64u);
+      const uint32_t cmd=mapped?ipc70_ram.read32(value):0u;
+      const bool recognized=cmd>=undercover::wii::StmIos::Open&&
+          cmd<=undercover::wii::StmIos::Ioctlv;
+      const bool prior=irq76_ipc!=0u&&ack77_reply==1u&&
+          submit72_message==1u&&submit72_x1==1u&&
+          v182_request_sc==1u&&v182_calls==8u;
+      std::cout<<"V183_SECOND_MSG phase=1 prior="<<prior
+               <<" idle="<<idle<<" aligned="<<aligned
+               <<" mapped="<<mapped<<" known="<<recognized
+               <<" open="<<(cmd==undercover::wii::StmIos::Open)
+               <<" read="<<(cmd==undercover::wii::StmIos::Read)
+               <<" ioctl="<<(cmd==undercover::wii::StmIos::Ioctl)
+               <<" calls="<<v183_calls<<std::endl;
+      check(prior&&idle&&mapped&&recognized&&v183_second_ctrl==0u,
+            "V183 second original IPC request pointer or phase invalid");
+      check(ipc70_bus.write32(addr,value),
+            "V183 native mailbox rejected second original PPCMSG");
+      v183_second_phys=value;
+      v183_second_cmd=cmd;
+      ++v183_second_msg;
+      mmio_writes.emplace_back(addr,value);
+      return;
+    }
+    if(ctrl&&v183_second_msg==1u&&v183_second_ctrl==0u){
+      const bool prior=irq76_ipc!=0u&&ack77_reply==1u&&
+            submit72_message==1u&&submit72_x1==1u;
+      const auto wire=ipc70_bus.read32(B::IPC+M::PPCMSG);
+      const auto flags=ipc70_bus.read32(B::IPC+M::PPCCTRL);
+      const bool buffered=wire.has_value()&&*wire==v183_second_phys&&
+            ipc70_ram.valid(v183_second_phys,64u)&&
+            ipc70_ram.read32(v183_second_phys)==v183_second_cmd;
+      const bool clear=flags.has_value()&&
+            ((*flags&(M::X1|M::Y1|M::Y2))==0u)&&
+            !ipc70_bus.external_irq_level();
+      const bool x1=(value&M::X1)!=0u;
+      std::cout<<"V183_SECOND_CTRL phase=1 prior="<<prior
+               <<" msg="<<(v183_second_msg==1u)
+               <<" wire="<<buffered<<" clear="<<clear
+               <<" x1="<<x1<<" calls="<<v183_calls<<std::endl;
+      check(prior&&buffered&&clear&&x1,
+            "V183 second original IPC PPCCTRL submission differs");
+      check(ipc70_bus.write32(addr,value),
+            "V183 native mailbox rejected second original PPCCTRL");
+      ++v183_second_ctrl;
+      mmio_writes.emplace_back(addr,value);
+      return;
+    }
+  }
+'''
+
 V77_ACK_MMIO_CATCHALL='''check(false,"unexpected original IPC ACK MMIO write");'''
 V183_ACK_MMIO_DIAGNOSTIC='''{ // Keep the first IPC ACK guard fail-closed, report late bus operation only.
         const bool phase=v182_burst_seen==1u&&v183_burst_seen==0u;
@@ -188,16 +259,21 @@ def derive(source: str)->str:
     s=previous(source)
     s=once(s,V77_IRQ_CATCHALL,V183_IRQ_DIAGNOSTIC)
     s=once(s,V77_ACK_MMIO_CATCHALL,V183_ACK_MMIO_DIAGNOSTIC)
+    s=once(s,V183_WRITE32_ENTRY,V183_WRITE32_ENTRY+'\n'+V183_SECOND_SEND)
     if PREVIOUS_OBSERVER.count(STOP)!=1:
         raise ValueError("V183 inherited V182 original guest stop differs")
     s=once(s,STATE,STATE+'''
  static unsigned v183_calls=0u,v183_burst_seen=0u;
+ static unsigned v183_second_msg=0u,v183_second_ctrl=0u;
+ static uint32_t v183_second_phys=0u,v183_second_cmd=0u;
  static uint64_t v183_start_inst=0u,v183_last_inst=0u;
  static uint32_t v183_status_before=0u,v183_final_status=0u;
  static uint32_t v183_target_pc=0u,v183_target_lr=0u;
  static std::array<uint32_t,8> v183_trace_pc{},v183_trace_lr{};''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v183_calls=nwii::runtime::v183_burst_seen=0u;
+     nwii::runtime::v183_second_msg=nwii::runtime::v183_second_ctrl=0u;
+     nwii::runtime::v183_second_phys=nwii::runtime::v183_second_cmd=0u;
      nwii::runtime::v183_start_inst=nwii::runtime::v183_last_inst=0u;
      nwii::runtime::v183_status_before=nwii::runtime::v183_final_status=0u;
      nwii::runtime::v183_target_pc=nwii::runtime::v183_target_lr=0u;
