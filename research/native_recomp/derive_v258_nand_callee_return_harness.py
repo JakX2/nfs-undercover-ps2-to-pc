@@ -62,8 +62,12 @@ V178_NESTED='''    // This opt-in restored guest callback is beyond the reduced 
                  <<" budget="<<budget
                  <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
                  <<std::dec<<std::endl;
-      check(code&&caller&&regs&&coherent&&first&&second&&budget,
-            "V258 restored NAND nested call exceeds verified bounded phase");
+      check(code&&caller&&regs&&coherent,
+            "V258 restored NAND nested guest context invalid");
+      check(first&&second,
+            "V258 restored NAND known nested callsites mismatch");
+      check(budget,
+            "V258 restored NAND bounded guest call budget exhausted");
       return; // instrumentation only; original AOT call still executes
     }
 '''
