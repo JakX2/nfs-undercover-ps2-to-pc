@@ -46,16 +46,16 @@ def derive(source: str)->str:
     if s.count(native_catch)!=1:
         raise ValueError("V186 private native test catch boundary count differs")
     counts=(
-        "  v186_pre=$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\\n"
-        "  v186_ack=$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\\n"
-        "  v186_state=$(grep -c '^V186_ACK_STATE ' \"$work/private-native.log\" || true)\\n"
-        "  v186_v185=$(grep -c '^V185_IPC_ENTRY ' \"$work/private-native.log\" || true)\\n"
-        "  for count in \"$v186_pre\" \"$v186_ack\" \"$v186_state\" \"$v186_v185\"; do\\n"
-        "    [[ \"$count\" =~ ^[0-9]{1,2}$ ]] || exit 1\\n"
-        "  done\\n"
-        "  echo \"V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185\"\\n"
+        "  v186_pre=$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\n"
+        "  v186_ack=$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\n"
+        "  v186_state=$(grep -c '^V186_ACK_STATE ' \"$work/private-native.log\" || true)\n"
+        "  v186_v185=$(grep -c '^V185_IPC_ENTRY ' \"$work/private-native.log\" || true)\n"
+        "  for count in \"$v186_pre\" \"$v186_ack\" \"$v186_state\" \"$v186_v185\"; do\n"
+        "    [[ \"$count\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
+        "  done\n"
+        "  echo \"V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185\"\n"
     )
-    s=s.replace(native_catch,native_catch+"\\n"+counts,1)
+    s=s.replace(native_catch,native_catch+"\n"+counts,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS_PRE}' "$log" | sort -u
 test "$(grep -Ec '{PASS_PRE}' "$log")" -eq 16
