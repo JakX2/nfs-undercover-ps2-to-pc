@@ -25,7 +25,7 @@ jobs:
       - name: Test V215 original second IOS negative Y1 vector entry
         run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/derive_v215_sc_y1_negative_vector_harness.py research/native_recomp/derive_v215_sc_y1_negative_vector_runner.py research/native_recomp/test_v215_sc_y1_negative_vector.py research/native_recomp/diagnose_v215_sc_y1_negative_vector.py
+          python3 -m py_compile research/native_recomp/derive_v215_sc_y1_negative_vector_harness.py research/native_recomp/derive_v215_sc_y1_negative_vector_runner.py research/native_recomp/test_v215_sc_y1_negative_vector.py research/native_recomp/diagnose_v215_sc_y1_negative_vector.py research/native_recomp/diagnose_v215_compile_failure.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v215_sc_y1_negative_vector.py' -v
           bash -n research/native_recomp/run_v215_sc_y1_negative_vector.sh
           python3 research/native_recomp/diagnose_v215_sc_y1_negative_vector.py 588
@@ -113,6 +113,7 @@ jobs:
               if [[ "$code" =~ ^[0-9]{3,4}$ && "$code" != "000" && "$code" != "0000" ]]; then
                 python3 research/native_recomp/diagnose_v215_sc_y1_negative_vector.py "$((10#$code))" || true
               fi
+              grep -E '^V215_COMPILE_DIAG unit=(harness|generated|loader|generator) kind=(duplicate|undeclared|member|unused|conversion|expected|call|ambiguous|other|no_public_error) line=[0-9]{1,6} symbol=(v214_state|invalid_fd|publication|bad_mode|nonzero_path|other) at_code=[01] cls=(state|ipc|alias|context|snapshot|scheduler|other)$' "$RUNNER_TEMP/sc215.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc215.log" || true
               echo 'V178 second Y2 Hollywood IRQ flag W1C failed; owner-private details withheld' >&2
               exit 1
