@@ -14,9 +14,9 @@ PROBE=r'^V225_CB_ANALYZER rooted=1 analyzed=1$'
 def derive(source:str)->str:
     s=previous(source)
     hits=re.findall(
-        r'python3 "\\$here/(derive_v[0-9a-z_]+_generator\\.py)" '
-        r'"\\$here/generate_start_to_ipc_ack_v77\\.cpp" '
-        r'"\\$work/generator\\.cpp"',s)
+        r'python3 "\$here/(derive_v[0-9a-z_]+_generator\.py)" '
+        r'"\$here/generate_start_to_ipc_ack_v77\.cpp" '
+        r'"\$work/generator\.cpp"',s)
     if len(hits)!=1 or s.count(AFTER)!=1 or s.count(DONE)!=1:
         raise ValueError("V225 inherited V177 generator substitution not unique")
     old=('python3 "$here/'+hits[0]+'" '
