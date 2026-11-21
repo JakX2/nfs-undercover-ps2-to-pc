@@ -46,9 +46,11 @@ class V257(unittest.TestCase):
     def test_no_guest_state_rewrites_or_native_reply_fabrication(self):
         for forbidden in ("ipc70_bus.write","ipc70_ram.write",
                           "ctx.mmu.write","c.mmu.write",
-                          "ctx.gpr[3]=", "ctx.pc=", "ctx.lr=",
-                          "scheduler.service_one("):
+                          "ctx.gpr[3]=", "scheduler.service_one("):
             self.assertNotIn(forbidden,CONTINUE+OBSERVER+CANDIDATE)
+        # Match assignment operators, not legitimate read-only == comparisons.
+        self.assertIsNone(re.search(r"\bctx\.(?:pc|lr)\s*=(?!=)",
+                                    CONTINUE+OBSERVER+CANDIDATE))
         for existing in ("ipc70_bus.tick(","ipc70_ram.write8(","ctx.mmu.write32("):
             self.assertEqual(self.before.count(existing),self.after.count(existing))
 
