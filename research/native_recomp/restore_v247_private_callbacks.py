@@ -9,6 +9,7 @@ never print, upload or commit any game-derived instruction bytes.
 """
 import argparse
 import hashlib
+import struct
 from pathlib import Path
 from extend_private_text import NOP, STUB, install
 from make_osinit_execparams_v28 import ORIGINAL_SHA, text_at
@@ -32,7 +33,7 @@ def select_patches(owner:bytes,fixture:bytes):
         try:
             original=text_at(owner,address,size)
             current=text_at(fixture,address,size)
-        except (ValueError,IndexError) as exc:
+        except (ValueError,IndexError,struct.error) as exc:
             raise PatchError("select","range") from exc
         mismatch=False
         for i in range(0,size,4):
