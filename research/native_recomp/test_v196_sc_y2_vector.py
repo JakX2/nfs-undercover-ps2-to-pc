@@ -40,8 +40,8 @@ class V196(unittest.TestCase):
             for forbidden in ("c.mmu.write","ctx.mmu.write","ipc70_ram.write",
                               "ipc70_bus.write","service_one(","ipc70_bus.tick("):
                 self.assertNotIn(forbidden,part)
-        self.assertNotRegex(NEXT_TRIAL,r"\\bc\\.(?:srr0|srr1|msr|lr|ctr|xer)\\s*=(?!=)")
-        self.assertNotRegex(OBSERVER,r"\\bctx\\.(?:srr0|srr1|msr|lr|ctr|xer)\\s*=(?!=)")
+        self.assertNotRegex(NEXT_TRIAL,r"\bc\.(?:srr0|srr1|msr|lr|ctr|xer)\s*=(?!=)")
+        self.assertNotRegex(OBSERVER,r"\bctx\.(?:srr0|srr1|msr|lr|ctr|xer)\s*=(?!=)")
         self.assertIn("v196_live=false;",self.after)
         with self.assertRaises(ValueError):
             derive("invalid")
