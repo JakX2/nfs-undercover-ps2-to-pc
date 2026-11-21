@@ -59,7 +59,7 @@ class V253(unittest.TestCase):
                   '"$work/generated/output.cpp"',
                   '"$work/generated-v248/output.cpp"'):
             self.assertIn(s,script)
-        self.assertNotIn("cat "$work",STAGE)
+        self.assertNotIn('cat "$work',STAGE)
         self.assertNotIn("upload-artifact",STAGE)
         wf=(HERE.parents[1]/".github/workflows/wii-v253-callback-other.yml").read_text()
         for s in ("run_v253_callback_other.sh",
