@@ -25,9 +25,9 @@ def derive(source:str)->str:
     matches=list(generator.finditer(s))
     if len(matches)!=1:
         raise ValueError("V229 expected exactly one inherited active AOT generator")
-    s=s[:matches[0].start()]+
+    s=(s[:matches[0].start()]+
       'python3 "$here/derive_v225_isfs_callback_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'+
-      s[matches[0].end():]
+      s[matches[0].end():])
     s=s.replace(AFTER,"""grep -Fx 'V225_CB_ANALYZER rooted=1 analyzed=1' "$work/generation.log" >/dev/null || {
   echo 'V229_CALLBACK_ROOT verified=0'
   exit 1
