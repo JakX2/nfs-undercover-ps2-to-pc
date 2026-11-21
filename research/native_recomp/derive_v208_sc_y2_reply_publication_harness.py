@@ -277,34 +277,6 @@ SEND='''      // Observe only the actual guest-owned second IPC request at PPCMS
       const bool shared2=bounded_path&&candidate.rfind("/shared2/",0u)==0u;
       const bool sysconf=bounded_path&&candidate=="/shared2/sys/SYSCONF";
       const bool title=bounded_path&&candidate.rfind("/title/",0u)==0u;
-      // IOS reads physical MEM2; the translated Wii CPU can also
-      // reference cached 0x9... and uncached 0xD... aliases. Check
-      // whether both aliases are mapped and coherent without rewriting
-      // either the CPU memory map or the request buffer.
-      const uint32_t caddr=value|0x80000000u;
-      const uint32_t uaddr=value|0xc0000000u;
-      const bool cached=send_cpu&&send_cpu->mmu.get_ptr(caddr)!=nullptr&&
-            send_cpu->mmu.get_ptr(caddr+63u)!=nullptr;
-      const bool uncached=send_cpu&&send_cpu->mmu.get_ptr(uaddr)!=nullptr&&
-            send_cpu->mmu.get_ptr(uaddr+63u)!=nullptr;
-      const bool same_backing=cached&&uncached&&
-            send_cpu->mmu.get_ptr(caddr)==send_cpu->mmu.get_ptr(uaddr);
-      const bool same_header=cached&&uncached&&
-            send_cpu->mmu.read32(caddr)==send_cpu->mmu.read32(uaddr)&&
-            send_cpu->mmu.read32(caddr+12u)==send_cpu->mmu.read32(uaddr+12u)&&
-            send_cpu->mmu.read32(caddr+16u)==send_cpu->mmu.read32(uaddr+16u);
-      const bool path_cached=send_cpu&&(bmem1||bmem2)&&
-            send_cpu->mmu.get_ptr(b)!=nullptr;
-      const bool path_uncached=path_cached&&
-            send_cpu->mmu.get_ptr(b|0x40000000u)!=nullptr;
-      const bool path_coherent=path_cached&&path_uncached&&
-            send_cpu->mmu.read8(b)==send_cpu->mmu.read8(b|0x40000000u);
-      std::cout<<"V208_Y2_ALIAS cached="<<cached
-               <<" uncached="<<uncached<<" same_ptr="<<same_backing
-               <<" same_header="<<same_header
-               <<" path_cached="<<path_cached
-               <<" path_uncached="<<path_uncached
-               <<" path_coherent="<<path_coherent<<std::endl;
       std::cout<<"V208_Y2_PATHCLASS valid="<<bounded_path
                <<" dev="<<dev<<" stm="<<stm<<" fs="<<fs
                <<" es="<<es<<" shared2="<<shared2

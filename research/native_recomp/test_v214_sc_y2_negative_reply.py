@@ -30,6 +30,8 @@ class V214(unittest.TestCase):
                       "++v214_negative_seen"):
             self.assertIn(token,VERIFY)
         self.assertIn("v214_negative_seen==1u",NEXT_END)
+        self.assertNotIn("V208_Y2_ALIAS",self.after)
+        self.assertIn("V208_Y2_PATHCLASS",self.after)
         with self.assertRaises(ValueError):derive("unmatched base")
 
     def test_preserves_native_service_and_cpu_state(self):
