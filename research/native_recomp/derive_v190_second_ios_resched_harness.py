@@ -70,46 +70,8 @@ OBSERVER='''  // V190 executes the authentic PowerPC rescheduler from the V189
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
-V95_TITLE_PHASE='''   if(post95_active&&!submit72_active&&post94_query==1u){'''
-V190_SCOPED_TITLE_PHASE='''   // V95 title-query allocator callbacks are valid only in the original
-   // title-query phase. The V189 owner-original checkpoint proves the later
-   // second-IOS rescheduler has reached its own authentic execution phase.
-   // Preserve the V95 guard completely until that exact guest boundary.
-   if(post95_active&&!submit72_active&&post94_query==1u&&
-      !(v189_next_seen==1u&&v186_ack_seen==1u&&
-        v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
-        v190_next_seen==0u)){'''
-V95_ALLOCATOR_ASSERT='''check(open71_profile==0u,"V95 duplicate allocator wrapper");'''
-V190_V95_DIAGNOSTIC='''if(open71_profile!=0u){
-          const bool v190_phase=v189_next_seen==1u;
-          const bool v190_auth=v186_ack_seen==1u;
-          const bool v190_target=v189_target_pc==0x80529940u&&
-                v189_target_lr==0x80526cb4u;
-          const bool v190_call=ctx.inst_count>v190_start_inst;
-          std::cout<<"V190_V95_DUP phase="<<v190_phase
-                   <<" auth="<<v190_auth<<" target="<<v190_target
-                   <<" call="<<v190_call
-                   <<" first="<<(post95_active&&post94_query==1u)
-                   <<std::endl;
-        }
-        check(open71_profile==0u,"V95 duplicate allocator wrapper");'''
-V95_QUERY_ENTRY='''if(post94_active&&post94_return==1u&&addr==0x8051a62cu&&ctx.lr==0x804f0bd8u){'''
-V190_SCOPED_QUERY_ENTRY='''if(post94_active&&post94_return==1u&&addr==0x8051a62cu&&ctx.lr==0x804f0bd8u&&
-      !(v189_next_seen==1u&&v186_ack_seen==1u&&
-        v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
-        v190_next_seen==0u)){'''
-V95_CLEANUP_ASSERT='''check(open83_free_restore==1u&&resume82_stop==1u&&reply79_irq==1u,"V95 ES open cleanup missing");'''
-V190_V95_CLEANUP_TRACE='''std::cout<<"V190_V95_CLEANUP phase="<<(v189_next_seen==1u)
-          <<" ack="<<(v186_ack_seen==1u)
-          <<" target="<<(v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u)
-          <<" seen="<<(v190_next_seen==1u)
-          <<" free="<<(open83_free_restore==1u)
-          <<" resume="<<(resume82_stop==1u)
-          <<" reply="<<(reply79_irq==1u)<<std::endl;
-     check(open83_free_restore==1u&&resume82_stop==1u&&reply79_irq==1u,"V95 ES open cleanup missing");'''
 PAIR=re.compile(r'c\.pc==nwii::runtime::v189_target_pc&&\s*c\.lr==nwii::runtime::v189_target_lr')
 NEXT_TRIAL='''       using V190Bus=undercover::wii::IosBus;
-       using V190Irq=undercover::wii::HollywoodIrq;
        using V190Ios=undercover::wii::StmIos;
        const bool v190_guest=nwii::runtime::v190_next_seen==1u&&
              nwii::runtime::v189_next_seen==1u&&
@@ -181,10 +143,7 @@ def derive(source: str)->str:
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+'\n'+NEXT_TRIAL)
-    s=once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
-    s=once(s,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY)
-    return once(once(s,V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC),
-                V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
+    return widen_prior(s)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

@@ -6,10 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v189_second_ios_restore_harness import derive as previous
-from derive_v190_second_ios_resched_harness import (derive,STOP,CONTINUE,OBSERVER,
-    NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE,
-    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY,
-    V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
+from derive_v190_second_ios_resched_harness import derive,STOP,CONTINUE,OBSERVER,NEXT_TRIAL,PAIR,widen_prior
 from derive_v190_second_ios_resched_runner import derive as runner,PATTERN,PASS,STATE,PASS_STATE
 HERE=Path(__file__).resolve().parent
 class V190(unittest.TestCase):
@@ -63,66 +60,21 @@ class V190(unittest.TestCase):
         with self.assertRaises(ValueError):derive("invalid")
         with self.assertRaises(ValueError):widen_prior("invalid")
 
-    def test_historical_v95_title_allocator_phase_only_after_authentic_v189(self):
-        self.assertEqual(self.before.count(V95_TITLE_PHASE),1)
-        self.assertEqual(self.after.count(V190_SCOPED_TITLE_PHASE),1)
-        self.assertIn("post95_active&&!submit72_active&&post94_query==1u",
-                      V190_SCOPED_TITLE_PHASE)
-        self.assertIn("v189_next_seen==1u&&v186_ack_seen==1u",
-                      V190_SCOPED_TITLE_PHASE)
-        self.assertIn("v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u",
-                      V190_SCOPED_TITLE_PHASE)
-        self.assertIn("v190_next_seen==0u",V190_SCOPED_TITLE_PHASE)
-        self.assertEqual(self.before.count("V95 duplicate allocator wrapper"),
-                         self.after.count("V95 duplicate allocator wrapper"))
-        self.assertEqual(self.before.count("++open71_profile;"),
-                         self.after.count("++open71_profile;"))
-
-    def test_v95_query_entry_is_scoped_to_first_title_query_only(self):
-        self.assertEqual(self.before.count(V95_QUERY_ENTRY),1)
-        self.assertEqual(self.after.count(V190_SCOPED_QUERY_ENTRY),1)
-        self.assertIn("v189_next_seen==1u&&v186_ack_seen==1u",V190_SCOPED_QUERY_ENTRY)
-        self.assertIn("v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u",
-                      V190_SCOPED_QUERY_ENTRY)
-        self.assertIn("v190_next_seen==0u",V190_SCOPED_QUERY_ENTRY)
-        self.assertEqual(self.before.count("V95 ES open cleanup missing"),
-                         self.after.count("V95 ES open cleanup missing"))
-
-    def test_v95_owner_duplicate_diagnostic_is_bounded_and_passive(self):
-        self.assertIn(V95_ALLOCATOR_ASSERT,self.before)
-        self.assertNotIn(V190_V95_DIAGNOSTIC,self.before)
-        self.assertIn(V190_V95_DIAGNOSTIC,self.after)
-        self.assertIn("V190_V95_DUP phase=",V190_V95_DIAGNOSTIC)
-        self.assertIn("if(open71_profile!=0u)",V190_V95_DIAGNOSTIC)
-        self.assertIn(V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
-        self.assertEqual(self.before.count("V95 duplicate allocator wrapper"),
-                         self.after.count("V95 duplicate allocator wrapper"))
-        self.assertNotIn("ctx.mmu.write",V190_V95_DIAGNOSTIC)
-        self.assertNotIn("ipc70_ram.write",V190_V95_DIAGNOSTIC)
-        self.assertNotIn("scheduler.service_one(",V190_V95_DIAGNOSTIC)
-
-    def test_passive_original_v95_cleanup_phase_diagnostic(self):
-        self.assertEqual(self.before.count(V95_CLEANUP_ASSERT),1)
-        self.assertEqual(self.after.count(V190_V95_CLEANUP_TRACE),1)
-        self.assertIn("V190_V95_CLEANUP phase=",V190_V95_CLEANUP_TRACE)
-        self.assertIn("v189_next_seen==1u",V190_V95_CLEANUP_TRACE)
-        self.assertIn("v189_target_pc==0x80529940u",V190_V95_CLEANUP_TRACE)
-        self.assertIn(V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
-        self.assertNotIn("ctx.mmu.write",V190_V95_CLEANUP_TRACE)
-        self.assertNotIn("scheduler.service_one",V190_V95_CLEANUP_TRACE)
-
-    def test_owner_assertion_classification_uses_generated_harness_not_wrong_catalog(self):
-        from diagnose_v190_native_guard import classify
-        source='check(x,"V95 duplicate allocator wrapper");'
-        self.assertEqual(classify(source,"what(): V95 duplicate allocator wrapper"),
-                         "v95_duplicate")
-        self.assertEqual(classify(source,"what(): V95 ES open cleanup missing"),
-                         "unknown")
-        self.assertEqual(classify(source,"what(): unknown diagnostic"),"unknown")
-        self.assertEqual(classify(source,"no exception"),"none")
-        script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("diagnose_v190_native_guard.py",script)
-        self.assertIn('"$work/harness.cpp"',script)
+    def test_derived_cpp_harness_compiles_with_original_free_sources(self):
+        import shutil
+        compiler=shutil.which("g++")
+        self.assertIsNotNone(compiler)
+        with tempfile.TemporaryDirectory() as folder:
+            cpp=Path(folder)/"harness.cpp"
+            cpp.write_text(self.after,encoding="utf-8")
+            proc=subprocess.run([compiler,"-std=c++20","-O2","-Wall","-Wextra",
+                "-Werror","-Wno-type-limits","-Wno-unused-label","-I",str(HERE),
+                "-I",str(HERE.parents[1]/"nWiiRuntime"/"include"),
+                "-fsyntax-only",str(cpp)],
+                capture_output=True,text=True,timeout=90)
+            self.assertEqual(proc.returncode,0,
+                "V190 independent harness violates owner Werror C++ compile policy")
+        self.assertNotIn("using V190Irq=undercover::wii::HollywoodIrq;",self.after)
 
     def test_owner_native_runner_and_workflow(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
