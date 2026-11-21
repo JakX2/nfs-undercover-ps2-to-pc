@@ -8,7 +8,7 @@ from pathlib import Path
 from derive_v244_sc_callback_link_harness import derive as base
 from derive_v254_nand_first_child_harness import (
     derive, V178_CALLEE, V178_SCOPED, NAND_RESUME,
-    OBSERVER, VERIFY,
+    OBSERVER, VERIFY, CANDIDATE,
 )
 from derive_v254_nand_first_child_runner import derive as runner, PATTERN, PASS, TRIAL
 HERE=Path(__file__).resolve().parent
@@ -29,8 +29,10 @@ class V254(unittest.TestCase):
         self.assertIn("v254_nand_inst=ctx.inst_count",NAND_RESUME)
         self.assertIn("ctx.inst_count>v254_nand_inst",OBSERVER)
         self.assertIn("v254_next_pc=addr;v254_next_lr=ctx.lr",OBSERVER)
-        self.assertIn("V254_NAND_GUEST callback=",VERIFY)
-        self.assertIn("continue; // only the independent owner-callback mode",VERIFY)
+        self.assertIn("V254_NAND_GUEST callback=",CANDIDATE)
+        self.assertIn(CANDIDATE,self.after)
+        self.assertNotIn("V252_NAND_GUEST checked=",self.after)
+        self.assertIn("continue; // only the independent owner-callback mode",CANDIDATE)
         self.assertIn("ctx.is_running=false;throw ExceptionStop{};",OBSERVER)
         self.assertNotIn("ctx.is_running=false;throw ExceptionStop{};",NAND_RESUME)
         with self.assertRaises(ValueError):derive("unmatched")
@@ -42,7 +44,7 @@ class V254(unittest.TestCase):
             for forbidden in ("ipc70_bus.write","ipc70_ram.write","ctx.mmu.write",
                               "c.mmu.write","ctx.gpr[3]=","ctx.pc=0x"):
                 self.assertNotIn(forbidden,segment)
-        self.assertIn("if(v250_probe&&nwii::runtime::v254_next_seen==1u){",VERIFY)
+        self.assertIn("if(v250_probe&&nwii::runtime::v254_next_seen==1u){",CANDIDATE)
         self.assertIn('check(addr==0x80545100u&&ctx.lr==0x804f1e40u,',V178_SCOPED)
 
     def test_owner_sixteen_randomized_trials_and_cleanup(self):

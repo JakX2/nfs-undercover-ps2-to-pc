@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 from derive_v252_nand_guest_entry_harness import (
     derive as previous, BOUNDED_STOP as PREVIOUS_STOP,
-    VERIFY as PREVIOUS_VERIFY,
+    CANDIDATE as PREVIOUS_CANDIDATE,
 )
 from derive_v194_osrestore_next_harness import STATE, RESET, once
 
@@ -92,10 +92,12 @@ VERIFY='''      check(exception_stop,"exception initialization did not reach exa
               "V254 restored original NAND child call did not persist");
         continue; // only the independent owner-callback mode, not V244 owner
       }'''
+CANDIDATE=VERIFY.split('''      check(exception_stop,"exception initialization did not reach exact test-only syscall");\n''',1)[1]
+
 def derive(source:str)->str:
     s=previous(source)
     if (s.count(PREVIOUS_STOP)!=1 or
-            s.count(PREVIOUS_VERIFY)!=1 or
+            s.count(PREVIOUS_CANDIDATE)!=1 or
             s.count(V178_CALLEE)!=1 or
             s.count(TRACE_ANCHOR)!=1):
         raise ValueError("V254 callback and legacy callee source anchors changed")
@@ -111,7 +113,9 @@ def derive(source:str)->str:
     s=once(s,PREVIOUS_STOP,NAND_RESUME)
     s=once(s,V178_CALLEE,V178_SCOPED)
     s=once(s,TRACE_ANCHOR,OBSERVER)
-    s=once(s,PREVIOUS_VERIFY,VERIFY)
+    # Replace only the candidate-specific V163 final shortcut. The
+    # preceding game-executed V163 assertion still runs in baseline owner.
+    s=once(s,PREVIOUS_CANDIDATE,CANDIDATE)
     return s
 
 if __name__=="__main__":

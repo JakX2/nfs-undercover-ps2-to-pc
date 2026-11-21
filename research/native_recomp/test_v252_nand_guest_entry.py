@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from derive_v244_sc_callback_link_harness import derive as base
 from derive_v250_restored_callback_nand_harness import derive as previous
-from derive_v252_nand_guest_entry_harness import derive, FALLTHROUGH, BOUNDED_STOP, VERIFY
+from derive_v252_nand_guest_entry_harness import derive, FALLTHROUGH, BOUNDED_STOP, VERIFY, CANDIDATE, V163_TRIAL, PREVIOUS_POST
 from derive_v252_nand_guest_entry_runner import derive as runner, PATTERN, PASS
 HERE=Path(__file__).resolve().parent
 
@@ -22,9 +22,13 @@ class V252(unittest.TestCase):
         self.assertIn(FALLTHROUGH,self.before)
         self.assertNotIn(FALLTHROUGH,self.after)
         self.assertIn(BOUNDED_STOP,self.after)
-        self.assertIn(VERIFY,self.after)
+        self.assertIn(CANDIDATE+'\n'+V163_TRIAL,self.after)
+        self.assertIn(PREVIOUS_POST,self.after)
+        self.assertNotIn(VERIFY,self.after)
+        self.assertEqual(self.after.count(V163_TRIAL),1)
         self.assertIn("if(v250_probe&&nwii::runtime::v252_nand_entry_seen==1u){",VERIFY)
-        self.assertIn("continue; // candidate-only isolated proof",VERIFY)
+        self.assertIn("continue; // candidate-only isolated proof",CANDIDATE)
+        self.assertTrue(CANDIDATE.startswith('      if(v250_probe&&'))
         self.assertIn('V178 owner-original SC reply callee differs from V177 proof',self.after)
         self.assertEqual(self.before.count('V244 original callback nested link provenance missing'),
                          self.after.count('V244 original callback nested link provenance missing'))

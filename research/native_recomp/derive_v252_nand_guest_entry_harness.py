@@ -17,6 +17,7 @@ from derive_v250_restored_callback_nand_harness import (
     POST as PREVIOUS_POST,
 )
 from derive_v194_osrestore_next_harness import STATE, RESET, once
+from derive_v163_sc_y1_disable_harness import NEXT_TRIAL as V163_TRIAL
 
 FALLTHROUGH='''    ++v250_nand_seen;
     // Fall through to the existing original-free IRQ/callback tracers.'''
@@ -49,6 +50,8 @@ VERIFY='''      check(exception_stop,"exception initialization did not reach exa
         check(result,"V252 genuine NAND bctrl entry or guest ABI differs");
         continue; // candidate-only isolated proof; never weaken V244 owner baseline
       }'''
+CANDIDATE=VERIFY.split(PREVIOUS_POST+'\n',1)[1]
+
 def derive(source:str)->str:
     s=previous(source)
     if (PREVIOUS_OBSERVER.count(FALLTHROUGH)!=1 or
@@ -60,7 +63,11 @@ def derive(source:str)->str:
     s=once(s,RESET,RESET+'''
      nwii::runtime::v252_nand_entry_seen=0u;''')
     s=once(s,FALLTHROUGH,BOUNDED_STOP)
-    s=once(s,PREVIOUS_POST,VERIFY)
+    # The V163 historical final trial assertion precedes later V178/V244
+    # checks, and rejects the newly restored NAND entry. Only the explicit
+    # owner-callback mode gets a fully authenticated early trial checkpoint.
+    # Leave owner and synthetic mode's complete inherited assertions intact.
+    s=once(s,V163_TRIAL,CANDIDATE+'\n'+V163_TRIAL)
     return s
 
 if __name__=="__main__":
