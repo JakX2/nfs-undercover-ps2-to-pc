@@ -35,6 +35,8 @@ class V225(unittest.TestCase):
         self.assertIn("V225_SC_ISFS_CALLBACK_AOT verified=1",script)
         self.assertIn("V177_SC_REPLY_NEXT verified=1",script)
         self.assertNotIn('echo "$(cat "$work/generation.log")"',script)
+        self.assertIn("derive_v225_isfs_callback_runner.py",
+                      (HERE/"run_v225_isfs_callback_aot.sh").read_text())
         self.assertIsNotNone(re.fullmatch(PROBE,"V225_CB_ANALYZER rooted=1 analyzed=1"))
         wf=(HERE.parents[1]/".github/workflows/wii-v225-isfs-callback-aot.yml").read_text()
         for mark in ("run_v225_isfs_callback_aot.sh",
