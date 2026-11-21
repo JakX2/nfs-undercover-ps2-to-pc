@@ -26,7 +26,7 @@ def derive(source:str)->str:
     if s.count(native_fail)!=1:
         raise ValueError("V208 owner-native failure classification boundary changed")
     s=s.replace(native_fail,
-        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\\n'
+        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +native_fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
