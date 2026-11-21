@@ -63,6 +63,11 @@ static const X map[] = {{0x804F0E04, 0x804F0F84, callback},
         self.assertIn("V245_STAGE entered=1",script)
         self.assertIn("V245_STAGE completed=1",script)
         self.assertIn("V245_STAGE failed=1",script)
+        # Audit runs at the source-generation checkpoint, not inside the
+        # guest native process. The final gate must read its own log.
+        self.assertIn('test "$(grep -Ec',script)
+        self.assertIn('"$work/v245-aot.log")" -eq 1',script)
+        self.assertNotIn('"$log")" -eq 1\necho \'V245_SC_AOT_MAP',script)
         self.assertIn("V245_AOT_DIAG stage=record kind=mismatch",script)
         self.assertNotIn("cat $work",AUDIT)
         self.assertNotIn("source=",AUDIT)

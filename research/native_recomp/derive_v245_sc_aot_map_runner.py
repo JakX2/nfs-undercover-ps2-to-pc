@@ -30,8 +30,8 @@ def derive(source:str)->str:
         raise ValueError("V245 generation checkpoint or prior proof changed")
     s=s.replace(markers[0],markers[0]+"\n"+AUDIT,1)
     return s.replace(DONE,DONE+f"""
-test "$(grep -Ec '{PATTERN}' "$log")" -eq 1
-grep -E '{PATTERN}' "$log" | sort -u
+test "$(grep -Ec '{PATTERN}' "$work/v245-aot.log")" -eq 1
+grep -E '{PATTERN}' "$work/v245-aot.log" | sort -u
 echo 'V245_SC_AOT_MAP verified=1'
 """,1)
 
