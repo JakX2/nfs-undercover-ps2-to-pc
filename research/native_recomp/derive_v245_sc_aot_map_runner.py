@@ -8,6 +8,14 @@ DONE="echo 'V244_SC_CALLBACK_LINK verified=1'"
 MARKERS=("echo 'V104_STAGE generation_complete'",
          "echo 'V79_STAGE generation_complete'")
 PATTERN=r'^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$'
+V247_ROW=r'^V247_FIXTURE owner=1 cb_same=[0-9]{1,2} cb_nop=[0-9]{1,2} cb_sc=[0-9]{1,2} cb_blr=[0-9]{1,2} cb_zero=[0-9]{1,2} cb_other=[0-9]{1,2} cb_placeholder=[01] nand_same=[0-9]{1,2} nand_nop=[0-9]{1,2} nand_sc=[0-9]{1,2} nand_blr=[0-9]{1,2} nand_zero=[0-9]{1,2} nand_other=[0-9]{1,2} nand_placeholder=[01]$'
+CENSUS='''if python3 "$V110_SOURCE_ROOT/audit_v247_fixture_placeholders.py" "$owner" "$work/private.dol" > "$work/v247-fixture.log" 2>&1; then
+  grep -E '^V247_FIXTURE owner=1 cb_same=[0-9]{1,2} cb_nop=[0-9]{1,2} cb_sc=[0-9]{1,2} cb_blr=[0-9]{1,2} cb_zero=[0-9]{1,2} cb_other=[0-9]{1,2} cb_placeholder=[01] nand_same=[0-9]{1,2} nand_nop=[0-9]{1,2} nand_sc=[0-9]{1,2} nand_blr=[0-9]{1,2} nand_zero=[0-9]{1,2} nand_other=[0-9]{1,2} nand_placeholder=[01]$' "$work/v247-fixture.log" | sort -u
+else
+  grep -Fx 'V247_FIXTURE_DIAG result=failed' "$work/v247-fixture.log" || true
+  echo 'V247_FIXTURE result=failed'
+  exit 1
+fi'''
 AUDIT='''echo 'V245_STAGE entered=1'
 if python3 "$V110_SOURCE_ROOT/audit_v245_generated_callback.py" "$owner" "$work/private.dol" "$work/generated/output.cpp" > "$work/v245-aot.log" 2>&1; then
   if grep -E '^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$work/v245-aot.log"; then
@@ -28,11 +36,13 @@ def derive(source:str)->str:
     markers=[item for item in MARKERS if s.count(item)==1]
     if len(markers)!=1 or s.count(DONE)!=1:
         raise ValueError("V245 generation checkpoint or prior proof changed")
-    s=s.replace(markers[0],markers[0]+"\n"+AUDIT,1)
+    s=s.replace(markers[0],markers[0]+"\n"+AUDIT+"\n"+CENSUS,1)
     return s.replace(DONE,DONE+f"""
 test "$(grep -Ec '{PATTERN}' "$work/v245-aot.log")" -eq 1
 grep -E '{PATTERN}' "$work/v245-aot.log" | sort -u
 echo 'V245_SC_AOT_MAP verified=1'
+test "$(grep -Ec '{V247_ROW}' "$work/v247-fixture.log")" -eq 1
+echo 'V247_SC_FIXTURE_CLASS verified=1'
 """,1)
 
 if __name__=="__main__":
