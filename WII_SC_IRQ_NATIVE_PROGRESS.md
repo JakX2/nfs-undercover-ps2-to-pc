@@ -89,8 +89,17 @@ found a valid slash-prefixed, bounded pathname at **mode** offset 0x10,
 while the expected pathname word is not itself a mode.
 A [neighboring-word scan](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871814369)
 found this pathname only at 0x10 and **no valid mode in any slot from 0x0C
-through 0x1C**. The request appears incorrectly constructed or stale;
-do not modify the ABI or invent a successful open.
+through 0x1C**. A first-known-good request control run
+[44872093209](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44872093209)
+reported `V208_Y2_BASE old_valid=1 old_reply=1 old_path=1
+old_mode=1 old_open=1 same_ptr=0`. The earlier SC/SYSCONF request
+retains a valid standard IOS Open pathname/mode and opened file handle in
+the **same** native runtime. The ABI implementation is therefore backed by
+a concrete working control, whereas the second original request is malformed
+at submission and remains unchanged until processing. The failure is
+localized to the second request's preparation/memory visibility, or the
+specific request buffer selected by original code. Do not modify the IOS
+ABI or invent a successful open.
 
 **Next (unverified):** trace authentic second `IOS_Open` request
 buffer construction and physical RAM/cache visibility before the original
