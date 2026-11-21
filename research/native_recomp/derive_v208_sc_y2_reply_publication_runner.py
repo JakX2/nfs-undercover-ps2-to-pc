@@ -49,8 +49,8 @@ def derive(source:str)->str:
     s=s.replace(fail,'  grep -E "'+ASYNC_LINK_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+ISFS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+ISFS_TO_IOS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
-    s=s.replace(fail,'  grep -E "'+PROLOGUE_PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
-    s=s.replace(fail,'  grep -E "'+GPR_FLOW_PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+PROLOGUE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+GPR_FLOW_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
