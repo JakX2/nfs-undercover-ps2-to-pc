@@ -17,7 +17,7 @@ from derive_v250_restored_callback_nand_harness import (
     POST as PREVIOUS_POST,
 )
 from derive_v194_osrestore_next_harness import STATE, RESET, once
-from derive_v163_sc_y1_disable_harness import NEXT_TRIAL as V163_TRIAL
+V163_LABEL='"V163 original second SC IRQ timebase did not advance to scheduler disable");'
 
 FALLTHROUGH='''    ++v250_nand_seen;
     // Fall through to the existing original-free IRQ/callback tracers.'''
@@ -67,7 +67,20 @@ def derive(source:str)->str:
     # checks, and rejects the newly restored NAND entry. Only the explicit
     # owner-callback mode gets a fully authenticated early trial checkpoint.
     # Leave owner and synthetic mode's complete inherited assertions intact.
-    s=once(s,V163_TRIAL,CANDIDATE+'\n'+V163_TRIAL)
+    # Later authentic guest assertions widen earlier PC/LR comparisons.
+    # Anchor on the stable *error label*, not V163's obsolete full check.
+    if s.count(V163_LABEL)!=1:
+        raise ValueError("V252 legacy V163 historical assertion count changed")
+    label=s.index(V163_LABEL)
+    start=s.rfind("check(",0,label)
+    if start<0 or not 40<label-start<5200:
+        raise ValueError("V252 V163 guarded check bounds changed")
+    if "nwii::runtime::v163_next_seen" not in s[start:label]:
+        raise ValueError("V252 V163 translated continuation signature missing")
+    line=s.rfind("\\n",0,start)+1
+    if line<0 or s[line:start].strip():
+        raise ValueError("V252 preceding V163 statement indentation changed")
+    s=s[:line]+CANDIDATE+'\\n'+s[line:]
     return s
 
 if __name__=="__main__":
