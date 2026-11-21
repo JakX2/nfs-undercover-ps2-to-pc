@@ -81,6 +81,19 @@ class V184(unittest.TestCase):
             path.write_text(script,encoding="utf-8")
             subprocess.run(["bash","-n",str(path)],check=True)
 
+    def test_owner_assertion_id_maps_only_public_label(self):
+        from diagnose_v184_sc_reply_burst import describe
+        from classify_v38_native_failure import STRING
+        labels=sorted(set(STRING.findall(self.after)))
+        self.assertGreater(len(labels),588)
+        self.assertEqual(describe(588),labels[587])
+        with self.assertRaises(ValueError):describe(0)
+        with self.assertRaises(ValueError):describe(99999)
+        source=(HERE/"diagnose_v184_sc_reply_burst.py").read_text(encoding="utf-8")
+        self.assertNotIn("print(raw)",source)
+        self.assertNotIn("print(word)",source)
+        self.assertNotIn("ipc70_ram.read32",source)
+
     def test_owner_ci_private_cleanup(self):
         wf=(HERE.parents[1]/".github/workflows/wii-v184-sc-reply-burst.yml").read_text()
         self.assertIn("run_v184_sc_reply_burst.sh",wf)
