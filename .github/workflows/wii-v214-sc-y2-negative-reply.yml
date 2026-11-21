@@ -25,7 +25,7 @@ jobs:
       - name: Test V214 original second IOS negative reply publication
         run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/derive_v214_sc_y2_negative_reply_harness.py research/native_recomp/derive_v214_sc_y2_negative_reply_runner.py research/native_recomp/test_v214_sc_y2_negative_reply.py research/native_recomp/diagnose_v214_sc_y2_negative_reply.py research/native_recomp/diagnose_v214_native_failure.py
+          python3 -m py_compile research/native_recomp/derive_v214_sc_y2_negative_reply_harness.py research/native_recomp/derive_v214_sc_y2_negative_reply_runner.py research/native_recomp/test_v214_sc_y2_negative_reply.py research/native_recomp/diagnose_v214_sc_y2_negative_reply.py research/native_recomp/diagnose_v214_native_failure.py research/native_recomp/diagnose_v214_compile_failure.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v214_sc_y2_negative_reply.py' -v
           bash -n research/native_recomp/run_v214_sc_y2_negative_reply.sh
           python3 research/native_recomp/diagnose_v214_sc_y2_negative_reply.py 588
@@ -126,6 +126,7 @@ jobs:
                 python3 research/native_recomp/diagnose_v214_sc_y2_negative_reply.py "$((10#$code))" || true
               fi
               grep -E '^V214_NATIVE_DIAG public=[01] kind=(v82_context|v82_scheduler|v82_rfi|v208_open|v214_negative|v183_ipc|other_public|unmatched) trials=([0-9]|1[0-6]) negative=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc214.log" | sort -u || true
+              grep -E '^V214_COMPILE_DIAG unit=(harness|generated|loader|generator) kind=(duplicate|undeclared|member|unused|conversion|expected|call|ambiguous|other|no_public_error) line=[0-9]{1,6} symbol=(v214_state|invalid_fd|publication|bad_mode|nonzero_path|other)$' "$RUNNER_TEMP/sc214.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc214.log" || true
               echo 'V214 negative IOS reply owner test failed; owner-private details withheld' >&2
               exit 1

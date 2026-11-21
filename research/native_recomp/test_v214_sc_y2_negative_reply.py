@@ -69,6 +69,15 @@ class V214(unittest.TestCase):
         self.assertEqual(diagnose(log,public),
             "V214_NATIVE_DIAG public=1 kind=v82_context trials=1 negative=1")
         self.assertIn("diagnose_v214_native_failure.py",script)
+        from diagnose_v214_compile_failure import diagnose as compile_diagnose
+        sample=("harness.cpp:10067:12: error: 'v214_negative_seen' was not declared in this scope\\n"
+                "harness.cpp:10068:12: note: did you mean something else")
+        self.assertEqual(compile_diagnose(sample,"harness"),
+            "V214_COMPILE_DIAG unit=harness kind=undeclared line=10067 symbol=v214_state")
+        self.assertEqual(compile_diagnose("PRIVATE_COMPILER_DATA","harness"),
+            "V214_COMPILE_DIAG unit=harness kind=no_public_error line=0 symbol=other")
+        self.assertIn("diagnose_v214_compile_failure.py",script)
+
         wf=(HERE.parents[1]/".github/workflows/wii-v214-sc-y2-negative-reply.yml").read_text()
         for m in ("run_v214_sc_y2_negative_reply.sh",
                   "test_v214_sc_y2_negative_reply.py",
