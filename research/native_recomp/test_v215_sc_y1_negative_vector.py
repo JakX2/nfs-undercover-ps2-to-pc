@@ -60,7 +60,7 @@ class V215(unittest.TestCase):
         self.assertIsNone(re.fullmatch(PASS,good.replace("entered=1","entered=0")))
         from diagnose_v215_compile_failure import diagnose as diag
         compiler="harness.cpp:7798:12: error: 'v215_ctrl' was not declared in this scope"
-        self.assertEqual(diag(compiler, "\\n"*7797+"v215_ctrl;", "harness"),
+        self.assertEqual(diag(compiler, "\n"*7797+"v215_ctrl;", "harness"),
             "V215_COMPILE_DIAG unit=harness kind=undeclared line=7798 symbol=other at_code=1 cls=ipc")
         self.assertIn("diagnose_v215_compile_failure.py",script)
         wf=(HERE.parents[1]/".github/workflows/wii-v215-sc-y1-negative-vector.yml").read_text()

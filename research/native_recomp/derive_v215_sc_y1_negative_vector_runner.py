@@ -23,7 +23,7 @@ def derive(source:str)->str:
     if s.count(compile_line)!=1:
         raise ValueError("V215 public harness compiler guard changed")
     s=s.replace(compile_line,
-        'python3 "$V110_SOURCE_ROOT/diagnose_v215_compile_failure.py" "$work/native-compile.log" "$work/harness.cpp" "$unit" || true\\n      '+
+        'python3 "$V110_SOURCE_ROOT/diagnose_v215_compile_failure.py" "$work/native-compile.log" "$work/harness.cpp" "$unit" || true\n      '+
         compile_line,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
