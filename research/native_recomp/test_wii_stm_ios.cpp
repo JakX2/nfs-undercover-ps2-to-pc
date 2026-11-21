@@ -49,6 +49,7 @@ int main(){
     for(uint32_t a:{event-32u,event,event+32u,buf}){
         m.write(P,M::PPCMSG,a);m.write(P,M::PPCCTRL,enables|M::X1);
         assert(ios.pump()==S::Pump::InvalidAddress&&m.request_pending());
+        assert(!m.ios_request_queued());
         m.write(P,M::PPCCTRL,enables);
         assert(ios.event_pending()&&mem.read32(event)==S::Ioctl&&mem.read32(buf)==0xaabbccdd);
     }
@@ -75,6 +76,7 @@ int main(){
     for(uint32_t a:{0u,1u,8160u,8192u,0xffffffe0u}){
         m.write(P,M::PPCMSG,a);m.write(P,M::PPCCTRL,enables|M::X1);
         assert(ios.pump()==S::Pump::InvalidAddress&&m.request_pending());
+        assert(!m.ios_request_queued());
         m.write(P,M::PPCCTRL,enables);
     }
     ios.reset();m.reset();assert(!ios.is_open(0,S::Device::Immediate)&&ios.queued_replies()==0&&!ios.event_pending());

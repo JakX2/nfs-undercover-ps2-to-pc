@@ -46,6 +46,7 @@ public:
             if(bit(value,ARM_X1)){
                 x1_=false;
                 request_queued_=false; // IOS has acknowledged this intake.
+                request_address_=0u;
             }
             if(bit(value,ARM_X2))x2_=false;
             ix1_=bit(value,IX1);ix2_=bit(value,IX2);return;
@@ -60,6 +61,13 @@ public:
     // request event, without automatic service or synthetic completion.
     // See WiiBrew Hardware/IPC and Dolphin's IOS request enqueue sequence.
     bool request_pending() const noexcept {return x1_;}
+    // A native IOS broker rejection is not a Starlet ACK. Release only
+    // this bounded intake event, leaving the readable X1 flag untouched.
+    // The guest must clear/reassert X1 to submit a corrected pointer.
+    void reject_invalid_ios_request() noexcept {
+        request_queued_=false;
+        request_address_=0u;
+    }
     bool ios_request_queued() const noexcept {return request_queued_;}
     uint32_t ios_request_address() const noexcept {return request_address_;}
     bool reply_pending() const noexcept {return y1_;}

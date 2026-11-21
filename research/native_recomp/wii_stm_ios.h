@@ -86,8 +86,13 @@ public:
             // writable, and a later Broadway write must not redirect a
             // request already accepted by the native IOS intake queue.
             const uint32_t address=mail_.ios_request_address();
-            if(!request_span(address)||!disjoint_outstanding(address,64u))
+            if(!request_span(address)||!disjoint_outstanding(address,64u)){
+                // Local validation failed before Starlet ACK. Do not leave
+                // an invalid event occupying the only native intake slot.
+                // No hardware ACK, IOS reply or guest mutation is implied.
+                mail_.reject_invalid_ios_request();
                 return Pump::InvalidAddress;
+            }
             const Request r{address,mem_.read32(address),mem_.read32(address+8),
                 mem_.read32(address+12),mem_.read32(address+16),
                 mem_.read32(address+20),mem_.read32(address+24),mem_.read32(address+28)};
