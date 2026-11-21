@@ -28,9 +28,9 @@ def derive(source: str)->str:
     # were actually produced; attach to the unique inherited failure exit.
     # Do not depend on historical V67/V178 classifier command spelling.
     diagnostic=(
-        '  if [ -s "$work/private-native.log" ] && [ -s "$work/harness.cpp" ]; then\\n'
-        '    python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp" || true\\n'
-        '  fi\\n'
+        '  if [ -s "$work/private-native.log" ] && [ -s "$work/harness.cpp" ]; then\n'
+        '    python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp" || true\n'
+        '  fi\n'
     )
     if s.count(FAIL)!=1:
         raise ValueError("V190 bounded native failure-exit anchor differs")
