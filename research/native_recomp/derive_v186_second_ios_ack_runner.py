@@ -56,7 +56,7 @@ def derive(source: str)->str:
                          f" negated={int('if !' in line)}"
                          f" redirect={int('private-native.log' in line)}"
                          f" braced={int('{' in line)}"
-                         f" length={len(line)}")
+                         f" length={len(line)} public_line={line.strip()!r}")
     counts=(
         "  v186_pre=$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\n"
         "  v186_ack=$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\n"
