@@ -22,8 +22,11 @@ def derive(source: str)->str:
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     stage="echo 'V79_STAGE native_test_passed'"
-    if s.count(stage)!=1:
-        raise ValueError("V191 original native execution success boundary changed")
+    # Earlier V178 instrumentation may echo the same public stage name from
+    # the preflight reporter. Attach once to the first real native success
+    # command in the inherited original-free shell source.
+    if s.count(stage)<1:
+        raise ValueError("V191 original native execution success boundary absent")
     probe=(
         "  v191_next=$(grep -Ec '^V191_SC_NEXT ' \"$work/private-native.log\" || true)\n"
         "  v191_state=$(grep -Ec '^V191_SC_STATE ' \"$work/private-native.log\" || true)\n"
