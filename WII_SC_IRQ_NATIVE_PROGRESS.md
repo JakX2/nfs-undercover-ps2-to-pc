@@ -1,8 +1,8 @@
-# Wii SC IRQ native continuation: V141-V194
+# Wii SC IRQ native continuation: V141-V195
 
-Status: **V194 owner-original PowerPC checkpoint verified (16/16 trials)**.
-V195 is an experimental hardware IRQ-entry checkpoint and is **not verified**
-until its separate owner-original test passes. This document retains the earlier V141-V145
+Status: **V195 owner-original second IOS hardware external IRQ entry verified (16/16 trials)**.
+V196 is the experimental native execution of the original installed Wii
+exception vector and is **not verified** until its separate owner-original trial passes. This document retains the earlier V141-V145
 checkpoints as historical evidence, not as the current development frontier.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -27,19 +27,21 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V192 | [16-trial run 44856826905](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856826905) | Executed the original helper at `0x8052F830`; next translated PPC entry was the original interrupt-disable helper at `PC=0x805265AC / LR=0x8052F84C`. Guest `r3=1`, CR0.EQ=1, `SC=1`, `MSR.EE=1`, `Y2=1`, Hollywood IRQ=1, one second IOS completion still queued, 16/16 original-game and public guards passed. |
 | V193 | [16-trial run 44857365572](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44857365572) | Executed original `OSDisableInterrupts` at `0x805265AC`, reaching authentic `OSRestoreInterrupts` at `PC=0x805265D4 / LR=0x8052F92C`. `MSR.EE=0`, IRQ-ready=0, `SC=1`, queued second IOS completion=1, Y2/flag=1, `r3=1`, CR0.EQ=0. Both owner original and original-free CI passed. |
 | V194 | [16-trial run 44857645514](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44857645514) | Executed original `OSRestoreInterrupts` and returned to **exactly** `PC=0x8052F830 / LR=0x80520970`, the same OSInit retry helper reached in V191. `r3=1`, CR0.EQ=1, SC=1, MSR.EE=1 and IRQ-ready=1. The Y2 Hollywood interrupt and one second IOS completion remained pending, demonstrating a repeatable native OSInit retry cycle. Owner-original 16/16 and public source guards passed. |
+| V195 | [16-trial run 44862789293](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44862789293) | Native hardware IRQ entry admitted the **second genuine IOS Y2** at authenticated V194 instruction boundary. Original installed exception vector checked; `SRR0=0x8052F830`, SRR1/MSR saved/masked, GPR/LR/CTR/XER preserved, guest PC moved to `0x80000500`. The queued second IOS completion was not delivered or fabricated. Owner-original and original-free suites passed. |
 
-**Current authentic guest frontier:** `0x8052F830` (LR `0x80520970`),
-after original `OSRestoreInterrupts`. The V191-V194 owner-original trace
-proves a closed SC initialization retry cycle with `MSR.EE` alternating
-through authentic disable/restore helpers, while the second IOS Y2 IRQ
-and a single IOS completion remain queued. The retry is not resolved.
+**Current authenticated instruction boundary:** the V194 original guest stopped
+at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
+hardware exception, yielding `PC=0x80000500`, `SRR0=0x8052F830` and
+masked guest MSR. The V191-V194 owner-original trace proves a closed SC
+initialization retry cycle; V195 entered the second Y2 exception without
+consuming the queued IOS reply. The retry is not resolved.
 
-**V195 (unverified):** admit the pending Y2 through the existing native
-PowerPC external-exception entry helper only after all V194 original guest
-assertions and at the next unexecuted instruction boundary. The hardware
-helper validates the original installed exception vector, saves SRR0/SRR1,
-and masks EE. This is distinct from executing the original vector/handler,
-which must be a subsequent verified milestone; no IOS reply is fabricated.
+**V196 (unverified):** execute the original translated Wii exception vector
+starting at `0x80000500` and stop upon entering original OS external-exception
+handler `0x80526CE0`. Validate the saved interrupt frame against authenticated
+V195 SRRs, LR, CTR, XER, GPRs and the still-pending second IOS completion.
+Retire the first-IRQ-only historical observer flag after its V194 checks;
+never change guest CPU state, fake a handler, or consume the IOS reply.
 
 **Not yet achieved:** final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
