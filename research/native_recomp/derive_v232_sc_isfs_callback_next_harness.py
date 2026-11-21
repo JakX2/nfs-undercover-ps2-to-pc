@@ -19,8 +19,14 @@ from derive_v194_osrestore_next_harness import STATE, RESET, once
 # The legacy first-open allocator check must not intercept the
 # third original negative IOS reply callback's own allocator/free.
 # Scope only the caller of that historical first-open observer.
-OPEN71_OLD='''   if(open71_trace(addr,ctx))return;'''
-OPEN71_SCOPED='''   if(v231_callback_seen==0u&&open71_trace(addr,ctx))return;'''
+# Observe a stable first-open assertion instead of a historical
+# function signature or callsite rewritten by earlier derivations.
+# The return is inside open71_trace's original allocator-tail branch.
+OPEN71_OLD='''     check(open71_profile==0u&&ctx.lr==0x8051998cu&&ctx.gpr[1]<open71_stack,
+           "native IOS_Open allocator tail entry differs");'''
+OPEN71_SCOPED='''     if(v231_callback_seen==1u)return false;
+     check(open71_profile==0u&&ctx.lr==0x8051998cu&&ctx.gpr[1]<open71_stack,
+           "native IOS_Open allocator tail entry differs");'''
 
 STOP='''    v231_target_pc=addr;v231_target_lr=ctx.lr;
     ++v231_callback_seen;

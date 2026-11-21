@@ -40,8 +40,9 @@ class V232(unittest.TestCase):
         self.assertNotIn(OPEN71_OLD,self.after)
         self.assertIn(OPEN71_SCOPED,self.after)
         self.assertEqual(self.after.count(OPEN71_SCOPED),1)
-        self.assertIn("v231_callback_seen==0u",OPEN71_SCOPED)
-        self.assertIn("open71_trace(addr,ctx)",OPEN71_SCOPED)
+        self.assertIn("v231_callback_seen==1u",OPEN71_SCOPED)
+        self.assertIn("native IOS_Open allocator tail entry differs",OPEN71_SCOPED)
+        self.assertIn("return false;",OPEN71_SCOPED)
         self.assertNotIn("ctx.mmu.write",OPEN71_SCOPED)
         self.assertNotIn("ipc70_ram.write",OPEN71_SCOPED)
 
