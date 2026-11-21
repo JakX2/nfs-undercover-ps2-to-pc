@@ -37,9 +37,9 @@ class V240(unittest.TestCase):
             self.assertEqual(self.before.count(marker),self.after.count(marker))
         for snippet in (PROBE,SEND):
             for bad in ("ipc70_bus.write","ipc70_ram.write","ctx.mmu.write",
-                        "<<v240_obs_cb","<<v240_obs_user","<<v240_obs_result",
-                        "ctx.gpr[3]=","ctx.gpr[4]="):
+                        "<<v240_obs_cb","<<v240_obs_user","<<v240_obs_result"):
                 self.assertNotIn(bad,snippet)
+            self.assertNotRegex(snippet,r"ctx\.gpr\[(?:3|4)\]\s*=(?!=)")
     def test_16_trials_and_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for m in ("derive_v240_sc_first_callback_abi_harness.py",
