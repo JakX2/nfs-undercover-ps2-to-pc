@@ -19,6 +19,12 @@ def derive(source:str)->str:
         raise ValueError("V238 native owner failure exit changed")
     for pattern in (ENTRY,PATTERN):
         s=s.replace(fail,'  grep -E "'+pattern+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    compile_line='python3 "$here/classify_v77_compile_failure.py" "$work/native-compile.log" "$unit"'
+    if s.count(compile_line)!=1:
+        raise ValueError("V238 native compiler failure hook changed")
+    s=s.replace(compile_line,
+        'python3 "$V110_SOURCE_ROOT/diagnose_v238_compile_failure.py" "$work/native-compile.log" || true\\n      '+
+        compile_line,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{ENTRY}' "$log" | sort -u
 grep -E '{PATTERN}' "$log" | sort -u

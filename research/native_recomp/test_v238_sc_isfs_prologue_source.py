@@ -48,6 +48,14 @@ class V238(unittest.TestCase):
         good="V238_SOURCE saves=2 second=1 nand=0 logging=1 other=0 r11=1 modevalid=0 pathvalid=0 sysconf=0 same_ios_mode=1 ios_invalid=1"
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNone(re.fullmatch(PASS,good.replace("ios_invalid=1","ios_invalid=0")))
+        from diagnose_v238_compile_failure import diagnose
+        sample="harness.cpp:8759:14: error: redeclaration of 'mapped'"
+        self.assertEqual(diagnose(sample),
+            "V238_COMPILE_DIAG found=1 kind=duplicate symbol=mapped line=8759")
+        self.assertEqual(diagnose("confidential compiler message"),
+            "V238_COMPILE_DIAG found=0 kind=none symbol=other line=0")
+        self.assertIn("diagnose_v238_compile_failure.py",script)
+
         wf=(HERE.parents[1]/".github/workflows/wii-v238-sc-isfs-prologue-source.yml").read_text()
         for marker in ("run_v238_sc_isfs_prologue_source.sh",
              "test_v238_sc_isfs_prologue_source.py","V238_SC_ISFS_PROLOGUE verified=1"):
