@@ -225,6 +225,28 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
     const bool virt=m>=0x90000000u&&m<0x94000000u;
     const bool mapped_mode=virt&&ctx.mmu.get_ptr(m)!=nullptr;
     const bool mode_slash=mapped_mode&&ctx.mmu.read8(m)==uint8_t('/');
+    // At the ISFS prologue's _savegpr_26 entry the old LR has already
+    // been saved to the incoming stack slot. Distinguish NAND's real
+    // return site from other ISFS callers. NAND calls ISFS with its
+    // pathname on the caller's stack and the scalar mode in saved r31.
+    const uint32_t sp=ctx.gpr[1];
+    const bool lr_mapped=ctx.mmu.get_ptr(sp+36u)!=nullptr;
+    const uint32_t source_lr=lr_mapped?ctx.mmu.read32(sp+36u):0u;
+    const bool caller_nand=lr_mapped&&source_lr==0x8051de3cu;
+    const bool caller_log=lr_mapped&&source_lr==0x8051f700u;
+    const bool caller_other=lr_mapped&&!caller_nand&&!caller_log;
+    const bool path_stack=p==sp+40u;
+    const bool stack_map=ctx.mmu.get_ptr(sp+40u)!=nullptr;
+    const bool stack_slash=stack_map&&
+          ctx.mmu.read8(sp+40u)==uint8_t('/');
+    const bool r31_mode=ctx.gpr[31]<=3u;
+    const bool mode_equal=m==ctx.gpr[31];
+    std::cout<<"V208_Y2_PROVENANCE saved="<<lr_mapped
+             <<" nand="<<caller_nand<<" log="<<caller_log
+             <<" other="<<caller_other
+             <<" path_stack="<<path_stack<<" stack_slash="<<stack_slash
+             <<" r31_scalar="<<r31_mode<<" r4_eq_r31="<<mode_equal
+             <<std::endl;
     v208_prologue_path=p;v208_prologue_mode=m;
     v208_prologue_inst=ctx.inst_count;
     v208_prologue_slash=slash;v208_prologue_valid=valid;

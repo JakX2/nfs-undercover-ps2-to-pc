@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND, TRACE_HOOK
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -181,6 +181,16 @@ class V208(unittest.TestCase):
         self.assertIsNone(re.fullmatch(GPR_FLOW_PATTERN,flow+" private=/dev/test"))
         self.assertIn("V208_Y2_PROLOGUE",script)
         self.assertIn("V208_Y2_GPR_FLOW",script)
+        provenance=("V208_Y2_PROVENANCE saved=1 nand=1 log=0 other=0 "
+                    "path_stack=1 stack_slash=1 r31_scalar=1 r4_eq_r31=1")
+        self.assertIn("V208_Y2_PROVENANCE",TRACE_HOOK)
+        self.assertIn("ctx.mmu.read32(sp+36u)",TRACE_HOOK)
+        self.assertIn("source_lr==0x8051de3cu",TRACE_HOOK)
+        self.assertIn("p==sp+40u",TRACE_HOOK)
+        self.assertIn("m==ctx.gpr[31]",TRACE_HOOK)
+        self.assertIsNotNone(re.fullmatch(PROVENANCE_PATTERN,provenance))
+        self.assertIsNone(re.fullmatch(PROVENANCE_PATTERN,provenance+" addr=private"))
+        self.assertIn("V208_Y2_PROVENANCE",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
                 "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
         pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "
