@@ -281,12 +281,7 @@ jobs:
           grep -Fx 'V205_SC_Y2_FLAG verified=1' "$RUNNER_TEMP/sc206.log"
           grep -Fx 'V205_Y2_FLAG write=1 cleared=1 ctrl=1 irq_down=1 queued=1 guest=1 progressed=1 sc=1' "$RUNNER_TEMP/sc206.log" | sort -u
           grep -Fx 'V206_SC_Y2_POST_FLAG verified=1' "$RUNNER_TEMP/sc206.log"
-          grep -E '^V206_Y2_POST ack=1 irq_down=1 queued=1 open=1 guest=1 masked=1 coherent=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc206.log"
- "$RUNNER_TEMP/sc206.log" | sort -u
+          grep -E '^V206_Y2_POST ack=1 irq_down=1 queued=1 open=1 guest=1 masked=1 coherent=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc206.log" | sort -u
           echo 'PASS: original second Y2 IRQ resumed after real guest W1C'
       - name: Remove private owner and generated code
         if: always()
