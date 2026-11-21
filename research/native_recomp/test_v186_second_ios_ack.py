@@ -107,9 +107,21 @@ class V186(unittest.TestCase):
         self.assertIn("V77_COMPILE_UNIT",s)
         self.assertIn("V67_NATIVE_ASSERTION",s)
 
+    def test_native_failure_probe_only_at_real_original_execution_catch(self):
+        s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        native_catch='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1 || {'
+        self.assertEqual(s.count(native_catch),1)
+        self.assertIn("V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185",s)
+        self.assertEqual(s.count("V186_NATIVE_FAILURE pre="),1)
+        self.assertGreater(s.index("V186_NATIVE_FAILURE pre="),s.index(native_catch))
+        self.assertLess(s.index("V186_NATIVE_FAILURE pre="),s.index('python3 "$here/classify_v67_native_failure.py"'))
+        self.assertIn("grep -c '^V186_IOS_PRE '",s)
+        self.assertIn("grep -c '^V186_SECOND_ACK '",s)
+        self.assertIn("grep -c '^V186_ACK_STATE '",s)
+
     def test_public_only_native_runtime_failure_counters(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
-        self.assertIn("V186_RUNTIME_COUNTS pre=$p ack=$a state=$s previous=$v",s)
+        self.assertIn("V186_NATIVE_FAILURE pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185",s)
         self.assertIn("grep -c '^V186_IOS_PRE '",s)
         self.assertIn("grep -c '^V186_SECOND_ACK '",s)
         self.assertIn("grep -c '^V186_ACK_STATE '",s)
