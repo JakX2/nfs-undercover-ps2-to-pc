@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, KIND
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, KIND
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -73,6 +73,13 @@ class V208(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(KIND,kind))
         self.assertIsNone(re.fullmatch(KIND,kind+" path=/private"))
         self.assertIn("V208_Y2_KIND",script)
+        self.assertIn("V208_Y2_OPEN_ARGS",script)
+        self.assertIsNotNone(re.fullmatch(ARGS,
+            "V208_Y2_OPEN_ARGS zero=1 mapped=0 mode_valid=1 mode_hi8=0 invalid=1"))
+        self.assertIsNotNone(re.fullmatch(ARGS,
+            "V208_Y2_OPEN_ARGS zero=0 mapped=1 mode_valid=0 mode_hi8=1 invalid=1"))
+        self.assertIsNone(re.fullmatch(ARGS,
+            "V208_Y2_OPEN_ARGS zero=0 mapped=/private mode_valid=0 mode_hi8=1 invalid=1"))
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",

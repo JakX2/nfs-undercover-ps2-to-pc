@@ -60,6 +60,19 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     const bool file=known_fd&&ipc70_bus.services().is_open(fd,S::Device::File);
     const bool es=known_fd&&ipc70_bus.services().is_open(fd,S::Device::Es);
     const bool opened=immediate||event||fs||file||es;
+    // This is an IOS Open with a -4 result. The native Open dispatcher
+    // produces Invalid only when its path argument is zero or its mode >3.
+    // Classify those original request words without printing private bytes.
+    const uint32_t path_arg=ipc70_ram.read32(req+12u);
+    const uint32_t mode_arg=ipc70_ram.read32(req+16u);
+    const bool path_zero=path_arg==0u;
+    const bool path_mapped=!path_zero&&ipc70_ram.valid(path_arg,1u);
+    const bool mode_valid=mode_arg<=3u;
+    const bool mode_hi8=mode_arg>255u;
+    std::cout<<"V208_Y2_OPEN_ARGS zero="<<path_zero
+             <<" mapped="<<path_mapped<<" mode_valid="<<mode_valid
+             <<" mode_hi8="<<mode_hi8
+             <<" invalid="<<(path_zero||!mode_valid)<<std::endl;
     std::cout<<"V208_Y2_KIND immediate="<<immediate<<" event="<<event
              <<" fs="<<fs<<" file="<<file<<" es="<<es
              <<" negative="<<(int32_t(fd)<0)

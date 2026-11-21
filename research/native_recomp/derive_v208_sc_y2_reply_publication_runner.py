@@ -10,6 +10,7 @@ DONE="echo 'V207_SC_Y2_HELPER_NEXT verified=1'"
 PATTERN=r'^V208_Y2_REPLY step=[01] wire=[01] opened=[01] signal=[01] drained=[01] cpu=[01] sc=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
 PASS=r'^V208_Y2_REPLY step=1 wire=1 opened=1 signal=1 drained=1 cpu=1 sc=1 pc=80529434 lr=80526cb0$'
 KIND=r'^V208_Y2_KIND immediate=[01] event=[01] fs=[01] file=[01] es=[01] negative=[01] result=-?[0-9]{1,4}$'
+ARGS=r'^V208_Y2_OPEN_ARGS zero=[01] mapped=[01] mode_valid=[01] mode_hi8=[01] invalid=[01]$'
 
 def derive(source:str)->str:
     s=previous(source)
@@ -21,6 +22,7 @@ def derive(source:str)->str:
         raise ValueError("V208 original-native runner failure anchor changed")
     s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+KIND+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ARGS+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
