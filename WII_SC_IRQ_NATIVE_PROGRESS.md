@@ -50,16 +50,45 @@ OSInit exit. V250 isolates the first restored `bctrl` and requires
 the guest's actual stack delta, CTR, linked LR and callback arguments
 before claiming any further execution milestone.
 
-The **V250 candidate execution is currently failing**, with successful
-candidate compilation/linking but no first callback trace observed before
-the bounded test exit. Exact compiled-public-harness owner evidence:
+**Updated V250 owner-native callback result:** the older
 [run 44896266598](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44896266598)
-reported `V250_PUBLIC_FAILURE id=1012 label=V250 original restored callback
-NAND checkpoint missing callback=0 nand=0 trials=0`. This is a
-**negative result**, not an observed `bctrl` ABI failure. A separate,
-read-only V250 phase snapshot is being added to identify which earlier
-guest initialization/IPC/callback boundary terminates the restored
-candidate. No guest state is rewritten to make the test pass.
+reported no callback trace and a bounded diagnostic failure; later
+source-only phase instrumentation and candidate-specific fixes resolved
+that *observation gap*. The recent
+[owner-native candidate 44897131293](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44897131293)
+observed the restored `_isfsFuncCb` entry and real translated Wii
+`bctrl` into `nandOpenCallback`:
+
+`V250_CB_BEGIN candidate=1 reply=1 captured=1`
+
+`V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1 progressed=1 reply=1`
+
+The full V250 owner workflow **still fails** with exact-public-harness
+assertion `V178 owner-original SC reply callee differs from V177 proof`
+and `trials=0`. That legacy assertion assumes the reduced callback
+fixture takes an immediate path to `0x80545100`, whereas the restored
+original callback actually calls `0x8051E06C` first. This observation
+is a *single-candidate entry/ABI result*, **not a completed 16-trial
+native execution milestone or proof that NAND's body returned**. It
+does not establish an SC status transition or an OSInit exit.
+
+The independently passing
+[V251 AOT differential audit 44896778261](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44896778261)
+verified the restored callback and NAND bodies changed as intended while
+the IPC, ISFS and async control functions were byte-for-byte stable in
+generated native C++. One additional generated AOT function changed
+(`changed=1`), whose address/range is being classified by V253.
+
+**Candidate isolation:** V252 introduces an explicit `owner-callback`
+mode that stops at the already-observed authentic NAND bctrl entry,
+validates actual guest registers, stack and first IOS reply independently
+for each of 16 randomized startup trials, then skips only *later
+historical full-run assertions* for that candidate mode. The V244
+owner baseline still executes first, unchanged; no guest state, IOS
+response, callback target or original Wii instruction is rewritten.
+V252 is unverified until its owner-native run succeeds. A subsequent
+milestone must execute the real NAND body and its downstream callback
+before claiming functional callback completion.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
