@@ -20,7 +20,7 @@ def derive(source:str)->str:
     markers=[item for item in MARKERS if s.count(item)==1]
     if len(markers)!=1 or s.count(DONE)!=1:
         raise ValueError("V245 generation checkpoint or prior proof changed")
-    s=s.replace(markers[0],markers[0]+"\\n"+AUDIT,1)
+    s=s.replace(markers[0],markers[0]+"\n"+AUDIT,1)
     return s.replace(DONE,DONE+f"""
 test "$(grep -Ec '{PATTERN}' "$log")" -eq 1
 grep -E '{PATTERN}' "$log" | sort -u

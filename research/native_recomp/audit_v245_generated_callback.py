@@ -24,7 +24,7 @@ CALLS={
     "isfs":0x804f1e2c,
     "nand":0x8051e06c,
 }
-HEADERS=re.compile(r"(?m)^void\\s+[A-Za-z_][A-Za-z_0-9]*\\s*\\(CPUContext& ctx\\)\\s*\\{")
+HEADERS=re.compile(r"(?m)^void\s+[A-Za-z_][A-Za-z_0-9]*\s*\(CPUContext& ctx\)\s*\{")
 
 def fixture_match(owner:bytes,fixture:bytes,reader=text_at)->dict[str,bool]:
     result={}
@@ -68,9 +68,9 @@ def scan(generated:str)->dict[str,bool]:
         "isfs_prologue":"stwu r1, -32(r1)" in isfs,
         "isfs_save":"loc_804f1e3c: ;" in isfs,
         "nand_entry":bool(nand),
-        "dispatch_cb":bool(re.search(r"\\{0x804f0e04,\\s*0x[0-9a-f]+,",lower)),
-        "dispatch_isfs":bool(re.search(r"\\{0x804f1e2c,\\s*0x[0-9a-f]+,",lower)),
-        "dispatch_nand":bool(re.search(r"\\{0x8051e06c,\\s*0x[0-9a-f]+,",lower)),
+        "dispatch_cb":bool(re.search(r"\{0x804f0e04,\s*0x[0-9a-f]+,",lower)),
+        "dispatch_isfs":bool(re.search(r"\{0x804f1e2c,\s*0x[0-9a-f]+,",lower)),
+        "dispatch_nand":bool(re.search(r"\{0x8051e06c,\s*0x[0-9a-f]+,",lower)),
     }
 
 def format_result(verified:bool,fixture:dict[str,bool],
