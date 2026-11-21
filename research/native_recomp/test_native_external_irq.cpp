@@ -66,5 +66,62 @@ int main(){
     wr(B::IPC+M::PPCCTRL,M::IY1|M::IY2|M::Y1);
     wr(B::IPC+H::PPC_FLAG,H::IPC_PPC);
     assert(!bus.external_irq_level()&&bus.tick()==S::Pump::Idle);
+    // Repeat the precise post-V194 boundary with a distinct guest request.
+    // Broadway has already cleared visible X1, the IOS service has ACKed
+    // Y2, and one completion remains deferred. The OSInit helper toggles EE
+    // through the original disabled/restored states without ticking IOS.
+    {
+        Ram second_ram;
+        B second_bus(second_ram);
+        Context second{{second_ram}};
+        for(unsigned i=0;i<synthetic_vector.size();++i)
+            second_ram.write8(0x500+i,synthetic_vector[i]);
+        constexpr uint32_t second_request=0x200u,second_path=0x900u;
+        constexpr std::string_view device="/dev/stm/immediate";
+        for(unsigned i=0;i<device.size();++i)
+            second_ram.write8(second_path+i,uint8_t(device[i]));
+        second_ram.write8(second_path+uint32_t(device.size()),0u);
+        second_ram.write32(second_request,S::Open);
+        second_ram.write32(second_request+12u,second_path);
+        const auto second_wr=[&](uint32_t a,uint32_t v){assert(second_bus.write32(a,v));};
+        second_wr(B::IPC+H::PPC_MASK,H::IPC_PPC);
+        second_wr(B::PI_MASK,H::PI_HOLLYWOOD);
+        second_wr(B::IPC+M::PPCMSG,second_request);
+        second_wr(B::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1);
+        second_wr(B::IPC+M::PPCCTRL,M::IY1|M::IY2);
+        assert(second_bus.pending_native_ios_request()&&
+               (second_bus.read32(B::IPC+M::PPCCTRL).value()&M::X1)==0u);
+        assert(second_bus.tick()==S::Pump::Ack&&
+               second_bus.services().queued_replies()==1u&&
+               !second_bus.pending_native_ios_request()&&
+               second_ram.read32(second_request)==S::Open);
+        second.pc=0x8052f830u;
+        second.lr=0x80520970u;
+        second.msr=0x0000b032u;
+        for(unsigned i=0;i<32u;++i)second.gpr[i]=0x90001000u+i;
+        const auto original_registers=second.gpr;
+        const uint32_t original_msr=second.msr;
+        assert(second_bus.external_exception_pending(second.msr));
+        second.msr&=~B::MSR_EE;
+        assert(!second_bus.external_exception_pending(second.msr)&&
+               second_bus.external_irq_level()&&
+               second_bus.services().queued_replies()==1u&&
+               second_ram.read32(second_request)==S::Open);
+        second.msr=original_msr;
+        assert(second_bus.external_exception_pending(second.msr)&&
+               second_bus.services().queued_replies()==1u);
+        const auto result=enter_external_irq(second,second_bus,synthetic_vector,true);
+        assert(result==ExternalEntry::Entered&&
+               second.pc==ExternalVector&&
+               second.srr0==0x8052f830u&&
+               second.srr1==(original_msr&ExternalSrr1Mask)&&
+               second.msr==(original_msr&~ExternalMsrClear)&&
+               second.lr==0x80520970u&&
+               second.gpr==original_registers);
+        assert(!second_bus.external_exception_pending(second.msr)&&
+               second_bus.external_irq_level()&&
+               second_bus.services().queued_replies()==1u&&
+               second_ram.read32(second_request)==S::Open);
+    }
     std::cout<<"PASS: native external IRQ entry at instruction boundary, SRRs, MSR, vector guard and IPC latch sequencing\n";
 }
