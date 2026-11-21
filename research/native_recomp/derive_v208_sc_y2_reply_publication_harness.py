@@ -213,8 +213,9 @@ TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
   // Genuine ISFS_OpenAsync caller ABI before the IOS_OpenAsync wrapper.
   // Whitelisted return-site classes distinguish NAND open and logging.
-  if(v177_next_seen==1u&&v183_second_msg==0u&&
-     v208_isfs_seen==0u&&addr==0x804f1e2cu){
+  if(v208_async_seen==0u&&v183_second_msg==0u&&
+     v208_isfs_seen<32u&&addr==0x804f1e2cu&&
+     ctx.gpr[13]==v147_first_r13){
     const uint32_t path=ctx.gpr[3],mode=ctx.gpr[4];
     const bool mapped=ctx.mmu.get_ptr(path)!=nullptr;
     const bool slash=mapped&&ctx.mmu.read8(path)==uint8_t('/');
@@ -226,7 +227,8 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
     const bool logging=ctx.lr==0x8051f700u;
     v208_isfs_path=path;v208_isfs_mode=mode;
     ++v208_isfs_seen;
-    std::cout<<"V208_Y2_ISFS_ENTRY seen="<<(v208_isfs_seen==1u)
+    v208_isfs_inst=ctx.inst_count;
+    std::cout<<"V208_Y2_ISFS_ENTRY seen=1 count="<<v208_isfs_seen
              <<" nand="<<nand<<" logging="<<logging
              <<" mapped="<<mapped<<" slash="<<slash
              <<" modevalid="<<modevalid<<" modemem2="<<modemem2
@@ -249,7 +251,8 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
     const bool modeslash=modemapped&&ctx.mmu.read8(mode)==uint8_t('/');
     // Compare the original ISFS input ABI to the IOS wrapper's input
     // without logging the pathname, pointers or private owner bytes.
-    const bool from_isfs=v208_isfs_seen==1u&&ctx.lr==0x804f1eccu;
+    const bool from_isfs=v208_isfs_seen>=1u&&
+          ctx.lr==0x804f1eccu&&ctx.inst_count>v208_isfs_inst;
     const bool inherited_mode=from_isfs&&mode==v208_isfs_mode;
     const bool isfs_mapped=from_isfs&&
           ctx.mmu.get_ptr(v208_isfs_path)!=nullptr;
@@ -408,7 +411,8 @@ def derive(source:str)->str:
  static unsigned v208_async_seen=0u;
  static uint32_t v208_async_path=0u,v208_async_mode=0u;
  static unsigned v208_isfs_seen=0u;
- static uint32_t v208_isfs_path=0u,v208_isfs_mode=0u;''')
+ static uint32_t v208_isfs_path=0u,v208_isfs_mode=0u;
+ static uint64_t v208_isfs_inst=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
      nwii::runtime::v208_fd=0u;
@@ -417,7 +421,8 @@ def derive(source:str)->str:
      nwii::runtime::v208_async_seen=0u;
      nwii::runtime::v208_async_path=nwii::runtime::v208_async_mode=0u;
      nwii::runtime::v208_isfs_seen=0u;
-     nwii::runtime::v208_isfs_path=nwii::runtime::v208_isfs_mode=0u;''')
+     nwii::runtime::v208_isfs_path=nwii::runtime::v208_isfs_mode=0u;
+     nwii::runtime::v208_isfs_inst=0u;''')
     s=once(s,TRACE_ANCHOR,TRACE_HOOK)
     s=once(s,'      v183_second_phys=value;',SEND)
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,PUBLISH,1))

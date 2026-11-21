@@ -21,7 +21,46 @@ ORIGIN_PATTERN=r'^V208_Y2_ORIGIN pc_text=[01] lr_text=[01] mem1=[01] mem2=[01] r
 PATHCLASS_PATTERN=r'^V208_Y2_PATHCLASS valid=[01] dev=[01] stm=[01] fs=[01] es=[01] shared2=[01] sysconf=[01] title=[01]$'
 ASYNC_PATTERN=r'^V208_Y2_ASYNC_ENTRY seen=[01] tracked=[01] pathmap=[01] pathslash=[01] modevalid=[01] modemem2=[01] modeslash=[01] lr=[0-9a-f]{1,8}$'
 ASYNC_LINK_PATTERN=r'^V208_Y2_ASYNC_LINK witnessed=[01] path_same=[01] mode_same=[01] path_is_mode=[01] mode_is_path=[01]$'
-ISFS_PATTERN=r'^V208_Y2_ISFS_ENTRY seen=[01] nand=[01] logging=[01] mapped=[01] slash=[01] modevalid=[01] modemem2=[01] modeslash=[01]$'
+ISFS_PATTERN=r'^V208_Y2_ISFS_ENTRY seen=1 count=([1-9]|[12][0-9]|3[0-2]) nand=[01] logging=[01] mapped=[01] slash=[01] modevalid=[01] modemem2=[01] modeslash=[01]
+ISFS_TO_IOS_PATTERN=r'^V208_Y2_ISFS_TO_IOS witnessed=[01] mode=[01] copy=[01] source_slash=[01] dest_slash=[01] modevalid=[01]$'
+
+def derive(source:str)->str:
+    s=previous(source)
+    if s.count(OLD)!=1 or s.count(DONE)!=1:
+        raise ValueError("V208 inherited original V207 owner runner changed")
+    s=s.replace(OLD,NEW,1)
+    fail="  echo 'V130_NATIVE_EXIT ok=0'"
+    if s.count(fail)!=1:
+        raise ValueError("V208 original-native runner failure anchor changed")
+    s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+KIND+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ARGS+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+MODE+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+SEND_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+STABLE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+SWAP_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+LAYOUT_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+BASE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ORIGIN_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+PATHCLASS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ASYNC_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ASYNC_LINK_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ISFS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ISFS_TO_IOS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    return s.replace(DONE,DONE+f"""
+grep -E '{PATTERN}' "$log" | sort -u
+test "$(grep -Ec '{PASS}' "$log")" -eq 16
+echo 'V208_SC_Y2_REPLY_PUBLICATION verified=1'
+""",1)
+
+if __name__=="__main__":
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("source",type=Path)
+    p.add_argument("output",type=Path)
+    a=p.parse_args()
+    with a.output.open("x",encoding="utf-8") as out:
+        out.write(derive(a.source.read_text(encoding="utf-8")))
+
 ISFS_TO_IOS_PATTERN=r'^V208_Y2_ISFS_TO_IOS witnessed=[01] mode=[01] copy=[01] source_slash=[01] dest_slash=[01] modevalid=[01]$'
 
 def derive(source:str)->str:

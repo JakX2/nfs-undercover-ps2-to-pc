@@ -147,13 +147,16 @@ class V208(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
         self.assertIn("V208_Y2_ASYNC_ENTRY",script)
         self.assertIn("V208_Y2_ASYNC_LINK",script)
-        isfs=("V208_Y2_ISFS_ENTRY seen=1 nand=1 logging=0 mapped=1 "
+        isfs=("V208_Y2_ISFS_ENTRY seen=1 count=2 nand=1 logging=0 mapped=1 "
               "slash=1 modevalid=1 modemem2=0 modeslash=0")
         bridge=("V208_Y2_ISFS_TO_IOS witnessed=1 mode=1 copy=1 "
                 "source_slash=1 dest_slash=1 modevalid=1")
         self.assertIsNotNone(re.fullmatch(ISFS_PATTERN,isfs))
         self.assertIsNotNone(re.fullmatch(ISFS_TO_IOS_PATTERN,bridge))
         self.assertIsNone(re.fullmatch(ISFS_PATTERN,isfs+" private=/shared2"))
+        self.assertIn("v208_isfs_seen<32u",TRACE_HOOK)
+        self.assertIn("ctx.inst_count>v208_isfs_inst",TRACE_HOOK)
+        self.assertNotIn("v177_next_seen==1u&&v183_second_msg",TRACE_HOOK)
         for marker in ("addr==0x804f1e2cu","v208_isfs_path=path",
                        "ctx.lr==0x8051de3cu","ctx.lr==0x8051f700u",
                        "V208_Y2_ISFS_ENTRY","V208_Y2_ISFS_TO_IOS",
