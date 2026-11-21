@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# V206 original Wii second-Y2 continuation after guest Hollywood IRQ W1C.
+# V206 original Wii second-Y2 post-flag native PowerPC continuation.
 set -euo pipefail
 if (( $# != 2 ));then echo 'usage: run_v206_sc_y2_post_flag.sh NWII_ROOT PRIVATE_OWNER_DOL' >&2;exit 2;fi
 here="$(cd "$(dirname "$0")" && pwd)"
