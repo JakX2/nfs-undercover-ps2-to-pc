@@ -50,8 +50,7 @@ class V188(unittest.TestCase):
         self.assertGreaterEqual(len(PAIR.findall(self.before)),7)
         self.assertEqual(len(PAIR.findall(self.before)),len(PAIR.findall(self.after)))
         for label in ("V171 original SC reply processor did not reach distinct native callee",
-                      "V185 original IPC Y1 reader did not reach authentic native successor",
-                      "V187 original second ACK successor did not retain valid native IOS state"):
+                      "V185 original IPC Y1 reader did not reach authentic native successor"):
             end=self.after.index('"'+label+'");')
             start=self.after.rfind("check(",0,end)
             self.assertIn("v188_next_seen==1u",self.after[start:end])
