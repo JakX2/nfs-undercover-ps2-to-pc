@@ -7,7 +7,7 @@ from derive_v177_sc_reply_next_runner import derive as previous
 
 OLD='python3 "$here/derive_v128_next_function_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
 NEW='python3 "$here/derive_v225_isfs_callback_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
-AFTER="echo 'V79_STAGE generation_complete'"
+AFTER="for unit in harness generated loader; do"
 DONE="echo 'V177_SC_REPLY_NEXT verified=1'"
 PROBE=r'^V225_CB_ANALYZER rooted=1 analyzed=1$'
 
@@ -31,12 +31,12 @@ def derive(source:str)->str:
     s=s.replace(old,NEW,1)
     # The generator's private progress log stays in the owner's mktemp.
     # Require a public fixed-string proof without echoing private details.
-    s=s.replace(AFTER,AFTER+"""
-grep -Fx 'V225_CB_ANALYZER rooted=1 analyzed=1' "$work/generation.log" >/dev/null || {
+    s=s.replace(AFTER,"""grep -Fx 'V225_CB_ANALYZER rooted=1 analyzed=1' "$work/generation.log" >/dev/null || {
   echo 'V225_CB_AOT_ROOT verified=0'
   exit 1
 }
-echo 'V225_CB_AOT_ROOT verified=1'""",1)
+echo 'V225_CB_AOT_ROOT verified=1'
+"""+AFTER,1)
     return s.replace(DONE,DONE+"""
 grep -Fx 'V225_CB_AOT_ROOT verified=1' "$log"
 echo 'V225_SC_ISFS_CALLBACK_AOT verified=1'
