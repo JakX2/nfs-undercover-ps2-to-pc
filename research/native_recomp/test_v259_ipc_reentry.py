@@ -48,6 +48,12 @@ class V259(unittest.TestCase):
                       "V259_NAND_GUEST callback=1 reentry=1 memory=1"):
             self.assertIn(field,s)
         self.assertNotIn("V257_NAND_GUEST callback=1 next=1 memory=1",s)
+        wf=(HERE.parents[1]/".github/workflows/wii-v259-ipc-reentry.yml").read_text(encoding="utf-8")
+        self.assertIn("for n in $(seq 1 16); do",wf)
+        self.assertIn('grep -Fqx "V259_NAND_GUEST callback=1 reentry=1 memory=1 trial=$n"',wf)
+        self.assertNotIn('test "$(grep -Ec \'^V259_NAND_GUEST',wf)
+        self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
+        self.assertNotIn("upload-artifact",wf)
         self.assertEqual(s.count('test "$(grep -Ec \x27^V259_NAND_GUEST'),4)
         self.assertIsNotNone(re.fullmatch(PASS,
             "V259_IPC_REENTRY guest=1 caller=1 mapped=1 coherent=1 reply=0 second=1 sc=1 pc=8051906c lr=805192ec"))

@@ -114,7 +114,13 @@ jobs:
             }
           grep -Fx 'V259_SC_IPC_REENTRY verified=1' "$RUNNER_TEMP/sc259.log"
           grep -E '^V259_IPC_REENTRY guest=1 caller=1 mapped=1 coherent=1 reply=[01] second=[01] sc=[0-9]{1,3} pc=8051906c lr=805192ec$' "$RUNNER_TEMP/sc259.log" | sort -u
-          test "$(grep -Ec '^V259_NAND_GUEST callback=1 reentry=1 memory=1 trial=([1-9]|1[0-6])$' "$RUNNER_TEMP/sc259.log")" -eq 16
+          # The private runner already enforces exactly sixteen source
+          # trials; its inherited stages repeat public trial rows in this
+          # combined log. Require every numbered trial instead of assuming
+          # that each row occurs only once in the wrapper output.
+          for n in $(seq 1 16); do
+            grep -Fqx "V259_NAND_GUEST callback=1 reentry=1 memory=1 trial=$n" "$RUNNER_TEMP/sc259.log"
+          done
           echo 'PASS: 16 owner-original native NAND-to-IPC reentry checkpoints'
       - name: Remove private owner and generated code
         if: always()
