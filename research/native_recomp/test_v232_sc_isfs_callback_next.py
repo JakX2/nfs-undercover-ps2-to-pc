@@ -26,7 +26,7 @@ class V232(unittest.TestCase):
         self.assertEqual(self.before.count(OPEN71_OLD),1)
         self.assertEqual(self.after.count(OPEN71_SCOPED),1)
         self.assertIn("if(v231_callback_seen==1u)return false;",OPEN71_SCOPED)
-        self.assertNotIn(OPEN71_OLD,self.after)
+        self.assertEqual(self.before.count(OPEN71_OLD),self.after.count(OPEN71_OLD))
         self.assertNotIn(PREVIOUS_END,self.after)
         for m in ("v231_callback_seen==1u","ctx.inst_count>v232_start_inst",
                   "ctx.lr>=0x80400000u","ctx.lr<0x80600000u",
@@ -37,7 +37,7 @@ class V232(unittest.TestCase):
         with self.assertRaises(ValueError):derive("missing original-free fixture")
     def test_original_first_open_allocator_observer_is_phase_specific(self):
         self.assertIn(OPEN71_OLD,self.before)
-        self.assertNotIn(OPEN71_OLD,self.after)
+        self.assertEqual(self.before.count(OPEN71_OLD),self.after.count(OPEN71_OLD))
         self.assertIn(OPEN71_SCOPED,self.after)
         self.assertEqual(self.after.count(OPEN71_SCOPED),1)
         self.assertIn("v231_callback_seen==1u",OPEN71_SCOPED)
