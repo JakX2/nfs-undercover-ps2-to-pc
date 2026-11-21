@@ -30,7 +30,7 @@ def derive(source: str)->str:
     if s.count(old_classifier)!=1:
         raise ValueError("V190 owner-native classifier injection point differs")
     s=s.replace(old_classifier,
-        'python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp"\\n  '+old_classifier,1)
+        'python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp"\n  '+old_classifier,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
