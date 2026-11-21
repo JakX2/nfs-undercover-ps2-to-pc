@@ -41,11 +41,10 @@ def derive(source: str)->str:
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     # The private native process may fail without a check() ID.
     # Reveal only counts of independently authored bounded markers.
-    native_fail_marker="echo 'V79 original reply entry assertion failed; details withheld'"
-    if s.count(native_fail_marker)!=1:
-        raise ValueError("V186 native original-failure anchor count differs")
+    if s.count(FAIL)!=1:
+        raise ValueError("V186 native exit failure anchor count differs")
     public_counts="{ # Count source-owned public stage tags only.\n     p=\"$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\"\n     a=\"$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\"\n     s=\"$(grep -c '^V186_ACK_STATE ' \"$work/private-native.log\" || true)\"\n     v=\"$(grep -c '^V185_IPC_ENTRY ' \"$work/private-native.log\" || true)\"\n     [[ \"$p\" =~ ^[0-9]{1,2}$ ]] || p=99\n     [[ \"$a\" =~ ^[0-9]{1,2}$ ]] || a=99\n     [[ \"$s\" =~ ^[0-9]{1,2}$ ]] || s=99\n     [[ \"$v\" =~ ^[0-9]{1,2}$ ]] || v=99\n     echo \"V186_RUNTIME_COUNTS pre=$p ack=$a state=$s previous=$v\"\n   }\n   "
-    s=s.replace(native_fail_marker,public_counts+native_fail_marker,1)
+    s=s.replace(FAIL,public_counts+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS_PRE}' "$log" | sort -u
 test "$(grep -Ec '{PASS_PRE}' "$log")" -eq 16
