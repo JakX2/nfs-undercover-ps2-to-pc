@@ -40,7 +40,7 @@ class OriginalBranchAudit(unittest.TestCase):
         from audit_v243_original_callback_branch import HEADER, SECTION
         import struct
         header = HEADER.pack(
-            b"\\x7fELF\\x01\\x02\\x01"+b"\\x00"*9,
+            b"\x7fELF\x01\x02\x01"+b"\x00"*9,
             2,20,1,0x8000403c,0,HEADER.size,0,
             HEADER.size,0,0,SECTION.size,23,20,
         )
