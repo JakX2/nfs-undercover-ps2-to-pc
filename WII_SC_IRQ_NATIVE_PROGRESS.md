@@ -1,10 +1,11 @@
-# Wii SC IRQ native continuation: V141-V203
+# Wii SC IRQ native continuation: V141-V205
 
-Status: **V203 owner-original second IOS control-write helper entry verified (16/16 trials)**.
-V200-V203 now independently confirm the original second-Y2 dispatcher, registered
-IPC handler, first read helper, repeated read and the distinct control-write
-helper entry. **V204 acknowledgment execution is not yet verified.**
-Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
+Status: **V205 owner-original second IOS Hollywood IRQ-flag W1C verified (16/16 trials)**.
+V200-V205 independently confirm the genuine second-Y2 dispatcher, registered IPC
+handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
+and Hollywood PPC_FLAG W1C. **V206 post-IRQ continuation and second IOS reply
+delivery remain unverified.** Earlier V141-V145 checkpoints remain historical
+first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
@@ -37,6 +38,8 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V201 | [16-trial run 44866283734](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866283734) | Original second-Y2 IPC handler body executed to its first original read helper at `PC=0x8051905C / LR=0x8051933C`, with one IOS completion still queued and no synthetic hardware ACK. Owner-original and public tests passed. |
 | V202 | [16-trial run 44866481776](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866481776) | Original read helper executed and returned to the IPC handler, which called `0x8051905C` again with `LR=0x8051935C`. Original second-Y2 reply remains pending. Owner-original and public tests passed. |
 | V203 | [16-trial run 44866697625](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866697625) | Following one more original IPC read, the second IRQ entered distinct control-write helper `PC=0x8051906C / LR=0x80519380`. All 16 owner-original trials and public tests passed. **The helper has not yet executed its Y2 MMIO acknowledgment.** |
+| V204 | [16-trial run 44866938035](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866938035) | The original translated Wii control-write helper executed a genuine guest PPCCTRL Y2 W1C. `V204_Y2_ACK write=1 w1c=1 flag=1 queued=1 guest=1 progressed=1 sc=1`. Y2 cleared, but Hollywood IRQ flag remained asserted, external IRQ remained high and the IOS completion remained queued. No synthetic acknowledgment was injected. |
+| V205 | [16-trial run 44867139348](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44867139348) | Original translated Wii code performed genuine Hollywood PPC_FLAG W1C after PPCCTRL Y2 clear. `V205_Y2_FLAG write=1 cleared=1 ctrl=1 irq_down=1 queued=1 guest=1 progressed=1 sc=1`. The external IRQ signal dropped; one second IOS completion stayed queued. Original owner and public tests passed. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -45,22 +48,23 @@ masked guest MSR. The V191-V194 owner-original trace proves a closed SC
 initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
-**Current verified PowerPC frontier: `PC=0x8051906C`, LR `0x80519380`**,
-the authentic control-write helper reached from the registered IPC handler
-during the *second* genuine Y2 interrupt. V200-V203 extend the verified
-second-interrupt path beyond the scheduler disable and through the original
-handler and control reads, with 16-trial owner-original evidence per stage.
-At V203, EE remains masked and the second IOS completion is still queued.
+**Current verified PowerPC frontier:** authentic guest MMIO acknowledgment
+from the second IPC handler's `0x8051906C` control-write path (entry
+`LR=0x80519380`), followed by the genuine Hollywood PPC_FLAG W1C.
+V204 proves PPCCTRL Y2 is cleared by the *original* guest store. V205 proves
+the independent Hollywood external-IRQ latch is cleared by original guest
+execution. Both preserve the pending second IOS completion, which is **not
+yet delivered to the original SC initialization callback**. The guest was
+stopped in the original flag-writer callback for the next continuation.
 
-**V204 (unverified):** execute the actual guest PPC control-write helper
-and establish whether it issues the genuine Hollywood IPC `Y2` W1C. Test
-the real native MMIO write and resulting mailbox/IRQ state; do not directly
-clear any device register, pump IOS, rewrite SC status or fabricate replies.
-Keep the subsequent IRQ flag acknowledgment and IOS reply publication as
-separate checks.
+**V206 (unverified):** continue the actual guest PowerPC IRQ handler after
+Hollywood flag clear. Record the next original function or scheduler call,
+preserve exception context, and determine the genuine IOS completion
+publication boundary. Do not inject an extra IOS pump, override registers,
+force SC readiness or skip original scheduling.
 
-**Not yet achieved:** PPCCTRL Y2 acknowledgment and final acknowledgment/publication of the *second* IOS
-reply, SC status transition to ready, exit from OSInit retry into original
+**Not yet achieved:** delivery/publication of the *second* IOS reply,
+SC status transition to ready, exit from OSInit retry into original
 `main`, first frame, frontend, gameplay or a complete Windows port.
 
 The public C++ source-only checkout intentionally lacks NWiiRecomp's generated
