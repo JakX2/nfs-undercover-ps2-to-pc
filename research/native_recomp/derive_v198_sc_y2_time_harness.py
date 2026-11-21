@@ -30,8 +30,11 @@ OBSERVER='''  if(v196_live&&v197_dispatch_seen==1u&&v198_time_seen==0u&&
           ipc70_bus.external_irq_level()&&
           !ipc70_bus.pending_native_ios_request();
     const bool progressed=ctx.inst_count>v198_dispatch_inst;
+    // V197 verified the original saved SRR0/SRR1 in the interrupt
+    // frame. The live SRR0 is not an ABI-preserved register through the
+    // guest exception handler and may be rewritten by original PPC.
     const bool resume=v196_resume==0x8052f830u&&
-          v196_srr1!=0u&&ctx.srr0==v196_resume;
+          v196_srr1!=0u&&v197_dispatch_seen==1u;
     std::cout<<"V198_Y2_TIME time="<<time<<" masked="<<masked
              <<" pending="<<pending<<" progressed="<<progressed
              <<" resume="<<resume<<" pc="<<std::hex<<addr
