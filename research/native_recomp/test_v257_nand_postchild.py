@@ -67,6 +67,14 @@ class V257(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(PATTERN,row.replace("guest=1","guest=0")))
         self.assertIsNone(re.fullmatch(PASS,row.replace("caller=1","caller=0")))
         self.assertIsNotNone(re.fullmatch(TRIAL,"V257_NAND_GUEST callback=1 next=1 memory=1 trial=16"))
+        wf=(HERE.parents[1]/".github/workflows/wii-v257-nand-postchild.yml").read_text(encoding="utf-8")
+        for expected in ("run_v257_nand_postchild.sh", "test_v257_nand_postchild.py",
+                         "V256_SC_NAND_CHILD_RETURN verified=1",
+                         "V257_SC_NAND_POSTCHILD verified=1", "V257_LOG_COUNTS next="):
+            self.assertIn(expected,wf)
+        self.assertNotIn("          grep -E '^V256_NAND_GUEST callback=1 returned=1 memory=1",wf)
+        self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
+        self.assertNotIn("upload-artifact",wf)
         with tempfile.TemporaryDirectory() as td:
             for filename,source in (("runner",script),
                     ("wrapper",(HERE/"run_v257_nand_postchild.sh").read_text(encoding="utf-8"))):
