@@ -18,7 +18,12 @@ def derive(source:str)->str:
         r'"\$here/generate_start_to_ipc_ack_v77\.cpp" '
         r'"\$work/generator\.cpp"',s)
     if len(hits)!=1 or s.count(AFTER)!=1 or s.count(DONE)!=1:
-        raise ValueError("V225 inherited V177 generator substitution not unique")
+        raise ValueError("V225 source-only generator path count="+str(len(hits))+
+                         " generation="+str(s.count(AFTER))+
+                         " prior="+str(s.count(DONE))+
+                         " candidates="+str(sorted(set(
+                         p for p in re.findall(r'derive_v[a-z0-9_]+_generator\\.py',s)
+                         if p.startswith('derive_v')))))
     old=('python3 "$here/'+hits[0]+'" '
          '"$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"')
     if s.count(old)!=1:
