@@ -18,7 +18,7 @@ def derive(source:str)->str:
     s=s.replace(OLD,NEW,1)
     old="V259_NAND_GUEST callback=1 reentry=1 memory=1"
     new="V260_NAND_GUEST callback=1 mmio=1 memory=1"
-    if s.count(old)!=11:
+    if s.count(old)!=9:
         raise ValueError("V260 inherited V259 final state trial gate changed")
     s=s.replace(old,new)
     old_diag="V259_NAND_GUEST callback=[01] reentry=[01] memory=[01]"
