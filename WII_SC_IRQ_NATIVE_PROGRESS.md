@@ -50,6 +50,17 @@ OSInit exit. V250 isolates the first restored `bctrl` and requires
 the guest's actual stack delta, CTR, linked LR and callback arguments
 before claiming any further execution milestone.
 
+The **V250 candidate execution is currently failing**, with successful
+candidate compilation/linking but no first callback trace observed before
+the bounded test exit. Exact compiled-public-harness owner evidence:
+[run 44896266598](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44896266598)
+reported `V250_PUBLIC_FAILURE id=1012 label=V250 original restored callback
+NAND checkpoint missing callback=0 nand=0 trials=0`. This is a
+**negative result**, not an observed `bctrl` ABI failure. A separate,
+read-only V250 phase snapshot is being added to identify which earlier
+guest initialization/IPC/callback boundary terminates the restored
+candidate. No guest state is rewritten to make the test pass.
+
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
 The second original Wii `IOS_Open` request reached the native host IOS
