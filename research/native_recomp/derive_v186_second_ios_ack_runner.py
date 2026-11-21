@@ -30,11 +30,11 @@ def derive(source: str)->str:
                 if phase=="compile" else f"echo 'V186_BUILD {phase}=1'")
         if phase=="compile":
             # Shell for-loop body executes once for each public build unit.
-            s=s.replace(anchor,anchor+'\\n  '+marker,1)
+            s=s.replace(anchor,anchor+'\n  '+marker,1)
         else:
-            s=s.replace(anchor,marker+'\\n'+anchor,1)
+            s=s.replace(anchor,marker+'\n'+anchor,1)
     s=s.replace(FAIL,
-        '  grep -E "^(V186_BUILD unit=(harness|generated|loader)|V186_BUILD (link|execute)=1|V77_COMPILE_UNIT (harness|generated|loader|generator)|V67_NATIVE_ASSERTION id=[0-9]{3,4})$" "$work/private-native.log" | sort -u || true\\n'+FAIL,1)
+        '  grep -E "^(V186_BUILD unit=(harness|generated|loader)|V186_BUILD (link|execute)=1|V77_COMPILE_UNIT (harness|generated|loader|generator)|V67_NATIVE_ASSERTION id=[0-9]{3,4})$" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
     s=s.replace(FAIL,
         '  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+ACK+'" "$work/private-native.log" | sort -u || true\n'
