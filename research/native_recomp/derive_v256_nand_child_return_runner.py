@@ -30,6 +30,8 @@ def derive(source:str)->str:
         raise ValueError("V256 previous candidate failure hook changed")
     s=s.replace(fail,diag+'\n'+fail,1)
     return s.replace(DONE,DONE+f"""
+# Diagnostic counts only. Do not print owner guest code or raw private logs.
+echo "V256_SHAPE token=$(grep -c 'V256_NAND_RETURN' "$work/v250-native.log" || true) prefix=$(grep -Ec '^V256_NAND_RETURN ' "$work/v250-native.log" || true) fields=$(grep -Ec '^V256_NAND_RETURN child=[01] guest=[01] frame=[01] reply=[01] mapped=[01] pending=[01] coherent=[01] sc=' "$work/v250-native.log" || true) exact=$(grep -Ec '{PATTERN}' "$work/v250-native.log" || true) pass=$(grep -Ec '{PASS}' "$work/v250-native.log" || true) guest=$(grep -Ec '{TRIAL}' "$work/v250-native.log" || true)"
 grep -E '{PATTERN}' "$work/v250-native.log" | sort -u
 test "$(grep -Ec '{PASS}' "$work/v250-native.log")" -eq 16
 test "$(grep -Ec '{TRIAL}' "$work/v250-native.log")" -eq 16
