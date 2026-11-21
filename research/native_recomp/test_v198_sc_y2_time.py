@@ -38,7 +38,7 @@ class V198(unittest.TestCase):
             for tok in ("ipc70_bus.write","ipc70_ram.write","service_one(",
                         "ipc70_bus.tick(","ctx.mmu.write"):
                 self.assertNotIn(tok,part)
-        self.assertNotRegex(OBSERVER,r"\\bctx\\.(?:msr|gpr|pc|lr|srr0|srr1)\\s*=(?!=)")
+        self.assertNotRegex(OBSERVER,r"\bctx\.(?:msr|gpr|pc|lr|srr0|srr1)\s*=(?!=)")
         self.assertIn("queued_replies()==1u",OBSERVER)
         with self.assertRaises(ValueError):
             derive("invalid")
