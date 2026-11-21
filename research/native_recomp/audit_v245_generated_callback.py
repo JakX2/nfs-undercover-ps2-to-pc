@@ -94,9 +94,34 @@ def main()->int:
     args=p.parse_args()
     # The runner suppresses stderr/tracebacks. Only the bounded
     # classification row is printed when authenticated.
-    print(audit(args.private_original.read_bytes(),
-                args.private_fixture.read_bytes(),
-                args.private_aot_source.read_text(encoding="utf-8",errors="replace")))
+    try:
+        owner=args.private_original.read_bytes()
+    except OSError:
+        print("V245_AOT_DIAG stage=owner kind=read_failed")
+        return 1
+    try:
+        fixture=args.private_fixture.read_bytes()
+    except OSError:
+        print("V245_AOT_DIAG stage=fixture kind=read_failed")
+        return 1
+    try:
+        generated=args.private_aot_source.read_text(
+            encoding="utf-8",errors="replace")
+    except OSError:
+        print("V245_AOT_DIAG stage=generated kind=read_failed")
+        return 1
+    if not generated:
+        print("V245_AOT_DIAG stage=generated kind=empty")
+        return 1
+    try:
+        result=audit(owner,fixture,generated)
+    except ValueError:
+        print("V245_AOT_DIAG stage=audit kind=validation")
+        return 1
+    except (TypeError,IndexError):
+        print("V245_AOT_DIAG stage=audit kind=type")
+        return 1
+    print(result)
     return 0
 
 if __name__=="__main__":

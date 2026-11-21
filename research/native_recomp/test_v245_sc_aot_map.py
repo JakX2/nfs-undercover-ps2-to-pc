@@ -62,6 +62,9 @@ static const X map[] = {{0x804F0E04, 0x804F0F84, callback},
         self.assertIn("V245_SC_AOT_MAP verified=1",script)
         self.assertNotIn("cat $work",AUDIT)
         self.assertNotIn("source=",AUDIT)
+        self.assertIn("V245_AOT_DIAG stage=", (HERE/"audit_v245_generated_callback.py").read_text())
+        self.assertIn("V245_AOT_DIAG stage=",script)
+        self.assertNotIn("traceback.print_exc", (HERE/"audit_v245_generated_callback.py").read_text())
         wf=(HERE.parents[1]/".github/workflows/wii-v245-sc-aot-map.yml").read_text()
         for marker in ("test_v245_sc_aot_map.py","run_v245_sc_aot_map.sh",
                        "V245_SC_AOT_MAP verified=1"):

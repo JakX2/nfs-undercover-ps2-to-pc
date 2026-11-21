@@ -139,6 +139,7 @@ jobs:
               grep -E '^V242_ROUTE count=([1-9]|1[0-9]|2[0-4]) cb=[0-9]{1,2} isfs_entry=[0-9]{1,2} handler_lr=[0-9]{1,2} captured=[01] second=[01] last_pc=[0-9a-f]{8} last_lr=[0-9a-f]{1,8}$|^V242_TRACE seq=([1-9]|1[0-9]|2[0-4]) cb=[01] isfs=[01] ipc=[01] lr_text=[01] handler_lr=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               grep -E '^V238_COMPILE_DIAG found=[01] kind=(none|duplicate|undeclared|member|conversion|expected|other) symbol=(sp|caller|nand|logging|other|r11|mode|srcmode|nandcb|pathptr|chars|pathmapped|terminated|validpath|sysconf|mapped|seq|v238_save_count|v238_source_seen|v238_second_mode|v238_second_modevalid|v238_second_r11|ctx|v237_counts) line=[0-9]{1,6}$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               grep -E '^V238_COMPILE_SOURCE public=[01] v238=[01] group=(other|stack|abi|return|mode|callback|caller_class|path|sequence|v238|v238_state)$' "$RUNNER_TEMP/sc245.log" | sort -u || true
+              grep -E '^V245_AOT_DIAG stage=(owner|fixture|generated|audit) kind=(read_failed|empty|validation|type)$|^V245_AOT_MAP result=failed$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc245.log" || true
               echo 'V214 negative IOS reply owner test failed; owner-private details withheld' >&2
               exit 1
