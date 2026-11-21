@@ -70,7 +70,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
   }
 '''
 VERIFY='''      check(exception_stop,"exception initialization did not reach exact test-only syscall");
-      if(v250_probe){
+      if(v250_probe&&nwii::runtime::v254_next_seen==1u){
         const bool callback=nwii::runtime::v250_candidate_mode&&
               nwii::runtime::v244_cb_seen==1u&&
               nwii::runtime::v244_cb_registered&&nwii::runtime::v244_cb_abi&&

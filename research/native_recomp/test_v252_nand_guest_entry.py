@@ -23,7 +23,7 @@ class V252(unittest.TestCase):
         self.assertNotIn(FALLTHROUGH,self.after)
         self.assertIn(BOUNDED_STOP,self.after)
         self.assertIn(VERIFY,self.after)
-        self.assertIn("if(v250_probe){",VERIFY)
+        self.assertIn("if(v250_probe&&nwii::runtime::v252_nand_entry_seen==1u){",VERIFY)
         self.assertIn("continue; // candidate-only isolated proof",VERIFY)
         self.assertIn('V178 owner-original SC reply callee differs from V177 proof',self.after)
         self.assertEqual(self.before.count('V244 original callback nested link provenance missing'),
@@ -52,7 +52,7 @@ class V252(unittest.TestCase):
             self.assertNotIn(x,VERIFY+BOUNDED_STOP)
         self.assertIn('const bool v250_probe=std::string(argv[2])=="owner-callback";',self.after)
         self.assertIn('const bool owner=v250_probe||std::string(argv[2])=="owner";',self.after)
-        self.assertIn("if(v250_probe){",VERIFY)
+        self.assertIn("if(v250_probe&&nwii::runtime::v252_nand_entry_seen==1u){",VERIFY)
 
     def test_owner_trial_gates_and_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))

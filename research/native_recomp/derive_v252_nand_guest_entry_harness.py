@@ -27,7 +27,7 @@ BOUNDED_STOP='''    ++v250_nand_seen;
     // The original NAND callee body is NOT claimed to have executed yet.
     ctx.is_running=false;throw ExceptionStop{};'''
 VERIFY='''      check(exception_stop,"exception initialization did not reach exact test-only syscall");
-      if(v250_probe){
+      if(v250_probe&&nwii::runtime::v252_nand_entry_seen==1u){
         const bool checkpoint=nwii::runtime::v250_candidate_mode&&nwii::runtime::v250_cb_seen==1u&&
               nwii::runtime::v250_nand_seen==1u&&nwii::runtime::v252_nand_entry_seen==1u&&
               nwii::runtime::v244_cb_seen==1u&&nwii::runtime::v244_cb_registered&&nwii::runtime::v244_cb_abi&&

@@ -42,7 +42,7 @@ class V254(unittest.TestCase):
             for forbidden in ("ipc70_bus.write","ipc70_ram.write","ctx.mmu.write",
                               "c.mmu.write","ctx.gpr[3]=","ctx.pc=0x"):
                 self.assertNotIn(forbidden,segment)
-        self.assertIn("if(v250_probe){",VERIFY)
+        self.assertIn("if(v250_probe&&nwii::runtime::v254_next_seen==1u){",VERIFY)
         self.assertIn('check(addr==0x80545100u&&ctx.lr==0x804f1e40u,',V178_SCOPED)
 
     def test_owner_sixteen_randomized_trials_and_cleanup(self):
