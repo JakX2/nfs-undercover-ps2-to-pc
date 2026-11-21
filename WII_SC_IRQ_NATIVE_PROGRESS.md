@@ -257,6 +257,22 @@ yet proven.
 
 **V244 native provenance confirmed:** [16-trial owner/public pass 44892102652](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44892102652). The first reply's user object points to a NAND nested callback, not to `ISFS_OpenAsync`. The second `_savegpr_26` entry nevertheless sees the outer IPC handler LR and a stack delta of only 32 bytes from the original `_isfsFuncCb` entry. A genuine nested callback reached while `_isfsFuncCb` owns its 16-byte frame would instead have a different LR and stack shape. That discrepancy is **test-verified observation**, not yet a validated fix. In a separate local, private read-only byte comparison, the supplied DOL and ELF agree in all four relevant function spans (`_isfsFuncCb`, `ISFS_OpenAsync`, NAND callback, `IpcReplyHandler`), ruling out byte differences at those spans as the explanation.
 
+**Original ELF two-stage callback chain (static, read-only investigation):**
+The authenticated owner ELF's `_isfsFuncCb` uses a register-indirect
+linked callback at `0x804F0F50`, with its callback pointer obtained
+from its user context at offset `+0x100` and the callback user argument
+from `+0x104`. V244 confirmed that immediate target is
+`nandOpenCallback` at `0x8051E06C`, not ISFS.
+The original NAND callback has a **second callback indirection**:
+it reads a user callback from the NAND context at offset `+0x04`
+and invokes it indirectly in either its success or error route.
+An original-free follow-up should classify that second callback pointer
+and CTR at the observed second ISFS prologue. The second-level pointer
+has **not** yet been authenticated by owner-native tracing. This
+two-stage route means a missing nominal `ISFS_OpenAsync` trace alone
+does not prove a bad dispatch or AOT error. No proprietary instruction
+words or translated function bodies are stored in the repository.
+
 **Next unverified:** inspect the private NWiiRecomp-generated C++ entry/body/dispatcher mapping at callback `0x804F0E04`, original indirect `bctrl` at `0x804F0F50` and NAND nested target `0x8051E06C`. Verify why first observed ISFS work follows with outer LR and unchanged callback-stack frame. Introduce a minimal original-free translation/dispatch fix with synthetic PPC tests only after that discrepancy is localized, then rerun owner-original V244 and subsequent startup gates. Do not forge request arguments or suppress `IOS_Open=-4`.
 **Not yet achieved:** successful second SYSCONF `IOS_Open`, completion of the second Y1 `IpcReplyHandler` and indirect ISFS callback,
 SC status transition to ready, exit from OSInit retry into original
