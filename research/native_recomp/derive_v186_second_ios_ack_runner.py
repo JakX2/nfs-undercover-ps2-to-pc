@@ -39,6 +39,13 @@ def derive(source: str)->str:
         '  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+ACK+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+    # The private native process may fail without a check() ID.
+    # Reveal only counts of independently authored bounded markers.
+    old_native_classifier='python3 "$here/classify_v67_native_failure.py"'
+    if s.count(old_native_classifier)!=1:
+        raise ValueError("V186 native classifier catch count differs")
+    public_counts="{ # Count source-owned public stage tags only.\n     p=\"$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\"\n     a=\"$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\"\n     s=\"$(grep -c '^V186_ACK_STATE ' \"$work/private-native.log\" || true)\"\n     v=\"$(grep -c '^V185_IPC_ENTRY ' \"$work/private-native.log\" || true)\"\n     [[ \"$p\" =~ ^[0-9]{1,2}$ ]] || p=99\n     [[ \"$a\" =~ ^[0-9]{1,2}$ ]] || a=99\n     [[ \"$s\" =~ ^[0-9]{1,2}$ ]] || s=99\n     [[ \"$v\" =~ ^[0-9]{1,2}$ ]] || v=99\n     echo \"V186_RUNTIME_COUNTS pre=$p ack=$a state=$s previous=$v\"\n   }\n   "
+    s=s.replace(old_native_classifier,public_counts+old_native_classifier,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS_PRE}' "$log" | sort -u
 test "$(grep -Ec '{PASS_PRE}' "$log")" -eq 16

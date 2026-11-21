@@ -107,6 +107,14 @@ class V186(unittest.TestCase):
         self.assertIn("V77_COMPILE_UNIT",s)
         self.assertIn("V67_NATIVE_ASSERTION",s)
 
+    def test_public_only_native_runtime_failure_counters(self):
+        s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        self.assertIn("V186_RUNTIME_COUNTS pre=$p ack=$a state=$s previous=$v",s)
+        self.assertIn("grep -c '^V186_IOS_PRE '",s)
+        self.assertIn("grep -c '^V186_SECOND_ACK '",s)
+        self.assertIn("grep -c '^V186_ACK_STATE '",s)
+        self.assertIn("classify_v67_native_failure.py",s)
+
     def test_source_guards_and_owner_private_workflow(self):
         with self.assertRaises(ValueError):derive("invalid")
         wf=(HERE.parents[1]/".github/workflows/wii-v186-second-ios-ack.yml").read_text(encoding="utf-8")
