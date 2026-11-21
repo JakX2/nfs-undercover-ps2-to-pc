@@ -75,7 +75,7 @@ class V190(unittest.TestCase):
             if proc.returncode!=0:
                 # Report only independently authored C++ error categories and
                 # lines. Never expose source snippets or owner-original data.
-                matches=re.findall(r"harness\\.cpp:([0-9]{1,6}):[0-9]+: (?:fatal )?error: ([^\\n]+)",
+                matches=re.findall(r"harness\.cpp:([0-9]{1,6}):[0-9]+: (?:fatal )?error: ([^\n]+)",
                                    proc.stderr)
                 for line,reason in matches[:5]:
                     kind=("undeclared" if "not declared" in reason else
