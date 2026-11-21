@@ -46,6 +46,10 @@ class V250(unittest.TestCase):
             'V250_CB_BEGIN candidate=1 reply='
         ):
             self.assertIn(marker,OBSERVER)
+        self.assertIn("V250_PHASE cb=",CHECK)
+        self.assertIn("phase_cb_dispatch",CHECK)
+        self.assertIn("phase_first_reply",CHECK)
+        self.assertIn("stop_nand=c.pc",CHECK)
         for marker in ("v250_cb_seen==1u","v250_nand_seen==1u",
                        "c.pc==0x8051e06cu"):
             self.assertIn(marker,CHECK)
