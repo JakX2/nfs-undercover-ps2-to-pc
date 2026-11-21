@@ -1,4 +1,4 @@
-name: Wii V206 Original Second IOS Y2 Post-Flag PowerPC Continuation
+name: Wii V206 Original Second IOS Y2 Post-Hollywood IRQ Continuation
 on:
   workflow_dispatch:
   push:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Test V206 original second Y2 post-flag guest successor
+      - name: Test V206 original second Y2 post-flag guest continuation
         run: |
           set -euo pipefail
           python3 -m py_compile research/native_recomp/derive_v206_sc_y2_post_flag_harness.py research/native_recomp/derive_v206_sc_y2_post_flag_runner.py research/native_recomp/test_v206_sc_y2_post_flag.py research/native_recomp/diagnose_v206_sc_y2_post_flag.py
@@ -101,7 +101,7 @@ jobs:
           python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
           python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
           echo 'PASS: V72 focused runtime prerequisites prepared and original-free source guards passed'
-      - name: Execute original second Y2 handler after both Hollywood W1C writes
+      - name: Execute original second Y2 post-flag guest continuation
         run: |
           set -euo pipefail
           umask 077
@@ -281,13 +281,8 @@ jobs:
           grep -Fx 'V205_SC_Y2_FLAG verified=1' "$RUNNER_TEMP/sc206.log"
           grep -Fx 'V205_Y2_FLAG write=1 cleared=1 ctrl=1 irq_down=1 queued=1 guest=1 progressed=1 sc=1' "$RUNNER_TEMP/sc206.log" | sort -u
           grep -Fx 'V206_SC_Y2_POST_FLAG verified=1' "$RUNNER_TEMP/sc206.log"
-          grep -E '^V206_Y2_POST_FLAG call=1 clear=1 down=1 queue=1 guest=1 caller=1 stepped=1 coherent=1 mapped=1 sc=1 ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc206.log"
- "$RUNNER_TEMP/sc206.log" | sort -u
-          echo 'PASS: original second Y2 IRQ handler reached native post-ACK successor'
+          grep -E '^V206_Y2_POST ack=1 irq_down=1 queued=1 open=1 guest=1 masked=1 coherent=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc206.log" | sort -u
+          echo 'PASS: original second Y2 IRQ resumed after real guest W1C'
       - name: Remove private owner and generated code
         if: always()
         run: |
