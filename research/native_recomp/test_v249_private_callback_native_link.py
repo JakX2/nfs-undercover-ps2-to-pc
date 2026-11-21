@@ -34,6 +34,8 @@ class V249(unittest.TestCase):
             '-c "$work/generated-v248/output.cpp" -o "$work/v249-generated.o"',
             'g++ "$work/harness.o" "$work/v249-generated.o" "$work/loader.o"',
             '-o "$work/v249-native"',
+            'tee "$work/v249-proof.log"',
+            '"$work/v249-proof.log")" -eq 1',
             "V249_SC_AUTH_CALLBACK_LINK verified=1",
         ):
             self.assertIn(part,self.after)

@@ -45,7 +45,7 @@ else
   echo 'V249_AOT_DIAG stage=link kind=failed'
   exit 1
 fi
-echo 'V249_AOT_LINK owner=1 restore=1 mapping=1 different=1 compiled=1 linked=1 executable=1'
+echo 'V249_AOT_LINK owner=1 restore=1 mapping=1 different=1 compiled=1 linked=1 executable=1' | tee "$work/v249-proof.log"
 '''
 
 def derive(source:str)->str:
@@ -53,7 +53,7 @@ def derive(source:str)->str:
     if s.count(DONE)!=1:
         raise ValueError("V249 restored AOT mapping proof changed")
     return s.replace(DONE,DONE+"\n"+STAGE+f"""
-test "$(grep -Ec '{ROW}' "$log")" -eq 1
+test "$(grep -Ec '{ROW}' "$work/v249-proof.log")" -eq 1
 echo 'V249_SC_AUTH_CALLBACK_LINK verified=1'
 """,1)
 
