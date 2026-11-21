@@ -55,7 +55,7 @@ OBSERVER='''  // V250 candidate-only read-only probe: the authentic restored
     check(auth&&frame&&link&&ctr&&abi&&userdata&&progressed&&reply,
           "V250 restored original callback did not enter NAND via genuine bctrl");
     ++v250_nand_seen;
-    return; // continue executing original NAND callback instructions
+    // Fall through to the existing original-free IRQ/callback tracers.
   }
 '''
 POST='''      check(exception_stop,"exception initialization did not reach exact test-only syscall");'''

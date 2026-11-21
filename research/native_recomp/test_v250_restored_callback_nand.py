@@ -45,7 +45,7 @@ class V250(unittest.TestCase):
             'ctx.inst_count>v250_initial_inst',
             'ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply',
             '++v250_nand_seen',
-            'return; // continue executing original NAND callback',
+            'Fall through to the existing original-free IRQ/callback tracers.',
             'V250_CB_BEGIN candidate=1 reply='
         ):
             self.assertIn(marker,OBSERVER)
