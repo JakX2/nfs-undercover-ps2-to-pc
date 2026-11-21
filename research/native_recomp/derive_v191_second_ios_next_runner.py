@@ -21,6 +21,22 @@ def derive(source: str)->str:
     s=s.replace(FAIL,
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
+    stage="echo 'V79_STAGE native_test_passed'"
+    if s.count(stage)!=1:
+        raise ValueError("V191 original native execution success boundary changed")
+    probe=(
+        "  v191_next=$(grep -Ec '^V191_SC_NEXT ' \"$work/private-native.log\" || true)\n"
+        "  v191_state=$(grep -Ec '^V191_SC_STATE ' \"$work/private-native.log\" || true)\n"
+        "  v190_next=$(grep -Ec '^V190_SC_NEXT ' \"$work/private-native.log\" || true)\n"
+        "  v190_state=$(grep -Ec '^V190_SC_STATE ' \"$work/private-native.log\" || true)\n"
+        "  for n in \"$v191_next\" \"$v191_state\" \"$v190_next\" \"$v190_state\"; do\n"
+        "    [[ \"$n\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
+        "  done\n"
+        "  echo \"V191_GUEST_PROBE next=$v191_next state=$v191_state prior=$v190_next prior_state=$v190_state\"\n"
+        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
+        '  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
+    )
+    s=s.replace(stage,stage+"\n"+probe,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

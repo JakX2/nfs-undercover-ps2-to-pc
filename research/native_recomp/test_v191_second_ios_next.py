@@ -71,6 +71,13 @@ class V191(unittest.TestCase):
             f=Path(d)/"run.sh";f.write_text(script)
             subprocess.run(["bash","-n",str(f)],check=True)
 
+    def test_bounded_owner_guest_counts_after_real_native_execution(self):
+        script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        self.assertIn("V191_GUEST_PROBE next=$v191_next state=$v191_state",script)
+        self.assertIn("V79_STAGE native_test_passed",script)
+        self.assertIn("grep -Ec '^V191_SC_NEXT '",script)
+        self.assertIn("grep -Ec '^V190_SC_STATE '",script)
+
     def test_private_owner_workflow_cleanup(self):
         wf=(HERE.parents[1]/".github/workflows/wii-v191-second-ios-next.yml").read_text()
         self.assertIn("run_v191_second_ios_next.sh",wf)
