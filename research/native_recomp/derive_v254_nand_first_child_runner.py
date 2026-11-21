@@ -16,6 +16,11 @@ def derive(source:str)->str:
     if s.count(OLD)!=1 or s.count(DONE)!=1:
         raise ValueError("V254 owner-original restored callback runner changed")
     s=s.replace(OLD,NEW,1)
+    fail="  echo 'V250_STAGE execute=0'"
+    diagnostic='  grep -E "^V254_NAND_CHILD guest=[01] caller=[01] reply=[01] mapped=[01] frame=[01] coherent=[01] text=[01] low=[01] sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V254_NAND_GUEST callback=[01] next=[01] memory=[01] trial=([1-9]|1[0-6])$" "$work/v250-native.log" | sort -u || true'
+    if s.count(fail)!=1:
+        raise ValueError("V254 candidate failure diagnostic hook changed")
+    s=s.replace(fail,diagnostic+'\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$work/v250-native.log" | sort -u
 test "$(grep -Ec '{PASS}' "$work/v250-native.log")" -eq 16

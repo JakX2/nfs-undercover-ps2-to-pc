@@ -30,6 +30,7 @@ class V254(unittest.TestCase):
         self.assertIn("ctx.inst_count>v254_nand_inst",OBSERVER)
         self.assertIn("v254_next_pc=addr;v254_next_lr=ctx.lr",OBSERVER)
         self.assertIn("V254_NAND_GUEST callback=",CANDIDATE)
+        self.assertIn("V254_NAND_GUEST",self.after)
         self.assertIn(CANDIDATE,self.after)
         self.assertNotIn("V252_NAND_GUEST checked=",self.after)
         self.assertIn("continue; // only the independent owner-callback mode",CANDIDATE)
@@ -68,6 +69,7 @@ class V254(unittest.TestCase):
             self.assertIn(item,wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
         self.assertNotIn("upload-artifact",wf)
+        self.assertIn("V254_NAND_CHILD",script)
         with tempfile.TemporaryDirectory() as tmp:
             for name,content in (("runner",script),("wrapper",(HERE/"run_v254_nand_first_child.sh").read_text(encoding="utf-8"))):
                 path=Path(tmp)/name;path.write_text(content,encoding="utf-8")
