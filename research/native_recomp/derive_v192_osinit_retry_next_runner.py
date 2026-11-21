@@ -25,13 +25,13 @@ def derive(source: str)->str:
     success='  echo "V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185"'
     if s.count(success)!=1:
         raise ValueError("V192 native success boundary not unique")
-    diagnostic=(
-        "  v192_next=$(grep -Ec '^V192_OSINIT_NEXT ' \\"$work/private-native.log\\" || true)\n"
-        "  v192_state=$(grep -Ec '^V192_OSINIT_STATE ' \\"$work/private-native.log\\" || true)\n"
-        "  [[ \\"$v192_next\\" =~ ^[0-9]{1,2}$ && \\"$v192_state\\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
-        "  echo \\"V192_GUEST_PROBE next=$v192_next state=$v192_state\\"\n"
+    diagnostic = """  v192_next=$(grep -Ec '^V192_OSINIT_NEXT ' "$work/private-native.log" || true)
+  v192_state=$(grep -Ec '^V192_OSINIT_STATE ' "$work/private-native.log" || true)
+  [[ "$v192_next" =~ ^[0-9]{1,2}$ && "$v192_state" =~ ^[0-9]{1,2}$ ]] || exit 1
+  echo "V192_GUEST_PROBE next=$v192_next state=$v192_state"
+""" + (
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
-        '  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
+        +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
     )
     s=s.replace(success,success+"\n"+diagnostic,1)
     s=s.replace(DONE,DONE+f"""
