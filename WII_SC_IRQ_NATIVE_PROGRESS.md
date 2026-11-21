@@ -1,6 +1,6 @@
 # Wii SC IRQ native continuation: V141-V255
 
-Status: **V249 restored and linked the original Wii callback bodies privately; V250 has directly observed authentic translated callback-to-NAND `bctrl`, and V253/V255 independently verify AOT translation stability. The historical V244 owner baseline remains 16/16 verified. Completing 16 owner-native trials of the restored callback candidate and executing the NAND body beyond its entry are the unverified V252/V254 frontiers.**
+Status: **V252 has now verified the restored original Wii `_isfsFuncCb` PowerPC `bctrl` into `nandOpenCallback` across 16 independent owner-original trials, with exact linked LR/CTR, 16-byte frame and real reply state. V253/V255 verify callback AOT function stability. The historical V244 baseline remains 16/16 verified. Executing the original NAND callback body beyond its entry remains the unverified V254 frontier.**
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
@@ -95,20 +95,24 @@ for each of 16 randomized startup trials, then skips only *later
 historical full-run assertions* for that candidate mode. The V244
 owner baseline still executes first, unchanged; no guest state, IOS
 response, callback target or original Wii instruction is rewritten.
-V252 remains unverified until its owner-native run succeeds. The
-initial V252/V254 owner attempts observed the real original NAND
-`bctrl` (`auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1
-progressed=1 reply=1`) but failed on historical full-run **V163**
-assertions that had been written for the reduced NOP callback fixture,
-before candidate-specific per-trial validation. A new source-only
-candidate gate is being tested *immediately before* this inherited
-assertion and only for `owner-callback` after authentic NAND entry.
-The unmodified owner baseline retains the V163 and subsequent tests.
-V254 additionally attempts genuine original NAND function execution
-into its first PowerPC child call; this remains unverified until owner
-execution and all candidate trials succeed. A subsequent milestone
-must execute the remainder of NAND and its downstream callback before
-claiming functional callback completion.
+**V252 original callback entry verified (16/16 owner-original):**
+the [successful original-game run 44899209809](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44899209809)
+reaches `V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1
+progressed=1 reply=1`, then reports exactly one
+`V252_NAND_GUEST checked=1 regs=1 reply=1 before_second=1 trial=N`
+for every `N=1..16`. The earlier V252/V254 attempts had failed on
+historical full-run **V163** assertions written for the reduced NOP
+callback fixture. The verified correction places a candidate-only
+checkpoint immediately before that legacy assertion, preserving it
+for the independent `owner` baseline. No game instruction, guest
+register, IOS reply, or callback target was patched.
+
+**V254 remains unverified:** it releases the now-verified NAND entry,
+executes original translated PowerPC and observes its first genuine
+child function call, without synthesizing a return. Subsequent
+milestones must execute the remainder of NAND and its downstream
+callback, and establish a real SC status transition before claiming
+functional callback completion or OSInit retry exit.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
