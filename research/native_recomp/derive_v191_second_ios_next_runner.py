@@ -55,8 +55,8 @@ def derive(source: str)->str:
     # return-to-OSInit with MSR.EE=1 and IRQ delivery ready. In the second
     # IOS ACK phase v153_mail/drained remain 0; only v153_irq becomes 0.
     # Keep all original C++ V153 and V186 guest proofs unchanged.
-    old_v153="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' \\"$log\\" | sort -u"
-    new_v153="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0' \\"$log\\" | sort -u"
+    old_v153 = """grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' "$log" | sort -u"""
+    new_v153 = """grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0' "$log" | sort -u"""
     if s.count(old_v153)!=1:
         raise ValueError("V191 previous V153 masked IRQ shell snapshot changed")
     s=s.replace(old_v153,new_v153,1)
