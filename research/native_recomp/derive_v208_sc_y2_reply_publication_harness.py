@@ -50,8 +50,19 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
           ipc70_ram.read32(req)==S::Reply&&
           ipc70_ram.read32(req+8u)==S::Open;
     const uint32_t fd=ipc70_ram.read32(req+4u);
-    const bool opened=fd<S::DescriptorCount&&
-          ipc70_bus.services().is_open(fd,S::Device::File);
+    // IOS_Open can legally return handles for STM, ES or FS devices,
+    // not just regular files. Accept only a live handle of a known
+    // dispatcher class; retain a negative result as a genuine failure.
+    const bool known_fd=fd<S::DescriptorCount;
+    const bool immediate=known_fd&&ipc70_bus.services().is_open(fd,S::Device::Immediate);
+    const bool event=known_fd&&ipc70_bus.services().is_open(fd,S::Device::Event);
+    const bool fs=known_fd&&ipc70_bus.services().is_open(fd,S::Device::Fs);
+    const bool file=known_fd&&ipc70_bus.services().is_open(fd,S::Device::File);
+    const bool es=known_fd&&ipc70_bus.services().is_open(fd,S::Device::Es);
+    const bool opened=immediate||event||fs||file||es;
+    std::cout<<"V208_Y2_KIND immediate="<<immediate<<" event="<<event
+             <<" fs="<<fs<<" file="<<file<<" es="<<es
+             <<" negative="<<(int32_t(fd)<0)<<std::endl;
     const bool signal=ctrl_after.has_value()&&flag_after.has_value()&&
           ((*ctrl_after&M::Y1)!=0u)&&((*ctrl_after&M::Y2)==0u)&&
           ((*flag_after&H::IPC_PPC)!=0u)&&
