@@ -73,6 +73,30 @@ guest-only lane, MSR.EE is enabled, IRQ is down and SC status remains 1.
 This proves a complete *second interrupt round-trip back to game logic*,
 **not** `OSInit` exit or `main`.
 
+**New original Wii IPC argument provenance (owner-negative diagnostic,
+not an additional successful boot milestone):** The
+[owner-original V208 prologue run 44877363825](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877363825)
+observed the original ISFS function's `_savegpr_26` prologue at
+`PC=0x80545100 / LR=0x804F1E40` *before* ISFS copies its incoming
+r3/r4 arguments to preserved registers:
+`V208_Y2_PROLOGUE seen=1 mapped=1 slash=0 mode_valid=0 mode_mem2=1 mode_slash=1`.
+The incoming r3 is mapped but not a slash-prefixed path; r4 is
+already a MEM2 virtual pointer to slash-prefixed text rather than
+a valid scalar IOS open mode. This directly rules out the later
+IOS_OpenAsync request serializer as the **first** corruption point.
+
+The original ELF's symbol table identifies the intended call chain:
+`SCReloadConfFileAsync -> NANDPrivateOpenAsync -> nandOpen ->
+ISFS_OpenAsync -> IOS_OpenAsync`. The original NAND wrapper maps
+its open mode to an IOS-compatible scalar before calling ISFS.
+The read-only successor probe compares ISFS's saved caller LR with
+the NAND callsite and the incoming r4 with caller-preserved r31,
+plus an expected stack pathname, to determine if corruption is
+present before the NAND-to-ISFS call or occurs during its native
+execution. Preserve public boolean-only results; do not publish
+translated game instructions or the original binary. Do not
+modify the standard IOS ABI or fabricate a successful response.
+
 **Latest verified third-Y1 negative-response execution:** the authentic `-4`
 second IOS_Open response was published to Y1 (V214), entered the installed
 external exception vector (V215), executed that original PowerPC vector
