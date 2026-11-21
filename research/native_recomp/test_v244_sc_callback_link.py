@@ -31,7 +31,7 @@ class V244(unittest.TestCase):
             self.assertIn(marker,SEND)
         self.assertIn(TRACE,self.after)
         self.assertIn(NEXT_EXTRA,self.after)
-        self.assertNotIn(PREVIOUS_EXTRA,self.after)
+        self.assertEqual(self.after.count("nwii::runtime::v244_submit_seen==1u&&"),1)
         self.assertNotIn("<<v244_cb_sp",TRACE+SEND)
         self.assertNotIn("<<v244_nested_target",TRACE+SEND)
         with self.assertRaises(ValueError):derive("not a harness")
