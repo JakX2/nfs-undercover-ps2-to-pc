@@ -2,6 +2,10 @@
 """V228 third negative Y1 Hollywood W1C and cache-helper owner runner."""
 import argparse
 from pathlib import Path
+import sys
+# The public original-free V79-V228 source derivation chain is deep.
+# Increase only this Python import/derivation budget, never the guest CPU budget.
+sys.setrecursionlimit(6000)
 from derive_v227_sc_y1_negative_ack_runner import derive as previous
 OLD='python3 "$here/derive_v227_sc_y1_negative_ack_harness.py"'
 NEW='python3 "$here/derive_v228_sc_y1_negative_flag_harness.py"'

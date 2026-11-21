@@ -2,6 +2,10 @@
 """V228 source-only bounded owner assertion lookup."""
 import argparse
 from pathlib import Path
+import sys
+# The public original-free V79-V228 source derivation chain is deep.
+# Increase only this Python import/derivation budget, never the guest CPU budget.
+sys.setrecursionlimit(6000)
 from classify_v38_native_failure import STRING
 from derive_v228_sc_y1_negative_flag_harness import derive
 

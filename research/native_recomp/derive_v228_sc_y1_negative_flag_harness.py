@@ -8,6 +8,10 @@ synthesize flag ACK, queue change, success result, or cache operation.
 """
 import argparse
 from pathlib import Path
+import sys
+# The public original-free V79-V228 source derivation chain is deep.
+# Increase only this Python import/derivation budget, never the guest CPU budget.
+sys.setrecursionlimit(6000)
 from derive_v227_sc_y1_negative_ack_harness import (
     derive as previous, ACK as PREVIOUS_ACK, NEXT_END as PREVIOUS_END,
 )

@@ -5,6 +5,10 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+import sys
+# The public original-free V79-V228 source derivation chain is deep.
+# Increase only this Python import/derivation budget, never the guest CPU budget.
+sys.setrecursionlimit(6000)
 from derive_v227_sc_y1_negative_ack_harness import derive as previous, ACK as PREVIOUS_ACK, NEXT_END as PREVIOUS_END
 from derive_v228_sc_y1_negative_flag_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END
 from derive_v228_sc_y1_negative_flag_runner import derive as runner, PATTERN, PASS
@@ -23,6 +27,8 @@ class V228(unittest.TestCase):
         self.assertIn(CONTINUE,self.after)
         self.assertIn(OBSERVER,self.after)
         self.assertIn(NEXT_END,self.after)
+        # The owner and public entrypoints must load the same deep derivation.
+        self.assertGreaterEqual(__import__("sys").getrecursionlimit(),6000)
         self.assertNotIn(PREVIOUS_END,self.after)
         for token in ("addr==0x80522294u","ctx.lr==0x80519124u",
                       "write.second&H::IPC_PPC","flag_writes==1u",
