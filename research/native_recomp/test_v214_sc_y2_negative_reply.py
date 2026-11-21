@@ -54,6 +54,21 @@ class V214(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNotNone(re.fullmatch(PATTERN,good.replace("irq=1","irq=0")))
         self.assertIsNone(re.fullmatch(PASS,good.replace("invalid=1","invalid=0")))
+
+        from diagnose_v214_native_failure import diagnose
+        public='check(false,"V82 scheduler did not set default thread context");'
+        private='what(): V82 scheduler did not set default thread context'
+        self.assertEqual(diagnose(private,public),
+            "V214_NATIVE_DIAG public=1 kind=v82_context trials=0 negative=0")
+        self.assertEqual(diagnose("what(): PRIVATE_UNRELATED",public),
+            "V214_NATIVE_DIAG public=0 kind=unmatched trials=0 negative=0")
+        log=("V79_TRIAL_PASS trial=0\n"
+             "V214_Y2_NEGATIVE invalid=1 mode=1 path=1 published=1 "
+             "irq=1 drained=1 cpu=1 sc=1\n"
+             "what(): V82 scheduler did not set default thread context")
+        self.assertEqual(diagnose(log,public),
+            "V214_NATIVE_DIAG public=1 kind=v82_context trials=1 negative=1")
+        self.assertIn("diagnose_v214_native_failure.py",script)
         wf=(HERE.parents[1]/".github/workflows/wii-v214-sc-y2-negative-reply.yml").read_text()
         for m in ("run_v214_sc_y2_negative_reply.sh",
                   "test_v214_sc_y2_negative_reply.py",

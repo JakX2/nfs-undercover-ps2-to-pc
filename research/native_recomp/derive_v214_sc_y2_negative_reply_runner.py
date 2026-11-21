@@ -19,6 +19,7 @@ def derive(source:str)->str:
     if s.count(fail)!=1:
         raise ValueError("V214 native owner failure-exit changed")
     s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  python3 "$V110_SOURCE_ROOT/diagnose_v214_native_failure.py" "$work/private-native.log" "$work/harness.cpp" || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
