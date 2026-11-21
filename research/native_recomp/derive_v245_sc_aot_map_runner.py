@@ -17,6 +17,7 @@ else
   exit 1
 fi'''
 V248_ROW=r'^V248_AOT_MAP owner=1 fixture_cb=1 fixture_isfs=1 fixture_nand=1 fixture_ipc=1 cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$'
+V248_ORIGINAL=V248_ROW.replace("V248_AOT_MAP","V245_AOT_MAP")
 CANDIDATE='''echo 'V248_STAGE entered=1'
 if python3 "$V110_SOURCE_ROOT/restore_v248_original_callbacks.py" "$owner" "$work/private.dol" "$work/private-v248.dol" > "$work/v248-restore.log" 2>&1; then
   grep -Fx 'V248_RESTORE owner=1 cb=1 nand=1 controls=1 reversible=1' "$work/v248-restore.log"
@@ -71,17 +72,8 @@ grep -E '{PATTERN}' "$work/v245-aot.log" | sort -u
 echo 'V245_SC_AOT_MAP verified=1'
 test "$(grep -Ec '{V247_ROW}' "$work/v247-fixture.log")" -eq 1
 echo 'V247_SC_FIXTURE_CLASS verified=1'
-test "$(grep -Ec '^V248_RESTORE owner=1 cb=1 nand=1 controls=1 reversible=1
-""",1)
-
-if __name__=="__main__":
-    p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument("source",type=Path);p.add_argument("output",type=Path)
-    a=p.parse_args()
-    with a.output.open("x",encoding="utf-8") as out:
-        out.write(derive(a.source.read_text(encoding="utf-8")))
- "$work/v248-restore.log")" -eq 1
-test "$(grep -Ec '{V248_ROW.replace("V248_AOT_MAP","V245_AOT_MAP")}' "$work/v248-aot.log")" -eq 1
+test "$(grep -Ec '^V248_RESTORE owner=1 cb=1 nand=1 controls=1 reversible=1$' "$work/v248-restore.log")" -eq 1
+test "$(grep -Ec '{V248_ORIGINAL}' "$work/v248-aot.log")" -eq 1
 echo 'V248_SC_ORIGINAL_CALLBACK_AOT verified=1'
 """,1)
 
