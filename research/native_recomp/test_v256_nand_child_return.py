@@ -54,6 +54,13 @@ class V256(unittest.TestCase):
                        '"$work/private-v248.dol" owner-callback "$owner"',
                        'for n in $(seq 1 16); do'):
             self.assertIn(marker,script)
+        # The genuine V254 child-entry checks remain, but the V254
+        # stopped-state check is incompatible with V256's resumed child.
+        self.assertNotIn("test \"$(grep -Ec '^V254_NAND_GUEST",script)
+        self.assertNotIn('grep -Fx "V254_NAND_GUEST callback=1 next=1 memory=1 trial=$n"',script)
+        self.assertIn('grep -Fx "V256_NAND_GUEST callback=1 returned=1 memory=1 trial=$n"',script)
+        self.assertEqual(script.count('test "$(grep -Ec \'^V256_NAND_GUEST'),2)
+        self.assertIn('test "$(grep -Ec \'^V254_NAND_CHILD',script)
         good="V256_NAND_RETURN child=1 guest=1 frame=1 reply=1 mapped=1 pending=1 coherent=1 sc=1"
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNotNone(re.fullmatch(PATTERN,good.replace("guest=1","guest=0")))
