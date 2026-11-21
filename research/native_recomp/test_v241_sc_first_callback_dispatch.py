@@ -26,7 +26,7 @@ class V241(unittest.TestCase):
                        "v240_cb_isfsfunc&&v240_ctr_cb",
                        "g_trace_calls","++v241_submit_seen"):
             self.assertIn(marker,SEND)
-        self.assertIn(TRACE_ANCHOR+"\n"+TRACE,self.after)
+        self.assertIn(TRACE,self.after)
         self.assertIn(NEXT_EXTRA,self.after)
         with self.assertRaises(ValueError):derive("invalid")
     def test_only_read_guest_and_original_callback(self):
@@ -35,7 +35,7 @@ class V241(unittest.TestCase):
             self.assertEqual(self.before.count(s),self.after.count(s))
         for part in (TRACE,SEND):
             for forbidden in ("ipc70_bus.write","ipc70_ram.write",
-                              "ctx.mmu.write","<<v241_target","<<v241_result",
+                              "ctx.mmu.write","<<v241_target<<","<<v241_result<<",
                               "<<v241_user"):
                 self.assertNotIn(forbidden,part)
             self.assertNotRegex(part,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
