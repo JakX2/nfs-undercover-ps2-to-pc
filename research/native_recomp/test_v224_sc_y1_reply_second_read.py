@@ -33,6 +33,11 @@ class V224(unittest.TestCase):
         self.assertIn(V80_ARM_SCOPED,self.after)
         self.assertNotIn(V80_ARM_FIRST,self.after)
         self.assertIn("v215_vector_seen==0u",V80_ARM_SCOPED)
+        self.assertIn("V80 original ARMMSG read selected a different request",V80_ARM_FIRST)
+        self.assertIn("++wake80_armmsg;",V80_ARM_SCOPED)
+        self.assertEqual(V80_ARM_SCOPED.count("if(v215_vector_seen==0u)"),1)
+        self.assertEqual(self.before.count(V80_ARM_FIRST),1)
+        self.assertEqual(self.after.count(V80_ARM_SCOPED),1)
     def test_observers_only(self):
         for token in ("scheduler.service_one(","ipc70_ram.write8(",
                       "ipc70_bus.write32(","ctx.mmu.write32("):

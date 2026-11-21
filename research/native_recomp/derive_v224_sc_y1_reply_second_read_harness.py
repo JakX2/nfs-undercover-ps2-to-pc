@@ -20,13 +20,18 @@ CONTINUE='''    ++v223_read_seen;
     v224_first_inst=ctx.inst_count;
     return; // original hardware read helper and handler resume
   }'''
-# V80's original first reply MMIO witness must not require ARMMSG to
-# refer to the *first* request after the third negative-Y1 IRQ has
-# legitimately published the second request. Preserve its early proof.
-V80_ARM_FIRST='''     if(reply79_irq==1u&&irq76_ipc&&
-        (addr==undercover::wii::IosBus::IPC+undercover::wii::IpcMailbox::ARMMSG||'''
-V80_ARM_SCOPED='''     if(reply79_irq==1u&&irq76_ipc&&v215_vector_seen==0u&&
-        (addr==undercover::wii::IosBus::IPC+undercover::wii::IpcMailbox::ARMMSG||'''
+# Scope the original V80 ARMMSG assertion and counter to the first
+# reply only. Anchor to the assertion body rather than the outer if,
+# which later source-only derivations may legitimately rescope.
+V80_ARM_FIRST='''       check(result&&*result==submit72_phys,"V80 original ARMMSG read selected a different request");
+       ++wake80_armmsg;'''
+V80_ARM_SCOPED='''       // The first Y1 reply still requires the original ARMMSG witness.
+       // During the third negative Y1, hardware legitimately selects
+       // v183_second_phys instead; do not re-assert the first request.
+       if(v215_vector_seen==0u){
+         check(result&&*result==submit72_phys,"V80 original ARMMSG read selected a different request");
+         ++wake80_armmsg;
+       }'''
 TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
   if(v223_read_seen==1u&&v224_second_seen==0u&&
