@@ -70,6 +70,15 @@ OBSERVER='''  // V190 executes the authentic PowerPC rescheduler from the V189
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
+V95_TITLE_PHASE='''   if(post95_active&&!submit72_active&&post94_query==1u){'''
+V190_SCOPED_TITLE_PHASE='''   // V95 title-query allocator callbacks are valid only in the original
+   // title-query phase. The V189 owner-original checkpoint proves the later
+   // second-IOS rescheduler has reached its own authentic execution phase.
+   // Preserve the V95 guard completely until that exact guest boundary.
+   if(post95_active&&!submit72_active&&post94_query==1u&&
+      !(v189_next_seen==1u&&v186_ack_seen==1u&&
+        v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
+        v190_next_seen==0u)){'''
 PAIR=re.compile(r'c\.pc==nwii::runtime::v189_target_pc&&\s*c\.lr==nwii::runtime::v189_target_lr')
 NEXT_TRIAL='''       using V190Bus=undercover::wii::IosBus;
        using V190Irq=undercover::wii::HollywoodIrq;
@@ -144,7 +153,7 @@ def derive(source: str)->str:
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+'\n'+NEXT_TRIAL)
-    return widen_prior(s)
+    return once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

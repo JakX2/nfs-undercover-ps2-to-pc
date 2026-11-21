@@ -6,7 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v189_second_ios_restore_harness import derive as previous
-from derive_v190_second_ios_resched_harness import derive,STOP,CONTINUE,OBSERVER,NEXT_TRIAL,PAIR,widen_prior
+from derive_v190_second_ios_resched_harness import (derive,STOP,CONTINUE,OBSERVER,
+    NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
 from derive_v190_second_ios_resched_runner import derive as runner,PATTERN,PASS,STATE,PASS_STATE
 HERE=Path(__file__).resolve().parent
 class V190(unittest.TestCase):
@@ -59,6 +60,21 @@ class V190(unittest.TestCase):
             self.assertIn("v190_next_seen==1u",self.after[begin:end])
         with self.assertRaises(ValueError):derive("invalid")
         with self.assertRaises(ValueError):widen_prior("invalid")
+
+    def test_historical_v95_title_allocator_phase_only_after_authentic_v189(self):
+        self.assertEqual(self.before.count(V95_TITLE_PHASE),1)
+        self.assertEqual(self.after.count(V190_SCOPED_TITLE_PHASE),1)
+        self.assertIn("post95_active&&!submit72_active&&post94_query==1u",
+                      V190_SCOPED_TITLE_PHASE)
+        self.assertIn("v189_next_seen==1u&&v186_ack_seen==1u",
+                      V190_SCOPED_TITLE_PHASE)
+        self.assertIn("v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u",
+                      V190_SCOPED_TITLE_PHASE)
+        self.assertIn("v190_next_seen==0u",V190_SCOPED_TITLE_PHASE)
+        self.assertEqual(self.before.count("V95 duplicate allocator wrapper"),
+                         self.after.count("V95 duplicate allocator wrapper"))
+        self.assertEqual(self.before.count("++open71_profile;"),
+                         self.after.count("++open71_profile;"))
 
     def test_owner_native_runner_and_workflow(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
