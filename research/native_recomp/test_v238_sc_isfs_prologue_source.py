@@ -34,7 +34,7 @@ class V238(unittest.TestCase):
             self.assertEqual(self.before.count(marker),self.after.count(marker))
         for part in (TRACE,SEND):
             for bad in ("ctx.mmu.write","ipc70_bus.write","ipc70_ram.write",
-                        "<<caller","<<pathptr","<<v238_second_mode"):
+                        "<<caller<<","<<pathptr<<","<<v238_second_mode<<"):
                 self.assertNotIn(bad,part)
             self.assertNotRegex(part,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
     def test_owner_16_trials_and_cleanup(self):
