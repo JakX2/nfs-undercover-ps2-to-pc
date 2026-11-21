@@ -41,6 +41,8 @@ class V232(unittest.TestCase):
         self.assertIn(OPEN71_SCOPED,self.after)
         self.assertEqual(self.after.count(OPEN71_SCOPED),1)
         self.assertIn("v231_callback_seen==1u",OPEN71_SCOPED)
+        self.assertNotIn("if(!stm70_open",OPEN71_SCOPED)
+        self.assertIn("if(!stm70_open",self.after)
         self.assertNotIn("ctx.mmu.write",OPEN71_SCOPED)
         self.assertNotIn("ipc70_ram.write",OPEN71_SCOPED)
 

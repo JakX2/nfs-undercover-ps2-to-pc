@@ -20,10 +20,10 @@ from derive_v194_osrestore_next_harness import STATE, RESET, once
 # It is not a general iosAlloc/iosFree monitor. Once V231 authenticates
 # the later ISFS reply callback, its expected first-open LR/stack can no
 # longer be applied to a different original Wii allocation/free.
-OPEN71_OLD=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
-   if(!stm70_open)return false;'''
+OPEN71_OLD=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){'''
 OPEN71_SCOPED=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
-   if(!stm70_open||v231_callback_seen==1u)return false;'''
+   // Original first-open ABI observer is not a generic IOS allocator hook.
+   if(v231_callback_seen==1u)return false;'''
 
 STOP='''    v231_target_pc=addr;v231_target_lr=ctx.lr;
     ++v231_callback_seen;
