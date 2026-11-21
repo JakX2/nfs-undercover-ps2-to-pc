@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V209
+# Wii SC IRQ native continuation: V141-V210
 
-Status: **V209 original second IOS OSDisableInterrupts successor verified (16/16 trials)**.
-V200-V209 independently confirm the genuine second-Y2 dispatcher, registered IPC
+Status: **V210 second IOS original post-OSDI scheduler helper verified (16/16 trials, two independent native workflows)**.
+V200-V210 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
-Hollywood PPC_FLAG W1C, post-ACK IPC handling, the original scheduler and a second-cycle OSDisableInterrupts call.
-**V210 continuation remains in owner-original testing. Second IOS reply publication is separately under investigation.**
+Hollywood PPC_FLAG W1C, post-ACK IPC handling, and multiple original scheduler/interrupt-control helpers.
+**Second IOS reply publication is independently being diagnosed and is not yet a verified end-to-end guest reply.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -44,6 +44,7 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V207 | [16-trial run 44868991286](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44868991286) | Executed the authenticated original guest function at `0x8051B060`, reaching the scheduler-related `PC=0x80529434 / LR=0x80526CB0` from genuine guest control flow. `V207_Y2_NEXT ack=1 irq_down=1 queued=1 open=1 replied=0 guest=1 caller=1 coherent=1 irqflag=1 mapped=1 sc=1 ee=0 pc=80529434 lr=80526cb0`. Guest MSR.EE remains masked, IRQ remains low, SC byte still 1 and the second IOS reply is **not yet published**. Owner-original 16/16 and public tests passed. |
 | V208 (scheduler lane) | [16-trial run 44869261710](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869261710) | The original scheduler function at `PC=0x80529434` called original `OSDisableInterrupts` at `PC=0x805265AC / LR=0x80529448`. `V208_Y2_SCHED y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805265ac lr=80529448`. The queued second IOS reply is not yet published, SC remains 1, and both public and owner-original tests passed. |
 | V209 | [16-trial run 44869502917](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869502917) | Executed the original `0x805265AC` interrupt-disable function and reached original `OSRestoreInterrupts` `PC=0x805265D4 / LR=0x80529458`. `V209_Y2_OSDI y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805265d4 lr=80529458`. All 16 owner-original trials and public tests passed. |
+| V210 (two native lanes) | [16-trial post-OSDI run 44869977280](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869977280), [16-trial OSRestore run 44870048669](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870048669) | Both independently derived original-game tests executed the second-cycle interrupt-restore successor and agreed on `PC=0x80529940 / LR=0x80526CB4`. The guest retained Y2 cleared, Hollywood IRQ down, one pending second IOS completion, original IOS_Open request, MSR.EE masked and SC byte 1. Their owner-original and public test jobs passed. This is still original guest control-flow tracing, **not** second IOS reply consumption. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -55,11 +56,13 @@ consuming the queued IOS reply. The retry is not resolved.
 **Current verified PowerPC frontier:** V204 and V205 prove the original
 PowerPC stores clear Broadway PPCCTRL.Y2 and Hollywood PPC_FLAG respectively.
 V206 and V207 execute the original post-ACK IPC and scheduler code. V208
-continues from the scheduler into `OSDisableInterrupts` at `PC=0x805265AC`
-and V209 executes that routine to `PC=0x805265D4 / LR=0x80529458`.
-This reproduces a first-interrupt scheduler-control path in the second
-IOS interrupt. IRQ remains down, MSR.EE remains masked, SC is still 1
-and the second IOS completion remains queued in this guest-only lane.
+continues from the scheduler into `OSDisableInterrupts` at `PC=0x805265AC`;
+V209 executes it to `PC=0x805265D4 / LR=0x80529458`; and both V210
+owner-original tracks reach `PC=0x80529940 / LR=0x80526CB4` via the
+original guest interrupt-restore helper. This reproduces the scheduler
+control-flow path from the first IOS interrupt in the second cycle.
+IRQ remains down, MSR.EE masked, SC is still 1, and the second IOS
+completion remains queued in this guest-only lane.
 
 **Parallel IOS publication experiment:** the independent
 `wii-v208-sc-y2-reply-publication.yml` tests a single native
@@ -73,10 +76,11 @@ runtime's actual supported IOS device handle classes is under owner testing;
 do not call the overall publication milestone verified until its complete
 original-game CI succeeds.
 
-**V210 (unverified):** execute the original `0x805265D4` restore helper,
-record its next native PowerPC call and determine whether native guest
-interrupt eligibility changes without an IOS Y1 reply pending. Preserve
-all original guest state and pending service ownership.
+**V211 (unverified):** continue the second-cycle guest code from
+`0x80529940` and identify the natural context-restoration/exception-return
+boundary. In parallel, resolve the second IOS_Open result class and only then
+advance the original guest handler to process the resulting Y1 interrupt.
+No guest state patches or invented reply values.
 
 **Not yet achieved:** delivery/publication of the *second* IOS reply,
 SC status transition to ready, exit from OSInit retry into original
