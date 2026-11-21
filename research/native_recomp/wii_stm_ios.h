@@ -80,9 +80,12 @@ public:
         constexpr auto A=M::Side::Starlet;
         const uint32_t ctrl=mail_.read(A,M::ARMCTRL);
         if(ctrl&(M::ARM_Y1|M::ARM_Y2))return Pump::Busy;
-        if(mail_.request_pending()){
+        if(mail_.ios_request_queued()){
             if(count_>=replies_.size()-1u)return Pump::Busy;
-            const uint32_t address=mail_.read(A,M::PPCMSG);
+            // Use the address captured at the X1 assertion. PPCMSG is
+            // writable, and a later Broadway write must not redirect a
+            // request already accepted by the native IOS intake queue.
+            const uint32_t address=mail_.ios_request_address();
             if(!request_span(address)||!disjoint_outstanding(address,64u))
                 return Pump::InvalidAddress;
             const Request r{address,mem_.read32(address),mem_.read32(address+8),

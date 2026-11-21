@@ -44,6 +44,28 @@ int main(){
         assert(rd&&wr&&m.read(A,M::ARMCTRL)==before);
     }
     m.write(P,M::PPCCTRL,0xffffffc0u);assert(m.read(P,M::PPCCTRL)==0u);
+    // An X1 assertion captures an IOS intake event independently from the
+    // writable Broadway flag. A later X1=0 and PPCMSG overwrite must not
+    // discard or redirect that single queued request.
+    m.reset();
+    m.write(P,M::PPCMSG,0x00000100u);
+    m.write(P,M::PPCCTRL,M::X1|M::IY1|M::IY2);
+    assert(m.request_pending()&&m.ios_request_queued()&&
+           m.ios_request_address()==0x00000100u);
+    m.write(P,M::PPCCTRL,M::IY1|M::IY2);
+    assert(!m.request_pending()&&m.ios_request_queued()&&
+           m.ios_request_address()==0x00000100u);
+    m.write(P,M::PPCMSG,0x00000180u);
+    m.write(P,M::PPCCTRL,M::X1|M::IY1|M::IY2);
+    assert(m.request_pending()&&m.ios_request_queued()&&
+           m.ios_request_address()==0x00000100u);
+    m.write(A,M::ARMCTRL,M::ARM_X1|M::ARM_Y2);
+    assert(!m.request_pending()&&!m.ios_request_queued());
+    m.write(P,M::PPCCTRL,M::Y2|M::IY1|M::IY2);
+    m.write(P,M::PPCCTRL,M::X1|M::IY1|M::IY2);
+    assert(m.ios_request_queued()&&m.ios_request_address()==0x00000180u);
+    m.reset();
+    assert(!m.ios_request_queued()&&m.ios_request_address()==0u);
     m.reset();assert(m.read(P,M::PPCMSG)==0u&&m.read(P,M::ARMMSG)==0u&&!m.broadway_irq_level()&&!m.starlet_irq_level());
     std::cout<<"PASS: 8192 exhaustive asymmetric mailbox flag cases and request/ack/reply/invalid-access checks\n";
 }

@@ -118,6 +118,45 @@ int main(){
     for(uint32_t addr:{B::IPC+M::ARMCTRL,B::IPC+H::ARM_MASK,B::IPC+1u,B::PI_CAUSE+8u,0u,0xffffffffu}){
         assert(!bus.read32(addr)&&!bus.write32(addr,0xffffffffu));
     }
+    // V183-V185 original Wii execution exposed an IOS_Open submission whose
+    // live X1 bit was cleared before the next explicit scheduler boundary.
+    // The native IOS intake must still process the original physical
+    // pointer exactly once; clearing the flag is not a service completion.
+    {
+        B queued(mem);
+        auto qwr=[&](uint32_t a,uint32_t v){assert(queued.write32(a,v));};
+        auto qrd=[&](uint32_t a){const auto v=queued.read32(a);assert(v);return *v;};
+        const std::string_view name="/dev/stm/immediate";
+        for(unsigned i=0;i<name.size();++i)mem.write8(path+i,uint8_t(name[i]));
+        mem.write8(path+uint32_t(name.size()),0u);
+        for(unsigned i=0;i<8u;++i)mem.write32(req+4u*i,0u);
+        mem.write32(req,S::Open);
+        mem.write32(req+12u,path);
+        qwr(B::IPC+M::PPCMSG,req);
+        qwr(B::IPC+M::PPCCTRL,en|M::X1);
+        qwr(B::IPC+M::PPCCTRL,en);
+        assert((qrd(B::IPC+M::PPCCTRL)&M::X1)==0u);
+        assert(mem.read32(req)==S::Open&&queued.services().queued_replies()==0u);
+        // A later guest PPCMSG rewrite cannot redirect the queued request.
+        qwr(B::IPC+M::PPCMSG,event);
+        assert(queued.tick()==S::Pump::Ack);
+        assert(queued.services().is_open(0,S::Device::Immediate));
+        assert(queued.services().queued_replies()==1u);
+        assert((qrd(B::IPC+M::PPCCTRL)&M::Y2)!=0u);
+        assert(queued.tick()==S::Pump::Busy);
+        qwr(B::IPC+M::PPCCTRL,en|M::Y2);
+        qwr(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        assert(queued.tick()==S::Pump::Replied);
+        assert(qrd(B::IPC+M::ARMMSG)==req);
+        assert(mem.read32(req)==S::Reply&&mem.read32(req+4u)==0u);
+        assert(mem.read32(req+8u)==S::Open);
+        qwr(B::IPC+M::PPCCTRL,en|M::Y1);
+        qwr(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        assert(queued.tick()==S::Pump::Idle);
+        assert(queued.services().queued_replies()==0u);
+        queued.reset();
+        assert(queued.tick()==S::Pump::Idle);
+    }
     bus.reset();assert(rd(B::PI_MASK)==0u&&!bus.services().is_open(0,S::Device::Immediate));
     std::cout<<"PASS: integrated native IOS MMIO bus, physical 64-byte requests, successive STM opens, deferred events, ACK/reply IRQ14 and MSR.EE gating\n";
 }
