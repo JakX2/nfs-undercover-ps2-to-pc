@@ -18,7 +18,7 @@ from extend_private_text import NOP
 
 TARGETS=("cb","nand")
 CONTROLS=("isfs","ipc")
-BLR=b"\\x4e\\x80\\x00\\x20"
+BLR=b"\x4e\x80\x00\x20"
 
 def restore(original:bytes,fixture:bytes,expected_sha:str=ORIGINAL_SHA)->bytes:
     if hashlib.sha256(original).hexdigest()!=expected_sha:
