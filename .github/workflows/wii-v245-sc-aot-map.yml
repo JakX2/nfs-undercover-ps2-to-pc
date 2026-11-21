@@ -142,6 +142,7 @@ jobs:
               grep -E '^V238_COMPILE_SOURCE public=[01] v238=[01] group=(other|stack|abi|return|mode|callback|caller_class|path|sequence|v238|v238_state)$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               grep -E '^V245_AOT_DIAG stage=(owner|fixture|generated|audit) kind=(read_failed|empty|validation|type)$|^V245_AOT_MAP result=failed$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               grep -E '^V247_FIXTURE_DIAG result=failed$|^V247_FIXTURE result=failed$' "$RUNNER_TEMP/sc245.log" | sort -u || true
+              grep -E '^V248_STAGE (entered|generator|completed|restore_failed|generator_failed|map_mismatch|audit_failed)=1$|^V248_RESTORE result=failed$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               grep -E '^V245_STAGE (entered|completed|failed)=1$|^V245_AOT_DIAG stage=record kind=mismatch$' "$RUNNER_TEMP/sc245.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc245.log" || true
               echo 'V214 negative IOS reply owner test failed; owner-private details withheld' >&2
@@ -353,6 +354,9 @@ jobs:
           grep -E '^V244_LINK cb=1 save=1 registered=1 abi=1 userdata=1 frame32=[01] frame48=[01] outer_lr=[01] nested_lr=[01] isfs_entry=[0-9]{1,2} nested_text=[01]$' "$RUNNER_TEMP/sc245.log" | sort -u
           grep -Fx 'V245_SC_AOT_MAP verified=1' "$RUNNER_TEMP/sc245.log"
           grep -Fx 'V247_SC_FIXTURE_CLASS verified=1' "$RUNNER_TEMP/sc245.log"
+          grep -Fx 'V248_SC_ORIGINAL_CALLBACK_AOT verified=1' "$RUNNER_TEMP/sc245.log"
+          grep -Fx 'V248_RESTORE owner=1 cb=1 nand=1 controls=1 reversible=1' "$RUNNER_TEMP/sc245.log" | sort -u
+          grep -E '^V248_AOT_MAP owner=1 fixture_cb=1 fixture_isfs=1 fixture_nand=1 fixture_ipc=1 cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$RUNNER_TEMP/sc245.log" | sort -u
           grep -E '^V247_FIXTURE owner=1 cb_same=[0-9]{1,2} cb_nop=[0-9]{1,2} cb_sc=[0-9]{1,2} cb_blr=[0-9]{1,2} cb_zero=[0-9]{1,2} cb_other=[0-9]{1,2} cb_placeholder=[01] nand_same=[0-9]{1,2} nand_nop=[0-9]{1,2} nand_sc=[0-9]{1,2} nand_blr=[0-9]{1,2} nand_zero=[0-9]{1,2} nand_other=[0-9]{1,2} nand_placeholder=[01]$' "$RUNNER_TEMP/sc245.log" | sort -u
           grep -E '^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$RUNNER_TEMP/sc245.log" | sort -u
           echo 'PASS: genuine original fixture versus generated AOT callback mapping safely classified'
