@@ -155,7 +155,237 @@ jobs:
               grep -E '^V250_PHASE cb=[01] dispatch=[01] entry=[01] save=[01] submit=[01] second=[01] first_reply=[01] guest_text=[01] at_cb=[01] at_nand=[01] at_isfs=[01] at_ipc=[01] mode=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
               grep -E '^V250_PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170} callback=[01] nand=[01] trials=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc256.log" | sort -u || true
               python3 research/native_recomp/diagnose_v178_run_stage.py "$RUNNER_TEMP/sc256.log" || true
-              echo 'V214 negative IOS reply owner test failed; owner-private details withheld' >&2
+              grep -E '^V256_SHAPE token=[0-9]{1,3} prefix=[0-9]{1,3} fields=[0-9]{1,3} exact=[0-9]{1,3} pass=[0-9]{1,3} guest=[0-9]{1,3}
+              exit 1
+            }
+          grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V110_WRAPPER syntax_ok' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V136_SECOND_RETRY verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V137_IOS_PROBE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V138_REQUEST_PROBE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V139_SC_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V140_SC_IRQ_ENTRY verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V140_SC_IRQ_ENTRY pending=1 vector=1 saved=1 regs=1 queued=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V141_SC_VECTOR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V141_SC_VECTOR vector=1 handler=1 saved=1 queued=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V142_SC_DISPATCH verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V142_SC_DISPATCH route=1 regs=1 status=1 pending=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V143_SC_TIME verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V143_SC_TIME time=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V144_SC_DISABLE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V144_SC_DISABLE route=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V145_SC_IPC verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V145_SC_IPC dispatch=1 context=1 masked=1 pending=1 progressed=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V146_SC_IPC_LEAF verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V146_SC_IPC_LEAF call=1 masked=1 queued=1 stepped=1 target=(8051905c|8051906c|8051b060)$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V147_SC_IPC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V147_SC_IPC_NEXT first=1 caller=1 progressed=1 masked=1 queued=1 irq=[01] target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V148_SC_IPC_DISTINCT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V148_SC_IPC_DISTINCT first=1 caller=1 advanced=1 masked=1 queued=1 irq=[01] reads=[0-9]{1,2} target=[0-9a-f]{8} lr=80519[34][0-9a-f]{2}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V149_SC_IPC_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V149_SC_IPC_ACK write=1 w1c=1 queued=1 irq=1 guest=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V150_SC_IRQ_CLEAR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V150_SC_IRQ_CLEAR write=1 w1c=1 ctrl=1 irq_down=1 queued=1 guest=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V151_SC_AFTER_FLAG verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V151_SC_AFTER_FLAG cleared=1 irq_down=1 queued=1 masked=1 progressed=1 text=1 target=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V152_SC_POST_HELPER verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V152_SC_POST_HELPER clean=1 idle=1 queued=1 guest=1 text=1 target=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V153_SC_REPLY verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V153_SC_REPLY route=1 cleared=1 service=1 wire=1 fd=1 signal=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V154_SC_SCHED_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V154_SC_SCHED_NEXT signal=1 reply=1 guest=1 target=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V155_SC_AFTER_DISABLE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V155_SC_AFTER_DISABLE y1=1 reply=1 progressed=1 call=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V156_SC_AFTER_RESTORE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V156_SC_AFTER_RESTORE irq=1 reply=1 progress=1 text=1 coherent=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V157_SC_RESCHED_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V157_SC_RESCHED_NEXT y1=1 reply=1 progressed=1 target=1 coherent=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V158_SC_RFI verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V158_SC_RFI pc=1 msr=1 regs=1 waiting=0 running=1 ready_thread=0 linked=[01] lifecycle=1 irq=1 reply=1 coherent=1 ee=1 ready=1 old_pc=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V159_SC_Y1_VECTOR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V159_SC_Y1_VECTOR pending=1 safe=1 entered=1 vector=1 regs=1 masked=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V160_SC_VECTOR_HANDLER verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V160_SC_VECTOR_ENTRY saved=1 regs=1 bytes=1 masked=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V160_SC_VECTOR_ABI index=1 thread=[01] idle=[01] sr0=[01] sr1=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V160_SC_VECTOR_HANDLER vector=1 masked=1 irq=1 advanced=1 pc=80526ce0 lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V161_SC_Y1_DISPATCH verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V161_SC_Y1_DISPATCH index=1 context=1 saved_pc=[01] saved_msr=[01] running=[01] masked=1 irq=1 advanced=1 pc=80526a3c lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V162_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V162_SC_REPLY_NEXT irq=1 reply=1 guest=1 masked=1 caller=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V163_SC_Y1_DISABLE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V163_SC_Y1_DISABLE irq=1 reply=1 masked=1 guest=1 caller=1 pc=805293f8 lr=80526c98' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V164_SC_Y1_NESTED verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V164_SC_Y1_NESTED irq=1 reply=1 masked=1 guest=1 caller=1 target=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V165_SC_POST_OSDI verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V165_SC_POST_OSDI irq=1 reply=1 masked=1 guest=1 caller=1 ipc=[01] helper=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V166_SC_POST_RESTORE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V166_SC_POST_RESTORE irq=1 reply=1 guest=1 call=1 coherent=1 ee=[01] ready=[01] ipc=[01] helper=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V167_SC_REPLY_LEAF verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V167_SC_REPLY_LEAF y1=1 reply=1 guest=1 masked=1 caller=1 read=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V168_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V168_SC_REPLY_NEXT y1=1 reply=1 guest=1 masked=1 caller=1 read=[01] other=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V169_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V169_SC_REPLY_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=[01] flag=[01] reply=[01] wire=[01] ready=[01] status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V170_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V170_SC_REPLY_NEXT guest=1 caller=1 coherent=1 mapped=1 y1=[01] flag=[01] reply=[01] wire=[01] ready=[01] status=[0-9]{1,3} changed=[01] read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V171_SC_DISTINCT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V171_SC_DISTINCT guest=1 caller=1 coherent=1 mapped=1 y1=[01] irq=[01] wire=[01] reply=[01] status=[0-9]{1,3} changed=[01] write=[01] reads=[0-9]{1,2} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V172_SC_Y1_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V172_SC_Y1_ACK w1c=1 flag=1 irq=1 wire=1 reply=1 guest=1 wrote=1 mapped=1 status=[0-9]{1,3} pc=[0-9a-f]{8} lr=8051910c$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V173_SC_AFTER_Y1_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V173_SC_AFTER_Y1_ACK y1clear=1 flag=[01] wire=[01] reply=[01] guest=1 caller=1 coherent=1 mapped=1 status=[0-9]{1,3} read=[01] write=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V173_SC_HW_FLAG_W1C guest=1 count=1 cleared=1 irq_down=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V174_SC_POST_REPLY_HELPER verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V174_SC_POST_REPLY_HELPER cleared=1 reply=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V175_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V175_SC_REPLY_NEXT clean=1 wire=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V176_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V176_SC_REPLY_NEXT clean=[01] wire=[01] queue=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] osinit=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V177_SC_REPLY_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V177_SC_REPLY_NEXT clean=[01] wire=[01] queue=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] ipc=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V178_SC_BURST verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V178_SC_BURST calls=[1-6] clean=[01] reply=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V178_SC_TRACE step=[1-6] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V179_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V179_SC_NEXT clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V180_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V180_SC_NEXT clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V181_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V181_SC_NEXT clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V182_SC_BURST verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V182_SC_BURST calls=[1-8] clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V182_SC_TRACE step=[1-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V182_REQUEST_SC verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V182_REQUEST_SC guest=1 vector=1 sc=1 status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V182_CACHE_VECTOR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V182_CACHE_SC verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V182_CACHE_SC guest=1 vector=1 sc=1 status=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V183_SC_BURST verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V183_SC_BURST calls=[1-8] clean=1 reply=1 queue=1 guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V183_SC_TRACE step=[1-8] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V184_SC_BURST verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V184_IPC_ENTRY phase=1 msg=[01] ctrl=[01] x1=[01] known=[01] calls=8$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V184_SC_BURST calls=[1-6] clean=[01] reply=[01] queue=[01] guest=1 caller=1 coherent=1 mapped=1 submitted=[01] before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V184_SC_TRACE step=[1-6] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V185_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V185_IPC_ENTRY phase=1 request=[01] x1=[01] y1=[01] y2=[01] open=[01] replied=[01] status=[0-9]{1,3}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V185_SC_NEXT clean=[01] x1=[01] request=[01] replied=[01] queue=[01] guest=1 caller=1 coherent=1 mapped=1 before=1 status=[0-9]{1,3} changed=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V186_SECOND_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V186_IOS_PRE route=1 prior=1 intake=1 clear=1 open=1 idle=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V186_SECOND_ACK ack=1 y2=1 irq=1 queued=1 consumed=1 original=1 cpu=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V186_ACK_STATE guest=1 mail=1 service=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V187_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V187_SC_NEXT y2=[01] flag=[01] queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V187_SC_STATE guest=1 queue=1 irq=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V188_SC_OSDI verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V188_SC_NEXT y2=[01] flag=[01] queue=1 request=1 guest=1 caller=1 masked=1 coherent=1 mapped=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V188_SC_STATE guest=1 queue=1 irq=1 masked=[01] sc=1$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V189_SC_RESTORE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V189_SC_NEXT y2=[01] flag=[01] queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V189_SC_STATE guest=1 queue=1 irq=1 sc=1 ee=[01] ready=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V190_SC_RESCHED verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V190_SC_NEXT y2=[01] flag=[01] queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V190_SC_STATE guest=1 queue=1 irq=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V191_SC_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V191_SC_NEXT y2=1 flag=1 queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=1 ready=1 pc=8052f830 lr=80520970' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V191_SC_STATE guest=1 queue=1 irq=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V192_OSINIT_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V192_OSINIT_NEXT y2=[01] flag=[01] queue=[01] guest=1 coherent=1 mapped=1 caller=1 retry=[01] vector=[01] sc=[0-9]{1,3} ee=[01] ready=[01] r3=[0-9]{1,10} eq=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V192_OSINIT_STATE guest=1 irq=1 sc=1 queue=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V193_OSDI_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V193_OSDI_NEXT y2=[01] flag=[01] queue=[01] guest=1 coherent=1 mapped=1 caller=1 sc=[0-9]{1,3} ee=[01] ready=[01] r3=[0-9]{1,10} eq=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V193_OSDI_STATE guest=1 irq=1 sc=1 queue=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V194_RESTORE_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V194_RESTORE_NEXT y2=1 flag=1 queue=1 request=1 guest=1 coherent=1 mapped=1 caller=1 sc=1 ee=[01] ready=[01] vector=[01] r3=[0-9]{1,10} eq=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V194_RESTORE_STATE guest=1 irq=1 sc=1 queue=1 open=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V195_SC_Y2_VECTOR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V195_SC_Y2_VECTOR pending=1 safe=1 entered=1 saved=1 regs=1 mail=1 masked=1 resume=8052f830 pc=80000500' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V196_SC_Y2_VECTOR verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V196_Y2_VECTOR vector=1 handler=1 saved=1 pending=1 progressed=1 resume=8052f830 pc=80526ce0' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V197_SC_Y2_DISPATCH verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V197_Y2_DISPATCH route=1 regs=1 status=1 pending=1 progressed=1 resume=8052f830 pc=80526a3c' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V198_SC_Y2_TIME verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V198_Y2_TIME time=1 masked=1 pending=1 progressed=1 resume=1 pc=8052a824 lr=80526c84' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V199_SC_Y2_DISABLE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V199_Y2_DISABLE route=1 masked=1 pending=1 progressed=1 resume=1 pc=805293f8 lr=80526c98' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V200_SC_Y2_IPC verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V200_Y2_IPC dispatch=1 context=1 registered=1 masked=1 pending=1 progressed=1 resume=1 pc=80519318 lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V201_SC_Y2_LEAF verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V201_Y2_LEAF call=1 masked=1 queued=1 stepped=1 prior=1 pc=(8051905c|8051906c|8051b060) lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V202_SC_Y2_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V202_Y2_NEXT first=1 caller=1 stepped=1 masked=1 queued=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V203_SC_Y2_DISTINCT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V203_Y2_DISTINCT first=1 caller=1 progressed=1 masked=1 queued=1 reads=[0-9]{1,2} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V204_SC_Y2_ACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V204_Y2_ACK write=1 w1c=1 flag=1 queued=1 guest=1 progressed=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V205_SC_Y2_FLAG verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V205_Y2_FLAG write=1 cleared=1 ctrl=1 irq_down=1 queued=1 guest=1 progressed=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V206_SC_Y2_POST_FLAG verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V206_Y2_POST ack=1 irq_down=1 queued=1 open=1 guest=1 masked=1 coherent=1 sc=1 pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V207_SC_Y2_HELPER_NEXT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V207_Y2_NEXT ack=1 irq_down=[01] queued=[01] open=[01] replied=[01] guest=1 caller=1 coherent=1 irqflag=1 mapped=1 sc=[0-9]{1,3} ee=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V214_SC_Y2_NEGATIVE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V214_Y2_NEGATIVE invalid=1 mode=1 path=1 published=1 irq=1 drained=1 cpu=1 sc=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V233_SC_SECOND_OPEN_ABI verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V233_SUBMIT isfs=[01] ios=[01] isfs_path12=[01] isfs_mode16=[01] ios_path12=[01] ios_mode16=[01] ios_shifted=[01] isfs_cb=[01] ios_cb=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V233_ABI layer=(isfs|ios) path=[01] sysconf=[01] modevalid=[01] callback=[01] guest=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
+          grep -Fx 'V234_SC_ISFS_ORIGIN verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V234_SOURCE isfs=[01] count=[0-8] ios=[01] isfs_valid=[01] ios_valid=[01] mode_isfs=[01] mode_ios=[01] nand_cb=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V234_ROUTE isfs=[01] mode_same=[01] isfs_modevalid=[01] ios_modevalid=[01] ios_cb=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
+          grep -E '^V234_ISFS seq=[1-8] path=[01] sysconf=[01] modevalid=[01] nand_cb=[01] guest=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
+          grep -Fx 'V235_SC_ISFS_HELPER_ABI verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V235_SUMMARY stage=([0-9]|1[0-5]) valid=([0-9]|1[0-5]) source=([0-9]|1[0-5]) ios_modevalid=[01] ios_eq_r27=[01] ios_bufsame=[01] isfs=[01] ios=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V235_HELPER stage=[1-4] r27valid=[01] r27source=[01] mode_arg=[01] arg_eq_r27=[01] buf_eq_r30=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
+          grep -Fx 'V236_SC_SECOND_IOS_CALLERS verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V236_SUBMIT entries=[1-8] early=[0-8] late=[0-8] isfs=[0-8] after_first=[01] from_isfs=[01] pathvalid=[01] modevalid=[01] same_path=[01] same_mode=[01] original_caller=[01] lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V236_IOS seq=[1-8] after_first=[01] from_isfs=[01] lr_isfs=[01] lr_text=[01] path=[01] sysconf=[01] modevalid=[01] mode_mem2=[01] cb=[01] lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V237_SC_ISFS_REENTRY verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V237_CHAIN isfs=[0-8] save=[0-8] strn=[0-8] alloc=[0-8] copy=[0-8] ios=[0-8] stack=[01] saved_lr=[01] r27valid=[01] r27source=[01] arg_r27=[01] path_r30=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V237_SECOND stack=[01] saved_lr=[01] r27valid=[01] r27source=[01] arg_r27=[01] path_r30=[01] same_r30=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V238_SC_ISFS_PROLOGUE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V238_SOURCE saves=[0-8] second=[01] nand=[01] logging=[01] other=[01] r11=[01] modevalid=[01] pathvalid=[01] sysconf=[01] same_ios_mode=[01] ios_invalid=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V238_SAVE seq=[1-8] mapped=[01] nand=[01] logging=[01] other=[01] r11=[01] mode=[01] srcmode=[01] path=[01] sysconf=[01] nandcb=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V239_SC_ISFS_CALLER verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V239_ISFS_RETURN text=1 ipc=[01] isfs=[01] nand_region=[01] os=[01] same_first=0 modevalid=0 pathvalid=0 ret=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V239_ISFS_CHAIN ready=1 text=1 same_first=0 invalid=1 ios_invalid=1 same_ios_mode=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V240_SC_FIRST_CALLBACK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V240_FIRST_CB first=1 reply=[01] cb_isfsfunc=[01] cb_isfsopen=[01] cb_text=[01] r3_reply=[01] r4_userdata=[01] ctr_cb=[01] ctr_isfsopen=[01] ipc_return=1$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V240_CB_CHAIN seen=1 first=1 reply=[01] cb_isfsfunc=[01] cb_isfsopen=[01] cb_text=[01] r3_reply=[01] r4_userdata=[01] ctr_cb=[01] ctr_isfsopen=[01] ipc_return=1$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V241_SC_FIRST_CALLBACK_DISPATCH verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V241_DISPATCH cb_count=[0-8] traced=[01] registered=1 trace_enabled=1 lr_ok=[01] target_ok=[01] abi_ok=[01] ctr_ok=[01] second_invalid=1 first_reply=1$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V241_CB_ENTRY seq=[1-8] lr=[01] target=[01] abi=[01] ctr=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u || true
+          grep -Fx 'V242_SC_CALLBACK_CALL_ROUTE verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V242_ROUTE count=([1-9]|1[0-9]|2[0-4]) cb=[0-9]{1,2} isfs_entry=[0-9]{1,2} handler_lr=[0-9]{1,2} captured=1 second=1 last_pc=[0-9a-f]{8} last_lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V242_TRACE seq=([1-9]|1[0-9]|2[0-4]) cb=[01] isfs=[01] ipc=[01] lr_text=[01] handler_lr=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{1,8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V244_SC_CALLBACK_LINK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V244_CB_NEST registered=[01] abi=[01] mapped=[01] text=[01] isfs=[01] nand=[01] null=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V244_FRAME mapped=[01] frame32=[01] frame48=[01] other=[01] outer_lr=[01] nested_lr=[01] text_lr=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V244_LINK cb=1 save=1 registered=1 abi=1 userdata=1 frame32=[01] frame48=[01] outer_lr=[01] nested_lr=[01] isfs_entry=[0-9]{1,2} nested_text=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V245_SC_AOT_MAP verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V247_SC_FIXTURE_CLASS verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V248_SC_ORIGINAL_CALLBACK_AOT verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V248_RESTORE owner=1 cb=1 nand=1 controls=1 reversible=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V248_AOT_MAP owner=1 fixture_cb=1 fixture_isfs=1 fixture_nand=1 fixture_ipc=1 cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V247_FIXTURE owner=1 cb_same=[0-9]{1,2} cb_nop=[0-9]{1,2} cb_sc=[0-9]{1,2} cb_blr=[0-9]{1,2} cb_zero=[0-9]{1,2} cb_other=[0-9]{1,2} cb_placeholder=[01] nand_same=[0-9]{1,2} nand_nop=[0-9]{1,2} nand_sc=[0-9]{1,2} nand_blr=[0-9]{1,2} nand_zero=[0-9]{1,2} nand_other=[0-9]{1,2} nand_placeholder=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V249_SC_AUTH_CALLBACK_LINK verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V249_AOT_LINK owner=1 restore=1 mapping=1 different=1 compiled=1 linked=1 executable=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V250_SC_NAND_BCTRL verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -Fx 'V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1 progressed=1 reply=1' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V254_SC_NAND_FIRST_CHILD verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V254_NAND_CHILD guest=1 caller=1 reply=1 mapped=1 frame=1 coherent=1 text=[01] low=[01] sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V254_NAND_GUEST callback=1 next=1 memory=1 trial=([1-9]|1[0-6])$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -Fx 'V256_SC_NAND_CHILD_RETURN verified=1' "$RUNNER_TEMP/sc256.log"
+          grep -E '^V256_NAND_RETURN child=1 guest=1 frame=1 reply=1 mapped=1 pending=1 coherent=1 sc=[0-9]{1,3}$' "$RUNNER_TEMP/sc256.log" | sort -u
+          grep -E '^V256_NAND_GUEST callback=1 returned=1 memory=1 trial=([1-9]|1[0-6])$' "$RUNNER_TEMP/sc256.log" | sort -u
+          echo 'PASS: authentic original NAND child returned to callback in sixteen owner trials'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc256.log"
+ "$RUNNER_TEMP/sc256.log" | sort -u || true
+              echo 'V256 NAND child return verification failed; owner-private details withheld' >&2
               exit 1
             }
           grep -Fx 'V110_WRAPPER derived' "$RUNNER_TEMP/sc256.log"
