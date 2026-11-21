@@ -51,13 +51,14 @@ class V232(unittest.TestCase):
     def test_owner_16_trials_and_private_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for marker in ("derive_v232_sc_isfs_callback_next_harness.py",
-                       "derive_v232_nand_callback_generator.py",
-                       "V232_NAND_CALLBACK_ROOT verified=1",
+                       "derive_v225_isfs_callback_generator.py",
                        "V231_SC_Y1_ISFS_CALLBACK verified=1",
                        "V232_SC_ISFS_CALLBACK_NEXT verified=1"):
             self.assertIn(marker,script)
         good=("V232_ISFS_NEXT clear=1 wire=1 guest=1 sc=1 mapped=1 "
               "selected=1 nested=1 result=1 userdata=1 pc=8051e06c lr=804f0f54")
+        self.assertNotIn("derive_v232_nand_callback_generator.py",script)
+        self.assertNotIn("V232_NAND_CALLBACK_ROOT verified=1",script)
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNone(re.fullmatch(PASS,good.replace("wire=1","wire=0")))
         self.assertIsNotNone(re.fullmatch(PATTERN,good.replace("nested=1","nested=0")))

@@ -1,4 +1,4 @@
-name: Wii V232 Original Negative ISFS Callback and NAND AOT Root
+name: Wii V232 Original Negative ISFS Callback Successor
 on:
   workflow_dispatch:
   push:
@@ -329,7 +329,6 @@ jobs:
           grep -Fx 'V230_CONTEXT_NEXT irq_down=1 wire=1 guest=1 context=1 sc=1 pc=805228cc lr=80519298' "$RUNNER_TEMP/sc232.log" | sort -u
           grep -Fx 'V231_SC_Y1_ISFS_CALLBACK verified=1' "$RUNNER_TEMP/sc232.log"
           grep -Fx 'V231_ISFS_CALLBACK clear=1 wire=1 header=1 selected=1 same=1 abi=1 userdata=1 guest=1 sc=1 pc=804f0e04 lr=805192ac' "$RUNNER_TEMP/sc232.log" | sort -u
-          grep -Fx 'V232_NAND_CALLBACK_ROOT verified=1' "$RUNNER_TEMP/sc232.log"
           grep -Fx 'V232_SC_ISFS_CALLBACK_NEXT verified=1' "$RUNNER_TEMP/sc232.log"
           grep -E '^V232_ISFS_NEXT clear=1 wire=1 guest=1 sc=1 mapped=[01] selected=[01] nested=[01] result=[01] userdata=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc232.log" | sort -u
           echo 'PASS: original ISFS callback body advanced to next genuine translated function'

@@ -3,8 +3,8 @@
 
 Continue owner-verified V231 callback entry into its original PowerPC
 instructions. Record the first real nested function call, preserving
-the actual -4 IOS_Open response, IRQ cleared and SC state. Root
-nandOpenCallback in AOT without injecting any guest call or callback.
+the actual -4 IOS_Open response, IRQ cleared and SC state. Retain the verified V225 ISFS AOT root while probing the genuine
+nested callback target. Do not inject a guest call or callback.
 """
 import argparse
 import sys
