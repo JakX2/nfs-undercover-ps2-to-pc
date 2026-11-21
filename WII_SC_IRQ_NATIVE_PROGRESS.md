@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V223
+# Wii SC IRQ native continuation: V141-V226
 
-Status: **V223 original third-negative-Y1 `IpcReplyHandler` first hardware read verified (16/16 owner-original trials); V214–V222 negative reply transport, vector, scheduler and registered IPC handler verified**.
+Status: **V226 original third-negative-Y1 `IpcReplyHandler` advanced into its PPCCTRL write helper (16/16 owner-original trials); V225 independent indirect ISFS callback AOT root and V224 second IPC read also verified**.
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
-**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry, original IRQ dispatcher and first real IpcReplyHandler register read. A successful SYSCONF file open, completed asynchronous callback, and SC retry-loop exit are not verified.**
+**Second IOS reply transport and real PowerPC handling are verified for the authentic −4 result, including Y1 exception entry, original IRQ dispatcher, two real IpcReplyHandler register reads, and the subsequent PPCCTRL write-helper entry. The third-Y1 ACK, successful SYSCONF open, completed asynchronous callback, and SC retry-loop exit remain unverified.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -58,6 +58,9 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V221 (negative Y1 lane) | [16-trial run 44877842764](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877842764) | The original registered third-Y1 IPC callback executed its PowerPC body and called hardware read helper `PC=0x8051905C / LR=0x8051933C`. `V221_NEG_LEAF call=1 masked=1 signal=1 reply=1 stepped=1 sc=1 pc=8051905c lr=8051933c`. Original `IOS_Open=-4`, Y1 asserted and SC status 1 remain intact. All 16 owner-original trials and public tests passed; no successful SYSCONF open or callback completion is claimed. |
 | V222 (negative Y1 lane) | [16-trial run 44878093738](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44878093738) | The original registered third-Y1 handler executed through its first PPC read helper and entered genuine `IpcReplyHandler` at `PC=0x805190C0 / LR=0x80519354`. The actual `IOS_Open=-4`, IRQ and SC=1 remain unchanged. Owner-original 16/16 and public tests passed. |
 | V223 (negative Y1 lane) | [16-trial run 44878570758](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44878570758) | The genuine `IpcReplyHandler` executed into its first PPC register read helper at `PC=0x8051905C / LR=0x805190E8`. `V223_NEG_REPLY_READ irq=1 wire=1 caller=1 guest=1 masked=1 sc=1`. Owner-original 16/16 and public tests passed. |
+| V224 (negative Y1 lane) | [16-trial run 44882560125](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44882560125) | Executed real `IpcReplyHandler` into its **second** `IPCReadReg` call at `PC=0x8051905C / LR=0x805190FC`. `V224_NEG_SECOND_READ irq=1 wire=1 guest=1 masked=1 sc=1`. The first-reply V80 ARMMSG check was scoped to its original phase at its stable assertion seam; original guest MMIO state and the real `-4` reply were not altered. Public and owner-original 16/16 passed. |
+| V225 (independent AOT-root lane) | [owner-original run 44880294922](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44880294922) | Source-only generator extension includes the original indirectly invoked `_isfsFuncCb` at `0x804F0E04` as an analysis root, validates the actual translated-function map and preserves 16-trial prior V177 native execution. `V225_CB_AOT_ROOT verified=1` and `V225_SC_ISFS_CALLBACK_AOT verified=1`. This confirms **generation/link coverage**, not execution of that callback or SC readiness. |
+| V226 (negative Y1 lane) | [16-trial run 44882719448](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44882719448) | Real negative-Y1 handler advanced from the second IPC register read into original `IPCWriteReg` at `PC=0x8051906C / LR=0x8051910C`. `V226_NEG_SUCCESSOR signal=1 negative=1 guest=1 caller=1 sc=1 pc=8051906c lr=8051910c`. Original PowerPC execution, native IRQ, negative reply and SC=1 confirmed in all 16 owner-original trials with public tests passing. V227 will test the *actual* guest Y1 acknowledgment; it is not yet verified. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -218,16 +221,9 @@ change the IOS wire ABI. The exact callback-entry order remains under
 investigation; no callback corruption or static-recompilation bug is
 yet proven.
 
-**Next (unverified):** trace authentic second `IOS_Open` request
-buffer construction and physical RAM/cache visibility before the original
-PPCMSG write; compare first known-good SYSCONF IPC request memory with the
-malformed second request, without disclosing raw owner/game bytes.
-Then allow the genuine IOS response to be processed by the original Y1
-interrupt handler and verify an actual SC status transition and OSInit retry
-exit. Do not patch guest registers, suppress errors or fabricate a successful
-request.
+**Next (unverified):** V227 observes the actual original guest PPCCTRL Y1 write-one-to-clear after the verified V226 writer entry. The subsequent Hollywood PPC_FLAG W1C and async callback must also be executed by original translated PowerPC, not simulated by host ACKs. Separately trace the second `IOS_Open` request builder and physical RAM/cache visibility before the original PPCMSG write; compare the known-good first SYSCONF request with the malformed second without exposing owner data. Verify a real SC status transition and OSInit retry exit before claiming further boot progress. Do not patch guest registers or fabricate a successful request.
 
-**Not yet achieved:** successful second SYSCONF `IOS_Open`, native execution of the registered IPC callback for the second Y1 reply,
+**Not yet achieved:** successful second SYSCONF `IOS_Open`, completion of the second Y1 `IpcReplyHandler` and indirect ISFS callback,
 SC status transition to ready, exit from OSInit retry into original
 `main`, first frame, frontend, gameplay or a complete Windows port.
 
