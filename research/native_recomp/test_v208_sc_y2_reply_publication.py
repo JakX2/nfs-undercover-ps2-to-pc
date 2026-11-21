@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -107,6 +107,17 @@ class V208(unittest.TestCase):
         self.assertIn("mode_arg&0x1fffffffu",PUBLISH)
         self.assertIn("i<64u",PUBLISH)
         self.assertNotIn("<<mode_as_phys",PUBLISH)
+        layout="V208_Y2_LAYOUT ptr0c=0 ptr10=1 ptr14=0 ptr18=0 ptr1c=0 mode0c=0 mode10=0 mode14=1 mode18=0 mode1c=0"
+        self.assertIsNotNone(re.fullmatch(LAYOUT_PATTERN,layout))
+        self.assertIsNone(re.fullmatch(LAYOUT_PATTERN,layout+" secret=1"))
+        self.assertIn("V208_Y2_LAYOUT",PUBLISH)
+        self.assertIn("read32(req+20u)",PUBLISH)
+        self.assertIn("read32(req+24u)",PUBLISH)
+        self.assertIn("read32(req+28u)",PUBLISH)
+        self.assertIn("i<64u",PUBLISH)
+        self.assertNotIn("<<alt14",PUBLISH)
+        self.assertNotIn("<<alt18",PUBLISH)
+        self.assertNotIn("<<alt1c",PUBLISH)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",

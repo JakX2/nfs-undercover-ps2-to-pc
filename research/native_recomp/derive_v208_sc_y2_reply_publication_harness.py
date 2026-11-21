@@ -91,6 +91,40 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
              <<" mode_mem2="<<mode_mem2virt<<" mode_mapped="<<mode_ptr
              <<" mode_slash="<<mode_slash<<" mode_string="<<mode_string
              <<std::endl;
+    // The real IOS ABI requires mode at +0x10 and path pointer at +0x0C.
+    // Inspect neighboring request words *only as classes*, to distinguish
+    // an extra argument word from badly initialized headers.
+    const uint32_t alt14=ipc70_ram.read32(req+20u);
+    const uint32_t alt18=ipc70_ram.read32(req+24u);
+    const uint32_t alt1c=ipc70_ram.read32(req+28u);
+    const auto modeclass=[](uint32_t word){return word<=3u;};
+    const auto pathclass=[&](uint32_t word){
+      const bool v1=word>=0x80000000u&&word<0x81800000u;
+      const bool v2=word>=0x90000000u&&word<0x94000000u;
+      const bool phys=word<0x01800000u||
+           (word>=0x10000000u&&word<0x14000000u);
+      if(!(v1||v2||phys))return false;
+      const uint32_t addr=(v1||v2)?(word&0x1fffffffu):word;
+      if(!ipc70_ram.valid(addr,1u)||
+         ipc70_ram.read8(addr)!=uint8_t('/'))return false;
+      for(uint32_t i=1u;i<64u;++i){
+        if(addr>0xffffffffu-i||!ipc70_ram.valid(addr+i,1u))return false;
+        const uint8_t ch=ipc70_ram.read8(addr+i);
+        if(ch==0u)return true;
+        if(ch<0x20u||ch>0x7eu)return false;
+      }
+      return false;
+    };
+    std::cout<<"V208_Y2_LAYOUT ptr0c="<<pathclass(path_arg)
+             <<" ptr10="<<pathclass(mode_arg)
+             <<" ptr14="<<pathclass(alt14)
+             <<" ptr18="<<pathclass(alt18)
+             <<" ptr1c="<<pathclass(alt1c)
+             <<" mode0c="<<modeclass(path_arg)
+             <<" mode10="<<modeclass(mode_arg)
+             <<" mode14="<<modeclass(alt14)
+             <<" mode18="<<modeclass(alt18)
+             <<" mode1c="<<modeclass(alt1c)<<std::endl;
     const bool path_zero=path_arg==0u;
     const bool path_mapped=!path_zero&&ipc70_ram.valid(path_arg,1u);
     const bool mode_valid=mode_arg<=3u;
