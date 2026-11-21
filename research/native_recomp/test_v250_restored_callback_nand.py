@@ -51,7 +51,7 @@ class V250(unittest.TestCase):
         for fragment in ("ctx.pc=","ipc70_ram.write",
                          "ctx.mmu.write","ipc70_bus.write"):
             self.assertNotIn(fragment,OBSERVER)
-        self.assertIsNone(re.search(r"ctx\\.gpr\\[3\\]\\s*=(?!=)",OBSERVER))
+        self.assertIsNone(re.search(r"ctx\.gpr\[3\]\s*=(?!=)",OBSERVER))
         self.assertEqual(self.after.count('V244 original callback nested link provenance missing'),
                          self.before.count('V244 original callback nested link provenance missing'))
 
