@@ -209,8 +209,8 @@ class V208(unittest.TestCase):
         self.assertIn("ctx.mmu.read32(parent+32u)",TRACE_HOOK)
         self.assertIn("ctx.mmu.read32(parent+36u)",TRACE_HOOK)
         self.assertIn("ctx.gpr[3]==ctx.mmu.read32(parent+4u)",TRACE_HOOK)
-        self.assertNotIn("<<parent",TRACE_HOOK)
-        self.assertNotIn("<<callback",TRACE_HOOK)
+        self.assertNotRegex(TRACE_HOOK,r"<<\\s*parent\\b")
+        self.assertNotRegex(TRACE_HOOK,r"<<\\s*callback\\b")
         self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
         self.assertIn("V208_Y2_CB_ABI",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
