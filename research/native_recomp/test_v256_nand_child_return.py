@@ -32,6 +32,8 @@ class V256(unittest.TestCase):
         self.assertIn("ctx.inst_count>v256_child_inst",CALLBACK)
         self.assertIn("V256_NAND_RETURN child=",CALLBACK)
         self.assertIn("V256_NAND_GUEST callback=",CANDIDATE)
+        self.assertIn("V256_SHAPE token=",runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8")))
+        self.assertIn("^V256_SHAPE token=", (HERE.parents[1]/".github/workflows/wii-v256-nand-child-return.yml").read_text(encoding="utf-8"))
         self.assertIn("owner-callback only; owner baseline V163 remains",CANDIDATE)
         with self.assertRaises(ValueError):derive("unmatched base")
 
