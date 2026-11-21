@@ -24,7 +24,7 @@ class V195(unittest.TestCase):
         pos=self.after.index(IRQ)
         self.assertEqual(self.before.count("V194_RESTORE_STATE guest="),1)
         self.assertGreater(pos,self.after.index(TAIL))
-        self.assertEqual(self.after[self.after.index(TAIL)+len(TAIL):pos],"\\n")
+        self.assertEqual(self.after[self.after.index(TAIL)+len(TAIL):pos],"\n")
         self.assertEqual(self.after.count(TAIL),1)
         # All authentic V194 terminal checks execute before native IRQ entry.
         self.assertIn("check(v194_guest&&v194_irq&&v194_sc&&v194_queue&&v194_open,",TAIL)
