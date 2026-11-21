@@ -96,10 +96,32 @@ old_mode=1 old_open=1 same_ptr=0`. The earlier SC/SYSCONF request
 retains a valid standard IOS Open pathname/mode and opened file handle in
 the **same** native runtime. The ABI implementation is therefore backed by
 a concrete working control, whereas the second original request is malformed
-at submission and remains unchanged until processing. The failure is
-localized to the second request's preparation/memory visibility, or the
-specific request buffer selected by original code. Do not modify the IOS
-ABI or invent a successful open.
+at submission and remains unchanged until processing. The failure is localized to the second request's preparation/memory
+visibility, or the specific request buffer selected by original code.
+A later owner-native [producer/provenance run 44873468351](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44873468351)
+established the second buffer is in **physical MEM2**, does not overlap the
+first request, and was submitted through the original PowerPC MMIO writer at
+`PC=0x8051906C / LR=0x80519780`. The surprising virtual MEM2 pointer
+at request offset `+0x10` resolves to the actual
+`/shared2/sys/SYSCONF` pathname
+(`V208_Y2_PATHCLASS valid=1 shared2=1 sysconf=1`), whereas `+0x0C`
+contains a mapped, non-path pointer. This narrows the request-builder
+investigation to the original sender around `0x80519780` and its
+memory/physical-pointer conversion. libogc's original-free
+[IOS_Open/IOS_OpenAsync implementation](https://github.com/devkitPro/libogc/blob/master/libogc/ipc.c)
+also writes a **physical** pathname pointer at `+0x0C` and a mode at
+`+0x10` before issuing PPCMSG. Do not modify the IOS ABI or invent
+a successful open.
+
+**Separate owner diagnostic status (unverified):** V214 tests whether a
+genuine `IOS_Open=-4` response can pass a **negative-response transport**
+checkpoint, without pretending the file opened. The first V214 owner
+attempts stopped at an inherited native-test assertion before the new
+checkpoint. A direct cached/uncached alias `get_ptr` probe was backed
+out because it caused an unrelated regression and did not yield a
+verified alias observation. Those owner-native failures are under
+fail-closed diagnosis using the exact compiled public harness, not
+assumed evidence about the original game.
 
 **Next (unverified):** trace authentic second `IOS_Open` request
 buffer construction and physical RAM/cache visibility before the original
