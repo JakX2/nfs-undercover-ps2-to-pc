@@ -21,25 +21,25 @@ def derive(source: str)->str:
     s=s.replace(FAIL,
         '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
-    stage="echo 'V79_STAGE native_test_passed'"
-    # Earlier V178 instrumentation may echo the same public stage name from
-    # the preflight reporter. Attach once to the first real native success
-    # command in the inherited original-free shell source.
-    if s.count(stage)<1:
-        raise ValueError("V191 original native execution success boundary absent")
+    # Earlier derivations change the V79 success-stage command, but V186
+    # appends this unique marker *inside* the successful native-execution
+    # branch, before historical retrospective shell checks.
+    stage='  echo "V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185"'
+    if s.count(stage)!=1:
+        raise ValueError("V191 successful native branch post-execution marker changed")
     probe=(
-        "  v191_next=$(grep -Ec '^V191_SC_NEXT ' \"$work/private-native.log\" || true)\n"
-        "  v191_state=$(grep -Ec '^V191_SC_STATE ' \"$work/private-native.log\" || true)\n"
-        "  v190_next=$(grep -Ec '^V190_SC_NEXT ' \"$work/private-native.log\" || true)\n"
-        "  v190_state=$(grep -Ec '^V190_SC_STATE ' \"$work/private-native.log\" || true)\n"
-        "  for n in \"$v191_next\" \"$v191_state\" \"$v190_next\" \"$v190_state\"; do\n"
-        "    [[ \"$n\" =~ ^[0-9]{1,2}$ ]] || exit 1\n"
-        "  done\n"
-        "  echo \"V191_GUEST_PROBE next=$v191_next state=$v191_state prior=$v190_next prior_state=$v190_state\"\n"
-        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
-        '  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
+        "  v191_next=$(grep -Ec '^V191_SC_NEXT ' \\"$work/private-native.log\\" || true)\\n"
+        "  v191_state=$(grep -Ec '^V191_SC_STATE ' \\"$work/private-native.log\\" || true)\\n"
+        "  v190_next=$(grep -Ec '^V190_SC_NEXT ' \\"$work/private-native.log\\" || true)\\n"
+        "  v190_state=$(grep -Ec '^V190_SC_STATE ' \\"$work/private-native.log\\" || true)\\n"
+        "  for n in \\"$v191_next\\" \\"$v191_state\\" \\"$v190_next\\" \\"$v190_state\\"; do\\n"
+        "    [[ \\"$n\\" =~ ^[0-9]{1,2}$ ]] || exit 1\\n"
+        "  done\\n"
+        "  echo \\"V191_GUEST_PROBE next=$v191_next state=$v191_state prior=$v190_next prior_state=$v190_state\\"\\n"
+        '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\\n'
+        '  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\\n'
     )
-    s=s.replace(stage,stage+"\n"+probe,1)
+    s=s.replace(stage,stage+"\\n"+probe,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
