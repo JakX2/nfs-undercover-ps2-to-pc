@@ -50,7 +50,8 @@ class V190(unittest.TestCase):
         self.assertEqual(len(PAIR.findall(self.before)),len(PAIR.findall(self.after)))
         for label in ("V171 original SC reply processor did not reach distinct native callee",
                       "V185 original IPC Y1 reader did not reach authentic native successor"):
-            end=self.after.index('"'+label+'");start=self.after.rfind("check(",0,end)
+            end=self.after.index('"'+label+'");')
+            start=self.after.rfind("check(",0,end)
             self.assertIn("v190_next_seen==1u",self.after[start:end])
         for marker in ("const bool v186_guest=","const bool v187_guest=",
                        "const bool v188_guest=","const bool v189_guest="):
