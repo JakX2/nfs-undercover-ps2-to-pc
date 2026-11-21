@@ -37,7 +37,7 @@ class V249(unittest.TestCase):
             "V249_SC_AUTH_CALLBACK_LINK verified=1",
         ):
             self.assertIn(part,self.after)
-        self.assertEqual(self.after.count('V249_AOT_LINK owner=1'),1)
+        self.assertEqual(self.after.count("echo 'V249_AOT_LINK owner=1"),1)
         self.assertIsNotNone(re.fullmatch(ROW,
             "V249_AOT_LINK owner=1 restore=1 mapping=1 different=1 compiled=1 linked=1 executable=1"))
         self.assertIsNotNone(re.fullmatch(SCAN,
