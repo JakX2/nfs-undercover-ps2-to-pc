@@ -21,7 +21,7 @@ def derive(source:str)->str:
     fail="  echo 'V130_NATIVE_EXIT ok=0'"
     if s.count(fail)!=1:
         raise ValueError("V198 owner-native failure-exit anchor changed")
-    s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     success='  echo "V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185"'
     if s.count(success)!=1:
         raise ValueError("V198 native trial diagnostic anchor changed")
