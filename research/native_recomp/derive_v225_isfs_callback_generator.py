@@ -8,7 +8,7 @@ rewrite PowerPC instructions, guest registers, request bytes or callbacks.
 """
 import argparse
 from pathlib import Path
-from derive_v79_reply_generator import derive as previous
+from derive_v128_next_function_generator import derive as previous
 
 OLD='0x80526a3cu,0x80519318u,0x80529940u,0x80529718u,0x805229b4u});'
 NEW='0x80526a3cu,0x80519318u,0x80529940u,0x80529718u,0x805229b4u,0x804f0e04u});'

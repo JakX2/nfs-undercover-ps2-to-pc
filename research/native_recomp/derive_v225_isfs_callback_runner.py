@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from derive_v177_sc_reply_next_runner import derive as previous
 
-OLD='python3 "$here/derive_v79_reply_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
+OLD='python3 "$here/derive_v128_next_function_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
 NEW='python3 "$here/derive_v225_isfs_callback_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
 AFTER="echo 'V79_STAGE generation_complete'"
 DONE="echo 'V177_SC_REPLY_NEXT verified=1'"

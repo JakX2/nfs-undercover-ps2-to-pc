@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from derive_v79_reply_generator import derive as previous_generator
+from derive_v128_next_function_generator import derive as previous_generator_generator
 from derive_v225_isfs_callback_generator import derive as generator, OLD, NEW, ASSERT
 from derive_v225_isfs_callback_runner import derive as runner, PROBE
 HERE=Path(__file__).resolve().parent
