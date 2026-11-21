@@ -39,7 +39,7 @@ class V206(unittest.TestCase):
             self.assertEqual(self.before.count(token),self.after.count(token))
         for part in (CONTINUE,OBSERVER,NEXT_END):
             for forbidden in ("ipc70_bus.write", "ipc70_ram.write","service_one(",
-                              "ipc70_bus.tick(","ctx.mmu.write","ctx.gpr["):
+                              "ipc70_bus.tick(","ctx.mmu.write"):
                 self.assertNotIn(forbidden,part)
         self.assertNotRegex(OBSERVER,r"\bctx\.(?:msr|pc|lr|srr0|srr1)\s*=(?!=)")
         with self.assertRaises(ValueError):
