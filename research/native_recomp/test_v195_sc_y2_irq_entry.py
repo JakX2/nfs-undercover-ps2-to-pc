@@ -22,13 +22,12 @@ class V195(unittest.TestCase):
         self.assertNotIn("V195_SC_Y2_VECTOR",self.before)
         self.assertEqual(self.after.count("V195_SC_Y2_VECTOR pending="),1)
         pos=self.after.index(IRQ)
-        # Owner-mode V77 reaches this check and immediately 'continue's.
-        # All subsequent BSS assertions belong to an unreachable legacy
-        # synthetic/late path. The IRQ adapter must not live there.
-        self.assertGreater(pos,self.after.index('std::cout<<"V77_TRIAL_PASS trial="'))
-        self.assertLess(pos,self.after.index("original BSS byte not zero"))
-        self.assertTrue(self.after[pos+len(IRQ):].lstrip().startswith("continue;"))
-        self.assertEqual(self.after.count('std::cout<<"V77_TRIAL_PASS trial="'),1)
+        self.assertEqual(self.before.count("V194_RESTORE_STATE guest="),1)
+        self.assertGreater(pos,self.after.index(TAIL))
+        self.assertEqual(self.after[self.after.index(TAIL)+len(TAIL):pos],"\\n")
+        self.assertEqual(self.after.count(TAIL),1)
+        # All authentic V194 terminal checks execute before native IRQ entry.
+        self.assertIn("check(v194_guest&&v194_irq&&v194_sc&&v194_queue&&v194_open,",TAIL)
         self.assertIn("oldpc==0x8052f830u&&oldlr==0x80520970u",IRQ)
         self.assertIn("nwii::runtime::v194_next_seen==1u",IRQ)
         self.assertIn("irq74_vector,safe",IRQ)

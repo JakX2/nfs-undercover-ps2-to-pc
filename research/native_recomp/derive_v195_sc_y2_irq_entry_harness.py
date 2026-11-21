@@ -9,11 +9,12 @@ exception state. Does not execute guest handler yet or create IOS reply.
 """
 import argparse
 from pathlib import Path
-from derive_v194_osrestore_next_harness import derive as previous
+from derive_v194_osrestore_next_harness import derive as previous, NEXT_TRIAL as V194_TRIAL
 
-TAIL='''        std::cout<<"V77_TRIAL_PASS trial="<<trial+1u<<std::endl;
-        continue;'''
-IRQ='''    // Bounded hardware exception after all authenticated guest state checks.
+# The V194 terminal original guest check is the reachable owner-run boundary.
+# The historical V77_TRIAL_PASS/continue was replaced in the derivation chain.
+TAIL=V194_TRIAL
+IRQ='''    // Bounded hardware exception after the authenticated V194 owner guest checks.
     // No guest instruction, IRQ latch acknowledgment or IOS service is faked.
     if(owner){
       using Bus=undercover::wii::IosBus;
@@ -57,14 +58,13 @@ IRQ='''    // Bounded hardware exception after all authenticated guest state che
 def derive(source:str)->str:
     s=previous(source)
     if s.count(TAIL)!=1 or s.count("V194_RESTORE_STATE guest=")!=1:
-        raise ValueError(f"V195 original-free authenticated trial tail changed: tail={s.count(TAIL)} state={s.count('V194_RESTORE_STATE guest=')} marker={s.count('V77_TRIAL_PASS trial=')} continue={s.count('        continue;')}")
-    # V77's owner-specific verification returns through this 'continue',
-    # bypassing later synthetic-only BSS and startup assertions entirely.
-    # Attach the hardware entry to the *reachable* owner test boundary.
-    insertion='        continue;'
-    if TAIL.count(insertion)!=1:
-        raise ValueError("V195 owner trial continue changed")
-    return s.replace(TAIL,TAIL.replace(insertion,IRQ+insertion,1),1)
+        raise ValueError("V195 original-free V194 authenticated checkpoint changed")
+    # The real V194 owner trial reaches this exact final state assertion.
+    # Insert the hardware entry directly after that verified check; do not
+    # depend on an obsolete V77 trial pass/continue marker.
+    if 'check(v194_guest&&v194_irq&&v194_sc&&v194_queue&&v194_open,' not in TAIL:
+        raise ValueError("V195 V194 terminal guest proof anchor changed")
+    return s.replace(TAIL,TAIL+"\\n"+IRQ,1)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
