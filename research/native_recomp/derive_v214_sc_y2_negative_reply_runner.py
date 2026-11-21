@@ -24,7 +24,7 @@ def derive(source:str)->str:
     if s.count(compile_line)!=1:
         raise ValueError("V214 expected compile error guard changed")
     s=s.replace(compile_line,
-        'python3 "$V110_SOURCE_ROOT/diagnose_v214_compile_failure.py" "$work/native-compile.log" "$unit" || true\\n      '+
+        'python3 "$V110_SOURCE_ROOT/diagnose_v214_compile_failure.py" "$work/native-compile.log" "$unit" || true\n      '+
         compile_line,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
