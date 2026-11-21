@@ -73,6 +73,25 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
              <<" mapped="<<path_mapped<<" mode_valid="<<mode_valid
              <<" mode_hi8="<<mode_hi8
              <<" invalid="<<(path_zero||!mode_valid)<<std::endl;
+    // Examine byte order and pointer-like ranges without disclosing
+    // the second request's raw words or pathname.
+    const uint32_t swapped_mode=((mode_arg&0x000000ffu)<<24u)|
+          ((mode_arg&0x0000ff00u)<<8u)|
+          ((mode_arg&0x00ff0000u)>>8u)|
+          ((mode_arg&0xff000000u)>>24u);
+    const bool swapped_valid=swapped_mode<=3u;
+    const bool mem1_virtual=mode_arg>=0x80000000u&&mode_arg<0x81800000u;
+    const bool mem2_virtual=mode_arg>=0x90000000u&&mode_arg<0x94000000u;
+    const bool mem1_physical=mode_arg>3u&&mode_arg<0x01800000u;
+    const bool mem2_physical=mode_arg>=0x10000000u&&mode_arg<0x14000000u;
+    const bool same_path=mode_arg==path_arg;
+    const bool mode_aligned=(mode_arg&3u)==0u;
+    const bool path_slash=path_mapped&&ipc70_ram.read8(path_arg)==uint8_t('/');
+    std::cout<<"V208_Y2_MODE swap_valid="<<swapped_valid
+             <<" mem1virt="<<mem1_virtual<<" mem2virt="<<mem2_virtual
+             <<" mem1phys="<<mem1_physical<<" mem2phys="<<mem2_physical
+             <<" same_path="<<same_path<<" aligned="<<mode_aligned
+             <<" path_slash="<<path_slash<<std::endl;
     std::cout<<"V208_Y2_KIND immediate="<<immediate<<" event="<<event
              <<" fs="<<fs<<" file="<<file<<" es="<<es
              <<" negative="<<(int32_t(fd)<0)

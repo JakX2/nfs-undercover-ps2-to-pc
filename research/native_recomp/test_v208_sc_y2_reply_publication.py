@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, KIND
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -80,6 +80,13 @@ class V208(unittest.TestCase):
             "V208_Y2_OPEN_ARGS zero=0 mapped=1 mode_valid=0 mode_hi8=1 invalid=1"))
         self.assertIsNone(re.fullmatch(ARGS,
             "V208_Y2_OPEN_ARGS zero=0 mapped=/private mode_valid=0 mode_hi8=1 invalid=1"))
+        probe="V208_Y2_MODE swap_valid=1 mem1virt=0 mem2virt=0 mem1phys=0 mem2phys=0 same_path=0 aligned=1 path_slash=1"
+        self.assertIsNotNone(re.fullmatch(MODE,probe))
+        self.assertIsNone(re.fullmatch(MODE,probe+" raw=0x1234"))
+        self.assertIn("V208_Y2_MODE",script)
+        self.assertIn("swapped_mode",PUBLISH)
+        self.assertNotIn("<<mode_arg",PUBLISH)
+        self.assertNotIn("<<swapped_mode",PUBLISH)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",
