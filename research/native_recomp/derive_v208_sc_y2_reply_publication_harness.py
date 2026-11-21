@@ -217,6 +217,71 @@ SEND='''      // Observe only the actual guest-owned second IPC request at PPCMS
       ++v208_send_seen;
       const bool ptr=a!=0u&&ipc70_ram.valid(a,1u);
       const bool slash=ptr&&ipc70_ram.read8(a)==uint8_t('/');
+      // Authentic guest PPCMSG write provenance: no RAM writes, no
+      // unpublished pathnames or raw physical request pointers in CI.
+      const auto* send_cpu=ipc70_ram.cpu;
+      const uint32_t send_pc=send_cpu?send_cpu->pc:0u;
+      const uint32_t send_lr=send_cpu?send_cpu->lr:0u;
+      const bool pc_text=send_pc>=0x80400000u&&send_pc<0x80600000u;
+      const bool lr_text=send_lr>=0x80400000u&&send_lr<0x80600000u;
+      const bool request_mem1=value<0x01800000u;
+      const bool request_mem2=value>=0x10000000u&&value<0x14000000u;
+      const bool reused=value==v153_phys;
+      const bool collides=value<v153_phys+64u&&v153_phys<value+64u;
+      const bool ablock=ptr&&ipc70_ram.valid(a,64u);
+      const bool anested=ablock&&
+            ipc70_ram.read32(a)==undercover::wii::StmIos::Open;
+      const bool areply=ablock&&
+            ipc70_ram.read32(a)==undercover::wii::StmIos::Reply;
+      unsigned request_regs=0u,path_regs=0u;
+      if(send_cpu)for(unsigned i=3u;i<=10u;++i){
+        const uint32_t reg=send_cpu->gpr[i];
+        if(reg==value||((reg&0x1fffffffu)==value))
+          request_regs|=1u<<(i-3u);
+        if(reg==b||((reg&0x1fffffffu)==(b&0x1fffffffu)))
+          path_regs|=1u<<(i-3u);
+      }
+      std::cout<<"V208_Y2_ORIGIN pc_text="<<pc_text
+               <<" lr_text="<<lr_text
+               <<" mem1="<<request_mem1<<" mem2="<<request_mem2
+               <<" reused="<<reused<<" overlap="<<collides
+               <<" a_block="<<ablock<<" a_open="<<anested
+               <<" a_reply="<<areply
+               <<" req_regs="<<request_regs<<" path_regs="<<path_regs
+               <<" pc="<<std::hex<<send_pc<<" lr="<<send_lr
+               <<std::dec<<std::endl;
+      // Classify the genuine guest-selected pathname in the *unexpected*
+      // +0x10 word. The actual string stays private, even in failure logs.
+      const bool bmem1=b>=0x80000000u&&b<0x81800000u;
+      const bool bmem2=b>=0x90000000u&&b<0x94000000u;
+      const uint32_t bphys=(bmem1||bmem2)?(b&0x1fffffffu):b;
+      std::string candidate;
+      bool ascii=false,terminated=false;
+      if((bmem1||bmem2)&&ipc70_ram.valid(bphys,1u)){
+        ascii=true;
+        for(unsigned i=0u;i<64u;++i){
+          if(bphys>0xffffffffu-i||
+             !ipc70_ram.valid(bphys+i,1u)){ascii=false;break;}
+          const uint8_t ch=ipc70_ram.read8(bphys+i);
+          if(ch==0u){terminated=true;break;}
+          if(ch<0x20u||ch>0x7eu){ascii=false;break;}
+          candidate.push_back(char(ch));
+        }
+      }
+      const bool bounded_path=ascii&&terminated&&
+            !candidate.empty()&&candidate.front()=='/';
+      const bool dev=bounded_path&&candidate.rfind("/dev/",0u)==0u;
+      const bool stm=bounded_path&&candidate.rfind("/dev/stm/",0u)==0u;
+      const bool fs=bounded_path&&candidate=="/dev/fs";
+      const bool es=bounded_path&&candidate=="/dev/es";
+      const bool shared2=bounded_path&&candidate.rfind("/shared2/",0u)==0u;
+      const bool sysconf=bounded_path&&candidate=="/shared2/sys/SYSCONF";
+      const bool title=bounded_path&&candidate.rfind("/title/",0u)==0u;
+      std::cout<<"V208_Y2_PATHCLASS valid="<<bounded_path
+               <<" dev="<<dev<<" stm="<<stm<<" fs="<<fs
+               <<" es="<<es<<" shared2="<<shared2
+               <<" sysconf="<<sysconf<<" title="<<title<<std::endl;
+
       std::cout<<"V208_Y2_SEND witness="<<(v208_send_seen==1u)
                <<" ptr="<<ptr<<" slash="<<slash
                <<" mode_valid="<<(b<=3u)

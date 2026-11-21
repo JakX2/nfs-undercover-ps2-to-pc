@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -127,6 +127,23 @@ class V208(unittest.TestCase):
         self.assertIn("services().is_open(v153_fd",PUBLISH)
         self.assertNotIn("<<first_path<<",PUBLISH)
         self.assertNotIn("<<first_mode<<",PUBLISH)
+        origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
+                "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
+        pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "
+                 "shared2=0 sysconf=0 title=0")
+        self.assertIsNotNone(re.fullmatch(ORIGIN_PATTERN,origin))
+        self.assertIsNotNone(re.fullmatch(PATHCLASS_PATTERN,pathcls))
+        self.assertIsNone(re.fullmatch(PATHCLASS_PATTERN,pathcls+" raw=/private"))
+        self.assertIn("V208_Y2_ORIGIN",SEND)
+        self.assertIn("V208_Y2_PATHCLASS",SEND)
+        self.assertIn("ipc70_ram.cpu",SEND)
+        self.assertIn("value==v153_phys",SEND)
+        self.assertIn("candidate==",SEND)
+        self.assertNotIn('<<candidate',SEND)
+        self.assertNotIn('<<bphys',SEND)
+        self.assertNotIn('<<value',SEND)
+        self.assertIn("V208_Y2_ORIGIN",script)
+        self.assertIn("V208_Y2_PATHCLASS",script)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",

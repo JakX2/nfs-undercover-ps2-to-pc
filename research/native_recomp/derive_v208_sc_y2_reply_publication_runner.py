@@ -17,6 +17,8 @@ STABLE_PATTERN=r'^V208_Y2_STABLE sent=[01] path=[01] mode=[01]$'
 SWAP_PATTERN=r'^V208_Y2_SWAP path_mode=[01] mode_mem2=[01] mode_mapped=[01] mode_slash=[01] mode_string=[01]$'
 LAYOUT_PATTERN=r'^V208_Y2_LAYOUT ptr0c=[01] ptr10=[01] ptr14=[01] ptr18=[01] ptr1c=[01] mode0c=[01] mode10=[01] mode14=[01] mode18=[01] mode1c=[01]$'
 BASE_PATTERN=r'^V208_Y2_BASE old_valid=[01] old_reply=[01] old_path=[01] old_mode=[01] old_open=[01] same_ptr=[01]$'
+ORIGIN_PATTERN=r'^V208_Y2_ORIGIN pc_text=[01] lr_text=[01] mem1=[01] mem2=[01] reused=[01] overlap=[01] a_block=[01] a_open=[01] a_reply=[01] req_regs=[0-9]{1,3} path_regs=[0-9]{1,3} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8}$'
+PATHCLASS_PATTERN=r'^V208_Y2_PATHCLASS valid=[01] dev=[01] stm=[01] fs=[01] es=[01] shared2=[01] sysconf=[01] title=[01]$'
 
 def derive(source:str)->str:
     s=previous(source)
@@ -35,6 +37,8 @@ def derive(source:str)->str:
     s=s.replace(fail,'  grep -E "'+SWAP_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+LAYOUT_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     s=s.replace(fail,'  grep -E "'+BASE_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+ORIGIN_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
+    s=s.replace(fail,'  grep -E "'+PATHCLASS_PATTERN+'" "$work/private-native.log" | sort -u || true\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
