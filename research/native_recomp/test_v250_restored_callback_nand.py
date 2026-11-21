@@ -75,7 +75,7 @@ class V250(unittest.TestCase):
         self.assertNotIn("upload-artifact",STAGE)
         from diagnose_v250_native_phase import describe
         pub='check(false,"V250 sample public assertion");'
-        log='V250_CB_BEGIN candidate=1 reply=1 captured=1\\nwhat(): V250 sample public assertion'
+        log='V250_CB_BEGIN candidate=1 reply=1 captured=1\nwhat(): V250 sample public assertion'
         self.assertEqual(describe(log,pub),
             "V250_PUBLIC_FAILURE id=0001 label=V250 sample public assertion callback=1 nand=0 trials=0")
         self.assertEqual(describe("what(): PRIVATE_SECRET",pub),
