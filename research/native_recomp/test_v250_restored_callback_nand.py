@@ -42,7 +42,8 @@ class V250(unittest.TestCase):
             'ctx.gpr[4]==ctx.mmu.read32(v250_userdata+260u)',
             'ctx.inst_count>v250_initial_inst',
             'ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply',
-            '++v250_nand_seen', 'throw ExceptionStop{};'
+            '++v250_nand_seen', 'throw ExceptionStop{};',
+            'V250_CB_BEGIN candidate=1 reply='
         ):
             self.assertIn(marker,OBSERVER)
         for marker in ("v250_cb_seen==1u","v250_nand_seen==1u",

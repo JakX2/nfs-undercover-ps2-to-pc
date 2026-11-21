@@ -25,6 +25,11 @@ OBSERVER='''  // V250 candidate-only read-only probe: the authentic restored
     v250_initial_sp=ctx.gpr[1];v250_initial_r3=ctx.gpr[3];
     v250_userdata=ctx.gpr[4];v250_initial_inst=ctx.inst_count;
     ++v250_cb_seen;
+    const bool first_reply=v153_phys!=0u&&
+          ipc70_ram.valid(v153_phys,64u)&&
+          ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply;
+    std::cout<<"V250_CB_BEGIN candidate=1 reply="<<first_reply
+             <<" captured=1"<<std::endl;
   }
   if(v250_candidate_mode&&v250_cb_seen==1u&&v250_nand_seen==0u&&
      ctx.pc==addr&&addr==0x8051e06cu){
