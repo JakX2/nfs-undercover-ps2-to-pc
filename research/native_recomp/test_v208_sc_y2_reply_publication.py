@@ -136,6 +136,10 @@ class V208(unittest.TestCase):
         self.assertIn("addr==0x8051982cu",TRACE_HOOK)
         self.assertIn("ctx.gpr[3],mode=ctx.gpr[4]",TRACE_HOOK)
         self.assertIn("V208_Y2_ASYNC_ENTRY",TRACE_HOOK)
+        # Trace observers are chained: do not swallow V179's native
+        # guest-call checks when the IOS_OpenAsync entry is observed.
+        self.assertNotIn("return;",TRACE_HOOK)
+        self.assertIn("Preserve inherited trace observers",TRACE_HOOK)
         self.assertIn("V208_Y2_ASYNC_LINK",SEND)
         self.assertIn("v208_async_mode",SEND)
         self.assertIn("v208_async_path&0x1fffffffu",SEND)

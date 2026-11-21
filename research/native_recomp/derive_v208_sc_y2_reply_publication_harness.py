@@ -232,7 +232,7 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
              <<" pathslash="<<pathslash<<" modevalid="<<modevalid
              <<" modemem2="<<modemem2<<" modeslash="<<modeslash
              <<" lr="<<std::hex<<ctx.lr<<std::dec<<std::endl;
-    return; // execute original IOS_OpenAsync unmodified
+    // Preserve inherited trace observers for this same original call.
   }
 '''
 SEND='''      // Observe only the actual guest-owned second IPC request at PPCMSG.
