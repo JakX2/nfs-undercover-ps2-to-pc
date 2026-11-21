@@ -1,9 +1,9 @@
-# Wii SC IRQ native continuation: V141-V212
+# Wii SC IRQ native continuation: V141-V213
 
-Status: **V212 original second IOS OSLoadContext/RFI context restoration verified (16/16 owner-original trials)**.
-V200-V212 independently confirm the genuine second-Y2 dispatcher, registered IPC
+Status: **V213 original second-interrupt thread return to the SC/OSInit retry path verified (16/16 owner-original trials)**.
+V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
-Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, and guest-selected CPU context restoration.
+Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
 **Second IOS reply publication is independently being diagnosed and is not yet a verified end-to-end guest reply.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
@@ -47,6 +47,7 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V210 (two native lanes) | [16-trial post-OSDI run 44869977280](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869977280), [16-trial OSRestore run 44870048669](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870048669) | Both independently derived original-game tests executed the second-cycle interrupt-restore successor and agreed on `PC=0x80529940 / LR=0x80526CB4`. The guest retained Y2 cleared, Hollywood IRQ down, one pending second IOS completion, original IOS_Open request, MSR.EE masked and SC byte 1. Their owner-original and public test jobs passed. This is still original guest control-flow tracing, **not** second IOS reply consumption. |
 | V211 | [16-trial run 44870855923](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870855923) | The original second-interrupt rescheduler at `0x80529940` executed into original `OSLoadContext` at `PC=0x805229B4 / LR=0x80526CBC`. `V211_Y2_RESCHED y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805229b4 lr=80526cbc`. Guest execution and original-free tests both passed. |
 | V212 | [16-trial run 44871142986](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871142986) | Executed the original second-interrupt `OSLoadContext` and genuine PowerPC `rfi`. The game-selected thread (`thread=1 idle=0`) restored exactly its saved PC, MSR, 32 GPRs, LR, CTR and XER; EE returned to 1 while the IRQ remained low and second IOS completion queued. `V212_Y2_RFI pc=1 msr=1 regs=1 irq_down=1 queue=1 open=1 coherent=1 sc=1 ee=1 idle=0 thread=1`. Both owner-original 16/16 and public tests passed. |
+| V213 | [16-trial run 44871880274](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871880274) | Executed the original game-selected thread **after** second-Y2 PowerPC `rfi` and reached the original SC/OSInit retry path `PC=0x8052F830 / LR=0x80520970`. `V213_Y2_THREAD guest=1 caller=1 coherent=1 mapped=1 irq_down=1 queued=1 open=1 sc=1 ee=1 pc=8052f830 lr=80520970`. All 16 owner-original and public tests passed. This demonstrates the second interrupt's return to game logic, **not** exit from the SC retry loop. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -56,13 +57,15 @@ initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
 **Current verified PowerPC frontier:** the original second-Y2 exception
-has acknowledged PPCCTRL.Y2 and Hollywood PPC_FLAG (V204-V205), executed
+acknowledged PPCCTRL.Y2 and Hollywood PPC_FLAG (V204-V205), executed
 registered IPC handling and the scheduler (V206-V211), entered original
 `OSLoadContext` at `0x805229B4` and performed genuine PowerPC `rfi`
-(V212). The selected game thread's saved PC/MSR/GPRs/LR/CTR/XER are
-restored exactly. MSR.EE is enabled, the external IRQ remains down,
-SC status is still 1, and the second IOS completion remains queued in
-the guest-only execution lane. This is **not** `OSInit` exit or `main`.
+(V212). The original selected thread resumed and made its next authentic
+PowerPC call at `PC=0x8052F830 / LR=0x80520970` (V213), back on the
+SC/OSInit retry path. The second completion remains queued in this
+guest-only lane, MSR.EE is enabled, IRQ is down and SC status remains 1.
+This proves a complete *second interrupt round-trip back to game logic*,
+**not** `OSInit` exit or `main`.
 
 **Parallel IOS publication experiment (diagnosed, not successful):** the
 independent `wii-v208-sc-y2-reply-publication.yml` performs a single native
@@ -76,18 +79,27 @@ the invalid mode is a MEM2 *virtual pointer-shaped* value, not a
 byte-swapped `1`/`2`/`3`, and the mapped path candidate does not begin
 with `/`. The Wii IOS protocol specifies pathname pointer at request
 offset `0x0C`, mode at `0x10`. Do not make `IOS_Open` accept arbitrary
-pointer values or treat a negative handle as success. The next diagnostic
-compares original request fields at guest PPCMSG submission and at
-reply publication to isolate the source of invalid arguments.
+pointer values or treat a negative handle as success. Original request fields have now been compared at guest PPCMSG submission
+and at reply publication: `V208_Y2_SEND witness=1 ptr=1 slash=0 mode_valid=0
+mode_mem2=1` and `V208_Y2_STABLE sent=1 path=1 mode=1`, verifying
+the malformed fields **predate** native IOS service and remain unchanged.
+[Owner probe 44871366893](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871366893).
+The [pointer-string classification](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871578250)
+found a valid slash-prefixed, bounded pathname at **mode** offset 0x10,
+while the expected pathname word is not itself a mode.
+A [neighboring-word scan](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871814369)
+found this pathname only at 0x10 and **no valid mode in any slot from 0x0C
+through 0x1C**. The request appears incorrectly constructed or stale;
+do not modify the ABI or invent a successful open.
 
-**Next (unverified):** resume the authentic restored game thread after
-V212 RFI and identify its next original SC/OS scheduler call.
-Independently determine why the second guest IPC `IOS_Open` has a
-MEM2-pointer-like mode argument and a non-path candidate before modifying
-the native IOS service. Subsequent delivery must propagate the genuine
-reply, exercise the original Y1 handler and verify an actual SC status
-transition. Do not patch guest registers, suppress the returned error or
-invent a successful request.
+**Next (unverified):** trace authentic second `IOS_Open` request
+buffer construction and physical RAM/cache visibility before the original
+PPCMSG write; compare first known-good SYSCONF IPC request memory with the
+malformed second request, without disclosing raw owner/game bytes.
+Then allow the genuine IOS response to be processed by the original Y1
+interrupt handler and verify an actual SC status transition and OSInit retry
+exit. Do not patch guest registers, suppress errors or fabricate a successful
+request.
 
 **Not yet achieved:** delivery/publication of the *second* IOS reply,
 SC status transition to ready, exit from OSInit retry into original
