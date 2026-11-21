@@ -24,15 +24,17 @@ def derive(source: str)->str:
         +'  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+DUP+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+CLEANUP+'" "$work/private-native.log" | sort -u || true\n'+FAIL,1)
-    # The V38 numeric code is indexed in the actual generated harness.
-    # Do not decode it using a separate derived-source catalog.
-    # Match the *shell command line* rather than a raw string occurrence,
-    # which can also appear in inherited instrumentation source literals.
-    old_classifier='  python3 "$here/classify_v67_native_failure.py" \\'
-    if s.count(old_classifier)!=1:
-        raise ValueError("V190 owner-native classifier catch command differs")
-    s=s.replace(old_classifier,
-        '  python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp"\n'+old_classifier,1)
+    # Classify only if both the private process log and public harness
+    # were actually produced; attach to the unique inherited failure exit.
+    # Do not depend on historical V67/V178 classifier command spelling.
+    diagnostic=(
+        '  if [ -s "$work/private-native.log" ] && [ -s "$work/harness.cpp" ]; then\\n'
+        '    python3 "$here/diagnose_v190_native_guard.py" "$work/private-native.log" "$work/harness.cpp" || true\\n'
+        '  fi\\n'
+    )
+    if s.count(FAIL)!=1:
+        raise ValueError("V190 bounded native failure-exit anchor differs")
+    s=s.replace(FAIL,diagnostic+FAIL,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
