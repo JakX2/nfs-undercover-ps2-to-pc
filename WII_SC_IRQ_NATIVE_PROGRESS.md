@@ -1,9 +1,9 @@
-# Wii SC IRQ native continuation: V141-V210
+# Wii SC IRQ native continuation: V141-V212
 
-Status: **V210 second IOS original post-OSDI scheduler helper verified (16/16 trials, two independent native workflows)**.
-V200-V210 independently confirm the genuine second-Y2 dispatcher, registered IPC
+Status: **V212 original second IOS OSLoadContext/RFI context restoration verified (16/16 owner-original trials)**.
+V200-V212 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
-Hollywood PPC_FLAG W1C, post-ACK IPC handling, and multiple original scheduler/interrupt-control helpers.
+Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, and guest-selected CPU context restoration.
 **Second IOS reply publication is independently being diagnosed and is not yet a verified end-to-end guest reply.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
@@ -45,6 +45,8 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V208 (scheduler lane) | [16-trial run 44869261710](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869261710) | The original scheduler function at `PC=0x80529434` called original `OSDisableInterrupts` at `PC=0x805265AC / LR=0x80529448`. `V208_Y2_SCHED y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805265ac lr=80529448`. The queued second IOS reply is not yet published, SC remains 1, and both public and owner-original tests passed. |
 | V209 | [16-trial run 44869502917](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869502917) | Executed the original `0x805265AC` interrupt-disable function and reached original `OSRestoreInterrupts` `PC=0x805265D4 / LR=0x80529458`. `V209_Y2_OSDI y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805265d4 lr=80529458`. All 16 owner-original trials and public tests passed. |
 | V210 (two native lanes) | [16-trial post-OSDI run 44869977280](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869977280), [16-trial OSRestore run 44870048669](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870048669) | Both independently derived original-game tests executed the second-cycle interrupt-restore successor and agreed on `PC=0x80529940 / LR=0x80526CB4`. The guest retained Y2 cleared, Hollywood IRQ down, one pending second IOS completion, original IOS_Open request, MSR.EE masked and SC byte 1. Their owner-original and public test jobs passed. This is still original guest control-flow tracing, **not** second IOS reply consumption. |
+| V211 | [16-trial run 44870855923](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870855923) | The original second-interrupt rescheduler at `0x80529940` executed into original `OSLoadContext` at `PC=0x805229B4 / LR=0x80526CBC`. `V211_Y2_RESCHED y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805229b4 lr=80526cbc`. Guest execution and original-free tests both passed. |
+| V212 | [16-trial run 44871142986](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871142986) | Executed the original second-interrupt `OSLoadContext` and genuine PowerPC `rfi`. The game-selected thread (`thread=1 idle=0`) restored exactly its saved PC, MSR, 32 GPRs, LR, CTR and XER; EE returned to 1 while the IRQ remained low and second IOS completion queued. `V212_Y2_RFI pc=1 msr=1 regs=1 irq_down=1 queue=1 open=1 coherent=1 sc=1 ee=1 idle=0 thread=1`. Both owner-original 16/16 and public tests passed. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -53,34 +55,39 @@ masked guest MSR. The V191-V194 owner-original trace proves a closed SC
 initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
-**Current verified PowerPC frontier:** V204 and V205 prove the original
-PowerPC stores clear Broadway PPCCTRL.Y2 and Hollywood PPC_FLAG respectively.
-V206 and V207 execute the original post-ACK IPC and scheduler code. V208
-continues from the scheduler into `OSDisableInterrupts` at `PC=0x805265AC`;
-V209 executes it to `PC=0x805265D4 / LR=0x80529458`; and both V210
-owner-original tracks reach `PC=0x80529940 / LR=0x80526CB4` via the
-original guest interrupt-restore helper. This reproduces the scheduler
-control-flow path from the first IOS interrupt in the second cycle.
-IRQ remains down, MSR.EE masked, SC is still 1, and the second IOS
-completion remains queued in this guest-only lane.
+**Current verified PowerPC frontier:** the original second-Y2 exception
+has acknowledged PPCCTRL.Y2 and Hollywood PPC_FLAG (V204-V205), executed
+registered IPC handling and the scheduler (V206-V211), entered original
+`OSLoadContext` at `0x805229B4` and performed genuine PowerPC `rfi`
+(V212). The selected game thread's saved PC/MSR/GPRs/LR/CTR/XER are
+restored exactly. MSR.EE is enabled, the external IRQ remains down,
+SC status is still 1, and the second IOS completion remains queued in
+the guest-only execution lane. This is **not** `OSInit` exit or `main`.
 
-**Parallel IOS publication experiment:** the independent
-`wii-v208-sc-y2-reply-publication.yml` tests a single native
-`IosYieldScheduler::service_one` step at the owner-authenticated
-post-IRQ scheduler entry. The initial owner experiment
-[44869751490](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44869751490)
-reported `step=1 wire=1 signal=1 drained=1 cpu=1 sc=1`, but
-`opened=0`: the regular-file-only descriptor expectation failed, not
-the hardware publication predicates. Generalizing the assertion to the
-runtime's actual supported IOS device handle classes is under owner testing;
-do not call the overall publication milestone verified until its complete
-original-game CI succeeds.
+**Parallel IOS publication experiment (diagnosed, not successful):** the
+independent `wii-v208-sc-y2-reply-publication.yml` performs a single native
+`IosYieldScheduler::service_one` step at the authenticated guest yield.
+Owner results confirm `step=1 wire=1 signal=1 drained=1 cpu=1 sc=1`:
+the host reply transport works and raises a genuine Y1/IRQ, but the
+second `IOS_Open` receives `-4` (`Invalid`), so `opened=0`.
+The [bounded error and argument probes](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870958203)
+show `path_zero=0 path_mapped=1 mode_valid=0 mode_hi8=1`;
+the invalid mode is a MEM2 *virtual pointer-shaped* value, not a
+byte-swapped `1`/`2`/`3`, and the mapped path candidate does not begin
+with `/`. The Wii IOS protocol specifies pathname pointer at request
+offset `0x0C`, mode at `0x10`. Do not make `IOS_Open` accept arbitrary
+pointer values or treat a negative handle as success. The next diagnostic
+compares original request fields at guest PPCMSG submission and at
+reply publication to isolate the source of invalid arguments.
 
-**V211 (unverified):** continue the second-cycle guest code from
-`0x80529940` and identify the natural context-restoration/exception-return
-boundary. In parallel, resolve the second IOS_Open result class and only then
-advance the original guest handler to process the resulting Y1 interrupt.
-No guest state patches or invented reply values.
+**Next (unverified):** resume the authentic restored game thread after
+V212 RFI and identify its next original SC/OS scheduler call.
+Independently determine why the second guest IPC `IOS_Open` has a
+MEM2-pointer-like mode argument and a non-path candidate before modifying
+the native IOS service. Subsequent delivery must propagate the genuine
+reply, exercise the original Y1 handler and verify an actual SC status
+transition. Do not patch guest registers, suppress the returned error or
+invent a successful request.
 
 **Not yet achieved:** delivery/publication of the *second* IOS reply,
 SC status transition to ready, exit from OSInit retry into original
