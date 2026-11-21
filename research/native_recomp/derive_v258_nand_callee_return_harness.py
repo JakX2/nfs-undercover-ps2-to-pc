@@ -33,6 +33,21 @@ V178_TAIL_NEXT='''        (v254_next_seen==1u&&addr==0x8052fa60u&&
          ctx.lr==0x8051e0b8u)||
         (v257_next_seen==1u&&addr==0x8051ad3cu&&
          ctx.lr==0x804f0f68u)))'''
+V178_CHECK='''    check(addr==0x80545100u&&ctx.lr==0x804f1e40u,
+          "V178 owner-original SC reply callee differs from V177 proof");'''
+V178_DIAG='''    if(v250_candidate_mode&&v257_next_seen==1u&&
+       v258_return_seen==0u&&ctx.inst_count>v258_callee_inst){
+      const bool code=addr>=0x80000000u&&addr<0x80600000u&&
+            (addr&3u)==0u;
+      const bool caller=ctx.lr>=0x80000000u&&ctx.lr<0x80600000u&&
+            (ctx.lr&3u)==0u;
+      const bool regs=ctx.gpr[13]==v147_first_r13;
+      std::cout<<"V258_NAND_DEP code="<<code
+               <<" caller="<<caller<<" regs="<<regs
+               <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+               <<std::dec<<std::endl;
+    }
+'''
 CALLBACK_ANCHOR='''bool process_pending_callbacks(CPUContext& ctx){'''
 RETURN_HOOK='''bool process_pending_callbacks(CPUContext& ctx){
   // Observe only an actual PowerPC return after original AOT execution.
@@ -104,7 +119,10 @@ def derive(source:str)->str:
      nwii::runtime::v258_callee_inst=0u;
      nwii::runtime::v258_return_sc=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
-    s=once(s,PREVIOUS_V178,PREVIOUS_V178.replace(V178_TAIL,V178_TAIL_NEXT,1))
+    v178=PREVIOUS_V178.replace(V178_TAIL,V178_TAIL_NEXT,1)
+    if v178.count(V178_CHECK)!=1:
+        raise ValueError("V258 inherited V178 native-call assertion changed")
+    s=once(s,PREVIOUS_V178,v178.replace(V178_CHECK,V178_DIAG+V178_CHECK,1))
     s=once(s,CALLBACK_ANCHOR,RETURN_HOOK)
     s=once(s,PREVIOUS_CANDIDATE,CANDIDATE)
     return s

@@ -22,7 +22,7 @@ def derive(source:str)->str:
         raise ValueError("V258 inherited V257 final-state gate count changed")
     s=s.replace(legacy,current)
     fail="  echo 'V250_STAGE execute=0'"
-    diag='  grep -E "^V258_NAND_CALLEE_RETURN guest=[01] mapped=[01] reply=[01] pending=[01] coherent=[01] sc=[0-9]{1,3}$|^V258_NAND_GUEST callback=[01] returned=[01] memory=[01] trial=([1-9]|1[0-6])$" "$work/v250-native.log" | sort -u || true'
+    diag='  grep -E "^V258_NAND_DEP code=[01] caller=[01] regs=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V258_NAND_CALLEE_RETURN guest=[01] mapped=[01] reply=[01] pending=[01] coherent=[01] sc=[0-9]{1,3}$|^V258_NAND_GUEST callback=[01] returned=[01] memory=[01] trial=([1-9]|1[0-6])$" "$work/v250-native.log" | sort -u || true'
     if s.count(fail)!=1:
         raise ValueError("V258 native failure observer changed")
     s=s.replace(fail,diag+'\n'+fail,1)

@@ -164,6 +164,7 @@ jobs:
               python3 research/native_recomp/diagnose_v256_marker_shape.py "$RUNNER_TEMP/sc258.log"
               grep -E '^V257_NAND_NEXT guest=[01] caller=[01] code=[01] mapped=[01] reply=[01] coherent=[01] sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$|^V258_NAND_GUEST callback=[01] returned=[01] memory=[01] trial=([1-9]|1[0-6])$' "$RUNNER_TEMP/sc258.log" | sort -u || true
               grep -E '^V258_NAND_CALLEE_RETURN guest=[01] mapped=[01] reply=[01] pending=[01] coherent=[01] sc=[0-9]{1,3}$|^V258_NAND_GUEST callback=[01] returned=[01] memory=[01] trial=([1-9]|1[0-6])$' "$RUNNER_TEMP/sc258.log" | sort -u || true
+              grep -E '^V258_NAND_DEP code=[01] caller=[01] regs=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc258.log" | sort -u || true
               echo 'V258 original NAND callee return native proof failed; owner-private details withheld' >&2
               exit 1
             }
