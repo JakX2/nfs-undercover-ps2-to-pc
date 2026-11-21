@@ -88,6 +88,8 @@ class V191(unittest.TestCase):
         wf=(HERE.parents[1]/".github/workflows/wii-v191-second-ios-next.yml").read_text()
         self.assertIn("run_v191_second_ios_next.sh",wf)
         self.assertIn("V191_SC_NEXT verified=1",wf)
+        self.assertIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0",wf)
+        self.assertNotIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1",wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
         self.assertNotIn("upload-artifact",wf)
 
