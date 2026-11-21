@@ -156,7 +156,7 @@ class V208(unittest.TestCase):
         self.assertIsNone(re.fullmatch(ISFS_PATTERN,isfs+" private=/shared2"))
         self.assertIn("v208_isfs_seen<32u",TRACE_HOOK)
         self.assertIn("ctx.inst_count>v208_isfs_inst",TRACE_HOOK)
-        self.assertNotIn("v177_next_seen==1u&&v183_second_msg",TRACE_HOOK)
+        self.assertIn("if(v208_async_seen==0u&&v183_second_msg==0u&&",TRACE_HOOK)
         for marker in ("addr==0x804f1e2cu","v208_isfs_path=path",
                        "ctx.lr==0x8051de3cu","ctx.lr==0x8051f700u",
                        "V208_Y2_ISFS_ENTRY","V208_Y2_ISFS_TO_IOS",
