@@ -25,8 +25,9 @@ jobs:
       - name: Test V245 private callback and generated AOT map
         run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/derive_v244_sc_callback_link_harness.py research/native_recomp/derive_v245_sc_aot_map_runner.py research/native_recomp/test_v245_sc_aot_map.py research/native_recomp/diagnose_v245_sc_aot_map.py research/native_recomp/diagnose_v214_native_failure.py research/native_recomp/diagnose_v214_compile_failure.py research/native_recomp/diagnose_v238_compile_failure.py research/native_recomp/audit_v245_generated_callback.py research/native_recomp/derive_v245_sc_aot_map_runner.py research/native_recomp/audit_v247_fixture_placeholders.py
+          python3 -m py_compile research/native_recomp/derive_v244_sc_callback_link_harness.py research/native_recomp/derive_v245_sc_aot_map_runner.py research/native_recomp/test_v245_sc_aot_map.py research/native_recomp/diagnose_v245_sc_aot_map.py research/native_recomp/diagnose_v214_native_failure.py research/native_recomp/diagnose_v214_compile_failure.py research/native_recomp/diagnose_v238_compile_failure.py research/native_recomp/audit_v245_generated_callback.py research/native_recomp/derive_v245_sc_aot_map_runner.py research/native_recomp/audit_v247_fixture_placeholders.py research/native_recomp/restore_v248_original_callbacks.py research/native_recomp/test_v248_original_callbacks.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v245_sc_aot_map.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v248_original_callbacks.py' -v
           bash -n research/native_recomp/run_v245_sc_aot_map.sh
           python3 research/native_recomp/diagnose_v245_sc_aot_map.py 588
   owner-callback-aot-v245:
