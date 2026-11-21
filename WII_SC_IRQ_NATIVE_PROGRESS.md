@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V213
+# Wii SC IRQ native continuation: V141-V214
 
-Status: **V213 original second-interrupt thread return to the SC/OSInit retry path verified (16/16 owner-original trials)**.
+Status: **V213 original guest execution resumed after second IRQ RFI, and V214 authentic negative IOS reply publication verified (both 16/16 owner-original trials)**.
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
-**Second IOS reply publication is independently being diagnosed and is not yet a verified end-to-end guest reply.**
+**Second IOS reply transport is verified for the authentic −4 result. A successful second SYSCONF file open and original Y1 handler consumption are not verified.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -48,6 +48,7 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V211 | [16-trial run 44870855923](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44870855923) | The original second-interrupt rescheduler at `0x80529940` executed into original `OSLoadContext` at `PC=0x805229B4 / LR=0x80526CBC`. `V211_Y2_RESCHED y2=1 irq_down=1 queue=1 open=1 replied=0 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=0 pc=805229b4 lr=80526cbc`. Guest execution and original-free tests both passed. |
 | V212 | [16-trial run 44871142986](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871142986) | Executed the original second-interrupt `OSLoadContext` and genuine PowerPC `rfi`. The game-selected thread (`thread=1 idle=0`) restored exactly its saved PC, MSR, 32 GPRs, LR, CTR and XER; EE returned to 1 while the IRQ remained low and second IOS completion queued. `V212_Y2_RFI pc=1 msr=1 regs=1 irq_down=1 queue=1 open=1 coherent=1 sc=1 ee=1 idle=0 thread=1`. Both owner-original 16/16 and public tests passed. |
 | V213 | [16-trial run 44871880274](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44871880274) | Executed the original game-selected thread **after** second-Y2 PowerPC `rfi` and reached the original SC/OSInit retry path `PC=0x8052F830 / LR=0x80520970`. `V213_Y2_THREAD guest=1 caller=1 coherent=1 mapped=1 irq_down=1 queued=1 open=1 sc=1 ee=1 pc=8052f830 lr=80520970`. All 16 owner-original and public tests passed. This demonstrates the second interrupt's return to game logic, **not** exit from the SC retry loop. |
+| V214 (parallel IPC lane) | [16-trial run 44874813700](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44874813700) | At the original guest-selected yield after the second Y2 ACK, one native `IosYieldScheduler::service_one` publishes the **actual** `IOS_Open=-4 (Invalid)` reply without fabricating a descriptor, drains the queued completion, asserts Hollywood Y1/IRQ and preserves the guest CPU/SC status. `V214_Y2_NEGATIVE invalid=1 mode=1 path=1 published=1 irq=1 drained=1 cpu=1 sc=1`. Owner 16/16 and public tests passed. This verifies **transport of a negative response**, not a successful IOS Open or execution of the original Y1 handler. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -67,7 +68,7 @@ guest-only lane, MSR.EE is enabled, IRQ is down and SC status remains 1.
 This proves a complete *second interrupt round-trip back to game logic*,
 **not** `OSInit` exit or `main`.
 
-**Parallel IOS publication experiment (diagnosed, not successful):** the
+**Parallel IOS publication: faithful negative reply verified (V214), successful open not achieved:** the
 independent `wii-v208-sc-y2-reply-publication.yml` performs a single native
 `IosYieldScheduler::service_one` step at the authenticated guest yield.
 Owner results confirm `step=1 wire=1 signal=1 drained=1 cpu=1 sc=1`:
@@ -113,15 +114,26 @@ also writes a **physical** pathname pointer at `+0x0C` and a mode at
 `+0x10` before issuing PPCMSG. Do not modify the IOS ABI or invent
 a successful open.
 
-**Separate owner diagnostic status (unverified):** V214 tests whether a
-genuine `IOS_Open=-4` response can pass a **negative-response transport**
-checkpoint, without pretending the file opened. The first V214 owner
-attempts stopped at an inherited native-test assertion before the new
-checkpoint. A direct cached/uncached alias `get_ptr` probe was backed
-out because it caused an unrelated regression and did not yield a
-verified alias observation. Those owner-native failures are under
-fail-closed diagnosis using the exact compiled public harness, not
-assumed evidence about the original game.
+**V214 owner-original checkpoint verified:** the independent
+[owner-native 16-trial run 44874813700](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44874813700)
+proves the genuine **negative** `IOS_Open=-4` is put on the Starlet
+reply wire as `IOS::Reply`, the pending second-completion queue is
+drained, Y1 and the Hollywood external IRQ assert, and the guest CPU and
+SC status remain unchanged. The first V214 run failed during public
+harness compilation because its source transformation removed the
+definition of `done` before retaining a check using that variable. The
+final V214 derivation restores V208's actual hardware-state calculation
+and replaces only its successful-open assertion, without changing game
+code or synthesizing a handle. A direct cached/uncached alias `get_ptr`
+probe was also removed after a separate unverified regression.
+Neither early harness failure was a legitimate game execution result.
+
+**V215 (unverified):** separately continue from original V212 game-selected
+RFI and publish the true −4 IOS reply while MSR.EE=1, then attempt entry
+to the installed original external interrupt vector through the already
+tested Broadway exception bridge. This is different from granting a
+successful Open. Original-vector and Y1 handler execution still require
+owner-native evidence.
 
 **Next (unverified):** trace authentic second `IOS_Open` request
 buffer construction and physical RAM/cache visibility before the original
@@ -132,7 +144,7 @@ interrupt handler and verify an actual SC status transition and OSInit retry
 exit. Do not patch guest registers, suppress errors or fabricate a successful
 request.
 
-**Not yet achieved:** delivery/publication of the *second* IOS reply,
+**Not yet achieved:** successful second SYSCONF `IOS_Open`, original guest consumption of the second Y1 reply,
 SC status transition to ready, exit from OSInit retry into original
 `main`, first frame, frontend, gameplay or a complete Windows port.
 
