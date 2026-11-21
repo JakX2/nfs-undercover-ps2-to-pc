@@ -69,7 +69,7 @@ class V208(unittest.TestCase):
             KIND,"V208_Y2_KIND immediate=1 event=0 fs=0 file=0 es=0 negative=0 result=2"))
         self.assertIsNone(re.fullmatch(
             KIND,"V208_Y2_KIND immediate=0 event=0 fs=0 file=0 es=0 negative=1 result=/private"))
-        kind="V208_Y2_KIND immediate=0 event=1 fs=0 file=0 es=0 negative=0"
+        kind="V208_Y2_KIND immediate=0 event=1 fs=0 file=0 es=0 negative=0 result=2"
         self.assertIsNotNone(re.fullmatch(KIND,kind))
         self.assertIsNone(re.fullmatch(KIND,kind+" path=/private"))
         self.assertIn("V208_Y2_KIND",script)
