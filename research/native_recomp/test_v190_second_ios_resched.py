@@ -111,6 +111,19 @@ class V190(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",V190_V95_CLEANUP_TRACE)
         self.assertNotIn("scheduler.service_one",V190_V95_CLEANUP_TRACE)
 
+    def test_owner_assertion_classification_uses_generated_harness_not_wrong_catalog(self):
+        from diagnose_v190_native_guard import classify
+        source='check(x,"V95 duplicate allocator wrapper");'
+        self.assertEqual(classify(source,"what(): V95 duplicate allocator wrapper"),
+                         "v95_duplicate")
+        self.assertEqual(classify(source,"what(): V95 ES open cleanup missing"),
+                         "unknown")
+        self.assertEqual(classify(source,"what(): unknown diagnostic"),"unknown")
+        self.assertEqual(classify(source,"no exception"),"none")
+        script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
+        self.assertIn("diagnose_v190_native_guard.py",script)
+        self.assertIn('"$work/harness.cpp"',script)
+
     def test_owner_native_runner_and_workflow(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("derive_v190_second_ios_resched_harness.py",script)
