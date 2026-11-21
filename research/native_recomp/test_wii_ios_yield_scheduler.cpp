@@ -152,6 +152,26 @@ int main(){
         require(duplicate.progress==S::Pump::Busy&&
                 duplicate.serviced_steps==lateack.serviced_steps,
                 "native IOS accepted a duplicate while old IRQ was pending");
+        // Match the original V192-V193 interrupt-enable/disable transition:
+        // MSR.EE controls exception eligibility, not the Hollywood IRQ
+        // latch or the Starlet's deferred second IOS_Open completion.
+        require(latebus.external_irq_level()&&
+                !latebus.external_exception_pending(0u)&&
+                latebus.external_exception_pending(B::MSR_EE)&&
+                (latebus.read32(B::IPC+M::PPCCTRL).value()&M::Y2)!=0u&&
+                latebus.services().queued_replies()==1u,
+                "pending second Open Y2/IRQ did not survive MSR.EE toggle");
+        const auto masked_recheck=late.service_one(0u);
+        const auto enabled_recheck=late.service_one(B::MSR_EE);
+        require(masked_recheck.progress==S::Pump::Busy&&
+                !masked_recheck.guest_exception_ready&&
+                enabled_recheck.progress==S::Pump::Busy&&
+                enabled_recheck.guest_exception_ready&&
+                masked_recheck.serviced_steps==lateack.serviced_steps&&
+                enabled_recheck.serviced_steps==lateack.serviced_steps&&
+                lateram.read32(request)==S::Open&&
+                latebus.services().queued_replies()==1u,
+                "MSR.EE toggling incorrectly serviced or lost pending second IOS Open");
         // Complete the *same* deferred second Open. The guest must ACK Y2,
         // clear the Hollywood W1C cause, then explicitly yield again.
         // No reply is published by writing PPCCTRL or by consuming X1.
