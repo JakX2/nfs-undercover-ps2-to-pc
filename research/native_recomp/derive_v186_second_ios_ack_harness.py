@@ -14,6 +14,28 @@ from derive_v185_sc_reply_next_harness import (
     derive as previous, STATE, RESET, OBSERVER as PREVIOUS_OBSERVER,
     NEXT_TRIAL as PREVIOUS_TRIAL, once,
 )
+# The original V153 first IOS reply guard is phase-specific. V186 is the
+# separately verified second Open ACK, when Y2 is set and queued replies=1.
+V153_FIRST_REPLY_GUARD='''       check(v153_bridge&&v153_wire&&v153_mail&&v153_drained&&v153_irq&&
+             nwii::runtime::v149_ack_seen==1u&&
+             nwii::runtime::v150_flag_seen==1u&&
+             nwii::runtime::v151_next_seen==1u,
+             "V153 original SC IRQ did not deliver queued SYSCONF file-open reply");'''
+V186_SCOPED_V153_GUARD='''       // The V153 predicate proves the first IOS reply. After the
+       // separately authenticated V186 second-request ACK, the original
+       // Y1/empty-queue condition cannot still hold: Y2 is asserted and
+       // a fresh native completion is queued. Do not change the first
+       // phase proof, only accept the strictly verified later checkpoint.
+       check((nwii::runtime::v186_ack_seen==1u&&
+              nwii::runtime::v185_next_seen==1u&&
+              nwii::runtime::v183_second_ctrl==1u&&
+              c.pc==0x80529434u&&c.lr==0x80526cb0u&&!c.is_running)||
+             (v153_bridge&&v153_wire&&v153_mail&&v153_drained&&v153_irq&&
+              nwii::runtime::v149_ack_seen==1u&&
+              nwii::runtime::v150_flag_seen==1u&&
+              nwii::runtime::v151_next_seen==1u),
+             "V153 original SC IRQ did not deliver queued SYSCONF file-open reply");'''
+
 STOP='''    v185_target_pc=addr;v185_target_lr=ctx.lr;
     ++v185_next_seen;
     ctx.is_running=false;throw ExceptionStop{};
@@ -121,7 +143,7 @@ def derive(source: str)->str:
      nwii::runtime::v186_ack_seen=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,HANDOFF,1))
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+"\n"+NEXT_TRIAL)
-    return s
+    return once(s,V153_FIRST_REPLY_GUARD,V186_SCOPED_V153_GUARD)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

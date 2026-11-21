@@ -6,7 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v185_sc_reply_next_harness import derive as previous
-from derive_v186_second_ios_ack_harness import derive, STOP, HANDOFF, NEXT_TRIAL, PREVIOUS_OBSERVER
+from derive_v186_second_ios_ack_harness import (derive, STOP, HANDOFF, NEXT_TRIAL, PREVIOUS_OBSERVER,
+    V153_FIRST_REPLY_GUARD, V186_SCOPED_V153_GUARD)
 from derive_v186_second_ios_ack_runner import (
     derive as runner, PRE, ACK, STATE, PASS_PRE, PASS_ACK, PASS_STATE
 )
@@ -60,6 +61,23 @@ class V186(unittest.TestCase):
                            "V184_SC_BURST calls=","V183_SECOND_CTRL phase=1"):
             self.assertEqual(self.before.count(source_tag),self.after.count(source_tag),source_tag)
 
+    def test_v153_first_reply_assertion_only_loosens_at_verified_second_ack(self):
+        self.assertEqual(self.before.count(V153_FIRST_REPLY_GUARD),1)
+        self.assertEqual(self.after.count(V186_SCOPED_V153_GUARD),1)
+        self.assertIn("v153_bridge&&v153_wire&&v153_mail&&v153_drained&&v153_irq",
+                      V186_SCOPED_V153_GUARD)
+        self.assertIn("nwii::runtime::v186_ack_seen==1u",
+                      V186_SCOPED_V153_GUARD)
+        self.assertIn("nwii::runtime::v185_next_seen==1u",
+                      V186_SCOPED_V153_GUARD)
+        self.assertIn("nwii::runtime::v183_second_ctrl==1u",
+                      V186_SCOPED_V153_GUARD)
+        self.assertIn("c.pc==0x80529434u&&c.lr==0x80526cb0u",
+                      V186_SCOPED_V153_GUARD)
+        self.assertEqual(
+            self.before.count("V153 original SC IRQ did not deliver queued SYSCONF file-open reply"),
+            self.after.count("V153 original SC IRQ did not deliver queued SYSCONF file-open reply"))
+
     def test_bounded_runner_sixteen_owner_trials_and_native_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))
         self.assertIn("derive_v186_second_ios_ack_harness.py",script)
@@ -86,6 +104,7 @@ class V186(unittest.TestCase):
         wf=(HERE.parents[1]/".github/workflows/wii-v186-second-ios-ack.yml").read_text(encoding="utf-8")
         self.assertIn("run_v186_second_ios_ack.sh",wf)
         self.assertIn("V186_SECOND_ACK verified=1",wf)
+        self.assertIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1",wf)
         self.assertIn("  cancel-in-progress: false",wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
         self.assertNotIn("upload-artifact",wf)
