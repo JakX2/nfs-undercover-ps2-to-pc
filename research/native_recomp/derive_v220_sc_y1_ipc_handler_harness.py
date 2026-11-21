@@ -40,7 +40,20 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
           ipc70_ram.read32(v183_second_phys+8u)==IOS::Open&&
           int32_t(ipc70_ram.read32(v183_second_phys+4u))==IOS::Invalid&&
           ipc70_bus.services().queued_replies()==0u;
-    const bool context=ctx.gpr[3]==4u&&ctx.gpr[4]==THREAD;
+    // OSDispatchInterrupt dispatch argument index is 4, but its
+    // registered IPC handler is IRQ slot 27 with r4 = saved CPU frame.
+    // The earlier original V200 Y2 callback validated this exact ABI.
+    const uint32_t frame=ctx.gpr[4];
+    const bool mapped=frame!=0u&&!(frame&7u)&&
+          ctx.mmu.get_ptr(frame)!=nullptr&&
+          ctx.mmu.get_ptr(frame+415u)!=nullptr;
+    const bool registered=ctx.mmu.read32(IRQ_TABLE+27u*4u)==addr;
+    const bool saved=mapped&&
+          ctx.mmu.read32(frame+408u)==v215_saved_pc&&
+          ctx.mmu.read32(frame+412u)==
+                (v215_saved_msr&undercover::wii::ExternalSrr1Mask);
+    const bool context=ctx.gpr[3]==27u&&ctx.ctr==addr&&
+          mapped&&registered&&saved;
     const bool caller=ctx.lr==0x80526cacu;
     const bool masked=(ctx.msr&Bus::MSR_EE)==0u&&
           !ipc70_bus.external_exception_pending(ctx.msr);

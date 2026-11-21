@@ -27,7 +27,9 @@ class V220(unittest.TestCase):
         self.assertIn(V220_SCOPED_V98,self.after)
         self.assertEqual(self.after.count(V220_SCOPED_V98),1)
         for token in ("v219_disable_seen==1u","addr==0x80519318u",
-                      "ctx.lr==0x80526cacu","ctx.gpr[3]==4u&&ctx.gpr[4]==THREAD",
+                      "ctx.lr==0x80526cacu","ctx.gpr[3]==27u&&ctx.ctr==addr",
+                      "ctx.mmu.read32(IRQ_TABLE+27u*4u)==addr",
+                      "v215_saved_msr&undercover::wii::ExternalSrr1Mask",
                       "ctx.inst_count>v220_disable_inst",
                       "int32_t(ipc70_ram.read32(v183_second_phys+4u))==IOS::Invalid",
                       "++v220_ipc_seen"):
@@ -37,6 +39,7 @@ class V220(unittest.TestCase):
                       "IRQ caller ABI","guest SDA and instruction progress",
                       "guest EE state","SC status"):
             self.assertIn("V220_NEG_IPC source-owned "+label+" check failed",OBSERVER)
+        self.assertNotIn("ctx.gpr[3]==4u",OBSERVER)
         with self.assertRaises(ValueError):derive("unmatched source")
     def test_no_synthetic_game_or_ios_state(self):
         for needle in ("scheduler.service_one(","ipc70_ram.write8(",
