@@ -14,6 +14,7 @@ from derive_v219_sc_y1_osdisable_harness import (
     NEXT_END as PREVIOUS_END,
 )
 from derive_v194_osrestore_next_harness import STATE, RESET, once
+from derive_v178_sc_reply_burst_harness import V98_ACTIVE
 STOP='''    ++v219_disable_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }'''
@@ -59,6 +60,7 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
+V220_SCOPED_V98='''   if(post97_return==1u&&post98_node&&v219_disable_seen==0u){'''
 NEXT_END='''      check(stopped&&nwii::runtime::v196_vector_seen==1u&&
             nwii::runtime::v204_ack_seen==1u&&
             nwii::runtime::v205_flag_seen==1u&&
@@ -82,6 +84,14 @@ NEXT_END='''      check(stopped&&nwii::runtime::v196_vector_seen==1u&&
             "V220 real negative reply Y1 registered IPC handler checkpoint failed");'''
 def derive(source:str)->str:
     s=previous(source)
+    # V98's verified NAND-registration assertion assumes the earlier
+    # IOS state (no IRQ and no response waiting). The authentic third
+    # Y1 interrupt now has IRQ high and a negative reply already on
+    # the wire. Retain V98 checks until V219's original scheduler
+    # boundary, then silence only that stale phase observer.
+    if s.count(V98_ACTIVE)!=1:
+        raise ValueError("V220 original NAND observer guard changed")
+    s=once(s,V98_ACTIVE,V220_SCOPED_V98)
     if PREVIOUS_OBSERVER.count(STOP)!=1 or s.count(PREVIOUS_END)!=1:
         raise ValueError("V220 authenticated V219 scheduler entry changed")
     s=once(s,STATE,STATE+'''

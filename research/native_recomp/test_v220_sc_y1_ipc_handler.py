@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v219_sc_y1_osdisable_harness import derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END
-from derive_v220_sc_y1_ipc_handler_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END
+from derive_v220_sc_y1_ipc_handler_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, V220_SCOPED_V98
 from derive_v220_sc_y1_ipc_handler_runner import derive as runner, PATTERN, PASS
 HERE=Path(__file__).resolve().parent
 class V220(unittest.TestCase):
@@ -21,6 +21,11 @@ class V220(unittest.TestCase):
         self.assertIn(OBSERVER,self.after)
         self.assertIn(NEXT_END,self.after)
         self.assertNotIn(PREVIOUS_END,self.after)
+        from derive_v178_sc_reply_burst_harness import V98_ACTIVE
+        self.assertEqual(self.before.count(V98_ACTIVE),1)
+        self.assertNotIn(V98_ACTIVE,self.after)
+        self.assertIn(V220_SCOPED_V98,self.after)
+        self.assertEqual(self.after.count(V220_SCOPED_V98),1)
         for token in ("v219_disable_seen==1u","addr==0x80519318u",
                       "ctx.lr==0x80526cacu","ctx.gpr[3]==4u&&ctx.gpr[4]==THREAD",
                       "ctx.inst_count>v220_disable_inst",
