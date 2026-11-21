@@ -11,7 +11,7 @@ from derive_v257_nand_postchild_harness import (
     CANDIDATE as PREVIOUS_CANDIDATE,
 )
 from derive_v258_nand_callee_return_harness import (
-    derive, STOP, CONTINUE, RETURN_HOOK, CANDIDATE, V178_TAIL_NEXT, V178_DIAG,
+    derive, STOP, CONTINUE, RETURN_HOOK, CANDIDATE, V178_TAIL_NEXT, V178_DIAG, V178_NESTED, V178_CHECK,
 )
 from derive_v258_nand_callee_return_runner import (
     derive as runner, PATTERN, PASS, TRIAL,
@@ -35,6 +35,12 @@ class V258(unittest.TestCase):
         self.assertIn(V178_TAIL_NEXT,self.after)
         self.assertIn(V178_DIAG,self.after)
         self.assertIn('V258_NAND_DEP code=',V178_DIAG)
+        self.assertIn(V178_NESTED,self.after)
+        self.assertIn(V178_CHECK,self.after)  # baseline V178 gate retained
+        self.assertIn('addr==0x805265acu&&ctx.lr==0x8051ad64u',V178_NESTED)
+        self.assertIn('ctx.inst_count>v258_callee_inst',V178_NESTED)
+        self.assertIn('ctx.gpr[13]==v147_first_r13',V178_NESTED)
+        self.assertIn('v250_candidate_mode&&v257_next_seen==1u',V178_NESTED)
         self.assertIn("addr==0x8051ad3cu&&ctx.lr==0x804f0f68u",CONTINUE)
         self.assertIn("ctx.pc==0x804f0f68u",RETURN_HOOK)
         self.assertIn("v258_callee_inst=ctx.inst_count",CONTINUE)
@@ -45,7 +51,7 @@ class V258(unittest.TestCase):
             derive("unmatched original-free source")
 
     def test_no_original_cpu_or_ios_mutation(self):
-        parts=CONTINUE+RETURN_HOOK+CANDIDATE+V178_DIAG
+        parts=CONTINUE+RETURN_HOOK+CANDIDATE+V178_DIAG+V178_NESTED
         for forbidden in ("ipc70_bus.write","ipc70_ram.write","ctx.mmu.write",
                           "c.mmu.write","ctx.gpr[3]=","scheduler.service_one("):
             self.assertNotIn(forbidden,parts)

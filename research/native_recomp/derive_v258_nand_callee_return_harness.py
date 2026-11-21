@@ -33,6 +33,16 @@ V178_TAIL_NEXT='''        (v254_next_seen==1u&&addr==0x8052fa60u&&
          ctx.lr==0x8051e0b8u)||
         (v257_next_seen==1u&&addr==0x8051ad3cu&&
          ctx.lr==0x804f0f68u)))'''
+V178_NESTED='''    // V258 owner-original observed this exact nested PPC call from the
+    // authenticated 0x8051AD3C callee (16-run fixture, candidate only).
+    // V178 was a reduced earlier SC reply observer: do not misclassify
+    // this single later native guest call as that historical callee.
+    if(v250_candidate_mode&&v257_next_seen==1u&&
+       v258_return_seen==0u&&ctx.inst_count>v258_callee_inst&&
+       addr==0x805265acu&&ctx.lr==0x8051ad64u&&
+       ctx.gpr[13]==v147_first_r13)
+      return;
+'''
 V178_CHECK='''    check(addr==0x80545100u&&ctx.lr==0x804f1e40u,
           "V178 owner-original SC reply callee differs from V177 proof");'''
 V178_DIAG='''    if(v250_candidate_mode&&v257_next_seen==1u&&
@@ -122,7 +132,7 @@ def derive(source:str)->str:
     v178=PREVIOUS_V178.replace(V178_TAIL,V178_TAIL_NEXT,1)
     if v178.count(V178_CHECK)!=1:
         raise ValueError("V258 inherited V178 native-call assertion changed")
-    s=once(s,PREVIOUS_V178,v178.replace(V178_CHECK,V178_DIAG+V178_CHECK,1))
+    s=once(s,PREVIOUS_V178,v178.replace(V178_CHECK,V178_DIAG+V178_NESTED+V178_CHECK,1))
     s=once(s,CALLBACK_ANCHOR,RETURN_HOOK)
     s=once(s,PREVIOUS_CANDIDATE,CANDIDATE)
     return s
