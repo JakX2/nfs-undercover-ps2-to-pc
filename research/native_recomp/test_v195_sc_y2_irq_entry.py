@@ -47,6 +47,8 @@ class V195(unittest.TestCase):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("derive_v195_sc_y2_irq_entry_harness.py",script)
         self.assertIn("V195_SC_Y2_VECTOR verified=1",script)
+        self.assertIn("V195_ENTRY_COUNT lines=$v195_count",script)
+        self.assertIn("grep -Ec '^V195_SC_Y2_VECTOR '",script)
         good=("V195_SC_Y2_VECTOR pending=1 safe=1 entered=1 saved=1 regs=1 "
               "mail=1 masked=1 resume=8052f830 pc=80000500")
         self.assertTrue(re.fullmatch(PASS,good))

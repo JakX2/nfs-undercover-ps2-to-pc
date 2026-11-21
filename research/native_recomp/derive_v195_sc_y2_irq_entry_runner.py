@@ -15,6 +15,15 @@ def derive(source:str)->str:
     if s.count(OLD)!=1 or s.count(DONE)!=1:
         raise ValueError("V195 native runner inherited gates changed")
     s=s.replace(OLD,NEW,1)
+    success='  echo "V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185"'
+    if s.count(success)!=1:
+        raise ValueError("V195 native-success stage anchor changed")
+    diagnostic = """  v195_count=$(grep -Ec '^V195_SC_Y2_VECTOR ' "$work/private-native.log" || true)
+  [[ "$v195_count" =~ ^[0-9]{1,2}$ ]] || exit 1
+  echo "V195_ENTRY_COUNT lines=$v195_count"
+""" + '  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\n'
+    s=s.replace(success,success+"\n"+diagnostic,1)
+
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16
