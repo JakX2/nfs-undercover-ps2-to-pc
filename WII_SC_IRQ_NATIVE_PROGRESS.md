@@ -1,11 +1,11 @@
-# Wii SC IRQ native continuation: V141-V205
+# Wii SC IRQ native continuation: V141-V206
 
-Status: **V205 owner-original second IOS Hollywood IRQ-flag W1C verified (16/16 trials)**.
-V200-V205 independently confirm the genuine second-Y2 dispatcher, registered IPC
+Status: **V206 owner-original second IOS post-Hollywood-ACK guest continuation verified (16/16 trials)**.
+V200-V206 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
-and Hollywood PPC_FLAG W1C. **V206 post-IRQ continuation and second IOS reply
-delivery remain unverified.** Earlier V141-V145 checkpoints remain historical
-first-interrupt evidence.
+Hollywood PPC_FLAG W1C, and next original function entry after the ACK.
+**V207 successor and delivery of the second IOS reply remain unverified.**
+Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
@@ -40,6 +40,7 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V203 | [16-trial run 44866697625](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866697625) | Following one more original IPC read, the second IRQ entered distinct control-write helper `PC=0x8051906C / LR=0x80519380`. All 16 owner-original trials and public tests passed. **The helper has not yet executed its Y2 MMIO acknowledgment.** |
 | V204 | [16-trial run 44866938035](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44866938035) | The original translated Wii control-write helper executed a genuine guest PPCCTRL Y2 W1C. `V204_Y2_ACK write=1 w1c=1 flag=1 queued=1 guest=1 progressed=1 sc=1`. Y2 cleared, but Hollywood IRQ flag remained asserted, external IRQ remained high and the IOS completion remained queued. No synthetic acknowledgment was injected. |
 | V205 | [16-trial run 44867139348](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44867139348) | Original translated Wii code performed genuine Hollywood PPC_FLAG W1C after PPCCTRL Y2 clear. `V205_Y2_FLAG write=1 cleared=1 ctrl=1 irq_down=1 queued=1 guest=1 progressed=1 sc=1`. The external IRQ signal dropped; one second IOS completion stayed queued. Original owner and public tests passed. |
+| V206 | [16-trial run 44868741846](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44868741846) | After both genuine guest ACK stores, the translated original IRQ handler executed into `PC=0x8051B060 / LR=0x805193A4`. `V206_Y2_POST ack=1 irq_down=1 queued=1 open=1 guest=1 masked=1 coherent=1 sc=1 pc=8051b060 lr=805193a4`. Guest MSR.EE remains masked, the Hollywood IRQ is down, the second original `IOS_Open` is still awaiting reply publication, and the SC readiness byte remains 1. All 16 owner-original trials and original-free tests passed; this is not a second IOS reply delivery. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -48,20 +49,19 @@ masked guest MSR. The V191-V194 owner-original trace proves a closed SC
 initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
-**Current verified PowerPC frontier:** authentic guest MMIO acknowledgment
-from the second IPC handler's `0x8051906C` control-write path (entry
-`LR=0x80519380`), followed by the genuine Hollywood PPC_FLAG W1C.
-V204 proves PPCCTRL Y2 is cleared by the *original* guest store. V205 proves
-the independent Hollywood external-IRQ latch is cleared by original guest
-execution. Both preserve the pending second IOS completion, which is **not
-yet delivered to the original SC initialization callback**. The guest was
-stopped in the original flag-writer callback for the next continuation.
+**Current verified PowerPC frontier:** V204 proves PPCCTRL Y2 is cleared by
+the *original* guest store, and V205 proves the Hollywood external-IRQ latch
+is cleared by a second authentic guest W1C. V206 advanced beyond both stores
+to original PowerPC function entry `PC=0x8051B060 / LR=0x805193A4`.
+Hollywood IRQ is down, guest MSR.EE masked, SC byte still 1. The second
+`IOS_Open` remains in its original request state and exactly one native
+completion remains queued. No second reply has yet been delivered to the
+original SC initialization callback.
 
-**V206 (unverified):** continue the actual guest PowerPC IRQ handler after
-Hollywood flag clear. Record the next original function or scheduler call,
-preserve exception context, and determine the genuine IOS completion
-publication boundary. Do not inject an extra IOS pump, override registers,
-force SC readiness or skip original scheduling.
+**V207 (unverified):** run original guest code at `0x8051B060`, record
+its next native callee and the queue/request/reply state, then locate the
+real IOS completion publication boundary. Never inject an extra IOS pump,
+override guest registers or force SC readiness.
 
 **Not yet achieved:** delivery/publication of the *second* IOS reply,
 SC status transition to ready, exit from OSInit retry into original
