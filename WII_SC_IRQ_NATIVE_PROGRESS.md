@@ -1,8 +1,8 @@
-# Wii SC IRQ native continuation: V141-V190
+# Wii SC IRQ native continuation: V141-V191
 
-Status: **V190 owner-original PowerPC checkpoint verified (16/16 trials)**.
-V191 is an experimental successor and is **not verified** until its separate
-owner-original test passes. This document retains the earlier V141-V145
+Status: **V191 owner-original PowerPC checkpoint verified (16/16 trials)**.
+V192 is the experimental native OSInit helper successor. It is **not verified**
+until its separate owner-original test passes. This document retains the earlier V141-V145
 checkpoints as historical evidence, not as the current development frontier.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -23,12 +23,13 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V187-V188 | Original PPC scheduling / OSDI trials; see dedicated versioned workflows | Genuine original handler calls after the second IOS ACK, preserving the pending reply and masked IRQ state. |
 | V189 | [16-trial run 44851180151](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44851180151) | Original interrupt-restore helper reached `PC=0x80529940 / LR=0x80526CB4` with SC readiness still 1. |
 | V190 | [16-trial run 44852816608](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44852816608) | Authentic rescheduler entered `PC=0x805229B4 / LR=0x80526CBC`; `Y2=1`, IRQ flag=1, one genuine second IOS completion queued, guest state coherent, SC=1, MSR.EE=0. |
+| V191 | [16-trial run 44856455287](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856455287) | Original PPC resumed from `0x805229B4` and reached the authentic OSInit retry helper entry `PC=0x8052F830 / LR=0x80520970`. `SC=1`, `MSR.EE=1`, external exception ready=1, second IOS completion remains queued, and all 16 owner-native/source-only checks passed. |
 
-**Current authentic guest frontier:** `0x805229B4` (LR `0x80526CBC`).
-V191 derives from this exact owner-verified stop and executes the next original
-PPC function without host-authored CPU mutations, extra IOS scheduling or fake
-SC state. V191's owner-original trial and new IOS regression checks remain
-separate verification gates.
+**Current authentic guest frontier:** `0x8052F830` (LR `0x80520970`).
+V192 resumes that precise V191 owner-verified guest function without forcing
+an interrupt or changing the IOS reply queue, original SC state, CPU registers
+or the retry branch. The next genuine PPC entry may be another retry, the
+hardware exception vector, or a different helper. V192 is not yet verified.
 
 **Not yet achieved:** final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
