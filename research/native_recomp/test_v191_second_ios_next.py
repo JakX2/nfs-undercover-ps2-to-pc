@@ -74,7 +74,7 @@ class V191(unittest.TestCase):
     def test_bounded_owner_guest_counts_after_real_native_execution(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         self.assertIn("V191_GUEST_PROBE next=$v191_next state=$v191_state",script)
-        self.assertIn("V79_STAGE native_test_passed",script)
+        self.assertIn("V186_NATIVE_SUCCESS pre=$v186_pre",script)
         self.assertIn("grep -Ec '^V191_SC_NEXT '",script)
         self.assertIn("grep -Ec '^V190_SC_STATE '",script)
 
