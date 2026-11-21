@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v223_sc_y1_reply_read_harness import derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END
-from derive_v224_sc_y1_reply_second_read_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END
+from derive_v224_sc_y1_reply_second_read_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, V80_ARM_FIRST, V80_ARM_SCOPED
 from derive_v224_sc_y1_reply_second_read_runner import derive as runner, PATTERN, PASS
 HERE=Path(__file__).resolve().parent
 class V224(unittest.TestCase):
@@ -27,6 +27,12 @@ class V224(unittest.TestCase):
                      "++v224_second_seen"):
             self.assertIn(mark,OBSERVER)
         with self.assertRaises(ValueError):derive("missing source")
+        # Original first reply V80 check remains in force until V215
+        # has authenticated the separate third (negative) Y1 vector.
+        self.assertIn(V80_ARM_FIRST,self.before)
+        self.assertIn(V80_ARM_SCOPED,self.after)
+        self.assertNotIn(V80_ARM_FIRST,self.after)
+        self.assertIn("v215_vector_seen==0u",V80_ARM_SCOPED)
     def test_observers_only(self):
         for token in ("scheduler.service_one(","ipc70_ram.write8(",
                       "ipc70_bus.write32(","ctx.mmu.write32("):

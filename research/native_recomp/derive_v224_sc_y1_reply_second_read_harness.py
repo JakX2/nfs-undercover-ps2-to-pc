@@ -20,6 +20,13 @@ CONTINUE='''    ++v223_read_seen;
     v224_first_inst=ctx.inst_count;
     return; // original hardware read helper and handler resume
   }'''
+# V80's original first reply MMIO witness must not require ARMMSG to
+# refer to the *first* request after the third negative-Y1 IRQ has
+# legitimately published the second request. Preserve its early proof.
+V80_ARM_FIRST='''     if(reply79_irq==1u&&irq76_ipc&&
+        (addr==undercover::wii::IosBus::IPC+undercover::wii::IpcMailbox::ARMMSG||'''
+V80_ARM_SCOPED='''     if(reply79_irq==1u&&irq76_ipc&&v215_vector_seen==0u&&
+        (addr==undercover::wii::IosBus::IPC+undercover::wii::IpcMailbox::ARMMSG||'''
 TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
   if(v223_read_seen==1u&&v224_second_seen==0u&&
@@ -92,6 +99,7 @@ def derive(source:str)->str:
      nwii::runtime::v224_first_inst=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,TRACE_ANCHOR,OBSERVER)
+    s=once(s,V80_ARM_FIRST,V80_ARM_SCOPED)
     s=once(s,PREVIOUS_END,NEXT_END)
     return s
 if __name__=="__main__":
