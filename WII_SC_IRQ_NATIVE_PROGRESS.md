@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V221
+# Wii SC IRQ native continuation: V141-V223
 
-Status: **V221 original third-negative-Y1 registered IPC handler reached its authentic hardware read helper (16/16 owner-original trials); V214–V220 negative reply transport, PowerPC vector, scheduler and IRQ callback verified**.
+Status: **V223 original third-negative-Y1 `IpcReplyHandler` first hardware read verified (16/16 owner-original trials); V214–V222 negative reply transport, vector, scheduler and registered IPC handler verified**.
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
-**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry and the original IRQ dispatcher. A successful SYSCONF file open or completion of the registered IPC callback for this third interrupt is not verified.**
+**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry, original IRQ dispatcher and first real IpcReplyHandler register read. A successful SYSCONF file open, completed asynchronous callback, and SC retry-loop exit are not verified.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -56,6 +56,8 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V219 (negative Y1 lane) | [16-trial run 44876483964](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44876483964) | Executed original `OSGetTime` through its return to the IRQ dispatcher, then reached original `OSDisableScheduler` at `PC=0x805293F8 / LR=0x80526C98`. `V219_NEG_OSDI guest=1 caller=1 masked=1 irq=1 reply=1 sc=1 pc=805293f8 lr=80526c98`. All 16 owner-original and public tests passed. The registered IPC handler entry is the next unverified guest-code checkpoint. |
 | V220 (negative Y1 lane) | [16-trial run 44877456875](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877456875) | The third original Y1 interrupt passed `OSDisableScheduler` and entered the genuine `IPCInterruptHandler` at `PC=0x80519318 / LR=0x80526CAC` with registered IRQ slot 27 and the saved CPU frame. `V220_NEG_IPC irq=1 reply=1 context=1 caller=1 guest=1 masked=1 sc=1 pc=80519318 lr=80526cac`. All 16 owner-native and public tests passed. The probe initially used dispatcher index 4 where the callback expects slot 27; this **test-harness assertion defect** was corrected without modifying guest instructions. |
 | V221 (negative Y1 lane) | [16-trial run 44877842764](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877842764) | The original registered third-Y1 IPC callback executed its PowerPC body and called hardware read helper `PC=0x8051905C / LR=0x8051933C`. `V221_NEG_LEAF call=1 masked=1 signal=1 reply=1 stepped=1 sc=1 pc=8051905c lr=8051933c`. Original `IOS_Open=-4`, Y1 asserted and SC status 1 remain intact. All 16 owner-original trials and public tests passed; no successful SYSCONF open or callback completion is claimed. |
+| V222 (negative Y1 lane) | [16-trial run 44878093738](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44878093738) | The original registered third-Y1 handler executed through its first PPC read helper and entered genuine `IpcReplyHandler` at `PC=0x805190C0 / LR=0x80519354`. The actual `IOS_Open=-4`, IRQ and SC=1 remain unchanged. Owner-original 16/16 and public tests passed. |
+| V223 (negative Y1 lane) | [16-trial run 44878570758](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44878570758) | The genuine `IpcReplyHandler` executed into its first PPC register read helper at `PC=0x8051905C / LR=0x805190E8`. `V223_NEG_REPLY_READ irq=1 wire=1 caller=1 guest=1 masked=1 sc=1`. Owner-original 16/16 and public tests passed. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -199,6 +201,22 @@ the subsequent `IOS_OpenAsync` registers without exporting the private
 game's code, registers, pointers or pathname contents. This producer
 comparison remains **unverified** until owner CI finishes. Do not patch
 guest args, change the IOS ABI, or fabricate a successful file descriptor.
+
+
+**Callback chain diagnosis (read-only owner evidence):** The saved original
+return site at the `ISFS_OpenAsync` prologue is `0x805192AC`, inside
+`IpcReplyHandler`, not a normal direct NAND/ISFS call. A fresh owner
+[diagnostic run 44878474239](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44878474239)
+verifies that the first request's registered callback pointer and CTR
+both indicate the expected `_isfsFuncCb` at `0x804F0E04`. Guest r3/r4
+also match the **first reply** result and user-data arguments exactly.
+The unexpected `ISFS_OpenAsync` prologue nevertheless receives those
+callback-shaped values as pathname/mode, reproducing the malformed MEM2
+request. This specifically suggests an original callback dispatch,
+nested call/return or saved-LR/stack-state problem, **not** a reason to
+change the IOS wire ABI. The exact callback-entry order remains under
+investigation; no callback corruption or static-recompilation bug is
+yet proven.
 
 **Next (unverified):** trace authentic second `IOS_Open` request
 buffer construction and physical RAM/cache visibility before the original
