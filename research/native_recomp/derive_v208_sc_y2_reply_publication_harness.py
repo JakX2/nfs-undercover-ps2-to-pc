@@ -62,7 +62,8 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     const bool opened=immediate||event||fs||file||es;
     std::cout<<"V208_Y2_KIND immediate="<<immediate<<" event="<<event
              <<" fs="<<fs<<" file="<<file<<" es="<<es
-             <<" negative="<<(int32_t(fd)<0)<<std::endl;
+             <<" negative="<<(int32_t(fd)<0)
+             <<" result="<<int32_t(fd)<<std::endl;
     const bool signal=ctrl_after.has_value()&&flag_after.has_value()&&
           ((*ctrl_after&M::Y1)!=0u)&&((*ctrl_after&M::Y2)==0u)&&
           ((*flag_after&H::IPC_PPC)!=0u)&&

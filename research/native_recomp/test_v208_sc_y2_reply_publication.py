@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, KIND
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -63,6 +63,12 @@ class V208(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNotNone(re.fullmatch(PATTERN,good.replace("drained=1","drained=0")))
         self.assertIsNone(re.fullmatch(PASS,good.replace("wire=1","wire=0")))
+        self.assertIsNotNone(re.fullmatch(
+            KIND,"V208_Y2_KIND immediate=0 event=0 fs=0 file=0 es=0 negative=1 result=-106"))
+        self.assertIsNotNone(re.fullmatch(
+            KIND,"V208_Y2_KIND immediate=1 event=0 fs=0 file=0 es=0 negative=0 result=2"))
+        self.assertIsNone(re.fullmatch(
+            KIND,"V208_Y2_KIND immediate=0 event=0 fs=0 file=0 es=0 negative=1 result=/private"))
         kind="V208_Y2_KIND immediate=0 event=1 fs=0 file=0 es=0 negative=0"
         self.assertIsNotNone(re.fullmatch(KIND,kind))
         self.assertIsNone(re.fullmatch(KIND,kind+" path=/private"))
