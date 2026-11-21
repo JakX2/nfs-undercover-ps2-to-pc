@@ -87,13 +87,6 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
     ctx.is_running=false;throw ExceptionStop{};
   }
 '''
-OPEN71_OLD=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
-   if(!stm70_open)return false;'''
-OPEN71_SCOPED=''' static bool open71_trace(uint32_t addr,CPUContext&ctx){
-   // The original V71 first-open allocator ABI must not be rechecked
-   // after the third reply has entered the separate ISFS completion.
-   if(v231_callback_seen==1u)return false;
-   if(!stm70_open)return false;'''
 NEXT_END='''      using B=undercover::wii::IosBus;
       using M=undercover::wii::IpcMailbox;
       using H=undercover::wii::HollywoodIrq;
@@ -136,7 +129,6 @@ def derive(source:str)->str:
      nwii::runtime::v232_start_inst=0u;
      nwii::runtime::v232_next_pc=nwii::runtime::v232_next_lr=0u;''')
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
-    s=once(s,OPEN71_OLD,OPEN71_SCOPED)
     s=once(s,TRACE_ANCHOR,OBSERVER)
     s=once(s,PREVIOUS_END,NEXT_END)
     return s
