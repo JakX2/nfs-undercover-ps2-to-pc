@@ -68,8 +68,15 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
              <<" drained="<<drained<<" cpu="<<cpu
              <<" sc="<<sc_before<<" pc="<<std::hex<<addr
              <<" lr="<<ctx.lr<<std::dec<<std::endl;
-    check(step&&wire&&opened&&signal&&drained&&cpu&&sc_before,
-          "V208 original second IOS reply was not published at guest yield");
+    // Each condition has a distinct source-only assertion label. Owner
+    // diagnostics report only the failing category, never guest data.
+    check(step,"V208 second IOS native reply service step failed");
+    check(wire,"V208 second IOS original request reply wire failed");
+    check(signal,"V208 second IOS Y1 and Hollywood IRQ publication failed");
+    check(drained,"V208 second IOS reply queue did not drain");
+    check(cpu,"V208 second IOS service unexpectedly modified guest CPU");
+    check(sc_before,"V208 second IOS service unexpectedly changed SC status");
+    check(opened,"V208 second IOS opened file descriptor kind differs");
     v207_next_pc=addr;v207_next_lr=ctx.lr;
     v207_sc=sc;v207_queue=queued;v207_reply=replied;
     ++v207_next_seen;
