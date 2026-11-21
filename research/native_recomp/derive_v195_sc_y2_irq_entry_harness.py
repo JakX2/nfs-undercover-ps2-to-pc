@@ -57,7 +57,7 @@ IRQ='''    // Bounded hardware exception after all authenticated guest state che
 def derive(source:str)->str:
     s=previous(source)
     if s.count(TAIL)!=1 or s.count("V194_RESTORE_STATE guest=")!=1:
-        raise ValueError("V195 original-free authenticated trial tail changed")
+        raise ValueError(f"V195 original-free authenticated trial tail changed: tail={s.count(TAIL)} state={s.count('V194_RESTORE_STATE guest=')} marker={s.count('V77_TRIAL_PASS trial=')} continue={s.count('        continue;')}")
     # V77's owner-specific verification returns through this 'continue',
     # bypassing later synthetic-only BSS and startup assertions entirely.
     # Attach the hardware entry to the *reachable* owner test boundary.
