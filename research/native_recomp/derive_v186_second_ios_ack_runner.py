@@ -56,6 +56,16 @@ def derive(source: str)->str:
         "  echo \"V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185\"\n"
     )
     s=s.replace(native_cmd,native_cmd+"\n"+counts,1)
+
+    # After the genuine second Y2 ACK the final *current* hardware
+    # snapshot is not the earlier V153 Y1 state. Keep the V153 owner
+    # assertions and native event counts; update only this retrospective
+    # shell grep for the strictly verified V186 phase.
+    old_first_state="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=1 drained=1 irq=1' \"$log\" | sort -u"
+    second_ack_state="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' \"$log\" | sort -u"
+    if s.count(old_first_state)!=1:
+        raise ValueError("V186 inherited V153 first-reply shell state differs")
+    s=s.replace(old_first_state,second_ack_state,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS_PRE}' "$log" | sort -u
 test "$(grep -Ec '{PASS_PRE}' "$log")" -eq 16

@@ -107,6 +107,20 @@ class V186(unittest.TestCase):
         self.assertIn("V77_COMPILE_UNIT",s)
         self.assertIn("V67_NATIVE_ASSERTION",s)
 
+    def test_v153_historical_runner_gate_is_phase_scoped_after_second_ack(self):
+        from derive_v185_sc_reply_next_runner import derive as inherited_runner
+        base=(HERE/"run_v79_continuous_reply_entry.sh").read_text()
+        old=inherited_runner(base)
+        current=runner(base)
+        historical="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=1 drained=1 irq=1'"
+        second="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1'"
+        self.assertEqual(old.count(historical),1)
+        self.assertEqual(current.count(second),1)
+        self.assertNotIn(historical,current)
+        self.assertIn("V153_SC_REPLY verified=1",current)
+        self.assertIn("V186_SECOND_ACK verified=1",current)
+        self.assertIn("test \"$(grep -Fxc",current)
+
     def test_native_success_probe_at_actual_if_then_branch(self):
         s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         native_call='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1; then'
