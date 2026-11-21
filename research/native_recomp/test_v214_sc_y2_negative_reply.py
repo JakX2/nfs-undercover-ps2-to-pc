@@ -23,6 +23,12 @@ class V214(unittest.TestCase):
         self.assertIn(VERIFY,self.after)
         self.assertIn(NEXT_END,self.after)
         self.assertNotIn(PREVIOUS_END,self.after)
+        # Preserve the V208 terminal reply-state definition. Previously
+        # replacing the whole block left the later 'done' undeclared.
+        self.assertIn("const bool done=",self.after)
+        self.assertIn("const bool done=",PREVIOUS_END)
+        self.assertIn("done&&!c.is_running",NEXT_END)
+        self.assertNotIn("V208 original second IOS reply native publication checkpoint failed",self.after)
         for token in ("int32_t(fd)==S::Invalid","!opened",
                       "ipc70_ram.read32(req+16u)>3u",
                       "ipc70_ram.read32(req+12u)!=0u",

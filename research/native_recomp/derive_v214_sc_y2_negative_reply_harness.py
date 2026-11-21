@@ -53,7 +53,16 @@ def derive(source:str)->str:
     s=once(s,RESET,RESET+'''
      nwii::runtime::v214_negative_seen=0u;''')
     s=once(s,STOP,VERIFY)
-    s=once(s,PREVIOUS_END,NEXT_END)
+    # V208's final block also defines done from actual IPC Y1/MMIO
+    # state. Retain that original-free computation: only widen its
+    # terminal assertion to accept the authentic negative reply.
+    check_start="      check(stopped&&"
+    if PREVIOUS_END.count(check_start)!=1:
+        raise ValueError("V214 prior final Y1/IRQ state computation changed")
+    prefix,prior_check=PREVIOUS_END.split(check_start,1)
+    if 'const bool done=' not in prefix or 'V208 original second IOS reply' not in prior_check:
+        raise ValueError("V214 predecessor reply state or assertion changed")
+    s=once(s,PREVIOUS_END,prefix+NEXT_END)
     return s
 
 if __name__=="__main__":
