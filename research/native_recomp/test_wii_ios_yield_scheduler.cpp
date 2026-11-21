@@ -152,6 +152,42 @@ int main(){
         require(duplicate.progress==S::Pump::Busy&&
                 duplicate.serviced_steps==lateack.serviced_steps,
                 "native IOS accepted a duplicate while old IRQ was pending");
+        // Complete the *same* deferred second Open. The guest must ACK Y2,
+        // clear the Hollywood W1C cause, then explicitly yield again.
+        // No reply is published by writing PPCCTRL or by consuming X1.
+        require(latebus.write32(B::IPC+M::PPCCTRL,en|M::Y2),
+                "late Broadway Y2 W1C rejected");
+        require(lateram.read32(request)==S::Open&&
+                latebus.services().queued_replies()==1u&&
+                latebus.external_irq_level(),
+                "late Y2 W1C published an early reply or skipped Hollywood cause");
+        const auto blocked_w1c=late.service_one(B::MSR_EE);
+        require(blocked_w1c.progress==S::Pump::Busy&&
+                blocked_w1c.serviced_steps==lateack.serviced_steps,
+                "unacknowledged Hollywood cause permitted second IOS service");
+        require(latebus.write32(B::IPC+H::PPC_FLAG,H::IPC_PPC),
+                "late Hollywood IPC W1C rejected");
+        require(!latebus.external_irq_level(),
+                "late Hollywood IPC W1C failed to clear asserted IRQ");
+        const auto published=late.service_one(B::MSR_EE);
+        require(published.progress==S::Pump::Replied&&
+                published.serviced_steps==lateack.serviced_steps+1u&&
+                published.guest_exception_ready&&
+                lateram.read32(request)==S::Reply&&
+                lateram.read32(request+4u)==0u&&
+                lateram.read32(request+8u)==S::Open&&
+                latebus.read32(B::IPC+M::ARMMSG).value()==request&&
+                latebus.services().queued_replies()==0u,
+                "deferred native IOS Open did not publish exactly one authentic reply");
+        require(latebus.write32(B::IPC+M::PPCCTRL,en|M::Y1),
+                "late Broadway Y1 W1C rejected");
+        require(latebus.write32(B::IPC+H::PPC_FLAG,H::IPC_PPC),
+                "late second Hollywood IPC W1C rejected");
+        require(!latebus.external_irq_level()&&
+                late.service_one(B::MSR_EE).progress==S::Pump::Idle&&
+                lateram.read32(request)==S::Reply&&
+                !latebus.pending_native_ios_request(),
+                "second native IOS Open republished a reply after guest ACK");
     }
     std::cout<<"PASS: native IOS guest-yield service, X1 ACK, deferred event, W1C IRQ, MSR.EE and request bounds\n";
 }
