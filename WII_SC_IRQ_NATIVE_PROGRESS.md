@@ -1,8 +1,45 @@
-# Wii SC IRQ native continuation: V141-V145
+# Wii SC IRQ native continuation: V141-V190
 
-Status: **five verified owner-original native checkpoints** through V145.
-V146 is an experimental original IPC first-leaf execution checkpoint and is
-not verified until the owner-original native trial passes.
+Status: **V190 owner-original PowerPC checkpoint verified (16/16 trials)**.
+V191 is an experimental successor and is **not verified** until its separate
+owner-original test passes. This document retains the earlier V141-V145
+checkpoints as historical evidence, not as the current development frontier.
+
+## Latest verified Wii PowerPC execution (2026-11-21)
+
+The second original Wii `IOS_Open` request reached the native host IOS
+scheduler after Broadway submitted it through the real guest IPC path.
+The native IOS transport now distinguishes a *captured request intake*
+from the writable live `X1` MMIO bit, retains the submitted physical pointer
+until Starlet ACK, and defers completion delivery until the guest acknowledges
+`Y2` and clears the Hollywood IPC interrupt cause.
+
+| Milestone | Authenticated owner-native evidence | Result |
+|---|---|---|
+| V183 | [16-trial run 44844951023](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44844951023) | A second IPC request was submitted through the genuine original guest path, enabling eight additional translated PPC call entries without a synthetic IOS reply. |
+| V184 | [16-trial run 44845800535](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44845800535) | Six more translated PPC calls; the second IOS request remained an authentic `IOS_Open`. |
+| V185 | [16-trial run 44846147043](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44846147043) | Original guest execution reached `PC=0x80529434 / LR=0x80526CB0`, the native IOS yield boundary, with no reply yet queued. |
+| V186 | Native second-request owner-original trial; see `wii-v186-second-ios-ack.yml` | One genuine second-request Starlet `Y2` ACK, Hollywood IRQ, one queued completion, no guest CPU mutation or fabricated reply. |
+| V187-V188 | Original PPC scheduling / OSDI trials; see dedicated versioned workflows | Genuine original handler calls after the second IOS ACK, preserving the pending reply and masked IRQ state. |
+| V189 | [16-trial run 44851180151](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44851180151) | Original interrupt-restore helper reached `PC=0x80529940 / LR=0x80526CB4` with SC readiness still 1. |
+| V190 | [16-trial run 44852816608](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44852816608) | Authentic rescheduler entered `PC=0x805229B4 / LR=0x80526CBC`; `Y2=1`, IRQ flag=1, one genuine second IOS completion queued, guest state coherent, SC=1, MSR.EE=0. |
+
+**Current authentic guest frontier:** `0x805229B4` (LR `0x80526CBC`).
+V191 derives from this exact owner-verified stop and executes the next original
+PPC function without host-authored CPU mutations, extra IOS scheduling or fake
+SC state. V191's owner-original trial and new IOS regression checks remain
+separate verification gates.
+
+**Not yet achieved:** final acknowledgment/publication of the *second* IOS
+reply, SC status transition to ready, exit from OSInit retry into original
+`main`, first frame, frontend, gameplay or a complete Windows port.
+
+The public C++ source-only checkout intentionally lacks NWiiRecomp's generated
+CPU/loader headers and private translated Wii game functions. Public tests
+compile the independent IOS runtime under C++20 `-Werror` and verify harness
+derivation; only owner-original CI can compile/link and execute the complete
+translated startup harness. A passing public build is **not** native game boot.
+
 
 The private test image is constructed from the SHA-256-authenticated owner's Wii
 DOL. Original PowerPC instructions are emitted to private temporary native C++
@@ -25,7 +62,7 @@ All five V141-V145 owner-original runs required **16/16** matching trials, in
 addition to preserving prior test gates. Their unit-test companions are invoked
 by `.github/workflows/native-recomp-source-checks.yml`.
 
-## Next frontier: original IPC IRQ delivery
+## Historical V145 to V146 frontier (earlier milestone)
 
 V145 **verified** the registered interrupt-handler entry at `0x80519318`,
 IRQ slot 27, after the authentic scheduler-disable routine. The original
@@ -39,7 +76,7 @@ registration. The scoped corrections preserve those original phase checks and
 allow only authentically located scheduler IRQ helper calls to proceed.
 No original instruction body or guest status is altered.
 
-V146 targets the first original helper call from inside the registered IPC
+At the V145 milestone, V146 targeted the first original helper call from inside the registered IPC
 handler. See `.github/workflows/wii-v146-sc-ipc-leaf.yml`. Reaching a helper
 is not equivalent to acknowledging the interrupt or completing a reply.
 
@@ -64,7 +101,7 @@ synthetic skip.
 - **Synthetic or host-provided:** Wii IOS guest-memory adapter, SYSCONF fixture,
   device-service steps, host scheduling boundary and native MMIO services.
   These are not a faithful ARM Starlet emulator or complete Wii hardware.
-- **Not verified:** SC reply consumption, release of the OSInit retry,
+- **Not verified at this historical V145 checkpoint:** SC reply consumption, release of the OSInit retry,
   complete Nintendo OS bootstrap, original `main`, Windows game window,
   first rendered frame, frontend, gameplay, audio or feature parity.
 
