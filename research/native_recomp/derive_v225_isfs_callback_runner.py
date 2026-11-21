@@ -2,6 +2,7 @@
 """V225 native callback AOT-root experiment with original V177 execution."""
 import argparse
 from pathlib import Path
+import re
 from derive_v177_sc_reply_next_runner import derive as previous
 
 OLD='python3 "$here/derive_v128_next_function_generator.py" "$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"'
@@ -12,9 +13,17 @@ PROBE=r'^V225_CB_ANALYZER rooted=1 analyzed=1$'
 
 def derive(source:str)->str:
     s=previous(source)
-    if s.count(OLD)!=1 or s.count(AFTER)!=1 or s.count(DONE)!=1:
-        raise ValueError("V225 inherited V177 native runner/generator seam changed")
-    s=s.replace(OLD,NEW,1)
+    hits=re.findall(
+        r'python3 "\\$here/(derive_v[0-9a-z_]+_generator\\.py)" '
+        r'"\\$here/generate_start_to_ipc_ack_v77\\.cpp" '
+        r'"\\$work/generator\\.cpp"',s)
+    if len(hits)!=1 or s.count(AFTER)!=1 or s.count(DONE)!=1:
+        raise ValueError("V225 inherited V177 generator substitution not unique")
+    old=('python3 "$here/'+hits[0]+'" '
+         '"$here/generate_start_to_ipc_ack_v77.cpp" "$work/generator.cpp"')
+    if s.count(old)!=1:
+        raise ValueError("V225 inherited active generator seam changed")
+    s=s.replace(old,NEW,1)
     # The generator's private progress log stays in the owner's mktemp.
     # Require a public fixed-string proof without echoing private details.
     s=s.replace(AFTER,AFTER+"""
