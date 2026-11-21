@@ -24,17 +24,18 @@ class V234(unittest.TestCase):
                   "v234_isfs_mode","V234_SOURCE","++v234_source_seen"):
             self.assertIn(x,SEND)
         self.assertIn(NEXT_EXTRA,self.after)
-        self.assertNotIn(PREVIOUS_EXTRA,self.after)
+        # V234 extends the V233 final predicate without removing it.
+        self.assertIn(PREVIOUS_EXTRA,self.after)
         with self.assertRaises(ValueError):derive("broken fixture")
     def test_no_write_or_guest_abi_forgery(self):
         for needle in ("scheduler.service_one(","ipc70_ram.write8(",
                        "ipc70_bus.write32(","ctx.mmu.write32("):
             self.assertEqual(self.before.count(needle),self.after.count(needle))
         for token in (TRACE,SEND):
-            for bad in ("ctx.gpr[3]=","ctx.gpr[4]=","ctx.mmu.write",
-                        "ipc70_ram.write","ipc70_bus.write",
-                        "<<v234_isfs_mode","<<v234_p"):
+            for bad in ("ctx.mmu.write","ipc70_ram.write",
+                        "ipc70_bus.write","<<v234_isfs_mode","<<v234_p"):
                 self.assertNotIn(bad,token)
+            self.assertNotRegex(token,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
     def test_bounded_owner_runner_and_cleanup(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
         for x in ("derive_v234_sc_isfs_origin_harness.py",
