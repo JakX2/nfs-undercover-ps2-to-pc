@@ -1,8 +1,8 @@
-# Wii SC IRQ native continuation: V141-V193
+# Wii SC IRQ native continuation: V141-V194
 
-Status: **V193 owner-original PowerPC checkpoint verified (16/16 trials)**.
-V194 is the experimental native interrupt-restore successor and is **not verified**
-until a separate owner-original test passes. This document retains the earlier V141-V145
+Status: **V194 owner-original PowerPC checkpoint verified (16/16 trials)**.
+V195 is an experimental hardware IRQ-entry checkpoint and is **not verified**
+until its separate owner-original test passes. This document retains the earlier V141-V145
 checkpoints as historical evidence, not as the current development frontier.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -26,13 +26,20 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V191 | [16-trial run 44856455287](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856455287) | Original PPC resumed from `0x805229B4` and reached the authentic OSInit retry helper entry `PC=0x8052F830 / LR=0x80520970`. `SC=1`, `MSR.EE=1`, external exception ready=1, second IOS completion remains queued, and all 16 owner-native/source-only checks passed. |
 | V192 | [16-trial run 44856826905](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856826905) | Executed the original helper at `0x8052F830`; next translated PPC entry was the original interrupt-disable helper at `PC=0x805265AC / LR=0x8052F84C`. Guest `r3=1`, CR0.EQ=1, `SC=1`, `MSR.EE=1`, `Y2=1`, Hollywood IRQ=1, one second IOS completion still queued, 16/16 original-game and public guards passed. |
 | V193 | [16-trial run 44857365572](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44857365572) | Executed original `OSDisableInterrupts` at `0x805265AC`, reaching authentic `OSRestoreInterrupts` at `PC=0x805265D4 / LR=0x8052F92C`. `MSR.EE=0`, IRQ-ready=0, `SC=1`, queued second IOS completion=1, Y2/flag=1, `r3=1`, CR0.EQ=0. Both owner original and original-free CI passed. |
+| V194 | [16-trial run 44857645514](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44857645514) | Executed original `OSRestoreInterrupts` and returned to **exactly** `PC=0x8052F830 / LR=0x80520970`, the same OSInit retry helper reached in V191. `r3=1`, CR0.EQ=1, SC=1, MSR.EE=1 and IRQ-ready=1. The Y2 Hollywood interrupt and one second IOS completion remained pending, demonstrating a repeatable native OSInit retry cycle. Owner-original 16/16 and public source guards passed. |
 
-**Current authentic guest frontier:** `0x805265D4` (LR `0x8052F92C`).
-The original OSInit helper now completed its authentic interrupt-disable
-sequence and called original `OSRestoreInterrupts`, while its second
-`IOS_Open` completion remains queued. V194 experimentally executes this
-restoration function to discover the next genuine guest entry and inspect
-MSR.EE, SC and IPC state without forcing an interrupt, IOS service or loop exit.
+**Current authentic guest frontier:** `0x8052F830` (LR `0x80520970`),
+after original `OSRestoreInterrupts`. The V191-V194 owner-original trace
+proves a closed SC initialization retry cycle with `MSR.EE` alternating
+through authentic disable/restore helpers, while the second IOS Y2 IRQ
+and a single IOS completion remain queued. The retry is not resolved.
+
+**V195 (unverified):** admit the pending Y2 through the existing native
+PowerPC external-exception entry helper only after all V194 original guest
+assertions and at the next unexecuted instruction boundary. The hardware
+helper validates the original installed exception vector, saves SRR0/SRR1,
+and masks EE. This is distinct from executing the original vector/handler,
+which must be a subsequent verified milestone; no IOS reply is fabricated.
 
 **Not yet achieved:** final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
