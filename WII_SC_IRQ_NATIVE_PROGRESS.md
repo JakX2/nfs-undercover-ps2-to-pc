@@ -1,8 +1,8 @@
-# Wii SC IRQ native continuation: V141-V197
+# Wii SC IRQ native continuation: V141-V199
 
-Status: **V197 owner-original second IOS exception dispatch checkpoint verified (16/16 trials)**.
-V198 is the experimental next original PowerPC timebase call and is **not
-verified** until its separate owner-original trial passes. This document retains the earlier V141-V145
+Status: **V199 owner-original second IOS timebase/scheduler transition verified (16/16 trials)**.
+V200, continuing the second IRQ dispatcher to its original registered
+IPC handler, is **not verified** until its separate owner-original trial passes. This document retains the earlier V141-V145
 checkpoints as historical evidence, not as the current development frontier.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -30,6 +30,8 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V195 | [16-trial run 44862789293](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44862789293) | Native hardware IRQ entry admitted the **second genuine IOS Y2** at authenticated V194 instruction boundary. Original installed exception vector checked; `SRR0=0x8052F830`, SRR1/MSR saved/masked, GPR/LR/CTR/XER preserved, guest PC moved to `0x80000500`. The queued second IOS completion was not delivered or fabricated. Owner-original and original-free suites passed. |
 | V196 | [16-trial owner run 44863075636](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44863075636) | Resumed the **original compiled PowerPC exception vector** at `0x80000500`, reached original OS exception handler `PC=0x80526CE0`; saved SRR0/1 and LR/CTR/XER/GPR frame verified; second IOS completion remains pending. Owner-original execution passed 16/16. |
 | V197 | [16-trial run 44863349099](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44863349099) | Executed authentic original second Y2 handler and entered IRQ dispatcher at `PC=0x80526A3C`; saved nonvolatile GPRs, SRR0/SRR1, LR/CTR/XER and unconsumed second IOS reply all verified. Owner-original and source-only CI passed 16/16. |
+| V198 | [16-trial run 44864067516](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44864067516) | Original second IRQ dispatcher called genuine timebase helper `PC=0x8052A824 / LR=0x80526C84`; EE masked, queued IOS completion intact, instruction count advanced. Corrected instrumentation validates prior V197 saved exception frame rather than incorrectly assuming live SRR0 is preserved. Owner-original and public CI passed. |
+| V199 | [16-trial run 44864292383](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44864292383) | Original second Y2 timebase helper executed into native scheduler-disable helper `PC=0x805293F8 / LR=0x80526C98`; EE masked, real IOS completion still pending, authentic guest execution progress, 16/16 owner and source-only checks passed. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -38,17 +40,19 @@ masked guest MSR. The V191-V194 owner-original trace proves a closed SC
 initialization retry cycle; V195 entered the second Y2 exception without
 consuming the queued IOS reply. The retry is not resolved.
 
-**Current verified PowerPC frontier: `PC=0x80526A3C`**, the original Wii
-IRQ dispatcher reached by the *second* genuine Y2 interrupt. V195 hardware
-exception entry, V196 original installed vector execution, and V197 authentic
-exception-handler dispatch are independently verified with 16 owner trials.
-The second IOS completion remains queued, not consumed.
+**Current verified PowerPC frontier: `PC=0x805293F8`, LR `0x80526C98`**,
+the original scheduler-disable helper reached during the *second* genuine
+Y2 interrupt. V195 hardware entry, V196 installed vector execution, V197
+exception-handler dispatch, V198 original timebase entry and V199 native
+timebase return to scheduler-disable are independently verified through
+16-trial owner-original execution.
 
-**V198 (unverified):** continue the original dispatcher into the native Wii
-timebase helper (historically `0x8052A824`, expected LR `0x80526C84`).
-Check guest instruction progress, masked EE, saved exception resume PC
-`0x8052F830`, and the still-queued second IOS `IOS_Open` completion,
-without forcing original dispatch or changing guest state.
+**V200 (unverified):** continue the genuine original scheduler-disable
+helper and dispatcher until the registered PowerPC IPC handler is selected.
+The first IRQ used original handler `0x80519318` at V145; the second
+interrupt must verify its actual handler, interrupt frame, LR, masked EE,
+and pending IOS completion rather than assume the same path. No host-side
+reply publication or synthetic SC status change should be introduced.
 
 **Not yet achieved:** final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
