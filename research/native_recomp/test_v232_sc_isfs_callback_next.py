@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from derive_v231_sc_y1_isfs_callback_harness import derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END
-from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, OPEN71_OLD, OPEN71_SCOPED, OPEN71_OLD, OPEN71_SCOPED
+from derive_v232_sc_isfs_callback_next_harness import derive, STOP, CONTINUE, OBSERVER, NEXT_END, OPEN71_OLD, OPEN71_SCOPED
 from derive_v232_sc_isfs_callback_next_runner import derive as runner, PATTERN, PASS
 from derive_v232_nand_callback_generator import derive as derive_generator, NEW_ROOTS
 HERE=Path(__file__).resolve().parent
