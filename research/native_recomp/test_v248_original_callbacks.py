@@ -21,7 +21,7 @@ def synthetic():
     for k in ("cb","nand"):
         addr,n=SPANS[k]
         pos=256+addr-lo
-        a[pos:pos+4]=b"\\x12\\x34\\x56\\x78"
+        a[pos:pos+4]=b"\x12\x34\x56\x78"
         a[pos+n-4:pos+n]=BLR
     original=bytes(a)
     b=bytearray(a)
