@@ -64,7 +64,7 @@ def derive(source:str)->str:
     # depend on an obsolete V77 trial pass/continue marker.
     if 'check(v194_guest&&v194_irq&&v194_sc&&v194_queue&&v194_open,' not in TAIL:
         raise ValueError("V195 V194 terminal guest proof anchor changed")
-    return s.replace(TAIL,TAIL+"\\n"+IRQ,1)
+    return s.replace(TAIL,TAIL+"\n"+IRQ,1)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
