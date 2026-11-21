@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND, TRACE_HOOK
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN, CALLBACK_PATTERN, CALLBACK_CLASS_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN, PROLOGUE_PATTERN, GPR_FLOW_PATTERN, PROVENANCE_PATTERN, CALLER_PATTERN, CALLBACK_PATTERN, CALLBACK_CLASS_PATTERN, CALLBACK_ENTRY_PATTERN, CALLBACK_FLOW_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -223,6 +223,19 @@ class V208(unittest.TestCase):
         self.assertNotRegex(TRACE_HOOK,r"<<\s*callback\b")
         self.assertNotRegex(TRACE_HOOK,r"<<\s*parent\b")
         self.assertIn("V208_Y2_CB_CLASS",script)
+        cb_entry="V208_Y2_CB_ENTRY caller=1 ctr=1 first=1 result=1 userdata=1 guest=1"
+        cb_flow=("V208_Y2_CB_FLOW inner=1 advanced=1 callback_site=1 "
+                 "reply_site=0 saved_r0=1 r0_cb=1 r0_reply=0")
+        self.assertIsNotNone(re.fullmatch(CALLBACK_ENTRY_PATTERN,cb_entry))
+        self.assertIsNotNone(re.fullmatch(CALLBACK_FLOW_PATTERN,cb_flow))
+        self.assertIsNone(re.fullmatch(CALLBACK_FLOW_PATTERN,cb_flow+" path=/private"))
+        self.assertIn("addr==0x804f0e04u",TRACE_HOOK)
+        self.assertIn("ctx.gpr[0]==source_lr",TRACE_HOOK)
+        self.assertIn("v208_isfs_cb_entry==1u",TRACE_HOOK)
+        self.assertIn("V208_Y2_CB_ENTRY",TRACE_HOOK)
+        self.assertIn("V208_Y2_CB_FLOW",TRACE_HOOK)
+        self.assertIn("V208_Y2_CB_ENTRY",script)
+        self.assertIn("V208_Y2_CB_FLOW",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
                 "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
         pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "

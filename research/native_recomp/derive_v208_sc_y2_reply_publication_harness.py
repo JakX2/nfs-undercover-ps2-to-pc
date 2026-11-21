@@ -211,6 +211,24 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
   }'''
 TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
+  // Watch whether original translated control first enters the real
+  // _isfsFuncCb target, before the later observed ISFS_OpenAsync frame.
+  // This is a read-only call-entry observation, never a callback override.
+  if(v176_next_seen==1u&&v177_next_seen==0u&&
+     v208_isfs_cb_entry==0u&&addr==0x804f0e04u&&ctx.pc==addr){
+    const bool reply_caller=ctx.lr==0x805192acu;
+    const bool ctr=ctx.ctr==addr;
+    const bool first=v153_phys!=0u&&ipc70_ram.valid(v153_phys,64u);
+    const bool result=first&&ctx.gpr[3]==ipc70_ram.read32(v153_phys+4u);
+    const bool userdata=first&&ctx.gpr[4]==ipc70_ram.read32(v153_phys+36u);
+    const bool guest=ctx.gpr[13]==v147_first_r13;
+    std::cout<<"V208_Y2_CB_ENTRY caller="<<reply_caller
+             <<" ctr="<<ctr<<" first="<<first
+             <<" result="<<result<<" userdata="<<userdata
+             <<" guest="<<guest<<std::endl;
+    ++v208_isfs_cb_entry;
+    v208_isfs_cb_inst=ctx.inst_count;
+  }
   // The verified V177-to-V178 transition enters ISFS_OpenAsync's original
   // prologue save helper. Observe r3/r4 *before* the guest function copies
   // its arguments into preserved PPC registers. This distinguishes
@@ -300,6 +318,22 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
              <<" same_ctr="<<same_ctr
              <<" first="<<from_first<<" second="<<from_second
              <<" user_mem2="<<cb_data_mem2<<std::endl;
+    // Compare the original function-entry order and the prologue's
+    // saved LR with the actual PPC r0 copy made by mflr and stw.
+    const bool inner=v208_isfs_cb_entry==1u;
+    const bool advanced=inner&&ctx.inst_count>v208_isfs_cb_inst;
+    const bool callback_site=source_lr==0x804f0f54u;
+    const bool reply_site=source_lr==0x805192acu;
+    const bool saved_r0=lr_mapped&&ctx.gpr[0]==source_lr;
+    const bool r0_cb=ctx.gpr[0]==0x804f0f54u;
+    const bool r0_reply=ctx.gpr[0]==0x805192acu;
+    std::cout<<"V208_Y2_CB_FLOW inner="<<inner
+             <<" advanced="<<advanced
+             <<" callback_site="<<callback_site
+             <<" reply_site="<<reply_site
+             <<" saved_r0="<<saved_r0
+             <<" r0_cb="<<r0_cb
+             <<" r0_reply="<<r0_reply<<std::endl;
     std::cout<<"V208_Y2_CB_ABI return="<<ipc_reply_return
              <<" parent="<<parent_mapped<<" target="<<target
              <<" ctr="<<ctr_target<<" result="<<r3_result
@@ -537,6 +571,8 @@ def derive(source:str)->str:
  static uint32_t v208_prologue_path=0u,v208_prologue_mode=0u;
  static bool v208_prologue_slash=false,v208_prologue_valid=false;
  static unsigned v208_prologue_seen=0u;
+ static unsigned v208_isfs_cb_entry=0u;
+ static uint64_t v208_isfs_cb_inst=0u;
  static uint64_t v208_prologue_inst=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
@@ -549,6 +585,8 @@ def derive(source:str)->str:
      nwii::runtime::v208_isfs_path=nwii::runtime::v208_isfs_mode=0u;
      nwii::runtime::v208_isfs_inst=0u;
      nwii::runtime::v208_prologue_seen=0u;
+     nwii::runtime::v208_isfs_cb_entry=0u;
+     nwii::runtime::v208_isfs_cb_inst=0u;
      nwii::runtime::v208_prologue_path=nwii::runtime::v208_prologue_mode=0u;
      nwii::runtime::v208_prologue_slash=nwii::runtime::v208_prologue_valid=false;
      nwii::runtime::v208_prologue_inst=0u;''')
