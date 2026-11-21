@@ -20,6 +20,21 @@ def derive(source: str)->str:
     if s.count(OLD)!=1 or s.count(FAIL)!=1 or s.count(DONE)!=1:
         raise ValueError("V186 inherited private original runner source anchors differ")
     s=s.replace(OLD,NEW,1)
+    # Bounded phase markers only: no compiler text or private paths.
+    for phase,anchor in (("compile",'for unit in harness generated loader; do'),
+                         ("link",'g++ "$work/harness.o" "$work/generated.o" "$work/loader.o"'),
+                         ("execute",'"$work/native" "$work/private.dol" owner "$owner"')):
+        if s.count(anchor)!=1:
+            raise ValueError(f"V186 owner original-free {phase} build anchor count differs")
+        marker=('echo "V186_BUILD unit=$unit"'
+                if phase=="compile" else f"echo 'V186_BUILD {phase}=1'")
+        if phase=="compile":
+            # Shell for-loop body executes once for each public build unit.
+            s=s.replace(anchor,anchor+'\\n  '+marker,1)
+        else:
+            s=s.replace(anchor,marker+'\\n'+anchor,1)
+    s=s.replace(FAIL,
+        '  grep -E "^(V186_BUILD unit=(harness|generated|loader)|V186_BUILD (link|execute)=1|V77_COMPILE_UNIT (harness|generated|loader|generator)|V67_NATIVE_ASSERTION id=[0-9]{3,4})$" "$work/private-native.log" | sort -u || true\\n'+FAIL,1)
     s=s.replace(FAIL,
         '  grep -E "'+PRE+'" "$work/private-native.log" | sort -u || true\n'
         +'  grep -E "'+ACK+'" "$work/private-native.log" | sort -u || true\n'

@@ -99,6 +99,14 @@ class V186(unittest.TestCase):
             path.write_text(script,encoding="utf-8")
             subprocess.run(["bash","-n",str(path)],check=True)
 
+    def test_bounded_owner_native_compiler_pipeline_markers(self):
+        s=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))
+        self.assertIn('V186_BUILD unit=$unit',s)
+        self.assertIn("V186_BUILD link=1",s)
+        self.assertIn("V186_BUILD execute=1",s)
+        self.assertIn("V77_COMPILE_UNIT",s)
+        self.assertIn("V67_NATIVE_ASSERTION",s)
+
     def test_source_guards_and_owner_private_workflow(self):
         with self.assertRaises(ValueError):derive("invalid")
         wf=(HERE.parents[1]/".github/workflows/wii-v186-second-ios-ack.yml").read_text(encoding="utf-8")
