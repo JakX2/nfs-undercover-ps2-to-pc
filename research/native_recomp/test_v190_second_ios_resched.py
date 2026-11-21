@@ -66,12 +66,12 @@ class V190(unittest.TestCase):
         compiler=shutil.which("g++")
         self.assertIsNotNone(compiler)
         translation_unit=(
-            '#include "wii_ios_bus.h"\\n'
-            '#include "wii_ios_yield_scheduler.h"\\n'
-            'static_assert(sizeof(undercover::wii::IpcMailbox)>0);\\n'
-            'static_assert(sizeof(undercover::wii::IosBus)>0);\\n'
-            'static_assert(sizeof(undercover::wii::IosYieldScheduler)>0);\\n'
-            'int main(){return 0;}\\n'
+            '#include "wii_ios_bus.h"\n'
+            '#include "wii_ios_yield_scheduler.h"\n'
+            'static_assert(sizeof(undercover::wii::IpcMailbox)>0);\n'
+            'static_assert(sizeof(undercover::wii::IosBus)>0);\n'
+            'static_assert(sizeof(undercover::wii::IosYieldScheduler)>0);\n'
+            'int main(){return 0;}\n'
         )
         with tempfile.TemporaryDirectory() as folder:
             cpp=Path(folder)/"public_ios.cpp"
