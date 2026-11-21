@@ -8,7 +8,8 @@ from pathlib import Path
 from derive_v189_second_ios_restore_harness import derive as previous
 from derive_v190_second_ios_resched_harness import (derive,STOP,CONTINUE,OBSERVER,
     NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE,
-    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY)
+    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY,
+    V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
 from derive_v190_second_ios_resched_runner import derive as runner,PATTERN,PASS,STATE,PASS_STATE
 HERE=Path(__file__).resolve().parent
 class V190(unittest.TestCase):
@@ -99,6 +100,16 @@ class V190(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",V190_V95_DIAGNOSTIC)
         self.assertNotIn("ipc70_ram.write",V190_V95_DIAGNOSTIC)
         self.assertNotIn("scheduler.service_one(",V190_V95_DIAGNOSTIC)
+
+    def test_passive_original_v95_cleanup_phase_diagnostic(self):
+        self.assertEqual(self.before.count(V95_CLEANUP_ASSERT),1)
+        self.assertEqual(self.after.count(V190_V95_CLEANUP_TRACE),1)
+        self.assertIn("V190_V95_CLEANUP phase=",V190_V95_CLEANUP_TRACE)
+        self.assertIn("v189_next_seen==1u",V190_V95_CLEANUP_TRACE)
+        self.assertIn("v189_target_pc==0x80529940u",V190_V95_CLEANUP_TRACE)
+        self.assertIn(V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
+        self.assertNotIn("ctx.mmu.write",V190_V95_CLEANUP_TRACE)
+        self.assertNotIn("scheduler.service_one",V190_V95_CLEANUP_TRACE)
 
     def test_owner_native_runner_and_workflow(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())

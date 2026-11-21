@@ -98,6 +98,15 @@ V190_SCOPED_QUERY_ENTRY='''if(post94_active&&post94_return==1u&&addr==0x8051a62c
       !(v189_next_seen==1u&&v186_ack_seen==1u&&
         v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
         v190_next_seen==0u)){'''
+V95_CLEANUP_ASSERT='''check(open83_free_restore==1u&&resume82_stop==1u&&reply79_irq==1u,"V95 ES open cleanup missing");'''
+V190_V95_CLEANUP_TRACE='''std::cout<<"V190_V95_CLEANUP phase="<<(v189_next_seen==1u)
+          <<" ack="<<(v186_ack_seen==1u)
+          <<" target="<<(v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u)
+          <<" seen="<<(v190_next_seen==1u)
+          <<" free="<<(open83_free_restore==1u)
+          <<" resume="<<(resume82_stop==1u)
+          <<" reply="<<(reply79_irq==1u)<<std::endl;
+     check(open83_free_restore==1u&&resume82_stop==1u&&reply79_irq==1u,"V95 ES open cleanup missing");'''
 PAIR=re.compile(r'c\.pc==nwii::runtime::v189_target_pc&&\s*c\.lr==nwii::runtime::v189_target_lr')
 NEXT_TRIAL='''       using V190Bus=undercover::wii::IosBus;
        using V190Irq=undercover::wii::HollywoodIrq;
@@ -174,7 +183,8 @@ def derive(source: str)->str:
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+'\n'+NEXT_TRIAL)
     s=once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
     s=once(s,V95_QUERY_ENTRY,V190_SCOPED_QUERY_ENTRY)
-    return once(s,V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
+    return once(once(s,V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC),
+                V95_CLEANUP_ASSERT,V190_V95_CLEANUP_TRACE)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
