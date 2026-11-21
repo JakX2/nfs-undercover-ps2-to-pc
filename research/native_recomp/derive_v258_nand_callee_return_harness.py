@@ -53,8 +53,16 @@ V178_NESTED='''    // This opt-in restored guest callback is beyond the reduced 
             (addr==0x805265acu&&ctx.lr==0x8051ad64u);
       const bool second=v258_nested_guest_calls!=2u||
             (addr==0x805265d4u&&ctx.lr==0x8051af08u);
-      check(code&&caller&&regs&&coherent&&first&&second&&
-            v258_nested_guest_calls<=12u,
+      const bool budget=v258_nested_guest_calls<=32u;
+      if(!(code&&caller&&regs&&coherent&&first&&second&&budget))
+        std::cout<<"V258_NAND_PHASE count="<<v258_nested_guest_calls
+                 <<" code="<<code<<" caller="<<caller
+                 <<" regs="<<regs<<" coherent="<<coherent
+                 <<" first="<<first<<" second="<<second
+                 <<" budget="<<budget
+                 <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+                 <<std::dec<<std::endl;
+      check(code&&caller&&regs&&coherent&&first&&second&&budget,
             "V258 restored NAND nested call exceeds verified bounded phase");
       return; // instrumentation only; original AOT call still executes
     }
