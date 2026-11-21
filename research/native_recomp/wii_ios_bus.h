@@ -23,6 +23,11 @@ public:
         ios_.reset();mail_.reset();irq_.reset();pi_mask_=other_causes_=0u;
     }
     StmIos& services() noexcept{return ios_;}
+    // Native IOS intake, distinct from the live Broadway X1 MMIO bit.
+    // A submitted request remains queued until a real Starlet ACK.
+    bool pending_native_ios_request() const noexcept {
+        return mail_.ios_request_queued();
+    }
     // Additional PI devices own their causes; Hollywood bit is derived.
     void set_other_pi_causes(uint32_t causes) noexcept {
         other_causes_=causes&~HollywoodIrq::PI_HOLLYWOOD;

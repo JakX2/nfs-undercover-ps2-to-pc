@@ -118,5 +118,36 @@ int main(){
             "invalid guest request was serviced without a valid 64-byte span");
     require(read(B::IPC+M::PPCCTRL)&M::X1,"invalid request silently cleared X1");
     require(scheduler.serviced_steps()>=9u,"scheduler did not record individual service steps");
+    // Separate second-open guest-yield scenario: Broadway can clear live
+    // X1 after submitting the actual request. The native IOS event is still
+    // serviced only on the explicit guest scheduler boundary, not on MMIO.
+    {
+        Ram lateram;
+        B latebus(lateram);
+        IosYieldScheduler late(latebus);
+        lateram.path(name,"/dev/stm/immediate");
+        lateram.write32(request,S::Open);
+        lateram.write32(request+12u,name);
+        require(latebus.write32(B::IPC+M::PPCMSG,request),"late PPCMSG rejected");
+        require(latebus.write32(B::IPC+M::PPCCTRL,en|M::X1),"late X1 rejected");
+        require(latebus.write32(B::IPC+M::PPCCTRL,en),"late X1 clear rejected");
+        require(latebus.pending_native_ios_request(),"native IOS event lost before yield");
+        require((latebus.read32(B::IPC+M::PPCCTRL).value()&M::X1)==0u,
+                "live X1 bit was not guest-clearable");
+        require(lateram.read32(request)==S::Open&&
+                latebus.services().queued_replies()==0u,
+                "guest request was serviced before a yield");
+        const auto lateack=late.service_one(0u);
+        require(lateack.progress==S::Pump::Ack&&lateack.serviced_steps==1u&&
+                !latebus.pending_native_ios_request()&&
+                latebus.services().queued_replies()==1u,
+                "native IOS guest-yield failed to acknowledge latched request");
+        require(lateram.read32(request)==S::Open,
+                "native IOS ACK incorrectly wrote an early reply");
+        const auto duplicate=late.service_one(B::MSR_EE);
+        require(duplicate.progress==S::Pump::Busy&&
+                duplicate.serviced_steps==lateack.serviced_steps,
+                "native IOS accepted a duplicate while old IRQ was pending");
+    }
     std::cout<<"PASS: native IOS guest-yield service, X1 ACK, deferred event, W1C IRQ, MSR.EE and request bounds\n";
 }

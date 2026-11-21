@@ -136,10 +136,12 @@ int main(){
         qwr(B::IPC+M::PPCCTRL,en|M::X1);
         qwr(B::IPC+M::PPCCTRL,en);
         assert((qrd(B::IPC+M::PPCCTRL)&M::X1)==0u);
+        assert(queued.pending_native_ios_request());
         assert(mem.read32(req)==S::Open&&queued.services().queued_replies()==0u);
         // A later guest PPCMSG rewrite cannot redirect the queued request.
         qwr(B::IPC+M::PPCMSG,event);
         assert(queued.tick()==S::Pump::Ack);
+        assert(!queued.pending_native_ios_request());
         assert(queued.services().is_open(0,S::Device::Immediate));
         assert(queued.services().queued_replies()==1u);
         assert((qrd(B::IPC+M::PPCCTRL)&M::Y2)!=0u);
