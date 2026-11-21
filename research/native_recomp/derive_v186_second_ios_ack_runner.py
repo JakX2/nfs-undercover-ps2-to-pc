@@ -42,9 +42,21 @@ def derive(source: str)->str:
     # The original owner native command is the only valid runtime failure
     # boundary. Inject before its private error classifier, not next to an
     # inherited V130 exit tag that may belong to an unrelated earlier phase.
-    native_catch='"$work/native" "$work/private.dol" owner "$owner" > "$work/private-native.log" 2>&1 || {'
+    native_cmd='"$work/native" "$work/private.dol" owner "$owner"'
+    native_catch=native_cmd+' > "$work/private-native.log" 2>&1 || {'
     if s.count(native_catch)!=1:
-        raise ValueError("V186 private native test catch boundary count differs")
+        # This is checked-in original-free shell source. No owner content is
+        # ever involved in derivation; print only coarse shape diagnostics.
+        lines=[line for line in s.splitlines() if native_cmd in line]
+        if len(lines)!=1:
+            raise ValueError(f"V186 native command count={len(lines)}")
+        line=lines[0]
+        raise ValueError("V186 native command shape:"
+                         f" pipe={int('||' in line)}"
+                         f" negated={int('if !' in line)}"
+                         f" redirect={int('private-native.log' in line)}"
+                         f" braced={int('{' in line)}"
+                         f" length={len(line)}")
     counts=(
         "  v186_pre=$(grep -c '^V186_IOS_PRE ' \"$work/private-native.log\" || true)\n"
         "  v186_ack=$(grep -c '^V186_SECOND_ACK ' \"$work/private-native.log\" || true)\n"
