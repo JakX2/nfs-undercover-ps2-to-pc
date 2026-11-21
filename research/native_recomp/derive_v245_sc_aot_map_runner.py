@@ -8,10 +8,17 @@ DONE="echo 'V244_SC_CALLBACK_LINK verified=1'"
 MARKERS=("echo 'V104_STAGE generation_complete'",
          "echo 'V79_STAGE generation_complete'")
 PATTERN=r'^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$'
-AUDIT='''if python3 "$V110_SOURCE_ROOT/audit_v245_generated_callback.py" "$owner" "$work/private.dol" "$work/generated/output.cpp" > "$work/v245-aot.log" 2>&1; then
-  grep -E '^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$work/v245-aot.log"
+AUDIT='''echo 'V245_STAGE entered=1'
+if python3 "$V110_SOURCE_ROOT/audit_v245_generated_callback.py" "$owner" "$work/private.dol" "$work/generated/output.cpp" > "$work/v245-aot.log" 2>&1; then
+  if grep -E '^V245_AOT_MAP owner=1 fixture_cb=[01] fixture_isfs=[01] fixture_nand=[01] fixture_ipc=[01] cb_entry=[01] cb_prologue=[01] cb_bctrl=[01] cb_link=[01] cb_ctr=[01] cb_return=[01] isfs_entry=[01] isfs_prologue=[01] isfs_save=[01] nand_entry=[01] dispatch_cb=[01] dispatch_isfs=[01] dispatch_nand=[01]$' "$work/v245-aot.log"; then
+    echo 'V245_STAGE completed=1'
+  else
+    echo 'V245_AOT_DIAG stage=record kind=mismatch'
+    exit 1
+  fi
 else
   grep -E '^V245_AOT_DIAG stage=(owner|fixture|generated|audit) kind=(read_failed|empty|validation|type)$' "$work/v245-aot.log" | sort -u || true
+  echo 'V245_STAGE failed=1'
   echo 'V245_AOT_MAP result=failed'
   exit 1
 fi'''
