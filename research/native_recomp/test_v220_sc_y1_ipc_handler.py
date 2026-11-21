@@ -32,6 +32,11 @@ class V220(unittest.TestCase):
                       "int32_t(ipc70_ram.read32(v183_second_phys+4u))==IOS::Invalid",
                       "++v220_ipc_seen"):
             self.assertIn(token,OBSERVER)
+        # Categorize only public assertion failures; no private guest data.
+        for label in ("Y1 signal","negative response","OS IRQ context",
+                      "IRQ caller ABI","guest SDA and instruction progress",
+                      "guest EE state","SC status"):
+            self.assertIn("V220_NEG_IPC source-owned "+label+" check failed",OBSERVER)
         with self.assertRaises(ValueError):derive("unmatched source")
     def test_no_synthetic_game_or_ios_state(self):
         for needle in ("scheduler.service_one(","ipc70_ram.write8(",

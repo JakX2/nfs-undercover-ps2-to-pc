@@ -54,6 +54,13 @@ OBSERVER='''void trace_call(uint32_t addr, CPUContext&ctx){
              <<" guest="<<guest<<" masked="<<masked
              <<" sc="<<sc<<" pc="<<std::hex<<addr
              <<" lr="<<ctx.lr<<std::dec<<std::endl;
+    check(irq,"V220_NEG_IPC source-owned Y1 signal check failed");
+    check(reply,"V220_NEG_IPC source-owned negative response check failed");
+    check(context,"V220_NEG_IPC source-owned OS IRQ context check failed");
+    check(caller,"V220_NEG_IPC source-owned IRQ caller ABI check failed");
+    check(guest,"V220_NEG_IPC source-owned guest SDA and instruction progress check failed");
+    check(masked,"V220_NEG_IPC source-owned guest EE state check failed");
+    check(sc,"V220_NEG_IPC source-owned SC status check failed");
     check(irq&&reply&&context&&caller&&guest&&masked&&sc,
           "V220 original third Y1 negative reply did not enter registered IPC handler");
     ++v220_ipc_seen;
