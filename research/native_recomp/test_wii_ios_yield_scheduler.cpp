@@ -125,6 +125,10 @@ int main(){
         Ram lateram;
         B latebus(lateram);
         IosYieldScheduler late(latebus);
+        require(latebus.write32(B::IPC+H::PPC_MASK,H::IPC_PPC),
+                "late IPC interrupt mask rejected");
+        require(latebus.write32(B::PI_MASK,H::PI_HOLLYWOOD),
+                "late processor interrupt mask rejected");
         lateram.path(name,"/dev/stm/immediate");
         lateram.write32(request,S::Open);
         lateram.write32(request+12u,name);
