@@ -1,6 +1,6 @@
-# Wii SC IRQ native continuation: V141-V249
+# Wii SC IRQ native continuation: V141-V255
 
-Status: **V249 privately restored the original Wii `_isfsFuncCb` and `nandOpenCallback` PowerPC bodies, regenerated their AOT translations, and independently compiled and linked them into a native executable. The existing owner-original V244 baseline remains independently verified (16/16 trials); native execution of the restored callback bodies is the unverified V250 frontier.**
+Status: **V249 restored and linked the original Wii callback bodies privately; V250 has directly observed authentic translated callback-to-NAND `bctrl`, and V253/V255 independently verify AOT translation stability. The historical V244 owner baseline remains 16/16 verified. Completing 16 owner-native trials of the restored callback candidate and executing the NAND body beyond its entry are the unverified V252/V254 frontiers.**
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
@@ -76,8 +76,17 @@ The independently passing
 [V251 AOT differential audit 44896778261](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44896778261)
 verified the restored callback and NAND bodies changed as intended while
 the IPC, ISFS and async control functions were byte-for-byte stable in
-generated native C++. One additional generated AOT function changed
-(`changed=1`), whose address/range is being classified by V253.
+generated native C++. One additional C++ parser span originally appeared
+changed (`changed=1`). The
+[V253 owner audit 44897986096](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44897986096)
+localized this single extra difference to the parser's **last** function,
+`0x8054B4B4`, outside either callback. The stricter
+[V255 owner + public audit 44898775294](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44898775294)
+proved `V255_AOT_TAIL parsed=1 last=1 pc=8054b4b4 body_same=1 tail_diff=1 controls=1 extras=1`:
+the **actual translated C++ function body is identical** and the
+difference is entirely trailing generated registration data. This
+resolves the sole apparent unrelated callback AOT modification; it is
+not a reason to rewrite original gameplay functions.
 
 **Candidate isolation:** V252 introduces an explicit `owner-callback`
 mode that stops at the already-observed authentic NAND bctrl entry,
@@ -86,9 +95,20 @@ for each of 16 randomized startup trials, then skips only *later
 historical full-run assertions* for that candidate mode. The V244
 owner baseline still executes first, unchanged; no guest state, IOS
 response, callback target or original Wii instruction is rewritten.
-V252 is unverified until its owner-native run succeeds. A subsequent
-milestone must execute the real NAND body and its downstream callback
-before claiming functional callback completion.
+V252 remains unverified until its owner-native run succeeds. The
+initial V252/V254 owner attempts observed the real original NAND
+`bctrl` (`auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1
+progressed=1 reply=1`) but failed on historical full-run **V163**
+assertions that had been written for the reduced NOP callback fixture,
+before candidate-specific per-trial validation. A new source-only
+candidate gate is being tested *immediately before* this inherited
+assertion and only for `owner-callback` after authentic NAND entry.
+The unmodified owner baseline retains the V163 and subsequent tests.
+V254 additionally attempts genuine original NAND function execution
+into its first PowerPC child call; this remains unverified until owner
+execution and all candidate trials succeed. A subsequent milestone
+must execute the remainder of NAND and its downstream callback before
+claiming functional callback completion.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
 
