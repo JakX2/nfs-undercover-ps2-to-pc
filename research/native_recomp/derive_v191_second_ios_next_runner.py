@@ -9,7 +9,7 @@ NEW='python3 "$here/derive_v191_second_ios_next_harness.py"'
 FAIL="  echo 'V130_NATIVE_EXIT ok=0'"
 DONE="echo 'V190_SC_RESCHED verified=1'"
 PATTERN=r'^V191_SC_NEXT y2=[01] flag=[01] queue=[01] request=[01] guest=[01] caller=[01] coherent=[01] mapped=[01] sc=[0-9]{1,3} ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
-PASS=r'^V191_SC_NEXT y2=[01] flag=[01] queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=[0-9]{1,3} ee=[01] ready=[01] pc=[0-9a-f]{8} lr=[0-9a-f]{8}$'
+PASS=r'^V191_SC_NEXT y2=1 flag=1 queue=1 request=1 guest=1 caller=1 coherent=1 mapped=1 sc=1 ee=1 ready=1 pc=8052f830 lr=80520970$'
 STATE=r'^V191_SC_STATE guest=[01] queue=[01] irq=[01] sc=[01]$'
 PASS_STATE=r'^V191_SC_STATE guest=1 queue=1 irq=1 sc=1$'
 
@@ -49,6 +49,17 @@ def derive(source: str)->str:
         '  grep -E "'+STATE+'" "$work/private-native.log" | sort -u || true\n'
     )
     s=s.replace(stage,stage+"\n"+probe,1)
+
+    # V153 captured a *masked* first SYSCONF reply, so its calculated
+    # v153_irq predicate was true at MSR.EE=0. V191 executes the original
+    # return-to-OSInit with MSR.EE=1 and IRQ delivery ready. In the second
+    # IOS ACK phase v153_mail/drained remain 0; only v153_irq becomes 0.
+    # Keep all original C++ V153 and V186 guest proofs unchanged.
+    old_v153="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1' \\"$log\\" | sort -u"
+    new_v153="grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0' \\"$log\\" | sort -u"
+    if s.count(old_v153)!=1:
+        raise ValueError("V191 previous V153 masked IRQ shell snapshot changed")
+    s=s.replace(old_v153,new_v153,1)
     s=s.replace(DONE,DONE+f"""
 grep -E '{PASS}' "$log" | sort -u
 test "$(grep -Ec '{PASS}' "$log")" -eq 16

@@ -30,6 +30,8 @@ class V191(unittest.TestCase):
         self.assertIn("v190_next_seen==1u&&v186_ack_seen==1u&&v191_next_seen==0u",OBSERVER)
         self.assertIn("ctx.inst_count>v191_start_inst",OBSERVER)
         self.assertIn("V191_SC_NEXT y2=",OBSERVER)
+        self.assertIn("sc==1u&&ee&&ready&&addr==0x8052f830u&&ctx.lr==0x80520970u",OBSERVER)
+        self.assertNotIn("ctx.msr=",OBSERVER)
         self.assertIn(NEXT_TRIAL,self.after)
 
     def test_ipc_and_cpu_remain_unmodified_by_new_observer(self):
@@ -61,9 +63,11 @@ class V191(unittest.TestCase):
         self.assertIn("derive_v191_second_ios_next_harness.py",script)
         self.assertIn("V190_SC_RESCHED verified=1",script)
         self.assertIn("V191_SC_NEXT verified=1",script)
+        self.assertIn("V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=0",script)
+        self.assertNotIn("grep -Fx 'V153_SC_REPLY_STATE bridge=1 wire=1 mail=0 drained=0 irq=1'",script)
         self.assertIn('trap \'rm -rf -- "$work"\' EXIT',script)
         good=("V191_SC_NEXT y2=1 flag=1 queue=1 request=1 guest=1 caller=1 "
-              "coherent=1 mapped=1 sc=1 ee=0 ready=0 pc=805229b4 lr=80526cbc")
+              "coherent=1 mapped=1 sc=1 ee=1 ready=1 pc=8052f830 lr=80520970")
         self.assertTrue(re.fullmatch(PASS,good))
         self.assertTrue(re.fullmatch(STATE,PASS_STATE.strip("^$")))
         self.assertFalse(re.fullmatch(PASS,good.replace("guest=1","guest=0")))

@@ -63,8 +63,11 @@ OBSERVER='''  // V191 resumes the exact V190 owner-original PC/LR without modify
              <<" coherent="<<coherent<<" mapped="<<mapped
              <<" sc="<<sc<<" ee="<<ee<<" ready="<<ready
              <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr<<std::dec<<std::endl;
-    check(guest&&caller&&coherent&&mapped,
-          "V191 authentic Wii context helper did not reach next native PPC function");
+    // The V191 owner-original 16-trial trace authenticated this exact
+    // return to OSInit, with interrupts enabled but second Y2 still pending.
+    check(y2&&flagset&&queue&&request&&guest&&caller&&coherent&&mapped&&
+          sc==1u&&ee&&ready&&addr==0x8052f830u&&ctx.lr==0x80520970u,
+          "V191 authentic Wii OSInit retry helper or IRQ state differed");
     v191_target_pc=addr;v191_target_lr=ctx.lr;
     v191_final_sc=sc;
     ++v191_next_seen;
