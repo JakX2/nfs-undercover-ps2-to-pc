@@ -70,6 +70,27 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     const bool stable_mode=sent&&v208_send_mode==mode_arg;
     std::cout<<"V208_Y2_STABLE sent="<<sent
              <<" path="<<stable_path<<" mode="<<stable_mode<<std::endl;
+    // Detect a possible argument transposition without exposing guest bytes.
+    // Physical IOS memory aliases MEM2 virtual 0x90000000..0x93FFFFFF.
+    const bool path_small_mode=path_arg>=1u&&path_arg<=3u;
+    const bool mode_mem2virt=mode_arg>=0x90000000u&&mode_arg<0x94000000u;
+    const uint32_t mode_as_phys=mode_arg&0x1fffffffu;
+    const bool mode_ptr=mode_mem2virt&&ipc70_ram.valid(mode_as_phys,1u);
+    const bool mode_slash=mode_ptr&&ipc70_ram.read8(mode_as_phys)==uint8_t('/');
+    bool mode_string=false;
+    if(mode_slash){
+      for(unsigned i=1u;i<64u;++i){
+        if(mode_as_phys>0xffffffffu-i||
+           !ipc70_ram.valid(mode_as_phys+i,1u))break;
+        const uint8_t ch=ipc70_ram.read8(mode_as_phys+i);
+        if(ch==0u){mode_string=true;break;}
+        if(ch<0x20u||ch>0x7eu)break;
+      }
+    }
+    std::cout<<"V208_Y2_SWAP path_mode="<<path_small_mode
+             <<" mode_mem2="<<mode_mem2virt<<" mode_mapped="<<mode_ptr
+             <<" mode_slash="<<mode_slash<<" mode_string="<<mode_string
+             <<std::endl;
     const bool path_zero=path_arg==0u;
     const bool path_mapped=!path_zero&&ipc70_ram.valid(path_arg,1u);
     const bool mode_valid=mode_arg<=3u;

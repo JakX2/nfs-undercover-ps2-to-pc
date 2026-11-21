@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -100,6 +100,13 @@ class V208(unittest.TestCase):
         self.assertIn("V208_Y2_STABLE",script)
         self.assertNotIn("<<a<<",SEND)
         self.assertNotIn("<<b<<",SEND)
+        swapped="V208_Y2_SWAP path_mode=1 mode_mem2=1 mode_mapped=1 mode_slash=1 mode_string=1"
+        self.assertIsNotNone(re.fullmatch(SWAP_PATTERN,swapped))
+        self.assertIsNone(re.fullmatch(SWAP_PATTERN,swapped+" raw=private"))
+        self.assertIn("V208_Y2_SWAP",PUBLISH)
+        self.assertIn("mode_arg&0x1fffffffu",PUBLISH)
+        self.assertIn("i<64u",PUBLISH)
+        self.assertNotIn("<<mode_as_phys",PUBLISH)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",
