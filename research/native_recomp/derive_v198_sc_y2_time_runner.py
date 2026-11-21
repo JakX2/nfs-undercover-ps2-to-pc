@@ -15,6 +15,13 @@ def derive(source:str)->str:
     if s.count(OLD)!=1 or s.count(DONE)!=1:
         raise ValueError("V198 native runner inherited second Y2 dispatcher gates changed")
     s=s.replace(OLD,NEW,1)
+    # A failed authentic observation throws before the owner runner emits its
+    # native-success line. Print only the bounded, original-free V198 flags
+    # from the private log at the inherited failure exit.
+    fail="  echo 'V130_NATIVE_EXIT ok=0'"
+    if s.count(fail)!=1:
+        raise ValueError("V198 owner-native failure-exit anchor changed")
+    s=s.replace(fail,'  grep -E "'+PATTERN+'" "$work/private-native.log" | sort -u || true\\n'+fail,1)
     success='  echo "V186_NATIVE_SUCCESS pre=$v186_pre ack=$v186_ack state=$v186_state previous=$v186_v185"'
     if s.count(success)!=1:
         raise ValueError("V198 native trial diagnostic anchor changed")
