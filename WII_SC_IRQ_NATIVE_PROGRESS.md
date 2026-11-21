@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V219
+# Wii SC IRQ native continuation: V141-V221
 
-Status: **V219 original third-negative-Y1 `OSGetTime` returned to the real scheduler-disable entry (16/16 owner-original trials); V214–V218 negative reply transport, PowerPC vector, handler and dispatcher execution verified**.
+Status: **V221 original third-negative-Y1 registered IPC handler reached its authentic hardware read helper (16/16 owner-original trials); V214–V220 negative reply transport, PowerPC vector, scheduler and IRQ callback verified**.
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
-**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry and the original IRQ dispatcher. A successful SYSCONF file open or execution of the registered IPC callback for this third interrupt is not verified.**
+**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry and the original IRQ dispatcher. A successful SYSCONF file open or completion of the registered IPC callback for this third interrupt is not verified.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -54,6 +54,8 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V217 (negative Y1 lane) | [16-trial run 44875869747](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44875869747) | Original game PowerPC code executed from exception handler `0x80526CE0` into original IRQ dispatcher `PC=0x80526A3C / LR=0x80520970`. The hardware Y1/IRQ is asserted, the genuine `IOS_Open=-4` reply remains in the second request, original context and masked MSR state are coherent. `V217_NEG_DISPATCH index=1 context=1 masked=1 irq=1 reply=1 guest=1 saved=1 pc=80526a3c lr=80520970`. Owner 16/16 and public tests passed. This does not demonstrate registered IPC callback execution. |
 | V218 (negative Y1 lane) | [16-trial run 44876238673](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44876238673) | Original `__OSDispatchInterrupt` advanced from `0x80526A3C` into its genuine `OSGetTime` helper at `PC=0x8052A824 / LR=0x80526C84`. `V218_NEG_NEXT irq=1 reply=1 guest=1 caller=1 masked=1 sc=1 pc=8052a824 lr=80526c84`. The actual negative IOS_Open response, pending Y1 interrupt and SC status 1 remained intact. Owner 16/16 and public source-only tests passed; **this is OSGetTime, not the registered IPC handler**. |
 | V219 (negative Y1 lane) | [16-trial run 44876483964](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44876483964) | Executed original `OSGetTime` through its return to the IRQ dispatcher, then reached original `OSDisableScheduler` at `PC=0x805293F8 / LR=0x80526C98`. `V219_NEG_OSDI guest=1 caller=1 masked=1 irq=1 reply=1 sc=1 pc=805293f8 lr=80526c98`. All 16 owner-original and public tests passed. The registered IPC handler entry is the next unverified guest-code checkpoint. |
+| V220 (negative Y1 lane) | [16-trial run 44877456875](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877456875) | The third original Y1 interrupt passed `OSDisableScheduler` and entered the genuine `IPCInterruptHandler` at `PC=0x80519318 / LR=0x80526CAC` with registered IRQ slot 27 and the saved CPU frame. `V220_NEG_IPC irq=1 reply=1 context=1 caller=1 guest=1 masked=1 sc=1 pc=80519318 lr=80526cac`. All 16 owner-native and public tests passed. The probe initially used dispatcher index 4 where the callback expects slot 27; this **test-harness assertion defect** was corrected without modifying guest instructions. |
+| V221 (negative Y1 lane) | [16-trial run 44877842764](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44877842764) | The original registered third-Y1 IPC callback executed its PowerPC body and called hardware read helper `PC=0x8051905C / LR=0x8051933C`. `V221_NEG_LEAF call=1 masked=1 signal=1 reply=1 stepped=1 sc=1 pc=8051905c lr=8051933c`. Original `IOS_Open=-4`, Y1 asserted and SC status 1 remain intact. All 16 owner-original trials and public tests passed; no successful SYSCONF open or callback completion is claimed. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -104,8 +106,7 @@ to `ExternalInterruptHandler` (V216), reached `__OSDispatchInterrupt`
 (V217), called original `OSGetTime` (V218), and returned through the
 dispatcher into original `OSDisableScheduler` (V219). The pending IRQ
 and negative reply remain intact. This is a **native execution milestone**,
-not an SC-ready transition or successful file open. V220 is an unverified
-attempt to enter the registered IPC interrupt handler with this reply.
+not an SC-ready transition or successful file open. V220 and V221 now **verify** the original registered IRQ callback entry and its first hardware read with this reply. Further callback execution and delivery to the SC reader are not yet verified.
 
 **Parallel IOS publication: faithful negative reply verified (V214), successful open not achieved:** the
 independent `wii-v208-sc-y2-reply-publication.yml` performs a single native
