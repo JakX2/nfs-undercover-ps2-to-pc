@@ -1,7 +1,7 @@
-# Wii SC IRQ native continuation: V141-V192
+# Wii SC IRQ native continuation: V141-V193
 
-Status: **V192 owner-original PowerPC checkpoint verified (16/16 trials)**.
-V193 is the experimental native interrupt-disable successor and is **not verified**
+Status: **V193 owner-original PowerPC checkpoint verified (16/16 trials)**.
+V194 is the experimental native interrupt-restore successor and is **not verified**
 until a separate owner-original test passes. This document retains the earlier V141-V145
 checkpoints as historical evidence, not as the current development frontier.
 
@@ -25,13 +25,14 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V190 | [16-trial run 44852816608](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44852816608) | Authentic rescheduler entered `PC=0x805229B4 / LR=0x80526CBC`; `Y2=1`, IRQ flag=1, one genuine second IOS completion queued, guest state coherent, SC=1, MSR.EE=0. |
 | V191 | [16-trial run 44856455287](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856455287) | Original PPC resumed from `0x805229B4` and reached the authentic OSInit retry helper entry `PC=0x8052F830 / LR=0x80520970`. `SC=1`, `MSR.EE=1`, external exception ready=1, second IOS completion remains queued, and all 16 owner-native/source-only checks passed. |
 | V192 | [16-trial run 44856826905](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44856826905) | Executed the original helper at `0x8052F830`; next translated PPC entry was the original interrupt-disable helper at `PC=0x805265AC / LR=0x8052F84C`. Guest `r3=1`, CR0.EQ=1, `SC=1`, `MSR.EE=1`, `Y2=1`, Hollywood IRQ=1, one second IOS completion still queued, 16/16 original-game and public guards passed. |
+| V193 | [16-trial run 44857365572](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44857365572) | Executed original `OSDisableInterrupts` at `0x805265AC`, reaching authentic `OSRestoreInterrupts` at `PC=0x805265D4 / LR=0x8052F92C`. `MSR.EE=0`, IRQ-ready=0, `SC=1`, queued second IOS completion=1, Y2/flag=1, `r3=1`, CR0.EQ=0. Both owner original and original-free CI passed. |
 
-**Current authentic guest frontier:** `0x805265AC` (LR `0x8052F84C`).
-The original OSInit retry helper called the original interrupt-disable helper
-while the second `IOS_Open` remained acknowledged with a completion queued.
-V193 is the next experimental phase: execute that genuine interrupt-disable
-call and inspect the resulting guest state without forcing a retry exit,
-servicing IOS or modifying any guest result.
+**Current authentic guest frontier:** `0x805265D4` (LR `0x8052F92C`).
+The original OSInit helper now completed its authentic interrupt-disable
+sequence and called original `OSRestoreInterrupts`, while its second
+`IOS_Open` completion remains queued. V194 experimentally executes this
+restoration function to discover the next genuine guest entry and inspect
+MSR.EE, SC and IPC state without forcing an interrupt, IOS service or loop exit.
 
 **Not yet achieved:** final acknowledgment/publication of the *second* IOS
 reply, SC status transition to ready, exit from OSInit retry into original
