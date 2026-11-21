@@ -1,10 +1,10 @@
-# Wii SC IRQ native continuation: V141-V216
+# Wii SC IRQ native continuation: V141-V217
 
-Status: **V216 original third Wii interrupt vector executed to genuine exception handler; V214–V216 negative IOS reply transport and vector path verified (16/16 owner-original trials each)**.
+Status: **V217 original negative IOS Y1 guest IRQ dispatcher reached (16/16 owner-original trials); V214–V216 negative reply transport and original interrupt-vector execution verified**.
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
 handler, control-register read and write helpers, PPCCTRL Y2 write-one-to-clear,
 Hollywood PPC_FLAG W1C, post-ACK IPC handling, genuine scheduler/interrupt-control functions, guest-selected CPU context restoration, and the original resumed game-thread call after RFI.
-**Second IOS reply transport is verified for the authentic −4 result, with Y1 exception entry and vector-to-handler execution. A successful second SYSCONF file open and processing by the registered IPC callback are not verified.**
+**Second IOS reply transport is verified for the authentic −4 result, including Y1 exception entry and the original IRQ dispatcher. A successful SYSCONF file open or execution of the registered IPC callback for this third interrupt is not verified.**
 Earlier V141-V145 checkpoints remain historical first-interrupt evidence.
 
 ## Latest verified Wii PowerPC execution (2026-11-21)
@@ -51,6 +51,7 @@ until Starlet ACK, and defers completion delivery until the guest acknowledges
 | V214 (parallel IPC lane) | [16-trial run 44874813700](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44874813700) | At the original guest-selected yield after the second Y2 ACK, one native `IosYieldScheduler::service_one` publishes the **actual** `IOS_Open=-4 (Invalid)` reply without fabricating a descriptor, drains the queued completion, asserts Hollywood Y1/IRQ and preserves the guest CPU/SC status. `V214_Y2_NEGATIVE invalid=1 mode=1 path=1 published=1 irq=1 drained=1 cpu=1 sc=1`. Owner 16/16 and public tests passed. This verifies **transport of a negative response**, not a successful IOS Open or execution of the original Y1 handler. |
 | V215 (negative Y1 lane) | [16-trial run 44874980129](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44874980129) | The authentic game-selected thread was restored through the original V212 PowerPC `rfi` with MSR.EE=1; a native IOS scheduler step published the real `-4 Invalid` reply, drained its queue and asserted Y1/IRQ. The Broadway hardware exception bridge entered the installed original `0x80000500` vector with the interrupted PC/MSR/GPRs/LR/CTR/XER preserved. `V215_Y1_VECTOR pump=1 published=1 signal=1 empty=1 cpu=1 entered=1 saved=1 regs=1 masked=1 sc=1`. Owner 16/16 and public passed. |
 | V216 (negative Y1 lane) | [16-trial run 44875351209](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44875351209) | Executed the actual installed original Wii external-vector instructions from `0x80000500` into original exception handler `PC=0x80526CE0 / LR=0x80520970`, retaining the **negative** second IOS reply, Y1 IRQ, saved CPU ABI and masked MSR.EE. `V216_Y1_ENTRY saved=1 regs=1 bytes=1 masked=1 y1=1 negative=1`; `V216_Y1_HANDLER vector=1 irq=1 reply=1 index=1 context=1 masked=1 progressed=1 pc=80526ce0 lr=80520970`. Owner 16/16 and public passed. |
+| V217 (negative Y1 lane) | [16-trial run 44875869747](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44875869747) | Original game PowerPC code executed from exception handler `0x80526CE0` into original IRQ dispatcher `PC=0x80526A3C / LR=0x80520970`. The hardware Y1/IRQ is asserted, the genuine `IOS_Open=-4` reply remains in the second request, original context and masked MSR state are coherent. `V217_NEG_DISPATCH index=1 context=1 masked=1 irq=1 reply=1 guest=1 saved=1 pc=80526a3c lr=80520970`. Owner 16/16 and public tests passed. This does not demonstrate registered IPC callback execution. |
 
 **Current authenticated instruction boundary:** the V194 original guest stopped
 at `0x8052F830` (LR `0x80520970`), and V195 subsequently admitted the
@@ -130,21 +131,37 @@ code or synthesizing a handle. A direct cached/uncached alias `get_ptr`
 probe was also removed after a separate unverified regression.
 Neither early harness failure was a legitimate game execution result.
 
-**V215–V216 verified:** both the genuine negative −4 IOS completion
-and the original Wii PowerPC exception-vector body have now been tested
-with 16 owner-original trials each. V216 reached the native original
-exception handler at `0x80526CE0`, but not yet the registered IPC
-callback. This remains a negative reply, not a successful SYSCONF open.
+**V215–V217 verified:** native IOS publishes the genuine negative −4
+completion, the Wii hardware bridge enters the installed external vector,
+and original PowerPC vector/handler instructions reach the original IRQ
+dispatcher at `0x80526A3C`. Each owner-original checkpoint passed 16/16
+trials with public tests. The registered IPC callback still needs its own
+original-code execution proof. This is a negative reply, not a successful
+SYSCONF open.
 
-**Next (unverified):** execute the original third Y1 interrupt handler
-into its registered IPC dispatcher and measure how genuine Wii game code
-handles the authentic negative reply. Independently the source-owned
-`IOS_OpenAsync` input-ABI probe compares its original PowerPC incoming
-r3/r4 with the subsequently submitted physical request's `+0x0C/+0x10`
-fields. The owner's ELF confirms `IOS_OpenAsync` writes a physical
-pathname pointer at `+0x0C` and its mode argument at `+0x10`.
-Neither follow-on investigation should modify guest code, suppress a
-real error, or invent a positive file descriptor.
+**Next IRQ lane (unverified):** continue from verified V217 original
+`0x80526A3C` IRQ dispatcher to its next guest PowerPC function and
+eventually the registered IPC callback. The hourly development task has
+already authored a V218 source-only test; check owner-original verification
+before declaring an additional milestone.
+
+**Request-construction diagnosis:** owner-native
+[run 44876070293](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/44876070293)
+proved the *original IOS_OpenAsync incoming ABI* was already malformed:
+`pathslash=0 modevalid=0 modemem2=1 modeslash=1` at the genuine function
+entry, LR `0x804F1ECC`. Its physical IPC writer later preserved both
+values exactly:
+`V208_Y2_ASYNC_LINK witnessed=1 path_same=1 mode_same=1`. The original
+`IOS_OpenAsync` stores, IPC mailbox, native Starlet reply and physical
+cache forwarding are not the source of these argument values.
+Static inspection of the owner ELF identified its direct caller as
+`ISFS_OpenAsync` at `0x804F1E2C`; it forwards a pathname buffer and
+an opening mode into `IOS_OpenAsync`. The source-only, read-only probe
+now compares the original `ISFS_OpenAsync` incoming registers with
+the subsequent `IOS_OpenAsync` registers without exporting the private
+game's code, registers, pointers or pathname contents. This producer
+comparison remains **unverified** until owner CI finishes. Do not patch
+guest args, change the IOS ABI, or fabricate a successful file descriptor.
 
 **Next (unverified):** trace authentic second `IOS_Open` request
 buffer construction and physical RAM/cache visibility before the original
