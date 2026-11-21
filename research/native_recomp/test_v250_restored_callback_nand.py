@@ -7,9 +7,9 @@ import unittest
 from pathlib import Path
 from derive_v244_sc_callback_link_harness import derive as previous_cpp
 from derive_v250_restored_callback_nand_harness import (
-    derive as candidate_cpp, OBSERVER, OWNER, OWNER_NEW, CHECK,
+    derive as candidate_cpp, OBSERVER, OWNER, OWNER_NEW,
 )
-from derive_v250_restored_callback_nand_runner import derive as runner, NAND, PASS, TRIAL, STAGE
+from derive_v250_restored_callback_nand_runner import derive as runner, NAND, PASS, STAGE
 HERE=Path(__file__).resolve().parent
 
 class V250(unittest.TestCase):
@@ -25,8 +25,10 @@ class V250(unittest.TestCase):
         self.assertIn(OWNER_NEW,self.after)
         self.assertIn('std::string(argv[2])=="owner"',self.after)
         self.assertIn('std::string(argv[2])=="owner-callback"',self.after)
-        self.assertIn('if(v250_probe)',self.after)
-        self.assertIn('continue; // only candidate mode skips V244',self.after)
+        # The first test-only ExceptionStop precedes the IOS callback.
+        self.assertNotIn("V250 original restored callback NAND checkpoint missing",self.after)
+        self.assertNotIn("V250_PHASE cb=",self.after)
+        self.assertIn('check(exception_stop,"exception initialization did not reach exact test-only syscall");',self.after)
         self.assertIn('V244 original callback nested link provenance missing',self.after)
         with self.assertRaises(ValueError):candidate_cpp("invalid public C++")
         self.assertEqual(self.after.count('V250_NAND_BCTRL auth='),1)
@@ -42,17 +44,13 @@ class V250(unittest.TestCase):
             'ctx.gpr[4]==ctx.mmu.read32(v250_userdata+260u)',
             'ctx.inst_count>v250_initial_inst',
             'ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply',
-            '++v250_nand_seen', 'throw ExceptionStop{};',
+            '++v250_nand_seen',
+            'return; // continue executing original NAND callback',
             'V250_CB_BEGIN candidate=1 reply='
         ):
             self.assertIn(marker,OBSERVER)
-        self.assertIn("V250_PHASE cb=",CHECK)
-        self.assertIn("phase_cb_dispatch",CHECK)
-        self.assertIn("phase_first_reply",CHECK)
-        self.assertIn("stop_nand=c.pc",CHECK)
-        for marker in ("v250_cb_seen==1u","v250_nand_seen==1u",
-                       "c.pc==0x8051e06cu"):
-            self.assertIn(marker,CHECK)
+        self.assertNotIn("throw ExceptionStop{};",OBSERVER)
+        self.assertIn("ctx.pc==addr&&addr==0x8051e06cu",OBSERVER)
         for fragment in ("ipc70_ram.write","ctx.mmu.write","ipc70_bus.write"):
             self.assertNotIn(fragment,OBSERVER)
         self.assertIsNone(re.search(r"ctx\.pc\s*=(?!=)",OBSERVER))
@@ -73,8 +71,6 @@ class V250(unittest.TestCase):
         self.assertIsNotNone(re.fullmatch(PASS,good))
         self.assertIsNotNone(re.fullmatch(NAND,good.replace("link=1","link=0")))
         self.assertIsNone(re.fullmatch(PASS,good.replace("frame16=1","frame16=0")))
-        self.assertIsNotNone(re.fullmatch(TRIAL,"V250_TRIAL_PASS trial=16"))
-        self.assertIsNone(re.fullmatch(TRIAL,"V250_TRIAL_PASS trial=17"))
         self.assertNotIn("cat \"$work",STAGE)
         self.assertNotIn("upload-artifact",STAGE)
         from diagnose_v250_native_phase import describe

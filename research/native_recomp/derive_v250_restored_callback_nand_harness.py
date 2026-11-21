@@ -55,47 +55,10 @@ OBSERVER='''  // V250 candidate-only read-only probe: the authentic restored
     check(auth&&frame&&link&&ctr&&abi&&userdata&&progressed&&reply,
           "V250 restored original callback did not enter NAND via genuine bctrl");
     ++v250_nand_seen;
-    ctx.is_running=false;throw ExceptionStop{};
+    return; // continue executing original NAND callback instructions
   }
 '''
 POST='''      check(exception_stop,"exception initialization did not reach exact test-only syscall");'''
-CHECK='''      if(v250_probe){
-        // Phase-only snapshot taken at the actual candidate stop. Never
-        // infer NAND execution from the absence of a V250 observer.
-        const bool phase_cb=nwii::runtime::v240_callback_seen!=0u;
-        const bool phase_cb_dispatch=nwii::runtime::v241_cb_count!=0u;
-        const bool phase_cb_entry=nwii::runtime::v244_cb_seen!=0u;
-        const bool phase_save=nwii::runtime::v244_save_seen!=0u;
-        const bool phase_submit=nwii::runtime::v244_submit_seen!=0u;
-        const bool phase_ios_second=nwii::runtime::v183_second_phys!=0u;
-        const bool phase_first_reply=nwii::runtime::v153_phys!=0u&&
-              nwii::runtime::ipc70_ram.valid(nwii::runtime::v153_phys,64u)&&
-              nwii::runtime::ipc70_ram.read32(nwii::runtime::v153_phys)==
-                    undercover::wii::StmIos::Reply;
-        const bool stop_text=c.pc>=0x80400000u&&c.pc<0x80600000u;
-        const bool stop_cb=c.pc>=0x804f0e04u&&c.pc<0x804f0f84u;
-        const bool stop_nand=c.pc>=0x8051e06cu&&c.pc<0x8051e0e4u;
-        const bool stop_isfs=c.pc>=0x804f1e2cu&&c.pc<0x804f1ee4u;
-        const bool stop_ipc=c.pc>=0x805190c0u&&c.pc<0x80519318u;
-        std::cout<<"V250_PHASE cb="<<phase_cb
-                 <<" dispatch="<<phase_cb_dispatch
-                 <<" entry="<<phase_cb_entry
-                 <<" save="<<phase_save<<" submit="<<phase_submit
-                 <<" second="<<phase_ios_second
-                 <<" first_reply="<<phase_first_reply
-                 <<" guest_text="<<stop_text
-                 <<" at_cb="<<stop_cb<<" at_nand="<<stop_nand
-                 <<" at_isfs="<<stop_isfs<<" at_ipc="<<stop_ipc
-                 <<" mode="<<nwii::runtime::v250_candidate_mode
-                 <<std::endl;
-        check(nwii::runtime::v250_cb_seen==1u&&
-              nwii::runtime::v250_nand_seen==1u&&
-              c.pc==0x8051e06cu&&!c.is_running,
-              "V250 original restored callback NAND checkpoint missing");
-        std::cout<<"V250_TRIAL_PASS trial="<<trial+1u<<std::endl;
-        continue; // only candidate mode skips V244's unrelated later stop
-      }
-'''
 
 def derive(source:str)->str:
     s=source
@@ -115,7 +78,6 @@ def derive(source:str)->str:
      nwii::runtime::v250_initial_inst=0u;''')
     s=once(s,OWNER,OWNER_NEW)
     s=once(s,TRACE_ANCHOR,TRACE_ANCHOR+"\n"+OBSERVER)
-    s=once(s,POST,POST+"\n"+CHECK)
     return s
 
 if __name__=="__main__":

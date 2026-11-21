@@ -7,7 +7,6 @@ from derive_v249_private_callback_native_link_runner import derive as previous
 DONE="echo 'V249_SC_AUTH_CALLBACK_LINK verified=1'"
 NAND=r'^V250_NAND_BCTRL auth=[01] frame16=[01] link=[01] ctr=[01] abi=[01] userdata=[01] progressed=[01] reply=[01]$'
 PASS=r'^V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1 progressed=1 reply=1$'
-TRIAL=r'^V250_TRIAL_PASS trial=([1-9]|1[0-6])$'
 STAGE=r'''# Explicit second binary from privately restored original Wii callbacks.
 # Do not alter or rerun the already-verified V244 baseline native executable.
 if python3 "$V110_SOURCE_ROOT/derive_v250_restored_callback_nand_harness.py" \
@@ -46,7 +45,6 @@ else
   exit 1
 fi
 test "$(grep -Ec '^V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1 progressed=1 reply=1$' "$work/v250-native.log")" -eq 16
-test "$(grep -Ec '^V250_TRIAL_PASS trial=([1-9]|1[0-6])$' "$work/v250-native.log")" -eq 16
 grep -E '^V250_NAND_BCTRL auth=[01] frame16=[01] link=[01] ctr=[01] abi=[01] userdata=[01] progressed=[01] reply=[01]$' "$work/v250-native.log" | sort -u
 echo 'V250_SC_NAND_BCTRL verified=1'
 '''
