@@ -72,6 +72,18 @@ class V190(unittest.TestCase):
                 "-I",str(HERE.parents[1]/"nWiiRuntime"/"include"),
                 "-fsyntax-only",str(cpp)],
                 capture_output=True,text=True,timeout=90)
+            if proc.returncode!=0:
+                # Report only independently authored C++ error categories and
+                # lines. Never expose source snippets or owner-original data.
+                matches=re.findall(r"harness\\.cpp:([0-9]{1,6}):[0-9]+: (?:fatal )?error: ([^\\n]+)",
+                                   proc.stderr)
+                for line,reason in matches[:5]:
+                    kind=("undeclared" if "not declared" in reason else
+                          "unused" if "unused" in reason else
+                          "invalid" if "invalid" in reason else
+                          "redefinition" if "redefinition" in reason else
+                          "syntax" if "expected" in reason else "other")
+                    print(f"V190_CPP_DIAG line={line} kind={kind}")
             self.assertEqual(proc.returncode,0,
                 "V190 independent harness violates owner Werror C++ compile policy")
         self.assertNotIn("using V190Irq=undercover::wii::HollywoodIrq;",self.after)
