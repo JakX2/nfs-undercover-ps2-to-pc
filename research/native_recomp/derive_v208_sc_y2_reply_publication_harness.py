@@ -65,6 +65,11 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     // Classify those original request words without printing private bytes.
     const uint32_t path_arg=ipc70_ram.read32(req+12u);
     const uint32_t mode_arg=ipc70_ram.read32(req+16u);
+    const bool sent=v208_send_seen==1u;
+    const bool stable_path=sent&&v208_send_path==path_arg;
+    const bool stable_mode=sent&&v208_send_mode==mode_arg;
+    std::cout<<"V208_Y2_STABLE sent="<<sent
+             <<" path="<<stable_path<<" mode="<<stable_mode<<std::endl;
     const bool path_zero=path_arg==0u;
     const bool path_mapped=!path_zero&&ipc70_ram.valid(path_arg,1u);
     const bool mode_valid=mode_arg<=3u;
@@ -114,6 +119,7 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
              <<" lr="<<ctx.lr<<std::dec<<std::endl;
     // Each condition has a distinct source-only assertion label. Owner
     // diagnostics report only the failing category, never guest data.
+    check(sent,"V208 second IOS original guest submission not witnessed");
     check(step,"V208 second IOS native reply service step failed");
     check(wire,"V208 second IOS original request reply wire failed");
     check(signal,"V208 second IOS Y1 and Hollywood IRQ publication failed");
@@ -128,6 +134,20 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
     ++v208_reply_seen;
     ctx.is_running=false;throw ExceptionStop{};
   }'''
+SEND='''      // Observe only the actual guest-owned second IPC request at PPCMSG.
+      // Keep its source arguments privately for a post-ACK stability check.
+      const uint32_t a=ipc70_ram.read32(value+12u);
+      const uint32_t b=ipc70_ram.read32(value+16u);
+      v208_send_path=a;v208_send_mode=b;
+      ++v208_send_seen;
+      const bool ptr=a!=0u&&ipc70_ram.valid(a,1u);
+      const bool slash=ptr&&ipc70_ram.read8(a)==uint8_t('/');
+      std::cout<<"V208_Y2_SEND witness="<<(v208_send_seen==1u)
+               <<" ptr="<<ptr<<" slash="<<slash
+               <<" mode_valid="<<(b<=3u)
+               <<" mode_mem2="<<(b>=0x90000000u&&b<0x94000000u)
+               <<std::endl;
+      v183_second_phys=value;'''
 NEXT_END='''      using B=undercover::wii::IosBus;
       using M=undercover::wii::IpcMailbox;
       using H=undercover::wii::HollywoodIrq;
@@ -162,10 +182,15 @@ def derive(source:str)->str:
         raise ValueError("V208 authenticated original second Y2 yield changed")
     s=once(s,STATE,STATE+'''
  static unsigned v208_reply_seen=0u;
- static uint32_t v208_fd=0u;''')
+ static uint32_t v208_fd=0u;
+ static unsigned v208_send_seen=0u;
+ static uint32_t v208_send_path=0u,v208_send_mode=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
-     nwii::runtime::v208_fd=0u;''')
+     nwii::runtime::v208_fd=0u;
+     nwii::runtime::v208_send_seen=0u;
+     nwii::runtime::v208_send_path=nwii::runtime::v208_send_mode=0u;''')
+    s=once(s,'      v183_second_phys=value;',SEND)
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,PUBLISH,1))
     s=once(s,PREVIOUS_END,NEXT_END)
     return s

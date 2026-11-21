@@ -8,8 +8,8 @@ from pathlib import Path
 from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
-from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE
+from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -87,6 +87,19 @@ class V208(unittest.TestCase):
         self.assertIn("swapped_mode",PUBLISH)
         self.assertNotIn("<<mode_arg",PUBLISH)
         self.assertNotIn("<<swapped_mode",PUBLISH)
+        self.assertIn("v183_second_phys=value;",SEND)
+        self.assertIn("ipc70_ram.read32(value+16u)",SEND)
+        self.assertIn("V208_Y2_SEND",SEND)
+        self.assertIn("V208_Y2_STABLE",PUBLISH)
+        send="V208_Y2_SEND witness=1 ptr=1 slash=0 mode_valid=0 mode_mem2=1"
+        stable="V208_Y2_STABLE sent=1 path=1 mode=1"
+        self.assertIsNotNone(re.fullmatch(SEND_PATTERN,send))
+        self.assertIsNotNone(re.fullmatch(STABLE_PATTERN,stable))
+        self.assertIsNone(re.fullmatch(STABLE_PATTERN,stable+" data=/secret"))
+        self.assertIn("V208_Y2_SEND",script)
+        self.assertIn("V208_Y2_STABLE",script)
+        self.assertNotIn("<<a<<",SEND)
+        self.assertNotIn("<<b<<",SEND)
         wf=(HERE.parents[1]/".github/workflows/wii-v208-sc-y2-reply-publication.yml").read_text()
         for needle in ("run_v208_sc_y2_reply_publication.sh",
                        "test_v208_sc_y2_reply_publication.py",
