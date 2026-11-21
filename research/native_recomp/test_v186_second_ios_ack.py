@@ -22,7 +22,11 @@ class V186(unittest.TestCase):
     def test_only_service_at_verified_original_yield_and_maintain_guest_pc(self):
         self.assertIn(STOP,PREVIOUS_OBSERVER)
         self.assertIn(STOP,self.before)
-        self.assertNotIn(STOP,self.after)
+        # The authenticated stop suffix is deliberately retained *after*
+        # the one real IOS service step, not deleted or bypassed.
+        self.assertIn(STOP,HANDOFF)
+        self.assertLess(HANDOFF.index("scheduler.service_one(ctx.msr)"),
+                        HANDOFF.index(STOP))
         self.assertIn(HANDOFF,self.after)
         self.assertIn("addr==0x80529434u&&ctx.lr==0x80526cb0u",HANDOFF)
         self.assertIn("v183_second_msg==1u&&v183_second_ctrl==1u",HANDOFF)
