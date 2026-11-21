@@ -30,6 +30,13 @@ class V200(unittest.TestCase):
                     "!ipc70_bus.pending_native_ios_request()",
                     "ctx.inst_count>v200_disable_inst"):
             self.assertIn(key,OBSERVER)
+        # Never disable historical NAND checks globally: only the second
+        # authenticated scheduler's nested helpers may bypass the stale V98
+        # idle-queue observer after checking live IRQ state.
+        self.assertIn("(addr==INT_DISABLE||addr==INT_RESTORE)",OBSERVER)
+        self.assertIn("ctx.lr>=0x805293f8u&&ctx.lr<0x80529434u",OBSERVER)
+        self.assertIn("v196_live&&v199_disable_seen==1u&&v200_ipc_seen==0u",OBSERVER)
+        self.assertIn("scheduler nested helper lost pending IOS state",OBSERVER)
         self.assertIn(NEXT_END,self.after)
         self.assertNotIn(PREVIOUS_END,self.after)
 

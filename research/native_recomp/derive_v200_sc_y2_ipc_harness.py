@@ -23,7 +23,22 @@ CONTINUE='''    ++v199_disable_seen;
     v200_disable_inst=ctx.inst_count;
     return; // execute original scheduler-disable and IRQ dispatch
   }'''
-OBSERVER='''  // The first IPC IRQ's V145 observer has already been phase-retired.
+OBSERVER='''  // V98's NAND-registration observer expects an idle IOS queue. The
+  // genuine later Y2 scheduler reuses the same IRQ helper function entries
+  // with one pending reply. Retire only these authenticated nested calls;
+  // never mask an actual mismatch in the current IRQ state or early V98.
+  if(v196_live&&v199_disable_seen==1u&&v200_ipc_seen==0u&&
+     (addr==INT_DISABLE||addr==INT_RESTORE)&&
+     ctx.lr>=0x805293f8u&&ctx.lr<0x80529434u){
+    const bool masked=(ctx.msr&undercover::wii::IosBus::MSR_EE)==0u;
+    const bool pending=ipc70_bus.services().queued_replies()==1u&&
+          ipc70_bus.external_irq_level()&&
+          !ipc70_bus.pending_native_ios_request();
+    check(masked&&pending,
+          "V200 original second Y2 scheduler nested helper lost pending IOS state");
+    return;
+  }
+  // The first IPC IRQ's V145 observer has already been phase-retired.
   // Do not infer this second dispatch from V145: inspect live guest state.
   if(v196_live&&v199_disable_seen==1u&&v200_ipc_seen==0u&&
      addr==0x80519318u){
