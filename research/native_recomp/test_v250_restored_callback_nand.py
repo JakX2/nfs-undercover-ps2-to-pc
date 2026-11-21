@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""V250 original-free candidate-only genuine NAND callback callsite tests."""
+import re
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from derive_v244_sc_callback_link_harness import derive as previous_cpp
+from derive_v250_restored_callback_nand_harness import (
+    derive as candidate_cpp, OBSERVER, OWNER, OWNER_NEW, CHECK,
+)
+from derive_v250_restored_callback_nand_runner import derive as runner, NAND, PASS, TRIAL, STAGE
+HERE=Path(__file__).resolve().parent
+
+class V250(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cxx=previous_cpp((HERE/"test_start_to_ipc_ack_v77.cpp").read_text(encoding="utf-8"))
+        cls.before=cxx
+        cls.after=candidate_cpp(cxx)
+
+    def test_candidate_mode_isolated_from_previous_owner(self):
+        self.assertIn(OWNER,self.before)
+        self.assertNotIn(OWNER,self.after)
+        self.assertIn(OWNER_NEW,self.after)
+        self.assertIn('std::string(argv[2])=="owner"',self.after)
+        self.assertIn('std::string(argv[2])=="owner-callback"',self.after)
+        self.assertIn('if(v250_probe)',self.after)
+        self.assertIn('continue; // only candidate mode skips V244',self.after)
+        self.assertIn('V244 original callback nested link provenance missing',self.after)
+        with self.assertRaises(ValueError):candidate_cpp("invalid public C++")
+        self.assertEqual(self.after.count('V250_NAND_BCTRL auth='),1)
+
+    def test_authentic_ppc_nested_callback_contract(self):
+        for marker in (
+            'addr==0x804f0e04u','addr==0x8051e06cu',
+            'v244_cb_seen==1u','v244_nested_target==addr',
+            'v250_initial_sp-ctx.gpr[1]==16u',
+            'ctx.lr==0x804f0f54u',
+            'ctx.ctr==addr',
+            'ctx.gpr[3]==v250_initial_r3',
+            'ctx.gpr[4]==ctx.mmu.read32(v250_userdata+260u)',
+            'ctx.inst_count>v250_initial_inst',
+            'ipc70_ram.read32(v153_phys)==undercover::wii::StmIos::Reply',
+            '++v250_nand_seen', 'throw ExceptionStop{};'
+        ):
+            self.assertIn(marker,OBSERVER)
+        for marker in ("v250_cb_seen==1u","v250_nand_seen==1u",
+                       "c.pc==0x8051e06cu"):
+            self.assertIn(marker,CHECK)
+        for fragment in ("ctx.pc=","ctx.gpr[3]=","ipc70_ram.write",
+                         "ctx.mmu.write","ipc70_bus.write"):
+            self.assertNotIn(fragment,OBSERVER)
+        self.assertEqual(self.after.count('V244 original callback nested link provenance missing'),
+                         self.before.count('V244 original callback nested link provenance missing'))
+
+    def test_owner_original_checks_and_16_trials(self):
+        script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text(encoding="utf-8"))
+        for marker in ('V249_SC_AUTH_CALLBACK_LINK verified=1',
+                       'V250_SC_NAND_BCTRL verified=1',
+                       'derive_v250_restored_callback_nand_harness.py',
+                       '"$work/v250-harness.o" "$work/v249-generated.o" "$work/loader.o"',
+                       '"$work/private-v248.dol" owner-callback "$owner"',
+                       'timeout 90', 'test "$(grep -Ec'):
+            self.assertIn(marker,script)
+        good="V250_NAND_BCTRL auth=1 frame16=1 link=1 ctr=1 abi=1 userdata=1 progressed=1 reply=1"
+        self.assertIsNotNone(re.fullmatch(PASS,good))
+        self.assertIsNotNone(re.fullmatch(NAND,good.replace("link=1","link=0")))
+        self.assertIsNone(re.fullmatch(PASS,good.replace("frame16=1","frame16=0")))
+        self.assertIsNotNone(re.fullmatch(TRIAL,"V250_TRIAL_PASS trial=16"))
+        self.assertIsNone(re.fullmatch(TRIAL,"V250_TRIAL_PASS trial=17"))
+        self.assertNotIn("cat \"$work",STAGE)
+        self.assertNotIn("upload-artifact",STAGE)
+        self.assertNotIn('cat "$work/v250-native.log"',STAGE)
+        workflow=(HERE.parents[1]/".github/workflows/wii-v250-restored-callback-nand.yml").read_text()
+        for marker in ('run_v250_restored_callback_nand.sh',
+                       'test_v250_restored_callback_nand.py',
+                       'V250_SC_NAND_BCTRL verified=1'):
+            self.assertIn(marker,workflow)
+        self.assertEqual(workflow.count("      - name: Remove private owner and generated code"),1)
+        self.assertNotIn("upload-artifact",workflow)
+        with tempfile.TemporaryDirectory() as temp:
+            for name,content in (("runner",script),
+                                 ("wrapper",(HERE/"run_v250_restored_callback_nand.sh").read_text(encoding="utf-8"))):
+                p=Path(temp)/name;p.write_text(content,encoding="utf-8")
+                subprocess.run(["bash","-n",str(p)],check=True)
+
+if __name__=="__main__":
+    unittest.main()
