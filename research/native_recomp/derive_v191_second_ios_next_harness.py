@@ -108,7 +108,6 @@ def widen_prior(source: str)->str:
     for label in (
         "V171 original SC reply processor did not reach distinct native callee",
         "V185 original IPC Y1 reader did not reach authentic native successor",
-        "V190 original Wii rescheduler did not retain second IOS IPC state",
     ):
         marker='"'+label+'");'
         if s.count(marker)!=1:
@@ -116,6 +115,8 @@ def widen_prior(source: str)->str:
         end=s.index(marker);start=s.rfind("check(",0,end)
         if start<0 or end-start>25000 or "v191_next_seen==1u" not in s[start:end]:
             raise ValueError(f"V191 prior owner guest proof rejects new checkpoint: {label}")
+    if s.count('"V190 original Wii rescheduler did not retain second IOS IPC state");')!=1:
+        raise ValueError("V191 original V190 IPC state guard missing")
     for begin in ("const bool v186_guest=","const bool v187_guest=",
                   "const bool v188_guest=","const bool v189_guest=",
                   "const bool v190_guest="):

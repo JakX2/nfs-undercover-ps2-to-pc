@@ -48,10 +48,11 @@ class V191(unittest.TestCase):
         self.assertGreaterEqual(len(PAIR.findall(self.before)),7)
         self.assertEqual(len(PAIR.findall(self.before)),len(PAIR.findall(self.after)))
         for label in ("V171 original SC reply processor did not reach distinct native callee",
-                      "V190 original Wii rescheduler did not retain second IOS IPC state"):
+                      "V185 original IPC Y1 reader did not reach authentic native successor"):
             e=self.after.index('"'+label+'");')
             a=self.after.rfind("check(",0,e)
             self.assertIn("v191_next_seen==1u",self.after[a:e])
+        self.assertIn("V190 original Wii rescheduler did not retain second IOS IPC state",self.after)
         with self.assertRaises(ValueError):derive("invalid")
         with self.assertRaises(ValueError):widen_prior("invalid")
 
