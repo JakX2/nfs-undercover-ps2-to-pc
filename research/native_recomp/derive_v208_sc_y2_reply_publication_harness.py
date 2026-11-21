@@ -211,6 +211,28 @@ PUBLISH='''    check(addr==0x80529434u&&ctx.lr==0x80526cb0u&&
   }'''
 TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
 TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
+  // Genuine ISFS_OpenAsync caller ABI before the IOS_OpenAsync wrapper.
+  // Whitelisted return-site classes distinguish NAND open and logging.
+  if(v177_next_seen==1u&&v183_second_msg==0u&&
+     v208_isfs_seen==0u&&addr==0x804f1e2cu){
+    const uint32_t path=ctx.gpr[3],mode=ctx.gpr[4];
+    const bool mapped=ctx.mmu.get_ptr(path)!=nullptr;
+    const bool slash=mapped&&ctx.mmu.read8(path)==uint8_t('/');
+    const bool modevalid=mode<=3u;
+    const bool modemem2=mode>=0x90000000u&&mode<0x94000000u;
+    const bool modemapped=modemem2&&ctx.mmu.get_ptr(mode)!=nullptr;
+    const bool modeslash=modemapped&&ctx.mmu.read8(mode)==uint8_t('/');
+    const bool nand=ctx.lr==0x8051de3cu;
+    const bool logging=ctx.lr==0x8051f700u;
+    v208_isfs_path=path;v208_isfs_mode=mode;
+    ++v208_isfs_seen;
+    std::cout<<"V208_Y2_ISFS_ENTRY seen="<<(v208_isfs_seen==1u)
+             <<" nand="<<nand<<" logging="<<logging
+             <<" mapped="<<mapped<<" slash="<<slash
+             <<" modevalid="<<modevalid<<" modemem2="<<modemem2
+             <<" modeslash="<<modeslash<<std::endl;
+    // Keep tracing: inherited authentic call observations must run.
+  }
   // Observe only the original second IOS_OpenAsync entry. The real
   // original Wii PowerPC routine receives path in r3 and mode in r4,
   // then writes their physical/path and scalar/mode values to the
@@ -225,6 +247,29 @@ TRACE_HOOK='''void trace_call(uint32_t addr, CPUContext&ctx){
     const bool modemem2=mode>=0x90000000u&&mode<0x94000000u;
     const bool modemapped=modemem2&&ctx.mmu.get_ptr(mode)!=nullptr;
     const bool modeslash=modemapped&&ctx.mmu.read8(mode)==uint8_t('/');
+    // Compare the original ISFS input ABI to the IOS wrapper's input
+    // without logging the pathname, pointers or private owner bytes.
+    const bool from_isfs=v208_isfs_seen==1u&&ctx.lr==0x804f1eccu;
+    const bool inherited_mode=from_isfs&&mode==v208_isfs_mode;
+    const bool isfs_mapped=from_isfs&&
+          ctx.mmu.get_ptr(v208_isfs_path)!=nullptr;
+    const bool isfs_slash=isfs_mapped&&
+          ctx.mmu.read8(v208_isfs_path)==uint8_t('/');
+    bool copied=from_isfs&&isfs_mapped&&pathmap,terminated=false;
+    if(copied)for(unsigned i=0u;i<64u;++i){
+      if(v208_isfs_path>0xffffffffu-i||path>0xffffffffu-i||
+         ctx.mmu.get_ptr(v208_isfs_path+i)==nullptr||
+         ctx.mmu.get_ptr(path+i)==nullptr){copied=false;break;}
+      const uint8_t a=ctx.mmu.read8(v208_isfs_path+i);
+      const uint8_t b=ctx.mmu.read8(path+i);
+      if(a!=b){copied=false;break;}
+      if(a==0u){terminated=true;break;}
+    }
+    copied=copied&&terminated;
+    std::cout<<"V208_Y2_ISFS_TO_IOS witnessed="<<from_isfs
+             <<" mode="<<inherited_mode<<" copy="<<copied
+             <<" source_slash="<<isfs_slash<<" dest_slash="<<pathslash
+             <<" modevalid="<<modevalid<<std::endl;
     v208_async_path=path;v208_async_mode=mode;
     ++v208_async_seen;
     std::cout<<"V208_Y2_ASYNC_ENTRY seen="<<(v208_async_seen==1u)
@@ -361,14 +406,18 @@ def derive(source:str)->str:
  static unsigned v208_send_seen=0u;
  static uint32_t v208_send_path=0u,v208_send_mode=0u;
  static unsigned v208_async_seen=0u;
- static uint32_t v208_async_path=0u,v208_async_mode=0u;''')
+ static uint32_t v208_async_path=0u,v208_async_mode=0u;
+ static unsigned v208_isfs_seen=0u;
+ static uint32_t v208_isfs_path=0u,v208_isfs_mode=0u;''')
     s=once(s,RESET,RESET+'''
      nwii::runtime::v208_reply_seen=0u;
      nwii::runtime::v208_fd=0u;
      nwii::runtime::v208_send_seen=0u;
      nwii::runtime::v208_send_path=nwii::runtime::v208_send_mode=0u;
      nwii::runtime::v208_async_seen=0u;
-     nwii::runtime::v208_async_path=nwii::runtime::v208_async_mode=0u;''')
+     nwii::runtime::v208_async_path=nwii::runtime::v208_async_mode=0u;
+     nwii::runtime::v208_isfs_seen=0u;
+     nwii::runtime::v208_isfs_path=nwii::runtime::v208_isfs_mode=0u;''')
     s=once(s,TRACE_ANCHOR,TRACE_HOOK)
     s=once(s,'      v183_second_phys=value;',SEND)
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,PUBLISH,1))

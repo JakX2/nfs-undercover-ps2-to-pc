@@ -9,7 +9,7 @@ from derive_v207_sc_y2_helper_next_harness import (
     derive as previous, OBSERVER as PREVIOUS_OBSERVER, NEXT_END as PREVIOUS_END,
 )
 from derive_v208_sc_y2_reply_publication_harness import derive, STOP, PUBLISH, NEXT_END, SEND, TRACE_HOOK
-from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN
+from derive_v208_sc_y2_reply_publication_runner import derive as runner, PATTERN, PASS, KIND, ARGS, MODE, SEND_PATTERN, STABLE_PATTERN, SWAP_PATTERN, LAYOUT_PATTERN, BASE_PATTERN, ORIGIN_PATTERN, PATHCLASS_PATTERN, ASYNC_PATTERN, ASYNC_LINK_PATTERN, ISFS_PATTERN, ISFS_TO_IOS_PATTERN
 HERE=Path(__file__).resolve().parent
 
 class V208(unittest.TestCase):
@@ -147,6 +147,24 @@ class V208(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
         self.assertIn("V208_Y2_ASYNC_ENTRY",script)
         self.assertIn("V208_Y2_ASYNC_LINK",script)
+        isfs=("V208_Y2_ISFS_ENTRY seen=1 nand=1 logging=0 mapped=1 "
+              "slash=1 modevalid=1 modemem2=0 modeslash=0")
+        bridge=("V208_Y2_ISFS_TO_IOS witnessed=1 mode=1 copy=1 "
+                "source_slash=1 dest_slash=1 modevalid=1")
+        self.assertIsNotNone(re.fullmatch(ISFS_PATTERN,isfs))
+        self.assertIsNotNone(re.fullmatch(ISFS_TO_IOS_PATTERN,bridge))
+        self.assertIsNone(re.fullmatch(ISFS_PATTERN,isfs+" private=/shared2"))
+        for marker in ("addr==0x804f1e2cu","v208_isfs_path=path",
+                       "ctx.lr==0x8051de3cu","ctx.lr==0x8051f700u",
+                       "V208_Y2_ISFS_ENTRY","V208_Y2_ISFS_TO_IOS",
+                       "v208_isfs_path+i","copied=copied&&terminated"):
+            self.assertIn(marker,TRACE_HOOK)
+        self.assertNotIn("return;",TRACE_HOOK)
+        self.assertNotIn("ctx.mmu.write",TRACE_HOOK)
+        self.assertNotIn("<<path<<",TRACE_HOOK)
+        self.assertNotIn("<<v208_isfs_path",TRACE_HOOK)
+        self.assertIn("V208_Y2_ISFS_ENTRY",script)
+        self.assertIn("V208_Y2_ISFS_TO_IOS",script)
         origin=("V208_Y2_ORIGIN pc_text=1 lr_text=1 mem1=1 mem2=0 reused=0 overlap=0 "
                 "a_block=1 a_open=0 a_reply=0 req_regs=4 path_regs=2 pc=8051906c lr=805192c8")
         pathcls=("V208_Y2_PATHCLASS valid=1 dev=1 stm=1 fs=0 es=0 "
