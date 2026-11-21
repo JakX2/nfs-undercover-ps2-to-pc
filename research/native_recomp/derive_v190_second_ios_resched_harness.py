@@ -79,6 +79,20 @@ V190_SCOPED_TITLE_PHASE='''   // V95 title-query allocator callbacks are valid o
       !(v189_next_seen==1u&&v186_ack_seen==1u&&
         v189_target_pc==0x80529940u&&v189_target_lr==0x80526cb4u&&
         v190_next_seen==0u)){'''
+V95_ALLOCATOR_ASSERT='''check(open71_profile==0u,"V95 duplicate allocator wrapper");'''
+V190_V95_DIAGNOSTIC='''if(open71_profile!=0u){
+          const bool v190_phase=v189_next_seen==1u;
+          const bool v190_auth=v186_ack_seen==1u;
+          const bool v190_target=v189_target_pc==0x80529940u&&
+                v189_target_lr==0x80526cb4u;
+          const bool v190_call=ctx.inst_count>v190_start_inst;
+          std::cout<<"V190_V95_DUP phase="<<v190_phase
+                   <<" auth="<<v190_auth<<" target="<<v190_target
+                   <<" call="<<v190_call
+                   <<" first="<<(post95_active&&post94_query==1u)
+                   <<std::endl;
+        }
+        check(open71_profile==0u,"V95 duplicate allocator wrapper");'''
 PAIR=re.compile(r'c\.pc==nwii::runtime::v189_target_pc&&\s*c\.lr==nwii::runtime::v189_target_lr')
 NEXT_TRIAL='''       using V190Bus=undercover::wii::IosBus;
        using V190Irq=undercover::wii::HollywoodIrq;
@@ -153,7 +167,8 @@ def derive(source: str)->str:
     s=once(s,PREVIOUS_OBSERVER,PREVIOUS_OBSERVER.replace(STOP,CONTINUE,1))
     s=once(s,OBSERVER_HEADER,OBSERVER_HEADER+'\n'+OBSERVER)
     s=once(s,PREVIOUS_TRIAL,PREVIOUS_TRIAL+'\n'+NEXT_TRIAL)
-    return once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
+    return once(once(widen_prior(s),V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE),
+                V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)

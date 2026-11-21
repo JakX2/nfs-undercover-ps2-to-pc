@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from derive_v189_second_ios_restore_harness import derive as previous
 from derive_v190_second_ios_resched_harness import (derive,STOP,CONTINUE,OBSERVER,
-    NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE)
+    NEXT_TRIAL,PAIR,widen_prior,V95_TITLE_PHASE,V190_SCOPED_TITLE_PHASE,
+    V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
 from derive_v190_second_ios_resched_runner import derive as runner,PATTERN,PASS,STATE,PASS_STATE
 HERE=Path(__file__).resolve().parent
 class V190(unittest.TestCase):
@@ -75,6 +76,19 @@ class V190(unittest.TestCase):
                          self.after.count("V95 duplicate allocator wrapper"))
         self.assertEqual(self.before.count("++open71_profile;"),
                          self.after.count("++open71_profile;"))
+
+    def test_v95_owner_duplicate_diagnostic_is_bounded_and_passive(self):
+        self.assertIn(V95_ALLOCATOR_ASSERT,self.before)
+        self.assertNotIn(V190_V95_DIAGNOSTIC,self.before)
+        self.assertIn(V190_V95_DIAGNOSTIC,self.after)
+        self.assertIn("V190_V95_DUP phase=",V190_V95_DIAGNOSTIC)
+        self.assertIn("if(open71_profile!=0u)",V190_V95_DIAGNOSTIC)
+        self.assertIn(V95_ALLOCATOR_ASSERT,V190_V95_DIAGNOSTIC)
+        self.assertEqual(self.before.count("V95 duplicate allocator wrapper"),
+                         self.after.count("V95 duplicate allocator wrapper"))
+        self.assertNotIn("ctx.mmu.write",V190_V95_DIAGNOSTIC)
+        self.assertNotIn("ipc70_ram.write",V190_V95_DIAGNOSTIC)
+        self.assertNotIn("scheduler.service_one(",V190_V95_DIAGNOSTIC)
 
     def test_owner_native_runner_and_workflow(self):
         script=runner((HERE/"run_v79_continuous_reply_entry.sh").read_text())
