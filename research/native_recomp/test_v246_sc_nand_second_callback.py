@@ -35,9 +35,11 @@ class V246(unittest.TestCase):
             self.assertEqual(self.before.count(item),self.after.count(item))
         for body in (PROBE,SEND):
             for forbidden in ("ipc70_bus.write","ipc70_ram.write",
-                              "ctx.mmu.write","<<ctx.ctr","<<ctx.gpr",
-                              "<<v246_outer","<<v246_nested","<<v246_user_callback"):
+                              "ctx.mmu.write","<<ctx.ctr","<<ctx.gpr"):
                 self.assertNotIn(forbidden,body)
+            # Classifier booleans such as v246_outer_map are safe to print.
+            # Reject the raw pointer names only at identifier boundaries.
+            self.assertNotRegex(body,r"<<\s*v246_(?:outer|nested|user_callback)\b")
             self.assertNotRegex(body,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
 
     def test_sixteen_owner_trials_and_cleanup(self):
