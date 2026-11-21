@@ -41,17 +41,17 @@ CONTINUE='''    ++v212_rfi_seen;
     // boundary. Do not invent or force a successful file handle.
     undercover::wii::IosYieldScheduler v215_scheduler(ipc70_bus);
     const auto result=v215_scheduler.service_one(ctx.msr);
-    const auto ctrl=ipc70_bus.read32(V215Bus::IPC+V215Mail::PPCCTRL);
-    const auto flag=ipc70_bus.read32(V215Bus::IPC+V215Irq::PPC_FLAG);
+    const auto v215_ctrl=ipc70_bus.read32(V215Bus::IPC+V215Mail::PPCCTRL);
+    const auto v215_flag=ipc70_bus.read32(V215Bus::IPC+V215Irq::PPC_FLAG);
     const bool pump=result.progress==V215IOS::Pump::Replied&&
           result.serviced_steps==1u;
     const bool published=ipc70_ram.read32(v183_second_phys)==V215IOS::Reply&&
           ipc70_ram.read32(v183_second_phys+8u)==V215IOS::Open&&
           int32_t(ipc70_ram.read32(v183_second_phys+4u))==V215IOS::Invalid;
-    const bool signaled=ctrl.has_value()&&flag.has_value()&&
-          ((*ctrl&V215Mail::Y1)!=0u)&&
-          ((*ctrl&V215Mail::Y2)==0u)&&
-          ((*flag&V215Irq::IPC_PPC)!=0u)&&
+    const bool signaled=v215_ctrl.has_value()&&v215_flag.has_value()&&
+          ((*v215_ctrl&V215Mail::Y1)!=0u)&&
+          ((*v215_ctrl&V215Mail::Y2)==0u)&&
+          ((*v215_flag&V215Irq::IPC_PPC)!=0u)&&
           ipc70_bus.external_irq_level()&&
           ipc70_bus.external_exception_pending(ctx.msr);
     const bool empty=ipc70_bus.services().queued_replies()==0u;
