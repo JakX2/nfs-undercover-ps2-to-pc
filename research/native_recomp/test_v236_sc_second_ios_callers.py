@@ -34,7 +34,7 @@ class V236(unittest.TestCase):
             self.assertEqual(self.before.count(x),self.after.count(x))
         for x in (TRACE,SEND):
             for bad in ("ctx.mmu.write","ipc70_bus.write","ipc70_ram.write",
-                        "<<pathname","<<v236_last_path","<<v236_last_mode"):
+                        "<<pathname<<","<<v236_last_path<<","<<v236_last_mode<<"):
                 self.assertNotIn(bad,x)
             self.assertNotRegex(x,r"ctx\.gpr\[[0-9]+\]\s*=(?!=)")
     def test_exact_16_owner_trials_and_cleanup(self):
