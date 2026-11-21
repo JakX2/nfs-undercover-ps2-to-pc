@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from audit_v245_generated_callback import SPANS, CALLS, scan, body_at, fixture_match, format_result
-from derive_v245_sc_aot_map_runner import derive as runner, PATTERN, AUDIT
+from derive_v245_sc_aot_map_runner import derive as runner, PATTERN, AUDIT, CENSUS, V247_ROW
 HERE=Path(__file__).resolve().parent
 
 class V245(unittest.TestCase):
@@ -39,6 +39,28 @@ static const X map[] = {{0x804F0E04, 0x804F0F84, callback},
         broken=source.replace("ctx.lr = 0x804F0F54;","ctx.lr = 0x805192AC;")
         self.assertFalse(scan(broken)["cb_link"])
         self.assertEqual(sum("0x804F0E04" in line for line in source.splitlines()),2)
+
+    def test_original_free_v247_placeholder_word_classification(self):
+        from audit_v247_fixture_placeholders import KINDS, summarize, render
+        import struct
+        old=struct.pack(">6I",0x12345678,0x23456789,0x3456789a,
+                        0x4e800020,0x55555555,0x66666666)
+        new=struct.pack(">6I",0x12345678,0x60000000,0x44000002,
+                        0x4e800020,0,0x77777777)
+        summary=summarize(old,new)
+        self.assertEqual(summary,{"same":2,"nop":1,"sc":1,
+                                  "blr":0,"zero":1,"other":1})
+        census={"cb":{name:0 for name in KINDS},
+                "nand":{name:0 for name in KINDS}}
+        census["cb"]["same"]=96;census["nand"]["same"]=30
+        row=render(census)
+        self.assertIsNotNone(re.fullmatch(V247_ROW,row))
+        self.assertNotIn("0x",row)
+        self.assertNotIn("private=",row)
+        self.assertIn("audit_v247_fixture_placeholders.py",CENSUS)
+        self.assertIn('> "$work/v247-fixture.log" 2>&1',CENSUS)
+        self.assertIn("V247_SC_FIXTURE_CLASS verified=1",
+                      runner((HERE/"run_v79_continuous_reply_entry.sh").read_text()))
 
     def test_private_dol_comparison_only_boolean(self):
         def read(blob,address,size):
