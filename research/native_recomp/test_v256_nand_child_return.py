@@ -73,6 +73,10 @@ class V256(unittest.TestCase):
                        "V256_SC_NAND_CHILD_RETURN verified=1"):
             self.assertIn(marker,wf)
         self.assertEqual(wf.count("      - name: Remove private owner and generated code"),1)
+        # The owner workflow must not demand V254's superseded guest state.
+        self.assertNotIn("          grep -E '^V254_NAND_GUEST callback=1 next=1 memory=1 trial=",wf)
+        self.assertEqual(wf.count("          grep -E '^V256_NAND_GUEST callback=1 returned=1 memory=1 trial="),2)
+        self.assertIn("V254_NAND_CHILD guest=1",wf)
         self.assertNotIn("upload-artifact",wf)
         with tempfile.TemporaryDirectory() as td:
             for filename,source in (("runner",script),("wrapper",(HERE/"run_v256_nand_child_return.sh").read_text(encoding="utf-8"))):
