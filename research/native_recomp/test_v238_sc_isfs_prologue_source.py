@@ -22,10 +22,13 @@ class V238(unittest.TestCase):
               "ctx.gpr[11]==sp+32u","ctx.gpr[4]<=3u",
               "V238_SAVE","++v238_save_count"):
             self.assertIn(token,TRACE)
-        for token in ("V238_SOURCE","v236_last_mode",
+        for token in ("V238_SOURCE","v238_second_seen","v238_mode_same","v238_ios_invalid","v236_last_mode",
                       "v238_second_mode","++v238_source_seen"):
             self.assertIn(token,SEND)
         self.assertIn(NEXT_EXTRA,self.after)
+        self.assertNotIn('const bool second=',SEND)
+        self.assertNotIn('const bool same_mode=',SEND)
+        self.assertNotIn('const bool ios_invalid=',SEND)
         self.assertIn(PREVIOUS_EXTRA,self.after)
         with self.assertRaises(ValueError):derive("unknown source")
     def test_no_proprietary_data_or_guest_write(self):

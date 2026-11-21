@@ -71,11 +71,16 @@ TRACE='''void trace_call(uint32_t addr, CPUContext&ctx){
 '''
 SEND_ANCHOR='''      ++v237_seen;'''
 SEND='''      ++v237_seen;
-      const bool second=v238_save_count>=2u;
-      const bool same_mode=second&&v238_second_mode==v236_last_mode;
-      const bool ios_invalid=v236_ios_count>=2u&&!v236_last_mode_valid;
+      // This extends a large shared MMIO observer. All additional locals
+      // require a stage-specific prefix: inherited observers already use
+      // ordinary names such as "second".
+      const bool v238_second_seen=v238_save_count>=2u;
+      const bool v238_mode_same=v238_second_seen&&
+            v238_second_mode==v236_last_mode;
+      const bool v238_ios_invalid=v236_ios_count>=2u&&
+            !v236_last_mode_valid;
       std::cout<<"V238_SOURCE saves="<<v238_save_count
-               <<" second="<<second
+               <<" second="<<v238_second_seen
                <<" nand="<<v238_second_nand
                <<" logging="<<v238_second_logging
                <<" other="<<v238_second_other
@@ -83,8 +88,8 @@ SEND='''      ++v237_seen;
                <<" modevalid="<<v238_second_modevalid
                <<" pathvalid="<<v238_second_pathvalid
                <<" sysconf="<<v238_second_sysconf
-               <<" same_ios_mode="<<same_mode
-               <<" ios_invalid="<<ios_invalid
+               <<" same_ios_mode="<<v238_mode_same
+               <<" ios_invalid="<<v238_ios_invalid
                <<std::endl;
       ++v238_source_seen;'''
 EXTRA='''            nwii::runtime::v237_seen==1u&&'''
