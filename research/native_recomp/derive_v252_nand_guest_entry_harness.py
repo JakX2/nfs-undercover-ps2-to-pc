@@ -77,10 +77,10 @@ def derive(source:str)->str:
         raise ValueError("V252 V163 guarded check bounds changed")
     if "nwii::runtime::v163_next_seen" not in s[start:label]:
         raise ValueError("V252 V163 translated continuation signature missing")
-    line=s.rfind("\\n",0,start)+1
+    line=s.rfind("\n",0,start)+1
     if line<0 or s[line:start].strip():
         raise ValueError("V252 preceding V163 statement indentation changed")
-    s=s[:line]+CANDIDATE+'\\n'+s[line:]
+    s=s[:line]+CANDIDATE+'\n'+s[line:]
     return s
 
 if __name__=="__main__":
