@@ -15,6 +15,11 @@ def derive(source:str)->str:
     if s.count(OLD)!=1 or s.count(DONE)!=1:
         raise ValueError("V252 inherited original restored callback run changed")
     s=s.replace(OLD,NEW,1)
+    failure="  echo 'V250_STAGE execute=0'"
+    diagnostic='  grep -E "^V252_NAND_GUEST checked=[01] regs=[01] reply=[01] before_second=[01] trial=([1-9]|1[0-6])$" "$work/v250-native.log" | sort -u || true'
+    if s.count(failure)!=1:
+        raise ValueError("V252 inherited candidate execute failure seam changed")
+    s=s.replace(failure,diagnostic+'\n'+failure,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$work/v250-native.log" | sort -u
 test "$(grep -Ec '{PASS}' "$work/v250-native.log")" -eq 16
