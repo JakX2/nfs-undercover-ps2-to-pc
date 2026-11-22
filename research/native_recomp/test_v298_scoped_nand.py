@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """V298 original-free phase scope, privacy and regression guards."""
 import unittest
-from derive_v298_scope_reply_observer import OLD,NEW,CHECK,patch as scope
+from derive_v298_scope_reply_observer import OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,patch as scope
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
 
-SOURCE=OLD+"\n"+CHECK+"\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"
+SOURCE=OLD+"\n"+SUBMIT_OLD+"\n"+CHECK+"\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -13,6 +13,7 @@ class Tests(unittest.TestCase):
     def test_guard_scoped_only_after_verified_callback(self):
         s=scope(SOURCE)
         self.assertIn(NEW,s)
+        self.assertIn(SUBMIT_NEW,s)
         self.assertIn(CHECK,s)
         self.assertNotIn("ctx.gpr[3] =",s)
         self.assertNotIn("ctx.mmu.write",s)
