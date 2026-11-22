@@ -61,6 +61,16 @@ SRAM_NEW=("else if(addr==0x80522294u&&"
           "(!v250_candidate_mode||v250_nand_seen==0u)){")
 SRAM_LABEL="original SRAM DMA cache invalidation ABI differs"
 
+# V328: V113's SC IOS transport arrival check deliberately throws
+# ExceptionStop on an earlier bounded SC test route. A genuine NAND
+# request can use the same POST_OWNER LR but not those old counters.
+# Retire only that historical stop/observer; keep actual cache/IOS work.
+TRANSPORT_OLD="if(post112_submit==1u&&addr==POST_OWNER&&ctx.lr==0x8051963cu){"
+TRANSPORT_NEW=("if(post112_submit==1u&&addr==POST_OWNER&&ctx.lr==0x8051963cu&&\n"
+               "       (!v250_candidate_mode||v250_nand_seen==0u)){")
+TRANSPORT_LABEL="V113 original IOS transport did not reach bounded cache flush"
+
+
 
 
 
@@ -77,6 +87,7 @@ def summarize_seams(source: str) -> str:
         ("ios_call",IOS_TRACE_OLD),
         ("async",ASYNC_OLD),("async_label",ASYNC_LABEL),
         ("arena",ARENA_OLD),("sram",SRAM_OLD),
+        ("transport",TRANSPORT_OLD),("transport_label",TRANSPORT_LABEL),
         ("explicit",IOS_OPEN_EXPLICIT),
         ("check",CHECK),("service","V296_SERVICE_ENTRY kind=")
     )
@@ -114,6 +125,8 @@ def patch(source: str) -> str:
         source.count(ARENA_OLD)!=1 or source.count(SRAM_OLD)!=1 or
         not 0 < source.index(ARENA_LABEL)-source.index(ARENA_OLD) < 1100 or
         source.count(ARENA_LABEL)!=1 or source.count(SRAM_LABEL)!=1 or
+        source.count(TRANSPORT_OLD)!=1 or source.count(TRANSPORT_LABEL)!=1 or
+        not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
         source.count(IOS_OPEN_LABEL)!=1 or
         source.count(CHECK)!=1 or
@@ -129,12 +142,14 @@ def patch(source: str) -> str:
     output=output.replace(ASYNC_OLD,ASYNC_NEW,1)
     output=output.replace(ARENA_OLD,ARENA_NEW,1)
     output=output.replace(SRAM_OLD,SRAM_NEW,1)
+    output=output.replace(TRANSPORT_OLD,TRANSPORT_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
         output.count(IOS_TRACE_NEW)!=1 or
         output.count(ASYNC_NEW)!=1 or output.count(ASYNC_LABEL)!=1 or
         output.count(ARENA_NEW)!=1 or output.count(SRAM_NEW)!=1 or
+        output.count(TRANSPORT_NEW)!=1 or output.count(TRANSPORT_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
