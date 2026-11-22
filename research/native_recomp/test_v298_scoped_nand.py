@@ -231,6 +231,8 @@ class Tests(unittest.TestCase):
         self.assertIn("V310_NATIVE_TRIAL inspected=1",r)
         self.assertIn("audit_v317_descendant_edges.py",r)
         self.assertIn("V317_STAGE inspected=1",r)
+        self.assertIn("analyze_v323_second_descendants.py",r)
+        self.assertIn("V323_STAGE inspected=1",r)
         self.assertIn("audit_v319_native_entries.py",r)
         self.assertIn("V319_ENTRY_STAGE inspected=1",r)
         self.assertIn("derive_v321_guest_entry_probe.py",r)

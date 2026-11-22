@@ -161,6 +161,20 @@ else
   echo 'V317_STAGE inspected=0'
   exit 1
 fi
+# V323: source authenticity of the second-generation NAND callees.
+# Generated AOT/dispatch can exist even when reduced code is a NOP stub.
+if python3 "$V110_SOURCE_ROOT/analyze_v323_second_descendants.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" > "$work/v323-coverage.log" 2>&1; then
+  grep -Fx 'V323_SECOND_AUDIT verified=1' "$work/v323-coverage.log"
+  grep -E '^V323_SECOND_COVERAGE owner=1 targets=5 original=[0-5] missing=[0-5] partial=[0-5] unknown=[0-5] body=[0-5] dispatch=[0-5]$' "$work/v323-coverage.log"
+  grep -E '^V323_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$' "$work/v323-coverage.log"
+  echo 'V323_STAGE inspected=1'
+else
+  grep -Fx 'V323_SECOND_AUDIT verified=0' "$work/v323-coverage.log" || true
+  echo 'V323_STAGE inspected=0'
+  exit 1
+fi
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
     -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
     -c "$work/generated-v310/output.cpp" -o "$work/v310-generated.o" \
