@@ -70,6 +70,18 @@ else
   exit 1
 fi
 echo 'V303_HELPER_NATIVE_LINK verified=1'
+# V306: read-only comparison of four original descendants of 0x804F2064.
+# Never print the private function bytes or generated C++.
+if python3 "$V110_SOURCE_ROOT/analyze_v306_helper_descendants.py"     "$owner" "$work/v293-original.elf" "$work/private-v302.dol"     "$work/generated-v303/output.cpp" > "$work/v306-coverage.log" 2>&1; then
+  grep -Fx 'V306_COVERAGE_AUDIT verified=1' "$work/v306-coverage.log"
+  grep -E '^V306_COVERAGE owner=1 targets=4 exact=[0-4] emitted=[0-4] dispatch=[0-4] missing=[0-4] partial=[0-4]$' "$work/v306-coverage.log"
+  grep -E '^V306_DESCENDANT pc=[0-9a-f]{8} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} body=[01] dispatch=[01]$' "$work/v306-coverage.log"
+  echo 'V306_DESCENDANT_STAGE inspected=1'
+else
+  grep -Fx 'V306_COVERAGE_AUDIT verified=0' "$work/v306-coverage.log" || true
+  echo 'V306_DESCENDANT_STAGE inspected=0'
+  exit 1
+fi
 # V304: a separate native process executes the restored helper. No guest
 # register changes or fake IOS replies. A timeout/crash is a diagnostic,
 # not a successful boot or original NAND completion claim.
