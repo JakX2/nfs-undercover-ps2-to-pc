@@ -83,6 +83,19 @@ else
   echo 'V306_DESCENDANT_STAGE inspected=0'
   exit 1
 fi
+# V309: check exact-target versus enclosing-entry native linkage before
+# executing the candidate; keep all proprietary C++ in owner scratch.
+if python3 "$V110_SOURCE_ROOT/analyze_v309_native_edges.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v302.dol" \
+    "$work/generated-v303/output.cpp" > "$work/v309-edges.log" 2>&1; then
+  grep -Fx 'V309_EDGE_AUDIT verified=1' "$work/v309-edges.log"
+  grep -E '^V309_CALL_GRAPH original=1 targets=4 callsite=[0-4] direct=[0-4] unmapped=[0-4] target_dispatch=[0-4] parent_dispatch=[0-4]$' "$work/v309-edges.log"
+  grep -E '^V309_CALL_EDGE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) callsite=[01] direct=[01] unmapped=[01] target_body=[01] target_dispatch=[01] parent_body=[01] parent_dispatch=[01]$' "$work/v309-edges.log"
+  echo 'V309_EDGE_STAGE inspected=1'
+else
+  grep -Fx 'V309_EDGE_AUDIT verified=0' "$work/v309-edges.log" || true
+  echo 'V309_EDGE_STAGE inspected=0'
+fi
 # V304: a separate native process executes the restored helper. No guest
 # register changes or fake IOS replies. A timeout/crash is a diagnostic,
 # not a successful boot or original NAND completion claim.
