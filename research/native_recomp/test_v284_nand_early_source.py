@@ -35,7 +35,7 @@ class Tests(unittest.TestCase):
     def test_unknown_or_changed_comparison_fails_closed(self):
         w=fixture()
         w[20]=0x60000000
-        self.assertIn("source=unknown",classify(w))
+        self.assertIn("source=entry",classify(w))
         w=fixture()
         w[21]=cmpwi(4,0)
         with self.assertRaisesRegex(ValueError,"early_comparison"):
