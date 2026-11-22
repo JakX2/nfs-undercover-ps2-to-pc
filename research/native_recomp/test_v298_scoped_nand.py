@@ -9,7 +9,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 SRAM_OLD,SRAM_NEW,SRAM_LABEL,
                                                 TRANSPORT_OLD,TRANSPORT_NEW,TRANSPORT_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
-from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner\nfrom derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
+from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
+from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
 from analyze_v298_scope_native import inspect
 
 SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
