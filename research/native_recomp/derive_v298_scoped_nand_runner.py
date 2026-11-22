@@ -193,6 +193,11 @@ python3 "$V110_SOURCE_ROOT/analyze_v307_helper_abort.py" \
     "$work/v310-native.log" "$work/v298-harness.cpp" "$v310_rc" |
     sed -e 's/^V307_/V310_/' -e 's/^V250_PUBLIC_FAILURE /V310_PUBLIC_FAILURE /'
 echo 'V310_NATIVE_TRIAL inspected=1'
+# V319: positive original PowerPC entry evidence from bounded private
+# native trace. Missing markers are not evidence of non-execution.
+python3 "$V110_SOURCE_ROOT/audit_v319_native_entries.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V319_ENTRY_STAGE inspected=1'
 '''
 
 AFTER=r'''
