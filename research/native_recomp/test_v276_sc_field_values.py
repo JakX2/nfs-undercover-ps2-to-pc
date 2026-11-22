@@ -25,7 +25,7 @@ class Tests(unittest.TestCase):
 
     def test_different_base_never_claim_alias(self):
         words=[li(5,3),store_field(5,31),load_field(0,29),
-               store_sc(0),load_field(0,29),store_sc(0)]+[0x60000000]*8
+               store_sc(0),load_field(0,29),store_sc(0)]+[0x60000000]*10
         out=examine(OWNER,words)
         self.assertIn("same_base=0 source_reg=5 source=byte3",out[1])
         with self.assertRaisesRegex(ValueError,"geometry"):
