@@ -47,12 +47,19 @@ def classify(start:int,caller:list[int],helper:list[int])->dict[str,int]:
         cond=sum(op==16 for _,op,_ in branches),
         backward=len(back),
         back_to_call=sum(dest<=CALLSITE for _,dest in back),
+        back_cond=sum(op==16 and dest is not None and start<=dest<=pc
+                      for pc,op,dest in branches),
         compare=sum((w>>26 in (10,11)) or
                     (w>>26==31 and ((w>>1)&1023) in (0,32)) for _,w in tail),
         loads=sum(w>>26 in (32,33,34,35,40,41,42,43) for _,w in tail),
         stores=sum(w>>26 in (36,37,38,39,44,45) for _,w in tail),
         sda_loads=sum(w>>26 in (32,33,34,35,40,41,42,43)
                       and ((w>>16)&31)==13 for _,w in tail),
+        sc_sda=sum(w>>26 in (32,33,34,35,40,41,42,43)
+                   and ((w>>16)&31)==13 and (w&0xffff)==((-3176)&0xffff)
+                   for _,w in tail),
+        sc_byte=sum(w>>26==34 and ((w>>16)&31)==13
+                    and (w&0xffff)==((-3176)&0xffff) for _,w in tail),
         disable=sum(t==DISABLE for t in targets),
         restore=sum(t==RESTORE for t in targets),
         gettime=sum(t==GETTIME for t in targets),
@@ -75,8 +82,8 @@ def private_audit(data:bytes)->dict[str,int]:
 
 def format_result(v:dict[str,int])->str:
     keys=("direct","link","window","cond","backward","back_to_call",
-          "compare","loads","stores","sda_loads","disable","restore",
-          "gettime","mftb","back_span")
+          "back_cond","compare","loads","stores","sda_loads","sc_sda",
+          "sc_byte","disable","restore","gettime","mftb","back_span")
     return "V264_LOOP_STRUCT owner=1 " + " ".join(f"{k}={v[k]}" for k in keys)
 
 def main()->int:

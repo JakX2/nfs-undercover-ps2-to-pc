@@ -18,7 +18,7 @@ def sample():
     idx=6
     body[idx]=bl(CALLSITE,HELPER)
     body[idx+1]=11<<26
-    body[idx+2]=(32<<26)|(13<<16)
+    body[idx+2]=(34<<26)|(13<<16)|((-3176)&0xffff)
     body[idx+3]=16<<26|((-12)&0xfffc)
     helper=[0x60000000]*80
     helper[6]=bl(HELPER+24,DISABLE)
@@ -30,8 +30,9 @@ def sample():
 class Tests(unittest.TestCase):
     def test_branches_and_os_helpers(self):
         x=classify(*sample())
-        for k in ("direct","link","cond","backward","back_to_call",
-                  "compare","sda_loads","disable","restore","gettime","mftb"):
+        for k in ("direct","link","cond","backward","back_to_call","back_cond",
+                  "compare","sda_loads","sc_sda","sc_byte",
+                  "disable","restore","gettime","mftb"):
             self.assertEqual(x[k],1,k)
         self.assertEqual(x["back_span"],12)
         self.assertEqual(x["window"],65 if False else 64)

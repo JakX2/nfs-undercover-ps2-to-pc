@@ -74,7 +74,7 @@ jobs:
             exit 1
           }
           grep -Fx 'V264_ORIGINAL_ELF verified=1' "$RUNNER_TEMP/v264.log"
-          grep -E '^V264_LOOP_STRUCT owner=1 direct=[01] link=[01] window=([8-9]|[1-5][0-9]|6[0-4]) cond=[0-9]{1,3} backward=[0-9]{1,3} back_to_call=[0-9]{1,3} compare=[0-9]{1,3} loads=[0-9]{1,3} stores=[0-9]{1,3} sda_loads=[0-9]{1,3} disable=[0-9]{1,3} restore=[0-9]{1,3} gettime=[0-9]{1,3} mftb=[0-9]{1,3} back_span=[0-9]{1,6}$' "$RUNNER_TEMP/v264.log"
+          grep -E '^V264_LOOP_STRUCT owner=1 direct=[01] link=[01] window=([8-9]|[1-5][0-9]|6[0-4]) cond=[0-9]{1,3} backward=[0-9]{1,3} back_to_call=[0-9]{1,3} back_cond=[0-9]{1,3} compare=[0-9]{1,3} loads=[0-9]{1,3} stores=[0-9]{1,3} sda_loads=[0-9]{1,3} sc_sda=[0-9]{1,3} sc_byte=[0-9]{1,3} disable=[0-9]{1,3} restore=[0-9]{1,3} gettime=[0-9]{1,3} mftb=[0-9]{1,3} back_span=[0-9]{1,6}$' "$RUNNER_TEMP/v264.log"
           echo 'PASS: V264 private PowerPC control-flow audit'
       - name: Remove private owner inputs
         if: always()
