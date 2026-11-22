@@ -34,6 +34,18 @@ SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
 
+def summarize_seams(source: str) -> str:
+    # Emit only counts of independently written public harness anchors.
+    # Never print the source, original PowerPC words or native guest output.
+    items=(
+        ("reply",OLD),("submit",SUBMIT_OLD),("client",CLIENT_OLD),
+        ("ios",IOS_OPEN_OLD),("explicit",IOS_OPEN_EXPLICIT),
+        ("check",CHECK),("service","V296_SERVICE_ENTRY kind=")
+    )
+    return "V313_HARNESS_ANCHORS "+" ".join(
+        f"{key}={min(source.count(value),2)}" for key,value in items
+    )+f" nand={int('v250_nand_seen' in source)}"
+
 def patch(source: str) -> str:
     if (source.count(OLD)!=1 or source.count(SUBMIT_OLD)!=1 or
         source.count(CLIENT_OLD)!=1 or
@@ -57,8 +69,15 @@ def main()->int:
     p.add_argument("public_harness",type=Path)
     p.add_argument("private_scoped_harness",type=Path)
     a=p.parse_args()
+    raw=a.public_harness.read_text(encoding="utf-8")
+    try:
+        scoped=patch(raw)
+    except ValueError:
+        import sys
+        print(summarize_seams(raw),file=sys.stderr)
+        raise
     with a.private_scoped_harness.open("x",encoding="utf-8") as dst:
-        dst.write(patch(a.public_harness.read_text(encoding="utf-8")))
+        dst.write(scoped)
     return 0
 
 if __name__=="__main__":

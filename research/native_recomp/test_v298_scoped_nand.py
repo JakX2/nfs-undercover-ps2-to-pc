@@ -3,7 +3,7 @@
 import unittest
 from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,
                                                 CLIENT_OLD,CLIENT_NEW,IOS_OPEN_OLD,IOS_OPEN_NEW,
-                                                IOS_OPEN_EXPLICIT,patch as scope)
+                                                IOS_OPEN_EXPLICIT,summarize_seams,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
 
@@ -30,6 +30,16 @@ class Tests(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",s)
         with self.assertRaises(ValueError):
             scope("untrusted harness")
+
+    def test_v313_sanitized_source_anchor_classifier(self):
+        good=summarize_seams(SOURCE)
+        self.assertIn("reply=1 submit=1 client=1 ios=1 explicit=1",good)
+        self.assertIn("check=1 service=1 nand=1",good)
+        missing=summarize_seams(SOURCE.replace(IOS_OPEN_OLD,"",1))
+        self.assertIn("ios=0",missing)
+        doubled=summarize_seams(SOURCE+"\n"+IOS_OPEN_EXPLICIT)
+        self.assertIn("explicit=2",doubled)
+        self.assertNotIn("ctx.gpr",good)
 
     def test_v311_ios_open_observer_phase_isolation(self):
         # Historical V71 instrumentation is active until the verified
