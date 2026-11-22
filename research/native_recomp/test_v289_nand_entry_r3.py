@@ -60,7 +60,7 @@ class Tests(unittest.TestCase):
 
     def test_bash_workflow_private_boundaries(self):
         wf=(HERE.parents[1]/
-            ".github/workflows/wii-v289-nand-early-service.yml").read_text(
+            ".github/workflows/wii-v289-nand-entry-r3.yml").read_text(
                 encoding="utf-8")
         self.assertIn("V289_NAND_ENTRY verified=1",wf)
         self.assertNotIn("upload-artifact",wf)
