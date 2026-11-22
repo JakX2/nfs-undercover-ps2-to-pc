@@ -82,7 +82,7 @@ def inspect(data:bytes,*,digest:str=ORIGINAL_SHA256,
         )
         for rank,(target,count) in enumerate(sorted(
             calls.items(),key=lambda x:(-x[1],x[0])
-        )[:8],1):
+        )[:16],1):
             rows.append(
                 f"V324_CALLEE from={pc:08x} rank={rank} to={target:08x} calls={count}"
             )

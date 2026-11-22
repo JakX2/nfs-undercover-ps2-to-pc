@@ -76,7 +76,7 @@ jobs:
           grep -Fx 'V324_ELF_AUDIT verified=1' "$RUNNER_TEMP/v324.log"
           grep -E '^V324_NAND_FLOW owner=1 targets=5 exact=[0-5] interior=[0-5] unknown=[0-5] calls=[0-9]{1,5}$' "$RUNNER_TEMP/v324.log"
           grep -E '^V324_FLOW pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) words=[0-9]{1,4} calls=[0-9]{1,5} targets=[0-9]{1,5} cond=[0-9]{1,5} local=[0-9]{1,5} bclr=[0-9]{1,5} bcctr=[0-9]{1,5} conditional_calls=[0-9]{1,5}$' "$RUNNER_TEMP/v324.log"
-          grep -E '^V324_CALLEE from=[0-9a-f]{8} rank=[1-8] to=[0-9a-f]{8} calls=[0-9]{1,5}$' "$RUNNER_TEMP/v324.log" || true
+          grep -E '^V324_CALLEE from=[0-9a-f]{8} rank=([1-9]|1[0-6]) to=[0-9a-f]{8} calls=[0-9]{1,5}$' "$RUNNER_TEMP/v324.log" || true
           echo 'PASS: V324 SHA-pinned NAND descendant control flow classified'
       - name: Remove private owner inputs
         if: always()

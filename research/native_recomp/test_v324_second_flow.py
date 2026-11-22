@@ -45,6 +45,26 @@ class Tests(unittest.TestCase):
             "pc=80545100 kind=interior words=4" in line for line in lines
         ))
 
+    def test_ninth_original_callee_not_dropped(self):
+        # The authenticated 144-word IOS-request function has nine
+        # distinct callees. Truncating at eight loses a real dependency.
+        def symbols(_):
+            return {PC:40}
+        def nine_words(_,pc,n):
+            if pc!=PC or n!=10:
+                raise ValueError("wrong read window")
+            return [0x48000101+i*0x100 for i in range(9)]+[0x4e800020]
+        lines=inspect(
+            ELF,digest=hashlib.sha256(ELF).hexdigest(),
+            parser=symbols,word_reader=nine_words
+        )
+        self.assertIn("targets=5 exact=1 interior=0 unknown=4 calls=9",lines[0])
+        direct=[line for line in lines if line.startswith(
+            f"V324_CALLEE from={PC:08x} "
+        )]
+        self.assertEqual(len(direct),9)
+        self.assertTrue(any("rank=9" in line for line in direct))
+
     def test_branch_geometry_and_conditional_calls(self):
         cond,local,bclr,bcctr,cond_calls,targets=analyze_word_window(
             PC,[0x41820009,0x48000004,0x4e800420,0x4e800020]
