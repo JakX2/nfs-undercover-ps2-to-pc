@@ -4,7 +4,7 @@
 V297 authenticated a restored NAND child -> 0x8051D20C call. The
 inherited V178 observer compares that later call with a V177-only
 0x80545100 proof. The V77 submit and client catch-all observers also
-outlive their intended IPC phase. Scope only those three observer guards
+outlive their intended IPC phase. Scope the stale observers
 after authentic V250 NAND entry. Preserve explicit IPC client entry
 handling and all original guest code, registers and IOS responses.
 """
@@ -22,6 +22,14 @@ CLIENT_OLD="   if((ipc69_active&&v177_next_seen==0u)||addr==0x805194c4u){ipc69_e
 CLIENT_NEW=("   if((ipc69_active&&v177_next_seen==0u&&"
             "(!v250_candidate_mode||v250_nand_seen==0u))||"
             "addr==0x805194c4u){ipc69_entry(addr,ctx);return;}")
+# V311: V71 IOS_Open allocator observer is bound to the old startup
+# request. The original NAND path calls its allocator tail again with a
+# different (authentic) LR. Retire the old probe only after NAND proof.
+IOS_OPEN_OLD="    if(!stm70_open)return false;"
+IOS_OPEN_NEW=("    if(!stm70_open||"
+              "(v250_candidate_mode&&v250_nand_seen==1u))return false;")
+IOS_OPEN_EXPLICIT="if(addr==0x80519944u){stm70_open_entry(ctx);return;}"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -29,15 +37,18 @@ SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
 def patch(source: str) -> str:
     if (source.count(OLD)!=1 or source.count(SUBMIT_OLD)!=1 or
         source.count(CLIENT_OLD)!=1 or
+        source.count(IOS_OPEN_OLD)!=1 or source.count(IOS_OPEN_EXPLICIT)!=1 or
         source.count(CHECK)!=1 or
         source.count("V296_SERVICE_ENTRY kind=")!=1 or
         "v250_nand_seen" not in source):
         raise ValueError("V298 authenticated reply phase seam changed")
     output=(source.replace(OLD,NEW,1)
             .replace(SUBMIT_OLD,SUBMIT_NEW,1)
-            .replace(CLIENT_OLD,CLIENT_NEW,1))
+            .replace(CLIENT_OLD,CLIENT_NEW,1)
+            .replace(IOS_OPEN_OLD,IOS_OPEN_NEW,1))
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
-        output.count(CLIENT_NEW)!=1 or output.count(CHECK)!=1):
+        output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
+        output.count(IOS_OPEN_EXPLICIT)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
 

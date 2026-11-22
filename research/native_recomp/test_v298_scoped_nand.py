@@ -2,11 +2,13 @@
 """V298 original-free phase scope, privacy and regression guards."""
 import unittest
 from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,
-                                                CLIENT_OLD,CLIENT_NEW,patch as scope)
+                                                CLIENT_OLD,CLIENT_NEW,IOS_OPEN_OLD,IOS_OPEN_NEW,
+                                                IOS_OPEN_EXPLICIT,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
 
-SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+CHECK+
+SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
+        "\n"+IOS_OPEN_EXPLICIT+"\n"+CHECK+
         "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n")
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
@@ -17,6 +19,9 @@ class Tests(unittest.TestCase):
         self.assertIn(NEW,s)
         self.assertIn(SUBMIT_NEW,s)
         self.assertIn(CLIENT_NEW,s)
+        self.assertIn(IOS_OPEN_NEW,s)
+        self.assertIn(IOS_OPEN_EXPLICIT,s)
+        self.assertNotIn(IOS_OPEN_OLD,s)
         self.assertNotIn(CLIENT_OLD,s)
         self.assertIn("||addr==0x805194c4u)",CLIENT_NEW)
         self.assertEqual(s.count("ipc69_entry(addr,ctx);return;"),1)
@@ -25,6 +30,32 @@ class Tests(unittest.TestCase):
         self.assertNotIn("ctx.mmu.write",s)
         with self.assertRaises(ValueError):
             scope("untrusted harness")
+
+    def test_v311_ios_open_observer_phase_isolation(self):
+        # Historical V71 instrumentation is active until the verified
+        # NAND callback, while the real IOS_Open entry always remains.
+        cases=[
+            (False,False,False,False),
+            (False,True,True,False),
+            (True,False,False,True),
+            (True,False,True,True),
+            (True,True,False,True),
+            (True,True,True,False),
+        ]
+        self.assertEqual(
+            IOS_OPEN_NEW,
+            "    if(!stm70_open||"
+            "(v250_candidate_mode&&v250_nand_seen==1u))return false;"
+        )
+        for open_active,candidate,nand_seen,expected in cases:
+            observed=open_active and not(candidate and nand_seen)
+            self.assertEqual(observed,expected)
+        with self.assertRaises(ValueError):
+            scope(SOURCE.replace(IOS_OPEN_OLD,"",1))
+        with self.assertRaises(ValueError):
+            scope(SOURCE+"\n"+IOS_OPEN_OLD)
+        with self.assertRaises(ValueError):
+            scope(SOURCE.replace(IOS_OPEN_EXPLICIT,"",1))
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
