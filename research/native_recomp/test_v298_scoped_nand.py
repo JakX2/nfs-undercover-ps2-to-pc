@@ -65,6 +65,7 @@ class Tests(unittest.TestCase):
         r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'")
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
+        self.assertIn("diagnose_v299_native_log.py",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):
             runner("unknown native candidate")

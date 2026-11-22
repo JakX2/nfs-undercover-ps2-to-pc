@@ -37,7 +37,9 @@ def patch(source: str) -> str:
     # Print only a matched public C++ assertion label, never native logs.
     diagnostic=(
         '  python3 "$V110_SOURCE_ROOT/diagnose_v250_native_phase.py" '+
-        '"$work/v295-native.log" "$work/v298-harness.cpp"\n')
+        '"$work/v295-native.log" "$work/v298-harness.cpp"\n'+
+        '  python3 "$V110_SOURCE_ROOT/diagnose_v299_native_log.py" '+
+        '"$work/v295-native.log" "$v295_rc" || true\n')
     return staged.replace(failure,diagnostic+failure,1)
 
 def main()->int:

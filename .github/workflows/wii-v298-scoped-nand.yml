@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v298*'
+      - 'research/native_recomp/*v299*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -25,6 +26,8 @@ jobs:
           set -euo pipefail
           python3 -m py_compile research/native_recomp/analyze_v298_scope_native.py research/native_recomp/test_v298_scoped_nand.py research/native_recomp/derive_v298_scope_reply_observer.py research/native_recomp/derive_v298_scoped_nand_runner.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v298_scoped_nand.py' -v
+          python3 -m py_compile research/native_recomp/diagnose_v299_native_log.py research/native_recomp/test_v299_native_log.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v299_native_log.py' -v
           bash -n research/native_recomp/run_v298_scoped_nand.sh
   owner-original-v298:
     if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -122,6 +125,7 @@ jobs:
               grep -E '^V295_NATIVE_OUTCOME |^V295_EXEC_AUDIT verified=[01]$|^V295_BOUNDED_CANDIDATE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V296_NATIVE_FRONTIER |^V296_FRONTIER_AUDIT verified=[01]$|^V296_SERVICE_PROBE inspected=[01]$|^V296_HARNESS_STAGE compile=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V298_NATIVE_SCOPE |^V298_SCOPE_AUDIT verified=[01]$|^V298_RETIRED_OBSERVER inspected=[01]$|^V298_HARNESS_STAGE compile=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V299_NATIVE_DIAG rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] over_limit=[01] edge_sample=1 callback=[01] child=[01] early=[01] late=[01] writer=[01] exception=(runtime|range|alloc|logic|unclassified)$|^V299_NATIVE_DIAG verified=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               echo 'V294 private restored NAND AOT compile/link not verified; game code withheld' >&2
               exit 1
             }
