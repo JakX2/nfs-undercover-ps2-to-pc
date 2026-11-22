@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """V298 original-free phase scope, privacy and regression guards."""
 import unittest
-from derive_v298_scope_reply_observer import OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,patch as scope
+from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,
+                                                CLIENT_OLD,CLIENT_NEW,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
 
-SOURCE=OLD+"\n"+SUBMIT_OLD+"\n"+CHECK+"\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"
+SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+CHECK+
+        "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n")
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -14,11 +16,42 @@ class Tests(unittest.TestCase):
         s=scope(SOURCE)
         self.assertIn(NEW,s)
         self.assertIn(SUBMIT_NEW,s)
+        self.assertIn(CLIENT_NEW,s)
+        self.assertNotIn(CLIENT_OLD,s)
+        self.assertIn("||addr==0x805194c4u)",CLIENT_NEW)
+        self.assertEqual(s.count("ipc69_entry(addr,ctx);return;"),1)
         self.assertIn(CHECK,s)
         self.assertNotIn("ctx.gpr[3] =",s)
         self.assertNotIn("ctx.mmu.write",s)
         with self.assertRaises(ValueError):
             scope("untrusted harness")
+
+    def test_client_observer_phase_truth_table(self):
+        # Broad IPC client observer is allowed in baseline and before
+        # authentic V250 callback; explicit client entry is never masked.
+        for candidate in (False,True):
+            for nand_seen in (False,True):
+                for v177_seen in (False,True):
+                    for explicit in (False,True):
+                        active=True
+                        observed=(active and not v177_seen and
+                                  (not candidate or not nand_seen)) or explicit
+                        if explicit:
+                            self.assertTrue(observed)
+                        elif candidate and nand_seen:
+                            self.assertFalse(observed)
+                        elif v177_seen:
+                            self.assertFalse(observed)
+                        else:
+                            self.assertTrue(observed)
+
+    def test_missing_or_duplicate_client_seam_fails_closed(self):
+        for corrupted in (
+            SOURCE.replace(CLIENT_OLD,"",1),
+            SOURCE+"\n"+CLIENT_OLD,
+        ):
+            with self.assertRaises(ValueError):
+                scope(corrupted)
 
     def test_native_outcome_rejects_old_assertion(self):
         summary,ok=inspect(LOG,"a public check",134)
