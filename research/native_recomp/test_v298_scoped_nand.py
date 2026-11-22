@@ -77,6 +77,8 @@ class Tests(unittest.TestCase):
         self.assertIn("V304_EXEC_ATTEMPT inspected=1",r)
         self.assertIn("analyze_v306_helper_descendants.py",r)
         self.assertIn("V306_DESCENDANT_STAGE inspected=1",r)
+        self.assertIn("analyze_v307_helper_abort.py",r)
+        self.assertIn("V307_ABORT_CLASSIFIED inspected=1",r)
         self.assertIn("v303-generated.o",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):

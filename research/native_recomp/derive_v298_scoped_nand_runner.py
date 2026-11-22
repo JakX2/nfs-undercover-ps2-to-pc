@@ -95,6 +95,9 @@ set -e
 python3 "$V110_SOURCE_ROOT/analyze_v304_helper_exec.py" \
   "$work/v304-native.log" "$v304_rc"
 echo 'V304_EXEC_ATTEMPT inspected=1'
+# V307: attribute the V304 native abort against public C++ assertions only.
+python3 "$V110_SOURCE_ROOT/analyze_v307_helper_abort.py"     "$work/v304-native.log" "$work/v298-harness.cpp" "$v304_rc"
+echo 'V307_ABORT_CLASSIFIED inspected=1'
 '''
 
 AFTER=r'''
