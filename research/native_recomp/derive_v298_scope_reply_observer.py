@@ -41,6 +41,14 @@ IOS_TRACE_NEW=(
     "if((!v250_candidate_mode||v250_nand_seen==0u)&&"
     "open71_trace(addr,ctx))return;"
 )
+# V320: V112 IOS_OpenAsync instrumentation is a proof for the earlier SC
+# request, not a global allocator/interrupt ABI contract. Do not run it
+# after verified original NAND child entry. Original guest calls proceed.
+ASYNC_OLD="if(post111_open==1u&&post110_chosen==2u){"
+ASYNC_NEW=("if(post111_open==1u&&post110_chosen==2u&&\n"
+           "       (!v250_candidate_mode||v250_nand_seen==0u)){")
+ASYNC_LABEL="V112 original IOS_OpenAsync allocator disable differs"
+
 
 
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
@@ -54,6 +62,7 @@ def summarize_seams(source: str) -> str:
         ("reply",OLD),("submit",SUBMIT_OLD),("client",CLIENT_OLD),
         ("ios",IOS_OPEN_OLD),("ios_label",IOS_OPEN_LABEL),
         ("ios_call",IOS_TRACE_OLD),
+        ("async",ASYNC_OLD),("async_label",ASYNC_LABEL),
         ("explicit",IOS_OPEN_EXPLICIT),
         ("check",CHECK),("service","V296_SERVICE_ENTRY kind=")
     )
@@ -87,6 +96,8 @@ def patch(source: str) -> str:
         source.count(CLIENT_OLD)!=1 or
         source.count(IOS_OPEN_EXPLICIT)!=1 or
         source.count(IOS_TRACE_OLD)!=1 or
+        source.count(ASYNC_OLD)!=1 or source.count(ASYNC_LABEL)!=1 or
+        not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
         source.count(IOS_OPEN_LABEL)!=1 or
         source.count(CHECK)!=1 or
         source.count("V296_SERVICE_ENTRY kind=")!=1 or
@@ -98,10 +109,12 @@ def patch(source: str) -> str:
     pos=choose_ios_tail(output)
     output=output[:pos]+IOS_OPEN_NEW+output[pos+len(IOS_OPEN_OLD):]
     output=output.replace(IOS_TRACE_OLD,IOS_TRACE_NEW,1)
+    output=output.replace(ASYNC_OLD,ASYNC_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
         output.count(IOS_TRACE_NEW)!=1 or
+        output.count(ASYNC_NEW)!=1 or output.count(ASYNC_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
