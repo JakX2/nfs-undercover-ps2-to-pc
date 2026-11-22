@@ -229,6 +229,11 @@ echo 'V310_NATIVE_TRIAL inspected=1'
 python3 "$V110_SOURCE_ROOT/audit_v319_native_entries.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V319_ENTRY_STAGE inspected=1'
+# V333: do not confuse arrival at the native SC vector with a completed
+# cache syscall. Only fixed public markers leave the private runner.
+python3 "$V110_SOURCE_ROOT/analyze_v333_nand_cache_native.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V333_CACHE_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

@@ -350,6 +350,8 @@ class Tests(unittest.TestCase):
         self.assertIn("V326_STAGE inspected=1",r)
         self.assertIn("audit_v319_native_entries.py",r)
         self.assertIn("V319_ENTRY_STAGE inspected=1",r)
+        self.assertIn("analyze_v333_nand_cache_native.py",r)
+        self.assertIn("V333_CACHE_STAGE inspected=1",r)
         self.assertIn("derive_v321_guest_entry_probe.py",r)
         self.assertIn("analyze_v321_native_entry_comparison.py",r)
         self.assertIn("V321_ENTRY_COMPARE inspected=1",r)
