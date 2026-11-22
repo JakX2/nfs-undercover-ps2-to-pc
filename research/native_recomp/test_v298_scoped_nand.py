@@ -4,7 +4,9 @@ import unittest
 from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,
                                                 CLIENT_OLD,CLIENT_NEW,IOS_OPEN_OLD,IOS_OPEN_NEW,
                                                 IOS_OPEN_LABEL,IOS_OPEN_EXPLICIT,IOS_TRACE_OLD,IOS_TRACE_NEW,
-                                                ASYNC_OLD,ASYNC_NEW,ASYNC_LABEL,summarize_seams,
+                                                ASYNC_OLD,ASYNC_NEW,ASYNC_LABEL,
+                                                ARENA_OLD,ARENA_NEW,ARENA_LABEL,
+                                                SRAM_OLD,SRAM_NEW,SRAM_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
@@ -13,7 +15,8 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n      check(false,"native IOS_Open allocator tail entry differs");\n'+
         IOS_OPEN_EXPLICIT+"\n"+IOS_TRACE_OLD+"\n"+ASYNC_OLD+
         '\n       check(false,"V112 original IOS_OpenAsync allocator disable differs");\n'+
-        CHECK+
+        CHECK+"\n"+ARENA_OLD+"\n"+ARENA_LABEL+"\n"+
+        SRAM_OLD+"\n"+SRAM_LABEL+
         "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n")
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
@@ -30,6 +33,10 @@ class Tests(unittest.TestCase):
         self.assertIn(IOS_TRACE_NEW,s)
         self.assertIn(ASYNC_NEW,s)
         self.assertIn(ASYNC_LABEL,s)
+        self.assertIn(ARENA_NEW,s)
+        self.assertIn(SRAM_NEW,s)
+        self.assertNotIn(ARENA_OLD,s)
+        self.assertNotIn(SRAM_OLD,s)
         self.assertNotIn(ASYNC_OLD,s)
         self.assertNotIn(IOS_TRACE_OLD,s)
         self.assertNotIn(IOS_OPEN_OLD,s)
@@ -45,7 +52,7 @@ class Tests(unittest.TestCase):
 
     def test_v313_sanitized_source_anchor_classifier(self):
         good=summarize_seams(SOURCE)
-        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 explicit=1",good)
+        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 arena=1 sram=1 explicit=1",good)
         self.assertIn("check=1 service=1 nand=1",good)
         self.assertIn("near=1",good)
         self.assertIn('ios_label=1',good)
@@ -138,6 +145,31 @@ class Tests(unittest.TestCase):
             with self.subTest(malformed=len(malformed)):
                 with self.assertRaises(ValueError):
                     scope(malformed)
+
+    def test_v322_legacy_cache_observers_do_not_intercept_nand(self):
+        candidate=scope(SOURCE)
+        self.assertEqual(candidate.count(ARENA_NEW),1)
+        self.assertEqual(candidate.count(SRAM_NEW),1)
+        self.assertEqual(candidate.count(ARENA_LABEL),1)
+        self.assertEqual(candidate.count(SRAM_LABEL),1)
+        self.assertIn("addr==0x805222c0u",ARENA_NEW)
+        self.assertIn("addr==0x80522294u",SRAM_NEW)
+        self.assertNotIn("ctx.gpr[3] =",ARENA_NEW+SRAM_NEW)
+        self.assertNotIn("ctx.mmu.write",ARENA_NEW+SRAM_NEW)
+        for enabled in (False,True):
+            for nand in (False,True):
+                guarded=(not enabled or not nand)
+                self.assertEqual(guarded,not(enabled and nand))
+        for changed in (
+            SOURCE.replace(ARENA_OLD,"",1),
+            SOURCE.replace(SRAM_OLD,"",1),
+            SOURCE.replace(ARENA_LABEL,"unrelated assertion",1),
+            SOURCE.replace(SRAM_LABEL,"unrelated assertion",1),
+            SOURCE+"\n"+SRAM_OLD,
+        ):
+            with self.subTest(length=len(changed)):
+                with self.assertRaises(ValueError):
+                    scope(changed)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before

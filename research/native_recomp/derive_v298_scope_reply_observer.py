@@ -48,6 +48,19 @@ ASYNC_OLD="if(post111_open==1u&&post110_chosen==2u){"
 ASYNC_NEW=("if(post111_open==1u&&post110_chosen==2u&&\n"
            "       (!v250_candidate_mode||v250_nand_seen==0u)){")
 ASYNC_LABEL="V112 original IOS_OpenAsync allocator disable differs"
+# V322: two trace-only OSInit cache/SRAM checks require earlier startup
+# caller LR and counters, but genuine NAND also invokes these routines.
+# Skip those historical assertions only after verified guest NAND entry.
+# The original DCFlushRange and DCInvalidateRange AOT bodies still run.
+ARENA_OLD="else if(addr==0x805222c0u){\n     if(arena_active){"
+ARENA_NEW=("else if(addr==0x805222c0u&&"
+           "(!v250_candidate_mode||v250_nand_seen==0u)){\n     if(arena_active){")
+ARENA_LABEL="original arena DCFlushRange ABI or dcbz count differs"
+SRAM_OLD="else if(addr==0x80522294u){"
+SRAM_NEW=("else if(addr==0x80522294u&&"
+          "(!v250_candidate_mode||v250_nand_seen==0u)){")
+SRAM_LABEL="original SRAM DMA cache invalidation ABI differs"
+
 
 
 
@@ -63,6 +76,7 @@ def summarize_seams(source: str) -> str:
         ("ios",IOS_OPEN_OLD),("ios_label",IOS_OPEN_LABEL),
         ("ios_call",IOS_TRACE_OLD),
         ("async",ASYNC_OLD),("async_label",ASYNC_LABEL),
+        ("arena",ARENA_OLD),("sram",SRAM_OLD),
         ("explicit",IOS_OPEN_EXPLICIT),
         ("check",CHECK),("service","V296_SERVICE_ENTRY kind=")
     )
@@ -97,6 +111,8 @@ def patch(source: str) -> str:
         source.count(IOS_OPEN_EXPLICIT)!=1 or
         source.count(IOS_TRACE_OLD)!=1 or
         source.count(ASYNC_OLD)!=1 or source.count(ASYNC_LABEL)!=1 or
+        source.count(ARENA_OLD)!=1 or source.count(SRAM_OLD)!=1 or
+        source.count(ARENA_LABEL)!=1 or source.count(SRAM_LABEL)!=1 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
         source.count(IOS_OPEN_LABEL)!=1 or
         source.count(CHECK)!=1 or
@@ -110,11 +126,14 @@ def patch(source: str) -> str:
     output=output[:pos]+IOS_OPEN_NEW+output[pos+len(IOS_OPEN_OLD):]
     output=output.replace(IOS_TRACE_OLD,IOS_TRACE_NEW,1)
     output=output.replace(ASYNC_OLD,ASYNC_NEW,1)
+    output=output.replace(ARENA_OLD,ARENA_NEW,1)
+    output=output.replace(SRAM_OLD,SRAM_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
         output.count(IOS_TRACE_NEW)!=1 or
         output.count(ASYNC_NEW)!=1 or output.count(ASYNC_LABEL)!=1 or
+        output.count(ARENA_NEW)!=1 or output.count(SRAM_NEW)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
