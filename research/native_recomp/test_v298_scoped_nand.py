@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
         self.assertFalse(inspect("", "a public check",0)[1])
 
     def test_runner_keeps_generated_aot_intact(self):
-        r=runner(LINK+"\n"+DONE)
+        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'")
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
         self.assertIn("v294-generated.o",r)
