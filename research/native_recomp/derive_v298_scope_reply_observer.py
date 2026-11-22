@@ -99,6 +99,15 @@ NAND_IRQ_NEW=("if(post115_sc==1u&&addr==INT_DISABLE&&ctx.lr==0x80519640u&&"
               "(!v250_candidate_mode||v250_nand_seen==0u)){")
 NAND_IRQ_LABEL="V115 original IOS submission IRQ-disable call differs"
 
+# V337: V116's queue-helper boundary check is tied to the first SC
+# request's private trace counters. NAND reaches the same exact callsite,
+# but its counters legitimately differ. Retire the trace assertion only
+# after authentic guest NAND entry; the guest queue helper still executes.
+NAND_QUEUE_OLD="if(post115_disable==1u&&addr==0x8051afe0u&&ctx.lr==0x805196d4u){"
+NAND_QUEUE_NEW=("if(post115_disable==1u&&addr==0x8051afe0u&&ctx.lr==0x805196d4u&&"
+                "(!v250_candidate_mode||v250_nand_seen==0u)){")
+NAND_QUEUE_LABEL="V116 original IOS request queue-helper boundary differs"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -156,6 +165,7 @@ def patch(source: str) -> str:
         source.count(NAND_SC_OLD)!=1 or source.count(NAND_SC_LABEL)!=1 or
         source.count(VECTOR_TRACE_OLD)!=1 or source.count(VECTOR_TRACE_LABEL)!=1 or
         source.count(NAND_IRQ_OLD)!=1 or source.count(NAND_IRQ_LABEL)!=1 or
+        source.count(NAND_QUEUE_OLD)!=1 or source.count(NAND_QUEUE_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
@@ -177,6 +187,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_SC_OLD,NAND_SC_NEW,1)
     output=output.replace(VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,1)
     output=output.replace(NAND_IRQ_OLD,NAND_IRQ_NEW,1)
+    output=output.replace(NAND_QUEUE_OLD,NAND_QUEUE_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -187,6 +198,7 @@ def patch(source: str) -> str:
         output.count(NAND_SC_NEW)!=1 or output.count(NAND_SC_LABEL)!=1 or
         output.count(VECTOR_TRACE_NEW)!=1 or output.count(VECTOR_TRACE_LABEL)!=1 or
         output.count(NAND_IRQ_NEW)!=1 or output.count(NAND_IRQ_LABEL)!=1 or
+        output.count(NAND_QUEUE_NEW)!=1 or output.count(NAND_QUEUE_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
