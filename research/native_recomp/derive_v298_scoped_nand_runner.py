@@ -78,6 +78,7 @@ if python3 "$V110_SOURCE_ROOT/analyze_v306_helper_descendants.py"     "$owner" "
   grep -E '^V306_DESCENDANT pc=[0-9a-f]{8} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} body=[01] dispatch=[01]$' "$work/v306-coverage.log"
   echo 'V306_DESCENDANT_STAGE inspected=1'
 else
+  grep -E '^V306_COVERAGE_ERROR reason=(authenticated_digest|fixture_geometry|function_size|original_span|cpp_geometry|span_geometry|input_io|other)$' "$work/v306-coverage.log" || true
   grep -Fx 'V306_COVERAGE_AUDIT verified=0' "$work/v306-coverage.log" || true
   echo 'V306_DESCENDANT_STAGE inspected=0'
   exit 1

@@ -16,6 +16,14 @@ from make_private_elf_symbol_map import ORIGINAL_SHA256, parse_functions
 from audit_v292_nand_aot_reach import word_counts, emitted
 
 TARGETS=(0x80519BCC,0x8051AD38,0x80545104,0x80545150)
+KNOWN_ERRORS={
+    'authenticated_digest','fixture_geometry','function_size',
+    'original_span','cpp_geometry','span_geometry'
+}
+def classify_error(exc:Exception)->str:
+    if isinstance(exc,OSError):return 'input_io'
+    msg=str(exc)
+    return msg if msg in KNOWN_ERRORS else 'other'
 
 def inspect(owner: bytes, elf: bytes, fixture: bytes, generated: str,
             dol_digest: str=ORIGINAL_SHA,
@@ -78,7 +86,8 @@ def main()->int:
             a.private_restored_dol.read_bytes(),
             a.private_generated_cpp.read_text(encoding="utf-8",errors="replace")
         )
-    except (OSError,ValueError):
+    except (OSError,ValueError,IndexError) as exc:
+        print('V306_COVERAGE_ERROR reason='+classify_error(exc),file=sys.stderr)
         print("V306_COVERAGE_AUDIT verified=0",file=sys.stderr)
         return 1
     print("V306_COVERAGE_AUDIT verified=1")

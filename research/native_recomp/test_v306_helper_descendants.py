@@ -3,7 +3,7 @@
 import hashlib
 import unittest
 
-from analyze_v306_helper_descendants import TARGETS,inspect
+from analyze_v306_helper_descendants import TARGETS,inspect,classify_error
 
 ORIGINAL=b"\x38\x60\x00\x01"*4
 NOP=b"\x60\x00\x00\x00"*4
@@ -65,6 +65,11 @@ class Tests(unittest.TestCase):
                 hashlib.sha256(OWNER).hexdigest(),
                 hashlib.sha256(ELF).hexdigest()
             )
+
+    def test_sanitized_failure_reason(self):
+        self.assertEqual(classify_error(ValueError('function_size')),'function_size')
+        self.assertEqual(classify_error(ValueError('private information')),'other')
+        self.assertEqual(classify_error(OSError('/private/Wii.dol')),'input_io')
 
     def test_missing_symbol_fails_closed(self):
         with self.assertRaisesRegex(ValueError,"function_size"):
