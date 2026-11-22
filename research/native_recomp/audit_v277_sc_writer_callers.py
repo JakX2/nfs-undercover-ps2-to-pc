@@ -75,10 +75,8 @@ def audit(data:bytes)->list[str]:
         if base&3 or pos&3 or size&3 or not 0<size<=16*1024*1024 or pos+size>len(data):
             raise ValueError("section_bounds")
         sections+=1
-        calls.extend(find_calls(
-            (v[0] for v in struct.iter_unpack(">I",data[pos:pos+size]))
-            if False else [v[0] for v in struct.iter_unpack(">I",data[pos:pos+size])],
-            base))
+        words=[value[0] for value in struct.iter_unpack(">I",data[pos:pos+size])]
+        calls.extend(find_calls(words,base))
     if not 0<sections<=32:raise ValueError("sections")
     return classify(calls,funcs)
 
