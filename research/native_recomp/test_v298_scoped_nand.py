@@ -146,6 +146,8 @@ class Tests(unittest.TestCase):
         self.assertIn("restore_v310_private_descendant.py",r)
         self.assertIn("analyze_v310_restored_coverage.py",r)
         self.assertIn("V310_NATIVE_TRIAL inspected=1",r)
+        self.assertIn("audit_v317_descendant_edges.py",r)
+        self.assertIn("V317_STAGE inspected=1",r)
         self.assertIn("v303-generated.o",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):

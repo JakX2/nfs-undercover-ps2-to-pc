@@ -144,6 +144,20 @@ else
   echo 'V310_STAGE coverage=0'
   exit 1
 fi
+# V317: authenticated census of the 64-word NAND helper's five native
+# callees. The private AOT source never leaves the owner runner.
+if python3 "$V110_SOURCE_ROOT/audit_v317_descendant_edges.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" > "$work/v317-edges.log" 2>&1; then
+  grep -Fx 'V317_EDGE_AUDIT verified=1' "$work/v317-edges.log"
+  grep -E '^V317_HELPER_EDGES owner=1 pc=80519bcc targets=5 site=[0-5] direct=[0-5] unmapped=[0-5] dispatch=[0-5]$' "$work/v317-edges.log"
+  grep -E '^V317_HELPER_EDGE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) original=1 site=[01] direct=[01] unmapped=[01] body=[01] dispatch=[01]$' "$work/v317-edges.log"
+  echo 'V317_STAGE inspected=1'
+else
+  grep -Fx 'V317_EDGE_AUDIT verified=0' "$work/v317-edges.log" || true
+  echo 'V317_STAGE inspected=0'
+  exit 1
+fi
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
     -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
     -c "$work/generated-v310/output.cpp" -o "$work/v310-generated.o" \
