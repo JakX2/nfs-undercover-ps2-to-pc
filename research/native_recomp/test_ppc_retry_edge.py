@@ -40,8 +40,8 @@ class RetryEdgeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"ambiguous_backedge"):
             classify_retry_window(0x1000,[0x60000000]*10,0x1004)
         with self.assertRaisesRegex(ValueError,"ambiguous_backedge"):
-            classify_retry_window(0x1000,[bc(0x1000,0x1000,12,2),
-                bc(0x1004,0x1000,12,2)],0x1004)
+            classify_retry_window(0x1000,[0x60000000,
+                bc(0x1004,0x1000,12,2), bc(0x1008,0x1000,12,2)],0x1004)
 
 if __name__=="__main__":
     unittest.main()
