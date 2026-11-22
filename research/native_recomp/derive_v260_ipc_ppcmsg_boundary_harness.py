@@ -18,6 +18,41 @@ V259_STOP='''    ctx.is_running=false;throw ExceptionStop{};
   }'''
 V259_CONTINUE='''    return; // V260: execute genuine 0x8051906C guest body after entry
   }'''
+TRACE_ANCHOR='''void trace_call(uint32_t addr, CPUContext&ctx){'''
+FRONTIER_OBSERVER='''  // Independent bounded post-IPC-entry discovery window. A V258
+  // return-test call ceiling must not be mistaken for a PPCMSG failure.
+  if(v250_candidate_mode&&v259_ipc_seen==1u&&
+     v260_msg_seen==0u&&v260_frontier_seen==0u&&ctx.pc==addr){
+    ++v260_post_calls;
+    const bool guest=ctx.inst_count>v259_ipc_inst&&
+          ctx.gpr[13]==v147_first_r13&&
+          addr>=0x80000000u&&addr<0x80600000u&&
+          (addr&3u)==0u&&
+          ctx.lr>=0x80000000u&&ctx.lr<0x80600000u&&
+          (ctx.lr&3u)==0u;
+    const bool coherent=ipc70_bus.external_exception_pending(ctx.msr)==
+          (((ctx.msr&undercover::wii::IosBus::MSR_EE)!=0u)&&
+           ipc70_bus.external_irq_level());
+    const uint32_t scaddr=ctx.gpr[13]-3176u;
+    const bool mapped=ctx.mmu.get_ptr(scaddr)!=nullptr;
+    check(guest&&coherent&&mapped&&v260_post_calls<=64u,
+          "V260 post-IPC original guest bounded call context invalid");
+    if(v260_post_calls==64u){
+      v260_frontier_pc=addr;
+      v260_frontier_lr=ctx.lr;
+      v260_frontier_inst=ctx.inst_count;
+      v260_frontier_sc=ctx.mmu.read8(scaddr);
+      ++v260_frontier_seen;
+      std::cout<<"V260_CALL_FRONTIER guest="<<guest
+               <<" coherent="<<coherent<<" mapped="<<mapped
+               <<" calls="<<v260_post_calls
+               <<" sc="<<v260_frontier_sc
+               <<" pc="<<std::hex<<addr<<" lr="<<ctx.lr
+               <<std::dec<<std::endl;
+      ctx.is_running=false;throw ExceptionStop{};
+    }
+  }
+'''
 WRITE_ANCHOR='''void HW_Reg_Write32(uint32_t addr,uint32_t value){'''
 WRITE_OBSERVER='''void HW_Reg_Write32(uint32_t addr,uint32_t value){
   // First authentic PPCMSG after restored NAND -> IPC helper.
@@ -70,7 +105,8 @@ WRITE_OBSERVER='''void HW_Reg_Write32(uint32_t addr,uint32_t value){
     cpu->is_running=false;throw ExceptionStop{};
   }
 '''
-CANDIDATE='''      if(v250_probe&&nwii::runtime::v260_msg_seen==1u){
+CANDIDATE='''      if(v250_probe&&(nwii::runtime::v260_msg_seen==1u||
+                     nwii::runtime::v260_frontier_seen==1u)){
         const bool callback=nwii::runtime::v250_candidate_mode&&
               nwii::runtime::v244_cb_seen==1u&&
               nwii::runtime::v244_cb_registered&&
@@ -83,23 +119,32 @@ CANDIDATE='''      if(v250_probe&&nwii::runtime::v260_msg_seen==1u){
               nwii::runtime::v256_return_seen==1u&&
               nwii::runtime::v257_next_seen==1u&&
               nwii::runtime::v259_ipc_seen==1u;
-        const bool mmio=!c.is_running&&
-              c.pc==nwii::runtime::v260_guest_pc&&
-              c.lr==nwii::runtime::v260_guest_lr&&
-              c.inst_count==nwii::runtime::v260_guest_inst&&
+        const bool msg=nwii::runtime::v260_msg_seen==1u;
+        const bool frontier=nwii::runtime::v260_frontier_seen==1u;
+        const bool event=(msg!=frontier)&&!c.is_running&&
+              c.pc==(msg?nwii::runtime::v260_guest_pc:
+                            nwii::runtime::v260_frontier_pc)&&
+              c.lr==(msg?nwii::runtime::v260_guest_lr:
+                            nwii::runtime::v260_frontier_lr)&&
+              c.inst_count==(msg?nwii::runtime::v260_guest_inst:
+                                  nwii::runtime::v260_frontier_inst)&&
               c.inst_count>nwii::runtime::v259_ipc_inst;
-        const bool memory=nwii::runtime::ipc70_ram.valid(
-                  nwii::runtime::v260_msg_phys,64u)&&
-              nwii::runtime::ipc70_ram.read32(
-                  nwii::runtime::v260_msg_phys)==nwii::runtime::v260_msg_cmd&&
+        const bool packet=!msg||
+              (nwii::runtime::ipc70_ram.valid(
+                   nwii::runtime::v260_msg_phys,64u)&&
+               nwii::runtime::ipc70_ram.read32(
+                   nwii::runtime::v260_msg_phys)==nwii::runtime::v260_msg_cmd);
+        const bool memory=packet&&
               c.mmu.get_ptr(c.gpr[13]-3176u)!=nullptr&&
-              c.mmu.read8(c.gpr[13]-3176u)==nwii::runtime::v259_ipc_sc;
+              c.mmu.read8(c.gpr[13]-3176u)==
+                  (msg?nwii::runtime::v259_ipc_sc:
+                       nwii::runtime::v260_frontier_sc);
         std::cout<<"V260_NAND_GUEST callback="<<callback
-                 <<" mmio="<<mmio<<" memory="<<memory
+                 <<" event="<<event<<" memory="<<memory
                  <<" trial="<<(trial+1u)<<std::endl;
-        check(callback&&mmio&&memory,
-              "V260 authentic PPCMSG boundary did not persist in guest context");
-        continue; // private candidate only; original V244 path unaffected
+        check(callback&&event&&memory,
+              "V260 authentic bounded IPC continuation did not persist");
+        continue; // candidate only; no claimed mailbox publication
       }'''
 
 def derive(source:str)->str:
@@ -107,20 +152,32 @@ def derive(source:str)->str:
     if (PREVIOUS_OBSERVER.count(V259_STOP)!=1 or
             s.count(PREVIOUS_OBSERVER)!=1 or
             s.count(PREVIOUS_CANDIDATE)!=1 or
-            s.count(WRITE_ANCHOR)!=1):
+            s.count(WRITE_ANCHOR)!=1 or s.count(TRACE_ANCHOR)!=1 or
+            s.count('const bool budget=v258_nested_guest_calls<=32u;')!=1):
         raise ValueError("V260 inherited original NAND/IPC source anchors changed")
     s=once(s,STATE,STATE+'''
- static unsigned v260_msg_seen=0u;
+ static unsigned v260_msg_seen=0u,v260_frontier_seen=0u,v260_post_calls=0u;
+ static uint32_t v260_frontier_pc=0u,v260_frontier_lr=0u,v260_frontier_sc=0u;
+ static uint64_t v260_frontier_inst=0u;
  static uint32_t v260_msg_phys=0u,v260_msg_cmd=0u;
  static uint32_t v260_guest_pc=0u,v260_guest_lr=0u;
  static uint64_t v260_guest_inst=0u;''')
     s=once(s,RESET,RESET+'''
-     nwii::runtime::v260_msg_seen=0u;
+     nwii::runtime::v260_msg_seen=nwii::runtime::v260_frontier_seen=
+         nwii::runtime::v260_post_calls=0u;
+     nwii::runtime::v260_frontier_pc=nwii::runtime::v260_frontier_lr=
+         nwii::runtime::v260_frontier_sc=0u;
+     nwii::runtime::v260_frontier_inst=0u;
      nwii::runtime::v260_msg_phys=nwii::runtime::v260_msg_cmd=0u;
      nwii::runtime::v260_guest_pc=nwii::runtime::v260_guest_lr=0u;
      nwii::runtime::v260_guest_inst=0u;''')
     s=once(s,PREVIOUS_OBSERVER,
            PREVIOUS_OBSERVER.replace(V259_STOP,V259_CONTINUE,1))
+    s=once(s,TRACE_ANCHOR,TRACE_ANCHOR+'\n'+FRONTIER_OBSERVER)
+    s=once(s,"const bool budget=v258_nested_guest_calls<=32u;",
+           """const bool budget=v258_nested_guest_calls<=32u||
+            (v250_candidate_mode&&v259_ipc_seen==1u&&
+             v260_msg_seen==0u&&v260_post_calls<=64u);""")
     s=once(s,WRITE_ANCHOR,WRITE_OBSERVER)
     s=once(s,PREVIOUS_CANDIDATE,CANDIDATE)
     return s
