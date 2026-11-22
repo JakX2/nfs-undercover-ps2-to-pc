@@ -111,6 +111,7 @@ jobs:
               grep -E '^V250_PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170} callback=[01] nand=[01] trials=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc262.log" | sort -u || true
               grep -E '^V262_STATE_ERROR reason=[a-z_]{1,48}$|^V261_CENSUS_ERROR reason=[a-z_]{1,48}$|^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc262.log" | sort -u || true
               grep -E '^V178_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_failed|syntax_ok)$|^V110_WRAPPER_SYNTAX line [0-9]{1,4}$|^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V262_DERIVE_EXCEPTION class=(RecursionError|FileNotFoundError|PermissionError|TypeError|AttributeError|NameError|RuntimeError|MemoryError|OSError|KeyError|AssertionError|Other)$' "$RUNNER_TEMP/sc262.log" | sort -u || true
               echo 'V262 authenticated IOS state census not verified; raw trace withheld' >&2
               exit 1
             }

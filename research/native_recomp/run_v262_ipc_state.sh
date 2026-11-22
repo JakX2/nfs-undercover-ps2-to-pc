@@ -33,6 +33,13 @@ m=re.search(r"V178 public preflight command ([a-z_]{1,32}) count=([0-9]{1,3})",l
 if m and m.group(1) in allowed:
     print("V178_PUBLIC_PREFLIGHT_ERROR step="+m.group(1)+
           " count="+m.group(2),file=sys.stderr)
+# Only the Python exception class is shown, never traceback or source text.
+allow_classes={"RecursionError","FileNotFoundError","PermissionError",
+               "TypeError","AttributeError","NameError","RuntimeError",
+               "MemoryError","OSError","KeyError","AssertionError"}
+classes=re.findall(r"(?m)^([A-Z][A-Za-z0-9]{2,60})(?::|$)",log)
+found=next((c for c in reversed(classes) if c in allow_classes),"Other")
+print("V262_DERIVE_EXCEPTION class="+found,file=sys.stderr)
 print("V178_DERIVATION result=failed kind="+kind,file=sys.stderr)
 PY
   exit 1
