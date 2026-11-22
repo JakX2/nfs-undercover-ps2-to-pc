@@ -24,11 +24,14 @@ TARGET=re.compile(
     r"blr=([0-9]{1,4}) other=([0-9]{1,4}) "
     r"emitted=([01]) dispatch=([01])$"
 )
+# V292's bounded AOT report audits source *prefixes*, not the
+# complete spans. V293 independently authenticates and round-trips
+# the FULL lengths 52/30/34/79 words before any V294 generation.
 SIZES={
-    "8052fa60":52,
+    "8052fa60":48,
     "8051d20c":30,
     "8051e150":34,
-    "8052fca4":79,
+    "8052fca4":16,
 }
 
 def inspect(data:str)->tuple[str,bool]:
