@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""V262 read-only Wii interrupt and IOS-state census at V261 64-call frontier."""
+"""V262 read-only Wii interrupt and IOS-state census at V261 64-call frontier.
+
+Derive directly from V260 and compose V261/V262 sampling in one edit.
+This avoids the deep recursive milestone-generator chain without changing
+any original PowerPC function, instruction, host return or MMIO behavior.
+"""
 import argparse
 from pathlib import Path
+from derive_v260_ipc_ppcmsg_boundary_harness import (
+    derive as previous, FRONTIER_OBSERVER as PRIOR_FRONTIER,
+)
 from derive_v261_guest_call_census_harness import (
-    derive as previous, INSTRUMENTED as PREVIOUS_INSTRUMENTED,
+    ANCHOR as PRIOR_ANCHOR, INSTRUMENTED as PRIOR_CENSUS,
 )
 from derive_v194_osrestore_next_harness import once
 
@@ -28,12 +36,13 @@ STATE_OBSERVER='''      // V262 owner-only observation; do not mutate IPC or gue
 
 def derive(source:str)->str:
     s=previous(source)
-    if (PREVIOUS_INSTRUMENTED.count(LAST_CALL)!=1 or
-            s.count(PREVIOUS_INSTRUMENTED)!=1):
-        raise ValueError("V262 owner-verified original guest call-census seam changed")
-    instrumented=PREVIOUS_INSTRUMENTED.replace(
-        LAST_CALL,LAST_CALL+'\n'+STATE_OBSERVER,1)
-    return once(s,PREVIOUS_INSTRUMENTED,instrumented)
+    if (PRIOR_FRONTIER.count(PRIOR_ANCHOR)!=1 or
+            PRIOR_CENSUS.count(LAST_CALL)!=1 or
+            s.count(PRIOR_FRONTIER)!=1):
+        raise ValueError("V262 original V260/V261 guest call-census source changed")
+    census=PRIOR_FRONTIER.replace(PRIOR_ANCHOR,PRIOR_CENSUS,1)
+    census=census.replace(LAST_CALL,LAST_CALL+'\n'+STATE_OBSERVER,1)
+    return once(s,PRIOR_FRONTIER,census)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
