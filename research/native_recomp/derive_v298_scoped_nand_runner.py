@@ -11,7 +11,10 @@ HERE=Path(__file__).resolve().parent
 LINK='if g++ "$work/v296-harness.o" "$work/v294-generated.o" "$work/loader.o" \\'
 DONE="echo 'V296_SERVICE_PROBE inspected=1'"
 PRE=r'''
-python3 "$V110_SOURCE_ROOT/derive_v298_scope_reply_observer.py"    "$work/v296-harness.cpp" "$work/v298-harness.cpp"
+python3 "$V110_SOURCE_ROOT/derive_v298_scope_reply_observer.py" \
+    "$work/v296-harness.cpp" "$work/v298-scoped-harness.cpp"
+python3 "$V110_SOURCE_ROOT/derive_v321_guest_entry_probe.py" \
+    "$work/v298-scoped-harness.cpp" "$work/v298-harness.cpp"
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -198,6 +201,11 @@ echo 'V310_NATIVE_TRIAL inspected=1'
 python3 "$V110_SOURCE_ROOT/audit_v319_native_entries.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V319_ENTRY_STAGE inspected=1'
+# V321: compare positive, once-only AOT function-entry markers
+# across the separate V304 and V310 owner-native trial processes.
+python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
+    "$work/v304-native.log" "$work/v310-native.log"
+echo 'V321_ENTRY_COMPARE inspected=1'
 '''
 
 AFTER=r'''
