@@ -35,11 +35,14 @@ def classify_condition(start: int, words: list[int], callsite: int) -> dict[str,
     ra=-1
     rb=-1
     immediate_zero=-1
+    immediate_class=-1  # 0,1,2,3,0xffff,other; never original instruction bytes
     if op in (10,11):
         kind=1 if op==11 else 2
         bf=(previous>>23)&7
         ra=(previous>>16)&31
-        immediate_zero=int((previous&0xffff)==0)
+        imm=previous&0xffff
+        immediate_zero=int(imm==0)
+        immediate_class={0:0,1:1,2:2,3:3,0xffff:4}.get(imm,5)
     elif op==31 and ((previous>>1)&1023) in (0,32):
         kind=3 if ((previous>>1)&1023)==0 else 4
         bf=(previous>>23)&7
@@ -49,7 +52,9 @@ def classify_condition(start: int, words: list[int], callsite: int) -> dict[str,
         kind=5
         bf=0
         ra=(previous>>16)&31
-        immediate_zero=int((previous&0xffff)==0)
+        imm=previous&0xffff
+        immediate_zero=int(imm==0)
+        immediate_class={0:0,1:1,2:2,3:3,0xffff:4}.get(imm,5)
     return {
         "backedge_from": pc-callsite,
         "backedge_to": dest-callsite,
@@ -59,15 +64,18 @@ def classify_condition(start: int, words: list[int], callsite: int) -> dict[str,
         "producer_ra":ra,
         "producer_rb":rb,
         "producer_imm_zero":immediate_zero,
+        "producer_imm_class":immediate_class,
+        # The prior BL returns in r3; cmplwi/cmpwi r3,nonzero
+        # are equally direct return-value comparisons.
         "compares_helper_r3":int(
             pc-callsite==8 and kind in (1,2,3,4)
-            and bf==0 and ra==3 and
-            (immediate_zero==1 or rb>=0)),
+            and bf==0 and ra==3),
     }
 
 
 def sanitized(stats:dict[str,int])->str:
     keys=("backedge_from","backedge_to","prev_distance",
           "producer_kind","producer_cr_field","producer_ra",
-          "producer_rb","producer_imm_zero","compares_helper_r3")
+          "producer_rb","producer_imm_zero","producer_imm_class",
+          "compares_helper_r3")
     return "V266_CONDITION "+" ".join(f"{k}={stats[k]}" for k in keys)

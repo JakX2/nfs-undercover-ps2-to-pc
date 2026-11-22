@@ -74,7 +74,7 @@ jobs:
             exit 1
           }
           grep -Fx 'V266_CONDITION_AUDIT verified=1' "$RUNNER_TEMP/v266.log"
-          grep -E '^V266_CONDITION backedge_from=-?[0-9]{1,3} backedge_to=-?[0-9]{1,3} prev_distance=4 producer_kind=[0-5] producer_cr_field=(-1|[0-7]) producer_ra=(-1|[0-9]|[1-2][0-9]|3[01]) producer_rb=(-1|[0-9]|[1-2][0-9]|3[01]) producer_imm_zero=(-1|[01]) compares_helper_r3=[01]$' "$RUNNER_TEMP/v266.log"
+          grep -E '^V266_CONDITION backedge_from=-?[0-9]{1,3} backedge_to=-?[0-9]{1,3} prev_distance=4 producer_kind=[0-5] producer_cr_field=(-1|[0-7]) producer_ra=(-1|[0-9]|[1-2][0-9]|3[01]) producer_rb=(-1|[0-9]|[1-2][0-9]|3[01]) producer_imm_zero=(-1|[01]) producer_imm_class=(-1|[0-5]) compares_helper_r3=[01]$' "$RUNNER_TEMP/v266.log"
           echo 'PASS: V266 authenticated original Wii retry comparison'
       - name: Remove private owner inputs
         if: always()
