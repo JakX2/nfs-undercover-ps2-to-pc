@@ -1,0 +1,178 @@
+name: Wii V297 Original NAND Assertion Provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v297*'
+      - '.github/workflows/wii-v297-public-failure.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v297-public-failure-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  public-original-free-v297:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify V297 original-free public failure provenance
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/analyze_v297_public_failure.py research/native_recomp/test_v297_public_failure.py research/native_recomp/derive_v297_public_failure_runner.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v297_public_failure.py' -v
+          bash -n research/native_recomp/run_v297_public_failure.sh
+  owner-original-v297:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned private Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'V297 owner original staging failed' >&2
+            exit 1
+          fi
+      - name: Verify authenticated private owner original
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Prepare pinned NWii runtime and source guards
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+      - name: Resolve the first authentic NAND service failure using public assertions
+        run: |
+          set -euo pipefail
+          umask 077
+          V293_PRIVATE_ELF="$RUNNER_TEMP/originals/NfsMWRelease.elf" bash research/native_recomp/run_v297_public_failure.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/sc297.log" 2>&1 || {
+              grep -E '^V260_PPCMSG_BOUNDARY guest=[01] aligned=[01] mapped=[01] fresh=[01] coherent=[01] reply=[01] open=[01] mem2=[01] mode_ok=[01] path_phys=[01] path_alias=[01] idle=[01] prewrite=1$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V260_NAND_GUEST callback=[01] event=[01] memory=[01] trial=([1-9]|1[0-6])$|^V260_CALL_FRONTIER guest=[01] coherent=[01] mapped=[01] calls=[0-9]{1,3} sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V257_NAND_NEXT guest=[01] caller=[01] code=[01] mapped=[01] reply=[01] coherent=[01] sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V178_NATIVE_ASSERTION id=[0-9]{4}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V250_PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170} callback=[01] nand=[01] trials=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V262_STATE_ERROR reason=[a-z_]{1,48}$|^V261_CENSUS_ERROR reason=[a-z_]{1,48}$|^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V178_DERIVATION result=failed kind=(missing_anchor|ambiguous_anchor|python_syntax|import_error|other_value_error|other_error)$|^V110_WRAPPER (derived|syntax_failed|syntax_ok)$|^V110_WRAPPER_SYNTAX line [0-9]{1,4}$|^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V294_DERIVE_EXCEPTION class=(RecursionError|FileNotFoundError|PermissionError|TypeError|AttributeError|NameError|RuntimeError|MemoryError|OSError|KeyError|AssertionError|Other)$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V263_HOTSPOT_ERROR reason=[a-z_]{1,60}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V269_WATCH_ERROR reason=[a-z_]{1,48}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V278_ENTRY_ERROR reason=[a-z_]{1,50}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V289_SERVICE_ERROR reason=[a-z_]{1,50}$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V292_AOT_AUDIT verified=0$' "$RUNNER_TEMP/sc297.log" || true
+              grep -E '^V293_RESTORE_AUDIT verified=0$|^V293_RESTORE result=failed$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V294_AOT_STAGE (regenerate|inspect|coverage|compile|link)=[01]$|^V294_AOT_COVERAGE targets=4 ' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V295_NATIVE_OUTCOME |^V295_EXEC_AUDIT verified=[01]$|^V295_BOUNDED_CANDIDATE inspected=[01]$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V296_NATIVE_FRONTIER |^V296_FRONTIER_AUDIT verified=[01]$|^V296_SERVICE_PROBE inspected=[01]$|^V296_HARNESS_STAGE compile=[01]$' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              grep -E '^V297_ORIGINAL_PROGRESS |^V297_PUBLIC_AUDIT verified=[01]$|^V297_ASSERTION_PROVENANCE inspected=[01]$|^V250_PUBLIC_FAILURE id=[0-9]{4} label=' "$RUNNER_TEMP/sc297.log" | sort -u || true
+              echo 'V294 private restored NAND AOT compile/link not verified; game code withheld' >&2
+              exit 1
+            }
+          grep -Fx 'V262_IPC_STATE verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V263_HOTSPOT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V269_SC_WATCH verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V278_FCA4_ENTRY verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V289_NAND_ENTRY verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V292_AOT_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V292_AOT_REACH verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V293_RESTORE_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V293_PRIVATE_RESTORE verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V294_RESTORED_AOT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V294_COVERAGE_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V295_BOUNDED_CANDIDATE inspected=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V296_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V297_PUBLIC_AUDIT verified=1' "$RUNNER_TEMP/sc297.log"
+          grep -Fx 'V297_ASSERTION_PROVENANCE inspected=1' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V297_ORIGINAL_PROGRESS child=[0-9]{1,4} early=[0-9]{1,4} delta=[0-9]{1,18} ordered=1 abort=1 assertion=[0-9]{4}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V250_PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170} callback=[01] nand=[01] trials=[0-9]{1,2}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V294_AOT_COVERAGE targets=4 exact=4 bodies=4 dispatch=4 child_original=1 source_original=1 child_bl=1 unmapped=0 direct_emit=1 ready=1$' "$RUNNER_TEMP/sc297.log"
+          for stage in regenerate inspect coverage compile link; do
+            grep -Fx "V294_AOT_STAGE $stage=1" "$RUNNER_TEMP/sc297.log"
+          done
+          grep -E '^V293_NAND_RESTORE owner=1 funcs=4 changed=[0-9]{1,5} total_words=[0-9]{1,5} roundtrip=1 candidate=1$' "$RUNNER_TEMP/sc297.log"
+          test "$(grep -Ec '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc297.log")" -eq 4
+          grep -E '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V292_AOT_REACH owner=1 fixture=1 targets=4 child_original=[01] source_original=[01] child_aot=[01] source_aot=[01] child_bl=[01] unmapped_bl=[01] direct_emit=[01]$' "$RUNNER_TEMP/sc297.log"
+          test "$(grep -Ec '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc297.log")" -eq 8
+          grep -E '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V289_NAND_ENTRY trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} zero=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V278_FCA4_CENSUS trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} child=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5} callback=[0-9]{1,5} nand=[0-9]{1,5}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V269_SC_WATCH trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) events=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} changed=[0-9]{1,5} write_zero=[0-9]{1,5} write_one=[0-9]{1,5} write_other=[0-9]{1,5} one_to_one=[0-9]{1,5} one_to_zero=[0-9]{1,5}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V263_HOTSPOT trials=16 calls=64 stable=1 unique_pc=([1-9]|[1-5][0-9]|6[0-4]) unique_pairs=([1-9]|[1-5][0-9]|6[0-4]) max_freq=([1-9]|[1-5][0-9]|6[0-4]) restore_hits=([0-9]|[1-5][0-9]|6[0-4]) disable_hits=([0-9]|[1-5][0-9]|6[0-4]) total_guest_inst=[0-9]{1,18} irq_ever=[01] request_ever=[01] sc_stable=[01]$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V263_PAIR rank=[123] pc=[0-9a-f]{8} lr=[0-9a-f]{8} freq=([1-9]|[1-5][0-9]|6[0-4]) first=([1-9]|[1-5][0-9]|6[0-4]) last=([1-9]|[1-5][0-9]|6[0-4]) first32=([0-9]|[1-2][0-9]|3[0-2]) last32=([0-9]|[1-2][0-9]|3[0-2]) ee_on=([0-9]|[1-5][0-9]|6[0-4]) ee_off=([0-9]|[1-5][0-9]|6[0-4]) gap_min=[0-9]{1,18} gap_med=[0-9]{1,18} gap_max=[0-9]{1,18}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V262_IPC_STATE trials=16 calls=64 stable=[01] distinct=([1-9]|1[0-6]) ee_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_edges=([0-9]|[1-5][0-9]|6[0-3]) request_edges=([0-9]|[1-5][0-9]|6[0-3]) queue_edges=([0-9]|[1-5][0-9]|6[0-3]) sc_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_ever=[01] request_ever=[01] queue_max=[0-9]{1,3} reply_all=[01] sc_first=[0-9]{1,3} sc_last=1 digest=[0-9a-f]{16}$' "$RUNNER_TEMP/sc297.log"
+          grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$RUNNER_TEMP/sc297.log" | sort -u
+          # The private runner already enforces exactly sixteen source
+          # trials; its inherited stages repeat public trial rows in this
+          # combined log. Require every numbered trial instead of assuming
+          # that each row occurs only once in the wrapper output.
+          for n in $(seq 1 16); do
+            grep -Fqx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$RUNNER_TEMP/sc297.log"
+          done
+          echo 'PASS: V297 original NAND service failure classified from public harness'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc297.log"
