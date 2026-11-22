@@ -9,7 +9,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 SRAM_OLD,SRAM_NEW,SRAM_LABEL,
                                                 TRANSPORT_OLD,TRANSPORT_NEW,TRANSPORT_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
-from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
+from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner\nfrom derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
 from analyze_v298_scope_native import inspect
 
 SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
@@ -184,7 +184,7 @@ class Tests(unittest.TestCase):
         # actual IOS service implementation.
         self.assertEqual(
             TRANSPORT_NEW,
-            "if(post112_submit==1u&&addr==POST_OWNER&&ctx.lr==0x8051963cu&&\n"
+            "if(post112_submit==1u&&addr==0x805222c0u&&ctx.lr==0x8051963cu&&\n"
             "       (!v250_candidate_mode||v250_nand_seen==0u)){"
         )
         changed=scope(SOURCE)
@@ -203,6 +203,23 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(malformed)):
                 with self.assertRaises(ValueError):
                     scope(malformed)
+
+    def test_v329_v114_transport_anchor_provenance(self):
+        # V113 first uses POST_OWNER, then V114 rewrites the exact
+        # bounded observer to a fixed cache-flush entry. The V298
+        # patch sees the final generated harness, never the V113 input.
+        self.assertIn(
+            ("if(post112_submit==1u&&addr==POST_OWNER&&ctx.lr==0x8051963cu){",
+             TRANSPORT_OLD),
+            V114_EDITS)
+        self.assertEqual(scope(SOURCE).count(TRANSPORT_NEW),1)
+        stale=SOURCE.replace(
+            TRANSPORT_OLD,
+            "if(post112_submit==1u&&addr==POST_OWNER&&ctx.lr==0x8051963cu){",
+            1)
+        self.assertIn("transport=0",summarize_seams(stale))
+        with self.assertRaises(ValueError):
+            scope(stale)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
