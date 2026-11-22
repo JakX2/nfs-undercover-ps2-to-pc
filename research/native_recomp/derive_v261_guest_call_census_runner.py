@@ -9,7 +9,7 @@ NEW = 'python3 "$V110_SOURCE_ROOT/derive_v261_guest_call_census_harness.py"'
 DONE = "echo 'V260_SC_POSTIPC_EVENT verified=1'"
 APPEND = '''
 # V260 must have reached its authenticated 64th guest call (not PPCMSG).
-grep -Fqx 'V260_POSTIPC_RESULT kind=calls trials=16' "$work/v250-native.log"
+test "$(grep -Ec '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$work/v250-native.log")" -eq 16
 # Parse 16 x 64 read-only PC/LR samples while keeping raw logs private.
 python3 "$V110_SOURCE_ROOT/analyze_v261_postipc_calls.py" "$work/v250-native.log"
 echo 'V261_CALL_CENSUS verified=1'
