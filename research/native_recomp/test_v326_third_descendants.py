@@ -21,7 +21,7 @@ CPP=(
 )
 
 def reader(data,pc,n):
-    if n!=4:
+    if n!=len(ORIGINAL):
         raise ValueError("unknown window")
     if data==OWNER:
         return ORIGINAL
