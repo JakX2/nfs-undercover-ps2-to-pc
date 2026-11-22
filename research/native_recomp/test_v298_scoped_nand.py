@@ -9,7 +9,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 SRAM_OLD,SRAM_NEW,SRAM_LABEL,
                                                 TRANSPORT_OLD,TRANSPORT_NEW,TRANSPORT_LABEL,
                                                 NAND_SC_OLD,NAND_SC_NEW,NAND_SC_LABEL,
-                                                VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,VECTOR_TRACE_LABEL,summarize_seams,
+                                                VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,VECTOR_TRACE_LABEL,
+                                                NAND_IRQ_OLD,NAND_IRQ_NEW,NAND_IRQ_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -24,7 +25,8 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n       check(false,"V113 original IOS transport did not reach bounded cache flush");\n'+
         "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"+NAND_SC_OLD+"\n"+
         VECTOR_TRACE_OLD+"\n     ctx.lr==(arena_active?arena_flush_lr(arena_phase):0x80522044u)&&\n"+
-        VECTOR_TRACE_LABEL+"\n    ++sc_vector_entries;\n  }\n")
+        VECTOR_TRACE_LABEL+"\n    ++sc_vector_entries;\n  }\n"+NAND_IRQ_OLD+
+        '\n     check(false,"V115 original IOS submission IRQ-disable call differs");\n')
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -283,6 +285,32 @@ class Tests(unittest.TestCase):
             with self.subTest(length=len(altered)):
                 with self.assertRaises(ValueError):
                     scope(altered)
+
+    def test_v334_nand_irq_disable_phase_scope_keeps_original_call(self):
+        # V115's earlier request counters are not a global contract for
+        # the genuine 0x80519640 NAND submission callsite.
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(NAND_IRQ_NEW),1)
+        self.assertEqual(scoped.count(NAND_IRQ_LABEL),1)
+        self.assertNotIn(NAND_IRQ_OLD,scoped)
+        self.assertIn("post115_sc==1u",NAND_IRQ_NEW)
+        self.assertIn("addr==INT_DISABLE&&ctx.lr==0x80519640u",NAND_IRQ_NEW)
+        self.assertIn("(!v250_candidate_mode||v250_nand_seen==0u)",NAND_IRQ_NEW)
+        self.assertNotIn("ctx.gpr[",NAND_IRQ_NEW)
+        self.assertNotIn("ctx.msr=",NAND_IRQ_NEW)
+        self.assertNotIn("ctx.is_running=false",NAND_IRQ_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                self.assertEqual(not(candidate and nand),
+                                 (not candidate or not nand))
+        for bad in (
+            SOURCE.replace(NAND_IRQ_OLD,"",1),
+            SOURCE+"\n"+NAND_IRQ_OLD,
+            SOURCE.replace(NAND_IRQ_LABEL,"unrelated IRQ assertion",1),
+        ):
+            with self.subTest(size=len(bad)):
+                with self.assertRaises(ValueError):
+                    scope(bad)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before

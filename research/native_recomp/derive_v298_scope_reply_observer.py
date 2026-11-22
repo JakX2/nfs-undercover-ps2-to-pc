@@ -90,6 +90,15 @@ VECTOR_TRACE_OLD="  else if(addr==0x80000c00u){\n    check(ctx.srr0==0x805222ecu
 VECTOR_TRACE_NEW="  else if(addr==0x80000c00u){\n    // V332: the authenticated NAND IOS submission reaches the same\n    // installed guest SC vector as the earlier OSInit arena flush.\n    // Verify its vector ABI, not the older DSP/arena trace counters.\n    if(v250_candidate_mode&&v250_nand_seen==1u&&ctx.lr==0x8051963cu){\n      check(ctx.srr0==0x805222ecu&&ctx.pc==0x80000c00u&&\n            !(ctx.msr&0x8000u),\n            \"V332 original NAND cache syscall vector entry differs\");\n      return; // Observer only: native_idle_cache_sc still executes real vector.\n    }\n    check(ctx.srr0==0x805222ecu&&ctx.pc==0x80000c00u&&"
 VECTOR_TRACE_LABEL="native installed SC vector entry ABI differs"
 
+# V334: V115's IRQ-disable observer describes the earlier SC request.
+# An authenticated NAND submit reaches the same guest OSDisableInterrupts
+# call with different counters. Retire only this trace observer, not the
+# AOT guest IRQ-disable call or its real MSR/EE changes.
+NAND_IRQ_OLD="if(post115_sc==1u&&addr==INT_DISABLE&&ctx.lr==0x80519640u){"
+NAND_IRQ_NEW=("if(post115_sc==1u&&addr==INT_DISABLE&&ctx.lr==0x80519640u&&"
+              "(!v250_candidate_mode||v250_nand_seen==0u)){")
+NAND_IRQ_LABEL="V115 original IOS submission IRQ-disable call differs"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -146,6 +155,7 @@ def patch(source: str) -> str:
         source.count(TRANSPORT_OLD)!=1 or source.count(TRANSPORT_LABEL)!=1 or
         source.count(NAND_SC_OLD)!=1 or source.count(NAND_SC_LABEL)!=1 or
         source.count(VECTOR_TRACE_OLD)!=1 or source.count(VECTOR_TRACE_LABEL)!=1 or
+        source.count(NAND_IRQ_OLD)!=1 or source.count(NAND_IRQ_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
@@ -166,6 +176,7 @@ def patch(source: str) -> str:
     output=output.replace(TRANSPORT_OLD,TRANSPORT_NEW,1)
     output=output.replace(NAND_SC_OLD,NAND_SC_NEW,1)
     output=output.replace(VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,1)
+    output=output.replace(NAND_IRQ_OLD,NAND_IRQ_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -175,6 +186,7 @@ def patch(source: str) -> str:
         output.count(TRANSPORT_NEW)!=1 or output.count(TRANSPORT_LABEL)!=1 or
         output.count(NAND_SC_NEW)!=1 or output.count(NAND_SC_LABEL)!=1 or
         output.count(VECTOR_TRACE_NEW)!=1 or output.count(VECTOR_TRACE_LABEL)!=1 or
+        output.count(NAND_IRQ_NEW)!=1 or output.count(NAND_IRQ_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
