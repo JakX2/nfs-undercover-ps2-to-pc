@@ -24,10 +24,11 @@ CLIENT_NEW=("   if((ipc69_active&&v177_next_seen==0u&&"
             "addr==0x805194c4u){ipc69_entry(addr,ctx);return;}")
 # V311: V71 IOS_Open allocator observer is bound to the old startup
 # request. The original NAND path calls its allocator tail again with a
-# different (authentic) LR. Retire the old probe only after NAND proof.
-IOS_OPEN_OLD="    if(!stm70_open)return false;"
-IOS_OPEN_NEW=("    if(!stm70_open||"
-              "(v250_candidate_mode&&v250_nand_seen==1u))return false;")
+# different (authentic) LR. Gate the public observer at its entry, not
+# at the old first condition which prior derivations have already changed.
+IOS_OPEN_OLD="  static bool open71_trace(uint32_t addr,CPUContext&ctx){"
+IOS_OPEN_NEW=(IOS_OPEN_OLD+"\n"+
+              "    if(v250_candidate_mode&&v250_nand_seen==1u)return false;")
 IOS_OPEN_EXPLICIT="if(addr==0x80519944u){stm70_open_entry(ctx);return;}"
 
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"

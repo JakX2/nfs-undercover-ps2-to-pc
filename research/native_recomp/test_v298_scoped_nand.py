@@ -21,7 +21,8 @@ class Tests(unittest.TestCase):
         self.assertIn(CLIENT_NEW,s)
         self.assertIn(IOS_OPEN_NEW,s)
         self.assertIn(IOS_OPEN_EXPLICIT,s)
-        self.assertNotIn(IOS_OPEN_OLD,s)
+        self.assertEqual(s.count(IOS_OPEN_OLD),1)
+        self.assertEqual(s.count(IOS_OPEN_NEW),1)
         self.assertNotIn(CLIENT_OLD,s)
         self.assertIn("||addr==0x805194c4u)",CLIENT_NEW)
         self.assertEqual(s.count("ipc69_entry(addr,ctx);return;"),1)
@@ -54,8 +55,8 @@ class Tests(unittest.TestCase):
         ]
         self.assertEqual(
             IOS_OPEN_NEW,
-            "    if(!stm70_open||"
-            "(v250_candidate_mode&&v250_nand_seen==1u))return false;"
+            IOS_OPEN_OLD+"\n"+
+            "    if(v250_candidate_mode&&v250_nand_seen==1u)return false;"
         )
         for open_active,candidate,nand_seen,expected in cases:
             observed=open_active and not(candidate and nand_seen)
