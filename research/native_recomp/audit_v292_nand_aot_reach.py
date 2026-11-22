@@ -51,19 +51,29 @@ def link(generated):
 def audit(owner,fixture,generated,sha=ORIGINAL_SHA,reader=text_at):
     if hashlib.sha256(owner).hexdigest()!=sha:
         raise ValueError("original_sha")
-    if not owner or len(owner)!=len(fixture) or len(owner)>20000000:
+    if not owner or not fixture or max(len(owner),len(fixture))>20000000:
         raise ValueError("fixture_geometry")
     rows=[]
     orig={}
     for pc,size in TARGETS:
         a=reader(owner,pc,size)
-        c=reader(fixture,pc,size)
-        if len(a)!=size or len(c)!=size:raise ValueError("span")
-        counts=word_counts(a,c)
+        if len(a)!=size:raise ValueError("original_span")
+        # The intentionally reduced owner fixture has fewer text sections
+        # and can omit whole original functions. An absent span is a
+        # meaningful missing-coverage result, not an error or fake NOP.
+        try:
+            c=reader(fixture,pc,size)
+        except (ValueError,IndexError,struct.error):
+            c=None
+        if c is not None and len(c)!=size:
+            raise ValueError("fixture_span")
+        present=int(c is not None)
+        counts=(word_counts(a,c) if present else
+                dict(same=0,nop=0,blr=0,other=0))
         flags=emitted(generated,pc)
-        orig[pc]=int(counts["same"]==size//4)
+        orig[pc]=int(present and counts["same"]==size//4)
         rows.append(
-            f"V292_AOT_TARGET pc={pc:08x} words={size//4} "+
+            f"V292_AOT_TARGET pc={pc:08x} words={size//4} present={present} "+
             " ".join(f"{k}={counts[k]}" for k in ("same","nop","blr","other"))+
             f" emitted={flags['body']} dispatch={flags['dispatch']}")
     have,unmapped,direct=link(generated)

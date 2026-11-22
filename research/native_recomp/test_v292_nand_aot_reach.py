@@ -35,6 +35,19 @@ class Tests(unittest.TestCase):
         self.assertIn("source_aot=0 child_bl=1 unmapped_bl=1",rows[0])
         with self.assertRaisesRegex(ValueError,"original_sha"):
             audit(orig,orig,cpp,reader=reader)
+        # A full owner DOL and a reduced fixture have intentionally
+        # different lengths; a missing guest-addressed function is a
+        # reported coverage gap, never treated as NOP or fabricated code.
+        reduced=b"reduced"
+        def missing_reader(data,pc,size):
+            if data==reduced and pc==SOURCE:
+                raise ValueError("missing code")
+            return spans[pc]
+        rows=audit(orig,reduced,cpp,hashlib.sha256(orig).hexdigest(),
+                   missing_reader)
+        self.assertIn("source_original=0",rows[0])
+        source_row=next(x for x in rows if f"pc={SOURCE:08x}" in x)
+        self.assertIn("present=0 same=0 nop=0 blr=0 other=0",source_row)
 
     def test_private_ci(self):
         wf=(Path(__file__).resolve().parents[2]/
