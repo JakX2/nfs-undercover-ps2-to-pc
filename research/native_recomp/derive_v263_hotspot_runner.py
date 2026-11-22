@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
-"""V263: retain verified V262 guest execution, report only callsite aggregates."""
+"""V263: flat V260/V261/V262 owner-native runner with callsite aggregates.
+
+Avoid another Python import/derivation layer above the historical
+runner stack. All previous native execution and 16-trial gates remain.
+"""
 import argparse
 from pathlib import Path
-from derive_v262_ipc_state_runner import derive as previous
+from derive_v260_ipc_ppcmsg_boundary_runner import derive as previous
+from derive_v261_guest_call_census_runner import APPEND as V261_APPEND
 
-DONE = "echo 'V262_IPC_STATE verified=1'"
-EXTRA = '''
+OLD = 'python3 "$V110_SOURCE_ROOT/derive_v260_ipc_ppcmsg_boundary_harness.py"'
+NEW = 'python3 "$V110_SOURCE_ROOT/derive_v262_ipc_state_harness.py"'
+DONE = "echo 'V260_SC_POSTIPC_EVENT verified=1'"
+EXTRA = V261_APPEND + '''
+python3 "$V110_SOURCE_ROOT/analyze_v262_ipc_state.py" "$work/v250-native.log"
+echo 'V262_IPC_STATE verified=1'
 python3 "$V110_SOURCE_ROOT/analyze_v263_hotspot.py" "$work/v250-native.log"
 echo 'V263_HOTSPOT verified=1'
 '''
 
+
 def derive(source: str) -> str:
     s = previous(source)
-    if s.count(DONE) != 1:
-        raise ValueError("V263 verified V262 owner-native runner changed")
-    return s.replace(DONE, DONE + EXTRA, 1)
+    if s.count(OLD) != 1 or s.count(DONE) != 1:
+        raise ValueError("V263 inherited V260 owner-native runner changed")
+    return s.replace(OLD, NEW, 1).replace(DONE, DONE + EXTRA, 1)
 
 
 if __name__ == "__main__":

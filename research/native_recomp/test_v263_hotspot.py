@@ -7,13 +7,22 @@ from pathlib import Path
 
 from analyze_v263_hotspot import analyze
 from derive_v263_hotspot_runner import derive as derive_runner
-from test_v261_guest_call_census import fixture as call_fixture
-from test_v262_ipc_state import fixture as state_fixture
-
 HERE = Path(__file__).resolve().parent
 
 def fixture() -> str:
-    return call_fixture() + "\n" + state_fixture()
+    """Independent 16x64 original-free CPU and IRQ trace fixtures."""
+    call_lines = []
+    state_lines = []
+    for _ in range(16):
+        for n in range(1,65):
+            pc = 0x805265D4 if n == 64 else 0x80521000 + 4*(n%8)
+            lr = 0x8052F92C if n == 64 else 0x80522000 + 4*(n%8)
+            call_lines.append(
+                f"V261_CALL n={n} pc={pc:08x} lr={lr:08x} inst={n*11}")
+            state_lines.append(
+                f"V262_STATE n={n} mapped=1 ee={int(n%2==0)} irq=0 "
+                "native_request=0 queued=0 sc=1 reply=1")
+    return "\n".join(call_lines + state_lines)
 
 
 class V263(unittest.TestCase):
