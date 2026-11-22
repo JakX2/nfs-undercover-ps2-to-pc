@@ -76,6 +76,13 @@ TRANSPORT_LABEL="V113 original IOS transport did not reach bounded cache flush"
 
 
 
+# V331: this is the V72 cache-syscall handler, not a PowerPC body.
+# The same native SC callsite is reached later by the restored NAND request.
+# Reuse its authenticated vector without requiring old submit72 counters.
+NAND_SC_OLD="  if(own&&ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu){\n    check(submit72_flush==1u&&submit72_sc==0u,\"IPC request unexpected cache syscall sequence\");"
+NAND_SC_NEW="  if(own&&ctx.pc==0x805222e8u&&ctx.lr==0x8051963cu){\n    // V331: original NAND can enter the same authentic cache syscall\n    // after the earlier V72 request observer has completed its phase.\n    // Preserve the verified native SC vector, guest CPU and IRQ checks.\n    if(v250_candidate_mode&&v250_nand_seen==1u){\n      const uint32_t msr=ctx.msr,lr=ctx.lr,hid=ctx.hid0,ctr=ctx.ctr;\n      const auto gp=ctx.gpr;\n      native_idle_cache_sc(ctx,SYSCALL_DEST,sc_vector,\n          !ipc70_bus.external_irq_level(),\n          [](auto& c){func_80000C00(c);});\n      check(ctx.msr==msr&&ctx.lr==lr&&ctx.hid0==hid&&ctx.ctr==ctr,\n            \"V331 native NAND cache syscall state restore differs\");\n      for(unsigned r=0;r<32u;++r)if(r!=9u&&r!=10u)\n        check(ctx.gpr[r]==gp[r],\"V331 native NAND cache syscall GPR restore differs\");\n      std::cout<<\"V331_NAND_CACHE_SYSCALL verified=1\"<<std::endl;\n      return true;\n    }\n    check(submit72_flush==1u&&submit72_sc==0u,\"IPC request unexpected cache syscall sequence\");"
+NAND_SC_LABEL="IPC request unexpected cache syscall sequence"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -90,6 +97,7 @@ def summarize_seams(source: str) -> str:
         ("async",ASYNC_OLD),("async_label",ASYNC_LABEL),
         ("arena",ARENA_OLD),("sram",SRAM_OLD),
         ("transport",TRANSPORT_OLD),("transport_label",TRANSPORT_LABEL),
+        ("nand_sc",NAND_SC_OLD),("nand_sc_label",NAND_SC_LABEL),
         ("explicit",IOS_OPEN_EXPLICIT),
         ("check",CHECK),("service","V296_SERVICE_ENTRY kind=")
     )
@@ -128,6 +136,7 @@ def patch(source: str) -> str:
         not 0 < source.index(ARENA_LABEL)-source.index(ARENA_OLD) < 1100 or
         source.count(ARENA_LABEL)!=1 or source.count(SRAM_LABEL)!=1 or
         source.count(TRANSPORT_OLD)!=1 or source.count(TRANSPORT_LABEL)!=1 or
+        source.count(NAND_SC_OLD)!=1 or source.count(NAND_SC_LABEL)!=1 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
         source.count(IOS_OPEN_LABEL)!=1 or
@@ -145,6 +154,7 @@ def patch(source: str) -> str:
     output=output.replace(ARENA_OLD,ARENA_NEW,1)
     output=output.replace(SRAM_OLD,SRAM_NEW,1)
     output=output.replace(TRANSPORT_OLD,TRANSPORT_NEW,1)
+    output=output.replace(NAND_SC_OLD,NAND_SC_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -152,6 +162,7 @@ def patch(source: str) -> str:
         output.count(ASYNC_NEW)!=1 or output.count(ASYNC_LABEL)!=1 or
         output.count(ARENA_NEW)!=1 or output.count(SRAM_NEW)!=1 or
         output.count(TRANSPORT_NEW)!=1 or output.count(TRANSPORT_LABEL)!=1 or
+        output.count(NAND_SC_NEW)!=1 or output.count(NAND_SC_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
