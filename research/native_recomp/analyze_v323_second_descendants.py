@@ -24,17 +24,23 @@ TARGETS=(0x805195EC,0x8051AD38,0x80522294,0x80545100,0x8054514C)
 def inspect(owner:bytes, elf:bytes, fixture:bytes, generated:str,
             *, dol_digest:str=ORIGINAL_SHA,
             elf_digest:str=ORIGINAL_SHA256,
-            parser=parse_functions, reader=text_at)->list[str]:
+            parser=parse_functions, reader=text_at,
+            targets:tuple[int,...]=TARGETS, prefix:str="V323",
+            depth:str="SECOND")->list[str]:
     if (hashlib.sha256(owner).hexdigest()!=dol_digest or
         hashlib.sha256(elf).hexdigest()!=elf_digest):
         raise ValueError("authenticated_digest")
     if (not fixture or len(fixture)>20_000_000 or
         not generated or len(generated)>50_000_000):
         raise ValueError("private_geometry")
+    if ((prefix,depth) not in (("V323","SECOND"),("V326","THIRD")) or not 1<=len(targets)<=16 or
+        len(set(targets))!=len(targets) or
+        any(pc<0x80000000 or pc>=0x94000000 or pc%4 for pc in targets)):
+        raise ValueError("target_geometry")
     sizes=parser(elf)
     original=missing=partial=unknown=emitted_count=dispatch_count=0
     rows=[]
-    for pc in TARGETS:
+    for pc in targets:
         window=resolve(sizes,pc)
         if window.length:
             source=reader(owner,pc,window.length)
@@ -63,7 +69,7 @@ def inspect(owner:bytes, elf:bytes, fixture:bytes, generated:str,
         emitted_count+=entry["body"]
         dispatch_count+=entry["dispatch"]
         rows.append(
-            f"V323_CALLEE pc={pc:08x} kind={window.kind} "
+            f"{prefix}_CALLEE pc={pc:08x} kind={window.kind} "
             f"base={window.entry:08x} offset={window.offset//4} "
             f"words={window.length//4} present={present} "
             f"same={counts['same']} nop={counts['nop']} "
@@ -72,7 +78,7 @@ def inspect(owner:bytes, elf:bytes, fixture:bytes, generated:str,
             f"dispatch={entry['dispatch']}"
         )
     return [
-        f"V323_SECOND_COVERAGE owner=1 targets={len(TARGETS)} "
+        f"{prefix}_{depth}_COVERAGE owner=1 targets={len(targets)} "
         f"original={original} missing={missing} partial={partial} "
         f"unknown={unknown} body={emitted_count} dispatch={dispatch_count}"
     ]+rows

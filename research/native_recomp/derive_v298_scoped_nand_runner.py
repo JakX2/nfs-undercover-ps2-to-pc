@@ -175,6 +175,20 @@ else
   echo 'V323_STAGE inspected=0'
   exit 1
 fi
+# V326: assess nine third-generation call targets of authentic 0x805195EC.
+# Code and generated C++ stay exclusively in private owner scratch.
+if python3 "$V110_SOURCE_ROOT/analyze_v326_third_descendants.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" > "$work/v326-coverage.log" 2>&1; then
+  grep -Fx 'V326_THIRD_AUDIT verified=1' "$work/v326-coverage.log"
+  grep -E '^V326_THIRD_COVERAGE owner=1 targets=9 original=[0-9] missing=[0-9] partial=[0-9] unknown=[0-9] body=[0-9] dispatch=[0-9]$' "$work/v326-coverage.log"
+  grep -E '^V326_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$' "$work/v326-coverage.log"
+  echo 'V326_STAGE inspected=1'
+else
+  grep -Fx 'V326_THIRD_AUDIT verified=0' "$work/v326-coverage.log" || true
+  echo 'V326_STAGE inspected=0'
+  exit 1
+fi
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
     -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
     -c "$work/generated-v310/output.cpp" -o "$work/v310-generated.o" \
