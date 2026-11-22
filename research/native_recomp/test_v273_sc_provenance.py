@@ -33,7 +33,7 @@ class Tests(unittest.TestCase):
         cases=(
             [li(4,3),0x48000005,stb(4,13,-3176)],
             [li(4,3),0x41820008,stb(4,13,-3176)],
-            [li(4,3),0x7c000000,stb(4,13,-3176)],
+            [li(4,3),0x7c0002a6,stb(4,13,-3176)],
         )
         for seq in cases:
             with self.subTest(seq=seq[1]):
