@@ -24,7 +24,7 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n       check(false,"V113 original IOS transport did not reach bounded cache flush");\n'+
         "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"+NAND_SC_OLD+"\n"+
         VECTOR_TRACE_OLD+"\n     ctx.lr==(arena_active?arena_flush_lr(arena_phase):0x80522044u)&&\n"+
-        VECTOR_TRACE_LABEL+"\n")
+        VECTOR_TRACE_LABEL+"\n    ++sc_vector_entries;\n  }\n")
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
