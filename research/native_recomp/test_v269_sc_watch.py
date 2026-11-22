@@ -36,7 +36,7 @@ class Tests(unittest.TestCase):
             (sample().replace("before=1 next=0","before=256 next=0",1),"invalid_byte"),
             (sample().replace("guest=1 inst=101","guest=0 inst=101",1),"invalid_guest"),
             (sample().replace("guest=1 inst=131","guest=1 inst=90",1),"instruction_regression"),
-            ("\n".join(sample().splitlines()[:-1]),"wrong_trials"),
+            ("\n".join(sample().splitlines()[:-1]),"incomplete_window"),
         )
         for data,reason in cases:
             with self.subTest(reason=reason),self.assertRaisesRegex(ValueError,reason):
