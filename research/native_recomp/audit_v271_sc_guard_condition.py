@@ -19,7 +19,6 @@ from ppc_retry_edge import decode_bc
 
 def guard_at(words:list[int],index:int)->dict[str,int]:
     pc=HELPER+4*index
-    target_pc=pc
     candidates=[]
     for i,word in enumerate(words[:index]):
         if word>>26!=16:continue
@@ -59,12 +58,24 @@ def guard_at(words:list[int],index:int)->dict[str,int]:
 def classify(words:list[int])->list[str]:
     validate_prior(words,HELPER)  # strictly one read, two direct byte stores
     stores=[i for i,w in enumerate(words) if access(w)=="byte_write"]
+    reads=[i for i,w in enumerate(words) if access(w)=="byte_read"]
+    if len(reads)!=1:
+        raise ValueError("status_read")
+    read_at=reads[0]
+    read_rt=(words[read_at]>>21)&31
     rows=[]
     for rank,index in enumerate(stores,1):
         d=guard_at(words,index)
+        d["read_rt"]=read_rt
+        # Proven direct dataflow only if lbz rX,status is immediately
+        # followed by the CR-producing comparison of the same rX.
+        d["status_cmp"]=int(
+            d["direct_cmp"]==1 and d["cmp_ra"]==read_rt and
+            d["branch_offset"]==read_at*4+8)
         keys=("store_offset","branch_offset","target_offset","bo","bi",
               "cr_field","cr_bit","ctr_decrement","cr_expected",
-              "direct_cmp","cmp_kind","cmp_ra","cmp_imm_class")
+              "direct_cmp","cmp_kind","cmp_ra","cmp_imm_class",
+              "read_rt","status_cmp")
         rows.append(f"V271_SC_GUARD rank={rank} "+" ".join(
             f"{key}={d[key]}" for key in keys))
     return rows

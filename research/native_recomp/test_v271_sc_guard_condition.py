@@ -17,7 +17,7 @@ def bc(pc,target):
 
 def fixture():
     w=[0x60000000]*71
-    w[3]=op(34,5,13,-3176)
+    w[6]=op(34,4,13,-3176)
     w[7]=cmpwi(4,1)
     w[8]=bc(HELPER+32,HELPER+48)
     w[9]=op(14,6,0,1)
@@ -34,9 +34,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(len(rows),2)
         self.assertIn("rank=1 store_offset=40 branch_offset=32 target_offset=48",rows[0])
         self.assertIn("bo=12 bi=2 cr_field=0 cr_bit=2",rows[0])
-        self.assertIn("direct_cmp=1 cmp_kind=1 cmp_ra=4 cmp_imm_class=1",rows[0])
+        self.assertIn("direct_cmp=1 cmp_kind=1 cmp_ra=4 cmp_imm_class=1 read_rt=4 status_cmp=1",rows[0])
         self.assertIn("rank=2 store_offset=80 branch_offset=68 target_offset=88",rows[1])
-        self.assertIn("direct_cmp=1 cmp_kind=1 cmp_ra=3 cmp_imm_class=0",rows[1])
+        self.assertIn("direct_cmp=1 cmp_kind=1 cmp_ra=3 cmp_imm_class=0 read_rt=4 status_cmp=0",rows[1])
         self.assertNotIn("0x60000000","\n".join(rows))
 
     def test_fail_closed(self):

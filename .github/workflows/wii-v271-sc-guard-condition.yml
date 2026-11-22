@@ -74,8 +74,8 @@ jobs:
             exit 1
           }
           grep -Fx 'V271_GUARD_AUDIT verified=1' "$RUNNER_TEMP/v271.log"
-          test "$(grep -Ec '^V271_SC_GUARD rank=[12] store_offset=[0-9]{1,4} branch_offset=[0-9]{1,4} target_offset=[0-9]{1,4} bo=([0-9]|[1-2][0-9]|3[0-1]) bi=([0-9]|[1-2][0-9]|3[0-1]) cr_field=[0-7] cr_bit=[0-3] ctr_decrement=[01] cr_expected=(-1|[01]) direct_cmp=[01] cmp_kind=[0-3] cmp_ra=(-1|[0-9]|[1-2][0-9]|3[01]) cmp_imm_class=(-1|[0-4])$' "$RUNNER_TEMP/v271.log")" -eq 2
-          grep -E '^V271_SC_GUARD rank=[12] store_offset=[0-9]{1,4} branch_offset=[0-9]{1,4} target_offset=[0-9]{1,4} bo=([0-9]|[1-2][0-9]|3[0-1]) bi=([0-9]|[1-2][0-9]|3[0-1]) cr_field=[0-7] cr_bit=[0-3] ctr_decrement=[01] cr_expected=(-1|[01]) direct_cmp=[01] cmp_kind=[0-3] cmp_ra=(-1|[0-9]|[1-2][0-9]|3[01]) cmp_imm_class=(-1|[0-4])$' "$RUNNER_TEMP/v271.log"
+          test "$(grep -Ec '^V271_SC_GUARD rank=[12] store_offset=[0-9]{1,4} branch_offset=[0-9]{1,4} target_offset=[0-9]{1,4} bo=([0-9]|[1-2][0-9]|3[0-1]) bi=([0-9]|[1-2][0-9]|3[0-1]) cr_field=[0-7] cr_bit=[0-3] ctr_decrement=[01] cr_expected=(-1|[01]) direct_cmp=[01] cmp_kind=[0-3] cmp_ra=(-1|[0-9]|[1-2][0-9]|3[01]) cmp_imm_class=(-1|[0-4]) read_rt=([0-9]|[1-2][0-9]|3[01]) status_cmp=[01]$' "$RUNNER_TEMP/v271.log")" -eq 2
+          grep -E '^V271_SC_GUARD rank=[12] store_offset=[0-9]{1,4} branch_offset=[0-9]{1,4} target_offset=[0-9]{1,4} bo=([0-9]|[1-2][0-9]|3[0-1]) bi=([0-9]|[1-2][0-9]|3[0-1]) cr_field=[0-7] cr_bit=[0-3] ctr_decrement=[01] cr_expected=(-1|[01]) direct_cmp=[01] cmp_kind=[0-3] cmp_ra=(-1|[0-9]|[1-2][0-9]|3[01]) cmp_imm_class=(-1|[0-4]) read_rt=([0-9]|[1-2][0-9]|3[01]) status_cmp=[01]$' "$RUNNER_TEMP/v271.log"
           echo 'PASS: V271 original Wii guarded status clear comparison'
       - name: Remove private owner inputs
         if: always()
