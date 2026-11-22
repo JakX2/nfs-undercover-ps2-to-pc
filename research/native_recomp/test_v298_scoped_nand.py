@@ -8,7 +8,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 ARENA_OLD,ARENA_NEW,ARENA_LABEL,
                                                 SRAM_OLD,SRAM_NEW,SRAM_LABEL,
                                                 TRANSPORT_OLD,TRANSPORT_NEW,TRANSPORT_LABEL,
-                                                NAND_SC_OLD,NAND_SC_NEW,NAND_SC_LABEL,summarize_seams,
+                                                NAND_SC_OLD,NAND_SC_NEW,NAND_SC_LABEL,
+                                                VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,VECTOR_TRACE_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -21,7 +22,9 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         CHECK+"\n"+ARENA_OLD+"\n"+ARENA_LABEL+"\n"+
         SRAM_OLD+"\n"+SRAM_LABEL+"\n"+TRANSPORT_OLD+
         '\n       check(false,"V113 original IOS transport did not reach bounded cache flush");\n'+
-        "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"+NAND_SC_OLD+"\n")
+        "\nV296_SERVICE_ENTRY kind=\nv250_nand_seen\n"+NAND_SC_OLD+"\n"+
+        VECTOR_TRACE_OLD+"\n     ctx.lr==(arena_active?arena_flush_lr(arena_phase):0x80522044u)&&\n"+
+        VECTOR_TRACE_LABEL+"\n")
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -59,10 +62,11 @@ class Tests(unittest.TestCase):
 
     def test_v313_sanitized_source_anchor_classifier(self):
         good=summarize_seams(SOURCE)
-        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 arena=1 sram=1 transport=1 transport_label=1 nand_sc=1 nand_sc_label=1 explicit=1",good)
+        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 arena=1 sram=1 transport=1 transport_label=1 nand_sc=1 nand_sc_label=1 vector=1 vector_label=1 explicit=1",good)
         self.assertIn("check=1 service=1 nand=1",good)
         self.assertIn("near=1",good)
         self.assertIn("nand_sc=1 nand_sc_label=1",good)
+        self.assertIn("vector=1 vector_label=1",good)
         self.assertIn('ios_label=1',good)
         missing=summarize_seams(SOURCE.replace(IOS_OPEN_OLD,"",1))
         self.assertIn("ios=0",missing)
@@ -247,6 +251,38 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(broken)):
                 with self.assertRaises(ValueError):
                     scope(broken)
+
+    def test_v332_nand_sc_vector_observer_keeps_guest_exception(self):
+        # The old boot assertion checks the DSP/arena callsite and counts.
+        # It is not a universal rule for this authentic NAND cache syscall.
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(VECTOR_TRACE_NEW),1)
+        self.assertEqual(scoped.count(VECTOR_TRACE_LABEL),1)
+        self.assertNotIn(VECTOR_TRACE_OLD,scoped)
+        self.assertIn("v250_candidate_mode&&v250_nand_seen==1u&&ctx.lr==0x8051963cu",
+                      VECTOR_TRACE_NEW)
+        self.assertIn("ctx.srr0==0x805222ecu&&ctx.pc==0x80000c00u",
+                      VECTOR_TRACE_NEW)
+        self.assertIn("!(ctx.msr&0x8000u)",VECTOR_TRACE_NEW)
+        self.assertIn("return; // Observer only:",VECTOR_TRACE_NEW)
+        self.assertIn("native_idle_cache_sc",NAND_SC_NEW)
+        # The older OSInit vector assertion remains in the else branch.
+        self.assertIn("ctx.lr==(arena_active?arena_flush_lr(arena_phase):0x80522044u)",
+                      scoped)
+        self.assertIn("++sc_vector_entries;",VECTOR_TRACE_NEW+"\n"+SOURCE)
+        for candidate in (False,True):
+            for nand_seen in (False,True):
+                for callsite in (0x8051963c,0x80522044):
+                    special=candidate and nand_seen and callsite==0x8051963c
+                    self.assertEqual(special, candidate and nand_seen and callsite==0x8051963c)
+        for altered in (
+            SOURCE.replace(VECTOR_TRACE_OLD,"",1),
+            SOURCE+"\n"+VECTOR_TRACE_OLD,
+            SOURCE.replace(VECTOR_TRACE_LABEL,"different vector assertion",1),
+        ):
+            with self.subTest(length=len(altered)):
+                with self.assertRaises(ValueError):
+                    scope(altered)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
