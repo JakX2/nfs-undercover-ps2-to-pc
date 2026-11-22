@@ -11,7 +11,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_SC_OLD,NAND_SC_NEW,NAND_SC_LABEL,
                                                 VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,VECTOR_TRACE_LABEL,
                                                 NAND_IRQ_OLD,NAND_IRQ_NEW,NAND_IRQ_LABEL,
-                                                NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,summarize_seams,
+                                                NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
+                                                NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -29,7 +30,9 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         VECTOR_TRACE_LABEL+"\n    ++sc_vector_entries;\n  }\n"+NAND_IRQ_OLD+
         '\n     check(false,"V115 original IOS submission IRQ-disable call differs");\n'+
         NAND_QUEUE_OLD+
-        '\n     check(false,"V116 original IOS request queue-helper boundary differs");\n')
+        '\n     check(false,"V116 original IOS request queue-helper boundary differs");\n'+
+        NAND_SEND_OLD+
+        '\n     check(false,"V117 original IPC send register call ABI differs");\n')
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -341,6 +344,31 @@ class Tests(unittest.TestCase):
             with self.subTest(length=len(bad)):
                 with self.assertRaises(ValueError):
                     scope(bad)
+
+    def test_v338_send_register_phase_scope_preserves_real_mmio(self):
+        # V117's earlier request check does not describe NAND counters.
+        # Its observer can be retired without altering the real HW_Reg_Write32.
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(NAND_SEND_NEW),1)
+        self.assertEqual(scoped.count(NAND_SEND_LABEL),1)
+        self.assertNotIn(NAND_SEND_OLD,scoped)
+        self.assertIn("addr==0x8051906cu&&ctx.lr==0x80519780u",NAND_SEND_NEW)
+        self.assertIn("post116_queue==1u",NAND_SEND_NEW)
+        self.assertIn("(!v250_candidate_mode||v250_nand_seen==0u)",NAND_SEND_NEW)
+        for disallowed in ("ctx.is_running=false", "HW_Reg_Write32", "ctx.gpr[", "ipc70_bus.write32", "post117_send++"):
+            self.assertNotIn(disallowed,NAND_SEND_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                enabled = not (candidate and nand)
+                self.assertEqual(enabled,(not candidate or not nand))
+        for modified in (
+            SOURCE.replace(NAND_SEND_OLD,"",1),
+            SOURCE+"\n"+NAND_SEND_OLD,
+            SOURCE.replace(NAND_SEND_LABEL,"changed old send-reg label",1),
+        ):
+            with self.subTest(size=len(modified)):
+                with self.assertRaises(ValueError):
+                    scope(modified)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
