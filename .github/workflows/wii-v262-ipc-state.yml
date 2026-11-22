@@ -1,0 +1,130 @@
+name: Wii V262 Native NAND IPC State Census
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v262*'
+      - '.github/workflows/wii-v262-ipc-state.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v262-ipc-state-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  public-original-free-v262:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify V262 original-free IPC and interrupt-state instrumentation
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/derive_v262_ipc_state_harness.py research/native_recomp/derive_v262_ipc_state_runner.py research/native_recomp/analyze_v262_ipc_state.py research/native_recomp/test_v262_ipc_state.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v262_ipc_state.py' -v
+          bash -n research/native_recomp/run_v262_ipc_state.sh
+  owner-original-v262:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned private Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'V262 owner original staging failed' >&2
+            exit 1
+          fi
+      - name: Verify authenticated private owner original
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Prepare pinned NWii runtime and source guards
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii"
+          git -C "$RUNNER_TEMP/nwii" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          here=research/native_recomp
+          python3 "$here/apply_nonsplit_dispatch_v15.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_perf_sprs_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_perf_patch_guards_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid_state_v18.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_fpscr_v19.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_l2cr_v20.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_syscall_pc_v26.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/verify_perf_combo_v29.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hid4_continuous_v30.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_hid4_continuous_patch_v30.py"
+          python3 "$here/apply_cache_continuous_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_continuous_patch_v39.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_cache_trace_v44.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_cache_trace_guards_v44.py"
+          python3 "$here/apply_jump_table_v58.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/test_jump_table_patch_v58.py"
+          python3 "$here/apply_dcbi_v60.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_hollywood_mmio_v62.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_native_lowmem_v63.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_bat_registers_v65.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_dcbz_v67.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
+          python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
+      - name: Analyze 16 owner-original IPC, IRQ and SC state traces
+        run: |
+          set -euo pipefail
+          umask 077
+          bash research/native_recomp/run_v262_ipc_state.sh \
+            "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals/NfsMWRelease.dol" \
+            > "$RUNNER_TEMP/sc262.log" 2>&1 || {
+              grep -E '^V260_PPCMSG_BOUNDARY guest=[01] aligned=[01] mapped=[01] fresh=[01] coherent=[01] reply=[01] open=[01] mem2=[01] mode_ok=[01] path_phys=[01] path_alias=[01] idle=[01] prewrite=1$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V260_NAND_GUEST callback=[01] event=[01] memory=[01] trial=([1-9]|1[0-6])$|^V260_CALL_FRONTIER guest=[01] coherent=[01] mapped=[01] calls=[0-9]{1,3} sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V257_NAND_NEXT guest=[01] caller=[01] code=[01] mapped=[01] reply=[01] coherent=[01] sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V178_NATIVE_ASSERTION id=[0-9]{4}$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V250_PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170} callback=[01] nand=[01] trials=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              grep -E '^V262_STATE_ERROR reason=[a-z_]{1,48}$|^V261_CENSUS_ERROR reason=[a-z_]{1,48}$|^V250_STAGE (derive|compile|link|execute)=[01]$' "$RUNNER_TEMP/sc262.log" | sort -u || true
+              echo 'V262 authenticated IOS state census not verified; raw trace withheld' >&2
+              exit 1
+            }
+          grep -Fx 'V262_IPC_STATE verified=1' "$RUNNER_TEMP/sc262.log"
+          grep -E '^V262_IPC_STATE trials=16 calls=64 stable=[01] distinct=([1-9]|1[0-6]) ee_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_edges=([0-9]|[1-5][0-9]|6[0-3]) request_edges=([0-9]|[1-5][0-9]|6[0-3]) queue_edges=([0-9]|[1-5][0-9]|6[0-3]) sc_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_ever=[01] request_ever=[01] queue_max=[0-9]{1,3} reply_all=[01] sc_first=[0-9]{1,3} sc_last=1 digest=[0-9a-f]{16}$' "$RUNNER_TEMP/sc262.log"
+          grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$RUNNER_TEMP/sc262.log" | sort -u
+          # The private runner already enforces exactly sixteen source
+          # trials; its inherited stages repeat public trial rows in this
+          # combined log. Require every numbered trial instead of assuming
+          # that each row occurs only once in the wrapper output.
+          for n in $(seq 1 16); do
+            grep -Fqx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$RUNNER_TEMP/sc262.log"
+          done
+          echo 'PASS: 16 owner-original IPC state-census trials'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc262.log"
