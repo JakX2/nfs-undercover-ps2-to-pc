@@ -76,6 +76,28 @@ jobs:
           python3 -m py_compile research/native_recomp/analyze_v326_third_descendants.py research/native_recomp/test_v326_third_descendants.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v326_third_descendants.py' -v
           bash -n research/native_recomp/run_v298_scoped_nand.sh
+          # V330 source-only provenance for the native 0474 cache-syscall assertion.
+          # Only source filenames and line numbers appear in CI, never C++ contents.
+          python3 - <<'PY'
+          from pathlib import Path
+          needles = ("IPC request unexpected cache syscall sequence",
+                     "cache syscall sequence", "IPC request unexpected")
+          roots = (Path("research/native_recomp"),)
+          found = []
+          for root in roots:
+              for path in root.rglob("*"):
+                  if not path.is_file() or path.suffix not in (".py", ".cpp", ".cc", ".h", ".hpp", ".sh"):
+                      continue
+                  if path.stat().st_size > 2_000_000:
+                      continue
+                  data = path.read_text(encoding="utf-8", errors="replace")
+                  for n, line in enumerate(data.splitlines(), 1):
+                      if any(phrase in line for phrase in needles):
+                          found.append((path.as_posix(), n, int(needles[0] in line)))
+          print("V330_CACHE_SOURCE matches="+str(len(found)))
+          for path, line, exact in sorted(found)[:32]:
+              print("V330_CACHE_SOURCE_ENTRY path="+path+" line="+str(line)+" exact="+str(exact))
+          PY
   owner-original-v298:
     if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
