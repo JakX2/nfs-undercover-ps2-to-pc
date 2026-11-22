@@ -38,7 +38,11 @@ def patch(source: str) -> str:
         'python3 "$V110_SOURCE_ROOT/analyze_v301_nand_first_helper.py" '+
         '"$owner" "$work/v293-original.elf" "$work/private-v293.dol" '+
         '"$work/generated-v294/output.cpp"\n'+
-        "echo 'V301_HELPER_AUDIT inspected=1'")
+        "echo 'V301_HELPER_AUDIT inspected=1'\n"+
+        'python3 "$V110_SOURCE_ROOT/restore_v302_private_helper.py" '+
+        '"$owner" "$work/v293-original.elf" "$work/private-v293.dol" '+
+        '"$work/private-v302.dol"\n'+
+        "echo 'V302_HELPER_CANDIDATE inspected=1'")
     staged=staged.replace(aot_anchor,aot_anchor+"\n"+helper_probe,1)
     failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'"
     if staged.count(failure)!=1:

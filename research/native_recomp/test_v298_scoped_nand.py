@@ -69,6 +69,8 @@ class Tests(unittest.TestCase):
         self.assertIn("analyze_v300_trace_hotspots.py",r)
         self.assertIn("analyze_v301_nand_first_helper.py",r)
         self.assertIn("V301_HELPER_AUDIT inspected=1",r)
+        self.assertIn("restore_v302_private_helper.py",r)
+        self.assertIn("V302_HELPER_CANDIDATE inspected=1",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):
             runner("unknown native candidate")
