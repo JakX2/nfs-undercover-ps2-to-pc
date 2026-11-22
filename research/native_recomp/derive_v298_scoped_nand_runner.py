@@ -20,6 +20,58 @@ else
   exit 1
 fi
 '''
+V303_STAGE=r'''
+# V303: entirely separate owner-private candidate. Do not overwrite the
+# reduced baseline or the V294 restored four-function binary.
+mkdir "$work/generated-v303"
+if "$work/generator" "$work/private-v302.dol" "$work/generated-v303" owner \
+    > "$work/v303-generate.log" 2>&1; then
+  echo 'V303_HELPER_STAGE generate=1'
+else
+  echo 'V303_HELPER_STAGE generate=0'
+  exit 1
+fi
+if python3 "$V110_SOURCE_ROOT/analyze_v301_nand_first_helper.py" \
+     "$owner" "$work/v293-original.elf" "$work/private-v302.dol" \
+     "$work/generated-v303/output.cpp" > "$work/v303-coverage-raw.log" 2>&1; then
+  cat "$work/v303-coverage-raw.log"
+  echo 'V303_HELPER_STAGE inspect=1'
+else
+  grep -Fx 'V301_HELPER_AUDIT verified=0' "$work/v303-coverage-raw.log" || true
+  echo 'V303_HELPER_STAGE inspect=0'
+  exit 1
+fi
+if python3 "$V110_SOURCE_ROOT/analyze_v303_helper_coverage.py" \
+     "$work/v303-coverage-raw.log"; then
+  echo 'V303_HELPER_STAGE coverage=1'
+else
+  echo 'V303_HELPER_STAGE coverage=0'
+  exit 1
+fi
+if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+    -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+    -c "$work/generated-v303/output.cpp" -o "$work/v303-generated.o" \
+    > "$work/v303-compile.log" 2>&1; then
+  echo 'V303_HELPER_STAGE compile=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+     "$work/v303-compile.log" generated || true
+  echo 'V303_HELPER_STAGE compile=0'
+  exit 1
+fi
+if g++ "$work/v298-harness.o" "$work/v303-generated.o" "$work/loader.o" \
+      -o "$work/v303-native" > "$work/v303-link.log" 2>&1; then
+  test -s "$work/v303-native" && test -x "$work/v303-native"
+  echo 'V303_HELPER_STAGE link=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+    "$work/v303-link.log" || true
+  echo 'V303_HELPER_STAGE link=0'
+  exit 1
+fi
+echo 'V303_HELPER_NATIVE_LINK verified=1'
+'''
+
 AFTER=r'''
 python3 "$V110_SOURCE_ROOT/analyze_v298_scope_native.py"    "$work/v295-native.log" "$work/v298-harness.cpp" "$v295_rc"
 echo 'V298_RETIRED_OBSERVER inspected=1'
@@ -44,6 +96,10 @@ def patch(source: str) -> str:
         '"$work/private-v302.dol"\n'+
         "echo 'V302_HELPER_CANDIDATE inspected=1'")
     staged=staged.replace(aot_anchor,aot_anchor+"\n"+helper_probe,1)
+    v302_anchor="echo 'V302_HELPER_CANDIDATE inspected=1'"
+    if staged.count(v302_anchor)!=1:
+        raise ValueError("V303 private candidate seam changed")
+    staged=staged.replace(v302_anchor,v302_anchor+"\n"+V303_STAGE,1)
     failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'"
     if staged.count(failure)!=1:
         raise ValueError("V298 native failure-classifier seam changed")

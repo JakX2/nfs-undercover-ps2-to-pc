@@ -71,6 +71,8 @@ class Tests(unittest.TestCase):
         self.assertIn("V301_HELPER_AUDIT inspected=1",r)
         self.assertIn("restore_v302_private_helper.py",r)
         self.assertIn("V302_HELPER_CANDIDATE inspected=1",r)
+        self.assertIn("V303_HELPER_NATIVE_LINK verified=1",r)
+        self.assertIn("v303-generated.o",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):
             runner("unknown native candidate")
