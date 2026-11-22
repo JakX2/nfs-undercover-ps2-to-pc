@@ -112,6 +112,73 @@ echo 'V304_EXEC_ATTEMPT inspected=1'
 # V307: attribute the V304 native abort against public C++ assertions only.
 python3 "$V110_SOURCE_ROOT/analyze_v307_helper_abort.py"     "$work/v304-native.log" "$work/v298-harness.cpp" "$v304_rc"
 echo 'V307_ABORT_CLASSIFIED inspected=1'
+# V310: a distinct private binary with the SHA-pinned 64-word original
+# NAND descendant. Keep V302, V303 and V304 untouched for comparison.
+if python3 "$V110_SOURCE_ROOT/restore_v310_private_descendant.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v302.dol" \
+    "$work/private-v310.dol" > "$work/v310-restore.log" 2>&1; then
+  grep -Fx 'V310_RESTORE_AUDIT verified=1' "$work/v310-restore.log"
+  grep -E '^V310_DESCENDANT_RESTORE owner=1 pc=80519bcc words=64 same=0 nop=64 roundtrip=1 candidate=1$' "$work/v310-restore.log"
+  echo 'V310_STAGE restore=1'
+else
+  grep -Fx 'V310_RESTORE_AUDIT verified=0' "$work/v310-restore.log" || true
+  echo 'V310_STAGE restore=0'
+  exit 1
+fi
+mkdir "$work/generated-v310"
+if "$work/generator" "$work/private-v310.dol" "$work/generated-v310" owner \
+    > "$work/v310-generate.log" 2>&1; then
+  echo 'V310_STAGE generate=1'
+else
+  echo 'V310_STAGE generate=0'
+  exit 1
+fi
+if python3 "$V110_SOURCE_ROOT/analyze_v306_helper_descendants.py" \
+    "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" > "$work/v310-coverage.log" 2>&1; then
+  python3 "$V110_SOURCE_ROOT/analyze_v310_restored_coverage.py" \
+    "$work/v310-coverage.log"
+  echo 'V310_STAGE coverage=1'
+else
+  grep -Fx 'V306_COVERAGE_AUDIT verified=0' "$work/v310-coverage.log" || true
+  echo 'V310_STAGE coverage=0'
+  exit 1
+fi
+if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+    -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+    -c "$work/generated-v310/output.cpp" -o "$work/v310-generated.o" \
+    > "$work/v310-compile.log" 2>&1; then
+  echo 'V310_STAGE compile=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+    "$work/v310-compile.log" generated || true
+  echo 'V310_STAGE compile=0'
+  exit 1
+fi
+if g++ "$work/v298-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v310-native" > "$work/v310-link.log" 2>&1; then
+  test -s "$work/v310-native" && test -x "$work/v310-native"
+  echo 'V310_STAGE link=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+    "$work/v310-link.log" || true
+  echo 'V310_STAGE link=0'
+  exit 1
+fi
+# Never treat native SIGABRT or timeout as NAND completion.
+set +e
+timeout --signal=TERM --kill-after=3s 12s \
+    "$work/v310-native" "$work/private-v310.dol" owner-callback "$owner" \
+    > "$work/v310-native.log" 2>&1
+v310_rc=$?
+set -e
+python3 "$V110_SOURCE_ROOT/analyze_v304_helper_exec.py" \
+    "$work/v310-native.log" "$v310_rc" |
+    sed 's/^V304_/V310_/'
+python3 "$V110_SOURCE_ROOT/analyze_v307_helper_abort.py" \
+    "$work/v310-native.log" "$work/v298-harness.cpp" "$v310_rc" |
+    sed -e 's/^V307_/V310_/' -e 's/^V250_PUBLIC_FAILURE /V310_PUBLIC_FAILURE /'
+echo 'V310_NATIVE_TRIAL inspected=1'
 '''
 
 AFTER=r'''
