@@ -49,22 +49,43 @@ def summarize_seams(source: str) -> str:
     )
     return "V313_HARNESS_ANCHORS "+" ".join(
         f"{key}={min(source.count(value),2)}" for key,value in items
-    )+f" nand={int('v250_nand_seen' in source)}"
+    )+f" nand={int('v250_nand_seen' in source)} near={min(len(nearby_ios_tails(source)),2)}"
+
+def nearby_ios_tails(source: str) -> list[int]:
+    # No source, instruction bytes, or guest state are exported.
+    if source.count(IOS_OPEN_LABEL)!=1:
+        return []
+    label_at=source.index(IOS_OPEN_LABEL)
+    starts=[]
+    at=0
+    while (at:=source.find(IOS_OPEN_OLD,at))!=-1:
+        if 0<label_at-at<300:
+            starts.append(at)
+        at+=len(IOS_OPEN_OLD)
+    return starts
+
+def choose_ios_tail(source: str) -> int:
+    # Two branches may have the same address. Select only the one
+    # associated with the unique historical V71 allocator assertion.
+    starts=nearby_ios_tails(source)
+    if len(starts)!=1:
+        raise ValueError("V316 ambiguous V71 allocator-tail branch")
+    return starts[0]
 
 def patch(source: str) -> str:
     if (source.count(OLD)!=1 or source.count(SUBMIT_OLD)!=1 or
         source.count(CLIENT_OLD)!=1 or
-        source.count(IOS_OPEN_OLD)!=1 or source.count(IOS_OPEN_EXPLICIT)!=1 or
+        source.count(IOS_OPEN_EXPLICIT)!=1 or
         source.count(IOS_OPEN_LABEL)!=1 or
-        not 0 < source.index(IOS_OPEN_LABEL)-source.index(IOS_OPEN_OLD) < 300 or
         source.count(CHECK)!=1 or
         source.count("V296_SERVICE_ENTRY kind=")!=1 or
         "v250_nand_seen" not in source):
         raise ValueError("V298 authenticated reply phase seam changed")
     output=(source.replace(OLD,NEW,1)
             .replace(SUBMIT_OLD,SUBMIT_NEW,1)
-            .replace(CLIENT_OLD,CLIENT_NEW,1)
-            .replace(IOS_OPEN_OLD,IOS_OPEN_NEW,1))
+            .replace(CLIENT_OLD,CLIENT_NEW,1))
+    pos=choose_ios_tail(output)
+    output=output[:pos]+IOS_OPEN_NEW+output[pos+len(IOS_OPEN_OLD):]
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or

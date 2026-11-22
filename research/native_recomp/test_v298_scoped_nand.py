@@ -3,7 +3,8 @@
 import unittest
 from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NEW,
                                                 CLIENT_OLD,CLIENT_NEW,IOS_OPEN_OLD,IOS_OPEN_NEW,
-                                                IOS_OPEN_LABEL,IOS_OPEN_EXPLICIT,summarize_seams,patch as scope)
+                                                IOS_OPEN_LABEL,IOS_OPEN_EXPLICIT,summarize_seams,
+                                                choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from analyze_v298_scope_native import inspect
 
@@ -38,6 +39,7 @@ class Tests(unittest.TestCase):
         good=summarize_seams(SOURCE)
         self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 explicit=1",good)
         self.assertIn("check=1 service=1 nand=1",good)
+        self.assertIn("near=1",good)
         self.assertIn('ios_label=1',good)
         missing=summarize_seams(SOURCE.replace(IOS_OPEN_OLD,"",1))
         self.assertIn("ios=0",missing)
@@ -66,10 +68,25 @@ class Tests(unittest.TestCase):
             self.assertEqual(observed,expected)
         with self.assertRaises(ValueError):
             scope(SOURCE.replace(IOS_OPEN_OLD,"",1))
+        duplicate=scope(SOURCE+"\n"+IOS_OPEN_OLD)
+        self.assertEqual(duplicate.count(IOS_OPEN_NEW),1)
+        self.assertEqual(duplicate.count(IOS_OPEN_OLD),1)
+        ambiguous=SOURCE.replace(IOS_OPEN_OLD,IOS_OPEN_OLD+"\n"+IOS_OPEN_OLD,1)
+        self.assertIn("near=2",summarize_seams(ambiguous))
         with self.assertRaises(ValueError):
-            scope(SOURCE+"\n"+IOS_OPEN_OLD)
+            scope(ambiguous)
         with self.assertRaises(ValueError):
             scope(SOURCE.replace(IOS_OPEN_EXPLICIT,"",1))
+
+    def test_v316_unique_v71_label_selects_only_correct_branch(self):
+        original=choose_ios_tail(SOURCE)
+        self.assertEqual(SOURCE[original:original+len(IOS_OPEN_OLD)],IOS_OPEN_OLD)
+        prefix=IOS_OPEN_OLD+"\n"+("x"*400)+"\n"
+        candidate=scope(prefix+SOURCE)
+        self.assertEqual(candidate.count(IOS_OPEN_NEW),1)
+        self.assertEqual(candidate.count(IOS_OPEN_OLD),1)
+        with self.assertRaises(ValueError):
+            choose_ios_tail(SOURCE.replace(IOS_OPEN_LABEL,"not the assertion"))
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
