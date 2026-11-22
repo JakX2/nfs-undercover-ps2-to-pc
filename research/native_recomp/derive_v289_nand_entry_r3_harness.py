@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """V289 read-only original Wii NAND guarded-source entry census.
 
-Compose verified V278 native derivation in a zero Python process.
+Compose verified V278 native derivation in a child Python process.
 Observe authentic 0x8052FA60 entries in the restored callback path.
 No guest code, registers, IPC requests, IOS responses or status modified.
 """
@@ -18,7 +18,7 @@ RESET="nwii::runtime::v278_entries=0u;"
 FRONTIER="    if(v260_post_calls==64u){"
 
 OBSERVER="""void trace_call(uint32_t addr, CPUContext&ctx){
-  // V289: inspect original NAND-child service call only in the
+  // V289: inspect original NAND child entry itself in the
   // restored authentic callback path, before and after V259 IPC reentry.
   if(v250_candidate_mode&&addr==0x8052fa60u){
     const bool guest=ctx.pc==addr&&
@@ -26,7 +26,7 @@ OBSERVER="""void trace_call(uint32_t addr, CPUContext&ctx){
     const uint32_t scaddr=ctx.gpr[13]-3176u;
     const bool mapped=ctx.mmu.get_ptr(scaddr)!=nullptr;
     const uint32_t sc=mapped?ctx.mmu.read8(scaddr):0u;
-    const bool zero=ctx.lr==0x8052fab4u;
+    const bool zero=ctx.gpr[3]==0u;
     const unsigned phase=(v259_ipc_seen==1u)?1u:0u;
     ++v289_entries;
     if(phase==1u)++v289_post;else ++v289_pre;

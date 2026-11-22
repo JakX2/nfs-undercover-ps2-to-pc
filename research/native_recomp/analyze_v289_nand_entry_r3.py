@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""V289 private original Wii NAND call to 0x8051D20C, 16 bounded trials."""
+"""V289 private original Wii NAND child entry at 0x8052FA60, 16 bounded trials."""
 from __future__ import annotations
 import argparse
 from pathlib import Path
