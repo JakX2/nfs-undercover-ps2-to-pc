@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """V335: read-only evidence for genuine NAND IPC submit successor calls.
 
-Only exact original request caller/target pairs are counted. The public
-report states what was positively observed in the bounded private log;
+Only exact original request caller/target pairs observed AFTER the verified
+NAND cache-syscall completion are counted. The public report states what
+was positively observed in the bounded private log;
 missing markers never establish that a native call did not execute.
 No original code, request contents, guest registers, or raw logs escape.
 """
@@ -37,13 +38,14 @@ def inspect(path: Path, rc: int) -> str:
             cache_done = min(cache_done + 1, 9999)
             continue
         match = CALL.fullmatch(line)
-        if match is None:
+        if match is None or cache_done == 0:
+            # Earlier SC / OSInit request calls do not prove NAND progress.
             continue
         pair = (int(match.group(1), 16), int(match.group(2), 16))
         for index, expected in enumerate(TARGETS):
             if pair == expected:
                 seen[index] = True
-        if cache_done and ordered < len(TARGETS) and pair == TARGETS[ordered]:
+        if ordered < len(TARGETS) and pair == TARGETS[ordered]:
             ordered += 1
     return (
         f"V335_IPC_FRONTIER rc={rc} kind={kind} size_band={size_band(size)} "

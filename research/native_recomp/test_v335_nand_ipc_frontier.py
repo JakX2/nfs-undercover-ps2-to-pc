@@ -35,7 +35,37 @@ class Tests(unittest.TestCase):
             )
             row = inspect(path, 124)
             self.assertIn("kind=timeout", row)
-            self.assertIn("sc_done=1 irq=1 queue=1 send=1 ctrl=0 chain=0", row)
+            self.assertIn("sc_done=1 irq=0 queue=1 send=1 ctrl=0 chain=0", row)
+
+
+    def test_pre_completion_original_request_calls_do_not_count(self):
+        # The same OS/IPC helpers can be visited during earlier startup.
+        for finish in (False, True):
+            with self.subTest(cache_completion=finish):
+                with tempfile.TemporaryDirectory() as td:
+                    path = Path(td) / "guest.log"
+                    path.write_text(
+                        "".join(marker(pc, lr) for pc, lr in TARGETS) +
+                        (DONE + "\n" if finish else ""),
+                        encoding="utf-8",
+                    )
+                    row = inspect(path, 134)
+                    self.assertIn(
+                        f"sc_done={int(finish)} irq=0 queue=0 send=0 "
+                        "ctrl=0 chain=0", row
+                    )
+
+    def test_later_cache_completion_does_not_retroactively_count(self):
+        # A separate post-completion request must be observable.
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "guest.log"
+            path.write_text(
+                marker(*TARGETS[0]) + marker(*TARGETS[1]) +
+                DONE + "\n" + marker(*TARGETS[0]),
+                encoding="utf-8",
+            )
+            row = inspect(path, 0)
+            self.assertIn("sc_done=1 irq=1 queue=0 send=0 ctrl=0 chain=1", row)
 
     def test_partial_order_and_duplicate_markers(self):
         with tempfile.TemporaryDirectory() as td:
