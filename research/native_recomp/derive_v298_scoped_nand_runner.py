@@ -28,9 +28,17 @@ echo 'V298_RETIRED_OBSERVER inspected=1'
 def patch(source: str) -> str:
     if source.count(LINK)!=1 or source.count(DONE)!=1:
         raise ValueError("V298 owner-native compiler seam changed")
-    return (source.replace(LINK,PRE+"\n"+
+    staged=(source.replace(LINK,PRE+"\n"+
                            LINK.replace("v296-harness.o","v298-harness.o"),1)
                   .replace(DONE,DONE+"\n"+AFTER,1))
+    failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'"
+    if staged.count(failure)!=1:
+        raise ValueError("V298 native failure-classifier seam changed")
+    # Print only a matched public C++ assertion label, never native logs.
+    diagnostic=(
+        '  python3 "$V110_SOURCE_ROOT/diagnose_v250_native_phase.py" '+
+        '"$work/v295-native.log" "$work/v298-harness.cpp"\n')
+    return staged.replace(failure,diagnostic+failure,1)
 
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
