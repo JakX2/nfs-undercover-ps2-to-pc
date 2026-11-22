@@ -10,6 +10,7 @@ on:
       - 'research/native_recomp/*v301*'
       - 'research/native_recomp/*v302*'
       - 'research/native_recomp/*v303*'
+      - 'research/native_recomp/*v304*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -40,6 +41,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v302_private_helper.py' -v
           python3 -m py_compile research/native_recomp/analyze_v303_helper_coverage.py research/native_recomp/test_v303_helper_coverage.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v303_helper_coverage.py' -v
+          python3 -m py_compile research/native_recomp/analyze_v304_helper_exec.py research/native_recomp/test_v304_helper_exec.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v304_helper_exec.py' -v
           bash -n research/native_recomp/run_v298_scoped_nand.sh
   owner-original-v298:
     if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -142,6 +145,7 @@ jobs:
               grep -E '^V301_HELPER_AOT owner=1 elf=1 pc=804f2064 words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} body=[01] dispatch=[01] caller=[01] unmapped=[01] direct=[01]$|^V301_HELPER_AUDIT (verified=[01]|inspected=1)$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V302_HELPER_RESTORE owner=1 pc=804f2064 words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} extended=[01] protected=1 candidate=1$|^V302_RESTORE_AUDIT verified=[01]$|^V302_HELPER_CANDIDATE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V303_HELPER_STAGE (generate|inspect|coverage|compile|link)=[01]$|^V303_AOT_HELPER original=[01] words=41 body=[01] dispatch=[01] caller=[01] unmapped=[01] direct=[01] ready=[01]$|^V303_COVERAGE_AUDIT verified=[01]$|^V303_HELPER_NATIVE_LINK verified=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V304_HELPER_NATIVE rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] over_limit=[01] edge_sample=1 callback=[0-9]{1,5} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} writer=[0-9]{1,5} old_hotspot=[0-9]{1,6} completed=[01]$|^V304_EXEC_AUDIT verified=[01]$|^V304_EXEC_ATTEMPT inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               echo 'V294 private restored NAND AOT compile/link not verified; game code withheld' >&2
               exit 1
             }

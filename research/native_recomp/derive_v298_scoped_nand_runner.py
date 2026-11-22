@@ -70,6 +70,19 @@ else
   exit 1
 fi
 echo 'V303_HELPER_NATIVE_LINK verified=1'
+# V304: a separate native process executes the restored helper. No guest
+# register changes or fake IOS replies. A timeout/crash is a diagnostic,
+# not a successful boot or original NAND completion claim.
+ulimit -c 0
+set +e
+timeout --signal=TERM --kill-after=3s 12s \
+    "$work/v303-native" "$work/private-v302.dol" owner-callback "$owner" \
+    > "$work/v304-native.log" 2>&1
+v304_rc=$?
+set -e
+python3 "$V110_SOURCE_ROOT/analyze_v304_helper_exec.py" \
+  "$work/v304-native.log" "$v304_rc"
+echo 'V304_EXEC_ATTEMPT inspected=1'
 '''
 
 AFTER=r'''
