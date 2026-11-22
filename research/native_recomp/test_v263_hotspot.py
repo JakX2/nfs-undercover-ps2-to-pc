@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 
 from analyze_v263_hotspot import analyze
-from derive_v263_hotspot_runner import derive as derive_runner
+from derive_v263_hotspot_runner import derive_shell
+import sys
 HERE = Path(__file__).resolve().parent
 
 def fixture() -> str:
@@ -62,7 +63,14 @@ class V263(unittest.TestCase):
     def test_runner_and_private_workflow(self):
         source = (HERE/"run_v79_continuous_reply_entry.sh").read_text(
             encoding="utf-8")
-        derived = derive_runner(source)
+        with tempfile.TemporaryDirectory() as td:
+            generated = Path(td) / "derived.sh"
+            subprocess.run(
+                [sys.executable, str(HERE/"derive_v263_hotspot_runner.py"),
+                 str(HERE/"run_v79_continuous_reply_entry.sh"), str(generated)],
+                check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True)
+            derived = generated.read_text(encoding="utf-8")
         self.assertIn("derive_v262_ipc_state_harness.py", derived)
         self.assertIn("analyze_v262_ipc_state.py", derived)
         self.assertIn("analyze_v263_hotspot.py", derived)
@@ -86,7 +94,7 @@ class V263(unittest.TestCase):
 
     def test_strict_inherited_anchors(self):
         with self.assertRaises(ValueError):
-            derive_runner("not a native owner-original Wii script")
+            derive_shell("not a native owner-original Wii script")
 
 
 if __name__ == "__main__":
