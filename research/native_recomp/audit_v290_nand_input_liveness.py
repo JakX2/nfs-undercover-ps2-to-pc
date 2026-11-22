@@ -50,8 +50,10 @@ def classify(words):
     if not (cmp>>26==11 and (cmp>>23)&7==0 and
             (cmp>>16)&31==3 and (cmp&0xffff)==0):
         raise ValueError("original_cmp")
+    if branch>>26!=16:
+        raise ValueError("original_branch")
     e=decode_bc(branch)
-    if (branch>>26!=16 or branch_target(CHILD+24,branch)!=CHILD+92
+    if (branch_target(CHILD+24,branch)!=CHILD+92
             or e.bo!=4 or e.bi!=2 or e.cr_expected is not False):
         raise ValueError("original_branch")
     first=effect(words[0])
