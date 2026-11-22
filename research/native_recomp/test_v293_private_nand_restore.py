@@ -4,7 +4,7 @@ import hashlib
 import struct
 from pathlib import Path
 import unittest
-from audit_v293_private_nand_restore import TARGETS,restore,audit,classify_span
+from restore_v293_private_nand import TARGETS,restore,audit,classify_span
 from extend_private_text import NOP
 from make_osinit_execparams_v28 import text_at
 
