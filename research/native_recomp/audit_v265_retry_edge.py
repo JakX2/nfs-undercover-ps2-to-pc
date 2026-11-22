@@ -20,8 +20,12 @@ def audit(data: bytes) -> dict[str, int]:
     start, size = owners[0]
     if size < 32 or size > 32768 or size % 4:
         raise ValueError("geometry")
-    words = read_words(data, start, size // 4)
-    return classify_retry_window(start, words, CALLSITE)
+    window_start = CALLSITE - 24
+    window_end = CALLSITE + 4 * 65
+    if window_start < start or window_end > start + size:
+        raise ValueError("geometry")
+    words = read_words(data, window_start, (window_end - window_start) // 4)
+    return classify_retry_window(window_start, words, CALLSITE)
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
