@@ -59,7 +59,7 @@ class Tests(unittest.TestCase):
 
     def test_v313_sanitized_source_anchor_classifier(self):
         good=summarize_seams(SOURCE)
-        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 arena=1 sram=1 transport=1 transport_label=1 explicit=1",good)
+        self.assertIn("reply=1 submit=1 client=1 ios=1 ios_label=1 ios_call=1 async=1 async_label=1 arena=1 sram=1 transport=1 transport_label=1 nand_sc=1 nand_sc_label=1 explicit=1",good)
         self.assertIn("check=1 service=1 nand=1",good)
         self.assertIn("near=1",good)
         self.assertIn("nand_sc=1 nand_sc_label=1",good)
