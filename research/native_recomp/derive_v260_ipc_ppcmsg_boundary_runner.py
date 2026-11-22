@@ -45,7 +45,7 @@ done
 if (( msg != 0 ));then echo 'V260_POSTIPC_RESULT kind=ppcmsg trials=16'
 else echo 'V260_POSTIPC_RESULT kind=calls trials=16';fi
 echo 'V260_SC_POSTIPC_EVENT verified=1'
-""",1))
+""",1)
 
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
