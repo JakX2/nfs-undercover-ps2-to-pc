@@ -153,6 +153,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(candidate.count(ARENA_LABEL),1)
         self.assertEqual(candidate.count(SRAM_LABEL),1)
         self.assertIn("addr==0x805222c0u",ARENA_NEW)
+        self.assertNotIn("if(arena_active)",ARENA_OLD)
+        self.assertIn(ARENA_NEW,scope(SOURCE.replace(ARENA_OLD,ARENA_OLD+"\n     if(arena_active){",1)))
         self.assertIn("addr==0x80522294u",SRAM_NEW)
         self.assertNotIn("ctx.gpr[3] =",ARENA_NEW+SRAM_NEW)
         self.assertNotIn("ctx.mmu.write",ARENA_NEW+SRAM_NEW)
@@ -164,6 +166,7 @@ class Tests(unittest.TestCase):
             SOURCE.replace(ARENA_OLD,"",1),
             SOURCE.replace(SRAM_OLD,"",1),
             SOURCE.replace(ARENA_LABEL,"unrelated assertion",1),
+            SOURCE.replace(ARENA_OLD,"if(addr==0x805222c0u){",1),
             SOURCE.replace(SRAM_LABEL,"unrelated assertion",1),
             SOURCE+"\n"+SRAM_OLD,
         ):

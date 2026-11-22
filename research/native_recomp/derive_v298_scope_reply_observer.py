@@ -48,13 +48,13 @@ ASYNC_OLD="if(post111_open==1u&&post110_chosen==2u){"
 ASYNC_NEW=("if(post111_open==1u&&post110_chosen==2u&&\n"
            "       (!v250_candidate_mode||v250_nand_seen==0u)){")
 ASYNC_LABEL="V112 original IOS_OpenAsync allocator disable differs"
-# V322: two trace-only OSInit cache/SRAM checks require earlier startup
+# V322/V324: two trace-only OSInit cache/SRAM checks require earlier startup
 # caller LR and counters, but genuine NAND also invokes these routines.
 # Skip those historical assertions only after verified guest NAND entry.
 # The original DCFlushRange and DCInvalidateRange AOT bodies still run.
-ARENA_OLD="else if(addr==0x805222c0u){\n     if(arena_active){"
+ARENA_OLD="else if(addr==0x805222c0u){"
 ARENA_NEW=("else if(addr==0x805222c0u&&"
-           "(!v250_candidate_mode||v250_nand_seen==0u)){\n     if(arena_active){")
+           "(!v250_candidate_mode||v250_nand_seen==0u)){")
 ARENA_LABEL="original arena DCFlushRange ABI or dcbz count differs"
 SRAM_OLD="else if(addr==0x80522294u){"
 SRAM_NEW=("else if(addr==0x80522294u&&"
@@ -112,6 +112,7 @@ def patch(source: str) -> str:
         source.count(IOS_TRACE_OLD)!=1 or
         source.count(ASYNC_OLD)!=1 or source.count(ASYNC_LABEL)!=1 or
         source.count(ARENA_OLD)!=1 or source.count(SRAM_OLD)!=1 or
+        not 0 < source.index(ARENA_LABEL)-source.index(ARENA_OLD) < 1100 or
         source.count(ARENA_LABEL)!=1 or source.count(SRAM_LABEL)!=1 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
         source.count(IOS_OPEN_LABEL)!=1 or
