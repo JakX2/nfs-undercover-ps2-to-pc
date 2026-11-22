@@ -66,6 +66,7 @@ class Tests(unittest.TestCase):
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
         self.assertIn("diagnose_v299_native_log.py",r)
+        self.assertIn("analyze_v300_trace_hotspots.py",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):
             runner("unknown native candidate")

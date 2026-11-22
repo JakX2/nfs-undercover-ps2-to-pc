@@ -39,7 +39,9 @@ def patch(source: str) -> str:
         '  python3 "$V110_SOURCE_ROOT/diagnose_v250_native_phase.py" '+
         '"$work/v295-native.log" "$work/v298-harness.cpp"\n'+
         '  python3 "$V110_SOURCE_ROOT/diagnose_v299_native_log.py" '+
-        '"$work/v295-native.log" "$v295_rc" || true\n')
+        '"$work/v295-native.log" "$v295_rc" || true\n'+
+        '  python3 "$V110_SOURCE_ROOT/analyze_v300_trace_hotspots.py" '+
+        '"$work/v295-native.log" "$work/v298-harness.cpp" || true\n')
     return staged.replace(failure,diagnostic+failure,1)
 
 def main()->int:
