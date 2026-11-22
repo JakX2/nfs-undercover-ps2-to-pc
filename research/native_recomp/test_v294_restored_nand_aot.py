@@ -30,8 +30,8 @@ class Tests(unittest.TestCase):
         self.assertFalse(ready)
         self.assertIn("bodies=3 dispatch=3",row)
         row,ready=inspect(fixture().replace(
-            "pc=8052fca4 words=79 present=1 same=79 nop=0",
-            "pc=8052fca4 words=79 present=1 same=78 nop=1"))
+            "pc=8052fca4 words=16 present=1 same=16 nop=0",
+            "pc=8052fca4 words=16 present=1 same=15 nop=1"))
         self.assertFalse(ready)
         self.assertIn("exact=3",row)
         with self.assertRaisesRegex(ValueError,"audit_rows"):
