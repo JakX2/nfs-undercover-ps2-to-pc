@@ -62,11 +62,13 @@ class Tests(unittest.TestCase):
         self.assertFalse(inspect("", "a public check",0)[1])
 
     def test_runner_keeps_generated_aot_intact(self):
-        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'")
+        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'"+"\n"+"echo 'V294_RESTORED_AOT verified=1'")
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
         self.assertIn("diagnose_v299_native_log.py",r)
         self.assertIn("analyze_v300_trace_hotspots.py",r)
+        self.assertIn("analyze_v301_nand_first_helper.py",r)
+        self.assertIn("V301_HELPER_AUDIT inspected=1",r)
         self.assertIn("v294-generated.o",r)
         with self.assertRaises(ValueError):
             runner("unknown native candidate")

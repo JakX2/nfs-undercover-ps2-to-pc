@@ -31,6 +31,15 @@ def patch(source: str) -> str:
     staged=(source.replace(LINK,PRE+"\n"+
                            LINK.replace("v296-harness.o","v298-harness.o"),1)
                   .replace(DONE,DONE+"\n"+AFTER,1))
+    aot_anchor="echo 'V294_RESTORED_AOT verified=1'"
+    if staged.count(aot_anchor)!=1:
+        raise ValueError("V301 authenticated helper AOT seam changed")
+    helper_probe=(
+        'python3 "$V110_SOURCE_ROOT/analyze_v301_nand_first_helper.py" '+
+        '"$owner" "$work/v293-original.elf" "$work/private-v293.dol" '+
+        '"$work/generated-v294/output.cpp"\n'+
+        "echo 'V301_HELPER_AUDIT inspected=1'")
+    staged=staged.replace(aot_anchor,aot_anchor+"\n"+helper_probe,1)
     failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'"
     if staged.count(failure)!=1:
         raise ValueError("V298 native failure-classifier seam changed")
