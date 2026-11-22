@@ -33,7 +33,28 @@ def derive(source:str)->str:
     s=s.replace(fail,diag+'\n'+fail,1)
     return s.replace(DONE,DONE+f"""
 grep -E '{PATTERN}' "$work/v250-native.log" | sort -u || true
-grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=[0-9a-f]{8} lr=[0-9a-f]{8}$' "$work/v250-native.log" | sort -u || true
+grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{{1,3}} pc=[0-9a-f]{{8}} lr=[0-9a-f]{{8}} "$work/v250-native.log" | sort -u || true
+msg="$(grep -Ec '{PASS}' "$work/v250-native.log" || true)"
+calls="$(grep -Ec '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{{1,3}} pc=[0-9a-f]{{8}} lr=[0-9a-f]{{8}}$' "$work/v250-native.log" || true)"
+test "$((msg+calls))" -eq 16
+test "$msg" -eq 0 -o "$calls" -eq 0
+test "$(grep -Ec '{TRIAL}' "$work/v250-native.log")" -eq 16
+for n in $(seq 1 16); do
+  grep -Fx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$work/v250-native.log"
+done
+if (( msg != 0 ));then echo 'V260_POSTIPC_RESULT kind=ppcmsg trials=16'
+else echo 'V260_POSTIPC_RESULT kind=calls trials=16';fi
+echo 'V260_SC_POSTIPC_EVENT verified=1'
+""",1)
+
+if __name__=="__main__":
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("source",type=Path)
+    p.add_argument("output",type=Path)
+    a=p.parse_args()
+    with a.output.open("x",encoding="utf-8") as out:
+        out.write(derive(a.source.read_text(encoding="utf-8")))
+ "$work/v250-native.log" | sort -u || true
 msg="$(grep -Ec '{PASS}' "$work/v250-native.log" || true)"
 calls="$(grep -Ec '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{{1,3}} pc=[0-9a-f]{{8}} lr=[0-9a-f]{{8}}$' "$work/v250-native.log" || true)"
 test "$((msg+calls))" -eq 16
