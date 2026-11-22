@@ -1,0 +1,87 @@
+name: Wii V286 Original Wii NAND Early Guard Producer Body
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v286*'
+      - '.github/workflows/wii-v286-nand-early-source-shape.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v286-nand-early-source-shape-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  public-original-free-v286:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify V286 original-free NAND r3 function control structure
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/audit_v286_nand_early_source_shape.py research/native_recomp/test_v286_nand_early_source_shape.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v286_nand_early_source_shape.py' -v
+          echo 'PASS: original-free V286 original NAND source function shape'
+  owner-original-v286:
+    if: vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned owner staging dependency
+        run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage SHA-pinned private Wii game locally
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          staged=0
+          for attempt in 1 2 3; do
+            if python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"; then
+              staged=1
+              break
+            fi
+            if (( attempt < 3 )); then sleep "$((attempt * 5))"; fi
+          done
+          if (( staged != 1 )); then
+            echo 'V286 owner original staging failed' >&2
+            exit 1
+          fi
+      - name: Verify authenticated private owner original
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v125_owner_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Audit original Wii NAND guarded result producer control structure
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/audit_v286_nand_early_source_shape.py "$RUNNER_TEMP/originals/NfsMWRelease.elf" > "$RUNNER_TEMP/v286.log" 2>&1 || {
+            grep -E '^V286_SOURCE_AUDIT verified=0$' "$RUNNER_TEMP/v286.log" | sort -u || true
+            echo 'V286 original source function not verified; game code withheld' >&2
+            exit 1
+          }
+          grep -Fx 'V286_SOURCE_AUDIT verified=1' "$RUNNER_TEMP/v286.log"
+          grep -E '^V286_SOURCE original=8051d20c instructions=[0-9]{1,4} direct_calls=[0-9]{1,4} target_count=[0-9]{1,3} cond_branches=[0-9]{1,3} bclr=[0-9]{1,3} literal_return0=[0-9]{1,3} literal_return1=[0-9]{1,3} literal_return2=[0-9]{1,3} literal_return3=[0-9]{1,3} literal_return_other=[0-9]{1,3} sc_read=[0-9]{1,3} sc_write=[0-9]{1,3} field188_read=[0-9]{1,3} field188_write=[0-9]{1,3}$' "$RUNNER_TEMP/v286.log"
+          grep -E '^V286_SOURCE_CALL rank=[1-8] target=[0-9a-f]{8} count=[0-9]{1,4}$' "$RUNNER_TEMP/v286.log" || true
+          echo 'V279 isolated original NAND direct linked callsite verified'
+          echo 'V279 no raw PowerPC instructions or original owner bytes exported'
+          echo 'V279 authenticated control-flow classification complete'
+          echo 'V277 owner-original direct-call audit read-only and SHA-verified'
+          echo 'PASS: V286 original Wii NAND r3 producer body classified'
+      - name: Remove private owner inputs
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/v286.log"
