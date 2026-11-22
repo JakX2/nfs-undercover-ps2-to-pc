@@ -14,11 +14,12 @@ import sys
 from make_osinit_execparams_v28 import ORIGINAL_SHA, text_at
 from make_private_elf_symbol_map import ORIGINAL_SHA256, parse_functions
 from audit_v292_nand_aot_reach import word_counts, emitted
+from resolve_v308_descendant_boundaries import resolve
 
 TARGETS=(0x80519BCC,0x8051AD38,0x80545104,0x80545150)
 KNOWN_ERRORS={
     'authenticated_digest','fixture_geometry','function_size',
-    'original_span','cpp_geometry','span_geometry'
+    'original_span','cpp_geometry','span_geometry','invalid_target'
 }
 def classify_error(exc:Exception)->str:
     if isinstance(exc,OSError):return 'input_io'
@@ -38,39 +39,50 @@ def inspect(owner: bytes, elf: bytes, fixture: bytes, generated: str,
         raise ValueError("fixture_geometry")
     sizes=parser(elf)
     rows=[]
-    exact=translated=dispatched=missing=partial=0
+    exact=interior=translated=dispatched=missing=partial=unknown=0
     for pc in TARGETS:
-        size=sizes.get(pc,0)
-        if size<4 or size>32768 or size%4:
-            raise ValueError("function_size")
-        source=reader(owner,pc,size)
-        if len(source)!=size:
-            raise ValueError("original_span")
-        try:
-            before=reader(fixture,pc,size)
-            present=int(len(before)==size)
-        except (ValueError,IndexError):
-            before=b""
+        window=resolve(sizes,pc)
+        if window.length:
+            source=reader(owner,pc,window.length)
+            if len(source)!=window.length:
+                raise ValueError("original_span")
+            try:
+                before=reader(fixture,pc,window.length)
+                present=int(len(before)==window.length)
+            except (ValueError,IndexError):
+                before=b""
+                present=0
+            counts=(word_counts(source,before) if present else
+                    dict(same=0,nop=0,blr=0,other=0))
+        else:
             present=0
-        counts=(word_counts(source,before) if present else
-                dict(same=0,nop=0,blr=0,other=0))
-        entry=emitted(generated,pc)
-        authentic=int(bool(present and counts["same"]==size//4))
-        exact+=authentic
+            counts=dict(same=0,nop=0,blr=0,other=0)
+            unknown+=1
+        # An interior BL target does not create a new ELF function.
+        # Inspect the actual enclosing entry for the native dispatch.
+        entry=emitted(generated,window.entry or pc)
+        authentic=int(bool(
+            window.length and present and
+            counts["same"]==window.length//4
+        ))
+        exact+=int(window.kind=="exact" and authentic)
+        interior+=int(window.kind=="interior" and authentic)
         translated+=entry["body"]
         dispatched+=entry["dispatch"]
-        missing+=int(not present)
-        partial+=int(bool(present and not authentic))
+        missing+=int(bool(window.length and not present))
+        partial+=int(bool(window.length and present and not authentic))
         rows.append(
-            f"V306_DESCENDANT pc={pc:08x} words={size//4} "
-            f"present={present} same={counts['same']} nop={counts['nop']} "
+            f"V306_DESCENDANT pc={pc:08x} kind={window.kind} "
+            f"base={window.entry:08x} offset={window.offset//4} "
+            f"words={window.length//4} present={present} "
+            f"same={counts['same']} nop={counts['nop']} "
             f"blr={counts['blr']} other={counts['other']} "
             f"body={entry['body']} dispatch={entry['dispatch']}"
         )
     return [
         f"V306_COVERAGE owner=1 targets={len(TARGETS)} exact={exact} "
-        f"emitted={translated} dispatch={dispatched} "
-        f"missing={missing} partial={partial}"
+        f"interior={interior} emitted={translated} dispatch={dispatched} "
+        f"missing={missing} partial={partial} unknown={unknown}"
     ]+rows
 
 def main()->int:

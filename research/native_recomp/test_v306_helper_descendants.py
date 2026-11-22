@@ -48,8 +48,8 @@ class Tests(unittest.TestCase):
     def test_exact_nop_missing_and_foreign(self):
         rows=sample()
         self.assertEqual(len(rows),5)
-        self.assertIn("targets=4 exact=1 emitted=2 dispatch=2",rows[0])
-        self.assertIn("missing=1 partial=2",rows[0])
+        self.assertIn("targets=4 exact=1 interior=0 emitted=2 dispatch=2",rows[0])
+        self.assertIn("missing=1 partial=2 unknown=0",rows[0])
         self.assertIn("present=1 same=4 nop=0",rows[1])
         self.assertIn("present=1 same=0 nop=4",rows[2])
         self.assertIn("present=0 same=0 nop=0",rows[3])
@@ -71,14 +71,43 @@ class Tests(unittest.TestCase):
         self.assertEqual(classify_error(ValueError('private information')),'other')
         self.assertEqual(classify_error(OSError('/private/Wii.dol')),'input_io')
 
-    def test_missing_symbol_fails_closed(self):
-        with self.assertRaisesRegex(ValueError,"function_size"):
-            inspect(
-                OWNER,ELF,FIXTURE,CPP,
-                hashlib.sha256(OWNER).hexdigest(),
-                hashlib.sha256(ELF).hexdigest(),
-                parser=lambda _: {TARGETS[0]:16},reader=reader
-            )
+    def test_missing_symbol_is_unknown_not_full_function(self):
+        rows=inspect(
+            OWNER,ELF,FIXTURE,CPP,
+            hashlib.sha256(OWNER).hexdigest(),
+            hashlib.sha256(ELF).hexdigest(),
+            parser=lambda _: {TARGETS[0]:16},reader=reader
+        )
+        self.assertIn("exact=1 interior=0",rows[0])
+        self.assertIn("unknown=3",rows[0])
+        self.assertIn("kind=unknown base=00000000 offset=0 words=0",rows[2])
+
+    def test_interior_target_uses_tail_window_not_fake_entry(self):
+        symbols={pc:len(ORIGINAL) for pc in TARGETS}
+        del symbols[TARGETS[2]]
+        parent=TARGETS[2]-4
+        symbols[parent]=20
+        rows=inspect(
+            OWNER,ELF,FIXTURE,CPP,
+            hashlib.sha256(OWNER).hexdigest(),
+            hashlib.sha256(ELF).hexdigest(),
+            parser=lambda _: symbols,reader=reader
+        )
+        self.assertIn("exact=1 interior=0",rows[0])
+        self.assertIn("kind=interior base=%08x offset=1 words=4" % parent,rows[3])
+        self.assertIn("present=0",rows[3])
+
+    def test_invalid_symbol_does_not_claim_original_words(self):
+        symbols={pc:len(ORIGINAL) for pc in TARGETS}
+        symbols[TARGETS[2]]=3
+        rows=inspect(
+            OWNER,ELF,FIXTURE,CPP,
+            hashlib.sha256(OWNER).hexdigest(),
+            hashlib.sha256(ELF).hexdigest(),
+            parser=lambda _: symbols,reader=reader
+        )
+        self.assertIn("kind=invalid base=00000000 offset=0 words=0",rows[3])
+        self.assertIn("unknown=1",rows[0])
 
 if __name__=="__main__":
     unittest.main()
