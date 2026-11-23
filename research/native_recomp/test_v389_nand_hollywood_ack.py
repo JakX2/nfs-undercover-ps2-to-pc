@@ -49,7 +49,7 @@ class Tests(unittest.TestCase):
             'const bool cleared=!remaining;',
             'const bool down=!ipc70_bus.external_irq_level();',
             'ipc70_ram.cpu->inst_count>v389_y1_inst',
-            'ctx' if False else 'ipc70_ram.cpu->is_running=false;throw ExceptionStop{};'
+            'ipc70_ram.cpu->is_running=false;throw ExceptionStop{};'
         ):self.assertIn(part,FLAG_PROOF)
         for forbidden in (
             'service_one(','ipc70_bus.write32(', 'ipc70_bus.tick(',
