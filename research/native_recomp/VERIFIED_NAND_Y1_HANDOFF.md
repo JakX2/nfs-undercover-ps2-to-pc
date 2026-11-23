@@ -26,7 +26,9 @@ or as proof of NAND callback completion.
 | V381 | Original `OSDisableScheduler` body called the guest-registered IRQ slot-27 handler at `0x80519318`; saved frame and live Y1 verified | Stops at IPC handler entry, no NAND callback |
 | V382 | Original IPCInterruptHandler executed to a naturally linked translated guest helper; live Y1 and known helper classification observed | Does not identify which specific IPC helper or reply callback |
 | V383 | Original `IPCInterruptHandler` register read at `0x8051905C` executed and called `IpcReplyHandler` at `0x805190C0` | Stops at reply handler entry, no ACK or callback |
-| V384 | Original `IpcReplyHandler` first register read at `0x8051905C`, LR `0x805190E8` | Pending original owner verification |
+| V384 | Original `IpcReplyHandler` executed its first IPC register-read callee `0x8051905C`, LR `0x805190E8`; 12 positive owner observations | Stops at first register-reader entry |
+| V385 initial | First-reader execution hit historical V80's old first-SYSCONF ARMMSG address assertion | Source-only correction scopes old address check to original SC phase; no second read verified yet |
+| V386 staged | Resume authenticated second register read through first real next linked helper, with writer classification | Unpublished until V385 owner-authenticated correction |
 
 ### Repeatable sanitized outcomes
 
@@ -140,6 +142,31 @@ V383_NAND_REPLY_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 t
 The reply-handler *entry* does not imply it has read the reply message,
 acknowledged Y1, called any completion callback or returned to NAND.
 
+Owner run [45123975844](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45123975844)
+authenticated the original `IpcReplyHandler` body executing far enough
+to invoke `IPCReadReg` at `0x8051905C` from LR `0x805190E8`. Twelve
+bounded samples passed:
+
+```text
+V384_NAND_REPLY_READ_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 entry_any=1 trial_any=1 ipc_read_verified=1
+```
+
+Owner run [45124715246](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45124715246)
+then tried to execute the first register-reader function toward the
+second original call. It hit V80's **first-SYSCONF** ARMMSG request-pointer
+oracle before V385 could observe a second read:
+
+```text
+V310_PUBLIC_FAILURE id=1183 label=V80 original ARMMSG read selected a different request callback=1 nand=1 trials=0
+V385_NAND_SECOND_READ_CENSUS rc=134 kind=signal size_band=0 sample_complete=1 entries=0 trials=0 entry_any=0 trial_any=0 second_read_verified=0
+```
+
+The corrected V385 lane retains that V80 original-SC assertion verbatim
+outside authenticated NAND. On the NAND path only, it checks that the
+original ARMMSG read result equals the native hardware mailbox and that
+Y1 remains asserted. This is a **host observer correction**, not a guest
+IPC reply or an acknowledgement.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -169,14 +196,15 @@ V376 has now been authenticated in the owner run. V377, V378 and V379
 executed progressively larger portions of the installed original Wii vector,
 OS exception handler, dispatcher and `OSGetTime` entry.
 
-V383 has now authenticated original IPC register reading and the
-`IpcReplyHandler` entry on the NAND path. V384 tests that original reply
-handler's first PPCCTRL reader call. Next the original handler must
-process the pending message and write the Broadway/Y1 and Hollywood
-write-one-to-clear acknowledgements on its own. NAND-specific tests must not
-borrow SC-only IOS reply values or force a successful IOS response.
-Completion of the actual NAND callback and full native Wii boot remain
-unverified.
+V384 has now authenticated the first original `IpcReplyHandler`
+PPCCTRL reader entry on the NAND path. V385's first owner test stopped in
+the inherited first-SYSCONF V80 address oracle before reaching its
+second read. After the corrected host observer confirms the authentic
+NAND mailbox, the next checkpoint is the genuine second `IPCReadReg`
+call at `0x8051905C` (LR `0x805190FC`). Later, only original translated
+guest code may write Broadway Y1 and Hollywood flag W1C and dispatch
+the NAND completion callback. Tests must not borrow SC-specific IOS results
+or force a successful reply. Full native Wii boot remains unverified.
 
 ## Windows original-free regression
 
