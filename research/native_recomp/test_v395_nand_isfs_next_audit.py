@@ -27,6 +27,21 @@ class Tests(unittest.TestCase):
                     E.replace('clear=1','clear=0')+T,
                     E+T+E+T.replace('completed=1','completed=0')):
             self.assertIn('next_verified=0',run(raw),raw)
+    def test_bitfield_census_identifies_exact_first_bad_trial_without_private_bytes(self):
+        raw=E+T+E.replace('selected=1','selected=0')+T.replace('completed=1','completed=0')
+        s=run('PRIVATE-NAND-ADDRESS 0xDEADBEEF\n'+raw)
+        self.assertIn('entries=2 trials=2',s)
+        self.assertIn('next_verified=0',s)
+        self.assertIn('V395_NAND_FIELD_CENSUS entries=2 trials=2',s)
+        self.assertIn('entry_any_mask=FF entry_all_mask=DF',s)
+        self.assertIn('trial_any_mask=7 trial_all_mask=3',s)
+        self.assertIn('first_bad=2',s)
+        self.assertNotIn('PRIVATE-NAND-ADDRESS',s)
+        self.assertNotIn('DEADBEEF',s)
+    def test_empty_census_masks_report_zero(self):
+        result=run('')
+        self.assertIn('entry_any_mask=00 entry_all_mask=00',result)
+        self.assertIn('trial_any_mask=0 trial_all_mask=0',result)
     def test_large_private_log_incomplete(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'owner-private.log'

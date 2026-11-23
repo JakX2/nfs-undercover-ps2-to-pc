@@ -12,13 +12,26 @@ def inspect(path:Path,rc:int)->str:
     size,lines=read_edges(path)
     entries=trials=0
     mapped_any=selected_any=userdata_any=nand_any=0
+    # Bit order: entry guest,clear,masked,registered,mapped,selected,userdata,nand.
+    # Trial bit order: isfs,next,completed. These preserve no addresses,
+    # register words, response values, names, or other owner-only content.
+    entry_or=0
+    entry_and=0xff
+    trial_or=0
+    trial_and=0x07
+    first_bad=0
     valid=True
     for line in lines:
         m=ENTRY.fullmatch(line)
         if m:
             if entries!=trials or entries>=16:valid=False;break
             entries+=1
-            guest,clear,masked,registered,mapped,selected,userdata,nand=map(int,m.groups())
+            bits=tuple(map(int,m.groups()))
+            guest,clear,masked,registered,mapped,selected,userdata,nand=bits
+            mask=sum(bit<<i for i,bit in enumerate(bits))
+            entry_or|=mask
+            entry_and&=mask
+            if mask!=0xff and not first_bad:first_bad=entries
             valid=valid and bool(guest and clear and masked and registered)
             mapped_any|=mapped;selected_any|=selected;userdata_any|=userdata;nand_any|=nand
             continue
@@ -26,7 +39,12 @@ def inspect(path:Path,rc:int)->str:
         if m:
             if trials>=entries or trials>=16:valid=False;break
             trials+=1
-            valid=valid and all(x=='1' for x in m.groups())
+            bits=tuple(map(int,m.groups()))
+            mask=sum(bit<<i for i,bit in enumerate(bits))
+            trial_or|=mask
+            trial_and&=mask
+            if mask!=0x07 and not first_bad:first_bad=trials
+            valid=valid and all(bits)
     return (
         f'V395_NAND_ISFS_NEXT_CENSUS rc={rc} kind={category(rc)} '
         f'size_band={size_band(size)} sample_complete={int(size<=WINDOW)} '
@@ -34,6 +52,11 @@ def inspect(path:Path,rc:int)->str:
         f'selected_any={selected_any} userdata_any={userdata_any} '
         f'nand_any={nand_any} '
         f'next_verified={int(bool(valid and entries and entries==trials))}'
+        '\n'
+        f'V395_NAND_FIELD_CENSUS entries={entries} trials={trials} '
+        f'entry_any_mask={entry_or:02X} entry_all_mask={entry_and if entries else 0:02X} '
+        f'trial_any_mask={trial_or:01X} trial_all_mask={trial_and if trials else 0:01X} '
+        f'first_bad={first_bad} order_ok={int(bool(valid and entries==trials))}'
     )
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)

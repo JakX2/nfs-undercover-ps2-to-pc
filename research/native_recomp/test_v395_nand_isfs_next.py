@@ -69,7 +69,7 @@ class Tests(unittest.TestCase):
             'uint32_t v391_kind=0u,v391_calls=0u,v391_next_pc=0u,v391_next_lr=0u;\n'
             'uint32_t v392_kind=0u,v392_calls=0u,v392_next_pc=0u,v392_next_lr=0u;\n'
             'uint32_t v393_next_seen=0u,v393_next_pc=0u,v393_next_lr=0u;\n'
-            'uint32_t v394_isfs_seen=0u;\n'
+            'uint32_t v394_context_seen=0u,v394_isfs_seen=0u;\n'
             'uint32_t v395_next_seen=0u,v395_next_pc=0u,v395_next_lr=0u;\n'
             '}}\nint main(){Context c{};const bool v389_completed=true;\n'
             +'\n'.join(predicates)+'\nreturn int(v394_completed);}\n'
