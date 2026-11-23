@@ -12,7 +12,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 VECTOR_TRACE_OLD,VECTOR_TRACE_NEW,VECTOR_TRACE_LABEL,
                                                 NAND_IRQ_OLD,NAND_IRQ_NEW,NAND_IRQ_LABEL,
                                                 NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
-                                                NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,summarize_seams,
+                                                NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,
+                                                ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -32,7 +33,9 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         NAND_QUEUE_OLD+
         '\n     check(false,"V116 original IOS request queue-helper boundary differs");\n'+
         NAND_SEND_OLD+
-        '\n     check(false,"V117 original IPC send register call ABI differs");\n')
+        '\n     check(false,"V117 original IPC send register call ABI differs");\n'+
+        ACK_MMIO_OLD+
+        '\n     check(false,"unexpected original IPC ACK MMIO write");\n')
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -369,6 +372,33 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(modified)):
                 with self.assertRaises(ValueError):
                     scope(modified)
+
+    def test_v339_retire_first_ack_mmio_interceptor_after_nand(self):
+        # Original ACK interrupts must still validate their W1C flags and
+        # control writes; the later NAND request is not another ACK.
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(ACK_MMIO_NEW),1)
+        self.assertEqual(scoped.count(ACK_MMIO_LABEL),1)
+        self.assertNotIn(ACK_MMIO_OLD,scoped)
+        self.assertIn("irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)",ACK_MMIO_NEW)
+        self.assertIn("using B=undercover::wii::IosBus",ACK_MMIO_NEW)
+        self.assertNotIn("ipc70_bus.write32",ACK_MMIO_NEW)
+        self.assertNotIn("ctx.",ACK_MMIO_NEW)
+        self.assertNotIn("return;",ACK_MMIO_NEW)
+        # Only the old route is scoped; the historical ACK body stays present.
+        self.assertIn("unexpected original IPC ACK MMIO write",scoped)
+        for candidate in (False,True):
+            for nand in (False,True):
+                enabled=not(candidate and nand)
+                self.assertEqual(enabled,(not candidate or not nand))
+        for corrupted in (
+            SOURCE.replace(ACK_MMIO_OLD,"",1),
+            SOURCE+"\n"+ACK_MMIO_OLD,
+            SOURCE.replace(ACK_MMIO_LABEL,"changed ACK error label",1),
+        ):
+            with self.subTest(size=len(corrupted)):
+                with self.assertRaises(ValueError):
+                    scope(corrupted)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before

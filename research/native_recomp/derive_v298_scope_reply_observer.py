@@ -117,6 +117,16 @@ NAND_SEND_NEW=("if(post116_queue==1u&&addr==0x8051906cu&&ctx.lr==0x80519780u&&"
                "(!v250_candidate_mode||v250_nand_seen==0u)){")
 NAND_SEND_LABEL="V117 original IPC send register call ABI differs"
 
+# V339: the V77 ACK MMIO interceptor is bound to the first IPC reply.
+# Once that IRQ was acknowledged its irq76_ipc counter stays nonzero;
+# the later authentic NAND request must not be treated as ACK traffic.
+# Preserve all original MMIO writes and the normal bus implementation.
+ACK_MMIO_OLD=("   if(irq76_ipc){\n"
+              "     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;using H=undercover::wii::HollywoodIrq;")
+ACK_MMIO_NEW=("   if(irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)){\n"
+              "     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;using H=undercover::wii::HollywoodIrq;")
+ACK_MMIO_LABEL="unexpected original IPC ACK MMIO write"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -176,6 +186,7 @@ def patch(source: str) -> str:
         source.count(NAND_IRQ_OLD)!=1 or source.count(NAND_IRQ_LABEL)!=1 or
         source.count(NAND_QUEUE_OLD)!=1 or source.count(NAND_QUEUE_LABEL)!=1 or
         source.count(NAND_SEND_OLD)!=1 or source.count(NAND_SEND_LABEL)!=1 or
+        source.count(ACK_MMIO_OLD)!=1 or source.count(ACK_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
@@ -199,6 +210,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_IRQ_OLD,NAND_IRQ_NEW,1)
     output=output.replace(NAND_QUEUE_OLD,NAND_QUEUE_NEW,1)
     output=output.replace(NAND_SEND_OLD,NAND_SEND_NEW,1)
+    output=output.replace(ACK_MMIO_OLD,ACK_MMIO_NEW,1)
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -211,6 +223,7 @@ def patch(source: str) -> str:
         output.count(NAND_IRQ_NEW)!=1 or output.count(NAND_IRQ_LABEL)!=1 or
         output.count(NAND_QUEUE_NEW)!=1 or output.count(NAND_QUEUE_LABEL)!=1 or
         output.count(NAND_SEND_NEW)!=1 or output.count(NAND_SEND_LABEL)!=1 or
+        output.count(ACK_MMIO_NEW)!=1 or output.count(ACK_MMIO_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
