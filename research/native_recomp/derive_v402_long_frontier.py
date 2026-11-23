@@ -48,9 +48,9 @@ def patch(source:str)->str:
     if (MARKER in source or TRIAL_MARKER in source or
         source.count("V401_NAND_CALLSITE mapped=")!=1 or
         source.count("V401_NAND_CALLSITE_TRIAL kind=")!=1 or
-        source.count("try{run_game(c);}")!=1):
-        # Both owner-generated source and synthetic source must carry one
-        # guarded run_game loop; reject a missing or duplicated loop.
+        not (1<=source.count("try{run_game(c);}")<=16)):
+        # The inherited harness has more than one legitimate guest run_game
+        # callsite. Bound its geometry and preserve the exact count below.
         raise ValueError("geometry")
     s=source
     for i,(old,new) in enumerate(SEAMS.items(),1):

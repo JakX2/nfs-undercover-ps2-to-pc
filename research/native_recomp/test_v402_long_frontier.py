@@ -18,10 +18,12 @@ class Tests(unittest.TestCase):
         # geometry rather than weakening the original-source patch.
         if "try{run_game(c);}" not in cls.prior:
             cls.prior += "\ntry{run_game(c);}\n"
-        assert cls.prior.count("try{run_game(c);}") == 1
+        assert 1 <= cls.prior.count("try{run_game(c);}") <= 16
     def test_baseline_is_preserved_and_extended_callee_is_bounded(self):
         s=patch(self.prior)
         self.assertEqual(s.count(MARKER),1)
+        self.assertEqual(s.count("try{run_game(c);}"),
+                         self.prior.count("try{run_game(c);"))
         self.assertEqual(s.count(TRIAL_MARKER),1)
         self.assertNotIn("if(owned||v396_calls==24u){",s)
         self.assertEqual(s.count("if(owned||v396_calls==48u){"),1)
