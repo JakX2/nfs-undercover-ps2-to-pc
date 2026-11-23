@@ -20,6 +20,22 @@ TRIAL='''  check(v404_completed,"V402 extended original guest frontier incomplet
 MARKER='V405_NAND_SECOND_HALF tail_calls='
 TRIAL_MARKER='V405_NAND_SECOND_TRIAL tail_calls='
 CHECKPOINT='V406_NAND_CHECKPOINT call='
+EXIT_MARKER='V410_NAND_GUEST_RUN_EXIT calls='
+EXIT_CHECK='''  check(v390_completed,
+        "V390 original NAND guest never left Hollywood ACK for next callee");'''
+EXIT_OBSERVER=r'''  // The 96-call candidate may finish running without an observer stop.
+  // Capture sanitized final CPU state BEFORE the unchanged legacy V390
+  // posttrial assertion. This does not override a guest register or failure.
+  const bool v410_matched_stop=nwii::runtime::v396_kind!=0u&&
+      nwii::runtime::v396_stop_pc==c.pc&&nwii::runtime::v396_stop_lr==c.lr;
+  std::cout<<"V410_NAND_GUEST_RUN_EXIT calls="<<nwii::runtime::v396_calls
+           <<" kind="<<nwii::runtime::v396_kind
+           <<" running="<<unsigned(c.is_running)
+           <<" mapped="<<unsigned(c.mmu.get_ptr(c.pc)!=nullptr)
+           <<" matched_stop="<<unsigned(v410_matched_stop)
+           <<" v390="<<unsigned(v390_completed)<<std::endl;
+  check(v390_completed,
+        "V390 original NAND guest never left Hollywood ACK for next callee");'''
 STATE_NEXT=STATE+'''
 static unsigned v405_tail_calls=0u,v405_selected=0u;
 static unsigned v405_isfs=0u,v405_parent=0u,v405_other=0u;
@@ -84,14 +100,14 @@ TRIAL_NEXT=r'''  check(v404_completed,"V402 extended original guest frontier inc
   check(v405_completed,"V405 original guest post-48 call census incomplete");'''
 
 def patch(source:str)->str:
-    anchors=(STATE,RESET,TRACE,STOP,TRIAL,
+    anchors=(STATE,RESET,TRACE,STOP,TRIAL,EXIT_CHECK,
              'V404_NAND_EXTENDED_STOP calls=',
              'V404_NAND_EXTENDED_TRIAL calls=',
              'V403_NAND_CALL_PROVENANCE ctr=',
              'V370_NAND_FLAG_W1C n=')
     if (any(source.count(anchor)!=1 for anchor in anchors) or
         MARKER in source or TRIAL_MARKER in source or
-        CHECKPOINT in source or
+        CHECKPOINT in source or EXIT_MARKER in source or
         'v405_tail_calls' in source or
         not (1<=source.count('try{run_game(c);}')<=16)):
         raise ValueError('geometry')
@@ -100,8 +116,10 @@ def patch(source:str)->str:
     out=out.replace(TRACE,TRACE_NEXT,1)
     out=out.replace(STOP,STOP_NEXT,1)
     out=out.replace(TRIAL,TRIAL_NEXT,1)
+    out=out.replace(EXIT_CHECK,EXIT_OBSERVER,1)
     if (out.count(MARKER)!=1 or out.count(TRIAL_MARKER)!=1 or
-        out.count(CHECKPOINT)!=1 or
+        out.count(CHECKPOINT)!=1 or out.count(EXIT_MARKER)!=1 or
+        out.count(EXIT_OBSERVER)!=1 or
         out.count(TRACE_NEXT)!=1 or out.count(STOP_NEXT)!=1 or
         out.count('if(owned||v396_calls==96u){')!=1 or
         out.count('V404_NAND_EXTENDED_STOP calls=')!=1 or

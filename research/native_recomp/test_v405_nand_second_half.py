@@ -10,7 +10,7 @@ from test_v404_nand_extended import Tests as Fixture404
 from derive_v404_nand_extended import patch as v404
 from derive_v405_nand_second_half import (
     patch,STATE,RESET,TRACE,STOP,TRIAL,TRACE_NEXT,STOP_NEXT,
-    TRIAL_NEXT,MARKER,TRIAL_MARKER)
+    TRIAL_NEXT,MARKER,TRIAL_MARKER,EXIT_CHECK)
 
 class Tests(unittest.TestCase):
     @classmethod
@@ -22,6 +22,11 @@ class Tests(unittest.TestCase):
         self.assertEqual(code.count(MARKER),1)
         self.assertEqual(code.count(TRIAL_MARKER),1)
         self.assertEqual(code.count('V406_NAND_CHECKPOINT call='),1)
+        self.assertEqual(code.count('V410_NAND_GUEST_RUN_EXIT calls='),1)
+        self.assertIn('check(v390_completed,',code)
+        self.assertIn('v410_matched_stop',code)
+        self.assertLess(code.index('V410_NAND_GUEST_RUN_EXIT calls='),
+                        code.index('V390 original NAND guest never left Hollywood ACK'))
         self.assertIn('if(v406_checkpoint_count<48u)',TRACE_NEXT)
         self.assertIn('std::cout<<"V406_NAND_CHECKPOINT call="',TRACE_NEXT)
         self.assertIn('if(v396_calls>48u&&v396_calls<=96u)',TRACE_NEXT)
@@ -85,7 +90,7 @@ class Tests(unittest.TestCase):
                 text=True,check=False,timeout=5)
             self.assertEqual(result.returncode,0,result.stderr[-1000:])
     def test_source_seams_fail_closed(self):
-        for needle in (STATE,RESET,TRACE,STOP,TRIAL):
+        for needle in (STATE,RESET,TRACE,STOP,TRIAL,EXIT_CHECK):
             with self.subTest(needle=needle[:20]):
                 with self.assertRaises(ValueError):
                     patch(self.prior.replace(needle,'missing',1))

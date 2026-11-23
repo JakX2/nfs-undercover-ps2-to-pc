@@ -679,6 +679,15 @@ if (
   v405_rc=$?
   set -e
   echo 'V405_NAND_SECOND_STAGE run=1'
+  # Read-only V410 host exit witness is printed immediately before the
+  # unmodified V390 posttrial check, even on a native assertion failure.
+  if python3 "$V110_SOURCE_ROOT/analyze_v410_nand_run_exit.py" \
+      "$work/v405-native.log" "$v405_rc"; then
+    echo 'V410_NAND_GUEST_RUN_EXIT_STAGE inspected=1'
+  else
+    echo 'V410_NAND_GUEST_RUN_EXIT_STAGE inspected=0'
+    exit 1
+  fi
   if python3 "$V110_SOURCE_ROOT/analyze_v407_extended_abort_class.py" \
       "$work/v405-native.log" "$work/v405-harness.cpp" "$v405_rc" v405; then
     echo 'V407_NATIVE_ABORT_STAGE v405=1'
