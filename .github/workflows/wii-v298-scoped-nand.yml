@@ -291,66 +291,7 @@ jobs:
               grep -E '^V370_FLAG_ROUTE installed=1 original_guest=1 w1c=1$|^V370_FLAG_ROUTE_STAGE install=1$|^V370_NAND_FLAG_W1C n=([1-9]|1[0-6]) accepted=[01] before=[01] write_ipc=[01] remaining=[01] irq=[01] queued=[01]$|^V370_FLAG_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] writes=([0-9]|1[0-6]) accepted=([0-9]|1[0-6]) ipc_write=[01] cleared=[01] retained_any=[01] queued_any=[01] irq_any=[01]$|^V370_FLAG_AUDIT verified=1$|^V370_FLAG_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SEAM exact=[012] label=[012] state=[012] flag=[012] candidate=[01] nand=[01] queued=[01]$|^V372_SC_TRIAL_SCOPE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SCOPE installed=1 guest_unchanged=1 ios_unchanged=1$|^V372_SC_TRIAL_SCOPE_STAGE install=1$|^V372_NAND_SC_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) bridge_any=[01] queued_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] irq_any=[01] ee_any=[01]$|^V372_NAND_SC_AUDIT verified=1$|^V372_NAND_SC_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V374_NAND_REPLY_ROUTE installed=1 original_guest=1 authentic_yield=1$|^V374_NAND_REPLY_STAGE (install|inspected)=1$|^V374_NAND_REPLY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) ready_any=[01] blocked_y_any=[01] blocked_flag_any=[01] serviced_any=[01] replied_any=[01] y1_any=[01] queued_any=[01] irq_any=[01] eligible_any=[01]$|^V374_NAND_REPLY_AUDIT verified=1|^V373_IRQ_TIMELINE_STAGE install=1$|^V373_IRQ_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|[1-8][0-9]|9[0-6]) first_ee=([0-9]|[1-8][0-9]|9[0-6]) first_irq=([0-9]|[1-8][0-9]|9[0-6]) first_ready=([0-9]|[1-8][0-9]|9[0-6]) ee_any=[01] irq_any=[01] eligible_any=[01] safe_any=[01] installed_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] queued_any=[01]$|^V373_IRQ_AUDIT verified=1$|^V373_IRQ_TIMELINE_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V319_NATIVE_ENTRIES rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] complete=[01] known_markers=[0-9]{1,5} helper41=[01] helper64=[01] ios_request=[01] allocator_tail=[01] flush=[01] branch_a=[01] branch_b=[01]$|^V319_ENTRY_AUDIT verified=[01]$|^V319_ENTRY_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V321_ENTRY_PROBE installed=[01]( targets=8 bounded=1)?$|^V321_ENTRY_COMPARISON targets=8 base_mask=[0-9a-f]{2} restored_mask=[0-9a-f]{2} added_mask=[0-9a-f]{2} lost_mask=[0-9a-f]{2} base_complete=[01] restored_complete=[01]$|^V321_ENTRY_AUDIT verified=[01]$|^V321_ENTRY_COMPARE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V323_SECOND_COVERAGE owner=1 targets=5 original=[0-5] missing=[0-5] partial=[0-5] unknown=[0-5] body=[0-5] dispatch=[0-5]$|^V323_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$|^V323_SECOND_AUDIT verified=[01]$|^V323_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V326_THIRD_COVERAGE owner=1 targets=9 original=[0-9] missing=[0-9] partial=[0-9] unknown=[0-9] body=[0-9] dispatch=[0-9]$|^V326_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$|^V326_THIRD_AUDIT verified=[01]$|^V326_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              echo 'V294 private restored NAND AOT compile/link not verified; game code withheld' >&2
-              exit 1
-            }
-          grep -Fx 'V262_IPC_STATE verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V263_HOTSPOT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V269_SC_WATCH verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V278_FCA4_ENTRY verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V289_NAND_ENTRY verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V292_AOT_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V292_AOT_REACH verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V293_RESTORE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V293_PRIVATE_RESTORE verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V294_RESTORED_AOT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V294_COVERAGE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V295_BOUNDED_CANDIDATE inspected=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V296_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V298_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V298_RETIRED_OBSERVER inspected=1' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=0 next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V294_AOT_COVERAGE targets=4 exact=4 bodies=4 dispatch=4 child_original=1 source_original=1 child_bl=1 unmapped=0 direct_emit=1 ready=1$' "$RUNNER_TEMP/sc298.log"
-          for stage in regenerate inspect coverage compile link; do
-            grep -Fx "V294_AOT_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
-          done
-          grep -E '^V293_NAND_RESTORE owner=1 funcs=4 changed=[0-9]{1,5} total_words=[0-9]{1,5} roundtrip=1 candidate=1$' "$RUNNER_TEMP/sc298.log"
-          test "$(grep -Ec '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log")" -eq 4
-          grep -E '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V292_AOT_REACH owner=1 fixture=1 targets=4 child_original=[01] source_original=[01] child_aot=[01] source_aot=[01] child_bl=[01] unmapped_bl=[01] direct_emit=[01]$' "$RUNNER_TEMP/sc298.log"
-          test "$(grep -Ec '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log")" -eq 8
-          grep -E '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V289_NAND_ENTRY trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} zero=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V278_FCA4_CENSUS trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} child=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5} callback=[0-9]{1,5} nand=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V269_SC_WATCH trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) events=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} changed=[0-9]{1,5} write_zero=[0-9]{1,5} write_one=[0-9]{1,5} write_other=[0-9]{1,5} one_to_one=[0-9]{1,5} one_to_zero=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V263_HOTSPOT trials=16 calls=64 stable=1 unique_pc=([1-9]|[1-5][0-9]|6[0-4]) unique_pairs=([1-9]|[1-5][0-9]|6[0-4]) max_freq=([1-9]|[1-5][0-9]|6[0-4]) restore_hits=([0-9]|[1-5][0-9]|6[0-4]) disable_hits=([0-9]|[1-5][0-9]|6[0-4]) total_guest_inst=[0-9]{1,18} irq_ever=[01] request_ever=[01] sc_stable=[01]$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V263_PAIR rank=[123] pc=[0-9a-f]{8} lr=[0-9a-f]{8} freq=([1-9]|[1-5][0-9]|6[0-4]) first=([1-9]|[1-5][0-9]|6[0-4]) last=([1-9]|[1-5][0-9]|6[0-4]) first32=([0-9]|[1-2][0-9]|3[0-2]) last32=([0-9]|[1-2][0-9]|3[0-2]) ee_on=([0-9]|[1-5][0-9]|6[0-4]) ee_off=([0-9]|[1-5][0-9]|6[0-4]) gap_min=[0-9]{1,18} gap_med=[0-9]{1,18} gap_max=[0-9]{1,18}$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V262_IPC_STATE trials=16 calls=64 stable=[01] distinct=([1-9]|1[0-6]) ee_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_edges=([0-9]|[1-5][0-9]|6[0-3]) request_edges=([0-9]|[1-5][0-9]|6[0-3]) queue_edges=([0-9]|[1-5][0-9]|6[0-3]) sc_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_ever=[01] request_ever=[01] queue_max=[0-9]{1,3} reply_all=[01] sc_first=[0-9]{1,3} sc_last=1 digest=[0-9a-f]{16}$' "$RUNNER_TEMP/sc298.log"
-          grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$RUNNER_TEMP/sc298.log" | sort -u
-          # The private runner already enforces exactly sixteen source
-          # trials; its inherited stages repeat public trial rows in this
-          # combined log. Require every numbered trial instead of assuming
-          # that each row occurs only once in the wrapper output.
-          for n in $(seq 1 16); do
-            grep -Fqx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$RUNNER_TEMP/sc298.log"
-          done
-          echo 'PASS: V298 old SC observer scoped without changing original NAND guest state'
-      - name: Remove private owner and generated code
-        if: always()
-        run: |
-          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc298.log"
- "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V374_NAND_REPLY_ROUTE installed=1 original_guest=1 authentic_yield=1$|^V374_NAND_REPLY_STAGE (install|inspected)=1$|^V374_NAND_REPLY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) ready_any=[01] blocked_y_any=[01] blocked_flag_any=[01] serviced_any=[01] replied_any=[01] y1_any=[01] queued_any=[01] irq_any=[01] eligible_any=[01]$|^V374_NAND_REPLY_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V373_IRQ_TIMELINE installed=1 original_guest=1 bounded=96 read_only=1$|^V373_IRQ_TIMELINE_STAGE install=1$|^V373_IRQ_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|[1-8][0-9]|9[0-6]) first_ee=([0-9]|[1-8][0-9]|9[0-6]) first_irq=([0-9]|[1-8][0-9]|9[0-6]) first_ready=([0-9]|[1-8][0-9]|9[0-6]) ee_any=[01] irq_any=[01] eligible_any=[01] safe_any=[01] installed_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] queued_any=[01]$|^V373_IRQ_AUDIT verified=1$|^V373_IRQ_TIMELINE_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V319_NATIVE_ENTRIES rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] complete=[01] known_markers=[0-9]{1,5} helper41=[01] helper64=[01] ios_request=[01] allocator_tail=[01] flush=[01] branch_a=[01] branch_b=[01]$|^V319_ENTRY_AUDIT verified=[01]$|^V319_ENTRY_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V321_ENTRY_PROBE installed=[01]( targets=8 bounded=1)?$|^V321_ENTRY_COMPARISON targets=8 base_mask=[0-9a-f]{2} restored_mask=[0-9a-f]{2} added_mask=[0-9a-f]{2} lost_mask=[0-9a-f]{2} base_complete=[01] restored_complete=[01]$|^V321_ENTRY_AUDIT verified=[01]$|^V321_ENTRY_COMPARE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
