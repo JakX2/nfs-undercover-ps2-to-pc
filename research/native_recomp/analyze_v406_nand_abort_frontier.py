@@ -13,14 +13,36 @@ from pathlib import Path
 import re
 import sys
 from diagnose_v299_native_log import WINDOW,category,size_band
-from scan_original_guest_markers import scan_original_guest_markers
+from scan_original_guest_markers import MAX_ORIGINAL_LOG_BYTES,MAX_GUEST_MARKER_LENGTH
 
 ENTRY=re.compile(
     r'^V406_NAND_CHECKPOINT call=(49|[5-8][0-9]|9[0-6]) '
     r'origin=([1-4]) selected=([01]) parent=([01])$')
 
+def scan_checkpoints(path:Path)->tuple[int,list[str],bool]:
+    """Dedicated exact-match, bounded 48-entry reader; no raw guest bytes."""
+    size=path.stat().st_size
+    if size>MAX_ORIGINAL_LOG_BYTES:
+        return size,[],True
+    lines:list[str]=[]
+    overflow=False
+    with path.open("rb") as f:
+        for raw in f:
+            if len(raw)>MAX_GUEST_MARKER_LENGTH:
+                continue
+            try:
+                line=raw.decode("ascii").rstrip("\r\n")
+            except UnicodeDecodeError:
+                continue
+            if ENTRY.fullmatch(line):
+                if len(lines)>=48:
+                    overflow=True
+                else:
+                    lines.append(line)
+    return size,lines,overflow
+
 def inspect(path:Path,rc:int)->str:
-    size,lines,overflow=scan_original_guest_markers(path,(ENTRY,))
+    size,lines,overflow=scan_checkpoints(path)
     seen=last=first=mask=sel=parent=0
     expected=49
     good=True
