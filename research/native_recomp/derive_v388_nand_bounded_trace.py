@@ -127,6 +127,7 @@ def patch(s:str)->str:
         s.count(TRIAL_ANCHOR)!=1 or
         s.count('V387_NAND_ROUTE_EVENT kind=')!=2 or
         s.count('V387_NAND_ROUTE_TRIAL kind=')!=1 or
+        s.count('V386_NAND_NEXT_ENTRY guest=')!=1 or
         s.count('V385_NAND_ARMMSG_MIRROR coherent=')!=1 or
         MARKER in s or TRIAL in s or 'v388_active' in s):
         raise ValueError('V388 authenticated V387/MMIO source seam changed')
