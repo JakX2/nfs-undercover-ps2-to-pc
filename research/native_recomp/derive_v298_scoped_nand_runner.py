@@ -79,8 +79,11 @@ python3 "$V110_SOURCE_ROOT/derive_v385_nand_second_read.py" \
     "$work/v384-harness.cpp" "$work/v385-harness.cpp"
 echo 'V385_NAND_SECOND_READ_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v385_nand_armmsg_scope.py" \
-    "$work/v385-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v385-harness.cpp" "$work/v385-scoped-harness.cpp"
 echo 'V385_NAND_ARMMSG_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v386_nand_ipc_next.py" \
+    "$work/v385-scoped-harness.cpp" "$work/v298-harness.cpp"
+echo 'V386_NAND_NEXT_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -376,6 +379,9 @@ echo 'V385_NAND_SECOND_READ_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v385_nand_armmsg_scope.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V385_NAND_ARMMSG_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v386_nand_ipc_next.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V386_NAND_NEXT_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
