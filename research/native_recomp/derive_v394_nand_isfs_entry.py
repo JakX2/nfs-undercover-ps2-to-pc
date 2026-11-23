@@ -60,7 +60,7 @@ TRACE=r"""
     const bool registered=ctx.mmu.get_ptr(IRQ_TABLE+27u*4u)!=nullptr&&
          ctx.mmu.read32(IRQ_TABLE+27u*4u)==0x80519318u;
     const uint32_t request=ctx.gpr[31];
-    const bool header=request<=0xffffffe0u&&
+    const bool header=request<=0xffffffd8u&&
          ctx.mmu.get_ptr(request)!=nullptr&&
          ctx.mmu.get_ptr(request+39u)!=nullptr;
     const bool selected=header&&ctx.mmu.read32(request+32u)==addr;
