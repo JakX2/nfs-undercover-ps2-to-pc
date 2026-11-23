@@ -34,6 +34,21 @@ class Tests(unittest.TestCase):
                           'ipc70_ram.write','throw ExceptionStop'):
             self.assertNotIn(forbidden,NEW)
 
+    def test_spacing_and_indentation_variants_remain_reversible(self):
+        # Later independently generated harnesses can reindent the assertion
+        # without changing its meaning. Preserve the old check byte-for-byte.
+        for replacement in (
+            OLD.replace('        check(', '      check(', 1),
+            OLD.replace('              nwii::runtime::v149_ack_seen',
+                        '                 nwii::runtime::v149_ack_seen', 1),
+        ):
+            fixture=FIXTURE.replace(OLD,replacement,1)
+            updated=patch(fixture)
+            self.assertEqual(updated.count(LABEL),1)
+            self.assertEqual(updated.count(MARKER),1)
+            self.assertIn(replacement,updated)
+            self.assertNotEqual(updated,fixture)
+
     def test_only_read_only_boolean_state_is_logged(self):
         for value in ('queued=', 'y1=', 'y2=', 'flag=', 'irq=', 'ee=', 'sc_bridge='):
             self.assertIn(value,NEW)
