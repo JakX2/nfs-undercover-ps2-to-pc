@@ -48,6 +48,21 @@ class Tests(unittest.TestCase):
         result=run('')
         self.assertIn('entry_any_mask=00 entry_all_mask=00',result)
         self.assertIn('trial_any_mask=0 trial_all_mask=0',result)
+    def test_chain_cascade_census_exposes_only_failure_stage(self):
+        earlier=(
+            'V392_NAND_POST_CACHE_TRIAL kind=1 stopped=1 completed=0\n'
+            'V393_NAND_NEXT_TRIAL first=1 next=1 completed=0\n'
+            'V394_NAND_ISFS_TRIAL context=1 isfs=1 completed=0\n'
+        )
+        report=run('PRIVATE ORIGINAL NAND FUNCTION ADDRESS\n'+earlier+E+T.replace('completed=1','completed=0'))
+        self.assertIn('V395_NAND_CHAIN_CENSUS',report)
+        self.assertIn('v392_trials=1 v393_trials=1 v394_trials=1 v395_trials=1',report)
+        self.assertIn('v392_first_failed=1 v393_first_failed=1 v394_first_failed=1 v395_first_failed=1',report)
+        self.assertNotIn('PRIVATE ORIGINAL',report)
+    def test_stages_with_no_evidence_have_zero_failure_masks(self):
+        report=run('')
+        self.assertIn('v392_trials=0 v393_trials=0 v394_trials=0 v395_trials=0',report)
+        self.assertIn('v392_all_mask=0 v393_all_mask=0 v394_all_mask=0 v395_all_mask=0',report)
     def test_large_private_log_incomplete(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'owner-private.log'

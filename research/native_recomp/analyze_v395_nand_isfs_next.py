@@ -6,8 +6,43 @@ from pathlib import Path
 import re
 import sys
 from diagnose_v299_native_log import WINDOW,category,read_edges,size_band
+from analyze_v392_nand_post_cache import TRIAL as V392_TRIAL
+from analyze_v393_nand_guest_next import TRIAL as V393_TRIAL
+from analyze_v394_nand_isfs_entry import TRIAL as V394_TRIAL
 ENTRY=re.compile(r'^V395_NAND_ISFS_NEXT guest=([01]) clear=([01]) masked=([01]) registered=([01]) mapped=([01]) selected=([01]) userdata=([01]) nand=([01])$')
 TRIAL=re.compile(r'^V395_NAND_ISFS_TRIAL isfs=([01]) next=([01]) completed=([01])$')
+def chain_summary(lines)->str:
+    """Only three Boolean trial flags per stage, no private guest data."""
+    patterns=(V392_TRIAL,V393_TRIAL,V394_TRIAL,TRIAL)
+    counts=[0,0,0,0]
+    failures=[0,0,0,0]
+    allmask=[7,7,7,7]
+    for line in lines:
+        for i,pattern in enumerate(patterns):
+            m=pattern.fullmatch(line)
+            if not m:
+                continue
+            if counts[i]>=16:
+                continue
+            counts[i]+=1
+            groups=tuple(map(int,m.groups()))
+            # V392's first field is a kind code (1 or 2), unlike the
+            # other three stages, which each use three Boolean flags.
+            # Only the final completion bit is a common proof across all.
+            mask=sum((int(bool(bit))<<n) for n,bit in enumerate(groups))
+            allmask[i]&=mask
+            if groups[-1]!=1 and failures[i]==0:
+                failures[i]=counts[i]
+            break
+    return ('V395_NAND_CHAIN_CENSUS '
+            + ' '.join(f'v{392+i}_trials={counts[i]}' for i in range(4))
+            + ' '
+            + ' '.join(f'v{392+i}_all_mask={allmask[i] if counts[i] else 0}'
+                       for i in range(4))
+            + ' '
+            + ' '.join(f'v{392+i}_first_failed={failures[i]}'
+                       for i in range(4)))
+
 def inspect(path:Path,rc:int)->str:
     size,lines=read_edges(path)
     entries=trials=0
@@ -58,6 +93,9 @@ def inspect(path:Path,rc:int)->str:
         f'entry_any_mask={entry_or:02X} entry_all_mask={entry_and if entries else 0:02X} '
         f'trial_any_mask={trial_or:01X} trial_all_mask={trial_and if trials else 0:01X} '
         f'first_bad={first_bad} order_ok={int(bool(valid and entries==trials))}'
+        '\n'
+        +chain_summary(lines)
+
     )
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
