@@ -29,7 +29,7 @@ class Tests(unittest.TestCase):
             HEADER+V370+V352+'\n}\nvoid v80(){\n'+V80_FIRST+
             '\n}\nvoid prior(){',1)
         cls.prior=v388(v387(v386(arm(v385(v384(v383(v382(v381(
-            v380(v379(v378(v377(source))))))))))))
+            v380(v379(v378(v377(source)))))))))))))
     def test_separate_original_y1_flag_and_retained_guest_instruction(self):
         out=patch(self.prior)
         self.assertEqual(out.count(MARKER),1)
