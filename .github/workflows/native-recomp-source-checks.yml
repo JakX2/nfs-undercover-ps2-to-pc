@@ -167,6 +167,9 @@ jobs:
       - name: Run boot checkpoint driver regressions
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
+      - name: Compile full original-free NAND observer harness before owner runs
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p 'test_v342_full_harness_smoke.py' -v
       - name: Test original-free IPC reply harness derivation
         run: |
           python3 research/native_recomp/test_reply_entry_derivation.py
