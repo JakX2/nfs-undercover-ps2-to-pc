@@ -47,7 +47,10 @@ public:
             uint8_t value;
             uint16_t lookup; // Lookup slot from the public Wii SYSCONF layout.
         };
-        const std::array<Entry,9> settings{{
+        // The SYSCONF subset has exactly nine entries, so use the
+        // compile-time unsigned bound instead of narrowing size_t.
+        constexpr unsigned SettingCount = 9u;
+        const std::array<Entry,SettingCount> settings{{
             {"BT.BAR", opts.sensor_bar, 0x3fb8u},
             {"BT.MOT", opts.rumble, 0x3fbau},
             {"BT.SPKV", opts.speaker_volume, 0x3fbcu},
@@ -62,7 +65,7 @@ public:
         GuestFiles::Bytes bytes(Size, 0u);
         std::memcpy(bytes.data(), "SCv0", 4);
         put16(bytes, 4u, uint16_t(settings.size()));
-        unsigned cursor = 6u + 2u * (settings.size() + 1u);
+        unsigned cursor = 6u + 2u * (SettingCount + 1u);
         for (unsigned i = 0; i < settings.size(); ++i) {
             const Entry& e = settings[i];
             if (e.name.empty() || e.name.size() > 32u ||
@@ -77,7 +80,7 @@ public:
             for (char ch : e.name) bytes[cursor++] = uint8_t(ch);
             bytes[cursor++] = e.value;
         }
-        put16(bytes, 6u + 2u * settings.size(), uint16_t(cursor));
+        put16(bytes, 6u + 2u * SettingCount, uint16_t(cursor));
         std::memcpy(bytes.data() + (Size - 4u), "SCed", 4);
         return bytes;
     }
