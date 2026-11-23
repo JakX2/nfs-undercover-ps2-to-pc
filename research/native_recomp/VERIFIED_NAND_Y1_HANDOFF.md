@@ -18,7 +18,12 @@ or as proof of NAND callback completion.
 | V374 | Queued native IOS reply published; hardware Y1 and Hollywood IRQ asserted | No original guest handler execution proved |
 | V373 after V374 | Earliest interrupt-eligible call sample **25** with guest MSR.EE enabled | Read-only timeline, not an exception entry |
 | V375 | First observed eligible Y1 guest call boundary is preemptible; installed original vector byte-verified | Read-only probe, no guest PC change |
-| V376 | Native original-boundary PowerPC exception entry implemented and under owner CI validation | Do not claim original handler or frontend has executed |
+| V376 | Owner-original Y1 interrupt entered the installed PowerPC vector with saved SRRs and intact registers | Stops before executing the vector instructions |
+| V377 | Translated original vector executed and reached the Wii OS exception handler at `0x80526CE0` | Stops at handler entry |
+| V378 | Original Wii OS exception-handler body executed and reached the IRQ dispatcher at `0x80526A3C` | Dispatcher body not yet completed |
+| V379 | Original IRQ dispatcher called genuine `OSGetTime` at `0x8052A824` | No registered IPC handler yet; first original helper not fully executed |
+| V380 | Original `OSGetTime` to `OSDisableScheduler` continuation staged in owner CI | Pending authenticated original test |
+| V381 | Registered IRQ slot 27 IPC handler continuation staged separately, unpublished pending V380 result | Not a verified NAND milestone |
 
 ### Repeatable sanitized outcomes
 
@@ -47,9 +52,52 @@ The site mask identifies a genuine non-IPC ordinary guest function entry
 met the native exception-entry requirements; it does not identify a full
 arbitrary instruction preemption mechanism.
 
-Both authenticated jobs still reported an incomplete original bounded-harness
-outcome. A native process exit code of zero is **not** a successful harness
-or proof of full Wii boot.
+These earlier authenticated jobs still reported an incomplete original
+bounded-harness outcome. A native process exit code of zero is **not** a
+successful full harness or proof of Wii boot.
+
+### Verified original guest IRQ-chain checkpoints
+
+Owner run [45114526907](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45114526907)
+demonstrated a real NAND Y1 PowerPC exception entry, preserving SRR state:
+
+```text
+V376_NAND_VECTOR_CENSUS rc=134 kind=signal size_band=0 sample_complete=1 samples=1 eligible_any=1 safe_any=1 installed_any=1 entered_any=1 saved_any=1 regs_any=1 masked_any=1 queued_any=0 handler_executed=0
+```
+
+Owner run [45116268379](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45116268379)
+verified execution of the actual installed guest vector through the Wii OS
+exception-handler entry (the bounded log contains 13 paired observations):
+
+```text
+V377_NAND_HANDLER_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 vectors=13 handlers=13 trials=13 vector_any=1 handler_any=1 trial_any=1 chain_verified=1
+```
+
+Owner run [45117070790](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45117070790)
+verified that the translated original exception-handler body called the real
+Wii OS IRQ dispatcher. Its first bounded dispatcher checkpoint succeeded,
+although a later historical SC-phase assertion aborted the overall run:
+
+```text
+V378_NAND_DISPATCH_CENSUS rc=134 kind=signal size_band=0 sample_complete=1 entries=1 trials=1 entry_any=1 trial_any=1 dispatch_verified=1
+```
+
+The per-trial instrumentation counters were subsequently reset before each
+authentic NAND replay. Owner run
+[45118275944](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45118275944)
+then verified 13 corresponding guest dispatcher-to-timebase observations:
+
+```text
+V379_NAND_TIME_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=13 trials=13 entry_any=1 trial_any=1 guest_time_verified=1
+V378_NAND_DISPATCH_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=13 trials=13 entry_any=1 trial_any=1 dispatch_verified=1
+V377_NAND_HANDLER_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 vectors=13 handlers=13 trials=13 vector_any=1 handler_any=1 trial_any=1 chain_verified=1
+```
+
+`sample_complete=0` means these are verified pairs **within the bounded
+retained public log sample**, not proof of exhaustive execution across the
+original game. The original game has not booted, reached its frontend or
+completed the NAND callback. Overall workflows can still fail on inherited
+full-startup obligations despite a successful bounded checkpoint.
 
 ## Hardware and execution invariants
 
@@ -70,12 +118,18 @@ a Y1 that is already on the wire. The harness stops after entering the
 vector to avoid accidentally executing the preempted function with a
 different PC.
 
-The next owner-private checkpoint must confirm V376 actually entered
-the original vector and persisted its saved CPU state. Only then should
-the bounded native runner resume translated instructions from
-`0x80000500`, verify the original OS exception handler, and progress
-toward `0x80519318` registered IPC handling, callback execution and
-NAND startup completion.
+V376 has now been authenticated in the owner run. V377, V378 and V379
+executed progressively larger portions of the installed original Wii vector,
+OS exception handler, dispatcher and `OSGetTime` entry.
+
+The next verified frontier is V380: execute the original `OSGetTime`
+instructions and observe the genuine `OSDisableScheduler` call at
+`0x805293F8`. After that, V381 will execute the original scheduler and
+check dispatch to the guest-registered IPC handler at `0x80519318` with IRQ
+slot 27 and the original saved exception frame. These NAND-specific tests
+must not borrow the SC-only previous IOS reply values or force a successful
+IOS response. Completion of the actual NAND callback and full native Wii
+boot remain unverified.
 
 ## Windows original-free regression
 
