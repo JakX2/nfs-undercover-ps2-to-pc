@@ -113,8 +113,10 @@ python3 "$V110_SOURCE_ROOT/derive_v395_nand_isfs_next.py" \
     "$work/v394-harness.cpp" "$work/v395-harness.cpp"
 echo 'V395_NAND_ISFS_NEXT_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v396_nand_callback_body.py" \
-    "$work/v395-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v395-harness.cpp" "$work/v396-harness.cpp"
 echo 'V396_NAND_CB_BODY_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v397_nand_callback_lineage.py"     "$work/v396-harness.cpp" "$work/v298-harness.cpp"
+echo 'V397_NAND_ORIGINS_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -443,6 +445,8 @@ echo 'V395_NAND_ISFS_NEXT_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v396_nand_callback_body.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V396_NAND_CB_BODY_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v397_nand_callback_lineage.py"     "$work/v310-native.log" "$v310_rc"
+echo 'V397_NAND_ORIGINS_STAGE inspected=1'
 # This independent owner gate checks sixteen complete original-call chains;
 # V295 was written for a different, pre-V396 candidate stop point.
 python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
