@@ -625,6 +625,67 @@ if (
 else
   echo 'V404_NAND_EXTENDED_STAGE attempt=failed'
 fi
+
+# V405: a FOURTH independent native binary observing original guest calls
+# 49-96, not a modification of the proven V403 24-call or V402 48-call
+# executions, nor of the independent V404 96-call control binary.
+if (
+  if ! test -s "$work/v404-harness.cpp"; then
+    echo 'V405_NAND_SECOND_ERROR reason=missing_96_harness'
+    exit 1
+  fi
+  if python3 "$V110_SOURCE_ROOT/derive_v405_nand_second_half.py" \
+      "$work/v404-harness.cpp" "$work/v405-harness.cpp"; then
+    echo 'V405_NAND_SECOND_STAGE derive=1'
+  else
+    echo 'V405_NAND_SECOND_STAGE derive=0'
+    exit 1
+  fi
+  if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v405-harness.cpp" -o "$work/v405-harness.o" \
+      > "$work/v405-compile.log" 2>&1; then
+    echo 'V405_NAND_SECOND_STAGE compile=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+        "$work/v405-compile.log" harness || true
+    echo 'V405_NAND_SECOND_STAGE compile=0'
+    exit 1
+  fi
+  if g++ "$work/v405-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v405-native" > "$work/v405-link.log" 2>&1; then
+    if ! test -s "$work/v405-native" || ! test -x "$work/v405-native"; then
+      echo 'V405_NAND_SECOND_STAGE link=0'
+      exit 1
+    fi
+    echo 'V405_NAND_SECOND_STAGE link=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+        "$work/v405-link.log" || true
+    echo 'V405_NAND_SECOND_STAGE link=0'
+    exit 1
+  fi
+  set +e
+  timeout --signal=TERM --kill-after=3s 12s \
+      "$work/v405-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v405-native.log" 2>&1
+  v405_rc=$?
+  set -e
+  echo 'V405_NAND_SECOND_STAGE run=1'
+  if python3 "$V110_SOURCE_ROOT/analyze_v405_nand_second_half.py" \
+      "$work/v405-native.log" "$v405_rc"; then
+    echo 'V405_NAND_SECOND_STAGE inspected=1'
+  else
+    echo 'V405_NAND_SECOND_STAGE inspected=0'
+    exit 1
+  fi
+  python3 "$V110_SOURCE_ROOT/audit_v405_nand_second_half.py" \
+      "$work/v405-native.log" "$v405_rc"
+); then
+  echo 'V405_NAND_SECOND_STAGE attempt=completed'
+else
+  echo 'V405_NAND_SECOND_STAGE attempt=failed'
+fi
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
