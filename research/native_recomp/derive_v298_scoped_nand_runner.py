@@ -442,6 +442,11 @@ echo 'V395_NAND_ISFS_NEXT_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v396_nand_callback_body.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V396_NAND_CB_BODY_STAGE inspected=1'
+# This independent owner gate checks sixteen complete original-call chains;
+# V295 was written for a different, pre-V396 candidate stop point.
+python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
+    "$work/v310-native.log" "$v310_rc" > "$work/v396-owner-gate.log"
+cat "$work/v396-owner-gate.log"
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
@@ -477,7 +482,7 @@ def patch(source: str) -> str:
     if staged.count(v302_anchor)!=1:
         raise ValueError("V303 private candidate seam changed")
     staged=staged.replace(v302_anchor,v302_anchor+"\n"+V303_STAGE,1)
-    failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'"
+    failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n  exit 1"
     if staged.count(failure)!=1:
         raise ValueError("V298 native failure-classifier seam changed")
     # Print only a matched public C++ assertion label, never native logs.
@@ -488,7 +493,17 @@ def patch(source: str) -> str:
         '"$work/v295-native.log" "$v295_rc" || true\n'+
         '  python3 "$V110_SOURCE_ROOT/analyze_v300_trace_hotspots.py" '+
         '"$work/v295-native.log" "$work/v298-harness.cpp" || true\n')
-    return staged.replace(failure,diagnostic+failure,1)
+    # The old V295 classifier may reject later successful V396 runs.
+    # Defer it only if the separate V310 genuine-guest evidence gate passed.
+    fallback=(
+        "  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n"
+        "  if ! grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "
+        '"$work/v396-owner-gate.log"; then\n'
+        "    exit 1\n"
+        "  fi\n"
+        "  echo 'V396_LEGACY_V295 deferred=1'"
+    )
+    return staged.replace(failure,diagnostic+fallback,1)
 
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)

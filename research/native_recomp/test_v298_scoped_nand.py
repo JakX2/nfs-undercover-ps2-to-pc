@@ -753,7 +753,7 @@ class Tests(unittest.TestCase):
         self.assertFalse(inspect("", "a public check",0)[1])
 
     def test_runner_keeps_generated_aot_intact(self):
-        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'"+"\n"+"echo 'V294_RESTORED_AOT verified=1'")
+        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n  exit 1"+"\n"+"echo 'V294_RESTORED_AOT verified=1'")
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
         self.assertIn("diagnose_v299_native_log.py",r)
@@ -775,6 +775,11 @@ class Tests(unittest.TestCase):
         self.assertIn("restore_v310_private_descendant.py",r)
         self.assertIn("analyze_v310_restored_coverage.py",r)
         self.assertIn("V310_NATIVE_TRIAL inspected=1",r)
+        self.assertIn("audit_v396_native_gate.py",r)
+        self.assertIn("V396_OWNER_RESULT_GATE verified=1",r)
+        self.assertIn("V396_LEGACY_V295 deferred=1",r)
+        self.assertIn("if ! grep -Fqx",r)
+        self.assertNotIn("V295_BOUNDED_CANDIDATE inspected=0\'\n  exit 1",r)
         self.assertIn("audit_v317_descendant_edges.py",r)
         self.assertIn("V317_STAGE inspected=1",r)
         self.assertIn("analyze_v323_second_descendants.py",r)
