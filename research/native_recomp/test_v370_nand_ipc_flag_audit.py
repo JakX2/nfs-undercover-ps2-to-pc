@@ -42,7 +42,7 @@ class Tests(unittest.TestCase):
     def test_live_y2_source_can_reassert_hollywood_flag_after_w1c(self):
         # IosBus samples the still-asserted IPC source after PPC_FLAG W1C.
         # Re-latching is real hardware state, not a premature reply.
-        result=run("V370_NAND_FLAG_W1C n=1 accepted=1 before=1 write_ipc=1 remaining=1 irq=1 queued=1\\n".replace("\\\\n","\\n"))
+        result=run("V370_NAND_FLAG_W1C n=1 accepted=1 before=1 write_ipc=1 remaining=1 irq=1 queued=1\n")
         self.assertIn("writes=1 accepted=1 ipc_write=1 cleared=0 retained_any=1",result)
 
     def test_missing_sequence_is_not_joined_across_gap(self):
