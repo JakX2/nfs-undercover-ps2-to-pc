@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""V395 audit: strict original guest pairs, no proprietary traces."""
+import tempfile
+import unittest
+from pathlib import Path
+from analyze_v395_nand_isfs_next import inspect
+from diagnose_v299_native_log import WINDOW
+E='V395_NAND_ISFS_NEXT guest=1 clear=1 masked=1 registered=1 mapped=1 selected=1 userdata=1 nand=1\n'
+T='V395_NAND_ISFS_TRIAL isfs=1 next=1 completed=1\n'
+def run(raw,rc=0):
+    with tempfile.TemporaryDirectory() as td:
+        p=Path(td)/'owner-private.log'
+        p.write_text(raw,encoding='utf-8')
+        return inspect(p,rc)
+class Tests(unittest.TestCase):
+    def test_authentic_nested_nand_callback_and_private_redaction(self):
+        s=run('private PPCCONTEXT data\n'+E+T)
+        self.assertIn('entries=1 trials=1 mapped_any=1 selected_any=1',s)
+        self.assertIn('userdata_any=1 nand_any=1 next_verified=1',s)
+        self.assertNotIn('private PPC',s)
+    def test_unknown_original_guest_callee_not_fabricated(self):
+        e=E.replace('nand=1','nand=0').replace('selected=1','selected=0')
+        self.assertIn('nand_any=0 next_verified=1',run(e+T))
+    def test_bad_unpaired_or_inconsistent_fails(self):
+        for raw in ('',E,T,T+E+T,E+E+T,E+T+T,
+                    E.replace('guest=1','guest=0')+T,
+                    E.replace('clear=1','clear=0')+T,
+                    E+T+E+T.replace('completed=1','completed=0')):
+            self.assertIn('next_verified=0',run(raw),raw)
+    def test_large_private_log_incomplete(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'owner-private.log'
+            with p.open('wb') as f:
+                f.write((E+T).encode('ascii'))
+                f.seek(WINDOW+80)
+                f.write(b'\n')
+            self.assertIn('sample_complete=0',inspect(p,124))
+if __name__=="__main__":unittest.main()
