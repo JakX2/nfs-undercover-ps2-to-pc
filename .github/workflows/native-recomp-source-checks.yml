@@ -357,6 +357,13 @@ jobs:
             research/native_recomp/test_wii_ios_yield_scheduler.cpp \
             -o "$RUNNER_TEMP/ios-yield-scheduler"
           "$RUNNER_TEMP/ios-yield-scheduler"
+      - name: Test authentic NAND post-ACK mask and reply continuity under sanitizers
+        run: |
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -no-pie \
+            research/native_recomp/test_wii_nand_irq_mask_v368.cpp \
+            -o "$RUNNER_TEMP/nand-mask-v368"
+          "$RUNNER_TEMP/nand-mask-v368"
       - name: Test integrated IOS MMIO bus under sanitizers
         run: |
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined \

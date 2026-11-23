@@ -32,6 +32,7 @@ on:
       - 'research/native_recomp/*v362*'
       - 'research/native_recomp/*v365*'
       - 'research/native_recomp/*v367*'
+      - 'research/native_recomp/*v368*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -99,6 +100,9 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v367_nand_irq_mask_route.py research/native_recomp/test_v367_nand_irq_mask_route.py research/native_recomp/analyze_v367_nand_irq_mask.py research/native_recomp/test_v367_nand_irq_mask_audit.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v367_nand_irq_mask_route.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v367_nand_irq_mask_audit.py' -v
+          g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -no-pie \
+            research/native_recomp/test_wii_nand_irq_mask_v368.cpp -o "$RUNNER_TEMP/nand-mask-v368"
+          "$RUNNER_TEMP/nand-mask-v368"
           python3 -m py_compile research/native_recomp/analyze_v353_nand_mailbox_sequence.py research/native_recomp/test_v353_nand_mailbox_sequence.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v353_nand_mailbox_sequence.py' -v
           python3 -m py_compile research/native_recomp/derive_v359_post_x1_call_probe.py research/native_recomp/test_v359_post_x1_call_probe.py research/native_recomp/analyze_v359_post_x1_calls.py research/native_recomp/test_v359_post_x1_calls.py
