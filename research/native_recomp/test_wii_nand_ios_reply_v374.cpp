@@ -65,5 +65,52 @@ int main(){
          ram.read32(notfound+4u)==uint32_t(S::NotFound)&&
          ram.read32(notfound+8u)==S::Open,
          "native IOS negative error replaced with success");
+    // Two authentic X1 requests can be ACKed before either Y1 is published.
+    // The native reply scheduler must preserve the original FIFO order and
+    // may publish only one Y1 at each correctly acknowledged guest yield.
+    {
+        Ram dualram;B dual(dualram);IosYieldScheduler dualios(dual);
+        constexpr uint32_t first=0x200u,second=0x280u;
+        constexpr uint32_t firstpath=0x600u,secondpath=0x700u;
+        const auto write=[&](uint32_t a,uint32_t v){
+            need(dual.write32(a,v),"dual-request MMIO rejected");
+        };
+        dualram.path(firstpath,"/dev/stm/immediate");
+        dualram.path(secondpath,"/dev/stm/eventhook");
+        dualram.write32(first,S::Open);dualram.write32(first+12u,firstpath);
+        dualram.write32(second,S::Open);dualram.write32(second+12u,secondpath);
+        write(B::IPC+H::PPC_MASK,H::IPC_PPC);
+        write(B::PI_MASK,H::PI_HOLLYWOOD);
+        const auto ack=[&](uint32_t address){
+            write(B::IPC+M::PPCMSG,address);
+            write(B::IPC+M::PPCCTRL,en|M::X1);
+            need(dualios.service_one(0u).progress==S::Pump::Ack,
+                 "dual-request authentic Starlet ACK missing");
+            write(B::IPC+M::PPCCTRL,en|M::Y2);
+            write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        };
+        ack(first);
+        ack(second);
+        need(dual.services().queued_replies()==2u&&
+             dualram.read32(first)==S::Open&&dualram.read32(second)==S::Open,
+             "two ACKs completed or corrupted a queued request early");
+        const auto one=service_deferred_reply_at_guest_boundary(dual,0u);
+        need(one&&one->progress==S::Pump::Replied&&
+             dual.services().queued_replies()==1u&&
+             dualram.read32(first)==S::Reply&&
+             dualram.read32(second)==S::Open&&
+             dual.read32(B::IPC+M::ARMMSG).value()==first,
+             "first queued completion not published in FIFO order");
+        need(!service_deferred_reply_at_guest_boundary(dual,0u),
+             "second completion bypassed first Y1 acknowledgement");
+        write(B::IPC+M::PPCCTRL,en|M::Y1);
+        write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        const auto two=service_deferred_reply_at_guest_boundary(dual,0u);
+        need(two&&two->progress==S::Pump::Replied&&
+             dual.services().queued_replies()==0u&&
+             dualram.read32(second)==S::Reply&&
+             dual.read32(B::IPC+M::ARMMSG).value()==second,
+             "second queued completion not published in FIFO order");
+    }
     std::cout<<"PASS: V374 authentic ACK, Y2/flag, queued Y1 and negative IOS reply\n";
 }
