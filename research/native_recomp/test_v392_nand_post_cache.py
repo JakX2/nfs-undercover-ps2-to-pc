@@ -47,8 +47,11 @@ class Tests(unittest.TestCase):
             if blocked.endswith('='):
                 self.assertIsNone(re.search(r'\b'+re.escape(blocked)+r'(?!=)',TRACE))
             else:self.assertNotIn(blocked,TRACE)
-        self.assertNotIn('throw ExceptionStop{}',CONTINUE)
-        self.assertNotIn('is_running=false',CONTINUE)
+        # V391 still stops safely on an observed 24-call budget.
+        # Only the authenticated reply-handler-owned call continues.
+        self.assertIn('if(v391_kind==1u){',CONTINUE)
+        self.assertIn('return; // execute authentic post-ACK original guest callee',CONTINUE)
+        self.assertIn('ctx.is_running=false;throw ExceptionStop{};',CONTINUE)
     def test_reject_prior_nand_ack_or_cache_witness_mutation(self):
         for altered in (
             self.prior.replace("V391_NAND_POST_ACK_EVENT kind=","missing"),
