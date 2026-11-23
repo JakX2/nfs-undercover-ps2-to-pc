@@ -21,6 +21,9 @@ class Tests(unittest.TestCase):
         code=patch(self.prior)
         self.assertEqual(code.count(MARKER),1)
         self.assertEqual(code.count(TRIAL_MARKER),1)
+        self.assertEqual(code.count('V406_NAND_CHECKPOINT call='),1)
+        self.assertIn('if(v406_checkpoint_count<48u)',TRACE_NEXT)
+        self.assertIn('std::cout<<"V406_NAND_CHECKPOINT call="',TRACE_NEXT)
         self.assertIn('if(v396_calls>48u&&v396_calls<=96u)',TRACE_NEXT)
         self.assertIn('if(v397_class==1u)++v405_selected;',TRACE_NEXT)
         self.assertIn('else if(v397_class==2u)++v405_isfs;',TRACE_NEXT)
@@ -47,12 +50,13 @@ class Tests(unittest.TestCase):
         proof=TRIAL_NEXT[TRIAL_NEXT.index('const unsigned v405_expected='):
                          TRIAL_NEXT.index('std::cout<<"V405_NAND_SECOND_TRIAL')]
         cpp=(
-            '#include <cstdint>\n'
+            '#include <cstdint>\n#include <iostream>\n'
             'namespace nwii{namespace runtime{\n'
             'unsigned v396_calls=48u,v405_tail_calls=0u,'
             'v405_selected=0u,v405_isfs=0u,v405_parent=0u,'
             'v405_other=0u,v405_nand=0u,v405_cache=0u,'
-            'v405_reported=1u;\n'
+            'v405_reported=1u,v406_checkpoint_count=0u,'
+            'v398_site_seen=1u,v400_parent_site=1u;\n'
             '}}\n'
             'static void observe(unsigned call_class,uint32_t addr){\n'
             'using namespace nwii::runtime;\n'
@@ -88,6 +92,8 @@ class Tests(unittest.TestCase):
         # The new V405 marker does not exist in the V404 input; injecting
         # a pre-existing marker must fail, not deleting a missing one.
         with self.assertRaises(ValueError):patch(self.prior+"\n"+MARKER)
+        with self.assertRaises(ValueError):
+            patch(self.prior+"\nV406_NAND_CHECKPOINT call=")
         with self.assertRaises(ValueError):patch(patch(self.prior))
 if __name__=='__main__':
     unittest.main()

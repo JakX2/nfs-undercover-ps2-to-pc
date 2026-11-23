@@ -19,10 +19,13 @@ STOP='''               <<" parent_return="<<v400_parent_site<<std::endl;
 TRIAL='''  check(v404_completed,"V402 extended original guest frontier incomplete");'''
 MARKER='V405_NAND_SECOND_HALF tail_calls='
 TRIAL_MARKER='V405_NAND_SECOND_TRIAL tail_calls='
+CHECKPOINT='V406_NAND_CHECKPOINT call='
 STATE_NEXT=STATE+'''
 static unsigned v405_tail_calls=0u,v405_selected=0u;
 static unsigned v405_isfs=0u,v405_parent=0u,v405_other=0u;
-static unsigned v405_nand=0u,v405_cache=0u,v405_reported=0u;'''
+static unsigned v405_nand=0u,v405_cache=0u,v405_reported=0u;
+// This single-process checkpoint budget is deliberately NOT reset per trial.
+static unsigned v406_checkpoint_count=0u;'''
 RESET_NEXT=RESET+'''
   nwii::runtime::v405_tail_calls=0u;
   nwii::runtime::v405_selected=0u;
@@ -43,6 +46,15 @@ TRACE_NEXT=TRACE+r'''
       else ++v405_other;
       if(addr==0x8051e06cu)++v405_nand;
       if(addr==0x80522294u)++v405_cache;
+      // At most 48 original guest entries logged across the entire process,
+      // even if a later native assertion aborts before V404's stop record.
+      if(v406_checkpoint_count<48u){
+        ++v406_checkpoint_count;
+        std::cout<<"V406_NAND_CHECKPOINT call="<<v396_calls
+                 <<" origin="<<v397_class
+                 <<" selected="<<v398_site_seen
+                 <<" parent="<<v400_parent_site<<std::endl;
+      }
     }'''
 STOP_NEXT=r'''               <<" parent_return="<<v400_parent_site<<std::endl;
       v405_reported=1u;
@@ -79,6 +91,7 @@ def patch(source:str)->str:
              'V370_NAND_FLAG_W1C n=')
     if (any(source.count(anchor)!=1 for anchor in anchors) or
         MARKER in source or TRIAL_MARKER in source or
+        CHECKPOINT in source or
         'v405_tail_calls' in source or
         not (1<=source.count('try{run_game(c);}')<=16)):
         raise ValueError('geometry')
@@ -88,6 +101,7 @@ def patch(source:str)->str:
     out=out.replace(STOP,STOP_NEXT,1)
     out=out.replace(TRIAL,TRIAL_NEXT,1)
     if (out.count(MARKER)!=1 or out.count(TRIAL_MARKER)!=1 or
+        out.count(CHECKPOINT)!=1 or
         out.count(TRACE_NEXT)!=1 or out.count(STOP_NEXT)!=1 or
         out.count('if(owned||v396_calls==96u){')!=1 or
         out.count('V404_NAND_EXTENDED_STOP calls=')!=1 or

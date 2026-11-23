@@ -672,6 +672,15 @@ if (
   v405_rc=$?
   set -e
   echo 'V405_NAND_SECOND_STAGE run=1'
+  # A native abort can precede the first V405 completion marker. Print
+  # bounded checkpoints for the ORIGINAL guest entries 49 through 96.
+  if python3 "$V110_SOURCE_ROOT/analyze_v406_nand_abort_frontier.py" \
+      "$work/v405-native.log" "$v405_rc"; then
+    echo 'V406_NAND_CHECKPOINT_STAGE inspected=1'
+  else
+    echo 'V406_NAND_CHECKPOINT_STAGE inspected=0'
+    exit 1
+  fi
   if python3 "$V110_SOURCE_ROOT/analyze_v405_nand_second_half.py" \
       "$work/v405-native.log" "$v405_rc"; then
     echo 'V405_NAND_SECOND_STAGE inspected=1'
