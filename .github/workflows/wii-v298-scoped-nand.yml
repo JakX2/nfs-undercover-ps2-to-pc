@@ -207,6 +207,8 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v395_nand_isfs_next.py research/native_recomp/test_v395_nand_isfs_next.py research/native_recomp/analyze_v395_nand_isfs_next.py research/native_recomp/test_v395_nand_isfs_next_audit.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v395_nand_isfs_next.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v395_nand_isfs_next_audit.py' -v
+          python3 -m py_compile research/native_recomp/scan_original_guest_markers.py research/native_recomp/test_original_guest_markers_v395.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_original_guest_markers_v395.py' -v
           g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
               -Iresearch/native_recomp research/native_recomp/test_wii_nand_ios_reply_v374.cpp \
               -o "$RUNNER_TEMP/v374-native-reply"

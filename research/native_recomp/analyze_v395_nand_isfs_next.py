@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import sys
 from diagnose_v299_native_log import WINDOW,category,read_edges,size_band
+from scan_original_guest_markers import scan_original_guest_markers
 from analyze_v392_nand_post_cache import TRIAL as V392_TRIAL
 from analyze_v393_nand_guest_next import TRIAL as V393_TRIAL
 from analyze_v394_nand_isfs_entry import TRIAL as V394_TRIAL
@@ -44,7 +45,7 @@ def chain_summary(lines)->str:
                        for i in range(4)))
 
 def inspect(path:Path,rc:int)->str:
-    size,lines=read_edges(path)
+    size,lines,overflow=scan_original_guest_markers(path,(ENTRY,TRIAL,V392_TRIAL,V393_TRIAL,V394_TRIAL))
     entries=trials=0
     mapped_any=selected_any=userdata_any=nand_any=0
     # Bit order: entry guest,clear,masked,registered,mapped,selected,userdata,nand.
@@ -87,7 +88,7 @@ def inspect(path:Path,rc:int)->str:
         f'entries={entries} trials={trials} mapped_any={mapped_any} '
         f'selected_any={selected_any} userdata_any={userdata_any} '
         f'nand_any={nand_any} '
-        f'next_verified={int(bool(valid and entries and entries==trials))}'
+        f'next_verified={int(bool(not overflow and valid and entries and entries==trials))}'
         '\n'
         f'V395_NAND_FIELD_CENSUS entries={entries} trials={trials} '
         f'entry_any_mask={entry_or:02X} entry_all_mask={entry_and if entries else 0:02X} '

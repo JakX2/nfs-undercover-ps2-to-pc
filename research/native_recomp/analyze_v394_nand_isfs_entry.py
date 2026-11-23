@@ -6,10 +6,11 @@ from pathlib import Path
 import re
 import sys
 from diagnose_v299_native_log import WINDOW,category,read_edges,size_band
+from scan_original_guest_markers import scan_original_guest_markers
 ENTRY=re.compile(r'^V394_NAND_ISFS_ENTRY guest=([01]) clear=([01]) masked=([01]) registered=([01]) mapped=([01]) selected=([01]) result=([01]) userdata=([01])$')
 TRIAL=re.compile(r'^V394_NAND_ISFS_TRIAL context=([01]) isfs=([01]) completed=([01])$')
 def inspect(path:Path,rc:int)->str:
-    size,lines=read_edges(path)
+    size,lines,overflow=scan_original_guest_markers(path,(ENTRY,TRIAL))
     entries=trials=0
     mapped_any=selected_any=result_any=userdata_any=0
     valid=True
@@ -34,7 +35,7 @@ def inspect(path:Path,rc:int)->str:
         f'entries={entries} trials={trials} mapped_any={mapped_any} '
         f'selected_any={selected_any} result_any={result_any} '
         f'userdata_any={userdata_any} '
-        f'isfs_entry_verified={int(bool(valid and entries and entries==trials))}'
+        f'isfs_entry_verified={int(bool(not overflow and valid and entries and entries==trials))}'
     )
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)

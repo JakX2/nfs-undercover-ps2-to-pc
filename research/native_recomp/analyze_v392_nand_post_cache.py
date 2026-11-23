@@ -6,10 +6,11 @@ from pathlib import Path
 import re
 import sys
 from diagnose_v299_native_log import WINDOW,category,read_edges,size_band
+from scan_original_guest_markers import scan_original_guest_markers
 ENTRY=re.compile(r'^V392_NAND_POST_CACHE_EVENT kind=([12]) verified=([01]) owner=([01]) cache=([01]) context=([01]) callback=([01]) bounded=([01]) caches=([0-9]|1[0-9]|2[0-4])$')
 TRIAL=re.compile(r'^V392_NAND_POST_CACHE_TRIAL kind=([12]) stopped=([01]) completed=([01])$')
 def inspect(path:Path,rc:int)->str:
-    size,lines=read_edges(path)
+    size,lines,overflow=scan_original_guest_markers(path,(ENTRY,TRIAL))
     entries=trials=0
     owner_any=bounded_any=context_any=callback_any=cache_any=0
     valid=True
@@ -39,7 +40,7 @@ def inspect(path:Path,rc:int)->str:
         f'entries={entries} trials={trials} owner_any={owner_any} '
         f'bounded_any={bounded_any} cache_any={cache_any} '
         f'context_any={context_any} callback_any={callback_any} '
-        f'next_verified={int(bool(valid and entries and entries==trials))}'
+        f'next_verified={int(bool(not overflow and valid and entries and entries==trials))}'
     )
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
