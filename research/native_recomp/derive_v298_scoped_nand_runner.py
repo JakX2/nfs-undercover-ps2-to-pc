@@ -611,6 +611,13 @@ if (
   v404_rc=$?
   set -e
   echo 'V404_NAND_EXTENDED_STAGE run=1'
+  if python3 "$V110_SOURCE_ROOT/analyze_v407_extended_abort_class.py" \
+      "$work/v404-native.log" "$work/v404-harness.cpp" "$v404_rc" v404; then
+    echo 'V407_NATIVE_ABORT_STAGE v404=1'
+  else
+    echo 'V407_NATIVE_ABORT_STAGE v404=0'
+    exit 1
+  fi
   if python3 "$V110_SOURCE_ROOT/analyze_v404_nand_extended.py" \
       "$work/v404-native.log" "$v404_rc"; then
     echo 'V404_NAND_EXTENDED_STAGE inspected=1'
@@ -672,6 +679,13 @@ if (
   v405_rc=$?
   set -e
   echo 'V405_NAND_SECOND_STAGE run=1'
+  if python3 "$V110_SOURCE_ROOT/analyze_v407_extended_abort_class.py" \
+      "$work/v405-native.log" "$work/v405-harness.cpp" "$v405_rc" v405; then
+    echo 'V407_NATIVE_ABORT_STAGE v405=1'
+  else
+    echo 'V407_NATIVE_ABORT_STAGE v405=0'
+    exit 1
+  fi
   # A native abort can precede the first V405 completion marker. Print
   # bounded checkpoints for the ORIGINAL guest entries 49 through 96.
   if python3 "$V110_SOURCE_ROOT/analyze_v406_nand_abort_frontier.py" \
