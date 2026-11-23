@@ -21,8 +21,11 @@ MAX_SAMPLES = 96
 INJECTION = (
     "\n  // V373: observe outstanding native replies at guest call boundaries.\n"
     "  if(v250_candidate_mode&&v250_nand_seen==1u&&\n"
-    "     ipc70_bus.services().queued_replies()>0u&&\n"
-    "     !ipc70_bus.pending_native_ios_request()){\n"
+    "     !ipc70_bus.pending_native_ios_request()&&\n"
+    "     (ipc70_bus.services().queued_replies()>0u||\n"
+    "      ((ipc70_bus.read32(undercover::wii::IosBus::IPC+\n"
+    "          undercover::wii::IpcMailbox::PPCCTRL).value_or(0u)&\n"
+    "          undercover::wii::IpcMailbox::Y1)!=0u))){\n"
     "    static unsigned v373_count=0u;\n"
     "    if(v373_count<96u){\n"
     "      using B=undercover::wii::IosBus;\n"

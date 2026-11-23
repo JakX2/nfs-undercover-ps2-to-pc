@@ -40,6 +40,13 @@ class Tests(unittest.TestCase):
         self.assertIn('queued_any=1',result)
         self.assertNotIn('handler_completed',result)
 
+    def test_post_dequeue_y1_is_visible_without_claiming_handler_return(self):
+        value=run(sample(1,ee=1,irq=1,eligible=1,ready=1,
+                         y1=1,y2=0,flag=1,queued=0))
+        self.assertIn('samples=1 first_ee=1 first_ready=1',value)
+        self.assertIn('y1_any=1 y2_any=0 flag_any=1 queued_any=0',value)
+        self.assertNotIn('handler_completed',value)
+
     def test_truncation_and_missing_markers_cannot_fake_readiness(self):
         result=run('prefix '+sample(1)+sample(3,ee=1,eligible=1,ready=1))
         self.assertIn('samples=0',result)

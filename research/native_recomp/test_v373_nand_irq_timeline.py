@@ -46,6 +46,19 @@ class Tests(unittest.TestCase):
         ):
             self.assertIn(needed,INJECTION,needed)
 
+    def test_queue_drained_y1_stays_observable_without_guest_mutation(self):
+        # A published Y1 removes the queued IOS completion; the marker must
+        # still be eligible until Broadway acknowledges the real Y1.
+        self.assertIn('!ipc70_bus.pending_native_ios_request()&&',INJECTION)
+        self.assertIn('(ipc70_bus.services().queued_replies()>0u||',INJECTION)
+        self.assertIn('undercover::wii::IpcMailbox::PPCCTRL',INJECTION)
+        self.assertIn('undercover::wii::IpcMailbox::Y1)!=0u',INJECTION)
+        self.assertIn('value_or(0u)',INJECTION)
+        self.assertIn('const bool y1=',INJECTION)
+        self.assertIn('const bool queued=',INJECTION) if 'const bool queued=' in INJECTION else self.assertIn('queued_replies()>0u',INJECTION)
+        self.assertNotIn('ipc70_bus.tick(',INJECTION)
+        self.assertNotIn('ipc70_bus.write32(',INJECTION)
+
     def test_no_ios_services_guest_mutations_or_secret_output(self):
         for forbidden in (
             'service_one(', 'ipc70_bus.tick(', 'ipc70_bus.write32(',
