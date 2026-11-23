@@ -424,7 +424,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(transformed.count(ACK_MMIO_OLD),0)
         result=scope(transformed)
         self.assertEqual(result.count(ACK_MMIO_LABEL),1)
-        self.assertIn("if((((irq76_ipc||post118_sleep==1u)))&&"+
+        self.assertIn("if(((irq76_ipc||post118_sleep==1u))&&"+
                       ACK_MMIO_PHASE+")",result)
         self.assertEqual(ack_mmio_seam(result).split("branch=")[-1],"1")
         self.assertIn("scoped=1",ack_mmio_seam(result))

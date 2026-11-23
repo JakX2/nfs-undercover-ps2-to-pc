@@ -131,9 +131,9 @@ ACK_MMIO_PHASE="(!v250_candidate_mode||v250_nand_seen==0u)"
 ACK_MMIO_NEW="\n   if((irq76_ipc)&&"+ACK_MMIO_PHASE+"){\n"
 ACK_MMIO_LABEL="unexpected original IPC ACK MMIO write"
 ACK_MMIO_LINE=re.compile(
-    r"(?m)^(?P<pad>[ \\t]*)(?P<head>(?:else[ \\t]+)?if[ \\t]*)"
-    r"\\((?P<cond>[^\\n{}]*\\birq76_ipc\\b[^\\n{}]*)\\)"
-    r"(?P<brace>[ \\t]*\\{[ \\t]*)(?P<nl>\\n?)"
+    r"(?m)^(?P<pad>[ \t]*)(?P<head>(?:else[ \t]+)?if[ \t]*)"
+    r"\((?P<cond>[^\n{}]*\birq76_ipc\b[^\n{}]*)\)"
+    r"(?P<brace>[ \t]*\{[ \t]*)(?P<nl>\n?)"
 )
 
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
