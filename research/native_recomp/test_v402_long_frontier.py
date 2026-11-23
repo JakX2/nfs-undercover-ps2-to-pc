@@ -13,6 +13,12 @@ class Tests(unittest.TestCase):
     def setUpClass(cls):
         Fixture401.setUpClass()
         cls.prior=v401(Fixture401.prior)
+        # The real owner harness has one run_game call. Earlier synthetic
+        # callback fixtures omit its wrapper; provide the guard's fixture
+        # geometry rather than weakening the original-source patch.
+        if "try{run_game(c);}" not in cls.prior:
+            cls.prior += "\ntry{run_game(c);}\n"
+        assert cls.prior.count("try{run_game(c);}") == 1
     def test_baseline_is_preserved_and_extended_callee_is_bounded(self):
         s=patch(self.prior)
         self.assertEqual(s.count(MARKER),1)
