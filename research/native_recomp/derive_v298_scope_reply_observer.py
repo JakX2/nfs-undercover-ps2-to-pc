@@ -121,15 +121,27 @@ NAND_SEND_LABEL="V117 original IPC send register call ABI differs"
 # Once that IRQ was acknowledged its irq76_ipc counter stays nonzero;
 # the later authentic NAND request must not be treated as ACK traffic.
 # Preserve all original MMIO writes and the normal bus implementation.
-ACK_MMIO_OLD=("   if(irq76_ipc){\n"
-              "     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;using H=undercover::wii::HollywoodIrq;")
-ACK_MMIO_NEW=("   if(irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)){\n"
-              "     using B=undercover::wii::IosBus;using M=undercover::wii::IpcMailbox;using H=undercover::wii::HollywoodIrq;")
+# V341: keep the exact indentation and opening brace to distinguish
+# this original V77 MMIO handler from the other irq76_ipc trace observer.
+# The following using declarations can be moved by other derivations without
+# changing the semantics of this one scoped condition.
+ACK_MMIO_OLD="\n   if(irq76_ipc){\n"
+ACK_MMIO_NEW="\n   if(irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)){\n"
 ACK_MMIO_LABEL="unexpected original IPC ACK MMIO write"
 
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
+
+def ack_mmio_seam(source: str, scoped: bool=False) -> str:
+    # Only fixed public C++ observer-anchor counts, no private code/logs.
+    return (
+        "V341_ACK_SEAM "
+        f"old={min(source.count(ACK_MMIO_OLD),2)} "
+        f"label={min(source.count(ACK_MMIO_LABEL),2)} "
+        f"scoped={min(source.count(ACK_MMIO_NEW),2)} "
+        f"guest={int('v250_nand_seen' in source)}"
+    )
 
 def summarize_seams(source: str) -> str:
     # Emit only counts of independently written public harness anchors.
@@ -239,7 +251,9 @@ def main()->int:
     except ValueError:
         import sys
         print(summarize_seams(raw),file=sys.stderr)
+        print(ack_mmio_seam(raw),file=sys.stderr)
         raise
+    print(ack_mmio_seam(scoped))
     with a.private_scoped_harness.open("x",encoding="utf-8") as dst:
         dst.write(scoped)
     return 0

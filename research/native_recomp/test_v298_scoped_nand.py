@@ -13,7 +13,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_IRQ_OLD,NAND_IRQ_NEW,NAND_IRQ_LABEL,
                                                 NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
                                                 NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,
-                                                ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,summarize_seams,
+                                                ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ack_mmio_seam,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -381,7 +381,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(scoped.count(ACK_MMIO_LABEL),1)
         self.assertNotIn(ACK_MMIO_OLD,scoped)
         self.assertIn("irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)",ACK_MMIO_NEW)
-        self.assertIn("using B=undercover::wii::IosBus",ACK_MMIO_NEW)
+        self.assertIn("using B=undercover::wii::IosBus",scoped)
         self.assertNotIn("ipc70_bus.write32",ACK_MMIO_NEW)
         self.assertNotIn("ctx.",ACK_MMIO_NEW)
         self.assertNotIn("return;",ACK_MMIO_NEW)
@@ -399,6 +399,21 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(corrupted)):
                 with self.assertRaises(ValueError):
                     scope(corrupted)
+
+    def test_v341_public_v77_mmio_anchor_and_seam_census(self):
+        from pathlib import Path
+        public_v77=(Path(__file__).resolve().parent /
+                    "test_start_to_ipc_ack_v77.cpp").read_text(encoding="utf-8")
+        self.assertEqual(public_v77.count(ACK_MMIO_OLD),1)
+        self.assertEqual(public_v77.count(ACK_MMIO_LABEL),1)
+        self.assertEqual(public_v77.count(ACK_MMIO_NEW),0)
+        self.assertIn("old=1 label=1 scoped=0 guest=0",
+                      ack_mmio_seam(public_v77))
+        self.assertIn("old=0 label=1 scoped=1 guest=1",
+                      ack_mmio_seam(scope(SOURCE)))
+        # Only a fixed census may leave owner CI, not guest source fragments.
+        self.assertNotIn("using B=",ack_mmio_seam(public_v77))
+        self.assertNotIn("if(irq76_ipc)",ack_mmio_seam(public_v77))
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
@@ -471,6 +486,8 @@ class Tests(unittest.TestCase):
         self.assertIn("analyze_v335_nand_ipc_frontier.py",r)
         self.assertIn("V335_IPC_STAGE inspected=1",r)
         self.assertIn("derive_v340_nand_mmio_probe.py",r)
+        self.assertIn("V341_SCOPE_STAGE derive=1",r)
+        self.assertIn("V341_PROBE_STAGE install=1",r)
         self.assertIn("analyze_v340_nand_mmio.py",r)
         self.assertIn("V340_MMIO_STAGE inspected=1",r)
         self.assertIn("derive_v321_guest_entry_probe.py",r)

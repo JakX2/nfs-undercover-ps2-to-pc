@@ -13,8 +13,10 @@ DONE="echo 'V296_SERVICE_PROBE inspected=1'"
 PRE=r'''
 python3 "$V110_SOURCE_ROOT/derive_v298_scope_reply_observer.py" \
     "$work/v296-harness.cpp" "$work/v298-scoped-harness.cpp"
+echo 'V341_SCOPE_STAGE derive=1'
 python3 "$V110_SOURCE_ROOT/derive_v340_nand_mmio_probe.py" \
     "$work/v298-scoped-harness.cpp" "$work/v340-harness.cpp"
+echo 'V341_PROBE_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v321_guest_entry_probe.py" \
     "$work/v340-harness.cpp" "$work/v298-harness.cpp"
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
