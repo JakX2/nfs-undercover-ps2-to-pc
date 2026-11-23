@@ -40,8 +40,11 @@ python3 "$V110_SOURCE_ROOT/derive_v361_nand_ios_yield.py" \
 python3 "$V110_SOURCE_ROOT/derive_v365_nand_irq_readiness.py" \
     "$work/v361-harness.cpp" "$work/v365-harness.cpp"
 python3 "$V110_SOURCE_ROOT/derive_v373_nand_irq_timeline.py" \
-    "$work/v365-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v365-harness.cpp" "$work/v373-harness.cpp"
 echo 'V373_IRQ_TIMELINE_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v374_nand_ios_reply.py" \
+    "$work/v373-harness.cpp" "$work/v298-harness.cpp"
+echo 'V374_NAND_REPLY_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -298,6 +301,9 @@ echo 'V372_NAND_SC_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v373_nand_irq_timeline.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V373_IRQ_TIMELINE_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v374_nand_ios_reply.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V374_NAND_REPLY_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
