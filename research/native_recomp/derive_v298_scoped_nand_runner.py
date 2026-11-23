@@ -452,6 +452,10 @@ echo 'V397_NAND_ORIGINS_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
     "$work/v310-native.log" "$v310_rc" > "$work/v396-owner-gate.log"
 cat "$work/v396-owner-gate.log"
+# V397: independent, fail-closed validation of sixteen original guest
+# LR-origin observations; this is not a PPC return or NAND completion.
+python3 "$V110_SOURCE_ROOT/audit_v397_native_gate.py"     "$work/v310-native.log" "$v310_rc" > "$work/v397-owner-gate.log"
+cat "$work/v397-owner-gate.log"
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

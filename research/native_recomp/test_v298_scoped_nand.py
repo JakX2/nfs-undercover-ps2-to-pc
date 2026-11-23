@@ -781,6 +781,8 @@ class Tests(unittest.TestCase):
         self.assertIn("V397_NAND_ORIGINS_STAGE install=1",r)
         self.assertIn("V397_NAND_ORIGINS_STAGE inspected=1",r)
         self.assertIn("audit_v396_native_gate.py",r)
+        self.assertIn("audit_v397_native_gate.py",r)
+        self.assertIn("v397-owner-gate.log",r)
         self.assertIn("V396_OWNER_RESULT_GATE verified=1",r)
         self.assertIn("V396_LEGACY_V295 deferred=1",r)
         self.assertIn("V396_LEGACY_V296 deferred=1",r)
