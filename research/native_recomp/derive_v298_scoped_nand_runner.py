@@ -563,6 +563,68 @@ else
   # invalidates, the separately authenticated 24-call V403 owner gate.
   echo 'V402_LONG_STAGE attempt=failed'
 fi
+
+# V404: a THIRD native-process candidate, separate from V403 (24 calls)
+# and V402 (48 calls). Change only the observer cap in the private
+# harness to 96 calls; translated Wii AOT and real IOS/NAND state are
+# identical. An unsuccessful candidate cannot falsify earlier milestones.
+if (
+  if ! test -s "$work/v402-harness.cpp"; then
+    echo 'V404_NAND_EXTENDED_ERROR reason=missing_48_harness'
+    exit 1
+  fi
+  if python3 "$V110_SOURCE_ROOT/derive_v404_nand_extended.py" \
+      "$work/v402-harness.cpp" "$work/v404-harness.cpp"; then
+    echo 'V404_NAND_EXTENDED_STAGE derive=1'
+  else
+    echo 'V404_NAND_EXTENDED_STAGE derive=0'
+    exit 1
+  fi
+  if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v404-harness.cpp" -o "$work/v404-harness.o" \
+      > "$work/v404-compile.log" 2>&1; then
+    echo 'V404_NAND_EXTENDED_STAGE compile=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+        "$work/v404-compile.log" harness || true
+    echo 'V404_NAND_EXTENDED_STAGE compile=0'
+    exit 1
+  fi
+  if g++ "$work/v404-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+        -o "$work/v404-native" > "$work/v404-link.log" 2>&1; then
+    if ! test -s "$work/v404-native" || ! test -x "$work/v404-native"; then
+      echo 'V404_NAND_EXTENDED_STAGE link=0'
+      exit 1
+    fi
+    echo 'V404_NAND_EXTENDED_STAGE link=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+        "$work/v404-link.log" || true
+    echo 'V404_NAND_EXTENDED_STAGE link=0'
+    exit 1
+  fi
+  set +e
+  timeout --signal=TERM --kill-after=3s 12s \
+      "$work/v404-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v404-native.log" 2>&1
+  v404_rc=$?
+  set -e
+  echo 'V404_NAND_EXTENDED_STAGE run=1'
+  if python3 "$V110_SOURCE_ROOT/analyze_v404_nand_extended.py" \
+      "$work/v404-native.log" "$v404_rc"; then
+    echo 'V404_NAND_EXTENDED_STAGE inspected=1'
+  else
+    echo 'V404_NAND_EXTENDED_STAGE inspected=0'
+    exit 1
+  fi
+  python3 "$V110_SOURCE_ROOT/audit_v404_nand_extended.py" \
+      "$work/v404-native.log" "$v404_rc"
+); then
+  echo 'V404_NAND_EXTENDED_STAGE attempt=completed'
+else
+  echo 'V404_NAND_EXTENDED_STAGE attempt=failed'
+fi
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
