@@ -39,35 +39,48 @@ def seam_census(source: str) -> str:
     )
 
 def _select_old(source: str) -> tuple[int, int, str]:
-    # Later harness generators can change indentation/spacing around this
-    # historical check. Locate it through its unique diagnostic label and
-    # validate *all* of its original SC-only proof obligations.
-    if source.count(LABEL) != 1:
+    # Match the *one* V153 check that owns the unique SC-only diagnostic.
+    # Generated AOT runners may reindent that inherited check after V154+.
+    # Reject any intervening statement or missing original proof obligation.
+    if source.count(LABEL)!=1:
         raise ValueError('ambiguous V153 proof label')
-    pos = source.index(LABEL)
-    line_end = source.find(');', pos)
-    if line_end < 0 or line_end-pos > 170:
-        raise ValueError('invalid V153 proof close')
-    end = line_end + 2
-    if source[pos-1] != '"' or source[pos+len(LABEL)] != '"':
-        raise ValueError('V153 label not a literal')
-    starts = list(re.finditer(r'(?m)^[ ]{2,16}check[ ]*\(',
-                              source[max(0,pos-1100):pos]))
-    if not starts:
-        raise ValueError('V153 check preamble unavailable')
-    base = max(0,pos-1100)
-    start = base + starts[-1].start()
-    old = source[start:end]
-    if (len(old)>1100 or ';' in old[:-1] or
-        any(key not in old for key in REQUIRED) or
-        'check(' not in old or old.count('check(')!=1 or
-        LABEL not in old):
+    pos=source.index(LABEL)
+    if (pos==0 or source[pos-1]!='"' or
+        source[pos+len(LABEL)]!='"'):
+        raise ValueError('V153 label no longer a string literal')
+    close=source.find(');',pos)
+    if close<0 or close-pos>200:
+        raise ValueError('V153 proof close missing')
+    end=close+2
+    base=max(0,pos-3500)
+    pre=source[base:pos]
+    # Accept indentation and horizontal spacing changes only. Require
+    # a syntactically isolated check, and every original V153 condition.
+    found=[]
+    for match in re.finditer(r'\bcheck[ \t]*\(',pre):
+        open_at=base+match.start()
+        line_start=source.rfind('\n',0,open_at)+1
+        indentation=source[line_start:open_at]
+        if (not indentation or len(indentation)>16 or
+            indentation.strip() or
+            source[open_at:open_at+5]!='check('):
+            continue
+        old=source[line_start:end]
+        if (len(old)>3500 or ';' in old[:-1] or
+            old.count('check(')!=1 or
+            not all(token in old for token in REQUIRED) or
+            LABEL not in old):
+            continue
+        found.append((line_start,end,old))
+    if len(found)!=1:
         raise ValueError('V153 assertion no longer same SC proof')
-    return start,end,old
+    return found[0]
 
 def _wrap(old: str) -> str:
     # Preserve original source check as a byte-identical subtree.
-    pad = old[:len(old)-len(old.lstrip(' '))]
+    pad = old[:old.index('check(')]
+    if pad.strip():
+        raise ValueError('invalid V153 assertion prefix')
     if not 2 <= len(pad) <= 16:
         raise ValueError('bad V153 indentation')
     return (
