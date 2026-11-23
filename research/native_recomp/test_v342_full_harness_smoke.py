@@ -104,8 +104,34 @@ class Tests(unittest.TestCase):
                                       timeout=120,check=False)
             except subprocess.TimeoutExpired:
                 self.fail("V347_PUBLIC_CPP compile_timeout")
-            # Keep compiler diagnostics/derived code in the transient
-            # source-only CI scratch; report a stable status, not raw text.
+            # V350: output only a compiler category and source-only line,
+            # not raw C++ diagnostics or proprietary data.
+            if result.returncode:
+                import re
+                errors=[line for line in result.stderr.splitlines()
+                        if "error:" in line or "fatal error:" in line]
+                first=errors[0] if errors else ""
+                categories=(
+                    ("undeclared", "undeclared"),
+                    ("not declared", "undeclared"),
+                    ("no member", "member"),
+                    ("expected", "syntax"),
+                    ("redefinition", "redefinition"),
+                    ("ambiguous", "ambiguous"),
+                    ("unused", "unused"),
+                    ("does not name", "type"),
+                    ("no matching function", "signature"),
+                    ("invalid conversion", "conversion"),
+                    ("fatal error:", "include"),
+                )
+                kind=next((name for token,name in categories if token in first),
+                          "other")
+                match=re.search(r"v347-public-harness\.cpp:(\d+)",first)
+                line=int(match.group(1)) if match else 0
+                print(f"V350_PUBLIC_CPP_DIAG kind={kind} "
+                      f"first_line={min(line,9999999)} "
+                      f"errors={min(len(errors),9999)}",
+                      flush=True)
             self.assertEqual(result.returncode,0,
                              "V347_PUBLIC_CPP compile_failed")
             print("V347_PUBLIC_CPP source=1 syntax=1 original_free=1")
