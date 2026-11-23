@@ -78,9 +78,14 @@ int main(){
             bus.services().queued_replies()==1u&&
             ram.read32(request)==S::Open,
             "PI mask toggle erased the pending native IOS completion");
-    require(starlet.service_one(B::MSR_EE).progress==S::Pump::Busy&&
-            starlet.serviced_steps()==1u,
-            "PI mask toggle permitted premature native Starlet service");
+    const auto pi_masked=starlet.service_one(B::MSR_EE);
+    require(pi_masked.progress==S::Pump::Busy&&
+            pi_masked.serviced_steps==2u&&
+            bus.services().queued_replies()==1u&&
+            ram.read32(request)==S::Open,
+            "PI mask toggle published an early IOS reply");
+    // The scheduler counts attempted hardware ticks even when the
+    // latched Hollywood cause correctly makes Starlet return Busy.
 
     put(B::PI_MASK,H::PI_HOLLYWOOD);
     require(bus.external_irq_level(),"PI mask restore did not expose IRQ");
@@ -90,8 +95,11 @@ int main(){
             (read(B::IPC+H::PPC_FLAG)&H::IPC_PPC)!=0u&&
             bus.services().queued_replies()==1u,
             "Hollywood PPC mask toggle corrupted latched native Y2");
-    require(starlet.service_one(0u).progress==S::Pump::Busy&&
-            starlet.serviced_steps()==1u,
+    const auto ppc_masked=starlet.service_one(0u);
+    require(ppc_masked.progress==S::Pump::Busy&&
+            ppc_masked.serviced_steps==3u&&
+            bus.services().queued_replies()==1u&&
+            ram.read32(request)==S::Open,
             "masked Hollywood IRQ bypassed W1C service barrier");
     put(B::MIRROR+H::PPC_MASK,H::IPC_PPC);
     require(read(B::MIRROR+H::PPC_MASK)==H::IPC_PPC&&
@@ -111,7 +119,7 @@ int main(){
             "Hollywood IPC flag W1C did not clear pending IRQ");
     const auto reply=starlet.service_one(B::MSR_EE);
     require(reply.progress==S::Pump::Replied&&
-            starlet.serviced_steps()==2u&&
+            starlet.serviced_steps()==4u&&
             ram.read32(request)==S::Reply&&
             ram.read32(request+8u)==S::Open&&
             bus.services().queued_replies()==0u&&
