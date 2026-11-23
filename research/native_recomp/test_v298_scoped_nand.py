@@ -785,6 +785,9 @@ class Tests(unittest.TestCase):
         self.assertIn("V396_LEGACY_V295 deferred=1",r)
         self.assertIn("V396_LEGACY_V296 deferred=1",r)
         self.assertIn("V396_LEGACY_V298 deferred=1",r)
+        # Guarded analyzers run in either V295 branch, never silently vanish.
+        self.assertEqual(r.count("V396_LEGACY_V296 deferred=1"),2)
+        self.assertEqual(r.count("V396_LEGACY_V298 deferred=1"),2)
         self.assertNotIn(V296_AUDIT,r)
         self.assertIn("if ! grep -Fqx",r)
         self.assertNotIn("V295_BOUNDED_CANDIDATE inspected=0\'\n  exit 1",r)

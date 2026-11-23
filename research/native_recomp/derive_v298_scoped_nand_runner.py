@@ -525,7 +525,12 @@ def patch(source: str) -> str:
         "  fi\n"
         "  echo 'V396_LEGACY_V295 deferred=1'"
     )
-    return staged.replace(failure,diagnostic+fallback,1)
+    # The legacy V296/V298 audits are inserted on V295's successful path.
+    # When V295 rejects the old stop, the authenticated V396 owner gate may
+    # allow the older branch to continue. Preserve both legacy diagnostics
+    # in *that* path too; otherwise CI sees no V296/V298 audit at all.
+    return staged.replace(failure,diagnostic+fallback+"\n"+
+                          V296_AUDIT_GUARDED+"\n"+AFTER,1)
 
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)

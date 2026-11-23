@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """V397 synthetic-only transformation, provenance and -Werror regression."""
+import re
 import shutil
 import subprocess
 import tempfile
@@ -27,9 +28,11 @@ class Tests(unittest.TestCase):
                       '++v396_calls;','if(owned||v396_calls==24u)'):
             self.assertIn(token,COUNT_NEW)
         for forbidden in ('ipc70_bus.write32(', 'ipc70_bus.tick(', 'service_one(',
-                          'ctx.msr=', 'ctx.pc=', 'ctx.lr=', 'ctx.gpr[3]=',
+                          'ctx.msr=', 'ctx.pc=', 'ctx.gpr[3]=',
                           'ctx.mmu.write','StmIos::Reply'):
             self.assertNotIn(forbidden,COUNT_NEW+STOP_NEW)
+        # Equality (ctx.lr==...) is read-only; reject only assignments.
+        self.assertIsNone(re.search(r'\bctx\.lr\s*=(?!=)',COUNT_NEW+STOP_NEW))
         self.assertIn('V396_NAND_CB_BODY kind=',s)
         self.assertIn('V395_NAND_ISFS_NEXT guest=',s)
         self.assertIn('V389_NAND_FLAG_ACK before=',s)
