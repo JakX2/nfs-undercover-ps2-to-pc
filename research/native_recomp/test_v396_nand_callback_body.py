@@ -26,6 +26,9 @@ class Tests(unittest.TestCase):
         self.assertIn('V389_NAND_FLAG_ACK before=',s)
         self.assertIn('check(v395_completed,',s)
         self.assertIn('check(v396_completed,',s)
+        self.assertIn('check(guest,',s)
+        self.assertIn('const bool verified=guest&&(owned||bounded);',s)
+        self.assertNotIn('check(clear&&masked&&registered&&guest',s)
         self.assertEqual(s.count('nwii::runtime::v396_kind=0u;'),1)
         self.assertLess(s.index('nwii::runtime::v396_kind=0u;'),
                         s.index('c.is_running=true; // execute up to 16'))
@@ -41,6 +44,8 @@ class Tests(unittest.TestCase):
             'ctx.mmu.read32(IRQ_TABLE+27u*4u)==0x80519318u',
             'addr==0x8051e06cu',
             'v396_calls==24u',
+            '<<" masked="<<unsigned(masked)',
+            '<<" registered="<<unsigned(registered)',
             'ctx.is_running=false;throw ExceptionStop{};'
         ):
             self.assertIn(token,TRACE,token)
