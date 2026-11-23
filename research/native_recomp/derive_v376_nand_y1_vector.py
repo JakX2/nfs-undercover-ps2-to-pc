@@ -86,7 +86,8 @@ INJECTION=r"""
 """
 
 def patch(source:str)->str:
-    if (source.count(HEAD+BOUNDARY_INJECTION)!=1 or source.count(PRIOR)!=1 or
+    if (source.count(HEAD)!=1 or source.count(HEAD+BOUNDARY_INJECTION)!=1 or
+        source.count(PRIOR)!=1 or
         source.count(TIMELINE)!=1 or source.count('V375_NAND_Y1_BOUNDARY n=')!=1 or
         source.count(INCLUDE)!=1 or ADD_INCLUDE in source or
         'irq74_vector' not in source or
