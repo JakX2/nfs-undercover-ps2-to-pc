@@ -81,10 +81,13 @@ class Tests(unittest.TestCase):
                 text=True,check=False,timeout=5)
             self.assertEqual(result.returncode,0,result.stderr[-1000:])
     def test_source_seams_fail_closed(self):
-        for needle in (STATE,RESET,TRACE,STOP,TRIAL,MARKER):
+        for needle in (STATE,RESET,TRACE,STOP,TRIAL):
             with self.subTest(needle=needle[:20]):
                 with self.assertRaises(ValueError):
                     patch(self.prior.replace(needle,'missing',1))
+        # The new V405 marker does not exist in the V404 input; injecting
+        # a pre-existing marker must fail, not deleting a missing one.
+        with self.assertRaises(ValueError):patch(self.prior+"\n"+MARKER)
         with self.assertRaises(ValueError):patch(patch(self.prior))
 if __name__=='__main__':
     unittest.main()
