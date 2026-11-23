@@ -19,7 +19,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(got.replace(HEAD+INJECTION,HEAD,1),FIXTURE)
         self.assertIn("v359_count<16u",INJECTION)
         self.assertIn("ipc70_bus.pending_native_ios_request()",INJECTION)
-        self.assertIn("if(pending)v359_armed=true",INJECTION)
+        self.assertIn("if(pending||ipc70_bus.services().queued_replies()>0u)v359_armed=true",INJECTION)
         self.assertIn("v250_candidate_mode&&v250_nand_seen==1u",INJECTION)
         self.assertEqual(len(CATEGORIES),8)
         self.assertEqual(len({pc for pc,_ in CATEGORIES}),8)
@@ -29,6 +29,17 @@ class Tests(unittest.TestCase):
                         "ipc70_bus.write32","ipc70_bus.tick","service_one(",
                         "ctx.is_running", "std::hex", "<<addr","<<ctx.lr"):
             self.assertNotIn(illegal,INJECTION)
+
+    def test_native_ack_retains_post_x1_census_visibility(self):
+        # Real V361 IOS ACK drains X1 before the first later call can be
+        # counted. A queued reply remains positive, read-only evidence.
+        self.assertIn("pending||ipc70_bus.services().queued_replies()>0u",INJECTION)
+        for pending in (False,True):
+            for queued in (False,True):
+                observed=pending or queued
+                self.assertEqual(observed,not(not pending and not queued))
+        self.assertNotIn("service_one(",INJECTION)
+        self.assertNotIn("ipc70_bus.tick()",INJECTION)
 
     def test_bad_or_duplicate_seams_fail_closed(self):
         for bad in (FIXTURE.replace(HEAD,"",1),FIXTURE+HEAD,

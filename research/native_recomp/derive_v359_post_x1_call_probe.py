@@ -30,7 +30,7 @@ INJECTION=(
     "    static bool v359_armed=false;\n"
     "    static unsigned v359_count=0u;\n"
     "    const bool pending=ipc70_bus.pending_native_ios_request();\n"
-    "    if(pending)v359_armed=true;\n"
+    "    if(pending||ipc70_bus.services().queued_replies()>0u)v359_armed=true;\n"
     "    if(v359_armed&&v359_count<16u){\n"
     "      unsigned kind=0u;\n"
     + "".join(f"      if(addr==0x{pc:08x}u)kind={kind}u;\n" for pc,kind in CATEGORIES)
