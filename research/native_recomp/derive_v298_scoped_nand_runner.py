@@ -115,8 +115,11 @@ echo 'V395_NAND_ISFS_NEXT_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v396_nand_callback_body.py" \
     "$work/v395-harness.cpp" "$work/v396-harness.cpp"
 echo 'V396_NAND_CB_BODY_STAGE install=1'
-python3 "$V110_SOURCE_ROOT/derive_v397_nand_callback_lineage.py"     "$work/v396-harness.cpp" "$work/v298-harness.cpp"
+python3 "$V110_SOURCE_ROOT/derive_v397_nand_callback_lineage.py"     "$work/v396-harness.cpp" "$work/v397-harness.cpp"
 echo 'V397_NAND_ORIGINS_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v398_nand_return_site.py" \
+    "$work/v397-harness.cpp" "$work/v298-harness.cpp"
+echo 'V398_NAND_RETURN_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -447,6 +450,9 @@ python3 "$V110_SOURCE_ROOT/analyze_v396_nand_callback_body.py" \
 echo 'V396_NAND_CB_BODY_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v397_nand_callback_lineage.py"     "$work/v310-native.log" "$v310_rc"
 echo 'V397_NAND_ORIGINS_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v398_nand_return_site.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V398_NAND_RETURN_STAGE inspected=1'
 # This independent owner gate checks sixteen complete original-call chains;
 # V295 was written for a different, pre-V396 candidate stop point.
 python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
@@ -456,6 +462,10 @@ cat "$work/v396-owner-gate.log"
 # LR-origin observations; this is not a PPC return or NAND completion.
 python3 "$V110_SOURCE_ROOT/audit_v397_native_gate.py"     "$work/v310-native.log" "$v310_rc" > "$work/v397-owner-gate.log"
 cat "$work/v397-owner-gate.log"
+# Independently gate read-only V398 saved return-PC observations.
+python3 "$V110_SOURCE_ROOT/audit_v398_native_gate.py" \
+    "$work/v310-native.log" "$v310_rc" > "$work/v398-owner-gate.log"
+cat "$work/v398-owner-gate.log"
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
