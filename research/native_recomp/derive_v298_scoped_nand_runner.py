@@ -127,8 +127,11 @@ python3 "$V110_SOURCE_ROOT/derive_v400_nand_parent_resume.py" \
     "$work/v399-harness.cpp" "$work/v400-harness.cpp"
 echo 'V400_NAND_PARENT_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v401_nand_linksite_classify.py" \
-    "$work/v400-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v400-harness.cpp" "$work/v401-harness.cpp"
 echo 'V401_NAND_CALLSITE_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v403_nand_call_provenance.py" \
+    "$work/v401-harness.cpp" "$work/v298-harness.cpp"
+echo 'V403_NAND_CALL_PROVENANCE_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -471,6 +474,9 @@ echo 'V400_NAND_PARENT_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v401_nand_callsite.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V401_NAND_CALLSITE_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v403_nand_call_provenance.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V403_NAND_CALL_PROVENANCE_STAGE inspected=1'
 # This independent owner gate checks sixteen complete original-call chains;
 # V295 was written for a different, pre-V396 candidate stop point.
 python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
@@ -498,6 +504,10 @@ cat "$work/v400-owner-gate.log"
 python3 "$V110_SOURCE_ROOT/audit_v401_native_gate.py" \
     "$work/v310-native.log" "$v310_rc" > "$work/v401-owner-gate.log"
 cat "$work/v401-owner-gate.log"
+# Read-only CTR, saved stack frame and PPC LR-4 family classification.
+python3 "$V110_SOURCE_ROOT/audit_v403_native_gate.py" \
+    "$work/v310-native.log" "$v310_rc" > "$work/v403-owner-gate.log"
+cat "$work/v403-owner-gate.log"
 # V402: a SEPARATE owner-original candidate, never overwrite the V401
 # 24-call authenticated control. Extend only its bounded call frontier
 # to 48 in a privately generated harness while preserving original IOS,
