@@ -44,7 +44,7 @@ class Tests(unittest.TestCase):
         result=run('prefix '+sample(1)+sample(3,ee=1,eligible=1,ready=1))
         self.assertIn('samples=0',result)
         result=run(sample(1)+sample(3,ee=1,eligible=1,ready=1))
-        self.assertIn('samples=1 first_ready=0',result)
+        self.assertIn('samples=1 first_ee=0 first_irq=1 first_ready=0',result)
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp)/'owner.log'
             with path.open('wb') as stream:
