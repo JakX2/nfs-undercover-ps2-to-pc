@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 import shutil
+import os
 import sys
 import tempfile
 import unittest
@@ -84,57 +85,69 @@ class Tests(unittest.TestCase):
             # Source-only instrumentation must not replace the original
             # hardware service calls with a fabricated IOS reply.
             self.assertIn("ipc70_bus.write32",instrumented)
-            # V347: compile the complete independently derived PUBLIC harness
-            # before any owner original/ELF step. Syntax-only means no native
-            # game code is linked, loaded, or executed in this test.
-            compiler=shutil.which("g++")
-            self.assertIsNotNone(compiler,"V347_PUBLIC_CPP compiler_unavailable")
-            staged_cpp=Path(td)/"v347-public-harness.cpp"
-            staged_cpp.write_text(instrumented,encoding="utf-8")
-            command=[
-                compiler,"-std=c++20","-fsyntax-only",
-                "-Wall","-Wextra","-Werror","-Wno-type-limits",
-                "-Wno-unused-label",
-                "-I"+str(HERE),
-                "-I"+str(HERE.parents[1]/"nWiiRuntime"/"include"),
-                str(staged_cpp),
-            ]
-            try:
-                result=subprocess.run(command,capture_output=True,text=True,
-                                      timeout=120,check=False)
-            except subprocess.TimeoutExpired:
-                self.fail("V347_PUBLIC_CPP compile_timeout")
-            # V350: output only a compiler category and source-only line,
-            # not raw C++ diagnostics or proprietary data.
-            if result.returncode:
-                import re
-                errors=[line for line in result.stderr.splitlines()
-                        if "error:" in line or "fatal error:" in line]
-                first=errors[0] if errors else ""
-                categories=(
-                    ("undeclared", "undeclared"),
-                    ("not declared", "undeclared"),
-                    ("no member", "member"),
-                    ("expected", "syntax"),
-                    ("redefinition", "redefinition"),
-                    ("ambiguous", "ambiguous"),
-                    ("unused", "unused"),
-                    ("does not name", "type"),
-                    ("no matching function", "signature"),
-                    ("invalid conversion", "conversion"),
-                    ("fatal error:", "include"),
+            # The public-only V298 job has no NWiiRuntime checkout;
+            # V351 source-only CI supplies the SHA-pinned patched runtime.
+            # No CI result may call a skipped syntax check "verified".
+            runtime_root=os.environ.get("V347_NWII_ROOT")
+            if runtime_root is None:
+                print("V351_PUBLIC_CPP source=1 syntax=0 runtime=0")
+            else:
+                self.assertTrue(
+                    (Path(runtime_root)/"nWiiRuntime"/"include"/"runtime"/"cpu_context.h").is_file(),
+                    "V351_PUBLIC_CPP runtime_headers_missing"
                 )
-                kind=next((name for token,name in categories if token in first),
-                          "other")
-                match=re.search(r"v347-public-harness\.cpp:(\d+)",first)
-                line=int(match.group(1)) if match else 0
-                print(f"V350_PUBLIC_CPP_DIAG kind={kind} "
-                      f"first_line={min(line,9999999)} "
-                      f"errors={min(len(errors),9999)}",
-                      flush=True)
-            self.assertEqual(result.returncode,0,
-                             "V347_PUBLIC_CPP compile_failed")
-            print("V347_PUBLIC_CPP source=1 syntax=1 original_free=1")
+
+                # V347: compile the complete independently derived PUBLIC harness
+                # before any owner original/ELF step. Syntax-only means no native
+                # game code is linked, loaded, or executed in this test.
+                compiler=shutil.which("g++")
+                self.assertIsNotNone(compiler,"V347_PUBLIC_CPP compiler_unavailable")
+                staged_cpp=Path(td)/"v347-public-harness.cpp"
+                staged_cpp.write_text(instrumented,encoding="utf-8")
+                command=[
+                    compiler,"-std=c++20","-fsyntax-only",
+                    "-Wall","-Wextra","-Werror","-Wno-type-limits",
+                    "-Wno-unused-label",
+                    "-I"+str(HERE),
+                    "-I"+str(Path(runtime_root)/"nWiiRuntime"/"include"),
+                    str(staged_cpp),
+                ]
+                try:
+                    result=subprocess.run(command,capture_output=True,text=True,
+                                          timeout=120,check=False)
+                except subprocess.TimeoutExpired:
+                    self.fail("V347_PUBLIC_CPP compile_timeout")
+                # V350: output only a compiler category and source-only line,
+                # not raw C++ diagnostics or proprietary data.
+                if result.returncode:
+                    import re
+                    errors=[line for line in result.stderr.splitlines()
+                            if "error:" in line or "fatal error:" in line]
+                    first=errors[0] if errors else ""
+                    categories=(
+                        ("undeclared", "undeclared"),
+                        ("not declared", "undeclared"),
+                        ("no member", "member"),
+                        ("expected", "syntax"),
+                        ("redefinition", "redefinition"),
+                        ("ambiguous", "ambiguous"),
+                        ("unused", "unused"),
+                        ("does not name", "type"),
+                        ("no matching function", "signature"),
+                        ("invalid conversion", "conversion"),
+                        ("fatal error:", "include"),
+                    )
+                    kind=next((name for token,name in categories if token in first),
+                              "other")
+                    match=re.search(r"v347-public-harness\.cpp:(\d+)",first)
+                    line=int(match.group(1)) if match else 0
+                    print(f"V350_PUBLIC_CPP_DIAG kind={kind} "
+                          f"first_line={min(line,9999999)} "
+                          f"errors={min(len(errors),9999)}",
+                          flush=True)
+                self.assertEqual(result.returncode,0,
+                                 "V347_PUBLIC_CPP compile_failed")
+                print("V347_PUBLIC_CPP source=1 syntax=1 original_free=1")
             print("V342_HARNESS_SMOKE scope=1 probe=1 entry=1 origfree=1")
 
 if __name__=="__main__":
