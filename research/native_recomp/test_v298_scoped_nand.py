@@ -552,6 +552,8 @@ class Tests(unittest.TestCase):
         self.assertIn("analyze_v335_nand_ipc_frontier.py",r)
         self.assertIn("V335_IPC_STAGE inspected=1",r)
         self.assertIn("derive_v340_nand_mmio_probe.py",r)
+        self.assertIn("derive_v352_nand_mailbox_route.py",r)
+        self.assertIn("V352_NAND_ROUTE_STAGE install=1",r)
         self.assertIn("V341_SCOPE_STAGE derive=1",r)
         self.assertIn("V341_PROBE_STAGE install=1",r)
         self.assertIn("analyze_v340_nand_mmio.py",r)

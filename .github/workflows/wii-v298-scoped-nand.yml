@@ -25,6 +25,7 @@ on:
       - 'research/native_recomp/*v335*'
       - 'research/native_recomp/*v340*'
       - 'research/native_recomp/*v342*'
+      - 'research/native_recomp/*v352*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -87,6 +88,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v340_nand_mmio_probe.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v340_nand_mmio.py' -v
           python3 -m py_compile research/native_recomp/test_v342_full_harness_smoke.py
+          python3 -m py_compile research/native_recomp/derive_v352_nand_mailbox_route.py research/native_recomp/test_v352_nand_mailbox_route.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v352_nand_mailbox_route.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v342_full_harness_smoke.py' -v
           bash -n research/native_recomp/run_v298_scoped_nand.sh
           # V330 source-only provenance for the native 0474 cache-syscall assertion.
@@ -225,6 +228,7 @@ jobs:
               grep -E '^V333_NAND_CACHE rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] complete=[01] child=[01] early=[01] late=[01] writer=[01] sc_done=[0-9]{1,4}$|^V333_CACHE_AUDIT verified=[01]$|^V333_CACHE_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V335_IPC_FRONTIER rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] sc_done=[0-9]{1,4} irq=[01] queue=[01] send=[01] ctrl=[01] chain=[0-4]$|^V335_IPC_AUDIT verified=[01]$|^V335_IPC_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V340_MMIO_PROBE installed=1 bounded=16 original_guest=1$|^V340_MMIO_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] observed=[0-9]{1,4} other=[0-9]{1,4} msg=[0-9]{1,4} ctrl=[0-9]{1,4} mask=[0-9]{1,4} flag=[0-9]{1,4} old_ack=[01] old_submit=[01] old_send=[01] readable=[0-9]{1,4}$|^V340_MMIO_AUDIT verified=1$|^V340_MMIO_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V352_NAND_ROUTE installed=1 original_guest=1$|^V352_NAND_ROUTE_STAGE install=1$|^V352_NAND_BUS kind=[12] mapped=[01] accepted=[01] queued=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V319_NATIVE_ENTRIES rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] complete=[01] known_markers=[0-9]{1,5} helper41=[01] helper64=[01] ios_request=[01] allocator_tail=[01] flush=[01] branch_a=[01] branch_b=[01]$|^V319_ENTRY_AUDIT verified=[01]$|^V319_ENTRY_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V321_ENTRY_PROBE installed=[01]( targets=8 bounded=1)?$|^V321_ENTRY_COMPARISON targets=8 base_mask=[0-9a-f]{2} restored_mask=[0-9a-f]{2} added_mask=[0-9a-f]{2} lost_mask=[0-9a-f]{2} base_complete=[01] restored_complete=[01]$|^V321_ENTRY_AUDIT verified=[01]$|^V321_ENTRY_COMPARE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V323_SECOND_COVERAGE owner=1 targets=5 original=[0-5] missing=[0-5] partial=[0-5] unknown=[0-5] body=[0-5] dispatch=[0-5]$|^V323_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$|^V323_SECOND_AUDIT verified=[01]$|^V323_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
