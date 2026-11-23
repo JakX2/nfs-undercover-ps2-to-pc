@@ -24,6 +24,7 @@ on:
       - 'research/native_recomp/*v333*'
       - 'research/native_recomp/*v335*'
       - 'research/native_recomp/*v340*'
+      - 'research/native_recomp/*v342*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -85,6 +86,8 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v340_nand_mmio_probe.py research/native_recomp/test_v340_nand_mmio_probe.py research/native_recomp/analyze_v340_nand_mmio.py research/native_recomp/test_v340_nand_mmio.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v340_nand_mmio_probe.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v340_nand_mmio.py' -v
+          python3 -m py_compile research/native_recomp/test_v342_full_harness_smoke.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v342_full_harness_smoke.py' -v
           bash -n research/native_recomp/run_v298_scoped_nand.sh
           # V330 source-only provenance for the native 0474 cache-syscall assertion.
           # Only source filenames and line numbers appear in CI, never C++ contents.
