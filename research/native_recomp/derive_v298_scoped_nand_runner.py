@@ -17,8 +17,11 @@ echo 'V341_SCOPE_STAGE derive=1'
 python3 "$V110_SOURCE_ROOT/derive_v352_nand_mailbox_route.py" \
     "$work/v298-scoped-harness.cpp" "$work/v352-harness.cpp"
 echo 'V352_NAND_ROUTE_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v367_nand_irq_mask_route.py" \
+    "$work/v352-harness.cpp" "$work/v367-harness.cpp"
+echo 'V367_MASK_ROUTE_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v340_nand_mmio_probe.py" \
-    "$work/v352-harness.cpp" "$work/v340-harness.cpp"
+    "$work/v367-harness.cpp" "$work/v340-harness.cpp"
 echo 'V341_PROBE_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v321_guest_entry_probe.py" \
     "$work/v340-harness.cpp" "$work/v321-harness.cpp"
@@ -269,6 +272,9 @@ echo 'V362_EXIT_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v365_nand_irq_readiness.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V365_IRQ_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v367_nand_irq_mask.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V367_MASK_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
