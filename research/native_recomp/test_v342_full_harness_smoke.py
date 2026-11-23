@@ -23,6 +23,7 @@ from derive_v298_scope_reply_observer import (
 from derive_v340_nand_mmio_probe import patch as mmio
 from derive_v352_nand_mailbox_route import patch as mailbox_route
 from derive_v367_nand_irq_mask_route import patch as mask_route
+from derive_v369_post_ack_mmio_probe import patch as post_ack_mmio
 from derive_v321_guest_entry_probe import patch as entry
 from derive_v359_post_x1_call_probe import patch as post_x1
 from derive_v361_nand_ios_yield import patch as nand_yield
@@ -86,6 +87,8 @@ class Tests(unittest.TestCase):
             self.assertIn("ipc70_bus.write32(addr,value)",routed)
             routed=mask_route(routed)
             self.assertIn("V367_NAND_IRQ_MASK n=",routed)
+            routed=post_ack_mmio(routed)
+            self.assertEqual(routed.count("V369_POST_ACK_MMIO n="),1)
             observed=mmio(routed)
             self.assertIn("V340_NAND_MMIO n=",observed)
             instrumented=irq_ready(nand_yield(post_x1(entry(observed))))
