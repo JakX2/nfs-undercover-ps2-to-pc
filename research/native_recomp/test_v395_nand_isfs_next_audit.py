@@ -38,6 +38,12 @@ class Tests(unittest.TestCase):
         self.assertIn('first_bad=2',s)
         self.assertNotIn('PRIVATE-NAND-ADDRESS',s)
         self.assertNotIn('DEADBEEF',s)
+    def test_unexpected_optional_callback_target_does_not_count_as_failure(self):
+        unknown=E.replace('mapped=1','mapped=0').replace('selected=1','selected=0').replace('userdata=1','userdata=0').replace('nand=1','nand=0')
+        report=run(unknown+T)
+        self.assertIn('next_verified=1',report)
+        self.assertIn('entry_all_mask=0F',report)
+        self.assertIn('first_bad=0',report)
     def test_empty_census_masks_report_zero(self):
         result=run('')
         self.assertIn('entry_any_mask=00 entry_all_mask=00',result)

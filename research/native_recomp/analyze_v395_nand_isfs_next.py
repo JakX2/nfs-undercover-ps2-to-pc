@@ -31,7 +31,8 @@ def inspect(path:Path,rc:int)->str:
             mask=sum(bit<<i for i,bit in enumerate(bits))
             entry_or|=mask
             entry_and&=mask
-            if mask!=0xff and not first_bad:first_bad=entries
+            # Bits 4-7 are optional classifications, not proof failures.
+            if (mask&0x0f)!=0x0f and not first_bad:first_bad=entries
             valid=valid and bool(guest and clear and masked and registered)
             mapped_any|=mapped;selected_any|=selected;userdata_any|=userdata;nand_any|=nand
             continue
