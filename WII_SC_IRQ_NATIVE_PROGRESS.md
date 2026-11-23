@@ -20,14 +20,35 @@ zero completed trials. These are reproducible native failures, **not**
 successful 96-call execution. Existing 24- and 48-call evidence is
 preserved; native callback completion remains unverified.
 
-**Active source-only diagnostics:** V406 logs at most 48 exact, sanitized
-original guest call-entry checkpoints after the verified 48-call stop. Its
-dedicated private-log scanner can retain 48 records without weakening the
-16-record default used by older acceptance gates. V407 separately
-classifies C++ native exception/public harness-assertion provenance
-without emitting private assertions, game code, opcodes or register values.
-Do not claim these new diagnoses passed authenticated owner execution until
-their own CI gates finish.
+**New authenticated abort diagnosis:** The V406 original-game
+[owner run 45287152415](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45287152415)
+recorded exactly two contiguous function entries **49 and 50** before
+signal 134: `seen=2 first=49 last=50 mask=8 contiguous=1 boundary96=0`.
+The LR-origin mask is the V397 "other" class, not a guest target address;
+the crashing instruction and attempted call 51 are **not** established.
+V406's isolated scanner retains at most 48 privacy-safe checkpoints and
+leaves older 16-trial acceptance gates unchanged.
+
+The independently authenticated
+[V407 owner run 45287957475](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45287957475)
+confirmed both experimental 96-call binaries terminate in a **known
+public-harness `std::runtime_error` assertion**
+(`rc=134 kind=signal known_public=1 exception=runtime`). This does
+not establish which public check failed or prove an original PowerPC
+fault. Source-only diagnostic V407 has been extended to report only the
+safe four-digit public-check ID and fixed stage enum in the next
+authenticated owner run, to determine whether a legacy bounded
+expectation rather than the original game's execution is responsible.
+
+**Native Windows host progress:** Original-free Hollywood IPC, IRQ and
+IOS MMIO tests passed under MSVC x64
+([workflow 45288740161](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45288740161)).
+The expanded eight-test suite, including STM, NAND reply, guest FS,
+SYSCONF and deferred IOS service, also passed after fixing two
+explicit `size_t`-to-`unsigned` warnings in the synthetic SYSCONF builder
+([workflow 45289246309](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45289246309)).
+These are original-free host runtime components, **not** a booted
+native Windows Undercover executable.
 
 **Not yet achieved:** completed native NAND/SC callback transition, exit
 from OSInit into the original `main`, complete original-game Windows
