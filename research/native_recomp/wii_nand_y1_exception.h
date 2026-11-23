@@ -7,7 +7,9 @@
 
 // Y1-only external exception gating for an already-published native
 // Broadway IOS reply. The installed original guest exception vector is
-// verified by enter_external_irq. No guest handler, rfi, ACK, synthetic
+// verified by enter_external_irq. A published Y1 may coexist with other
+// queued completions; those remain blocked from publication until guest ACK.
+// No guest handler, rfi, ACK, synthetic
 // response, or host-side PowerPC execution is performed here.
 //
 // The caller must supply an actual next-not-yet-executed guest instruction
@@ -24,8 +26,7 @@ ExternalEntry enter_queued_nand_y1(Context& cpu,IosBus& bus,
     const auto flag=bus.read32(IosBus::IPC+H::PPC_FLAG);
     if(!ctrl||!flag||(*ctrl&M::Y1)==0u||(*ctrl&M::Y2)!=0u||
        (*flag&H::IPC_PPC)==0u||
-       bus.pending_native_ios_request()||
-       bus.services().queued_replies()!=0u){
+       bus.pending_native_ios_request()){
         return ExternalEntry::NotPending;
     }
     return enter_external_irq(cpu,bus,installed,safe_guest_boundary);

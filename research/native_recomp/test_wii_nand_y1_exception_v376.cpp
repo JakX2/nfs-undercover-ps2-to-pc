@@ -100,5 +100,50 @@ int main(){
          "IRQ helper improperly ACKed hardware or invented guest handler");
     need(entry()==ExternalEntry::NotPending,
          "guest EE disabled after exception entry should mask re-entry");
+    // A delivered Broadway Y1 remains genuine while another native IOS
+    // completion awaits scheduling. Queue occupancy must not mask a
+    // hardware IRQ that is already latched and eligible in guest MSR.
+    {
+        Ram multi_ram;B multi_bus(multi_ram);Cpu multi{{multi_ram}};
+        for(unsigned i=0;i<vector.size();++i)
+            multi_ram.write8(0x500u+i,vector[i]);
+        constexpr uint32_t first=0x200u,second=0x280u;
+        constexpr uint32_t firstpath=0xa00u,secondpath=0xb00u;
+        multi_ram.put_path(firstpath,"/dev/stm/immediate");
+        multi_ram.put_path(secondpath,"/dev/stm/eventhook");
+        multi_ram.write32(first,S::Open);multi_ram.write32(first+12u,firstpath);
+        multi_ram.write32(second,S::Open);multi_ram.write32(second+12u,secondpath);
+        const auto multi_write=[&](uint32_t a,uint32_t v){
+            need(multi_bus.write32(a,v),"multiple-request MMIO write failed");
+        };
+        multi_write(B::IPC+H::PPC_MASK,H::IPC_PPC);
+        multi_write(B::PI_MASK,H::PI_HOLLYWOOD);
+        IosYieldScheduler multi_scheduler(multi_bus);
+        const auto ack=[&](uint32_t req){
+            multi_write(B::IPC+M::PPCMSG,req);
+            multi_write(B::IPC+M::PPCCTRL,ien|M::X1);
+            need(multi_scheduler.service_one(multi.msr).progress==S::Pump::Ack,
+                 "multiple-request native ACK missing");
+            multi_write(B::IPC+M::PPCCTRL,ien|M::Y2);
+            multi_write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        };
+        ack(first);ack(second);
+        need(multi_bus.services().queued_replies()==2u,
+             "multiple-request pre-publication queue count differs");
+        const auto first_reply=service_deferred_reply_at_guest_boundary(
+            multi_bus,multi.msr);
+        need(first_reply&&first_reply->progress==S::Pump::Replied&&
+             multi_bus.services().queued_replies()==1u&&
+             multi_ram.read32(first)==S::Reply&&
+             multi_ram.read32(second)==S::Open,
+             "first real Y1 did not leave second completion queued");
+        const auto multi_result=enter_queued_nand_y1(multi,multi_bus,vector,true);
+        need(multi_result==ExternalEntry::Entered&&
+             multi.pc==ExternalVector&&multi.srr0==0x805265d4u&&
+             multi_bus.services().queued_replies()==1u&&
+             (multi_bus.read32(B::IPC+M::PPCCTRL).value()&M::Y1)!=0u&&
+             multi_ram.read32(second)==S::Open,
+             "real Y1 was masked or pending IOS queue was mutated");
+    }
     std::cout<<"PASS: V376 authentic IOS Y1 exception entry saves guest SRRs and keeps reply latched\n";
 }

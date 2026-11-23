@@ -15,6 +15,8 @@ import sys
 from derive_v375_nand_y1_boundary import INJECTION as BOUNDARY_INJECTION
 
 HEAD="void trace_call(uint32_t addr, CPUContext&ctx){"
+INCLUDE='#include "native_external_irq.h"'
+ADD_INCLUDE='#include "wii_nand_y1_exception.h"'
 PRIOR="V374_NAND_REPLY_GATE n="
 TIMELINE="V373_NAND_IRQ_TIMELINE n="
 MARKER="V376_NAND_VECTOR n="
@@ -50,7 +52,7 @@ INJECTION=r"""
       const uint64_t instructions=ctx.inst_count;
       const auto gprs=ctx.gpr;
       const auto result=safe&&installed?
-          undercover::wii::enter_external_irq(
+          undercover::wii::enter_queued_nand_y1(
               ctx,ipc70_bus,irq74_vector,true):
           undercover::wii::ExternalEntry::Deferred;
       const bool entered=result==undercover::wii::ExternalEntry::Entered&&
@@ -86,13 +88,14 @@ INJECTION=r"""
 def patch(source:str)->str:
     if (source.count(HEAD+BOUNDARY_INJECTION)!=1 or source.count(PRIOR)!=1 or
         source.count(TIMELINE)!=1 or source.count('V375_NAND_Y1_BOUNDARY n=')!=1 or
-        source.count('native_external_irq.h')!=1 or
+        source.count(INCLUDE)!=1 or ADD_INCLUDE in source or
         'irq74_vector' not in source or
         source.count('v250_candidate_mode')<2 or
         source.count('v250_nand_seen')<2 or MARKER in source):
         raise ValueError("V376 authenticated guest IRQ entry seam changed")
-    output=source.replace(HEAD+BOUNDARY_INJECTION,HEAD+BOUNDARY_INJECTION+INJECTION,1)
-    if output.count(MARKER)!=1 or output.replace(HEAD+BOUNDARY_INJECTION+INJECTION,HEAD+BOUNDARY_INJECTION,1)!=source:
+    output=source.replace(INCLUDE,INCLUDE+'\n'+ADD_INCLUDE,1)
+    output=output.replace(HEAD+BOUNDARY_INJECTION,HEAD+BOUNDARY_INJECTION+INJECTION,1)
+    if output.count(MARKER)!=1 or output.replace(HEAD+BOUNDARY_INJECTION+INJECTION,HEAD+BOUNDARY_INJECTION,1).replace(INCLUDE+'\n'+ADD_INCLUDE,INCLUDE,1)!=source:
         raise ValueError("V376 source-only interrupt injection not reversible")
     return output
 

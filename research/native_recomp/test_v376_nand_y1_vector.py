@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """V376 original-free source seam and PowerPC exception boundary review."""
 import unittest
-from derive_v376_nand_y1_vector import HEAD,PRIOR,TIMELINE,MARKER,INJECTION,BOUNDARY_INJECTION,patch
+from derive_v376_nand_y1_vector import HEAD,PRIOR,TIMELINE,MARKER,INJECTION,BOUNDARY_INJECTION,INCLUDE,ADD_INCLUDE,patch
 
 FIXTURE=(
     '#include "native_external_irq.h"\n'
@@ -19,7 +19,9 @@ class Tests(unittest.TestCase):
     def test_reversible_exact_single_irq_guard(self):
         altered=patch(FIXTURE)
         self.assertEqual(altered.count(MARKER),1)
-        self.assertEqual(altered.replace(HEAD+BOUNDARY_INJECTION+INJECTION,HEAD+BOUNDARY_INJECTION,1),FIXTURE)
+        self.assertIn(ADD_INCLUDE,altered)
+        self.assertNotIn('enter_external_irq(',INJECTION)
+        self.assertEqual(altered.replace(HEAD+BOUNDARY_INJECTION+INJECTION,HEAD+BOUNDARY_INJECTION,1).replace(INCLUDE+'\n'+ADD_INCLUDE,INCLUDE,1),FIXTURE)
         self.assertEqual(altered.count(PRIOR),1)
         self.assertEqual(altered.count(TIMELINE),1)
 
@@ -34,7 +36,7 @@ class Tests(unittest.TestCase):
             'ctx.pc==addr','ctx.is_running','!(ctx.pc&3u)','!ctx.dispatch_saved_ctx',
             '!(ctx.msr&undercover::wii::ExternalUnsupportedMsr)',
             'irq74_vector[i]',
-            'enter_external_irq(', 'ctx,ipc70_bus,irq74_vector,true',
+            'enter_queued_nand_y1(', 'ctx,ipc70_bus,irq74_vector,true',
             'ctx.srr0==resume','ctx.srr1==',
             'ctx.msr==(msr&~undercover::wii::ExternalMsrClear)',
             'ctx.gpr==gprs','ctx.lr==lr','ctx.ctr==ctr','ctx.xer==xer',
