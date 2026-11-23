@@ -22,8 +22,8 @@ or as proof of NAND callback completion.
 | V377 | Translated original vector executed and reached the Wii OS exception handler at `0x80526CE0` | Stops at handler entry |
 | V378 | Original Wii OS exception-handler body executed and reached the IRQ dispatcher at `0x80526A3C` | Dispatcher body not yet completed |
 | V379 | Original IRQ dispatcher called genuine `OSGetTime` at `0x8052A824` | No registered IPC handler yet; first original helper not fully executed |
-| V380 | Original `OSGetTime` to `OSDisableScheduler` continuation staged in owner CI | Pending authenticated original test |
-| V381 | Registered IRQ slot 27 IPC handler continuation staged separately, unpublished pending V380 result | Not a verified NAND milestone |
+| V380 | Original `OSGetTime` returned through IRQ dispatcher to `OSDisableScheduler` at `0x805293F8`; 13 bounded positive observations | Stops at scheduler entry |
+| V381 | Original scheduler to registered IRQ slot-27 IPC handler at `0x80519318` integrated in owner CI | Not yet authenticated; IPC callback unverified |
 
 ### Repeatable sanitized outcomes
 
@@ -93,6 +93,15 @@ V378_NAND_DISPATCH_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=1
 V377_NAND_HANDLER_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 vectors=13 handlers=13 trials=13 vector_any=1 handler_any=1 trial_any=1 chain_verified=1
 ```
 
+Owner run [45121381861](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45121381861)
+confirmed the authentic Wii IRQ dispatcher executed the original `OSGetTime`
+body and reached `OSDisableScheduler` at `0x805293F8`. All earlier
+V377–V379 checkpoint censuses remained positive:
+
+```text
+V380_NAND_SCHED_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=13 trials=13 entry_any=1 trial_any=1 scheduler_verified=1
+```
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -122,11 +131,10 @@ V376 has now been authenticated in the owner run. V377, V378 and V379
 executed progressively larger portions of the installed original Wii vector,
 OS exception handler, dispatcher and `OSGetTime` entry.
 
-The next verified frontier is V380: execute the original `OSGetTime`
-instructions and observe the genuine `OSDisableScheduler` call at
-`0x805293F8`. After that, V381 will execute the original scheduler and
+The next unverified frontier is V381: execute the original scheduler and
 check dispatch to the guest-registered IPC handler at `0x80519318` with IRQ
-slot 27 and the original saved exception frame. These NAND-specific tests
+slot 27 and the original saved exception frame. The V380 original-timebase
+checkpoint has already been authenticated. These NAND-specific tests
 must not borrow the SC-only previous IOS reply values or force a successful
 IOS response. Completion of the actual NAND callback and full native Wii
 boot remain unverified.
