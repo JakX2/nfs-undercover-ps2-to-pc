@@ -40,6 +40,7 @@ on:
       - 'research/native_recomp/*v374*'
       - 'research/native_recomp/*v375*'
       - 'research/native_recomp/*v376*'
+      - 'research/native_recomp/*v377*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -128,6 +129,9 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v376_nand_y1_vector.py research/native_recomp/test_v376_nand_y1_vector.py research/native_recomp/analyze_v376_nand_y1_vector.py research/native_recomp/test_v376_nand_y1_vector_audit.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v376_nand_y1_vector.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v376_nand_y1_vector_audit.py' -v
+          python3 -m py_compile research/native_recomp/derive_v377_nand_vector_handler.py research/native_recomp/test_v377_nand_vector_handler.py research/native_recomp/analyze_v377_nand_vector_handler.py research/native_recomp/test_v377_nand_vector_handler_audit.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v377_nand_vector_handler.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v377_nand_vector_handler_audit.py' -v
           g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
               -Iresearch/native_recomp research/native_recomp/test_wii_nand_ios_reply_v374.cpp \
               -o "$RUNNER_TEMP/v374-native-reply"
@@ -303,6 +307,7 @@ jobs:
               grep -E '^V370_FLAG_ROUTE installed=1 original_guest=1 w1c=1$|^V370_FLAG_ROUTE_STAGE install=1$|^V370_NAND_FLAG_W1C n=([1-9]|1[0-6]) accepted=[01] before=[01] write_ipc=[01] remaining=[01] irq=[01] queued=[01]$|^V370_FLAG_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] writes=([0-9]|1[0-6]) accepted=([0-9]|1[0-6]) ipc_write=[01] cleared=[01] retained_any=[01] queued_any=[01] irq_any=[01]$|^V370_FLAG_AUDIT verified=1$|^V370_FLAG_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SEAM exact=[012] label=[012] state=[012] flag=[012] candidate=[01] nand=[01] queued=[01]$|^V372_SC_TRIAL_SCOPE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SCOPE installed=1 guest_unchanged=1 ios_unchanged=1$|^V372_SC_TRIAL_SCOPE_STAGE install=1$|^V372_NAND_SC_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) bridge_any=[01] queued_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] irq_any=[01] ee_any=[01]$|^V372_NAND_SC_AUDIT verified=1$|^V372_NAND_SC_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V377_NAND_HANDLER_ROUTE installed=1 original_guest=1 resume_original_vector=1 sc_oracle_preserved=1$|^V377_NAND_HANDLER_STAGE (install|inspected)=1$|^V377_NAND_HANDLER_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] vectors=([0-9]|1[0-6]) handlers=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) vector_any=[01] handler_any=[01] trial_any=[01] chain_verified=[01]$|^V377_NAND_HANDLER_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V376_NAND_VECTOR_ROUTE installed=1 original_guest=1 bounded=16 stop_at_vector=1$|^V376_NAND_VECTOR_STAGE (install|inspected)=1$|^V376_NAND_VECTOR_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) eligible_any=[01] safe_any=[01] installed_any=[01] entered_any=[01] saved_any=[01] regs_any=[01] masked_any=[01] queued_any=[01] handler_executed=0$|^V376_NAND_VECTOR_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V375_NAND_Y1_BOUNDARY installed=1 original_guest=1 read_only=1 bounded=24$|^V375_Y1_BOUNDARY_STAGE (install|inspected)=1$|^V375_Y1_BOUNDARY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-9]|2[0-4]) first_preemptible=([0-9]|1[0-9]|2[0-4]) call_any=[01] running_any=[01] free_any=[01] aligned_any=[01] mode_any=[01] installed_any=[01] preemptible_any=[01] drained_any=[01] site_mask=[0-7]$|^V375_Y1_BOUNDARY_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V374_NAND_REPLY_ROUTE installed=1 original_guest=1 authentic_yield=1$|^V374_NAND_REPLY_STAGE (install|inspected)=1$|^V374_NAND_REPLY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) ready_any=[01] blocked_y_any=[01] blocked_flag_any=[01] serviced_any=[01] replied_any=[01] y1_any=[01] queued_any=[01] irq_any=[01] eligible_any=[01]$|^V374_NAND_REPLY_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
