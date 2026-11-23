@@ -531,7 +531,10 @@ else
 fi
 if g++ "$work/v402-harness.o" "$work/v310-generated.o" "$work/loader.o" \
     -o "$work/v402-native" > "$work/v402-link.log" 2>&1; then
-  test -s "$work/v402-native" && test -x "$work/v402-native"
+  if ! test -s "$work/v402-native" || ! test -x "$work/v402-native"; then
+    echo 'V402_LONG_STAGE link=0'
+    exit 1
+  fi
   echo 'V402_LONG_STAGE link=1'
 else
   python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
@@ -546,9 +549,13 @@ timeout --signal=TERM --kill-after=3s 12s \
 v402_rc=$?
 set -e
 echo 'V402_LONG_STAGE run=1'
-python3 "$V110_SOURCE_ROOT/analyze_v402_long_frontier.py" \
-    "$work/v402-native.log" "$v402_rc"
-echo 'V402_LONG_STAGE inspected=1'
+if python3 "$V110_SOURCE_ROOT/analyze_v402_long_frontier.py" \
+    "$work/v402-native.log" "$v402_rc"; then
+  echo 'V402_LONG_STAGE inspected=1'
+else
+  echo 'V402_LONG_STAGE inspected=0'
+  exit 1
+fi
 ); then
   echo 'V402_LONG_STAGE attempt=completed'
 else
