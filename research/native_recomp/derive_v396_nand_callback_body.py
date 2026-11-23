@@ -133,7 +133,7 @@ def patch(s:str)->str:
         block=out[start:stop]
         if block.count(old)!=1:
             raise ValueError("V396 inherited guest evidence PC seam moved")
-        block=block.replace(old,"("+old+"||\n        ("+later+"))",1)
+        block=block.replace(old,"(("+old+")||\n        ("+later+"))",1)
         out=out[:start]+block+out[stop:]
     start=out.index("const bool v395_completed=")
     end=out.index('std::cout<<"V395_NAND_ISFS_TRIAL',start)
