@@ -25,14 +25,16 @@ class Tests(unittest.TestCase):
             "terminate called after throwing an instance of 'std::runtime_error'\n"+
             'what(): Known public check\n')
         self.assertIn('candidate=v404 rc=134 kind=signal',text)
-        self.assertIn('known_public=1 exception=runtime callback=1',text)
+        self.assertIn('known_public=1 public_id=0001 phase=other',text)
+        self.assertIn('exception=runtime callback=1',text)
         self.assertIn('boot_verified=0',text)
         self.assertNotIn('Known public check',text)
     def test_unknown_original_guest_message_not_exported(self):
         raw=BASE+'what(): SECRET_PRIVATE_GAME_CODE 0x81234567\n'
         text=run(raw,candidate='v405')
         self.assertIn('candidate=v405 rc=134 kind=signal',text)
-        self.assertIn('known_public=0 exception=unclassified',text)
+        self.assertIn('known_public=0 public_id=0000 phase=other',text)
+        self.assertIn('exception=unclassified',text)
         self.assertNotIn('SECRET_PRIVATE_GAME_CODE',text)
         self.assertNotIn('0x81234567',text)
     def test_cpp_exception_categories_and_no_boot_claim(self):

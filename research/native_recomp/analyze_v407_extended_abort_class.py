@@ -27,16 +27,38 @@ def inspect(path:Path,harness:Path,rc:int,candidate:str)->str:
     if rc<0 or rc>255:
         raise ValueError('invalid_status')
     public_source=harness.read_text(encoding='utf-8',errors='replace')
-    summary,_=classify_public_abort(path,public_source,rc)
+    summary,public_claim=classify_public_abort(path,public_source,rc)
     m=SUMMARY.fullmatch(summary)
     if not m or int(m.group(1))!=rc:
         raise ValueError('invalid_public_abort_summary')
     _,kind,band,callback,_child,_early,ident,known,exception=m.groups()
     if (int(known)!=int(int(ident)>0)):
         raise ValueError('invalid_public_provenance')
+    # The classification source is the original-free, independently
+    # written host harness, not generated copyrighted game instructions.
+    # Print only an exact four-digit public string ID and a fixed enum.
+    safe_match=re.fullmatch(
+        r'V250_PUBLIC_FAILURE id=([0-9]{4}) label=[A-Za-z0-9 _.,:/()\\-]{1,170} '
+        r'callback=[01] nand=[01] trials=[0-9]{1,2}',
+        public_claim)
+    if safe_match is None or safe_match.group(1)!=ident:
+        raise ValueError('public_id_mismatch')
+    phase='other'
+    for prefix in ('V404','V403','V402','V401','V400','V399',
+                   'V398','V397','V396','V395','V394','V393',
+                   'V392','V391','V390','V389','V388','V387',
+                   'V386','V385','V384','V383','V382','V381',
+                   'V380','V379','V378','V377','V376','V375',
+                   'V374','V373','V372','V370','V367','V365',
+                   'V361','V353','V340','V310','V298','V295',
+                   'V250','V178'):
+        if f'label={prefix}' in public_claim:
+            phase=prefix.lower()
+            break
     return (
         f'V407_NATIVE_ABORT_CLASS candidate={candidate} rc={rc} '
         f'kind={kind} size_band={band} known_public={known} '
+        f'public_id={ident} phase={phase} '
         f'exception={exception} callback={callback} '
         f'boot_verified=0'
     )
