@@ -36,7 +36,8 @@ or as proof of NAND callback completion.
 | V391 | Second authentic post-ACK, reply-handler-owned call identified as another cache-related guest callee; 12 retained positive owner pairs | No context or callback call observed in retained V391 boundary |
 | V392 | First reply-handler-owned non-cache guest callee after repeated cache work classified as Wii OS context management, 12 retained original observations | No callback observed; exact context target not exported by sanitized census |
 | V393 | Original Wii context-management code proceeded to guest `OSSetCurrentContext` at `0x805228CC` from the reply handler; 12 verified pairs | No ISFS callback entry; original setter body unverified |
-| V394 | Continue genuine `OSSetCurrentContext` into original `_isfsFuncCb` at `0x804F0E04`, classifying live IOS header/ABI | Owner-original test pending; not proof of NAND completion |
+| V394 | Original `OSSetCurrentContext` executed to genuine `_isfsFuncCb` entry at `0x804F0E04`; guest header, selected callback, return status and userdata all matched in retained owner observations | ISFS callback body not yet executed; NAND completion callback separate |
+| V395 | Continue original `_isfsFuncCb` into its first real translated guest callee and classify `nandOpenCallback` at `0x8051E06C` | Owner CI pending; no callback execution claim |
 
 ### Repeatable sanitized outcomes
 
@@ -311,6 +312,23 @@ ISFS callback, or the original NAND completion callback. V394 tests
 that next original indirect call without substituting a specific IOS
 reply result or guest request pointer.
 
+Owner run [45234055004](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45234055004)
+continued the original guest `OSSetCurrentContext` code and reached
+the genuine indirect `_isfsFuncCb` at `0x804F0E04`, with live
+Broadway/Hollywood ACK state still clear. In all retained observations,
+the mapped guest request header selected the actual function entry,
+and the original argument result and user-data values agreed with
+guest request fields:
+
+```text
+V394_NAND_ISFS_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 mapped_any=1 selected_any=1 result_any=1 userdata_any=1 isfs_entry_verified=1
+```
+
+This is **ISFS middleware callback entry and verified guest ABI**,
+not completion of the outer NAND open callback or full startup.
+V395 advances into the genuine translated `_isfsFuncCb` body to
+determine which original nested function is actually called.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -360,14 +378,16 @@ disclosed in the bounded public record.
 
 V393 authenticated the next reply-handler-owned guest call as
 `OSSetCurrentContext` from the original NAND context-management path.
-V394 is the next unverified frontier: execute the original setter
-and verify the genuine indirect `_isfsFuncCb` entry, checking
-guest-visible request fields, return status and user data without
-assuming the historical SC error code.
+V394 authenticated original `OSSetCurrentContext` execution
+to the indirect `_isfsFuncCb` entry, with callback selection,
+return-status argument and user data verified against the actual
+guest-visible request header. V395 now executes the translated
+`_isfsFuncCb` body and checks its first genuine nested guest call,
+classifying the known NAND open callback target without inventing it.
 
-That ISFS callback entry, if reached, is still distinct from
-execution of the NAND completion callback. The latter and full
-native Wii startup remain unverified.
+Reaching `nandOpenCallback` entry would still differ from executing
+its body and returning to original NAND startup logic. Completion of
+that callback and the first full native Wii boot are unverified.
 
 ## Windows original-free regression
 
