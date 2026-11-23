@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """V392 bounded original NAND repeated-cache successor original-free tests."""
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 import unittest
 from test_v391_nand_post_ack_next import Tests as Fixture391
 from derive_v391_nand_post_ack_next import patch as v391
@@ -52,6 +56,43 @@ class Tests(unittest.TestCase):
         self.assertIn('if(v391_kind==1u){',CONTINUE)
         self.assertIn('return; // execute authentic post-ACK original guest callee',CONTINUE)
         self.assertIn('ctx.is_running=false;throw ExceptionStop{};',CONTINUE)
+    def test_synthetic_guest_completion_predicates_compile_with_wall_werror(self):
+        compiler=shutil.which('g++')
+        if compiler is None:
+            self.skipTest('g++ not installed on this host')
+        output=patch(self.prior)
+        predicates=[]
+        for start_marker,end_marker in (
+            ('const bool v390_completed=', 'std::cout<<"V390_NAND_POST_ACK_TRIAL'),
+            ('const bool v391_completed=', 'std::cout<<"V391_NAND_POST_ACK_TRIAL'),
+        ):
+            start=output.index(start_marker)
+            end=output.index(end_marker,start)
+            predicates.append(output[start:end])
+        harness=(
+            '#include <cstdint>\n'
+            'struct Context { uint32_t pc=0u,lr=0u; };\n'
+            'namespace nwii { namespace runtime {\n'
+            '  uint32_t v390_call_seen=0u,v390_call_pc=0u,v390_call_lr=0u;\n'
+            '  uint32_t v391_kind=0u,v391_calls=0u;\n'
+            '  uint32_t v391_next_pc=0u,v391_next_lr=0u;\n'
+            '  uint32_t v392_kind=0u,v392_next_pc=0u,v392_next_lr=0u;\n'
+            '} }\n'
+            'int main() {\n'
+            '  Context c{};\n'
+            '  const bool v389_completed=true;\n'
+            +'\n'.join(predicates)+
+            '\n  return int(v391_completed);\n}\n'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            file=Path(td)/'original_free_v392.cpp'
+            file.write_text(harness,encoding='utf-8')
+            proc=subprocess.run(
+                [compiler,'-std=c++20','-Wall','-Wextra','-Werror',
+                 '-Wno-unused-variable','-fsyntax-only',str(file)],
+                capture_output=True,text=True,check=False)
+            self.assertEqual(proc.returncode,0,proc.stderr[-1600:])
+
     def test_reject_prior_nand_ack_or_cache_witness_mutation(self):
         for altered in (
             self.prior.replace("V391_NAND_POST_ACK_EVENT kind=","missing"),

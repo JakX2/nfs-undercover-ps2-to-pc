@@ -120,13 +120,15 @@ def patch(source:str)->str:
     s=s.replace(HEAD,HEAD+TRACE,1)
     # Permit earlier V390 and V391 evidence checks to terminate at the
     # strictly later real original guest stop. No prior marker is erased.
-    earlier="c.pc==nwii::runtime::v391_next_pc&&\n         c.lr==nwii::runtime::v391_next_lr"
+    earlier="(nwii::runtime::v391_kind!=0u&&\n         c.pc==nwii::runtime::v391_next_pc&&\n         c.lr==nwii::runtime::v391_next_lr)"
     later="nwii::runtime::v392_kind!=0u&&\n         c.pc==nwii::runtime::v392_next_pc&&\n         c.lr==nwii::runtime::v392_next_lr"
     start=s.index("const bool v390_completed=")
     end=s.index('std::cout<<"V390_NAND_POST_ACK_TRIAL',start)
     span=s[start:end]
     if span.count(earlier)!=1:raise ValueError("V392 earlier V390 owner call geometry changed")
-    s=s[:start]+span.replace(earlier,"("+earlier+")||\n        ("+later+")",1)+s[end:]
+    # Preserve GCC -Wparentheses correctness: group each complete
+    # authenticated stop alternative, not just its PC/LR subexpression.
+    s=s[:start]+span.replace(earlier,"("+earlier+"||\n        ("+later+"))",1)+s[end:]
     start=s.index("const bool v391_completed=")
     end=s.index('std::cout<<"V391_NAND_POST_ACK_TRIAL',start)
     span=s[start:end]
