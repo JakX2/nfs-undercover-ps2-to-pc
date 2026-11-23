@@ -15,7 +15,7 @@
 // this generic original-free hardware helper cannot verify game identity.
 namespace undercover::wii {
 template<class Context,size_t N>
-ExternalEntry enter_queued_nand_y1(Context& cpu,const IosBus& bus,
+ExternalEntry enter_queued_nand_y1(Context& cpu,IosBus& bus,
                                     const std::array<uint8_t,N>& installed,
                                     bool safe_guest_boundary){
     using M=IpcMailbox;
