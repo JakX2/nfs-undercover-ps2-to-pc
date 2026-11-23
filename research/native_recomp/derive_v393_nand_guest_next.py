@@ -130,7 +130,7 @@ def patch(source:str)->str:
         block=s[pos:stop]
         if block.count(old)!=1:
             raise ValueError("V393 preceding NAND guest completion proof moved")
-        block=block.replace(old,"("+old+"||\n        ("+later+"))",1)
+        block=block.replace(old,"(("+old+")||\n        ("+later+"))",1)
         s=s[:pos]+block+s[stop:]
     begin=s.index("const bool v392_completed=")
     end=s.index('std::cout<<"V392_NAND_POST_CACHE_TRIAL',begin)
