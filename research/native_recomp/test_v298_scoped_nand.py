@@ -14,6 +14,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
                                                 NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,
                                                 NAND_CTRL_READ_OLD,NAND_CTRL_READ_NEW,NAND_CTRL_READ_LABEL,
+                                                NAND_CTRL_WRITE_OLD,NAND_CTRL_WRITE_NEW,NAND_CTRL_WRITE_LABEL,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
                                                 SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
@@ -40,6 +41,8 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     check(false,"V117 original IPC send register call ABI differs");\n'+
         NAND_CTRL_READ_OLD+
         '\n     check(false,"V118 original IPC control-register read call differs");\n'+
+        NAND_CTRL_WRITE_OLD+
+        '\n     check(false,"V119 original IPC control-write helper did not follow genuine read");\n'+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -502,6 +505,29 @@ class Tests(unittest.TestCase):
             SOURCE.replace(NAND_CTRL_READ_OLD,"",1),
             SOURCE+"\n"+NAND_CTRL_READ_OLD,
             SOURCE.replace(NAND_CTRL_READ_LABEL,"changed original V118 check",1),
+        ):
+            with self.subTest(size=len(altered)):
+                with self.assertRaises(ValueError):
+                    scope(altered)
+
+    def test_v354_control_writer_stays_original_and_legacy_probe_is_scoped(self):
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(NAND_CTRL_WRITE_NEW),1)
+        self.assertEqual(scoped.count(NAND_CTRL_WRITE_LABEL),1)
+        self.assertNotIn(NAND_CTRL_WRITE_OLD,scoped)
+        self.assertIn("addr==0x8051906cu&&ctx.lr==0x805197c8u",NAND_CTRL_WRITE_NEW)
+        self.assertIn("post118_sleep==1u&&post117_send==1u",NAND_CTRL_WRITE_NEW)
+        self.assertIn("(!v250_candidate_mode||v250_nand_seen==0u)",NAND_CTRL_WRITE_NEW)
+        for forbidden in ("ipc70_bus.write32", "ctx.gpr", "ctx.msr=", "return;", "ctx.is_running=false", "post119_control++"):
+            self.assertNotIn(forbidden,NAND_CTRL_WRITE_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                enabled=not(candidate and nand)
+                self.assertEqual(enabled,(not candidate or not nand))
+        for altered in (
+            SOURCE.replace(NAND_CTRL_WRITE_OLD,"",1),
+            SOURCE+"\n"+NAND_CTRL_WRITE_OLD,
+            SOURCE.replace(NAND_CTRL_WRITE_LABEL,"old V119 label changed",1),
         ):
             with self.subTest(size=len(altered)):
                 with self.assertRaises(ValueError):

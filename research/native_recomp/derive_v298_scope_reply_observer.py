@@ -158,6 +158,14 @@ NAND_CTRL_READ_NEW=("if(post117_send==1u&&addr==0x8051905cu&&ctx.lr==0x805197b8u
                     "(!v250_candidate_mode||v250_nand_seen==0u)){")
 NAND_CTRL_READ_LABEL="V118 original IPC control-register read call differs"
 
+# V354: V119 tested a synchronous first-SC control-write callsite with
+# counters for an earlier request. Authentic NAND reaches the same PPC
+# register writer with different counters; keep original code and MMIO.
+NAND_CTRL_WRITE_OLD="if(post118_sleep==1u&&post117_send==1u&&addr==0x8051906cu&&ctx.lr==0x805197c8u){"
+NAND_CTRL_WRITE_NEW=("if(post118_sleep==1u&&post117_send==1u&&addr==0x8051906cu&&ctx.lr==0x805197c8u&&"
+                     "(!v250_candidate_mode||v250_nand_seen==0u)){")
+NAND_CTRL_WRITE_LABEL="V119 original IPC control-write helper did not follow genuine read"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -314,6 +322,7 @@ def patch(source: str) -> str:
         source.count(NAND_QUEUE_OLD)!=1 or source.count(NAND_QUEUE_LABEL)!=1 or
         source.count(NAND_SEND_OLD)!=1 or source.count(NAND_SEND_LABEL)!=1 or
         source.count(NAND_CTRL_READ_OLD)!=1 or source.count(NAND_CTRL_READ_LABEL)!=1 or
+        source.count(NAND_CTRL_WRITE_OLD)!=1 or source.count(NAND_CTRL_WRITE_LABEL)!=1 or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         source.count(SUBMIT_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
@@ -340,6 +349,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_QUEUE_OLD,NAND_QUEUE_NEW,1)
     output=output.replace(NAND_SEND_OLD,NAND_SEND_NEW,1)
     output=output.replace(NAND_CTRL_READ_OLD,NAND_CTRL_READ_NEW,1)
+    output=output.replace(NAND_CTRL_WRITE_OLD,NAND_CTRL_WRITE_NEW,1)
     ack=choose_ack_mmio_branch(output)
     if ACK_MMIO_PHASE in ack.group("cond"):
         raise ValueError("V344 ACK branch already scoped")
@@ -368,6 +378,7 @@ def patch(source: str) -> str:
         output.count(NAND_QUEUE_NEW)!=1 or output.count(NAND_QUEUE_LABEL)!=1 or
         output.count(NAND_SEND_NEW)!=1 or output.count(NAND_SEND_LABEL)!=1 or
         output.count(NAND_CTRL_READ_NEW)!=1 or output.count(NAND_CTRL_READ_LABEL)!=1 or
+        output.count(NAND_CTRL_WRITE_NEW)!=1 or output.count(NAND_CTRL_WRITE_LABEL)!=1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
         SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or
