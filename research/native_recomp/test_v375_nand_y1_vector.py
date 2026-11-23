@@ -43,21 +43,17 @@ class Tests(unittest.TestCase):
             self.assertIn(anchor,INJECTION,anchor)
 
     def test_no_fake_ios_reply_or_guest_register_override(self):
+        import re
         for bad in (
             'ipc70_bus.tick(', 'service_one(', 'ipc70_bus.write32(',
-            'ipc70_ram.write32(', 'ctx.pc=', 'ctx.msr=', 'ctx.gpr[3]=',
-            'ctx.lr=', 'ctx.ctr=', 'ctx.srr0=', 'ctx.srr1=',
-            'ctx.inst_count=', 'run_game(ctx)', 'ctx.is_running=true',
+            'ipc70_ram.write32(', 'run_game(ctx)', 'ctx.is_running=true',
             'ctx.mmu.write', '<<ctx.pc','<<ctx.lr','<<ctx.msr',
             'StmIos::Reply', 'StmIos::Open','IOS::Invalid'
         ):
-            # Comparisons contain ==, not assignments. Match only explicit writes.
-            if bad in ('ctx.pc=', 'ctx.msr=', 'ctx.lr=', 'ctx.ctr=',
-                       'ctx.inst_count='):
-                import re
-                self.assertIsNone(re.search(r'\b'+re.escape(bad)+r'(?!=)',INJECTION),bad)
-            else:
-                self.assertNotIn(bad,INJECTION,bad)
+            self.assertNotIn(bad,INJECTION,bad)
+        for register in ('pc','msr','lr','ctr','srr0','srr1','inst_count'):
+            self.assertIsNone(re.search(r'\bctx\.'+register+r'\s*=(?!=)',INJECTION),register)
+        self.assertIsNone(re.search(r'\bctx\.gpr\s*\[\s*3\s*\]\s*=(?!=)',INJECTION))
 
     def test_changed_authentication_seams_fail_closed(self):
         variants=(
