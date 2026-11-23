@@ -13,6 +13,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_IRQ_OLD,NAND_IRQ_NEW,NAND_IRQ_LABEL,
                                                 NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
                                                 NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,
+                                                NAND_CTRL_READ_OLD,NAND_CTRL_READ_NEW,NAND_CTRL_READ_LABEL,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
                                                 SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
@@ -37,6 +38,8 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     check(false,"V116 original IOS request queue-helper boundary differs");\n'+
         NAND_SEND_OLD+
         '\n     check(false,"V117 original IPC send register call ABI differs");\n'+
+        NAND_CTRL_READ_OLD+
+        '\n     check(false,"V118 original IPC control-register read call differs");\n'+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -480,6 +483,29 @@ class Tests(unittest.TestCase):
                               "\n   if(submit72_active){}\n",1)
         with self.assertRaises(ValueError):
             scope(closed)
+
+    def test_v353_original_nand_control_reader_executes_without_old_v118_assert(self):
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(NAND_CTRL_READ_NEW),1)
+        self.assertEqual(scoped.count(NAND_CTRL_READ_LABEL),1)
+        self.assertNotIn(NAND_CTRL_READ_OLD,scoped)
+        self.assertIn("addr==0x8051905cu&&ctx.lr==0x805197b8u",NAND_CTRL_READ_NEW)
+        self.assertIn("post117_send==1u",NAND_CTRL_READ_NEW)
+        self.assertIn("(!v250_candidate_mode||v250_nand_seen==0u)",NAND_CTRL_READ_NEW)
+        for forbidden in ("ipc70_bus.read32", "ctx.gpr", "ctx.msr=", "return;", "ctx.is_running=false"):
+            self.assertNotIn(forbidden,NAND_CTRL_READ_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                enabled=not(candidate and nand)
+                self.assertEqual(enabled,(not candidate or not nand))
+        for altered in (
+            SOURCE.replace(NAND_CTRL_READ_OLD,"",1),
+            SOURCE+"\n"+NAND_CTRL_READ_OLD,
+            SOURCE.replace(NAND_CTRL_READ_LABEL,"changed original V118 check",1),
+        ):
+            with self.subTest(size=len(altered)):
+                with self.assertRaises(ValueError):
+                    scope(altered)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
