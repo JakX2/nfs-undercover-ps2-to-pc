@@ -60,6 +60,49 @@ class Tests(unittest.TestCase):
                 '-Werror','-Wno-unused-variable','-fsyntax-only',str(p)],
                 capture_output=True,text=True,check=False)
             self.assertEqual(out.returncode,0,out.stderr[-1400:])
+    def test_pending_hook_compiles_and_executes_without_guest_mutation(self):
+        compiler=shutil.which('g++')
+        if compiler is None:self.skipTest('g++ unavailable')
+        fixture=(
+            '#include <cstdint>\n'
+            'struct Memory{uint32_t data=1u;void* get_ptr(uint32_t pc){'
+            'return pc==0x804f0f54u?&data:nullptr;}};\n'
+            'struct CPUContext{uint32_t pc=0x804f0f54u;'
+            'uint64_t inst_count=101u;Memory mmu;};\n'
+            'namespace nwii{namespace runtime{\n'
+            'bool v250_candidate_mode=true;\n'
+            'unsigned v250_nand_seen=1u,v394_isfs_seen=1u,'
+            'v395_next_seen=1u,v396_kind=0u,v396_calls=3u;\n'
+            'uint64_t v396_start_inst=100u;\n'
+            'uint32_t v395_next_lr=0x804f0f54u;\n'
+            'unsigned v398_samples=0u,v398_site_seen=0u,'
+            'v398_site_mapped=0u,v398_pre_cap=0u;\n'
+            +PENDING_HOOK+' return false;\n}\n}}\n'
+            'int main(){CPUContext ctx{};'
+            'uint32_t saved_pc=ctx.pc;'
+            'nwii::runtime::process_pending_callbacks(ctx);'
+            'if(ctx.pc!=saved_pc||ctx.inst_count!=101u||'
+            'nwii::runtime::v398_samples!=1u||'
+            'nwii::runtime::v398_site_seen!=1u||'
+            'nwii::runtime::v398_site_mapped!=1u||'
+            'nwii::runtime::v398_pre_cap!=1u)return 1;'
+            'ctx.pc=0x80510000u;ctx.inst_count=102u;'
+            'nwii::runtime::process_pending_callbacks(ctx);'
+            'if(ctx.pc!=0x80510000u||nwii::runtime::v398_samples!=2u)return 2;'
+            'return 0;}\n'
+        )
+        with tempfile.TemporaryDirectory() as td:
+            cpp=Path(td)/'synthetic.cpp'
+            exe=Path(td)/'synthetic'
+            cpp.write_text(fixture,encoding='utf-8')
+            build=subprocess.run([compiler,'-std=c++20','-O1','-Wall',
+                 '-Wextra','-Werror','-pedantic',str(cpp),'-o',str(exe)],
+                 capture_output=True,text=True,check=False)
+            self.assertEqual(build.returncode,0,build.stderr[-1800:])
+            executed=subprocess.run([str(exe)],capture_output=True,text=True,
+                                    check=False,timeout=5)
+            self.assertEqual(executed.returncode,0,executed.stderr[-1200:])
+
     def test_seam_changes_fail_closed(self):
         for altered in (
             self.prior.replace(STATE,'gone',1),

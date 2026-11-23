@@ -455,6 +455,8 @@ jobs:
           grep -Fx 'V396_OWNER_RESULT_GATE verified=1' "$RUNNER_TEMP/sc298.log"
           grep -Fx 'V397_OWNER_RESULT_GATE verified=1 return_verified=0' "$RUNNER_TEMP/sc298.log"
           grep -Fx 'V398_OWNER_RESULT_GATE verified=1 blr_verified=0' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V397_NAND_ORIGINS_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 mask=([1-9]|1[0-5]) full_cap_all=[01] selected_any=[01] isfs_any=[01] parent_any=[01] other_any=[01] same_lr_any=[01] lineage_verified=1 return_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V398_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 max_samples=([0-9]|[1-5][0-9]|6[0-4]) sampled_any=[01] site_any=[01] mapped_any=[01] before_cap_any=[01] witness_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
           if grep -Fqx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
             grep -Fx 'V295_BOUNDED_CANDIDATE inspected=1' "$RUNNER_TEMP/sc298.log"
           else
