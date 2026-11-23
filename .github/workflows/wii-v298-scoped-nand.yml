@@ -39,6 +39,8 @@ on:
       - 'research/native_recomp/*v373*'
       - 'research/native_recomp/*v374*'
       - 'research/native_recomp/*v375*'
+      - 'research/native_recomp/*v376*'
+      - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -127,6 +129,10 @@ jobs:
               -Iresearch/native_recomp research/native_recomp/test_wii_nand_ios_reply_v374.cpp \
               -o "$RUNNER_TEMP/v374-native-reply"
           "$RUNNER_TEMP/v374-native-reply"
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -no-pie \
+              -Iresearch/native_recomp research/native_recomp/test_wii_nand_y1_exception_v376.cpp \
+              -o "$RUNNER_TEMP/v376-native-y1-exception"
+          "$RUNNER_TEMP/v376-native-y1-exception"
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -no-pie \
             research/native_recomp/test_wii_nand_irq_mask_v368.cpp -o "$RUNNER_TEMP/nand-mask-v368"
           "$RUNNER_TEMP/nand-mask-v368"
