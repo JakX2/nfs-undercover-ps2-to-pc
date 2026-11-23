@@ -15,22 +15,39 @@ def inspect(path:Path,rc:int)->str:
     size,lines=read_edges(path)
     vectors=handlers=trials=0
     vector_ok=handler_ok=trial_ok=0
+    all_valid=True
     for line in lines:
         m=VECTOR.fullmatch(line)
         if m:
-            if vectors>=16:break
-            vectors+=1;vector_ok|=int(all(v=='1' for v in m.groups()))
+            if vectors>=16 or vectors!=handlers or handlers!=trials:
+                all_valid=False
+                break
+            vectors+=1
+            this_ok=all(v=='1' for v in m.groups())
+            vector_ok|=int(this_ok)
+            all_valid=all_valid and this_ok
             continue
         m=HANDLER.fullmatch(line)
         if m:
-            if handlers>=16 or handlers>=vectors:break
-            handlers+=1;handler_ok|=int(all(v=='1' for v in m.groups()))
+            if handlers>=16 or handlers>=vectors or handlers!=trials:
+                all_valid=False
+                break
+            handlers+=1
+            this_ok=all(v=='1' for v in m.groups())
+            handler_ok|=int(this_ok)
+            all_valid=all_valid and this_ok
             continue
         m=TRIAL.fullmatch(line)
         if m:
-            if trials>=16 or trials>=handlers:break
-            trials+=1;trial_ok|=int(all(v=='1' for v in m.groups()))
-    verified=int(vectors>0 and vectors==handlers==trials and
+            if trials>=16 or trials>=handlers or handlers!=vectors:
+                all_valid=False
+                break
+            trials+=1
+            this_ok=all(v=='1' for v in m.groups())
+            trial_ok|=int(this_ok)
+            all_valid=all_valid and this_ok
+    verified=int(all_valid and vectors>0 and
+                 vectors==handlers==trials and
                  vector_ok and handler_ok and trial_ok)
     return (
         f'V377_NAND_HANDLER_CENSUS rc={rc} kind={category(rc)} '

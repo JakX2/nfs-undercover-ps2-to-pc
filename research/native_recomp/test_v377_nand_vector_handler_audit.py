@@ -31,6 +31,21 @@ class Tests(unittest.TestCase):
             'prefix '+generate(),generate().split('\n',1)[0]+'\n'
         ):
             self.assertIn('chain_verified=0',go(raw),raw)
+    def test_mixed_good_bad_or_out_of_order_never_proves_chain(self):
+        good=generate()
+        wrong=generate(h=0)
+        for raw in (
+            good+wrong,
+            wrong+good,
+            good+generate(v=0),
+            good+generate(t=0),
+            generate().split('\n')[0]+'\n'+good,
+            good+generate().split('\n')[1]+'\n',
+            good+generate().split('\n')[2]+'\n',
+            generate().split('\n')[0]+'\n'+
+              generate().split('\n')[0]+'\n'
+        ):
+            self.assertIn('chain_verified=0',go(raw),raw)
     def test_bounded_logging_and_truncation(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'private.log'

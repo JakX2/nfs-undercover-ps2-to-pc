@@ -12,24 +12,33 @@ def inspect(path:Path,rc:int)->str:
     size,lines=read_edges(path)
     entries=trials=0
     entry_any=trial_any=0
+    all_valid=True
     for line in lines:
         e=ENTRY.fullmatch(line)
         if e:
-            if entries>=16:break
+            if entries>=16 or entries!=trials:
+                all_valid=False
+                break
             entries+=1
-            entry_any|=int(all(x=='1' for x in e.groups()))
+            this_ok=all(x=='1' for x in e.groups())
+            entry_any|=int(this_ok)
+            all_valid=all_valid and this_ok
             continue
         t=TRIAL.fullmatch(line)
         if t:
-            if trials>=entries or trials>=16:break
+            if trials>=entries or trials>=16:
+                all_valid=False
+                break
             trials+=1
-            trial_any|=int(all(x=='1' for x in t.groups()))
+            this_ok=all(x=='1' for x in t.groups())
+            trial_any|=int(this_ok)
+            all_valid=all_valid and this_ok
     return (
         f'V378_NAND_DISPATCH_CENSUS rc={rc} kind={category(rc)} '
         f'size_band={size_band(size)} sample_complete={int(size<=WINDOW)} '
         f'entries={entries} trials={trials} '
         f'entry_any={int(bool(entry_any))} trial_any={int(bool(trial_any))} '
-        f'dispatch_verified={int(bool(entries and entries==trials and entry_any and trial_any))}'
+        f'dispatch_verified={int(bool(all_valid and entries and entries==trials and entry_any and trial_any))}'
     )
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)

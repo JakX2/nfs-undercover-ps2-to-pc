@@ -23,6 +23,16 @@ class Tests(unittest.TestCase):
         for text in ('',T,'prefix '+E+T,E,E+T.replace('completed=1','completed=0'),
                      E.replace('y1=1','y1=0')+T):
             self.assertIn('dispatch_verified=0',run(text),text)
+    def test_mixed_good_bad_or_out_of_order_never_proves_dispatch(self):
+        for raw in (
+            E+T+E.replace('y1=1','y1=0')+T,
+            E.replace('regs=1','regs=0')+T+E+T,
+            E+T+E+T.replace('dispatch=1','dispatch=0'),
+            E+E+T+T,
+            E+T+T,
+            T+E+T
+        ):
+            self.assertIn('dispatch_verified=0',run(raw),raw)
     def test_larger_than_privacy_window_is_reported_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             file=Path(tmp)/'private.log'
