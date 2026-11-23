@@ -25,7 +25,8 @@ class Tests(unittest.TestCase):
         e403=E403.replace('family=0','family=4').replace('v401_kind=1','v401_kind=5')
         t403=T403.replace('family=0','family=4')
         out=run((e401+e403+t403)*16)
-        self.assertIn('family4=16 ctr_trials=16',out)
+        self.assertIn('family4=16',out)
+        self.assertIn('ctr_trials=16',out)
         self.assertIn('classified=1 blr_verified=0',out)
     def test_malformed_or_unpaired_events_fail_closed(self):
         for bad in (
