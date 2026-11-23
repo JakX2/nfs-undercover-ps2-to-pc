@@ -261,6 +261,9 @@ echo 'V359_X1_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v361_nand_ios_yield.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V361_IOS_YIELD_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v362_bounded_native_exit.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V362_EXIT_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

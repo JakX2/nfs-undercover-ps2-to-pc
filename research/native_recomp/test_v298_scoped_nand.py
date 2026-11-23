@@ -767,6 +767,8 @@ class Tests(unittest.TestCase):
         self.assertIn("derive_v361_nand_ios_yield.py",r)
         self.assertIn("analyze_v361_nand_ios_yield.py",r)
         self.assertIn("V361_IOS_YIELD_STAGE inspected=1",r)
+        self.assertIn("analyze_v362_bounded_native_exit.py",r)
+        self.assertIn("V362_EXIT_STAGE inspected=1",r)
         self.assertIn("analyze_v359_post_x1_calls.py",r)
         self.assertIn("V359_X1_STAGE inspected=1",r)
         self.assertIn("analyze_v321_native_entry_comparison.py",r)
