@@ -37,7 +37,8 @@ or as proof of NAND callback completion.
 | V392 | First reply-handler-owned non-cache guest callee after repeated cache work classified as Wii OS context management, 12 retained original observations | No callback observed; exact context target not exported by sanitized census |
 | V393 | Original Wii context-management code proceeded to guest `OSSetCurrentContext` at `0x805228CC` from the reply handler; 12 verified pairs | No ISFS callback entry; original setter body unverified |
 | V394 | Original `OSSetCurrentContext` executed to genuine `_isfsFuncCb` entry at `0x804F0E04`; guest header, selected callback, return status and userdata all matched in retained owner observations | ISFS callback body not yet executed; NAND completion callback separate |
-| V395 | Continue original `_isfsFuncCb` into its first real translated guest callee and classify `nandOpenCallback` at `0x8051E06C` | Owner CI pending; no callback execution claim |
+| V395 | Original `_isfsFuncCb` executed into a guest-selected callee with matching runtime callback pointer and userdata; 16 authenticated pairs | Does not match earlier fixed callback/LR classification; selected callee body still unverified |
+| V396 | Continue the guest-selected callback's authentic AOT body to its next bounded original call, or 24-call cap | Owner CI pending; no callback return or boot claim |
 
 ### Repeatable sanitized outcomes
 
@@ -329,6 +330,23 @@ not completion of the outer NAND open callback or full startup.
 V395 advances into the genuine translated `_isfsFuncCb` body to
 determine which original nested function is actually called.
 
+Owner run [45240325924](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45240325924)
+corrected a false-negative V395 audit caused by head/tail sampling of the
+private log: some genuine marker pairs were omitted from the middle.
+The new strict streaming scanner retains only capped, exact Boolean
+markers and reveals no original guest code, registers or request addresses.
+
+```text
+V395_NAND_FIELD_CENSUS entries=16 trials=16 entry_any_mask=7F entry_all_mask=7F trial_any_mask=7 trial_all_mask=7 first_bad=0 order_ok=1
+V395_NAND_ISFS_NEXT_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=16 trials=16 mapped_any=1 selected_any=1 userdata_any=1 nand_any=0 next_verified=1
+V394_NAND_ISFS_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=16 trials=16 mapped_any=1 selected_any=1 result_any=1 userdata_any=1 isfs_entry_verified=1
+```
+
+The first nested guest function matches the runtime-selected callback
+pointer and userdata. It does not match the fixed `0x8051E06C` with
+LR classification from an earlier first NAND-open callback path, so
+`nand_any=0` is not itself a failure. V396 must follow the dynamically
+observed target rather than substituting the historical function.
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -376,18 +394,16 @@ context-management function entry, with both hardware ACKs complete
 and the native IRQ line down. The exact context target is not
 disclosed in the bounded public record.
 
-V393 authenticated the next reply-handler-owned guest call as
-`OSSetCurrentContext` from the original NAND context-management path.
-V394 authenticated original `OSSetCurrentContext` execution
-to the indirect `_isfsFuncCb` entry, with callback selection,
-return-status argument and user data verified against the actual
-guest-visible request header. V395 now executes the translated
-`_isfsFuncCb` body and checks its first genuine nested guest call,
-classifying the known NAND open callback target without inventing it.
+V393 authenticated `OSSetCurrentContext` and V394 reached the genuine
+`_isfsFuncCb` entry with original callback selection, return-status
+argument and userdata preserved. V395 executed that middleware callback
+to a dynamically selected original guest callee, independently of the
+earlier fixed NAND-open callback target. This is an authentic entry,
+not simulated callback execution or successful NAND completion.
 
-Reaching `nandOpenCallback` entry would still differ from executing
-its body and returning to original NAND startup logic. Completion of
-that callback and the first full native Wii boot are unverified.
+V396 follows that actual original guest-selected function with a
+strict 24-call cap. Completion of its body, return to NAND startup
+logic, and the first full native Wii boot all remain unverified.
 
 ## Windows original-free regression
 

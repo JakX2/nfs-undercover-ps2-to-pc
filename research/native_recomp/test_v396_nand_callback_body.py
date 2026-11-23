@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """V396 source originality, selected callback provenance and safety tests."""
 import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 import unittest
 from test_v395_nand_isfs_next import Tests as Fixture395
 from derive_v395_nand_isfs_next import patch as v395
@@ -46,6 +50,45 @@ class Tests(unittest.TestCase):
             if forbidden.endswith('='):
                 self.assertIsNone(re.search(r'\b'+re.escape(forbidden)+r'(?!=)',TRACE))
             else:self.assertNotIn(forbidden,TRACE)
+    def test_original_guest_completion_predicates_compile_werror(self):
+        compiler=shutil.which('g++')
+        if compiler is None:self.skipTest('g++ is unavailable')
+        source=patch(self.prior)
+        blocks=[]
+        for name,finish in (
+            ('const bool v390_completed=', 'std::cout<<"V390_NAND_POST_ACK_TRIAL'),
+            ('const bool v391_completed=', 'std::cout<<"V391_NAND_POST_ACK_TRIAL'),
+            ('const bool v392_completed=', 'std::cout<<"V392_NAND_POST_CACHE_TRIAL'),
+            ('const bool v393_completed=', 'std::cout<<"V393_NAND_NEXT_TRIAL'),
+            ('const bool v394_completed=', 'std::cout<<"V394_NAND_ISFS_TRIAL'),
+            ('const bool v395_completed=', 'std::cout<<"V395_NAND_ISFS_TRIAL'),
+            ('const bool v396_completed=', 'std::cout<<"V396_NAND_CB_TRIAL'),
+        ):
+            i=source.index(name);j=source.index(finish,i)
+            blocks.append(source[i:j])
+        fixture=(
+            '#include <cstdint>\n'
+            'struct Context{uint32_t pc=0u,lr=0u;bool is_running=false;};\n'
+            'namespace nwii{namespace runtime{\n'
+            'uint32_t v390_call_seen=0u,v390_call_pc=0u,v390_call_lr=0u;\n'
+            'uint32_t v391_kind=0u,v391_calls=0u,v391_next_pc=0u,v391_next_lr=0u;\n'
+            'uint32_t v392_kind=0u,v392_calls=0u,v392_next_pc=0u,v392_next_lr=0u;\n'
+            'uint32_t v393_next_seen=0u,v393_next_pc=0u,v393_next_lr=0u;\n'
+            'uint32_t v394_context_seen=0u,v394_isfs_seen=0u;\n'
+            'uint32_t v395_next_seen=0u,v395_next_pc=0u,v395_next_lr=0u;\n'
+            'uint32_t v396_kind=0u,v396_calls=0u,v396_stop_pc=0u,v396_stop_lr=0u;\n'
+            '}}\n'
+            'int main(){Context c{};const bool v389_completed=true;\n'
+            +'\n'.join(blocks)+'\nreturn int(v396_completed);}\n'
+        )
+        with tempfile.TemporaryDirectory() as d:
+            file=Path(d)/'original_free_v396.cpp'
+            file.write_text(fixture,encoding='utf-8')
+            result=subprocess.run(
+                [compiler,'-std=c++20','-Wall','-Wextra','-Werror',
+                 '-Wno-unused-variable','-fsyntax-only',str(file)],
+                capture_output=True,text=True,check=False)
+            self.assertEqual(result.returncode,0,result.stderr[-1600:])
     def test_prior_guest_observer_drift_detected(self):
         for changed in (
             self.prior.replace('V395_NAND_ISFS_NEXT guest=','lost'),
