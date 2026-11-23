@@ -54,7 +54,7 @@ class Tests(unittest.TestCase):
                 f.seek(WINDOW+400)
                 f.write(b"\n"+GOOD.encode("utf-8"))
             row=inspect(p,0)
-            self.assertIn("sample_complete=0 owner_pass=1 harness_complete=1",row)
+            self.assertIn("sample_complete=0 owner_pass=1 synthetic_pass=0 harness_complete=1",row)
 
     def test_invalid_exit_code_is_fail_closed(self):
         for code in (-1,256):
