@@ -31,6 +31,8 @@ or as proof of NAND callback completion.
 | V386 | Second reader executed into the next genuine translated guest callee; retained 12 valid pairs, hardware Y1 still asserted | Historical SC writer/callsite and cache classification absent, actual callee unresolved |
 | V387 | Original post-reply callee executed into another genuine guest function with Y1 still pending; 12 bounded positive pairs | No original Y1 ACK and no historical IPC writer match in sampled frontier |
 | V388 | Original Wii reply-handler guest call chain reached the PPC register writer and issued genuine Broadway `PPCCTRL.Y1` W1C; retained 12 verified pairs | Hollywood `PPC_FLAG` still asserted, no NAND callback or boot |
+| V389 | Original Wii PowerPC subsequently issued a distinct Hollywood `PPC_FLAG.IPC_PPC` W1C, lowering the native IRQ level; 12 bounded verified pairs | No return to NAND callback yet |
+| V390 | Continue translated guest execution through both completed MMIO ACKs to the first original post-ACK call | Authenticated owner test pending; no cache/context/callback claim |
 
 ### Repeatable sanitized outcomes
 
@@ -219,6 +221,24 @@ had one missing source-shape guard (a V386 marker mutation was not
 rejected); its correction and two-request MMIO regression are staged
 separately from the authenticated game-code evidence.
 
+Owner run [45130565691](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45130565691)
+continued the authentic original guest call chain beyond Broadway's
+`PPCCTRL.Y1` acknowledgement and observed a **second distinct original**
+Hollywood `PPC_FLAG.IPC_PPC` write-one-to-clear. After that write the
+Hollywood bit cleared and the native IRQ line was no longer asserted.
+This occurred through the translated original Wii code, not a fabricated
+host acknowledgement:
+
+```text
+V389_NAND_FLAG_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 flag_ack_verified=1
+V388_NAND_BOUNDED_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 ack_any=1 bounded_any=0 writer_any=1 read_any=1 cache_any=0 bounded_verified=1
+```
+
+V389 deliberately stopped immediately after the actual Hollywood MMIO
+write, before the original PPC handler continued to its next call. V390
+removes only this instrumentation stop, preserving both guest-owned ACKs
+and stopping at the first naturally linked original post-ACK callee.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -253,10 +273,13 @@ NAND ARMMSG coherency. V386 and V387 each advanced to genuine guest
 successors, but neither observed a Broadway Y1 W1C nor the expected
 historical SC writer/callsite pair. V388 executed a bounded original guest call chain and reached the
 genuine `PPCCTRL.Y1` W1C before exhausting the call budget.
-The next unverified step is the original Hollywood `PPC_FLAG` W1C,
-which must occur separately, without overwriting the guest's IOS reply
-or clearing that latch inside the observer. The NAND completion callback
-and complete native boot have not been verified.
+V389 independently verified the subsequent genuine Hollywood
+`PPC_FLAG.IPC_PPC` W1C and native IRQ deassertion. V390 now executes
+the translated original handler beyond those two distinct guest ACKs
+and observes its first next guest call. Earlier SC/Y1 research entered
+`DCInvalidateRange` after the ACK, but the NAND path must authenticate
+its own callee without enforcing the historical SC address or IOS result.
+The NAND completion callback and complete native boot have not been verified.
 
 ## Windows original-free regression
 
