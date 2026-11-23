@@ -33,7 +33,8 @@ or as proof of NAND callback completion.
 | V388 | Original Wii reply-handler guest call chain reached the PPC register writer and issued genuine Broadway `PPCCTRL.Y1` W1C; retained 12 verified pairs | Hollywood `PPC_FLAG` still asserted, no NAND callback or boot |
 | V389 | Original Wii PowerPC subsequently issued a distinct Hollywood `PPC_FLAG.IPC_PPC` W1C, lowering the native IRQ level; 12 bounded verified pairs | No return to NAND callback yet |
 | V390 | Original translated NAND IPC reply handler executed past both hardware ACKs to its post-ACK cache-invalidation helper; 12 retained authentic pairs | Cache-helper entry only; NAND callback not reached |
-| V391 | Bounded continuation from the cache-helper entry toward the reply handler's next guest callee | Owner test pending, does not claim callback execution |
+| V391 | Second authentic post-ACK, reply-handler-owned call identified as another cache-related guest callee; 12 retained positive owner pairs | No context or callback call observed in retained V391 boundary |
+| V392 | Bounded 24-call continuation through repeated post-ACK cache helpers toward the first non-cache owner call | Authenticated owner test pending; callback never inferred solely from classification |
 
 ### Repeatable sanitized outcomes
 
@@ -255,6 +256,22 @@ The positive `cache_any` classification refers to the original
 `DCInvalidateRange` callsite; it does not by itself show the cache
 helper's body finished or the original NAND callback ran.
 
+Owner run [45227656547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45227656547)
+continued the unchanged original NAND reply-handler call chain beyond
+V390's cache helper. Its next reply-handler-owned guest function entry
+was again classified as the original cache helper, not as the original
+context setter or callback. Twelve retained owner-private pairs passed:
+
+```text
+V391_NAND_POST_ACK_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 owner_any=1 cap_any=0 cache_any=1 context_any=0 callback_any=0 next_verified=1
+```
+
+These `*_any` fields are OR-aggregated classifications over the bounded
+sample. They do **not** claim that every call was a cache helper or that
+the original callback will follow immediately. V392 therefore advances
+beyond the repeated cache step with a 24-call cap and accepts whichever
+real non-cache guest callee appears.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -295,12 +312,17 @@ authenticated original guest execution through both W1Cs to its
 `DCInvalidateRange` entry, matching the historical cache-helper
 classification without forcing it.
 
-V391 extends the same guest call stack past this cache helper, with
-a bounded observer for the next reply-handler-owned function call.
-Prior SC/Y1 code entered `OSClearContext` and `OSSetCurrentContext`,
-then called an ISFS callback. The NAND path must verify its own
-original guest frame and real IOS result before claiming any callback.
-Neither NAND completion nor complete native Wii boot is yet verified.
+V391 advanced the authentic reply-handler-owned call chain,
+but the next observed call was again classified as a cache helper
+rather than an OS context or NAND callback entry. V392 extends native
+execution through repeated cache helper calls, stopping at the first
+non-cache reply-handler-owned guest call or a fixed 24-call cap.
+
+Prior SC/Y1 code entered `OSClearContext`, `OSSetCurrentContext` and
+an ISFS callback, but those NAND milestones remain unverified. Callback
+identity and the actual IOS reply result must be checked against the
+original guest request, not borrowed from the negative SC path.
+Complete native Wii boot remains unverified.
 
 ## Windows original-free regression
 
