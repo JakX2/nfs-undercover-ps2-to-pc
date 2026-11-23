@@ -23,6 +23,7 @@ from derive_v298_scope_reply_observer import (
 from derive_v340_nand_mmio_probe import patch as mmio
 from derive_v352_nand_mailbox_route import patch as mailbox_route
 from derive_v321_guest_entry_probe import patch as entry
+from derive_v359_post_x1_call_probe import patch as post_x1
 
 HERE=Path(__file__).resolve().parent
 SOURCE=HERE/"test_start_to_ipc_ack_v77.cpp"
@@ -82,11 +83,12 @@ class Tests(unittest.TestCase):
             self.assertIn("ipc70_bus.write32(addr,value)",routed)
             observed=mmio(routed)
             self.assertIn("V340_NAND_MMIO n=",observed)
-            instrumented=entry(observed)
+            instrumented=post_x1(entry(observed))
             self.assertIn("V321_GUEST_ENTRY pc=",instrumented)
             self.assertEqual(instrumented.count("V340_NAND_MMIO n="),1)
             self.assertEqual(instrumented.count("V352_NAND_BUS kind="),2)
             self.assertEqual(instrumented.count("V321_GUEST_ENTRY pc="),1)
+            self.assertEqual(instrumented.count("V359_X1_CALL n="),1)
             # Source-only instrumentation must not replace the original
             # hardware service calls with a fabricated IOS reply.
             self.assertIn("ipc70_bus.write32",instrumented)
