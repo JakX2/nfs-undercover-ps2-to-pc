@@ -23,7 +23,8 @@ or as proof of NAND callback completion.
 | V378 | Original Wii OS exception-handler body executed and reached the IRQ dispatcher at `0x80526A3C` | Dispatcher body not yet completed |
 | V379 | Original IRQ dispatcher called genuine `OSGetTime` at `0x8052A824` | No registered IPC handler yet; first original helper not fully executed |
 | V380 | Original `OSGetTime` returned through IRQ dispatcher to `OSDisableScheduler` at `0x805293F8`; 13 bounded positive observations | Stops at scheduler entry |
-| V381 | Original scheduler to registered IRQ slot-27 IPC handler at `0x80519318` integrated in owner CI | Not yet authenticated; IPC callback unverified |
+| V381 | Original `OSDisableScheduler` body called the guest-registered IRQ slot-27 handler at `0x80519318`; saved frame and live Y1 verified | Stops at IPC handler entry, no NAND callback |
+| V382 | Original IPCInterruptHandler body to first naturally called guest helper, with read/MMIO/cache helper classification | Owner CI pending, not a verified milestone |
 
 ### Repeatable sanitized outcomes
 
@@ -102,6 +103,19 @@ V377–V379 checkpoint censuses remained positive:
 V380_NAND_SCHED_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=13 trials=13 entry_any=1 trial_any=1 scheduler_verified=1
 ```
 
+Owner run [45122081279](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45122081279)
+authenticated the original guest-registered IPC handler call from Wii IRQ
+slot 27, including saved SRRs and interrupted LR/CTR/XER, with the original
+Y1/Hollywood IRQ still latched. The bounded log retained 12 complete
+positive pairs:
+
+```text
+V381_NAND_IPC_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 entry_any=1 trial_any=1 ipc_verified=1
+```
+
+The IPC handler was *entered* but not yet executed through its first
+nested call. The exact NAND callback result remains unverified.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -131,13 +145,15 @@ V376 has now been authenticated in the owner run. V377, V378 and V379
 executed progressively larger portions of the installed original Wii vector,
 OS exception handler, dispatcher and `OSGetTime` entry.
 
-The next unverified frontier is V381: execute the original scheduler and
-check dispatch to the guest-registered IPC handler at `0x80519318` with IRQ
-slot 27 and the original saved exception frame. The V380 original-timebase
-checkpoint has already been authenticated. These NAND-specific tests
-must not borrow the SC-only previous IOS reply values or force a successful
-IOS response. Completion of the actual NAND callback and full native Wii
-boot remain unverified.
+V381 has now authenticated the original slot-27 IPC handler entry.
+The next unverified frontier is V382: let the genuine IPCInterruptHandler
+execute its unchanged guest PPC instructions to the first linked original
+helper, reporting whether the helper matches earlier read, write or cache
+callsite proofs. A subsequent step can follow the actual Y1 reply-handler
+logic and its two separate Broadway/Hollywood acknowledgements. The
+NAND-specific path must not borrow SC-only IOS reply values or force a
+successful IOS response. Completion of the actual NAND callback and full
+native Wii boot remain unverified.
 
 ## Windows original-free regression
 
