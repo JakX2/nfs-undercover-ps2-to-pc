@@ -61,8 +61,11 @@ python3 "$V110_SOURCE_ROOT/derive_v379_nand_timebase_frontier.py" \
     "$work/v378-harness.cpp" "$work/v379-harness.cpp"
 echo 'V379_NAND_TIME_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v380_nand_scheduler_frontier.py" \
-    "$work/v379-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v379-harness.cpp" "$work/v380-harness.cpp"
 echo 'V380_NAND_SCHED_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v381_nand_ipc_handler.py" \
+    "$work/v380-harness.cpp" "$work/v298-harness.cpp"
+echo 'V381_NAND_IPC_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -340,6 +343,9 @@ echo 'V379_NAND_TIME_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v380_nand_scheduler_frontier.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V380_NAND_SCHED_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v381_nand_ipc_handler.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V381_NAND_IPC_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
