@@ -25,6 +25,7 @@ from derive_v352_nand_mailbox_route import patch as mailbox_route
 from derive_v321_guest_entry_probe import patch as entry
 from derive_v359_post_x1_call_probe import patch as post_x1
 from derive_v361_nand_ios_yield import patch as nand_yield
+from derive_v365_nand_irq_readiness import patch as irq_ready
 
 HERE=Path(__file__).resolve().parent
 SOURCE=HERE/"test_start_to_ipc_ack_v77.cpp"
@@ -84,13 +85,14 @@ class Tests(unittest.TestCase):
             self.assertIn("ipc70_bus.write32(addr,value)",routed)
             observed=mmio(routed)
             self.assertIn("V340_NAND_MMIO n=",observed)
-            instrumented=nand_yield(post_x1(entry(observed)))
+            instrumented=irq_ready(nand_yield(post_x1(entry(observed))))
             self.assertIn("V321_GUEST_ENTRY pc=",instrumented)
             self.assertEqual(instrumented.count("V340_NAND_MMIO n="),1)
             self.assertEqual(instrumented.count("V352_NAND_BUS kind="),2)
             self.assertEqual(instrumented.count("V321_GUEST_ENTRY pc="),1)
             self.assertEqual(instrumented.count("V359_X1_CALL n="),1)
             self.assertEqual(instrumented.count("V361_NAND_IOS_YIELD n="),1)
+            self.assertEqual(instrumented.count("V365_IRQ_READY n="),1)
             # Source-only instrumentation must not replace the original
             # hardware service calls with a fabricated IOS reply.
             self.assertIn("ipc70_bus.write32",instrumented)
