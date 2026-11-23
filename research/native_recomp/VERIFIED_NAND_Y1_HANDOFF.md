@@ -30,7 +30,7 @@ or as proof of NAND callback completion.
 | V385 | Original `IpcReplyHandler` performed a second `IPCReadReg` at `0x8051905C` (LR `0x805190FC`); live NAND ARMMSG coherency checked in the native bus | Stops at second reader entry; no Y1 acknowledgment |
 | V386 | Second reader executed into the next genuine translated guest callee; retained 12 valid pairs, hardware Y1 still asserted | Historical SC writer/callsite and cache classification absent, actual callee unresolved |
 | V387 | Original post-reply callee executed into another genuine guest function with Y1 still pending; 12 bounded positive pairs | No original Y1 ACK and no historical IPC writer match in sampled frontier |
-| V388 pending | Follow up to 16 genuine linked PPC function entries, or stop at native-bus-observed original guest Y1 W1C | Not yet owner-verified; no NAND callback or full boot |
+| V388 | Original Wii reply-handler guest call chain reached the PPC register writer and issued genuine Broadway `PPCCTRL.Y1` W1C; retained 12 verified pairs | Hollywood `PPC_FLAG` still asserted, no NAND callback or boot |
 
 ### Repeatable sanitized outcomes
 
@@ -202,10 +202,22 @@ Y1 acknowledgement nor a match to the earlier SC-specific writer pair:
 V387_NAND_ROUTE_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 ack_any=0 next_any=1 writer_any=0 route_verified=1
 ```
 
-This result prompted V388's bounded 16-call original guest trace. V388
-stops at the first actual PowerPC Y1 W1C or the sixteenth guest function
-entry, whichever happens earlier. Its C++ and Python observers do not
-publish arbitrary owner-private addresses or original game code.
+This result prompted V388's bounded 16-call original guest trace. Its
+authenticated owner run [45128739995](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45128739995)
+confirmed that the unchanged original NAND reply-handler call chain
+reached a real guest Broadway `PPCCTRL.Y1` write-one-to-clear before the
+16-call budget. Hardware Y1 was asserted before the write, then cleared,
+while Hollywood's independent IRQ flag and IRQ level remained asserted:
+
+```text
+V388_NAND_BOUNDED_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 ack_any=1 bounded_any=0 writer_any=1 read_any=1 cache_any=0 bounded_verified=1
+```
+
+The owner checkpoint exited normally, but its inherited full-startup
+harness was still incomplete. The first public-original-free V388 test
+had one missing source-shape guard (a V386 marker mutation was not
+rejected); its correction and two-request MMIO regression are staged
+separately from the authenticated game-code evidence.
 
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
@@ -239,11 +251,11 @@ OS exception handler, dispatcher and `OSGetTime` entry.
 V385 authenticated the second original `IPCReadReg` and live
 NAND ARMMSG coherency. V386 and V387 each advanced to genuine guest
 successors, but neither observed a Broadway Y1 W1C nor the expected
-historical SC writer/callsite pair. V388 therefore executes a bounded
-16-function-call slice of the real NAND reply handler, stopping on the
-first native-bus-observed original Broadway `PPCCTRL.Y1` W1C or the
-call budget. Hollywood's separate `PPC_FLAG` latch must be independently
-cleared by unchanged guest code. The later NAND completion callback
+historical SC writer/callsite pair. V388 executed a bounded original guest call chain and reached the
+genuine `PPCCTRL.Y1` W1C before exhausting the call budget.
+The next unverified step is the original Hollywood `PPC_FLAG` W1C,
+which must occur separately, without overwriting the guest's IOS reply
+or clearing that latch inside the observer. The NAND completion callback
 and complete native boot have not been verified.
 
 ## Windows original-free regression
