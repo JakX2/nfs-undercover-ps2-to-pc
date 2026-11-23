@@ -43,9 +43,13 @@ class Tests(unittest.TestCase):
             '" site="','" drained="'
         ):
             self.assertIn(require,INJECTION)
+        # A read-only equality comparison (ctx.pc==addr) is permitted.
+        # Reject assignments without flagging comparisons.
+        import re
+        self.assertIsNone(re.search(r'ctx\.pc\s*=(?!=)',INJECTION))
         for forbidden in (
             'enter_external_irq(', 'ios.scheduler', 'service_one(',
-            'ipc70_bus.write32(', 'ipc70_bus.tick(', 'ctx.pc=',
+            'ipc70_bus.write32(', 'ipc70_bus.tick(',
             'ctx.msr=', 'ctx.gpr[', 'ctx.srr0=', 'throw ExceptionStop',
             'std::hex','<<ctx.pc','<<addr','std::cout<<ctx.gpr'
         ):
