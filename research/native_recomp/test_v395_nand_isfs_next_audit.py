@@ -63,6 +63,26 @@ class Tests(unittest.TestCase):
         report=run('')
         self.assertIn('v392_trials=0 v393_trials=0 v394_trials=0 v395_trials=0',report)
         self.assertIn('v392_all_mask=0 v393_all_mask=0 v394_all_mask=0 v395_all_mask=0',report)
+    def test_full_private_log_middle_evidence_is_not_lost(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'private-owner.log'
+            with p.open('wb') as f:
+                f.write(b'ORIGINAL-PRIVATE-OUTPUT\n')
+                f.write(b'x'*(WINDOW+128))
+                f.write(b'\n'+E.encode('ascii')+T.encode('ascii'))
+                f.write(b'PRIVATE-CODE-STREAM\n')
+                f.write(b'y'*(WINDOW+128))
+                f.write(b'\n')
+            report=inspect(p,0)
+            self.assertIn('entries=1 trials=1',report)
+            self.assertIn('next_verified=1',report)
+            self.assertIn('V395_NAND_FIELD_CENSUS entries=1 trials=1',report)
+            self.assertNotIn('ORIGINAL-PRIVATE',report)
+            self.assertNotIn('PRIVATE-CODE-STREAM',report)
+    def test_more_than_sixteen_private_marker_pairs_fail_closed(self):
+        report=run((E+T)*17)
+        self.assertIn('next_verified=0',report)
+        self.assertIn('V395_NAND_FIELD_CENSUS',report)
     def test_large_private_log_incomplete(self):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'owner-private.log'
