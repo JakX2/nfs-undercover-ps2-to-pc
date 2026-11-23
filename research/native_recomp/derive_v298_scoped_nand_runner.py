@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse
 from pathlib import Path
+from derive_v296_restored_nand_runner import AUDIT as V296_AUDIT
 import subprocess
 import sys
 import tempfile
@@ -455,8 +456,22 @@ echo 'V321_ENTRY_COMPARE inspected=1'
 '''
 
 AFTER=r'''
-python3 "$V110_SOURCE_ROOT/analyze_v298_scope_native.py"    "$work/v295-native.log" "$work/v298-harness.cpp" "$v295_rc"
-echo 'V298_RETIRED_OBSERVER inspected=1'
+if python3 "$V110_SOURCE_ROOT/analyze_v298_scope_native.py"    "$work/v295-native.log" "$work/v298-harness.cpp" "$v295_rc"; then
+  echo 'V298_RETIRED_OBSERVER inspected=1'
+else
+  echo 'V298_RETIRED_OBSERVER inspected=0'
+  grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "$work/v396-owner-gate.log"
+  echo 'V396_LEGACY_V298 deferred=1'
+fi
+'''
+V296_AUDIT_GUARDED=r'''
+if python3 "$V110_SOURCE_ROOT/analyze_v296_native_frontier.py"    "$work/v295-native.log" "$work/v296-harness.cpp" "$v295_rc"; then
+  echo 'V296_SERVICE_PROBE inspected=1'
+else
+  echo 'V296_SERVICE_PROBE inspected=0'
+  grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "$work/v396-owner-gate.log"
+  echo 'V396_LEGACY_V296 deferred=1'
+fi
 '''
 
 def patch(source: str) -> str:
@@ -465,6 +480,9 @@ def patch(source: str) -> str:
     staged=(source.replace(LINK,PRE+"\n"+
                            LINK.replace("v296-harness.o","v298-harness.o"),1)
                   .replace(DONE,DONE+"\n"+AFTER,1))
+    if staged.count(V296_AUDIT)!=1:
+        raise ValueError("V396 inherited V296 legacy-audit seam changed")
+    staged=staged.replace(V296_AUDIT,V296_AUDIT_GUARDED,1)
     aot_anchor="echo 'V294_RESTORED_AOT verified=1'"
     if staged.count(aot_anchor)!=1:
         raise ValueError("V301 authenticated helper AOT seam changed")

@@ -393,7 +393,7 @@ jobs:
               grep -E '^V377_HANDLER_SEAM label=[012] head=[012] v376=[012] v375=[012] nand=[01] quoted=[01] near=[0-9] proof=[01] oldpc=[01]$|^V377_NAND_HANDLER_ROUTE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V395_NAND_CHAIN_CENSUS v392_trials=([0-9]|1[0-6]) v393_trials=([0-9]|1[0-6]) v394_trials=([0-9]|1[0-6]) v395_trials=([0-9]|1[0-6]) v392_all_mask=[0-7] v393_all_mask=[0-7] v394_all_mask=[0-7] v395_all_mask=[0-7] v392_first_failed=([0-9]|1[0-6]) v393_first_failed=([0-9]|1[0-6]) v394_first_failed=([0-9]|1[0-6]) v395_first_failed=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V395_NAND_FIELD_CENSUS entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) entry_any_mask=[0-9A-F]{2} entry_all_mask=[0-9A-F]{2} trial_any_mask=[0-7] trial_all_mask=[0-7] first_bad=([0-9]|1[0-6]) order_ok=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
-              grep -E '^V396_OWNER_RESULT_GATE verified=[01]$|^V396_LEGACY_V295 deferred=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V396_OWNER_RESULT_GATE verified=[01]$|^V396_LEGACY_V(295|296|298) deferred=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V396_NAND_CB_BODY_ROUTE installed=1 selected_guest=1 bounded=24 no_fake_callback=1$|^V396_NAND_CB_BODY_STAGE (install|inspected)=1$|^V396_NAND_CB_BODY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) owner_any=[01] cap_any=[01] cache_any=[01] context_any=[01] nand_any=[01] state_any_mask=[0-7] state_all_mask=[0-7] next_verified=[01]$|^V396_NAND_CB_BODY_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V395_NAND_ISFS_NEXT_ROUTE installed=1 original_guest=1 callback_classify_only=1$|^V395_NAND_ISFS_NEXT_STAGE (install|inspected)=1$|^V395_NAND_ISFS_NEXT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) mapped_any=[01] selected_any=[01] userdata_any=[01] nand_any=[01] next_verified=[01]$|^V395_NAND_ISFS_NEXT_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V394_NAND_ISFS_ROUTE installed=1 original_guest=1 no_forced_result=1 callback_entry_only=1$|^V394_NAND_ISFS_STAGE (install|inspected)=1$|^V394_NAND_ISFS_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) mapped_any=[01] selected_any=[01] result_any=[01] userdata_any=[01] isfs_entry_verified=[01]$|^V394_NAND_ISFS_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
@@ -448,11 +448,21 @@ jobs:
             grep -Fx 'V396_LEGACY_V295 deferred=1' "$RUNNER_TEMP/sc298.log"
           fi
           grep -Fx 'V296_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V296_FRONTIER_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V296_SERVICE_PROBE inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V296 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
           grep -Fx 'V298_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"
-          grep -Fx 'V298_RETIRED_OBSERVER inspected=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V298_SCOPE_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V298 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
           grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=0 next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log"

@@ -30,6 +30,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 choose_submit_mmio_branch,submit_mmio_seam,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
+from derive_v296_restored_nand_runner import AUDIT as V296_AUDIT
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
 from analyze_v298_scope_native import inspect
 
@@ -753,7 +754,7 @@ class Tests(unittest.TestCase):
         self.assertFalse(inspect("", "a public check",0)[1])
 
     def test_runner_keeps_generated_aot_intact(self):
-        r=runner(LINK+"\n"+DONE+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n  exit 1"+"\n"+"echo 'V294_RESTORED_AOT verified=1'")
+        r=runner(LINK+"\n"+DONE+"\n"+V296_AUDIT+"\n  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n  exit 1"+"\n"+"echo 'V294_RESTORED_AOT verified=1'")
         self.assertIn("v298-harness.o",r)
         self.assertIn("analyze_v298_scope_native.py",r)
         self.assertIn("diagnose_v299_native_log.py",r)
@@ -778,6 +779,9 @@ class Tests(unittest.TestCase):
         self.assertIn("audit_v396_native_gate.py",r)
         self.assertIn("V396_OWNER_RESULT_GATE verified=1",r)
         self.assertIn("V396_LEGACY_V295 deferred=1",r)
+        self.assertIn("V396_LEGACY_V296 deferred=1",r)
+        self.assertIn("V396_LEGACY_V298 deferred=1",r)
+        self.assertNotIn(V296_AUDIT,r)
         self.assertIn("if ! grep -Fqx",r)
         self.assertNotIn("V295_BOUNDED_CANDIDATE inspected=0\'\n  exit 1",r)
         self.assertIn("audit_v317_descendant_edges.py",r)
