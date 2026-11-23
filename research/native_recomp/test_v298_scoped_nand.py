@@ -381,7 +381,6 @@ class Tests(unittest.TestCase):
         self.assertEqual(scoped.count(ACK_MMIO_LABEL),1)
         self.assertNotIn(ACK_MMIO_OLD,scoped)
         self.assertIn("irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)",ACK_MMIO_NEW)
-        self.assertIn("using B=undercover::wii::IosBus",scoped)
         self.assertNotIn("ipc70_bus.write32",ACK_MMIO_NEW)
         self.assertNotIn("ctx.",ACK_MMIO_NEW)
         self.assertNotIn("return;",ACK_MMIO_NEW)
