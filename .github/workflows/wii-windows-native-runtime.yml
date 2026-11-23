@@ -11,6 +11,14 @@ on:
       - 'research/native_recomp/test_wii_ipc_mailbox.cpp'
       - 'research/native_recomp/test_wii_hollywood_irq.cpp'
       - 'research/native_recomp/test_wii_ios_bus.cpp'
+      - 'research/native_recomp/test_wii_stm_ios.cpp'
+      - 'research/native_recomp/test_wii_guest_filesystem.cpp'
+      - 'research/native_recomp/test_wii_sysconf_image.cpp'
+      - 'research/native_recomp/test_wii_ios_yield_scheduler.cpp'
+      - 'research/native_recomp/test_wii_nand_ios_reply_v374.cpp'
+      - 'research/native_recomp/wii_ios_yield_scheduler.h'
+      - 'research/native_recomp/wii_nand_ios_reply_yield.h'
+      - 'research/native_recomp/wii_sysconf_image.h'
       - '.github/workflows/wii-windows-native-runtime.yml'
   workflow_dispatch:
 permissions:
@@ -45,4 +53,24 @@ jobs:
           if errorlevel 1 exit /b 1
           "%RUNNER_TEMP%\wii-native-win\ios.exe"
           if errorlevel 1 exit /b 1
-          echo PASS: original-free Windows x64 IPC, Hollywood IRQ and IOS MMIO runtime tests
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_stm_ios.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\stm.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\stm.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_guest_filesystem.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\filesystem.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\filesystem.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_sysconf_image.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\sysconf.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\sysconf.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_ios_yield_scheduler.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\ios_yield.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\ios_yield.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_nand_ios_reply_v374.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\nand_reply.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\nand_reply.exe"
+          if errorlevel 1 exit /b 1
+          echo PASS: original-free Windows x64 IPC, IRQ, IOS, STM, NAND reply, guest filesystem, and SYSCONF
