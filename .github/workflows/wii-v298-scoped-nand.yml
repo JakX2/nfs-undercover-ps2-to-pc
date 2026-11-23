@@ -46,6 +46,7 @@ on:
       - 'research/native_recomp/*v380*'
       - 'research/native_recomp/*v381*'
       - 'research/native_recomp/*v382*'
+      - 'research/native_recomp/*v383*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -152,6 +153,9 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v382_nand_ipc_next.py research/native_recomp/test_v382_nand_ipc_next.py research/native_recomp/analyze_v382_nand_ipc_next.py research/native_recomp/test_v382_nand_ipc_next_audit.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v382_nand_ipc_next.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v382_nand_ipc_next_audit.py' -v
+          python3 -m py_compile research/native_recomp/derive_v383_nand_reply_handler.py research/native_recomp/test_v383_nand_reply_handler.py research/native_recomp/analyze_v383_nand_reply_handler.py research/native_recomp/test_v383_nand_reply_handler_audit.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v383_nand_reply_handler.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v383_nand_reply_handler_audit.py' -v
           g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
               -Iresearch/native_recomp research/native_recomp/test_wii_nand_ios_reply_v374.cpp \
               -o "$RUNNER_TEMP/v374-native-reply"
@@ -328,6 +332,7 @@ jobs:
               grep -E '^V372_SC_TRIAL_SEAM exact=[012] label=[012] state=[012] flag=[012] candidate=[01] nand=[01] queued=[01]$|^V372_SC_TRIAL_SCOPE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SCOPE installed=1 guest_unchanged=1 ios_unchanged=1$|^V372_SC_TRIAL_SCOPE_STAGE install=1$|^V372_NAND_SC_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) bridge_any=[01] queued_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] irq_any=[01] ee_any=[01]$|^V372_NAND_SC_AUDIT verified=1$|^V372_NAND_SC_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V377_HANDLER_SEAM label=[012] head=[012] v376=[012] v375=[012] nand=[01] quoted=[01] near=[0-9] proof=[01] oldpc=[01]$|^V377_NAND_HANDLER_ROUTE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V383_NAND_REPLY_ROUTE installed=1 original_guest=1 no_fabricated_reply=1$|^V383_NAND_REPLY_STAGE (install|inspected)=1$|^V383_NAND_REPLY_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) entry_any=[01] trial_any=[01] reply_handler_verified=[01]$|^V383_NAND_REPLY_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V382_NAND_IPC_NEXT_ROUTE installed=1 original_guest=1 classify_only=1$|^V382_NAND_IPC_NEXT_STAGE (install|inspected)=1$|^V382_NAND_IPC_NEXT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) known_any=[01] signal_any=[01] next_verified=[01]$|^V382_NAND_IPC_NEXT_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V381_NAND_IPC_ROUTE installed=1 original_guest=1 irq_slot=27 no_synthetic_reply=1$|^V381_NAND_IPC_STAGE (install|inspected)=1$|^V381_NAND_IPC_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) entry_any=[01] trial_any=[01] ipc_verified=[01]$|^V381_NAND_IPC_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V380_NAND_SCHED_ROUTE installed=1 original_guest=1 no_synthetic_clock=1$|^V380_NAND_SCHED_STAGE (install|inspected)=1$|^V380_NAND_SCHED_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) entry_any=[01] trial_any=[01] scheduler_verified=[01]$|^V380_NAND_SCHED_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true

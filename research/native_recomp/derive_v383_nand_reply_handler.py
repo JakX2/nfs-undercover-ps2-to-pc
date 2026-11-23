@@ -43,7 +43,7 @@ TRACE=r"""
     const bool read=v382_next_pc==0x8051905cu&&
          v382_next_seen==1u&&v381_ipc_seen==1u;
     const bool caller=ctx.lr==0x80519354u&&
-         ctx.pc==addr&&ctx.ctr!=0u;
+         ctx.pc==addr;
     const bool registered=ctx.mmu.get_ptr(IRQ_TABLE+27u*4u)!=nullptr&&
          ctx.mmu.read32(IRQ_TABLE+27u*4u)==0x80519318u;
     const bool masked=(ctx.msr&B::MSR_EE)==0u&&
