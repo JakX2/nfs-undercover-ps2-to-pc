@@ -11,9 +11,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
-from derive_v387_nand_reply_route import (
-    MMIO_BEFORE_NEW,MMIO_END_NEW,HEAD,RESUME as V387_RESUME
-)
+from derive_v387_nand_reply_route import MMIO_BEFORE_NEW,MMIO_END_NEW
+HEAD='void trace_call(uint32_t addr, CPUContext&ctx){'
 STATE_OLD='static bool v387_active=false;'
 STATE_NEW='''static bool v387_active=false;
 static bool v388_active=false;
