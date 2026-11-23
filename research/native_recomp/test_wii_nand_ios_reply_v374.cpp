@@ -114,7 +114,17 @@ int main(){
         need(!service_deferred_reply_at_guest_boundary(dual,0u),
              "second completion bypassed first Y1 acknowledgement");
         write(B::IPC+M::PPCCTRL,en|M::Y1);
+        need((dual.read32(B::IPC+M::PPCCTRL).value()&(M::Y1|M::Y2))==0u&&
+             (dual.read32(B::IPC+H::PPC_FLAG).value()&H::IPC_PPC)!=0u&&
+             dual.external_irq_level()&&
+             dual.services().queued_replies()==1u,
+             "queued second IOS reply escaped first Broadway Y1-only ACK");
+        need(!service_deferred_reply_at_guest_boundary(dual,0u),
+             "second IOS reply bypassed unacknowledged Hollywood flag");
         write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        need(!dual.external_irq_level()&&
+             dual.services().queued_replies()==1u,
+             "Hollywood W1C incorrectly modified deferred native IOS queue");
         const auto two=service_deferred_reply_at_guest_boundary(dual,0u);
         need(two&&two->progress==S::Pump::Replied&&
              dual.services().queued_replies()==0u&&

@@ -156,6 +156,27 @@ int main(){
              (multi_bus.read32(B::IPC+M::PPCCTRL).value()&M::Y1)!=0u&&
              multi_ram.read32(second)==S::Open,
              "real Y1 was masked or pending IOS queue was mutated");
+        // The original IRQ handler must acknowledge two distinct hardware
+        // registers before native IOS can publish the next queued reply.
+        multi_write(B::IPC+M::PPCCTRL,ien|M::Y1);
+        need((multi_bus.read32(B::IPC+M::PPCCTRL).value()&M::Y1)==0u&&
+             (multi_bus.read32(B::IPC+H::PPC_FLAG).value()&H::IPC_PPC)!=0u&&
+             multi_bus.external_irq_level()&&
+             multi_bus.services().queued_replies()==1u,
+             "Broadway Y1-only ACK prematurely cleared latched IRQ or queue");
+        need(!service_deferred_reply_at_guest_boundary(multi_bus,multi.msr),
+             "second queued IOS reply published before Hollywood W1C");
+        multi_write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+        need(!multi_bus.external_irq_level()&&
+             multi_bus.services().queued_replies()==1u,
+             "Hollywood W1C did not release IRQ while preserving queued reply");
+        const auto second_reply=service_deferred_reply_at_guest_boundary(
+            multi_bus,multi.msr);
+        need(second_reply&&second_reply->progress==S::Pump::Replied&&
+             multi_bus.services().queued_replies()==0u&&
+             multi_ram.read32(second)==S::Reply&&
+             (multi_bus.read32(B::IPC+M::PPCCTRL).value()&M::Y1)!=0u,
+             "second deferred reply failed after the original two ACKs");
     }
     std::cout<<"PASS: V376 authentic IOS Y1 exception entry saves guest SRRs and keeps reply latched\n";
 }
