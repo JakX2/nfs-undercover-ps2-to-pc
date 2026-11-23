@@ -216,6 +216,42 @@ V139_NAND_CLASSIFIER=(
     "     if(!v250_candidate_mode||v250_nand_seen==0u){\n"
 )
 V139_NAND_TRAILER="     }\n"
+# V360: the V140 SC-only checkpoint forcibly enters the external
+# vector after an earlier SYSCONF Open ACK. The later NAND request
+# has no verified ACK. Do not impose first-request IRQ entry on NAND.
+V140_SC_START="     const uint32_t v140_resume=ctx.pc;"
+V140_SC_ENTRY="undercover::wii::enter_external_irq("
+V140_SC_LABEL="V140 SC IOS ACK failed to enter installed original external vector"
+V140_SC_CLOSE="\n   }"
+V140_NAND_OBSERVER=(
+    "     // V360: bounded phase/IRQ observation before the historical check.\n"
+    "     static unsigned v360_seen=0u;\n"
+    "     if(v360_seen<8u){\n"
+    "       ++v360_seen;\n"
+    '       std::cout<<"V360_SC_IRQ_GATE n="<<v360_seen\n'
+    '                <<" candidate="<<unsigned(v250_candidate_mode)\n'
+    '                <<" nand="<<unsigned(v250_nand_seen==1u)\n'
+    '                <<" pending="<<unsigned(ipc70_bus.pending_native_ios_request())\n'
+    '                <<" irq="<<unsigned(ipc70_bus.external_irq_level())\n'
+    '                <<" ee="<<unsigned((ctx.msr&0x8000u)!=0u)\n'
+    '                <<std::endl;\n'
+    "     }\n"
+    "     if(!v250_candidate_mode||v250_nand_seen==0u){\n"
+)
+V140_NAND_CLOSE="\n     }"
+def choose_v140_close(source: str) -> int:
+    if (source.count(V140_SC_START)!=1 or
+        source.count(V140_SC_LABEL)!=1):
+        raise ValueError("V360 original SC IRQ entry missing or ambiguous")
+    begin=source.index(V140_SC_START)
+    label=source.index(V140_SC_LABEL)
+    close=source.find(V140_SC_CLOSE,label)
+    if not (begin < label < close < begin+4200):
+        raise ValueError("V360 original V140 block boundaries changed")
+    if source[begin:label].count(V140_SC_ENTRY)!=1:
+        raise ValueError("V360 first SC IRQ entry ambiguity")
+    return close
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -377,8 +413,10 @@ def patch(source: str) -> str:
         source.count(THREAD_CLEAR_OLD)!=1 or source.count(THREAD_CLEAR_LABEL)!=1 or
         source.count(THREAD_SET_OLD)!=1 or source.count(THREAD_SET_LABEL)!=1 or
         source.count(V139_SC_START)!=1 or source.count(V139_SC_END)!=1 or
+        source.count(V140_SC_START)!=1 or source.count(V140_SC_LABEL)!=1 or
         source.count(V139_SC_LABEL)!=1 or source.count(V139_SERVICE_ANCHOR)!=1 or
         not 0 < source.index(V139_SC_END)-source.index(V139_SC_START) < 3500 or
+        not 0 < choose_v140_close(source)-source.index(V140_SC_START) < 4200 or
         not source.index(V139_SC_START) < source.index(V139_SERVICE_ANCHOR) < source.index(V139_SC_END) or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         source.count(SUBMIT_MMIO_LABEL)!=1 or
@@ -415,6 +453,11 @@ def patch(source: str) -> str:
     # is only classified and must be explicitly serviced elsewhere.
     output=output.replace(V139_SC_START,V139_NAND_CLASSIFIER+V139_SC_START,1)
     output=output.replace(V139_SC_END,V139_NAND_TRAILER+V139_SC_END,1)
+    # V140 invokes a host helper changing the guest's exception state.
+    # The actual NAND IRQ must instead be delivered by native scheduling.
+    close=choose_v140_close(output)
+    output=output[:close]+V140_NAND_CLOSE+output[close:]
+    output=output.replace(V140_SC_START,V140_NAND_OBSERVER+V140_SC_START,1)
     ack=choose_ack_mmio_branch(output)
     if ACK_MMIO_PHASE in ack.group("cond"):
         raise ValueError("V344 ACK branch already scoped")
@@ -450,6 +493,9 @@ def patch(source: str) -> str:
         output.count(V139_NAND_CLASSIFIER)!=1 or
         output.count(V139_SC_LABEL)!=1 or output.count(V139_SERVICE_ANCHOR)!=1 or
         output.count(V139_NAND_TRAILER+V139_SC_END)!=1 or
+        output.count(V140_NAND_OBSERVER)!=1 or
+        output.count(V140_SC_LABEL)!=1 or
+        output.count(V140_NAND_CLOSE+V140_SC_CLOSE)<1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
         SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or

@@ -20,6 +20,9 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 THREAD_SET_OLD,THREAD_SET_NEW,THREAD_SET_LABEL,
                                                 V139_SC_START,V139_SC_END,V139_SC_LABEL,
                                                 V139_NAND_CLASSIFIER,V139_NAND_TRAILER,V139_SERVICE_ANCHOR,
+                                                V140_SC_START,V140_SC_ENTRY,V140_SC_LABEL,
+                                                V140_SC_CLOSE,V140_NAND_OBSERVER,V140_NAND_CLOSE,
+                                                choose_v140_close,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
                                                 SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
@@ -58,7 +61,11 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     check(false,"V139 original SC request is not SYSCONF read-only open");\n'+
         '\n     v139_scheduler.service_one(ctx.msr);\n'+
         V139_SC_END+
-
+        '   if(post130_next==1u&&addr==0x8052f830u){\n'+
+        V140_SC_START+
+        '\n     const auto v140_entry=undercover::wii::enter_external_irq(ctx,bus,vector,true);\n'+
+        '\n     check(false,"V140 SC IOS ACK failed to enter installed original external vector");\n'+
+        V140_SC_CLOSE+'\n'+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -648,6 +655,35 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(altered)):
                 with self.assertRaises(ValueError):
                     scope(altered)
+
+    def test_v360_sc_only_external_irq_entry_and_phase_log(self):
+        rendered=scope(SOURCE)
+        self.assertEqual(rendered.count(V140_NAND_OBSERVER),1)
+        self.assertEqual(rendered.count(V140_SC_LABEL),1)
+        begin=rendered.index(V140_NAND_OBSERVER)
+        old=rendered.index(V140_SC_START,begin)
+        entry=rendered.index(V140_SC_ENTRY,old)
+        label=rendered.index(V140_SC_LABEL,entry)
+        close=rendered.index(V140_NAND_CLOSE+V140_SC_CLOSE,label)
+        self.assertLess(begin,old)
+        self.assertLess(old,entry)
+        self.assertLess(entry,label)
+        self.assertLess(label,close)
+        self.assertIn("V360_SC_IRQ_GATE n=",V140_NAND_OBSERVER)
+        self.assertIn("v360_seen<8u",V140_NAND_OBSERVER)
+        self.assertIn("if(!v250_candidate_mode||v250_nand_seen==0u)",V140_NAND_OBSERVER)
+        for disallowed in ("enter_external_irq(", "service_one(", "ipc70_bus.tick(",
+                           "ctx.pc=", "ctx.msr=", "ctx.gpr[", "ctx.is_running="):
+            self.assertNotIn(disallowed,V140_NAND_OBSERVER)
+        for broken in (
+            SOURCE.replace(V140_SC_START,"",1),
+            SOURCE.replace(V140_SC_ENTRY,"unknown_irq_entry",1),
+            SOURCE.replace(V140_SC_LABEL,"changed V140 label",1),
+            SOURCE+V140_SC_START,
+        ):
+            with self.subTest(size=len(broken)):
+                with self.assertRaises(ValueError):
+                    scope(broken)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before
