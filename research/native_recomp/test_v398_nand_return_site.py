@@ -15,6 +15,12 @@ class Tests(unittest.TestCase):
     def setUpClass(cls):
         Fixture397.setUpClass()
         cls.prior=v397(Fixture397.prior)
+        # Earlier synthetic fixtures only modeled trace_call and trial
+        # completion. V398 additionally instruments the existing pending-
+        # callback boundary, so supply that original-free source seam here.
+        if CALLBACK not in cls.prior:
+            cls.prior += "\n" + CALLBACK + "\n  return false;\n}\n"
+        assert cls.prior.count(CALLBACK)==1
     def test_genuine_pc_observed_without_state_mutation_or_stop_change(self):
         code=patch(self.prior)
         self.assertEqual(code.count(ENTRY),1)
