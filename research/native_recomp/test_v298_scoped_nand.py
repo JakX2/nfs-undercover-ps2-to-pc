@@ -703,8 +703,7 @@ class Tests(unittest.TestCase):
                     for callback in (False,True):
                         result=(callback if candidate and nand else prior and callback)
                         self.assertEqual(
-                            result,
-                            (callback if (candidate and nand) else (prior and callback))
+                            result, callback and (prior or (candidate and nand))
                         )
         for forbidden in ("ctx.gpr[", "ctx.msr=", "ipc70_bus.tick(",
                           "service_one(", "ctx.is_running=", "ctx.mmu.write"):
