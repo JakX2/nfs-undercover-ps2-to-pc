@@ -1,4 +1,39 @@
-# Wii SC IRQ native continuation: V141-V255
+# Wii SC IRQ native continuation: authenticated V407 diagnostics
+
+## Current original-game AOT execution frontier (2026-11-23)
+
+**Verified owner-original native execution:** V403 retains 16/16 genuine
+24-call Wii PowerPC successor trials, including natural guest saved-LR and
+parent-PC observations, read-only CTR/stack/LR provenance and the authentic
+NAND/IOS reply chain. V402 separately recompiles and links the same private
+original game AOT into a native 48-call candidate. Its authenticated
+[owner result](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45279192059)
+reports `entries=16 trials=16 cap48_trials=16 full_progress=1
+boot_verified=0`. No original PPC instruction or guest state is forged.
+
+**Current blocking frontier:** V404 independently compiled and linked a
+96-call private native candidate, but the
+[authenticated run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45285413624)
+terminated with `rc=134 kind=signal entries=0 trials=0 full_progress=0`.
+The V405 separate 96-call observer also terminated with `rc=134` and
+zero completed trials. These are reproducible native failures, **not**
+successful 96-call execution. Existing 24- and 48-call evidence is
+preserved; native callback completion remains unverified.
+
+**Active source-only diagnostics:** V406 logs at most 48 exact, sanitized
+original guest call-entry checkpoints after the verified 48-call stop. Its
+dedicated private-log scanner can retain 48 records without weakening the
+16-record default used by older acceptance gates. V407 separately
+classifies C++ native exception/public harness-assertion provenance
+without emitting private assertions, game code, opcodes or register values.
+Do not claim these new diagnoses passed authenticated owner execution until
+their own CI gates finish.
+
+**Not yet achieved:** completed native NAND/SC callback transition, exit
+from OSInit into the original `main`, complete original-game Windows
+startup, frontend, first frame, world loading, gameplay or feature parity.
+
+## Historical milestones (the following V252 notes are preserved)
 
 Status: **V252 has now verified the restored original Wii `_isfsFuncCb` PowerPC `bctrl` into `nandOpenCallback` across 16 independent owner-original trials, with exact linked LR/CTR, 16-byte frame and real reply state. V253/V255 verify callback AOT function stability. The historical V244 baseline remains 16/16 verified. Executing the original NAND callback body beyond its entry remains the unverified V254 frontier.**
 V200-V213 independently confirm the genuine second-Y2 dispatcher, registered IPC
