@@ -192,6 +192,30 @@ THREAD_SET_NEW=("else if(addr==0x805228ccu&&"
                 "(!v250_candidate_mode||v250_nand_seen==0u)){")
 THREAD_SET_LABEL="original OSSetCurrentContext not called after initial context clear"
 
+# V358: V139's original SC-only request oracle includes a native IOS
+# service step. Do not execute that service step for later NAND/scheduler
+# calls whose guest request is not the V139 first SYSCONF IOS_Open.
+# This does not service/ACK/reply to the NAND request or edit guest state.
+V139_SC_START=("     const bool v139_request=v138_valid&&v138_cmd==V138Ios::Open&&\n"
+               "           v138_kind==4u&&v138_mode==1u;")
+V139_SC_END='     std::cout<<"V137_IOS_LIVENESS x1="'
+V139_SC_LABEL="V139 original SC request is not SYSCONF read-only open"
+V139_SERVICE_ANCHOR="v139_scheduler.service_one(ctx.msr)"
+V139_NAND_CLASSIFIER=(
+    "     // V358: read-only, bounded public classification; no guest values.\n"
+    "     if(v250_candidate_mode&&v250_nand_seen==1u){\n"
+    "       const bool open=v138_valid&&v138_cmd==V138Ios::Open;\n"
+    '       std::cout<<"V358_NAND_REQUEST valid="<<unsigned(v138_valid)\n'
+    '                <<" open="<<unsigned(open)\n'
+    '                <<" kind="<<(v138_kind<=7u?v138_kind:7u)\n'
+    '                <<" read_only="<<unsigned(v138_mode==1u)\n'
+    '                <<" syconf="<<unsigned(open&&v138_kind==4u&&v138_mode==1u)\n'
+    '                <<" queued="<<unsigned(ipc70_bus.pending_native_ios_request())\n'
+    "                <<std::endl;\n"
+    "     }\n"
+    "     if(!v250_candidate_mode||v250_nand_seen==0u){\n"
+)
+V139_NAND_TRAILER="     }\n"
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -352,6 +376,10 @@ def patch(source: str) -> str:
         source.count(NAND_RESTORE_OLD)!=1 or source.count(NAND_RESTORE_LABEL)!=1 or
         source.count(THREAD_CLEAR_OLD)!=1 or source.count(THREAD_CLEAR_LABEL)!=1 or
         source.count(THREAD_SET_OLD)!=1 or source.count(THREAD_SET_LABEL)!=1 or
+        source.count(V139_SC_START)!=1 or source.count(V139_SC_END)!=1 or
+        source.count(V139_SC_LABEL)!=1 or source.count(V139_SERVICE_ANCHOR)!=1 or
+        not 0 < source.index(V139_SC_END)-source.index(V139_SC_START) < 3500 or
+        not source.index(V139_SC_START) < source.index(V139_SERVICE_ANCHOR) < source.index(V139_SC_END) or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         source.count(SUBMIT_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
@@ -382,6 +410,11 @@ def patch(source: str) -> str:
     output=output.replace(NAND_RESTORE_OLD,NAND_RESTORE_NEW,1)
     output=output.replace(THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,1)
     output=output.replace(THREAD_SET_OLD,THREAD_SET_NEW,1)
+    # Both the V139 assertion and its physical IOS scheduling side effect
+    # belong to the previous first SYSCONF open. The later NAND request
+    # is only classified and must be explicitly serviced elsewhere.
+    output=output.replace(V139_SC_START,V139_NAND_CLASSIFIER+V139_SC_START,1)
+    output=output.replace(V139_SC_END,V139_NAND_TRAILER+V139_SC_END,1)
     ack=choose_ack_mmio_branch(output)
     if ACK_MMIO_PHASE in ack.group("cond"):
         raise ValueError("V344 ACK branch already scoped")
@@ -414,6 +447,9 @@ def patch(source: str) -> str:
         output.count(NAND_RESTORE_NEW)!=1 or output.count(NAND_RESTORE_LABEL)!=1 or
         output.count(THREAD_CLEAR_NEW)!=1 or output.count(THREAD_CLEAR_LABEL)!=1 or
         output.count(THREAD_SET_NEW)!=1 or output.count(THREAD_SET_LABEL)!=1 or
+        output.count(V139_NAND_CLASSIFIER)!=1 or
+        output.count(V139_SC_LABEL)!=1 or output.count(V139_SERVICE_ANCHOR)!=1 or
+        output.count(V139_NAND_TRAILER+V139_SC_END)!=1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
         SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or

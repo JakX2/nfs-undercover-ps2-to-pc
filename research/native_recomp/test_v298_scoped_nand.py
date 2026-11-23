@@ -18,6 +18,8 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_RESTORE_OLD,NAND_RESTORE_NEW,NAND_RESTORE_LABEL,
                                                 THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,THREAD_CLEAR_LABEL,
                                                 THREAD_SET_OLD,THREAD_SET_NEW,THREAD_SET_LABEL,
+                                                V139_SC_START,V139_SC_END,V139_SC_LABEL,
+                                                V139_NAND_CLASSIFIER,V139_NAND_TRAILER,V139_SERVICE_ANCHOR,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
                                                 SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
@@ -52,6 +54,11 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     check(false,"original thread context clear argument/LR differs");\n'+
         THREAD_SET_OLD+
         '\n     check(false,"original OSSetCurrentContext not called after initial context clear");\n'+
+        V139_SC_START+
+        '\n     check(false,"V139 original SC request is not SYSCONF read-only open");\n'+
+        '\n     v139_scheduler.service_one(ctx.msr);\n'+
+        V139_SC_END+
+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -604,6 +611,39 @@ class Tests(unittest.TestCase):
             SOURCE.replace(THREAD_SET_OLD,"",1),
             SOURCE+"\n"+THREAD_SET_OLD,
             SOURCE.replace(THREAD_SET_LABEL,"changed early OSSetCurrentContext check",1),
+        ):
+            with self.subTest(size=len(altered)):
+                with self.assertRaises(ValueError):
+                    scope(altered)
+
+    def test_v358_v139_sc_service_is_not_invoked_on_nand_reentry(self):
+        rendered=scope(SOURCE)
+        self.assertEqual(rendered.count(V139_NAND_CLASSIFIER),1)
+        self.assertEqual(rendered.count(V139_SC_LABEL),1)
+        self.assertEqual(rendered.count(V139_SERVICE_ANCHOR),1)
+        self.assertEqual(rendered.count("V358_NAND_REQUEST valid="),1)
+        start=rendered.index(V139_NAND_CLASSIFIER)
+        old_start=rendered.index(V139_SC_START,start)
+        service=rendered.index(V139_SERVICE_ANCHOR,old_start)
+        end=rendered.index(V139_NAND_TRAILER+V139_SC_END,service)
+        self.assertLess(start,old_start)
+        self.assertLess(old_start,service)
+        self.assertLess(service,end)
+        self.assertIn("if(!v250_candidate_mode||v250_nand_seen==0u)",V139_NAND_CLASSIFIER)
+        self.assertIn("if(v250_candidate_mode&&v250_nand_seen==1u)",V139_NAND_CLASSIFIER)
+        self.assertIn("kind=",V139_NAND_CLASSIFIER)
+        for forbidden in ("ipc70_bus.tick(", "service_one(", "ctx.mmu.write",
+                          "ctx.gpr[", "ctx.msr=", "ctx.is_running=false"):
+            self.assertNotIn(forbidden,V139_NAND_CLASSIFIER)
+        for candidate in (False,True):
+            for nand in (False,True):
+                self.assertEqual(not(candidate and nand),(not candidate or not nand))
+        for altered in (
+            SOURCE.replace(V139_SC_START,"",1),
+            SOURCE.replace(V139_SC_END,"",1),
+            SOURCE.replace(V139_SC_LABEL,"invalid old SC label",1),
+            SOURCE.replace(V139_SERVICE_ANCHOR,"missing_old_scheduler",1),
+            SOURCE+"\n"+V139_SC_START,
         ):
             with self.subTest(size=len(altered)):
                 with self.assertRaises(ValueError):
