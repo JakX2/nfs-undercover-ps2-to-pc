@@ -22,6 +22,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 V139_NAND_CLASSIFIER,V139_NAND_TRAILER,V139_SERVICE_ANCHOR,
                                                 V140_SC_START,V140_SC_ENTRY,V140_SC_LABEL,
                                                 V140_SC_CLOSE,V140_NAND_OBSERVER,V140_NAND_CLOSE,
+                                                V98_PRIOR_OLD,V98_PRIOR_NEW,V98_PRIOR_LABEL,
                                                 choose_v140_close,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
@@ -66,6 +67,7 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     const auto v140_entry=undercover::wii::enter_external_irq(ctx,bus,vector,true);\n'+
         '\n     check(false,"V140 SC IOS ACK failed to enter installed original external vector");\n'+
         V140_SC_CLOSE+'\n'+
+        V98_PRIOR_OLD+'\n'+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -680,6 +682,37 @@ class Tests(unittest.TestCase):
             SOURCE.replace(V140_SC_ENTRY,"unknown_irq_entry",1),
             SOURCE.replace(V140_SC_LABEL,"changed V140 label",1),
             SOURCE+V140_SC_START,
+        ):
+            with self.subTest(size=len(broken)):
+                with self.assertRaises(ValueError):
+                    scope(broken)
+
+    def test_v363_nand_ack_does_not_invalidate_earlier_ios_empty_oracle(self):
+        # Preserve the original shutdown-list integrity check in every
+        # phase, but do not pretend a real queued ACK is an earlier idle IOS.
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(V98_PRIOR_NEW),1)
+        self.assertEqual(scoped.count(V98_PRIOR_LABEL),1)
+        self.assertNotIn(V98_PRIOR_OLD,scoped)
+        self.assertIn("post98_list(ctx)",V98_PRIOR_NEW)
+        self.assertIn("(prior&&post98_list(ctx))",V98_PRIOR_NEW)
+        self.assertIn("(v250_candidate_mode&&v250_nand_seen==1u)",V98_PRIOR_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                for prior in (False,True):
+                    for callback in (False,True):
+                        result=(callback if candidate and nand else prior and callback)
+                        self.assertEqual(
+                            result,
+                            (callback if (candidate and nand) else (prior and callback))
+                        )
+        for forbidden in ("ctx.gpr[", "ctx.msr=", "ipc70_bus.tick(",
+                          "service_one(", "ctx.is_running=", "ctx.mmu.write"):
+            self.assertNotIn(forbidden,V98_PRIOR_NEW)
+        for broken in (
+            SOURCE.replace(V98_PRIOR_OLD,"",1),
+            SOURCE+V98_PRIOR_OLD,
+            SOURCE.replace(V98_PRIOR_LABEL,"changed prior V98 label",1),
         ):
             with self.subTest(size=len(broken)):
                 with self.assertRaises(ValueError):

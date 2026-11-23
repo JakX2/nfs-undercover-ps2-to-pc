@@ -252,6 +252,16 @@ def choose_v140_close(source: str) -> int:
         raise ValueError("V360 first SC IRQ entry ambiguity")
     return close
 
+# V363: V98 expects no IOS IRQ/reply during original NAND shutdown-list
+# registration. V361 now exercises a real native Starlet ACK later. Keep
+# validating the linked callback list while applying V98's *old IOS*
+# expectation only before authenticated NAND request intake.
+V98_PRIOR_OLD='check(prior&&post98_list(ctx),"V98 NAND registration did not preserve existing callback and IOS state");'
+V98_PRIOR_NEW=('check((v250_candidate_mode&&v250_nand_seen==1u)?'
+               'post98_list(ctx):(prior&&post98_list(ctx)),'
+               '"V98 NAND registration did not preserve existing callback and IOS state");')
+V98_PRIOR_LABEL="V98 NAND registration did not preserve existing callback and IOS state"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -414,6 +424,7 @@ def patch(source: str) -> str:
         source.count(THREAD_SET_OLD)!=1 or source.count(THREAD_SET_LABEL)!=1 or
         source.count(V139_SC_START)!=1 or source.count(V139_SC_END)!=1 or
         source.count(V140_SC_START)!=1 or source.count(V140_SC_LABEL)!=1 or
+        source.count(V98_PRIOR_OLD)!=1 or source.count(V98_PRIOR_LABEL)!=1 or
         source.count(V139_SC_LABEL)!=1 or source.count(V139_SERVICE_ANCHOR)!=1 or
         not 0 < source.index(V139_SC_END)-source.index(V139_SC_START) < 3500 or
         not 0 < choose_v140_close(source)-source.index(V140_SC_START) < 4200 or
@@ -448,6 +459,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_RESTORE_OLD,NAND_RESTORE_NEW,1)
     output=output.replace(THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,1)
     output=output.replace(THREAD_SET_OLD,THREAD_SET_NEW,1)
+    output=output.replace(V98_PRIOR_OLD,V98_PRIOR_NEW,1)
     # Both the V139 assertion and its physical IOS scheduling side effect
     # belong to the previous first SYSCONF open. The later NAND request
     # is only classified and must be explicitly serviced elsewhere.
@@ -490,6 +502,7 @@ def patch(source: str) -> str:
         output.count(NAND_RESTORE_NEW)!=1 or output.count(NAND_RESTORE_LABEL)!=1 or
         output.count(THREAD_CLEAR_NEW)!=1 or output.count(THREAD_CLEAR_LABEL)!=1 or
         output.count(THREAD_SET_NEW)!=1 or output.count(THREAD_SET_LABEL)!=1 or
+        output.count(V98_PRIOR_NEW)!=1 or output.count(V98_PRIOR_LABEL)!=1 or
         output.count(V139_NAND_CLASSIFIER)!=1 or
         output.count(V139_SC_LABEL)!=1 or output.count(V139_SERVICE_ANCHOR)!=1 or
         output.count(V139_NAND_TRAILER+V139_SC_END)!=1 or
