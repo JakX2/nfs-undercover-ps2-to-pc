@@ -63,7 +63,7 @@ def _select_old(source: str) -> tuple[int, int, str]:
         indentation=source[line_start:open_at]
         if (not indentation or len(indentation)>16 or
             indentation.strip() or
-            source[open_at:open_at+5]!='check('):
+            source[open_at:open_at+6]!='check('):
             continue
         old=source[line_start:end]
         if (len(old)>3500 or ';' in old[:-1] or
