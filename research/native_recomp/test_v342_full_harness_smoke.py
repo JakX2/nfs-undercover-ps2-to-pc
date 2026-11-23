@@ -59,13 +59,15 @@ class Tests(unittest.TestCase):
             self.assertIn("v250_candidate_mode",source)
             with_service=service(source)
             self.assertIn("V296_SERVICE_ENTRY kind=",with_service)
-            self.assertIn("old=1 label=1 scoped=0 guest=1",
+            # The real original-free derivation rewrites the old V77
+            # conditional. Test the assertion-associated branch instead
+            # of the obsolete exact three-space header.
+            self.assertIn("old=0 label=1 scoped=0 guest=1 branch=1",
                           ack_mmio_seam(with_service))
-            self.assertEqual(with_service.count(ACK_MMIO_OLD),1)
+            self.assertEqual(with_service.count(ACK_MMIO_OLD),0)
             scoped=scope(with_service)
             self.assertEqual(scoped.count(ACK_MMIO_OLD),0)
-            self.assertEqual(scoped.count(ACK_MMIO_NEW),1)
-            self.assertIn("old=0 label=1 scoped=1 guest=1",
+            self.assertIn("old=0 label=1 scoped=1 guest=1 branch=1",
                           ack_mmio_seam(scoped))
             observed=mmio(scoped)
             self.assertIn("V340_NAND_MMIO n=",observed)
