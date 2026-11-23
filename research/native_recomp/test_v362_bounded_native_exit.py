@@ -52,7 +52,7 @@ class Tests(unittest.TestCase):
             with p.open("wb") as f:
                 f.write(b"some original guest data\n")
                 f.seek(WINDOW+400)
-                f.write(GOOD.encode("utf-8"))
+                f.write(b"\n"+GOOD.encode("utf-8"))
             row=inspect(p,0)
             self.assertIn("sample_complete=0 owner_pass=1 harness_complete=1",row)
 
