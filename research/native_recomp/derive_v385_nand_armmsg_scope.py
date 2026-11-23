@@ -50,9 +50,9 @@ def patch(source:str)->str:
         MARKER in source):
         raise ValueError('V385 authenticated NAND ARMMSG/V80 source geometry changed')
     output=source.replace(OLD,NEW,1)
-    if output.count(MARKER)!=1 or
-       output.count('V80 original ARMMSG read selected a different request')!=1 or
-       output.replace(NEW,OLD,1)!=source:
+    if (output.count(MARKER)!=1 or
+        output.count('V80 original ARMMSG read selected a different request')!=1 or
+        output.replace(NEW,OLD,1)!=source):
         raise ValueError('V385 V80 first-request observer not exactly reversible')
     return output
 
