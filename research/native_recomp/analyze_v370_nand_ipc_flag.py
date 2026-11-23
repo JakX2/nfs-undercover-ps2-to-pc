@@ -16,27 +16,29 @@ RECORD=re.compile(
 def inspect(path:Path,rc:int)->str:
     kind=category(rc)
     size,lines=read_edges(path)
-    calls=accepted=ipc_write=cleared=queued_any=irq_any=0
+    calls=accepted=ipc_write=cleared=retained_any=queued_any=irq_any=0
     for line in lines:
         m=RECORD.fullmatch(line)
         if m is None:
             continue
         n,ok,before,w1c,remaining,irq,queued=map(int,m.groups())
-        if n!=calls+1 or (before and w1c and remaining):
-            # A matching original IPC W1C may clear this cause; a
-            # purported unchanged latch is inconsistent with real bus.
+        if n!=calls+1:
             break
+        # Hollywood re-samples the live IPC mailbox immediately after
+        # W1C; an unacknowledged Y2 can legitimately re-latch IPC_PPC.
+        # Do not label that state corrupt or fabricate a successful clear.
         calls+=1
         accepted+=ok
         ipc_write|=w1c
         cleared|=int(bool(before and w1c and not remaining))
+        retained_any|=int(bool(before and w1c and remaining))
         queued_any|=queued
         irq_any|=irq
     return (
         f"V370_FLAG_CENSUS rc={rc} kind={kind} size_band={size_band(size)} "
         f"sample_complete={int(size<=WINDOW)} writes={calls} "
         f"accepted={accepted} ipc_write={ipc_write} cleared={cleared} "
-        f"queued_any={queued_any} irq_any={irq_any}"
+        f"retained_any={retained_any} queued_any={queued_any} irq_any={irq_any}"
     )
 
 def main()->int:

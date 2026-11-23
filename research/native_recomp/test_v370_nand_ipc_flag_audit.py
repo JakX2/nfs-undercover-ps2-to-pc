@@ -20,13 +20,13 @@ class Tests(unittest.TestCase):
             "remaining=0 irq=0 queued=1\n"
         )
         result=run(line)
-        self.assertIn("writes=1 accepted=1 ipc_write=1 cleared=1 queued_any=1 irq_any=0",result)
+        self.assertIn("writes=1 accepted=1 ipc_write=1 cleared=1 retained_any=0 queued_any=1 irq_any=0",result)
         self.assertNotIn("PRIVATE_GUEST_DATA",result)
         self.assertNotIn("secret.log",result)
 
     def test_non_ipc_w1c_is_not_counted_as_ipc_ack(self):
         result=run("V370_NAND_FLAG_W1C n=1 accepted=1 before=1 write_ipc=0 remaining=1 irq=1 queued=1\n")
-        self.assertIn("writes=1 accepted=1 ipc_write=0 cleared=0 queued_any=1 irq_any=1",result)
+        self.assertIn("writes=1 accepted=1 ipc_write=0 cleared=0 retained_any=0 queued_any=1 irq_any=1",result)
 
     def test_no_writer_is_not_a_completion_claim(self):
         self.assertIn("writes=0 accepted=0 ipc_write=0 cleared=0",run("unrelated\n",0))
@@ -39,9 +39,11 @@ class Tests(unittest.TestCase):
         )
         self.assertIn("writes=0",result)
 
-    def test_impossible_latch_state_breaks_contiguous_prefix(self):
-        result=run("V370_NAND_FLAG_W1C n=1 accepted=1 before=1 write_ipc=1 remaining=1 irq=1 queued=1\n")
-        self.assertIn("writes=0",result)
+    def test_live_y2_source_can_reassert_hollywood_flag_after_w1c(self):
+        # IosBus samples the still-asserted IPC source after PPC_FLAG W1C.
+        # Re-latching is real hardware state, not a premature reply.
+        result=run("V370_NAND_FLAG_W1C n=1 accepted=1 before=1 write_ipc=1 remaining=1 irq=1 queued=1\\n".replace("\\\\n","\\n"))
+        self.assertIn("writes=1 accepted=1 ipc_write=1 cleared=0 retained_any=1",result)
 
     def test_missing_sequence_is_not_joined_across_gap(self):
         result=run(
