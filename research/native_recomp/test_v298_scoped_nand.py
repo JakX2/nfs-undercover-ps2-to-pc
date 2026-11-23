@@ -16,6 +16,7 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_CTRL_READ_OLD,NAND_CTRL_READ_NEW,NAND_CTRL_READ_LABEL,
                                                 NAND_CTRL_WRITE_OLD,NAND_CTRL_WRITE_NEW,NAND_CTRL_WRITE_LABEL,
                                                 NAND_RESTORE_OLD,NAND_RESTORE_NEW,NAND_RESTORE_LABEL,
+                                                THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,THREAD_CLEAR_LABEL,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
                                                 choose_ack_mmio_branch,ack_mmio_seam,
                                                 SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
@@ -46,6 +47,8 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         '\n     check(false,"V119 original IPC control-write helper did not follow genuine read");\n'+
         NAND_RESTORE_OLD+
         '\n     check(false,"V120 original IOS X1 submission did not reach authentic interrupt-restore call");\n'+
+        THREAD_CLEAR_OLD+
+        '\n     check(false,"original thread context clear argument/LR differs");\n'+
         ACK_MMIO_OLD+
         '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
         SUBMIT_MMIO_OLD+
@@ -558,6 +561,28 @@ class Tests(unittest.TestCase):
             with self.subTest(size=len(corrupted)):
                 with self.assertRaises(ValueError):
                     scope(corrupted)
+
+    def test_v356_initial_thread_context_observer_is_not_global(self):
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(THREAD_CLEAR_NEW),1)
+        self.assertEqual(scoped.count(THREAD_CLEAR_LABEL),1)
+        self.assertNotIn(THREAD_CLEAR_OLD,scoped)
+        self.assertIn("addr==0x80522af4u",THREAD_CLEAR_NEW)
+        self.assertIn("(!v250_candidate_mode||v250_nand_seen==0u)",THREAD_CLEAR_NEW)
+        for forbidden in ("ctx.gpr", "ctx.msr=", "ctx.is_running=false",
+                          "ctx.mmu.write", "return;", "thread_clear_entries++"):
+            self.assertNotIn(forbidden,THREAD_CLEAR_NEW)
+        for candidate in (False,True):
+            for nand in (False,True):
+                self.assertEqual(not(candidate and nand),(not candidate or not nand))
+        for altered in (
+            SOURCE.replace(THREAD_CLEAR_OLD,"",1),
+            SOURCE+"\n"+THREAD_CLEAR_OLD,
+            SOURCE.replace(THREAD_CLEAR_LABEL,"changed startup context clear label",1),
+        ):
+            with self.subTest(size=len(altered)):
+                with self.assertRaises(ValueError):
+                    scope(altered)
 
     def test_client_observer_phase_truth_table(self):
         # Broad IPC client observer is allowed in baseline and before

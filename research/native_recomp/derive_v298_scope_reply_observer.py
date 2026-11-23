@@ -174,6 +174,15 @@ NAND_RESTORE_NEW=("if(post119_control==1u&&addr==POST_OWNER&&ctx.lr==0x805197e0u
                   "(!v250_candidate_mode||v250_nand_seen==0u)){")
 NAND_RESTORE_LABEL="V120 original IOS X1 submission did not reach authentic interrupt-restore call"
 
+# V356: V77's fixed LR and stack expectations for OSClearContext
+# apply only to initial OS thread setup, not the later genuine NAND
+# IPC/scheduler path. Restrict this historical trace observer; original
+# OSClearContext guest function and all CPU/memory effects still execute.
+THREAD_CLEAR_OLD="else if(addr==0x80522af4u){"
+THREAD_CLEAR_NEW=("else if(addr==0x80522af4u&&"
+                  "(!v250_candidate_mode||v250_nand_seen==0u)){")
+THREAD_CLEAR_LABEL="original thread context clear argument/LR differs"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -332,6 +341,7 @@ def patch(source: str) -> str:
         source.count(NAND_CTRL_READ_OLD)!=1 or source.count(NAND_CTRL_READ_LABEL)!=1 or
         source.count(NAND_CTRL_WRITE_OLD)!=1 or source.count(NAND_CTRL_WRITE_LABEL)!=1 or
         source.count(NAND_RESTORE_OLD)!=1 or source.count(NAND_RESTORE_LABEL)!=1 or
+        source.count(THREAD_CLEAR_OLD)!=1 or source.count(THREAD_CLEAR_LABEL)!=1 or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         source.count(SUBMIT_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
@@ -360,6 +370,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_CTRL_READ_OLD,NAND_CTRL_READ_NEW,1)
     output=output.replace(NAND_CTRL_WRITE_OLD,NAND_CTRL_WRITE_NEW,1)
     output=output.replace(NAND_RESTORE_OLD,NAND_RESTORE_NEW,1)
+    output=output.replace(THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,1)
     ack=choose_ack_mmio_branch(output)
     if ACK_MMIO_PHASE in ack.group("cond"):
         raise ValueError("V344 ACK branch already scoped")
@@ -390,6 +401,7 @@ def patch(source: str) -> str:
         output.count(NAND_CTRL_READ_NEW)!=1 or output.count(NAND_CTRL_READ_LABEL)!=1 or
         output.count(NAND_CTRL_WRITE_NEW)!=1 or output.count(NAND_CTRL_WRITE_LABEL)!=1 or
         output.count(NAND_RESTORE_NEW)!=1 or output.count(NAND_RESTORE_LABEL)!=1 or
+        output.count(THREAD_CLEAR_NEW)!=1 or output.count(THREAD_CLEAR_LABEL)!=1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
         SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or
