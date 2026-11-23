@@ -65,7 +65,7 @@ class Tests(unittest.TestCase):
             FIXTURE.replace(TIMELINE,'lost'),
             FIXTURE.replace('V375_NAND_Y1_BOUNDARY n=','lost'),
             FIXTURE.replace('native_external_irq.h','missing.h'),
-            FIXTURE.replace('v250_candidate_mode','missing'),
+            FIXTURE.replace(BOUNDARY_INJECTION,BOUNDARY_INJECTION.replace('v250_candidate_mode','missing',1)),
             patch(FIXTURE),
         )
         for item in variants:
