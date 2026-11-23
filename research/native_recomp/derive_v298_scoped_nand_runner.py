@@ -121,8 +121,11 @@ python3 "$V110_SOURCE_ROOT/derive_v398_nand_return_site.py" \
     "$work/v397-harness.cpp" "$work/v398-harness.cpp"
 echo 'V398_NAND_RETURN_STAGE install=1'
 python3 "$V110_SOURCE_ROOT/derive_v399_nand_resume_chain.py" \
-    "$work/v398-harness.cpp" "$work/v298-harness.cpp"
+    "$work/v398-harness.cpp" "$work/v399-harness.cpp"
 echo 'V399_NAND_RETURN_STAGE install=1'
+python3 "$V110_SOURCE_ROOT/derive_v400_nand_parent_resume.py" \
+    "$work/v399-harness.cpp" "$work/v298-harness.cpp"
+echo 'V400_NAND_PARENT_STAGE install=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include"        -c "$work/v298-harness.cpp" -o "$work/v298-harness.o"        > "$work/v298-compile.log" 2>&1; then
   echo 'V298_HARNESS_STAGE compile=1'
 else
@@ -459,6 +462,9 @@ echo 'V398_NAND_RETURN_STAGE inspected=1'
 python3 "$V110_SOURCE_ROOT/analyze_v399_nand_return_order.py" \
     "$work/v310-native.log" "$v310_rc"
 echo 'V399_NAND_RETURN_STAGE inspected=1'
+python3 "$V110_SOURCE_ROOT/analyze_v400_nand_parent_resume.py" \
+    "$work/v310-native.log" "$v310_rc"
+echo 'V400_NAND_PARENT_STAGE inspected=1'
 # This independent owner gate checks sixteen complete original-call chains;
 # V295 was written for a different, pre-V396 candidate stop point.
 python3 "$V110_SOURCE_ROOT/audit_v396_native_gate.py" \
@@ -477,6 +483,11 @@ cat "$work/v398-owner-gate.log"
 python3 "$V110_SOURCE_ROOT/audit_v399_native_gate.py" \
     "$work/v310-native.log" "$v310_rc" > "$work/v399-owner-gate.log"
 cat "$work/v399-owner-gate.log"
+# Classify original _isfsFuncCb return-PC and subsequent parent call,
+# without forcing a PPC branch or claiming full NAND completion.
+python3 "$V110_SOURCE_ROOT/audit_v400_native_gate.py" \
+    "$work/v310-native.log" "$v310_rc" > "$work/v400-owner-gate.log"
+cat "$work/v400-owner-gate.log"
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
