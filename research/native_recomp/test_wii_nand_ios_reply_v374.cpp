@@ -49,7 +49,17 @@ int main(){
     need((read(B::IPC+M::PPCCTRL)&M::Y1)!=0u&&bus.external_irq_level(),"Y1 IRQ missing");
     need(!service_deferred_reply_at_guest_boundary(bus,B::MSR_EE),"repeated Y1 publication");
     need(bus.external_exception_pending(B::MSR_EE),"Y1 not eligible after EE enabled");
-    put(B::IPC+M::PPCCTRL,en|M::Y1);put(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+    // Broadway Y1 ACK and Hollywood PPC_FLAG W1C are separate real
+    // guest hardware actions. The IRQ must remain high between them.
+    put(B::IPC+M::PPCCTRL,en|M::Y1);
+    need((read(B::IPC+M::PPCCTRL)&(M::Y1|M::Y2))==0u &&
+         (read(B::IPC+H::PPC_FLAG)&H::IPC_PPC)!=0u &&
+         bus.external_irq_level(),
+         "Broadway Y1 W1C incorrectly cleared separate Hollywood IRQ latch");
+    put(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+    need((read(B::IPC+H::PPC_FLAG)&H::IPC_PPC)==0u &&
+         !bus.external_irq_level(),
+         "Hollywood PPC_FLAG W1C failed after authentic Broadway Y1 ACK");
     need(!service_deferred_reply_at_guest_boundary(bus,B::MSR_EE),"idle second reply invented");
     // Negative results are genuine IOS errors, never changed into success.
     constexpr uint32_t notfound=0x180u,badpath=0x480u;

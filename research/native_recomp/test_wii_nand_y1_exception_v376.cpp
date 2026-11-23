@@ -100,6 +100,18 @@ int main(){
          "IRQ helper improperly ACKed hardware or invented guest handler");
     need(entry()==ExternalEntry::NotPending,
          "guest EE disabled after exception entry should mask re-entry");
+    // Original PowerPC handler semantics: acknowledging Y1 alone cannot
+    // clear the separate Hollywood flag or PI-level interrupt. Verify
+    // the same bus transitions that the V387 original guest path expects.
+    write(B::IPC+M::PPCCTRL,ien|M::Y1);
+    need((bus.read32(B::IPC+M::PPCCTRL).value()&(M::Y1|M::Y2))==0u &&
+         (bus.read32(B::IPC+H::PPC_FLAG).value()&H::IPC_PPC)!=0u &&
+         bus.external_irq_level(),
+         "original Broadway Y1 acknowledgement prematurely retired IRQ");
+    write(B::IPC+H::PPC_FLAG,H::IPC_PPC);
+    need((bus.read32(B::IPC+H::PPC_FLAG).value()&H::IPC_PPC)==0u &&
+         !bus.external_irq_level(),
+         "Hollywood W1C did not release native IRQ after Broadway Y1 ACK");
     // A delivered Broadway Y1 remains genuine while another native IOS
     // completion awaits scheduling. Queue occupancy must not mask a
     // hardware IRQ that is already latched and eligible in guest MSR.
