@@ -709,6 +709,68 @@ if (
 else
   echo 'V405_NAND_SECOND_STAGE attempt=failed'
 fi
+
+# V408: a FIFTH native guest-code binary, independently cut at 50 calls.
+# V404 (96), V405 (96 with checkpoints), V402 (48) and V403 (24)
+# remain untouched and independently auditable.
+if (
+  if ! test -s "$work/v404-harness.cpp"; then
+    echo 'V408_NAND_CUT50_ERROR reason=missing_96_harness'
+    exit 1
+  fi
+  if python3 "$V110_SOURCE_ROOT/derive_v408_nand_cut50.py" \
+      "$work/v404-harness.cpp" "$work/v408-harness.cpp"; then
+    echo 'V408_NAND_CUT50_STAGE derive=1'
+  else
+    echo 'V408_NAND_CUT50_STAGE derive=0'
+    exit 1
+  fi
+  if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v408-harness.cpp" -o "$work/v408-harness.o" \
+      > "$work/v408-compile.log" 2>&1; then
+    echo 'V408_NAND_CUT50_STAGE compile=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+        "$work/v408-compile.log" harness || true
+    echo 'V408_NAND_CUT50_STAGE compile=0'
+    exit 1
+  fi
+  if g++ "$work/v408-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v408-native" > "$work/v408-link.log" 2>&1; then
+    if ! test -s "$work/v408-native" || ! test -x "$work/v408-native"; then
+      echo 'V408_NAND_CUT50_STAGE link=0'
+      exit 1
+    fi
+    echo 'V408_NAND_CUT50_STAGE link=1'
+  else
+    python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+        "$work/v408-link.log" || true
+    echo 'V408_NAND_CUT50_STAGE link=0'
+    exit 1
+  fi
+  set +e
+  timeout --signal=TERM --kill-after=3s 12s \
+      "$work/v408-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v408-native.log" 2>&1
+  v408_rc=$?
+  set -e
+  echo 'V408_NAND_CUT50_STAGE run=1'
+  if python3 "$V110_SOURCE_ROOT/analyze_v408_nand_cut50.py" \
+      "$work/v408-native.log" "$v408_rc"; then
+    echo 'V408_NAND_CUT50_STAGE inspected=1'
+  else
+    echo 'V408_NAND_CUT50_STAGE inspected=0'
+    exit 1
+  fi
+  python3 "$V110_SOURCE_ROOT/audit_v408_nand_cut50.py" \
+      "$work/v408-native.log" "$v408_rc"
+); then
+  echo 'V408_NAND_CUT50_STAGE attempt=completed'
+else
+  echo 'V408_NAND_CUT50_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
