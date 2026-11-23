@@ -498,6 +498,45 @@ cat "$work/v400-owner-gate.log"
 python3 "$V110_SOURCE_ROOT/audit_v401_native_gate.py" \
     "$work/v310-native.log" "$v310_rc" > "$work/v401-owner-gate.log"
 cat "$work/v401-owner-gate.log"
+# V402: a SEPARATE owner-original candidate, never overwrite the V401
+# 24-call authenticated control. Extend only its bounded call frontier
+# to 48 in a privately generated harness while preserving original IOS,
+# PPC state and translated Wii AOT code. A diagnostic abort at this
+# farther frontier does not invalidate independently verified V401.
+python3 "$V110_SOURCE_ROOT/derive_v402_long_frontier.py" \
+    "$work/v298-harness.cpp" "$work/v402-harness.cpp"
+echo 'V402_LONG_STAGE derive=1'
+if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+    -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+    -c "$work/v402-harness.cpp" -o "$work/v402-harness.o" \
+    > "$work/v402-compile.log" 2>&1; then
+  echo 'V402_LONG_STAGE compile=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v77_compile_failure.py" \
+      "$work/v402-compile.log" harness || true
+  echo 'V402_LONG_STAGE compile=0'
+  exit 1
+fi
+if g++ "$work/v402-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+    -o "$work/v402-native" > "$work/v402-link.log" 2>&1; then
+  test -s "$work/v402-native" && test -x "$work/v402-native"
+  echo 'V402_LONG_STAGE link=1'
+else
+  python3 "$V110_SOURCE_ROOT/classify_v71_link_failure.py" \
+      "$work/v402-link.log" || true
+  echo 'V402_LONG_STAGE link=0'
+  exit 1
+fi
+set +e
+timeout --signal=TERM --kill-after=3s 12s \
+    "$work/v402-native" "$work/private-v310.dol" owner-callback "$owner" \
+    > "$work/v402-native.log" 2>&1
+v402_rc=$?
+set -e
+echo 'V402_LONG_STAGE run=1'
+python3 "$V110_SOURCE_ROOT/analyze_v402_long_frontier.py" \
+    "$work/v402-native.log" "$v402_rc"
+echo 'V402_LONG_STAGE inspected=1'
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

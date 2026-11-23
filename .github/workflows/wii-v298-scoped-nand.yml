@@ -65,6 +65,7 @@ on:
       - 'research/native_recomp/*v399*'
       - 'research/native_recomp/*v400*'
       - 'research/native_recomp/*v401*'
+      - 'research/native_recomp/*v402*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -237,6 +238,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v401_nand_linksite_classify.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v401_nand_callsite_audit.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v401_native_gate.py' -v
+          python3 -m py_compile research/native_recomp/derive_v402_long_frontier.py research/native_recomp/analyze_v402_long_frontier.py research/native_recomp/test_v402_long_frontier.py research/native_recomp/test_v402_long_frontier_audit.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v402_long_frontier.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v402_long_frontier_audit.py' -v
           python3 -m py_compile research/native_recomp/audit_v396_native_gate.py research/native_recomp/test_v396_native_gate.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v396_native_gate.py' -v
           python3 -m py_compile research/native_recomp/scan_original_guest_markers.py research/native_recomp/test_original_guest_markers_v395.py
@@ -420,6 +424,7 @@ jobs:
               grep -E '^V395_NAND_CHAIN_CENSUS v392_trials=([0-9]|1[0-6]) v393_trials=([0-9]|1[0-6]) v394_trials=([0-9]|1[0-6]) v395_trials=([0-9]|1[0-6]) v392_all_mask=[0-7] v393_all_mask=[0-7] v394_all_mask=[0-7] v395_all_mask=[0-7] v392_first_failed=([0-9]|1[0-6]) v393_first_failed=([0-9]|1[0-6]) v394_first_failed=([0-9]|1[0-6]) v395_first_failed=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V395_NAND_FIELD_CENSUS entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) entry_any_mask=[0-9A-F]{2} entry_all_mask=[0-9A-F]{2} trial_any_mask=[0-7] trial_all_mask=[0-7] first_bad=([0-9]|1[0-6]) order_ok=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V396_OWNER_RESULT_GATE verified=[01]$|^V397_OWNER_RESULT_GATE verified=[01] return_verified=0$|^V398_OWNER_RESULT_GATE verified=[01] blr_verified=0$|^V399_OWNER_RESULT_GATE verified=[01] ordered_all=[01] bctrl_all=[01] blr_verified=0$|^V400_OWNER_RESULT_GATE verified=[01] ordered_all=[01] link_all=[01] blr_verified=0$|^V401_OWNER_RESULT_GATE verified=[01] direct_all=[01] other_all=[01] blr_verified=0$|^V396_LEGACY_V(295|296|298) deferred=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V402_LONG_FRONTIER_ROUTE installed=1 source=original_guest cap=48 baseline_preserved=1$|^V402_LONG_STAGE (derive|compile|link|run|inspected)=[01]$|^V402_LONG_FRONTIER_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=([0-9]|[1-3][0-9]|4[0-8]) owner_trials=([0-9]|1[0-6]) cap48_trials=([0-9]|1[0-6]) selected_return_trials=([0-9]|1[0-6]) parent_return_trials=([0-9]|1[0-6]) full_progress=[01] boot_verified=0$|^V402_LONG_FRONTIER_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V401_NAND_CALLSITE_ROUTE installed=1 guest_opcode_read_only=1 targets_hidden=1 no_forced_return=1$|^V401_NAND_CALLSITE_STAGE (install|inspected)=1$|^V401_NAND_CALLSITE_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) kind0=([0-9]|1[0-6]) kind1=([0-9]|1[0-6]) kind2=([0-9]|1[0-6]) kind3=([0-9]|1[0-6]) kind4=([0-9]|1[0-6]) kind5=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) direct_match_trials=([0-9]|1[0-6]) classified=[01] blr_verified=0$|^V401_NAND_CALLSITE_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V400_NAND_PARENT_ROUTE installed=1 read_only=1 original_lr=1 no_forced_return=1$|^V400_NAND_PARENT_STAGE (install|inspected)=1$|^V400_NAND_PARENT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) linked_trials=([0-9]|1[0-6]) selected_first_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=[01] blr_verified=0$|^V400_NAND_PARENT_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V399_NAND_RETURN_ROUTE installed=1 read_only=1 ordered=1 original_opcode_classify=1 no_forced_return=1$|^V399_NAND_RETURN_STAGE (install|inspected)=1$|^V399_NAND_RETURN_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) bctrl_trials=([0-9]|1[0-6]) isfs_after_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=[01] blr_verified=0$|^V399_NAND_RETURN_AUDIT verified=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
@@ -476,6 +481,13 @@ jobs:
           grep -E '^V399_OWNER_RESULT_GATE verified=1 ordered_all=[01] bctrl_all=[01] blr_verified=0$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V400_OWNER_RESULT_GATE verified=1 ordered_all=[01] link_all=[01] blr_verified=0$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V401_OWNER_RESULT_GATE verified=1 direct_all=[01] other_all=[01] blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          # V402 runs in a different native process. Compile/link and the
+          # sanitized run attempt are mandatory; farther progress is diagnostic.
+          for stage in derive compile link run inspected; do
+            grep -Fx "V402_LONG_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+          done
+          grep -E '^V402_LONG_FRONTIER_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=([0-9]|[1-3][0-9]|4[0-8]) owner_trials=([0-9]|1[0-6]) cap48_trials=([0-9]|1[0-6]) selected_return_trials=([0-9]|1[0-6]) parent_return_trials=([0-9]|1[0-6]) full_progress=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -Fx 'V402_LONG_FRONTIER_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
           grep -E '^V397_NAND_ORIGINS_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 mask=([1-9]|1[0-5]) full_cap_all=[01] selected_any=[01] isfs_any=[01] parent_any=[01] other_any=[01] same_lr_any=[01] lineage_verified=1 return_verified=0$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V398_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 max_samples=([0-9]|[1-5][0-9]|6[0-4]) sampled_any=[01] site_any=[01] mapped_any=[01] before_cap_any=[01] witness_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V399_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) bctrl_trials=([0-9]|1[0-6]) isfs_after_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
