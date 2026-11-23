@@ -17,6 +17,7 @@ import unittest
 from derive_v296_service_harness import patch as service
 from derive_v298_scope_reply_observer import (
     patch as scope, ack_mmio_seam, ACK_MMIO_OLD, ACK_MMIO_NEW,
+    submit_mmio_seam,
 )
 from derive_v340_nand_mmio_probe import patch as mmio
 from derive_v321_guest_entry_probe import patch as entry
@@ -66,7 +67,11 @@ class Tests(unittest.TestCase):
             self.assertIn("old=0 label=1 scoped=0 guest=1 branch=1",
                           ack_mmio_seam(with_service))
             self.assertEqual(with_service.count(ACK_MMIO_OLD),0)
+            self.assertIn("label=1 scoped=0 guest=1 branch=1",
+                          submit_mmio_seam(with_service))
             scoped=scope(with_service)
+            self.assertIn("label=1 scoped=1 guest=1 branch=1",
+                          submit_mmio_seam(scoped))
             self.assertEqual(scoped.count(ACK_MMIO_OLD),0)
             self.assertIn("old=0 label=1 scoped=1 guest=1 branch=1",
                           ack_mmio_seam(scoped))

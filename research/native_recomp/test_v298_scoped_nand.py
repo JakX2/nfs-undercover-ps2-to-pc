@@ -14,7 +14,9 @@ from derive_v298_scope_reply_observer import (OLD,NEW,CHECK,SUBMIT_OLD,SUBMIT_NE
                                                 NAND_QUEUE_OLD,NAND_QUEUE_NEW,NAND_QUEUE_LABEL,
                                                 NAND_SEND_OLD,NAND_SEND_NEW,NAND_SEND_LABEL,
                                                 ACK_MMIO_OLD,ACK_MMIO_NEW,ACK_MMIO_LABEL,ACK_MMIO_PHASE,
-                                                choose_ack_mmio_branch,ack_mmio_seam,summarize_seams,
+                                                choose_ack_mmio_branch,ack_mmio_seam,
+                                                SUBMIT_MMIO_OLD,SUBMIT_MMIO_PHASE,SUBMIT_MMIO_LABEL,
+                                                choose_submit_mmio_branch,submit_mmio_seam,summarize_seams,
                                                 choose_ios_tail,patch as scope)
 from derive_v298_scoped_nand_runner import LINK,DONE,patch as runner
 from derive_v114_sc_flush_syscall_harness import EDITS as V114_EDITS
@@ -36,7 +38,9 @@ SOURCE=(OLD+"\n"+SUBMIT_OLD+"\n"+CLIENT_OLD+"\n"+IOS_OPEN_OLD+
         NAND_SEND_OLD+
         '\n     check(false,"V117 original IPC send register call ABI differs");\n'+
         ACK_MMIO_OLD+
-        '\n     check(false,"unexpected original IPC ACK MMIO write");\n')
+        '\n     check(false,"unexpected original IPC ACK MMIO write");\n  }\n'+
+        SUBMIT_MMIO_OLD+
+        '\n     check(false,"original PPCMSG writes invalid request pointer");\n  }\n')
 LOG=("V289_NAND_ENTRY n=1 phase=0 zero=1 sc=1 guest=1 inst=100\n"
      "V296_SERVICE_ENTRY kind=1 guest=1 direct=1 inst=121\n")
 
@@ -435,6 +439,45 @@ class Tests(unittest.TestCase):
         closed=transformed.replace(
             "\n  if((irq76_ipc||post118_sleep==1u)){\n",
             "\n  if((irq76_ipc||post118_sleep==1u)){}\n",1)
+        with self.assertRaises(ValueError):
+            scope(closed)
+
+    def test_v349_scope_first_submission_mmio_only_after_nand(self):
+        scoped=scope(SOURCE)
+        self.assertEqual(scoped.count(SUBMIT_MMIO_LABEL),1)
+        self.assertEqual(scoped.count(ACK_MMIO_LABEL),1)
+        self.assertIn("scoped=1",submit_mmio_seam(scoped))
+        self.assertIn("branch=1",submit_mmio_seam(scoped))
+        self.assertIn(SUBMIT_MMIO_PHASE,choose_submit_mmio_branch(scoped).group("cond"))
+        self.assertNotIn(SUBMIT_MMIO_PHASE,choose_submit_mmio_branch(SOURCE).group("cond"))
+        for candidate in (False,True):
+            for nand in (False,True):
+                self.assertEqual(not(candidate and nand),not candidate or not nand)
+        self.assertIn("original PPCMSG writes invalid request pointer",scoped)
+        for corrupt in (SOURCE.replace(SUBMIT_MMIO_LABEL,"altered request assertion",1),
+                        SOURCE+SUBMIT_MMIO_LABEL):
+            with self.subTest(length=len(corrupt)):
+                with self.assertRaises(ValueError):
+                    scope(corrupt)
+
+    def test_v349_distinguish_read32_from_write32_submit_branch(self):
+        from pathlib import Path
+        original=(Path(__file__).resolve().parent /
+                  "test_start_to_ipc_ack_v77.cpp").read_text(encoding="utf-8")
+        self.assertEqual(original.count(SUBMIT_MMIO_LABEL),1)
+        self.assertGreaterEqual(original.count("if(submit72_active){"),2)
+        branch=choose_submit_mmio_branch(original)
+        self.assertIn("submit72_active",branch.group("cond"))
+        self.assertIn("branch=1",submit_mmio_seam(original))
+        # Different original-source formatting/conditions must not make the
+        # first request's historical submission check globally applicable.
+        alternate=SOURCE.replace(
+            SUBMIT_MMIO_OLD,"\n  if((submit72_active||submit72_message==1u)){\n",1)
+        transformed=scope(alternate)
+        self.assertIn(SUBMIT_MMIO_PHASE,
+                      choose_submit_mmio_branch(transformed).group("cond"))
+        closed=SOURCE.replace(SUBMIT_MMIO_OLD,
+                              "\n   if(submit72_active){}\n",1)
         with self.assertRaises(ValueError):
             scope(closed)
 

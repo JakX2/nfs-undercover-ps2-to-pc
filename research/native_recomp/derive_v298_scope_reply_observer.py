@@ -136,6 +136,20 @@ ACK_MMIO_LINE=re.compile(
     r"(?P<brace>[ \t]*\{[ \t]*)(?P<nl>\n?)"
 )
 
+# V349: the V72 first-request PPCMSG/PPCCTRL MMIO observer remains active
+# after the first SC IOS request. A verified original NAND request uses
+# the same guest MMIO register but not V72's one-shot counters.
+# Only this host-side historical check is scoped; the next MMIO handler
+# and physical request bytes are never rewritten or acknowledged here.
+SUBMIT_MMIO_OLD="\n   if(submit72_active){\n"
+SUBMIT_MMIO_PHASE="(!v250_candidate_mode||v250_nand_seen==0u)"
+SUBMIT_MMIO_LABEL="original PPCMSG writes invalid request pointer"
+SUBMIT_MMIO_LINE=re.compile(
+    r"(?m)^(?P<pad>[ \t]*)(?P<head>(?:else[ \t]+)?if[ \t]*)"
+    r"\((?P<cond>[^\n{}]*\bsubmit72_active\b[^\n{}]*)\)"
+    r"(?P<brace>[ \t]*\{[ \t]*)(?P<nl>\n?)"
+)
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -185,6 +199,53 @@ def ack_mmio_seam(source: str, scoped: bool=False) -> str:
         f"old={min(source.count(ACK_MMIO_OLD),2)} "
         f"label={min(source.count(ACK_MMIO_LABEL),2)} "
         f"scoped={scoped_count} "
+        f"guest={int('v250_nand_seen' in source)} "
+        f"branch={branch}"
+    )
+
+def choose_submit_mmio_branch(source: str) -> re.Match[str]:
+    # There are *two* V72 submit72_active branches: read32 and write32.
+    # Only the write32 branch enclosing this exact old PPCMSG assertion
+    # is allowed to be phase-scoped.
+    if source.count(SUBMIT_MMIO_LABEL)!=1:
+        raise ValueError("V349 PPCMSG label missing or ambiguous")
+    label=source.index(SUBMIT_MMIO_LABEL)
+    hw=source.rfind("void HW_Reg_Write32(uint32_t addr,uint32_t value){",0,label)
+    if hw<0 and len(source)>25000:
+        raise ValueError("V349 owner write32 boundary missing")
+    found=[]
+    for match in SUBMIT_MMIO_LINE.finditer(source,hw if hw>=0 else 0,label):
+        depth=0
+        started=False
+        opening=match.start("brace")+len(match.group("brace").rstrip())-1
+        for ch in source[opening:label]:
+            if ch=="{":
+                depth+=1
+                started=True
+            elif ch=="}":
+                depth-=1
+                if started and depth<=0:
+                    break
+        if started and depth>0:
+            found.append(match)
+    if len(found)!=1:
+        raise ValueError("V349 enclosing V72 PPCMSG branch missing or ambiguous")
+    return found[0]
+
+def submit_mmio_seam(source: str) -> str:
+    branch=0
+    scoped=0
+    try:
+        match=choose_submit_mmio_branch(source)
+        branch=1
+        scoped=int(SUBMIT_MMIO_PHASE in match.group("cond"))
+    except ValueError:
+        pass
+    return (
+        "V349_SUBMIT_SEAM "
+        f"old={min(source.count(SUBMIT_MMIO_OLD),2)} "
+        f"label={min(source.count(SUBMIT_MMIO_LABEL),2)} "
+        f"scoped={scoped} "
         f"guest={int('v250_nand_seen' in source)} "
         f"branch={branch}"
     )
@@ -245,6 +306,7 @@ def patch(source: str) -> str:
         source.count(NAND_QUEUE_OLD)!=1 or source.count(NAND_QUEUE_LABEL)!=1 or
         source.count(NAND_SEND_OLD)!=1 or source.count(NAND_SEND_LABEL)!=1 or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
+        source.count(SUBMIT_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
@@ -275,6 +337,14 @@ def patch(source: str) -> str:
              "(("+ack.group("cond")+")&&"+ACK_MMIO_PHASE+")"+
              ack.group("brace")+ack.group("nl"))
     output=output[:ack.start()]+guarded+output[ack.end():]
+    # V349: preserve the authentic NAND request writer and native IOS bus.
+    submit=choose_submit_mmio_branch(output)
+    if SUBMIT_MMIO_PHASE in submit.group("cond"):
+        raise ValueError("V349 old request observer already scoped")
+    submit_guard=(submit.group("pad")+submit.group("head")+
+                  "(("+submit.group("cond")+")&&"+SUBMIT_MMIO_PHASE+")"+
+                  submit.group("brace")+submit.group("nl"))
+    output=output[:submit.start()]+submit_guard+output[submit.end():]
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -288,6 +358,7 @@ def patch(source: str) -> str:
         output.count(NAND_QUEUE_NEW)!=1 or output.count(NAND_QUEUE_LABEL)!=1 or
         output.count(NAND_SEND_NEW)!=1 or output.count(NAND_SEND_LABEL)!=1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
+        SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
@@ -305,8 +376,10 @@ def main()->int:
         import sys
         print(summarize_seams(raw),file=sys.stderr)
         print(ack_mmio_seam(raw),file=sys.stderr)
+        print(submit_mmio_seam(raw),file=sys.stderr)
         raise
     print(ack_mmio_seam(scoped))
+    print(submit_mmio_seam(scoped))
     with a.private_scoped_harness.open("x",encoding="utf-8") as dst:
         dst.write(scoped)
     return 0
