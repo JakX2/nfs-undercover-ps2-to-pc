@@ -9,6 +9,7 @@ derived source text or original-game contents.
 from __future__ import annotations
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -78,6 +79,31 @@ class Tests(unittest.TestCase):
             # Source-only instrumentation must not replace the original
             # hardware service calls with a fabricated IOS reply.
             self.assertIn("ipc70_bus.write32",instrumented)
+            # V347: compile the complete independently derived PUBLIC harness
+            # before any owner original/ELF step. Syntax-only means no native
+            # game code is linked, loaded, or executed in this test.
+            compiler=shutil.which("g++")
+            self.assertIsNotNone(compiler,"V347_PUBLIC_CPP compiler_unavailable")
+            staged_cpp=Path(td)/"v347-public-harness.cpp"
+            staged_cpp.write_text(instrumented,encoding="utf-8")
+            command=[
+                compiler,"-std=c++20","-fsyntax-only",
+                "-Wall","-Wextra","-Werror","-Wno-type-limits",
+                "-Wno-unused-label",
+                "-I"+str(HERE),
+                "-I"+str(HERE.parents[1]/"nWiiRuntime"/"include"),
+                str(staged_cpp),
+            ]
+            try:
+                result=subprocess.run(command,capture_output=True,text=True,
+                                      timeout=120,check=False)
+            except subprocess.TimeoutExpired:
+                self.fail("V347_PUBLIC_CPP compile_timeout")
+            # Keep compiler diagnostics/derived code in the transient
+            # source-only CI scratch; report a stable status, not raw text.
+            self.assertEqual(result.returncode,0,
+                             "V347_PUBLIC_CPP compile_failed")
+            print("V347_PUBLIC_CPP source=1 syntax=1 original_free=1")
             print("V342_HARNESS_SMOKE scope=1 probe=1 entry=1 origfree=1")
 
 if __name__=="__main__":
