@@ -48,9 +48,9 @@ def patch(source:str)->str:
     if (MARKER in source or TRIAL_MARKER in source or
         source.count("V401_NAND_CALLSITE mapped=")!=1 or
         source.count("V401_NAND_CALLSITE_TRIAL kind=")!=1 or
-        source.count("try{run_game(c);}")>1):
-        # Synthetic fixtures may omit the owner-only run loop; neither a
-        # synthetic nor owner source may duplicate that private loop.
+        source.count("try{run_game(c);}")!=1):
+        # Both owner-generated source and synthetic source must carry one
+        # guarded run_game loop; reject a missing or duplicated loop.
         raise ValueError("V402 original bounded harness geometry changed")
     s=source
     for old,new in SEAMS.items():
