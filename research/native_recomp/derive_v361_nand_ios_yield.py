@@ -44,6 +44,7 @@ INJECTION=(
 
 def patch(source: str) -> str:
     if (source.count(HEAD)!=1 or source.count(PRIOR)!=1 or
+        source.count("v250_candidate_mode")<2 or
         source.count("v250_nand_seen")<2 or
         "wii_ios_yield_scheduler.h" not in source or
         MARKER in source):
