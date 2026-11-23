@@ -51,14 +51,14 @@ def patch(source:str)->str:
         source.count("try{run_game(c);}")!=1):
         # Both owner-generated source and synthetic source must carry one
         # guarded run_game loop; reject a missing or duplicated loop.
-        raise ValueError("V402 original bounded harness geometry changed")
+        raise ValueError("geometry")
     s=source
-    for old,new in SEAMS.items():
+    for i,(old,new) in enumerate(SEAMS.items(),1):
         if s.count(old)!=1:
-            raise ValueError("V402 previous 24-call cap/proof changed")
+            raise ValueError(f"cap_{i}")
         s=s.replace(old,new,1)
     if s.count(STOP)!=1 or s.count(TRIAL)!=1:
-        raise ValueError("V402 stop or trial witness changed")
+        raise ValueError("stop_trial")
     s=s.replace(STOP,STOP_NEW,1).replace(TRIAL,TRIAL_NEW,1)
     if (s.count(MARKER)!=1 or s.count(TRIAL_MARKER)!=1 or
         s.count("V401_NAND_CALLSITE mapped=")!=1 or
@@ -66,7 +66,7 @@ def patch(source:str)->str:
         s.count("V370_NAND_FLAG_W1C n=")!=1 or
         s.count("try{run_game(c);}")!=source.count("try{run_game(c);}") or
         s.count('if(owned||v396_calls==48u){')!=1):
-        raise ValueError("V402 AOT guest-state route not preserved")
+        raise ValueError("route")
     return s
 def main()->int:
     p=argparse.ArgumentParser(description=__doc__)
@@ -78,7 +78,12 @@ def main()->int:
             raise ValueError("output_exists")
         with a.next_private_harness.open("x",encoding="utf-8") as f:
             f.write(patch(a.prior_private_harness.read_text(encoding="utf-8")))
-    except (ValueError,OSError):
+    except (ValueError,OSError) as exc:
+        reason=str(exc) if isinstance(exc,ValueError) else "io"
+        if reason not in {"geometry","cap_1","cap_2","cap_3","cap_4",
+                          "stop_trial","route","output_exists","io"}:
+            reason="other"
+        print(f"V402_LONG_FRONTIER_ERROR reason={reason}",file=sys.stderr)
         print("V402_LONG_FRONTIER_ROUTE installed=0",file=sys.stderr)
         return 1
     print("V402_LONG_FRONTIER_ROUTE installed=1 source=original_guest cap=48 baseline_preserved=1")
