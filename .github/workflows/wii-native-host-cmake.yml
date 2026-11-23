@@ -1,0 +1,59 @@
+name: Wii Native Host Runtime CMake
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/CMakeLists.txt'
+      - 'research/native_recomp/wii_ipc_mailbox.h'
+      - 'research/native_recomp/wii_hollywood_irq.h'
+      - 'research/native_recomp/wii_ios_bus.h'
+      - 'research/native_recomp/wii_stm_ios.h'
+      - 'research/native_recomp/wii_guest_filesystem.h'
+      - 'research/native_recomp/wii_sysconf_image.h'
+      - 'research/native_recomp/wii_ios_yield_scheduler.h'
+      - 'research/native_recomp/wii_nand_ios_reply_yield.h'
+      - 'research/native_recomp/test_wii_ipc_mailbox.cpp'
+      - 'research/native_recomp/test_wii_hollywood_irq.cpp'
+      - 'research/native_recomp/test_wii_ios_bus.cpp'
+      - 'research/native_recomp/test_wii_stm_ios.cpp'
+      - 'research/native_recomp/test_wii_guest_filesystem.cpp'
+      - 'research/native_recomp/test_wii_sysconf_image.cpp'
+      - 'research/native_recomp/test_wii_ios_yield_scheduler.cpp'
+      - 'research/native_recomp/test_wii_nand_ios_reply_v374.cpp'
+      - '.github/workflows/wii-native-host-cmake.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wii-native-host-cmake-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free-host-runtime:
+    name: Host CMake / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure independent native C++20 host runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Windows ]; then
+            cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
+          else
+            cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+          fi
+      - name: Build original-free host runtime and eight native test programs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build "$RUNNER_TEMP/wii-host" --config Debug --parallel 2
+      - name: Run native IPC IOS NAND and SYSCONF tests with CTest
+        shell: bash
+        run: |
+          set -euo pipefail
+          ctest --test-dir "$RUNNER_TEMP/wii-host" -C Debug --output-on-failure --parallel 2
