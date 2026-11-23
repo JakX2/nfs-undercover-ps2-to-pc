@@ -11,6 +11,7 @@ handling and all original guest code, registers and IOS responses.
 from __future__ import annotations
 import argparse
 from pathlib import Path
+import re
 
 OLD=("  if(v176_next_seen==1u&&v177_next_seen==0u&&\n"
      "     addr>=0x80400000u&&addr<0x80600000u){")
@@ -126,21 +127,66 @@ NAND_SEND_LABEL="V117 original IPC send register call ABI differs"
 # The following using declarations can be moved by other derivations without
 # changing the semantics of this one scoped condition.
 ACK_MMIO_OLD="\n   if(irq76_ipc){\n"
-ACK_MMIO_NEW="\n   if(irq76_ipc&&(!v250_candidate_mode||v250_nand_seen==0u)){\n"
+ACK_MMIO_PHASE="(!v250_candidate_mode||v250_nand_seen==0u)"
+ACK_MMIO_NEW="\n   if((irq76_ipc)&&"+ACK_MMIO_PHASE+"){\n"
 ACK_MMIO_LABEL="unexpected original IPC ACK MMIO write"
+ACK_MMIO_LINE=re.compile(
+    r"(?m)^(?P<pad>[ \\t]*)(?P<head>(?:else[ \\t]+)?if[ \\t]*)"
+    r"\\((?P<cond>[^\\n{}]*\\birq76_ipc\\b[^\\n{}]*)\\)"
+    r"(?P<brace>[ \\t]*\\{[ \\t]*)(?P<nl>\\n?)"
+)
 
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
 
+def choose_ack_mmio_branch(source: str) -> re.Match[str]:
+    # Associate an enclosing if-branch with the unique old ACK assertion,
+    # rather than depending on the branch's indentation or other
+    # transformations performed by predecessor harness derivations.
+    if source.count(ACK_MMIO_LABEL)!=1:
+        raise ValueError("V344 ACK label missing or ambiguous")
+    label=source.index(ACK_MMIO_LABEL)
+    hw=source.rfind("void HW_Reg_Write32(uint32_t addr,uint32_t value){",0,label)
+    if hw<0 and len(source)>25000:
+        raise ValueError("V344 owner MMIO writer boundary missing")
+    enclosing=[]
+    for match in ACK_MMIO_LINE.finditer(source,hw if hw>=0 else 0,label):
+        # A candidate must enclose the old error. A previous IRQ callback
+        # observer with the same variable is not sufficient.
+        depth=0
+        reached=False
+        for ch in source[match.start("brace")+len(match.group("brace").rstrip())-1:label]:
+            if ch=="{":
+                depth+=1
+                reached=True
+            elif ch=="}":
+                depth-=1
+                if reached and depth<=0:
+                    break
+        if reached and depth>0:
+            enclosing.append(match)
+    if len(enclosing)!=1:
+        raise ValueError("V344 ACK enclosing branch missing or ambiguous")
+    return enclosing[0]
+
 def ack_mmio_seam(source: str, scoped: bool=False) -> str:
-    # Only fixed public C++ observer-anchor counts, no private code/logs.
+    # Only fixed public source-anchor counts, no original guest bytes.
+    branch=0
+    scoped_count=0
+    try:
+        match=choose_ack_mmio_branch(source)
+        branch=1
+        scoped_count=int(ACK_MMIO_PHASE in match.group("cond"))
+    except ValueError:
+        pass
     return (
         "V341_ACK_SEAM "
         f"old={min(source.count(ACK_MMIO_OLD),2)} "
         f"label={min(source.count(ACK_MMIO_LABEL),2)} "
-        f"scoped={min(source.count(ACK_MMIO_NEW),2)} "
-        f"guest={int('v250_nand_seen' in source)}"
+        f"scoped={scoped_count} "
+        f"guest={int('v250_nand_seen' in source)} "
+        f"branch={branch}"
     )
 
 def summarize_seams(source: str) -> str:
@@ -198,7 +244,7 @@ def patch(source: str) -> str:
         source.count(NAND_IRQ_OLD)!=1 or source.count(NAND_IRQ_LABEL)!=1 or
         source.count(NAND_QUEUE_OLD)!=1 or source.count(NAND_QUEUE_LABEL)!=1 or
         source.count(NAND_SEND_OLD)!=1 or source.count(NAND_SEND_LABEL)!=1 or
-        source.count(ACK_MMIO_OLD)!=1 or source.count(ACK_MMIO_LABEL)!=1 or
+        source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
         not 0 < source.index(TRANSPORT_LABEL)-source.index(TRANSPORT_OLD) < 2600 or
         not 0 < source.index(ASYNC_LABEL)-source.index(ASYNC_OLD) < 2600 or
@@ -222,7 +268,13 @@ def patch(source: str) -> str:
     output=output.replace(NAND_IRQ_OLD,NAND_IRQ_NEW,1)
     output=output.replace(NAND_QUEUE_OLD,NAND_QUEUE_NEW,1)
     output=output.replace(NAND_SEND_OLD,NAND_SEND_NEW,1)
-    output=output.replace(ACK_MMIO_OLD,ACK_MMIO_NEW,1)
+    ack=choose_ack_mmio_branch(output)
+    if ACK_MMIO_PHASE in ack.group("cond"):
+        raise ValueError("V344 ACK branch already scoped")
+    guarded=(ack.group("pad")+ack.group("head")+
+             "(("+ack.group("cond")+")&&"+ACK_MMIO_PHASE+")"+
+             ack.group("brace")+ack.group("nl"))
+    output=output[:ack.start()]+guarded+output[ack.end():]
     if (output.count(NEW)!=1 or output.count(SUBMIT_NEW)!=1 or
         output.count(CLIENT_NEW)!=1 or output.count(IOS_OPEN_NEW)!=1 or
         output.count(IOS_OPEN_EXPLICIT)!=1 or
@@ -235,7 +287,8 @@ def patch(source: str) -> str:
         output.count(NAND_IRQ_NEW)!=1 or output.count(NAND_IRQ_LABEL)!=1 or
         output.count(NAND_QUEUE_NEW)!=1 or output.count(NAND_QUEUE_LABEL)!=1 or
         output.count(NAND_SEND_NEW)!=1 or output.count(NAND_SEND_LABEL)!=1 or
-        output.count(ACK_MMIO_NEW)!=1 or output.count(ACK_MMIO_LABEL)!=1 or
+        ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
+        output.count(ACK_MMIO_LABEL)!=1 or
         output.count(IOS_OPEN_LABEL)!=1 or output.count(CHECK)!=1):
         raise ValueError("V298 scoped observer geometry")
     return output
