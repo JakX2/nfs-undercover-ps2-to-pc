@@ -34,7 +34,8 @@ or as proof of NAND callback completion.
 | V389 | Original Wii PowerPC subsequently issued a distinct Hollywood `PPC_FLAG.IPC_PPC` W1C, lowering the native IRQ level; 12 bounded verified pairs | No return to NAND callback yet |
 | V390 | Original translated NAND IPC reply handler executed past both hardware ACKs to its post-ACK cache-invalidation helper; 12 retained authentic pairs | Cache-helper entry only; NAND callback not reached |
 | V391 | Second authentic post-ACK, reply-handler-owned call identified as another cache-related guest callee; 12 retained positive owner pairs | No context or callback call observed in retained V391 boundary |
-| V392 | Bounded 24-call continuation through repeated post-ACK cache helpers toward the first non-cache owner call | Authenticated owner test pending; callback never inferred solely from classification |
+| V392 | First reply-handler-owned non-cache guest callee after repeated cache work classified as Wii OS context management, 12 retained original observations | No callback observed; exact context target not exported by sanitized census |
+| V393 | Continue authentic V392 non-cache callee to first genuine next original guest function call; classify OS context/callback target | Owner-private execution pending, not a verified milestone |
 
 ### Repeatable sanitized outcomes
 
@@ -272,6 +273,26 @@ the original callback will follow immediately. V392 therefore advances
 beyond the repeated cache step with a 24-call cap and accepts whichever
 real non-cache guest callee appears.
 
+Owner run [45230601180](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45230601180)
+authenticated original NAND guest execution after two distinct
+PowerPC-owned hardware interrupt acknowledgements and repeated cache
+calls, reaching the first non-cache function whose LR belonged to
+`IpcReplyHandler`. The guest target matched a Wii OS context-management
+helper. It is not yet clear from the public census whether that target
+was `OSClearContext` or `OSSetCurrentContext`:
+
+```text
+V392_NAND_POST_CACHE_CENSUS rc=0 kind=zero size_band=0 sample_complete=0 entries=12 trials=12 owner_any=1 bounded_any=0 cache_any=0 context_any=1 callback_any=0 next_verified=1
+```
+
+The public original-free tests initially passed after fixing a mistaken
+fixture stop assertion; the original-private V392 harness then exposed
+a compiler `-Wparentheses` failure in a widened completion predicate.
+The corrected V392 source added an independent g++ `-Wall -Wextra
+-Werror` original-free compile check. Its public test lane passed and
+the owner-original run reached the context-management checkpoint
+without changing original PPC or IOS result data.
+
 `sample_complete=0` means these are verified pairs **within the bounded
 retained public log sample**, not proof of exhaustive execution across the
 original game. The original game has not booted, reached its frontend or
@@ -312,16 +333,19 @@ authenticated original guest execution through both W1Cs to its
 `DCInvalidateRange` entry, matching the historical cache-helper
 classification without forcing it.
 
-V391 advanced the authentic reply-handler-owned call chain,
-but the next observed call was again classified as a cache helper
-rather than an OS context or NAND callback entry. V392 extends native
-execution through repeated cache helper calls, stopping at the first
-non-cache reply-handler-owned guest call or a fixed 24-call cap.
+V391 advanced the authentic reply-handler-owned call chain
+through an additional cache-related callee. V392 then executed
+unchanged original PowerPC until a genuine reply-handler-owned OS
+context-management function entry, with both hardware ACKs complete
+and the native IRQ line down. The exact context target is not
+disclosed in the bounded public record.
 
-Prior SC/Y1 code entered `OSClearContext`, `OSSetCurrentContext` and
-an ISFS callback, but those NAND milestones remain unverified. Callback
-identity and the actual IOS reply result must be checked against the
-original guest request, not borrowed from the negative SC path.
+V393 now continues that same authentic context-related guest callee
+and records the first naturally linked next function, classifying
+`OSClearContext`, `OSSetCurrentContext`, cache helpers, and
+`_isfsFuncCb` without requiring a predetermined branch. The NAND
+callback ABI, IOS response status and original request identity
+must all be authenticated before claiming NAND completion.
 Complete native Wii boot remains unverified.
 
 ## Windows original-free regression
