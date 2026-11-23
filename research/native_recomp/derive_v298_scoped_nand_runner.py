@@ -508,13 +508,15 @@ cat "$work/v401-owner-gate.log"
 python3 "$V110_SOURCE_ROOT/audit_v403_native_gate.py" \
     "$work/v310-native.log" "$v310_rc" > "$work/v403-owner-gate.log"
 cat "$work/v403-owner-gate.log"
+if (
+  set -e
 # V402: a SEPARATE owner-original candidate, never overwrite the V401
 # 24-call authenticated control. Extend only its bounded call frontier
 # to 48 in a privately generated harness while preserving original IOS,
 # PPC state and translated Wii AOT code. A diagnostic abort at this
 # farther frontier does not invalidate independently verified V401.
 python3 "$V110_SOURCE_ROOT/derive_v402_long_frontier.py" \
-    "$work/v298-harness.cpp" "$work/v402-harness.cpp"
+    "$work/v298-harness.cpp" "$work/v402-harness.cpp" || exit 1
 echo 'V402_LONG_STAGE derive=1'
 if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
     -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
@@ -547,6 +549,13 @@ echo 'V402_LONG_STAGE run=1'
 python3 "$V110_SOURCE_ROOT/analyze_v402_long_frontier.py" \
     "$work/v402-native.log" "$v402_rc"
 echo 'V402_LONG_STAGE inspected=1'
+); then
+  echo 'V402_LONG_STAGE attempt=completed'
+else
+  # This extra trial is isolated: its failure never substitutes for, or
+  # invalidates, the separately authenticated 24-call V403 owner gate.
+  echo 'V402_LONG_STAGE attempt=failed'
+fi
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
