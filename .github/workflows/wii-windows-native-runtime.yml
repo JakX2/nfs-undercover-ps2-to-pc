@@ -1,0 +1,48 @@
+name: Wii Windows Native Runtime Smoke
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ipc_mailbox.h'
+      - 'research/native_recomp/wii_hollywood_irq.h'
+      - 'research/native_recomp/wii_ios_bus.h'
+      - 'research/native_recomp/wii_stm_ios.h'
+      - 'research/native_recomp/wii_guest_filesystem.h'
+      - 'research/native_recomp/test_wii_ipc_mailbox.cpp'
+      - 'research/native_recomp/test_wii_hollywood_irq.cpp'
+      - 'research/native_recomp/test_wii_ios_bus.cpp'
+      - '.github/workflows/wii-windows-native-runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wii-windows-runtime-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows-msvc-original-free-runtime:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and execute Hollywood IPC, IRQ, and IOS host runtime with MSVC x64
+        shell: cmd
+        run: |
+          @echo on
+          setlocal
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
+          if errorlevel 1 exit /b 1
+          if not exist "%RUNNER_TEMP%\wii-native-win" mkdir "%RUNNER_TEMP%\wii-native-win"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_ipc_mailbox.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\ipc.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\ipc.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_hollywood_irq.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\irq.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\irq.exe"
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_wii_ios_bus.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\ios.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\ios.exe"
+          if errorlevel 1 exit /b 1
+          echo PASS: original-free Windows x64 IPC, Hollywood IRQ and IOS MMIO runtime tests
