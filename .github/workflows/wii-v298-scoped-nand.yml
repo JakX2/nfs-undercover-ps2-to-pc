@@ -36,6 +36,7 @@ on:
       - 'research/native_recomp/*v369*'
       - 'research/native_recomp/*v370*'
       - 'research/native_recomp/*v372*'
+      - 'research/native_recomp/*v373*'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
   contents: read
@@ -112,6 +113,9 @@ jobs:
           python3 -m py_compile research/native_recomp/derive_v372_nand_v153_trial_scope.py research/native_recomp/test_v372_nand_v153_trial_scope.py research/native_recomp/analyze_v372_nand_sc_trial.py research/native_recomp/test_v372_nand_sc_trial_audit.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v372_nand_v153_trial_scope.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v372_nand_sc_trial_audit.py' -v
+          python3 -m py_compile research/native_recomp/derive_v373_nand_irq_timeline.py research/native_recomp/test_v373_nand_irq_timeline.py research/native_recomp/analyze_v373_nand_irq_timeline.py research/native_recomp/test_v373_nand_irq_timeline_audit.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v373_nand_irq_timeline.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v373_nand_irq_timeline_audit.py' -v
           g++ -std=c++20 -Wall -Wextra -Werror -O1 -fsanitize=address,undefined -fno-omit-frame-pointer -no-pie \
             research/native_recomp/test_wii_nand_irq_mask_v368.cpp -o "$RUNNER_TEMP/nand-mask-v368"
           "$RUNNER_TEMP/nand-mask-v368"
@@ -279,6 +283,7 @@ jobs:
               grep -E '^V370_FLAG_ROUTE installed=1 original_guest=1 w1c=1$|^V370_FLAG_ROUTE_STAGE install=1$|^V370_NAND_FLAG_W1C n=([1-9]|1[0-6]) accepted=[01] before=[01] write_ipc=[01] remaining=[01] irq=[01] queued=[01]$|^V370_FLAG_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] writes=([0-9]|1[0-6]) accepted=([0-9]|1[0-6]) ipc_write=[01] cleared=[01] retained_any=[01] queued_any=[01] irq_any=[01]$|^V370_FLAG_AUDIT verified=1$|^V370_FLAG_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SEAM exact=[012] label=[012] state=[012] flag=[012] candidate=[01] nand=[01] queued=[01]$|^V372_SC_TRIAL_SCOPE installed=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V372_SC_TRIAL_SCOPE installed=1 guest_unchanged=1 ios_unchanged=1$|^V372_SC_TRIAL_SCOPE_STAGE install=1$|^V372_NAND_SC_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|1[0-6]) bridge_any=[01] queued_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] irq_any=[01] ee_any=[01]$|^V372_NAND_SC_AUDIT verified=1$|^V372_NAND_SC_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V373_IRQ_TIMELINE installed=1 original_guest=1 bounded=96 read_only=1$|^V373_IRQ_TIMELINE_STAGE install=1$|^V373_IRQ_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] samples=([0-9]|[1-8][0-9]|9[0-6]) first_ee=([0-9]|[1-8][0-9]|9[0-6]) first_irq=([0-9]|[1-8][0-9]|9[0-6]) first_ready=([0-9]|[1-8][0-9]|9[0-6]) ee_any=[01] irq_any=[01] eligible_any=[01] safe_any=[01] installed_any=[01] y1_any=[01] y2_any=[01] flag_any=[01] queued_any=[01]$|^V373_IRQ_AUDIT verified=1$|^V373_IRQ_TIMELINE_STAGE inspected=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V319_NATIVE_ENTRIES rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] complete=[01] known_markers=[0-9]{1,5} helper41=[01] helper64=[01] ios_request=[01] allocator_tail=[01] flush=[01] branch_a=[01] branch_b=[01]$|^V319_ENTRY_AUDIT verified=[01]$|^V319_ENTRY_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V321_ENTRY_PROBE installed=[01]( targets=8 bounded=1)?$|^V321_ENTRY_COMPARISON targets=8 base_mask=[0-9a-f]{2} restored_mask=[0-9a-f]{2} added_mask=[0-9a-f]{2} lost_mask=[0-9a-f]{2} base_complete=[01] restored_complete=[01]$|^V321_ENTRY_AUDIT verified=[01]$|^V321_ENTRY_COMPARE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V323_SECOND_COVERAGE owner=1 targets=5 original=[0-5] missing=[0-5] partial=[0-5] unknown=[0-5] body=[0-5] dispatch=[0-5]$|^V323_CALLEE pc=[0-9a-f]{8} kind=(exact|interior|unknown|ambiguous|invalid) base=[0-9a-f]{8} offset=[0-9]{1,5} words=[0-9]{1,5} present=[01] same=[0-9]{1,5} nop=[0-9]{1,5} blr=[0-9]{1,5} other=[0-9]{1,5} original=[01] body=[01] dispatch=[01]$|^V323_SECOND_AUDIT verified=[01]$|^V323_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
