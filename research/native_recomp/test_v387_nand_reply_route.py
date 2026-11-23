@@ -26,7 +26,7 @@ class Tests(unittest.TestCase):
             HEADER+INJECTION+'\n}\nvoid v80(){\n'+V80_FIRST+
             '\n}\nvoid prior(){',1)
         cls.prior=v386(arm(v385(v384(v383(v382(v381(
-            v380(v379(v378(v377(original))))))))))
+            v380(v379(v378(v377(original)))))))))))
     def test_original_guest_resumed_at_saved_pc(self):
         out=patch(self.prior)
         self.assertEqual(out.count(MARKER),2)
