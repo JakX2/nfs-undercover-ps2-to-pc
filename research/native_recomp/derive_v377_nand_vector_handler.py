@@ -24,7 +24,7 @@ MARKER='V377_NAND_HANDLER_ENTRY vector='
 VECTOR='V377_NAND_VECTOR_ENTRY saved='
 TRIAL='V377_NAND_HANDLER_TRIAL stopped='
 REQUIRED=('v160_vector_seen','v160_handler_seen','v159_vector_seen',
-          'v158_rfi_seen','c.pc==0x80526ce0u')
+          'v158_rfi_seen')
 
 STATE=r"""
 // V377: observer-only phase gate and immutable interrupted CPU snapshot.
@@ -99,6 +99,32 @@ TRACE=r"""
   }
 """
 
+
+def seam_census(source:str)->str:
+    # This report is generated from a PRIVATE harness but exports only
+    # bounded counts of known public observer labels and parser geometry.
+    label_count=source.count(V160)
+    has_quote=0
+    nearby_checks=0
+    complete=0
+    oldpc=0
+    if label_count==1:
+        at=source.index(V160)
+        has_quote=int(at>0 and source[at-1]=='"' and
+                      source[at+len(V160):at+len(V160)+1]=='"')
+        pre=source[max(0,at-4200):at]
+        nearby_checks=min(len(re.findall(r'(?m)^[ \t]{2,24}check[ \t]*\(',pre)),9)
+        complete=int(all(token in pre for token in REQUIRED))
+        oldpc=int('c.pc==0x80526ce0u' in pre)
+    return (
+        'V377_HANDLER_SEAM '
+        f'label={min(label_count,2)} head={min(source.count(HEAD),2)} '
+        f'v376={min(source.count(V376),2)} v375={min(source.count(V375),2)} '
+        f'nand={int("v250_nand_seen" in source)} '
+        f'quoted={has_quote} near={nearby_checks} '
+        f'proof={complete} oldpc={oldpc}'
+    )
+
 def select_v160(source:str)->tuple[int,int,str]:
     if source.count(V160)!=1:
         raise ValueError('V160 original SC-only assertion label moved')
@@ -110,12 +136,15 @@ def select_v160(source:str)->tuple[int,int,str]:
         raise ValueError('V160 original assertion ending absent')
     end+=2
     found=[]
-    for match in re.finditer(r'(?m)^[ \t]{2,16}check\(',source[max(0,label-1800):label]):
-        start=max(0,label-1800)+match.start()
+    base=max(0,label-4200)
+    for match in re.finditer(r'(?m)^[ \t]{2,24}check[ \t]*\(',source[base:label]):
+        start=base+match.start()
         value=source[start:end]
-        if (len(value)<80 or len(value)>1800 or
-            ';' in value[:-1] or value.count('check(')!=1 or
-            not all(token in value for token in REQUIRED)):
+        if (len(value)<80 or len(value)>4200 or
+            ';' in value[:-1] or
+            len(re.findall(r'\bcheck[ \t]*\(',value))!=1 or
+            not all(token in value for token in REQUIRED) or
+            V160 not in value):
             continue
         found.append((start,end,value))
     if len(found)!=1:
@@ -124,7 +153,7 @@ def select_v160(source:str)->tuple[int,int,str]:
 
 def wrap_v160(old:str)->str:
     pad=old[:old.index('check(')]
-    if pad.strip() or len(pad)<2 or len(pad)>16:
+    if pad.strip() or len(pad)<2 or len(pad)>24:
         raise ValueError('V377 V160 indentation changed')
     return (
         pad+'// V377: historical SC completion oracle does not apply after NAND IRQ.\n'
@@ -208,9 +237,13 @@ def main()->int:
     try:
         if opts.next_private_harness.exists() or opts.next_private_harness.is_symlink():
             raise ValueError('output_exists')
+        source=opts.prior_private_harness.read_text(encoding='utf-8')
+        transformed=patch(source)
         with opts.next_private_harness.open('x',encoding='utf-8') as out:
-            out.write(patch(opts.prior_private_harness.read_text(encoding='utf-8')))
+            out.write(transformed)
     except (ValueError,OSError):
+        if 'source' in locals():
+            print(seam_census(source),file=sys.stderr)
         print('V377_NAND_HANDLER_ROUTE installed=0',file=sys.stderr)
         return 1
     print('V377_NAND_HANDLER_ROUTE installed=1 original_guest=1 resume_original_vector=1 sc_oracle_preserved=1')
