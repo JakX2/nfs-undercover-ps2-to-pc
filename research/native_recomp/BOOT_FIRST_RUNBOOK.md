@@ -1,5 +1,55 @@
 # Boot-first native recompilation loop (source-only tooling)
 
+## November 23, 2026: NAND IPC checkpoint and next guest frontier
+
+**Do not conflate test lanes.** This runbook's historical V51 continuous
+\`__start\` result and the later owner-original authenticated NAND candidate
+are different bounded execution paths. The NAND candidate is not proof of
+complete \`__start\` -> \`main\` or a game boot.
+
+Authenticated owner-original V370/V371 (run
+[45107293227](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45107293227))
+verified genuine NAND IPC X1 intake, native IOS ACK, and one guest
+Hollywood \`PPC_FLAG\` IPC write-one-to-clear:
+
+\`\`\`text
+V370_FLAG_CENSUS writes=1 accepted=1 ipc_write=1 cleared=1 retained_any=0 queued_any=1 irq_any=0
+\`\`\`
+
+This confirms that the original flag was cleared **without dropping the
+queued reply**. It does not confirm a completed Y1 reply, actual external
+exception delivery, IRQ handler return, SC status transition, \`main\`, or
+rendering. The first V365 sixteen post-ACK samples had a verified installed
+vector and safe guest dispatch state, but no MSR.EE-eligible interrupt.
+
+The next legacy failure, public assertion 0716, is V153's earlier first-
+SYSCONF file-open *trial-end* proof. Do not interpret that historical test
+condition as hardware failure or suppress guest code. V372 scopes only the
+identified V153 proof after verified NAND entry; it leaves the original
+SC-only lane's check intact and records bounded mailbox state. The first
+owner V372 attempts failed closed at harness source matching and did not
+establish further guest execution. The updated V372 matcher and V373
+timeline still require owner-original validation.
+
+V373 extends read-only census from 16 IRQ-asserted calls to 96 guest calls
+with an outstanding native IOS reply, including MSR.EE-disabled/masked
+intervals. It emits only bounded boolean fields, first-eligible indices,
+and no guest PCs, register contents, assets, or translated code. It does
+not pump Starlet, force IRQ entry, or manufacture Y1.
+
+Source-only regression commands (not original-game execution):
+
+\`\`\`sh
+python3 -m unittest discover -s research/native_recomp -p 'test_v372_nand_v153_trial_scope.py' -v
+python3 -m unittest discover -s research/native_recomp -p 'test_v372_nand_sc_trial_audit.py' -v
+python3 -m unittest discover -s research/native_recomp -p 'test_v373_nand_irq_timeline.py' -v
+python3 -m unittest discover -s research/native_recomp -p 'test_v373_nand_irq_timeline_audit.py' -v
+\`\`\`
+
+Authenticated follow-up: [Wii V298 NAND owner workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/workflows/wii-v298-scoped-nand.yml). Require its actual
+owner-original output before advancing this checkpoint. Public source-only
+and standalone native IOS bus tests prove different, narrower properties.
+
 ## Why this exists
 
 As of November 17, 2026, the pinned original Wii executable is verified
