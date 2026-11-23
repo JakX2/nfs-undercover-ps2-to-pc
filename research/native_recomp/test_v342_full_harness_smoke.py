@@ -22,16 +22,29 @@ from derive_v321_guest_entry_probe import patch as entry
 
 HERE=Path(__file__).resolve().parent
 SOURCE=HERE/"test_start_to_ipc_ack_v77.cpp"
+V244=HERE/"derive_v244_sc_callback_link_harness.py"
 V289=HERE/"derive_v289_nand_entry_r3_harness.py"
 
 class Tests(unittest.TestCase):
     def test_full_original_free_source_derivation_chain(self):
         with tempfile.TemporaryDirectory(prefix="v342-public-") as td:
+            prior=Path(td)/"v244.cpp"
             staged=Path(td)/"v289.cpp"
-            self.assertTrue(SOURCE.is_file() and V289.is_file())
+            self.assertTrue(SOURCE.is_file() and V244.is_file() and V289.is_file())
+            try:
+                staged244=subprocess.run(
+                    [sys.executable,str(V244),str(SOURCE),str(prior)],
+                    capture_output=True,text=True,timeout=180,
+                    check=False,
+                )
+            except subprocess.TimeoutExpired:
+                self.fail("V342_V244_DERIVE kind=timeout")
+            self.assertEqual(staged244.returncode,0,
+                             "V342_V244_DERIVE kind=nonzero")
+            self.assertTrue(prior.is_file(),"V342_V244_DERIVE kind=no_output")
             try:
                 completed=subprocess.run(
-                    [sys.executable,str(V289),str(SOURCE),str(staged)],
+                    [sys.executable,str(V289),str(prior),str(staged)],
                     capture_output=True,text=True,timeout=180,
                     check=False,
                 )
