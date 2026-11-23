@@ -25,7 +25,7 @@ class Tests(unittest.TestCase):
             "terminate called after throwing an instance of 'std::runtime_error'\n"+
             'what(): Known public check\n')
         self.assertIn('candidate=v404 rc=134 kind=signal',text)
-        self.assertIn('known_public=1 public_id=0001 phase=other',text)
+        self.assertIn('known_public=1 public_id=0001 phase=other guard=other',text)
         self.assertIn('exception=runtime callback=1',text)
         self.assertIn('boot_verified=0',text)
         self.assertNotIn('Known public check',text)
@@ -33,10 +33,23 @@ class Tests(unittest.TestCase):
         raw=BASE+'what(): SECRET_PRIVATE_GAME_CODE 0x81234567\n'
         text=run(raw,candidate='v405')
         self.assertIn('candidate=v405 rc=134 kind=signal',text)
-        self.assertIn('known_public=0 public_id=0000 phase=other',text)
+        self.assertIn('known_public=0 public_id=0000 phase=other guard=other',text)
         self.assertIn('exception=unclassified',text)
         self.assertNotIn('SECRET_PRIVATE_GAME_CODE',text)
         self.assertNotIn('0x81234567',text)
+    def test_v390_public_assertions_are_classified_without_exporting_label(self):
+        for phrase,expected in (
+            ('V390 original NAND post-ACK guest successor not authenticated','pre_ack'),
+            ('V390 original NAND guest never left Hollywood ACK for next callee','trial_witness')
+        ):
+            with self.subTest(expected=expected):
+                source=f'void test(){{check(false,"{phrase}");}}'
+                out=run(BASE+"terminate called after throwing an instance of 'std::runtime_error'\n"+
+                        f'what(): {phrase}\n',src=source)
+                self.assertIn('phase=v390',out)
+                self.assertIn(f'guard={expected}',out)
+                self.assertNotIn(phrase,out)
+                self.assertIn('boot_verified=0',out)
     def test_cpp_exception_categories_and_no_boot_claim(self):
         for name,kind in (('std::logic_error','logic'),
                           ('std::out_of_range','range'),

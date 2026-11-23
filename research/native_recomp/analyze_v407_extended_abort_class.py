@@ -38,11 +38,20 @@ def inspect(path:Path,harness:Path,rc:int,candidate:str)->str:
     # written host harness, not generated copyrighted game instructions.
     # Print only an exact four-digit public string ID and a fixed enum.
     safe_match=re.fullmatch(
-        r'V250_PUBLIC_FAILURE id=([0-9]{4}) label=[A-Za-z0-9 _.,:/()\\-]{1,170} '
+        r'V250_PUBLIC_FAILURE id=([0-9]{4}) label=([A-Za-z0-9 _.,:/()\\-]{1,170}) '
         r'callback=[01] nand=[01] trials=[0-9]{1,2}',
         public_claim)
     if safe_match is None or safe_match.group(1)!=ident:
         raise ValueError('public_id_mismatch')
+    # Distinguish the two known, independently written V390 assertions.
+    # The result is a strict enum. Never print the assertion text, which
+    # might otherwise be confused with unknown private guest diagnostics.
+    label=safe_match.group(2)
+    guard='other'
+    if label=='V390 original NAND post-ACK guest successor not authenticated':
+        guard='pre_ack'
+    elif label=='V390 original NAND guest never left Hollywood ACK for next callee':
+        guard='trial_witness'
     phase='other'
     for prefix in ('V404','V403','V402','V401','V400','V399',
                    'V398','V397','V396','V395','V394','V393',
@@ -58,7 +67,7 @@ def inspect(path:Path,harness:Path,rc:int,candidate:str)->str:
     return (
         f'V407_NATIVE_ABORT_CLASS candidate={candidate} rc={rc} '
         f'kind={kind} size_band={band} known_public={known} '
-        f'public_id={ident} phase={phase} '
+        f'public_id={ident} phase={phase} guard={guard} '
         f'exception={exception} callback={callback} '
         f'boot_verified=0'
     )
