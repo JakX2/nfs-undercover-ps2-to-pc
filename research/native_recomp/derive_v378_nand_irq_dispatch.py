@@ -84,6 +84,18 @@ def patch(source:str)->str:
     rewritten_trace=TRACE.replace(OLD_STOP,NEW_STOP,1)+DISPATCH
     output=source.replace(STATE+HEAD+TRACE,
                           STATE+STATE_ADD+HEAD+rewritten_trace,1)
+    # V377 resets vector/handler state for each NAND trial. V378 must
+    # reset its dispatcher state at that exact boundary as well.
+    reset='nwii::runtime::v377_handler_seen=0u;'
+    if output.count(reset)!=1:
+        raise ValueError('V378 original per-trial NAND reset moved')
+    output=output.replace(
+        reset,
+        reset+'\n'+
+        '  nwii::runtime::v378_dispatch_seen=0u;\n'+
+        '  nwii::runtime::v378_handler_inst=0u;',
+        1
+    )
     start=output.index('const bool v377_completed=')
     end=output.index('std::cout<<"V377_NAND_HANDLER_TRIAL',start)
     candidate=output[start:end]

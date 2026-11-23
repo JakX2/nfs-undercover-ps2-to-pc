@@ -23,6 +23,12 @@ class Tests(unittest.TestCase):
         self.assertIn('ctx.lr==0x80526c84u',output)
         self.assertIn('c.pc==0x8052a824u',output)
         self.assertIn('v379_time_seen==1u',output)
+        self.assertEqual(output.count('nwii::runtime::v379_time_seen=0u;'),1)
+        self.assertEqual(output.count('nwii::runtime::v379_dispatch_inst=0u;'),1)
+        self.assertLess(
+            output.index('nwii::runtime::v379_time_seen=0u;'),
+            output.index('c.is_running=true;')
+        )
         self.assertIn('V160 did not execute original SC Y1 exception vector to handler',output)
         self.assertIn('V378_NAND_DISPATCH_ENTRY route=',output)
         self.assertIn('V377_NAND_HANDLER_ENTRY vector=',output)
@@ -55,6 +61,7 @@ class Tests(unittest.TestCase):
             self.original.replace('const bool v378_completed=','lost'),
             self.original.replace('++v378_dispatch_seen;','missing'),
             self.original.replace('static unsigned v378_dispatch_seen=0u;','missing'),
+            self.original.replace('nwii::runtime::v378_handler_inst=0u;','lost'),
             self.original.replace('V377_NAND_HANDLER_TRIAL stopped=','lost'),
             patch(self.original),
         ):

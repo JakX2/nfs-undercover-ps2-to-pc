@@ -17,6 +17,12 @@ class Tests(unittest.TestCase):
         self.assertIn('V377 original NAND vector never reached actual Wii handler entry',derived)
         self.assertIn('V160 did not execute original SC Y1 exception vector to handler',derived)
         self.assertIn('v378_dispatch_seen==1u',derived)
+        self.assertEqual(derived.count('nwii::runtime::v378_dispatch_seen=0u;'),1)
+        self.assertEqual(derived.count('nwii::runtime::v378_handler_inst=0u;'),1)
+        self.assertLess(
+            derived.index('nwii::runtime::v378_dispatch_seen=0u;'),
+            derived.index('c.is_running=true;')
+        )
         self.assertIn('c.pc==0x80526a3cu',derived)
         self.assertIn('continue; // finish this authenticated NAND-only bounded trial',derived)
         self.assertIn('c.is_running=true;',derived)
@@ -48,6 +54,7 @@ class Tests(unittest.TestCase):
             source.replace('V377_NAND_HANDLER_ENTRY vector=','lost'),
             source.replace('V377_NAND_HANDLER_TRIAL stopped=','lost'),
             source.replace('v377_handler_seen;','altered_counter;'),
+            source.replace('nwii::runtime::v377_handler_seen=0u;','lost'),
             source.replace('ctx.is_running=false;throw ExceptionStop{};','lost'),
             patch(source)
         ):

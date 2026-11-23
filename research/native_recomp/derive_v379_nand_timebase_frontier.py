@@ -69,6 +69,18 @@ def patch(source:str)->str:
         MARKER in source or TRIAL in source):
         raise ValueError('V379 original NAND dispatcher source seam changed')
     staged=source.replace(STATE_OLD,STATE_ADD,1)
+    # V378's guest trial resets its dispatch state; V379 also owns
+    # one per-trial timebase-observer counter.
+    reset='nwii::runtime::v378_handler_inst=0u;'
+    if staged.count(reset)!=1:
+        raise ValueError('V379 original per-trial V378 reset moved')
+    staged=staged.replace(
+        reset,
+        reset+'\n'+
+        '  nwii::runtime::v379_time_seen=0u;\n'+
+        '  nwii::runtime::v379_dispatch_inst=0u;',
+        1
+    )
     staged=staged.replace(OLD_STOP,NEW_STOP,1)
     staged=staged.replace(HEAD,HEAD+TRACE,1)
     old_v377='(c.pc==0x80526ce0u||c.pc==0x80526a3cu);'
