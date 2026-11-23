@@ -183,6 +183,15 @@ THREAD_CLEAR_NEW=("else if(addr==0x80522af4u&&"
                   "(!v250_candidate_mode||v250_nand_seen==0u)){")
 THREAD_CLEAR_LABEL="original thread context clear argument/LR differs"
 
+# V357: OSSetCurrentContext is invoked again during original NAND
+# scheduler reentry. V77's initial thread frame, GPR3, LR and canary
+# contract only applies to first OSInit, not every subsequent context
+# switch. Preserve the original guest implementation and CPU changes.
+THREAD_SET_OLD="else if(addr==0x805228ccu){"
+THREAD_SET_NEW=("else if(addr==0x805228ccu&&"
+                "(!v250_candidate_mode||v250_nand_seen==0u)){")
+THREAD_SET_LABEL="original OSSetCurrentContext not called after initial context clear"
+
 SUBMIT_OLD="   if(!submit72_active||v177_next_seen==1u)return false;"
 SUBMIT_NEW=("   if(!submit72_active||v177_next_seen==1u||\n"
             "      (v250_candidate_mode&&v250_nand_seen==1u))return false;")
@@ -342,6 +351,7 @@ def patch(source: str) -> str:
         source.count(NAND_CTRL_WRITE_OLD)!=1 or source.count(NAND_CTRL_WRITE_LABEL)!=1 or
         source.count(NAND_RESTORE_OLD)!=1 or source.count(NAND_RESTORE_LABEL)!=1 or
         source.count(THREAD_CLEAR_OLD)!=1 or source.count(THREAD_CLEAR_LABEL)!=1 or
+        source.count(THREAD_SET_OLD)!=1 or source.count(THREAD_SET_LABEL)!=1 or
         source.count(ACK_MMIO_OLD)>1 or source.count(ACK_MMIO_LABEL)!=1 or
         source.count(SUBMIT_MMIO_LABEL)!=1 or
         not 0 < source.index(VECTOR_TRACE_LABEL)-source.index(VECTOR_TRACE_OLD) < 700 or
@@ -371,6 +381,7 @@ def patch(source: str) -> str:
     output=output.replace(NAND_CTRL_WRITE_OLD,NAND_CTRL_WRITE_NEW,1)
     output=output.replace(NAND_RESTORE_OLD,NAND_RESTORE_NEW,1)
     output=output.replace(THREAD_CLEAR_OLD,THREAD_CLEAR_NEW,1)
+    output=output.replace(THREAD_SET_OLD,THREAD_SET_NEW,1)
     ack=choose_ack_mmio_branch(output)
     if ACK_MMIO_PHASE in ack.group("cond"):
         raise ValueError("V344 ACK branch already scoped")
@@ -402,6 +413,7 @@ def patch(source: str) -> str:
         output.count(NAND_CTRL_WRITE_NEW)!=1 or output.count(NAND_CTRL_WRITE_LABEL)!=1 or
         output.count(NAND_RESTORE_NEW)!=1 or output.count(NAND_RESTORE_LABEL)!=1 or
         output.count(THREAD_CLEAR_NEW)!=1 or output.count(THREAD_CLEAR_LABEL)!=1 or
+        output.count(THREAD_SET_NEW)!=1 or output.count(THREAD_SET_LABEL)!=1 or
         ACK_MMIO_PHASE not in choose_ack_mmio_branch(output).group("cond") or
         SUBMIT_MMIO_PHASE not in choose_submit_mmio_branch(output).group("cond") or
         output.count(ACK_MMIO_LABEL)!=1 or
