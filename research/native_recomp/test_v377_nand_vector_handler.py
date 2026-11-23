@@ -67,6 +67,27 @@ class Tests(unittest.TestCase):
                 self.assertIsNone(re.search(r'\b'+re.escape(forbidden)+r'(?!=)',TRACE))
             else:
                 self.assertNotIn(forbidden,TRACE,forbidden)
+    def test_sc_assertion_with_widened_original_pc_is_still_scoped(self):
+        # The inherited later SC stages may widen an earlier checkpoint
+        # to admit several original PPC successor sites. It is not part
+        # of the V160 SC identity or the NAND exception-entry proof.
+        altered=SOURCE.replace(
+            'c.pc==0x80526ce0u&&!c.is_running',
+            '((c.pc==0x80526ce0u)||(c.pc==0x80526a3cu))&&!c.is_running'
+        )
+        scoped=patch(altered)
+        self.assertIn(
+            '((c.pc==0x80526ce0u)||(c.pc==0x80526a3cu))',
+            scoped
+        )
+        self.assertIn('}else{',scoped)
+        self.assertIn(V160,scoped)
+    def test_privacy_safe_selector_census(self):
+        from derive_v377_nand_vector_handler import seam_census
+        report=seam_census(SOURCE)
+        self.assertIn('V377_HANDLER_SEAM label=1 head=1',report)
+        self.assertIn('proof=1 oldpc=1',report)
+        self.assertNotIn('nwii::runtime',report)
     def test_fails_closed_on_non_unique_or_altered_sc_proof(self):
         for variant in (
             SOURCE.replace(HEAD,''),
