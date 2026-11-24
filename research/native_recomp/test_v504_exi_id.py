@@ -20,6 +20,11 @@ def fixture():
     new[base-lo:base-lo+size]=old
     for h,v in ((0,len(data)),(0x48,lo),(0x90,len(new))):struct.pack_into('>I',data,h+4*slot,v)
     data.extend(new)
+    # The two optional branches must be mapped too, even though their
+    # execution is deliberately rejected by the bounded witness.
+    for slot,base in ((3,0x8051fd44),(6,0x80548798)):
+        for h,v in ((0,len(data)),(0x48,base),(0x90,4)):struct.pack_into('>I',data,h+4*slot,v)
+        data.extend(struct.pack('>I',0x60000000))
     for site,target in (*CALLS,*EDGES):put(data,site,bl(site,target))
     for _,hi in RANGES:put(data,hi-4,0x4e800020)
     put(data,RETURN,0x80030000)
