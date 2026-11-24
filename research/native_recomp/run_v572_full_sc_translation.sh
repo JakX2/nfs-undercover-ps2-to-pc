@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request ) ) ]] || exit 2
 mode="${4:-translation-only}"
+open_request=0
+if [[ "$mode" == --prepare-open-request ]]; then mode=--prepare-stm-open;open_request=1;fi
+if [[ "$mode" == --run-open-request ]]; then mode=--run-stm-open;open_request=1;fi
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"; trap 'rm -rf -- "$work"' EXIT; umask 077
@@ -49,7 +52,11 @@ timeout 300s "$work/translator" "$dol" "$work/symbols.csv" "$work/generated" --s
 if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --prepare-report ]]; then
   if [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
     if [[ "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
-      python3 "$here/prepare_v629_stm_open.py" "$dol" "$elf" "$work/generated"
+      if [[ "$open_request" == 1 ]]; then
+        python3 "$here/prepare_v641_open_request.py" "$dol" "$elf" "$work/generated"
+      else
+        python3 "$here/prepare_v629_stm_open.py" "$dol" "$elf" "$work/generated"
+      fi
     elif [[ "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client ]]; then
       python3 "$here/prepare_v625_ipc_client.py" "$dol" "$elf" "$work/generated"
     elif [[ "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable ]]; then
@@ -96,6 +103,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$mode" != --run-irq-enable ]] || target=irq-enable-return
     [[ "$mode" != --run-ipc-client ]] || target=ipc-client-return
     [[ "$mode" != --run-stm-open ]] || target=stm-open
+    [[ "$open_request" != 1 ]] || target=open-request
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"

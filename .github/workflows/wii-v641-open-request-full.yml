@@ -1,0 +1,74 @@
+name: Wii Complete Native IOS Open Request Preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v641*'
+      - '.github/workflows/wii-v641-open-request-full.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v641-open-request-full-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate original-free report witness and scope contract
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v641_open_request.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v625_ipc_client.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v616_irq_enable.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v612_cold_mapping.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v609_arena_clear.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v603_boot_report.py -v
+          mkdir -p "$RUNNER_TEMP/include/undercover"
+          cp research/native_recomp/arena_cache_range_trace_v596.h "$RUNNER_TEMP/include/undercover/"
+          python3 -m unittest discover -s research/native_recomp -p test_v594_boot_report.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v593_irq_exi_composition.py -v
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          for src in test_wii_mi_profile_v587 test_wii_bat_mapping_witness_v590 test_wii_dsp_return_witness_v585 test_wii_memory_init_witness_v592 test_wii_boot_report_witness_v601 test_wii_arena_clear_witness_v608 test_wii_arena_reset_v606 test_wii_cold_mapping_v612 test_wii_irq_enable_witness_v615 test_wii_ipc_client_witness_v623 test_wii_open_request_witness_v639 test_wii_open_sc_route_v637; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$RUNNER_TEMP/include" -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
+            "$RUNNER_TEMP/$src"
+          done
+  owner-open-preflight:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Translate full original request construction and syntax-check combined observer
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw616"
+          git -C "$RUNNER_TEMP/nw616" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw616" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw616" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw616" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-open-request
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw616"
