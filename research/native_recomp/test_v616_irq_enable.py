@@ -7,6 +7,7 @@ class Tests(unittest.TestCase):
     def test_probe(self):
         old='\n'.join((INCLUDE,DECL,END));out=patch_probe(old)
         self.assertIn('pi_intsr.load(),pi_intmr.load()',out)
+        self.assertIn('V661_IRQ_BEGIN refusal=',out);self.assertIn('irq_cause&irq_mask',out)
         self.assertIn('UNDERCOVER_V616_IRQ',out);self.assertEqual(out.count('std::_Exit(0)'),1)
         for bad in (old+old,out,old.replace(END,'')):
             with self.assertRaises(ValueError):patch_probe(bad)

@@ -51,6 +51,17 @@ if p.stat().st_size<=MAX_LOG:
     if row:print(row)
 PY
 fi
+if [[ "$rc" == 119 ]]; then
+  PYTHONPATH="$here" python3 - "$work/run-private.log" <<'PY'
+import sys
+from pathlib import Path
+from irq_diagnostic_v661 import diagnostic,MAX_LOG
+p=Path(sys.argv[1])
+if p.stat().st_size<=MAX_LOG:
+    row=diagnostic(p.read_bytes(),119)
+    if row:print(row)
+PY
+fi
 # The longer chained audits deliberately emit only their own census. Export
 # the same bounded mapper diagnostic if an upstream MI refusal stopped them.
 if [[ "$rc" == 115 && "$audit" != audit_v591_memory_init.py ]]; then

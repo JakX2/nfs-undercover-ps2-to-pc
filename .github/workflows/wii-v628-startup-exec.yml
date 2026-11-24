@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v628*'
       - 'research/native_recomp/*v635*'
       - 'research/native_recomp/*v653*'
+      - 'research/native_recomp/*v661*'
       - '.github/workflows/wii-v628-startup-exec.yml'
 permissions:
   contents: read
@@ -34,6 +35,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v625_ipc_client.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v616_irq_enable.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v661_irq_diagnostic.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v612_cold_mapping.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v609_arena_clear.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v603_boot_report.py -v

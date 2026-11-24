@@ -28,8 +28,12 @@ END='''            std::cout<<"V609_ARENA_RESULT lanes=2 reset=2 getters=6 zeros
             std::_Exit(0);'''
 CONT=END.replace('std::_Exit(0);','''const char* irq=std::getenv("UNDERCOVER_V616_IRQ");
             using namespace nwii::runtime::hw;
-            if(!irq||irq[0]!='1'||irq[1]!='\\0'||!irq_enable.begin(cpu,pi_intsr.load(),pi_intmr.load())){
-                std::cout<<"V616_IRQ_INVALID reason=1 stage=0"<<std::endl;std::_Exit(119);}
+            const auto irq_cause=pi_intsr.load(),irq_mask=pi_intmr.load();
+            const bool irq_enabled=irq&&irq[0]=='1'&&irq[1]=='\\0';
+            if(!irq_enabled||!irq_enable.begin(cpu,irq_cause,irq_mask)){
+                std::cout<<"V616_IRQ_INVALID reason=1 stage=0"<<std::endl;
+                std::cout<<"V661_IRQ_BEGIN refusal="<<(irq_enabled?irq_enable.entry_refusal():1024u)<<" pending="<<(irq_cause&irq_mask)<<std::endl;
+                std::_Exit(119);}
             std::cout<<"V616_IRQ_STAGE n=1"<<std::endl;''')
 def expectations(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     if hashlib.sha256(dol).hexdigest()!=dd or hashlib.sha256(elf).hexdigest()!=ed:raise ValueError('identity')

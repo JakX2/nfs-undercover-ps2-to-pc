@@ -26,7 +26,7 @@ int main(){
         if(fault==1)c.msr|=0x8000;
         if(fault==2)cause|=mask;
         if(fault==3)m[0x80000048]=0;
-        need(w.begin(c,cause,mask)==(fault<1||fault>3));if(fault>=1&&fault<=3)continue;
+        need(w.begin(c,cause,mask)==(fault<1||fault>3));if(fault>=1&&fault<=3){need(w.entry_refusal()==(fault==1?8u:fault==2?32u:128u));continue;}need(w.entry_refusal()==0);
         c.pc=W::Entry;c.lr=W::Return;c.inst_count++;
         if(fault==4)c.lr+=4;
         if(fault==5)m[W::Entry]=0;

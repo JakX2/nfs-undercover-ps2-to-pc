@@ -11,12 +11,20 @@ public:
     explicit IrqEnableWitness(IrqEnableExpectations e):e_(e){}
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
+    uint32_t entry_refusal()const noexcept{return refusal_;}
     template<class Cpu>bool begin(Cpu& c,uint32_t cause,uint32_t mask){
-        if(stage_||error_||!c.is_running||c.pc!=Call||c.lr!=Call||
-           (c.msr&0x8000u)||c.dispatch_saved_ctx||(cause&mask)||
-           !equal(c,Call,e_.call_word)||!equal(c,0x80000048u,0x004e5090u)||
-           c.gpr[13]!=0x8070e8e0u||e_.resume<=Entry||e_.resume>Entry+16u||(e_.resume&3u))
-            return fail(1);
+        refusal_=0;
+        if(stage_||error_)refusal_|=1u;
+        if(!c.is_running)refusal_|=2u;
+        if(c.pc!=Call||c.lr!=Call)refusal_|=4u;
+        if(c.msr&0x8000u)refusal_|=8u;
+        if(c.dispatch_saved_ctx)refusal_|=16u;
+        if(cause&mask)refusal_|=32u;
+        if(!equal(c,Call,e_.call_word))refusal_|=64u;
+        if(!equal(c,0x80000048u,0x004e5090u))refusal_|=128u;
+        if(c.gpr[13]!=0x8070e8e0u)refusal_|=256u;
+        if(e_.resume<=Entry||e_.resume>Entry+16u||(e_.resume&3u))refusal_|=512u;
+        if(refusal_)return fail(1);
         ctx_=&c;msr_=c.msr;ctr_=c.ctr;srr0_=c.srr0;srr1_=c.srr1;gprs_=c.gpr;
         cause_=cause;mask_=mask;last_=c.inst_count;stage_=1;return true;
     }
@@ -45,7 +53,7 @@ public:
     }
 private:
     IrqEnableExpectations e_;
-    const void* ctx_=nullptr;unsigned stage_=0,error_=0;
+    const void* ctx_=nullptr;unsigned stage_=0,error_=0;uint32_t refusal_=0;
     uint32_t msr_=0,ctr_=0,srr0_=0,srr1_=0,cause_=0,mask_=0;
     uint64_t last_=0,entry_tick_=0;
     std::array<uint32_t,32> gprs_{};
