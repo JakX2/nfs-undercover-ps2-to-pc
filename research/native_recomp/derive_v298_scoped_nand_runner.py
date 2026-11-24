@@ -643,6 +643,11 @@ if (
   fi
   if python3 "$V110_SOURCE_ROOT/derive_v405_nand_second_half.py" \
       "$work/v404-harness.cpp" "$work/v405-harness.cpp"; then
+    if ! python3 "$V110_SOURCE_ROOT/derive_v411_nand_host_stop.py" \
+        "$work/v405-harness.cpp" "$work/v411-harness.cpp"; then
+      echo 'V405_NAND_SECOND_STAGE derive=0'
+      exit 1
+    fi
     echo 'V405_NAND_SECOND_STAGE derive=1'
   else
     echo 'V405_NAND_SECOND_STAGE derive=0'
@@ -650,7 +655,7 @@ if (
   fi
   if g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
       -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
-      -c "$work/v405-harness.cpp" -o "$work/v405-harness.o" \
+      -c "$work/v411-harness.cpp" -o "$work/v405-harness.o" \
       > "$work/v405-compile.log" 2>&1; then
     echo 'V405_NAND_SECOND_STAGE compile=1'
   else
@@ -679,6 +684,11 @@ if (
   v405_rc=$?
   set -e
   echo 'V405_NAND_SECOND_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/analyze_v411_nand_host_stop.py" \
+      "$work/v405-native.log" "$v405_rc"; then
+    echo 'V405_NAND_SECOND_STAGE inspected=0'
+    exit 1
+  fi
   # Read-only V410 host exit witness is printed immediately before the
   # unmodified V390 posttrial check, even on a native assertion failure.
   if python3 "$V110_SOURCE_ROOT/analyze_v410_nand_run_exit.py" \
@@ -689,7 +699,7 @@ if (
     exit 1
   fi
   if python3 "$V110_SOURCE_ROOT/analyze_v407_extended_abort_class.py" \
-      "$work/v405-native.log" "$work/v405-harness.cpp" "$v405_rc" v405; then
+      "$work/v405-native.log" "$work/v411-harness.cpp" "$v405_rc" v405; then
     echo 'V407_NATIVE_ABORT_STAGE v405=1'
   else
     echo 'V407_NATIVE_ABORT_STAGE v405=0'
