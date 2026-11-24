@@ -1618,6 +1618,36 @@ else
   echo 'V551_NAND_STAGE attempt=failed'
 fi
 
+# V563: independent replay after the V508 successor assertion is authenticated.
+if (
+  args=("$owner" "$work/v293-original.elf" "$work/private-v471.dol" "$work/generated-v471/output.cpp" "$work/v437-harness.cpp" "$work/v471-native.log" "$work/v508-harness.cpp" "$work/v508-native.log" "$work/v542-harness.cpp" "$work/v542-native.log" "$work/v551-harness.cpp" "$work/v551-native.log" "$work/v563-harness.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/derive_v563_nand_cache_lifetime.py" "${args[@]}"; then
+    echo 'V563_NAND_STAGE derive=0'; exit 1
+  fi
+  echo 'V563_NAND_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" -c "$work/v563-harness.cpp" \
+      -o "$work/v563-harness.o" > "$work/v563-compile.log" 2>&1; then
+    echo 'V563_NAND_STAGE compile=0'; exit 1
+  fi
+  echo 'V563_NAND_STAGE compile=1'
+  if ! g++ "$work/v563-harness.o" "$work/v471-output.o" "$work/loader.o" -o "$work/v563-native" > "$work/v563-link.log" 2>&1; then
+    echo 'V563_NAND_STAGE link=0'; exit 1
+  fi
+  echo 'V563_NAND_STAGE link=1'
+  v563_rc=0
+  timeout --signal=TERM --kill-after=3s 16s "$work/v563-native" "$work/private-v471.dol" owner-callback "$owner" > "$work/v563-native.log" 2>&1 || v563_rc=$?
+  echo 'V563_NAND_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v563_nand_cache_lifetime.py" "${args[@]}" --run-log "$work/v563-native.log" --run-rc "$v563_rc"; then
+    echo 'V563_NAND_STAGE inspected=0'; exit 1
+  fi
+  echo 'V563_NAND_STAGE inspected=1'
+); then
+  echo 'V563_NAND_STAGE attempt=completed'
+else
+  echo 'V563_NAND_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
