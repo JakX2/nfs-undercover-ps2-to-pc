@@ -3,6 +3,8 @@ from importlib import import_module
 
 HARDWARE_PATCHES=('apply_hid_state_v18','apply_fpscr_v19')
 CACHE_PATCHES=HARDWARE_PATCHES+('apply_l2cr_v20','apply_mtmsr_resume_v74')
+OS_HW_PATCHES=('apply_function_root_v443','apply_perf_sprs_v29')+CACHE_PATCHES+('verify_perf_combo_v29','apply_hid4_continuous_v30')
+OS_IPC_PATCHES=OS_HW_PATCHES+('apply_exact_dispatch_v445',)
 SCOPES={
     'startup':((), 'prepare_v419_full_start.py','audit_v419_full_start'),
     'hardware':(HARDWARE_PATCHES,'prepare_v425_full_hardware.py','audit_v425_full_hardware'),
@@ -10,11 +12,15 @@ SCOPES={
     'data':(CACHE_PATCHES,'prepare_v430_full_data.py','audit_v430_full_data'),
     'os-entry':(CACHE_PATCHES,'prepare_v433_full_os_entry.py','audit_v433_full_os_entry'),
     'os-time':(CACHE_PATCHES,'prepare_v435_full_os_time.py','audit_v435_full_os_time'),
+    'os-hardware':(OS_HW_PATCHES,'prepare_v439_full_os_hardware.py','audit_v439_full_os_hardware'),
+    'os-arena':(OS_HW_PATCHES,'prepare_v444_full_os_arena.py','audit_v444_full_os_arena'),
+    'os-ipc':(OS_IPC_PATCHES,'prepare_v446_full_os_ipc.py','audit_v446_full_os_ipc'),
 }
-PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_')
+PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_')
 ALLOWED={
     'startup':PREFIXES[:1], 'hardware':PREFIXES[1:2],
-    'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:],
+    'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:6],
+    'os-hardware':PREFIXES[1:7], 'os-arena':PREFIXES[1:8], 'os-ipc':PREFIXES[1:9],
 }
 MAX_LOG=8*1024*1024
 

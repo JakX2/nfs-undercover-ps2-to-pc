@@ -17,15 +17,20 @@ on:
       - 'research/native_recomp/audit_v425_full_hardware.py'
       - 'research/native_recomp/wii_full_hardware_witness.h'
       - 'research/native_recomp/wii_full_hardware_probe_v425.h'
+      - 'research/native_recomp/wii_probe_log_format.h'
+      - 'research/native_recomp/prepare_v439_full_os_hardware.py'
+      - 'research/native_recomp/audit_v439_full_os_hardware.py'
+      - 'research/native_recomp/wii_full_os_hardware_witness.h'
+      - 'research/native_recomp/apply_function_root_v443.py'
       - '.github/workflows/wii-native-windows-full.yml'
   workflow_dispatch:
     inputs:
       owner_scope:
-        description: 'Bounded original startup through OS entry or system time'
+        description: 'Bounded original startup through OS hardware, arenas or IPC pointer setup'
         type: choice
-        default: os-time
+        default: os-hardware
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -132,7 +137,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-time' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-hardware' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
