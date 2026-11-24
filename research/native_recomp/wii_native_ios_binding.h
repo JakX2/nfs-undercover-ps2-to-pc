@@ -29,7 +29,15 @@ public:
     }
     static bool write32(uint32_t address,uint32_t value){
         if(!active_||!ipc_window(address))return false;
-        if(!active_->transport_.write32(address,value))throw std::runtime_error("unsupported native IOS MMIO write");
+        auto& self=*active_;
+        if(self.cold_phase_==1u||self.cold_phase_==2u){
+            const uint32_t p=address&0x3fffffffu;
+            if(self.cold_phase_!=1u||(p!=IosBus::IPC+IpcMailbox::PPCCTRL&&p!=IosBus::MIRROR+IpcMailbox::PPCCTRL)||value!=self.cold_value_){
+                self.cold_phase_=4;throw std::runtime_error("unexpected cold IPC control write");
+            }
+        }else if(self.cold_phase_==4u)throw std::runtime_error("cold IPC proof already rejected");
+        if(!self.transport_.write32(address,value))throw std::runtime_error("unsupported native IOS MMIO write");
+        if(self.cold_phase_==1u)self.cold_phase_=2u;
         return true;
     }
     static void reject_subword(uint32_t address){
@@ -57,6 +65,29 @@ public:
            (phys==IosBus::PI_CAUSE||phys==IosBus::PI_MASK))
             (void)active_->transport_.exception_pending(0u);
     }
+    // Opt-in one-shot boot IPC control proof. Captures the real backend,
+    // does not fabricate mailbox state and does not service IOS.
+    static bool begin_cold_control(uint32_t value){
+        if(!active_)return false;
+        auto& self=*active_;
+        const auto s=self.transport_.cold_ipc_snapshot();
+        using M=IpcMailbox;using H=HollywoodIrq;
+        if(self.cold_phase_||!(value&(M::IY1|M::IY2))||(value&~0x3fu)||(value&M::X1)||
+           s.queued||s.replies||s.event||(s.control&(M::X1|M::Y1|M::Y2))||
+           (s.flags&H::IPC_PPC)||(s.pi_cause&s.pi_mask)){
+            self.cold_phase_=4;return false;
+        }
+        self.cold_before_=s;self.cold_value_=value;self.cold_phase_=1;return true;
+    }
+    static bool finish_cold_control(){
+        if(!active_)return false;
+        auto& self=*active_;const auto s=self.transport_.cold_ipc_snapshot();const auto& b=self.cold_before_;
+        const bool ok=self.cold_phase_==2u&&s.control==(self.cold_value_&0x39u)&&
+            s.ppc==b.ppc&&s.arm==b.arm&&s.flags==b.flags&&s.irq_mask==b.irq_mask&&
+            s.pi_cause==b.pi_cause&&s.pi_mask==b.pi_mask&&s.steps==b.steps&&
+            !s.queued&&!s.replies&&!s.event;
+        self.cold_phase_=ok?3u:4u;return ok;
+    }
     // Caller owns the scheduling-boundary and CPU-exception policy.
     static std::optional<IosYieldState> service_at_guest_boundary(uint32_t msr){
         if(!active_)return std::nullopt;
@@ -64,6 +95,9 @@ public:
     }
 private:
     NativeIosTransport& transport_;
+    ColdIpcSnapshot cold_before_{};
+    unsigned cold_phase_=0;
+    uint32_t cold_value_=0;
     inline static thread_local NativeIosBinding* active_=nullptr;
     static bool ipc_window(uint32_t a) noexcept{
         if((a&0xc0000000u)==0x40000000u)return false;

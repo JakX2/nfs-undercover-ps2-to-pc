@@ -1,0 +1,3 @@
+# V617: one-shot native cold IPC control proof
+
+Prepare the first IPC client mailbox control write after native interrupt enable. Add a pure transport snapshot that does not synchronize/publish PI state, schedule IOS or mutate registers. The opt-in binding checks actual idle backend state, expected PPCCTRL value, one successful native mailbox write and exact readback with unchanged messages, IRQ state, scheduler count and no queued request/reply. Refuse early, repeated, foreign and mismatched writes before backend mutation. After a successful proof, ordinary request submission continues normally. Six alias controls and twelve rejection cases; prior native transport tests remain. Not yet enabled in the original IPC initializer; no IOS execution claim. CI pending.

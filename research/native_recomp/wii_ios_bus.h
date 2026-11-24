@@ -23,6 +23,7 @@ public:
         ios_.reset();mail_.reset();irq_.reset();pi_mask_=other_causes_=0u;
     }
     StmIos& services() noexcept{return ios_;}
+    const StmIos& services() const noexcept{return ios_;}
     // Native IOS intake, distinct from the live Broadway X1 MMIO bit.
     // A submitted request remains queued until a real Starlet ACK.
     bool pending_native_ios_request() const noexcept {

@@ -5,6 +5,12 @@
 #include <optional>
 
 namespace undercover::wii {
+struct ColdIpcSnapshot {
+    uint32_t control,ppc,arm,flags,irq_mask,pi_cause,pi_mask;
+    uint64_t steps;
+    unsigned replies;
+    bool queued,event;
+};
 // Opt-in host boundary for one Broadway CPU/MMU lifetime. No legacy IOS
 // fallback for owned registers, no synchronous servicing on an MMIO write,
 // and no CPU exception or fabricated guest result. Other PI device bits
@@ -42,6 +48,15 @@ public:
     StmIos& services() noexcept{return bus_.services();}
     WiiPhysicalRam& physical_ram() noexcept{return ram_;}
     uint64_t serviced_steps() const noexcept{return scheduler_.serviced_steps();}
+    // Pure observation: no sync/publish, no request service and no register writes.
+    ColdIpcSnapshot cold_ipc_snapshot() const {
+        using M=IpcMailbox;using H=HollywoodIrq;
+        return {*bus_.read32(IosBus::IPC+M::PPCCTRL),*bus_.read32(IosBus::IPC+M::PPCMSG),
+                *bus_.read32(IosBus::IPC+M::ARMMSG),*bus_.read32(IosBus::IPC+H::PPC_FLAG),
+                *bus_.read32(IosBus::IPC+H::PPC_MASK),cause_.load(std::memory_order_relaxed),
+                mask_.load(std::memory_order_relaxed),scheduler_.serviced_steps(),bus_.services().queued_replies(),
+                bus_.pending_native_ios_request(),bus_.services().event_pending()};
+    }
 private:
     WiiPhysicalRam ram_;
     IosBus bus_;
