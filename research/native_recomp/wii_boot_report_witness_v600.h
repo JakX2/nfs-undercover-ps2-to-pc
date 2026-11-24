@@ -105,6 +105,15 @@ public:
             branch_seen_=true;target_=c.ctr;return true;
         }
         if(addr>=Case&&addr<=Case+96u&&!((addr-Case)%16u)){
+            // The original non-table high-console default also enters the
+            // final case label via a direct native branch, not bctr.
+            // A local goto need not update the dispatch PC until its call.
+            if(addr==Case+96u&&!branch_seen_&&!table_mode()&&
+               console_returned_&&reports_==3&&console_value_>=0x10000000u&&
+               console_value_<=0x10000022u&&!direct_default_&&
+               equal(c,addr,e_.case_words[6])){
+                direct_default_=true;return true;
+            }
             if(!branch_seen_||case_seen_||reports_!=3||addr!=target_||c.pc!=addr||
                c.ctr!=addr||!equal(c,addr,e_.case_words[(addr-Case)/16u]))return fail(6);
             case_seen_=true;return true;
@@ -140,7 +149,7 @@ private:
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,print_sp_=0,console_value_=0,target_=0;
     uint64_t start_=0,last_=0,print_tick_=0;
     std::array<uint32_t,4> arena_{},low_{};
-    bool console_=false,mem2_=false,console_returned_=false,branch_seen_=false,case_seen_=false;
+    bool console_=false,mem2_=false,console_returned_=false,branch_seen_=false,case_seen_=false,direct_default_=false;
     const BootReportSite* pending_=nullptr;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool table_mode()const{return console_value_>=0x10000008u&&console_value_<=0x10000021u;}
@@ -185,7 +194,7 @@ private:
                 if(target_!=Case+96){lr=target_+12;fmt=Data+244+12*((target_-Case)/16);break;}
                 lr=0x8052055cu;fmt=Data+328;a[0]=console_value_;n=1;
             }else{
-                if(branch_seen_||case_seen_||console_value_<0x10000000u||console_value_>0x10000022u)return false;
+                if(branch_seen_||case_seen_||!direct_default_||console_value_<0x10000000u||console_value_>0x10000022u)return false;
                 lr=0x8052055cu;fmt=Data+328;a[0]=console_value_;n=1;
             }
             break;

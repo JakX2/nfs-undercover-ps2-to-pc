@@ -46,6 +46,7 @@ bool process_pending_callbacks(CPUContext& c){
     need(c.is_running&&!c.dispatch_saved_ctx&&witness&&last_stage>=1);
     if(open_witness){
         if(c.pc==v626::restore_resume)need(open_stage==5&&(c.msr&0x8000u));
+        else if(c.pc==OpenScRoute::Resume)need(open_stage==7&&(c.msr&0x8000u));
         else need(std::find(v626::backward_polls.begin(),v626::backward_polls.end(),c.pc)!=v626::backward_polls.end());
         return false;
     }
@@ -91,6 +92,7 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
     throw std::runtime_error("V626 unexpected MMIO write");
 }
 }
+extern "C" void run_game(nw::CPUContext&);
 int main()try{
     for(unsigned trial=0;trial<8;++trial){
         last_trial=trial;last_stage=last_reason=0;
@@ -140,7 +142,9 @@ int main()try{
         const bool ready=op.begin(c,kind,w.heap_size());open_stage=op.stage();open_reason=op.failure();
         if(!ready)throw WitnessFailure{};
         bool stopped=false;
-        try{func_80519944(c);}catch(const OpenStop&){stopped=true;}
+        // External native tail branches unwind to the dispatcher; direct C++
+        // invocation alone does not execute the allocator or caller resume.
+        try{run_game(c);}catch(const OpenStop&){stopped=true;}
         need(stopped&&op.stage()==9&&op.request()&&host.serviced_steps()==0);
         need(c.pc==OpenRequestWitness::Submit&&open_vectors==trial+1&&open_returns==trial+1);
         std::cout<<"V651_OPEN_TRIAL n="<<trial<<" path="<<kind<<" request=1 serviced=0\n";

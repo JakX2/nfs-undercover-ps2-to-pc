@@ -97,6 +97,7 @@ static void trial(unsigned mode,unsigned fault){
             c.ctr=target;if(fault==10)c.ctr+=16;event(e.bctr,10);
             c.pc=target;if(fault==11)c.pc+=4;event(target,11);
         }
+        if(!table&&value>=0x10000000u){event(W::Case+96);}
         if(value==17)report(0x8052047c,W::Data+152);
         else if(value==18)report(0x8052048c,W::Data+176);
         else if(value<32u)report(0x805204c0,W::Data+232,{value,0,0},20);
