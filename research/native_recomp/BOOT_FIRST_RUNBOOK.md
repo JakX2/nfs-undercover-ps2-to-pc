@@ -97,7 +97,12 @@ paths are rejected. The process stops before the cache body.
 No game bytes are changed or published; the earlier startup and
 link-only modes are preserved. Three Python regression tests, the
 C++ sanitizer witness with eight negative controls, and synthetic
-private-header compilation passed locally. Owner validation pending.
+private-header compilation passed locally. The authenticated
+[V425 run 45308427178](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45308427178)
+passed 113/113 full-image syntax checks, complete linking and all nine
+startup stages with rc=0, fallback=0, malformed=0, verified=1. Original
+PS/FPR initialization now executes in the complete image; the cache body,
+main and gameplay remain unverified.
 
 ## November 24, 2026: authenticated 96-call NAND frontier
 
@@ -201,8 +206,25 @@ used as a gate because the reduced loader omits most text. The
 candidate audit requires the same emitted entry and reports partial
 or complete trial progress, observed SC state 3, return-context
 witness and the old retry route. It never forces a state change or
-claims boot. All five local synthetic tests passed; owner validation
-is pending.
+claims boot. All five local synthetic tests passed; the authenticated
+[V424 run 45308009124](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45308009124)
+restored a unique exact 15-word function, compiled/linked it, reached
+the restored entry and then aborted with rc=134 after call 1, before
+context restoration. This is changed execution, not a resolved retry.
+
+### V427: exact restored-function abort attribution
+
+Retain that V424 candidate and authenticate its DOL/ELF extent, original
+instruction words and generated trace/dispatch. Instrument only the
+15 generated instruction labels, with an ordinal, instruction counter
+and a 64-event cap. The private script checks the exact generated source
+comments against authenticated owner words and verifies reversibility.
+A separate compile/link/run repeats the candidate without changing its
+guest state. An independent static branch-target census and the exact
+public harness assertion catalog classify the failure. Only bounded
+counts, categories and exact matched public harness labels leave CI.
+Five local original-free tests passed, including compiling and executing
+the inserted C++ observer. Owner validation pending.
 
 Original-free tests:
 

@@ -1216,6 +1216,46 @@ else
   echo 'V424_REPAIR_STAGE attempt=failed'
 fi
 
+# V427: reproduce the V424 abort with read-only ordinal instruction steps.
+if (
+  if ! grep -Fqx 'V424_REPAIR_RESULT rc=134 kind=signal trials=1 complete=0 target_seen=1 resumed=0 status3=0 same_retry=0 max_calls=1 boot_verified=0' "$work/v424-result.log"; then
+    echo 'V427_STEP_STAGE control=0'; exit 1
+  fi
+  echo 'V427_STEP_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" "$work/v420-native.log" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v424-native.log" "$work/v420-harness.cpp" "$work/v427-output.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/trace_v427_restored_function.py" "${args[@]}"; then
+    echo 'V427_STEP_STAGE derive=0'; exit 1
+  fi
+  echo 'V427_STEP_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v427-output.cpp" -o "$work/v427-generated.o" > "$work/v427-compile.log" 2>&1; then
+    echo 'V427_STEP_STAGE compile=0'; exit 1
+  fi
+  echo 'V427_STEP_STAGE compile=1'
+  if ! g++ "$work/v420-harness.o" "$work/v427-generated.o" "$work/loader.o" \
+      -o "$work/v427-native" > "$work/v427-link.log" 2>&1 || ! test -x "$work/v427-native"; then
+    echo 'V427_STEP_STAGE link=0'; exit 1
+  fi
+  echo 'V427_STEP_STAGE link=1'
+  v427_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v427-native" "$work/private-v424.dol" owner-callback "$owner" \
+      > "$work/v427-native.log" 2>&1 || v427_rc=$?
+  echo 'V427_STEP_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/trace_v427_restored_function.py" "${args[@]}" \
+      --trace-log "$work/v427-native.log" --trace-rc "$v427_rc" | tee "$work/v427-result.log"; then
+    echo 'V427_STEP_STAGE inspected=0'; exit 1
+  fi
+  echo 'V427_STEP_STAGE inspected=1'
+); then
+  echo 'V427_STEP_STAGE attempt=completed'
+else
+  echo 'V427_STEP_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
