@@ -31,6 +31,8 @@ jobs:
       os_entry_requested: ${{ steps.link_request.outputs.os_entry_requested }}
       os_time_requested: ${{ steps.link_request.outputs.os_time_requested }}
       os_hardware_requested: ${{ steps.link_request.outputs.os_hardware_requested }}
+      os_arena_requested: ${{ steps.link_request.outputs.os_arena_requested }}
+      os_ipc_requested: ${{ steps.link_request.outputs.os_ipc_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,6 +118,8 @@ jobs:
           os_entry=false
           os_time=false
           os_hardware=false
+          os_arena=false
+          os_ipc=false
           # Do not run the expensive original-image build on every startup
           # probe. Compare the actual push range, not a commit message.
           if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
@@ -188,6 +192,22 @@ jobs:
               research/native_recomp/test_native_root_v443.cpp || rc=$?
             if [[ "$rc" == 1 ]]; then os_hardware=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v444_full_os_arena.py \
+              research/native_recomp/audit_v444_full_os_arena.py \
+              research/native_recomp/wii_full_os_arena_witness.h || rc=$?
+            if [[ "$rc" == 1 ]]; then os_arena=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v446_full_os_ipc.py \
+              research/native_recomp/audit_v446_full_os_ipc.py \
+              research/native_recomp/wii_full_os_ipc_witness.h \
+              research/native_recomp/apply_exact_dispatch_v445.py \
+              research/native_recomp/apply_native_tick_v438.py || rc=$?
+            if [[ "$rc" == 1 ]]; then os_ipc=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
           echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
           echo "startup_requested=$startup" >> "$GITHUB_OUTPUT"
@@ -197,8 +217,10 @@ jobs:
           echo "os_entry_requested=$os_entry" >> "$GITHUB_OUTPUT"
           echo "os_time_requested=$os_time" >> "$GITHUB_OUTPUT"
           echo "os_hardware_requested=$os_hardware" >> "$GITHUB_OUTPUT"
+          echo "os_arena_requested=$os_arena" >> "$GITHUB_OUTPUT"
+          echo "os_ipc_requested=$os_ipc" >> "$GITHUB_OUTPUT"
       - name: Prove actual backward-tail root identity before owner hardware continuation
-        if: steps.link_request.outputs.os_hardware_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc'
+        if: steps.link_request.outputs.os_hardware_requested == 'true' || steps.link_request.outputs.os_arena_requested == 'true' || steps.link_request.outputs.os_ipc_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc'
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v443_function_root.py -v
@@ -241,7 +263,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link'))))))) }}
+          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_ipc_requested == 'true' && 'os-ipc' || (needs.synthetic-symbol-map.outputs.os_arena_requested == 'true' && 'os-arena' || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link'))))))))) }}
         run: |
           set -euo pipefail
           umask 077
