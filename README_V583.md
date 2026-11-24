@@ -1,0 +1,3 @@
+# V583: authenticated historical ISFS entry and guest-selected callback
+
+V573 owner replay 45435139391 passed guard 1253 and stopped at 1257 (legacy V394 entry/live-PC comparison), preserving 25 original targets. V583 only retains historical ISFS entry after the same authenticated private run proves the subsequent genuine guest callback selection and userdata, uniquely ordered before the failed V394 trial. Runtime proof requires the guest target/LR range and the timestamp recorded only for the verified mapped callback table selection. The old live-PC check remains diagnostic; all later assertions remain. No guest state, IOS response or callback target is fabricated. Tests and owner replay pending.

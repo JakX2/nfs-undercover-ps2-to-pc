@@ -1679,6 +1679,36 @@ else
   echo 'V573_NAND_STAGE attempt=failed'
 fi
 
+# V583: prove guest-selected callback before retaining original V394 entry.
+if (
+  args=("$owner" "$work/v293-original.elf" "$work/private-v471.dol" "$work/generated-v471/output.cpp" "$work/v437-harness.cpp" "$work/v471-native.log" "$work/v508-harness.cpp" "$work/v508-native.log" "$work/v542-harness.cpp" "$work/v551-harness.cpp" "$work/v563-harness.cpp" "$work/v573-harness.cpp" "$work/v573-native.log" "$work/v583-harness.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/derive_v583_nand_isfs_lifetime.py" "${args[@]}"; then
+    echo 'V583_NAND_STAGE derive=0'; exit 1
+  fi
+  echo 'V583_NAND_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" -c "$work/v583-harness.cpp" \
+      -o "$work/v583-harness.o" > "$work/v583-compile.log" 2>&1; then
+    echo 'V583_NAND_STAGE compile=0'; exit 1
+  fi
+  echo 'V583_NAND_STAGE compile=1'
+  if ! g++ "$work/v583-harness.o" "$work/v471-output.o" "$work/loader.o" -o "$work/v583-native" > "$work/v583-link.log" 2>&1; then
+    echo 'V583_NAND_STAGE link=0'; exit 1
+  fi
+  echo 'V583_NAND_STAGE link=1'
+  v583_rc=0
+  timeout --signal=TERM --kill-after=3s 16s "$work/v583-native" "$work/private-v471.dol" owner-callback "$owner" > "$work/v583-native.log" 2>&1 || v583_rc=$?
+  echo 'V583_NAND_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v583_nand_isfs_lifetime.py" "${args[@]}" --run-log "$work/v583-native.log" --run-rc "$v583_rc"; then
+    echo 'V583_NAND_STAGE inspected=0'; exit 1
+  fi
+  echo 'V583_NAND_STAGE inspected=1'
+); then
+  echo 'V583_NAND_STAGE attempt=completed'
+else
+  echo 'V583_NAND_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
