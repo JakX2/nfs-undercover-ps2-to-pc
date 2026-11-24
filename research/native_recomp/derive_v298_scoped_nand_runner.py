@@ -1340,6 +1340,54 @@ else
   echo 'V437_FRAME_STAGE attempt=failed'
 fi
 
+# V447: restore the next exact observed nested NOP span, not a guessed call.
+if (
+  if ! grep -Fqx 'V437_FRAME_RESULT rc=134 begins=1 blr=0 resume=0 nested=2 max_calls=4 unique=5 original=4 first_nonoriginal=nop boot_verified=0' "$work/v437-result.log"; then
+    echo 'V447_REPAIR_STAGE control=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v437-native.log" "$work/v437-output.cpp" "$work/private-v447.dol")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v447_nand_nested_placeholder.py" "${args[@]}"; then
+    echo 'V447_REPAIR_STAGE plan=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE plan=1'
+  mkdir "$work/generated-v447" || { echo 'V447_REPAIR_STAGE generate=0'; exit 1; }
+  if ! "$work/generator" "$work/private-v447.dol" "$work/generated-v447" owner > "$work/v447-generate.log" 2>&1; then
+    echo 'V447_REPAIR_STAGE generate=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE generate=1'
+  extra=(--new-cpp "$work/generated-v447/output.cpp" --out-cpp "$work/v447-output.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v447_nand_nested_placeholder.py" "${args[@]}" "${extra[@]}"; then
+    echo 'V447_REPAIR_STAGE instrument=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE instrument=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" -c "$work/v447-output.cpp" \
+      -o "$work/v447-output.o" > "$work/v447-compile.log" 2>&1; then
+    echo 'V447_REPAIR_STAGE compile=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE compile=1'
+  if ! g++ "$work/v437-harness.o" "$work/v447-output.o" "$work/loader.o" -o "$work/v447-native" > "$work/v447-link.log" 2>&1; then
+    echo 'V447_REPAIR_STAGE link=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE link=1'
+  v447_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v447-native" "$work/private-v447.dol" owner-callback "$owner" \
+      > "$work/v447-native.log" 2>&1 || v447_rc=$?
+  echo 'V447_REPAIR_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/repair_v447_nand_nested_placeholder.py" "${args[@]}" "${extra[@]}" \
+      --run-log "$work/v447-native.log" --run-rc "$v447_rc" | tee "$work/v447-result.log"; then
+    echo 'V447_REPAIR_STAGE inspected=0'; exit 1
+  fi
+  echo 'V447_REPAIR_STAGE inspected=1'
+); then
+  echo 'V447_REPAIR_STAGE attempt=completed'
+else
+  echo 'V447_REPAIR_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

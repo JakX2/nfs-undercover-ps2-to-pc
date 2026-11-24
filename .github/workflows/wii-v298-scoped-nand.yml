@@ -83,6 +83,7 @@ on:
       - 'research/native_recomp/*v427*'
       - 'research/native_recomp/*v432*'
       - 'research/native_recomp/*v437*'
+      - 'research/native_recomp/*v447*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -292,6 +293,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v427_restored_function.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v432_nand_nested_call.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v437_nand_restored_frame.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v447_nand_nested_placeholder.py' -v
           g++ -std=c++20 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie research/native_recomp/test_wii_restored_frame_v437.cpp -o "$RUNNER_TEMP/v437-frame"
           "$RUNNER_TEMP/v437-frame"
           python3 -m py_compile research/native_recomp/audit_v396_native_gate.py research/native_recomp/test_v396_native_gate.py
@@ -490,6 +492,7 @@ jobs:
               grep -E '^V427_STEP_RESULT rc=[0-9]{1,3} entered=[01] steps=[0-9]{1,2} prior_steps=[0-9]{1,2} last_slot=[0-9]{1,2} last_kind=(none|direct_link|direct_tail|conditional_link|conditional|return|indirect|syscall|other) boot_verified=0$|^V427_(TRACE_)?ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$|^V427_(TRACE_)?PUBLIC_FAILURE id=[0-9]{4} label=[A-Za-z0-9 _.,:/()\-]{1,170}$|^V427_STATIC_EDGES external=[0-9]{1,2} original=[0-9]{1,2} nop=[0-9]{1,2} modified=[0-9]{1,2} missing=[0-9]{1,2} unknown=[0-9]{1,2} body=[0-9]{1,2} dispatch=[0-9]{1,2} boot_verified=0$|^V427_STEP_ROUTE installed=1 words=15 read_only=1$|^V427_STEP_AUDIT inspected=[01]$|^V427_STEP_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V427_STEP_STAGE attempt=(completed|failed)$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V432_NESTED_RESULT rc=[0-9]{1,3} kind=(zero|timeout|signal|nonzero) trials=([0-9]|1[0-6]) complete=([0-9]|1[0-6]) target_seen=([0-9]|1[0-6]) resumed=([0-9]|1[0-6]) status3=([0-9]|1[0-6]) same_retry=([0-9]|1[0-6]) max_calls=[0-9]{1,3} boot_verified=0 retired_exact=([0-9]|1[0-6])$|^V432_ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$|^V432_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$|^V432_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$|^V432_NESTED_ROUTE installed=1 exact_edge=1 old_guards=1 cap=192$|^V432_NESTED_AUDIT inspected=[01]$|^V432_NESTED_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V432_NESTED_STAGE attempt=(completed|failed)$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V437_FRAME_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V437_FRAME_STAGE compile=0 unit=(harness|output)$|^V437_FRAME_STAGE attempt=(completed|failed)$|^V437_FRAME_ROUTE installed=1 exact_return=1 cap=192 guards_preserved=1$|^V437_FRAME_AUDIT inspected=[01]$|^V437_FRAME_RESULT rc=[0-9]{1,3} begins=([0-9]|1[0-6]) blr=([0-9]|1[0-6]) resume=([0-9]|1[0-6]) nested=[0-9]{1,4} max_calls=[0-9]{1,3} unique=[0-9]{1,4} original=[0-9]{1,4} first_nonoriginal=(none|nop|modified|missing|unknown) boot_verified=0$|^V437_ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V447_REPAIR_STAGE (control|plan|generate|instrument|compile|link|run|inspected)=[01]$|^V447_REPAIR_STAGE attempt=(completed|failed)$|^V447_REPAIR_PLAN kind=(exact|interior) words=[0-9]{1,4} body=1 dispatch=1 restored=1 roundtrip=1 boot_verified=0$|^V447_REPAIR_ROUTE installed=1 frame_preserved=1$|^V447_REPAIR_AUDIT inspected=[01]$|^V447_FRAME_RESULT rc=[0-9]{1,3} begins=([0-9]|1[0-6]) blr=([0-9]|1[0-6]) resume=([0-9]|1[0-6]) nested=[0-9]{1,4} max_calls=[0-9]{1,3} unique=[0-9]{1,4} original=[0-9]{1,4} first_nonoriginal=(none|nop|modified|missing|unknown) boot_verified=0 restored_entry=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V408_NAND_CUT50_ROUTE installed=[01]( original_guest=1 cap50=1 baseline48_preserved=1)?$|^V408_NAND_CUT50_ERROR reason=(missing_96_harness|geometry|cap_[1-4]|route|output_exists|io|other)$|^V408_NAND_CUT50_STAGE (derive|compile|link|run|inspected)=[01]$|^V408_NAND_CUT50_STAGE attempt=(completed|failed)$|^V408_NAND_CUT50_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=([0-9]|[1-4][0-9]|50) owner_trials=([0-9]|1[0-6]) cap50_trials=([0-9]|1[0-6]) selected_return_trials=([0-9]|1[0-6]) parent_return_trials=([0-9]|1[0-6]) full_progress=[01] boot_verified=0$|^V408_NAND_CUT50_AUDIT inspected=[01]$|^V408_OWNER_RESULT_GATE verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V407_NATIVE_ABORT_STAGE v40[45]=[01]$|^V407_NATIVE_ABORT_CLASS candidate=v40[45] rc=[0-9]{1,3} kind=(zero|nonzero|timeout|signal|launch) size_band=[0-3] known_public=[01] public_id=[0-9]{4} phase=(other|v[0-9]{3}) guard=(other|pre_ack|trial_witness) exception=(runtime|logic|range|alloc|unclassified) callback=[01] boot_verified=0$|^V407_NATIVE_ABORT_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V406_NAND_CHECKPOINT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] seen=([0-9]|[1-3][0-9]|4[0-8]) first=(0|49) last=(0|49|[5-8][0-9]|9[0-6]) mask=([0-9]|1[0-5]) selected_any=[01] parent_any=[01] contiguous=[01] boundary96=[01] boot_verified=0$|^V406_NAND_CHECKPOINT_AUDIT inspected=[01]$|^V406_NAND_CHECKPOINT_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
@@ -672,6 +675,348 @@ jobs:
           else
             grep -Fx 'V414_COVERAGE_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
             grep -E '^V414_COVERAGE_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V447 restores only an authenticated observed placeholder.
+          if grep -Fqx 'V447_REPAIR_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control plan generate instrument compile link run inspected; do
+              grep -Fx "V447_REPAIR_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V447_FRAME_RESULT rc=[0-9]{1,3} begins=([0-9]|1[0-6]) blr=([0-9]|1[0-6]) resume=([0-9]|1[0-6]) nested=[0-9]{1,4} max_calls=[0-9]{1,3} unique=[0-9]{1,4} original=[0-9]{1,4} first_nonoriginal=(none|nop|modified|missing|unknown) boot_verified=0 restored_entry=1
+          if grep -Fqx 'V437_FRAME_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V437_FRAME_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V437_FRAME_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V437_FRAME_RESULT rc=[0-9]{1,3} begins=([0-9]|1[0-6]) blr=([0-9]|1[0-6]) resume=([0-9]|1[0-6]) nested=[0-9]{1,4} max_calls=[0-9]{1,3} unique=[0-9]{1,4} original=[0-9]{1,4} first_nonoriginal=(none|nop|modified|missing|unknown) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V437_FRAME_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V437_FRAME_STAGE (control|derive|compile|link|inspected)=0( unit=(harness|output))?$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V432 is an independent exact-edge continuation, not a boot gate.
+          if grep -Fqx 'V432_NESTED_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V432_NESTED_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V432_NESTED_ROUTE installed=1 exact_edge=1 old_guards=1 cap=192$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_NESTED_RESULT rc=[0-9]{1,3} kind=(zero|timeout|signal|nonzero) trials=([0-9]|1[0-6]) complete=([0-9]|1[0-6]) target_seen=([0-9]|1[0-6]) resumed=([0-9]|1[0-6]) status3=([0-9]|1[0-6]) same_retry=([0-9]|1[0-6]) max_calls=[0-9]{1,3} boot_verified=0 retired_exact=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V432_NESTED_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_NESTED_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V427 exposes only ordinal execution and known public assertion labels.
+          if grep -Fqx 'V427_STEP_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V427_STEP_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V427_STEP_RESULT rc=[0-9]{1,3} entered=[01] steps=[0-9]{1,2} prior_steps=[0-9]{1,2} last_slot=[0-9]{1,2} last_kind=(none|direct_link|direct_tail|conditional_link|conditional|return|indirect|syscall|other) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_(TRACE_)?ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_STATIC_EDGES external=[0-9]{1,2} original=[0-9]{1,2} nop=[0-9]{1,2} modified=[0-9]{1,2} missing=[0-9]{1,2} unknown=[0-9]{1,2} body=[0-9]{1,2} dispatch=[0-9]{1,2} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            # The failure-only trap already allowlists these public labels,
+            # but a completed diagnostic can itself contain an original-game
+            # abort. Print both matched public harness labels on that path.
+            grep -E '^V427_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_TRACE_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V427_STEP_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_STEP_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V424 is a separate candidate; a changed route is evidence, not boot.
+          if grep -Fqx 'V424_REPAIR_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control plan input generate compile link run inspected; do
+              grep -Fx "V424_REPAIR_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V424_REPAIR_PLAN kind=(none|exact|interior) words=[0-9]{1,4} body=[01] dispatch=[01] prepared=[01] reason=(no_placeholder|not_unique|route_differs|extent|aot_missing|not_nop|ready) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_RESULT rc=[0-9]{1,3} kind=(zero|timeout|signal|nonzero) trials=([0-9]|1[0-6]) complete=([0-9]|1[0-6]) target_seen=([0-9]|1[0-6]) resumed=([0-9]|1[0-6]) status3=([0-9]|1[0-6]) same_retry=([0-9]|1[0-6]) max_calls=[0-9]{1,3} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          elif grep -Fqx 'V424_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V424_REPAIR_STAGE plan=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_PLAN kind=(none|exact|interior) words=[0-9]{1,4} body=[01] dispatch=[01] prepared=[01] reason=(no_placeholder|not_unique|route_differs|extent|aot_missing|not_nop|ready) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V424_REPAIR_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_STAGE (control|plan|input|generate|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V420 retains the V416 control and audits private callback coverage.
+          if grep -Fqx 'V420_SC_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V420_SC_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V420_SC_ROUTE installed=1 read_only=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_CENSUS trials=16 pre_unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|original|nop|modified|missing|unknown) repairable=[01] sc_route=([0-9]|1[0-6]) sc1=([0-9]|1[0-6]) sc3=([0-9]|1[0-6]) writer=([0-9]|1[0-6]) selected_nand=([0-9]|1[0-6]) selected_negative=([0-9]|1[0-6]) entry_original=([0-9]|1[0-6]) entry_fixture=([0-9]|1[0-6]) entry_live_original=([0-9]|1[0-6]) entry_different=([0-9]|1[0-6]) entry_unmapped=([0-9]|1[0-6]) caller_original=([0-9]|1[0-6]) caller_fixture=([0-9]|1[0-6]) caller_live_original=([0-9]|1[0-6]) caller_different=([0-9]|1[0-6]) caller_unmapped=([0-9]|1[0-6]) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V420_SC_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            if grep -Fqx 'V420_PRIVATE_REPAIR prepared=1 roundtrip=1' "$RUNNER_TEMP/sc298.log"; then
+              grep -E '^V420_REPAIR_STAGE attempt=(completed|failed)$' "$RUNNER_TEMP/sc298.log"
+            else
+              grep -Fx 'V420_PRIVATE_REPAIR prepared=0 roundtrip=0' "$RUNNER_TEMP/sc298.log"
+              grep -Fx 'V420_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"
+            fi
+          else
+            grep -Fx 'V420_SC_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V416 classifies the resumed cycle without changing its execution.
+          if grep -Fqx 'V416_WAIT_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V416_WAIT_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V416_WAIT_ROUTE installed=1 read_only=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V416_WAIT_CENSUS trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} same_route=([0-9]|1[0-6]) periodic=([0-9]|1[0-6]) period=([0-9]|1[0-2]) inst_progress=([0-9]|1[0-6]) tb_progress=([0-9]|1[0-6]) mapped=([0-9]|1[0-6]) reply=([0-9]|1[0-6]) negative=([0-9]|1[0-6]) pending=([0-9]|1[0-6]) queued=([0-9]|1[0-6]) irq=([0-9]|1[0-6]) ee=([0-9]|1[0-6]) eligible=([0-9]|1[0-6]) x1=([0-9]|1[0-6]) y1=([0-9]|1[0-6]) y2=([0-9]|1[0-6]) flag=([0-9]|1[0-6]) expired=([0-9]|1[0-6]) disable=[0-9]{1,4} restore=[0-9]{1,4} time=[0-9]{1,4} scheduler=[0-9]{1,4} ipc=[0-9]{1,4} other=[0-9]{1,4} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V416_WAIT_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V416_WAIT_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V416_WAIT_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -E '^V397_NAND_ORIGINS_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 mask=([1-9]|1[0-5]) full_cap_all=[01] selected_any=[01] isfs_any=[01] parent_any=[01] other_any=[01] same_lr_any=[01] lineage_verified=1 return_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V398_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 max_samples=([0-9]|[1-5][0-9]|6[0-4]) sampled_any=[01] site_any=[01] mapped_any=[01] before_cap_any=[01] witness_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V399_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) bctrl_trials=([0-9]|1[0-6]) isfs_after_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V400_NAND_PARENT_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) linked_trials=([0-9]|1[0-6]) selected_first_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V401_NAND_CALLSITE_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 kind0=([0-9]|1[0-6]) kind1=([0-9]|1[0-6]) kind2=([0-9]|1[0-6]) kind3=([0-9]|1[0-6]) kind4=([0-9]|1[0-6]) kind5=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) direct_match_trials=([0-9]|1[0-6]) classified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V403_NAND_CALL_PROVENANCE_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 family0=([0-9]|1[0-6]) family1=([0-9]|1[0-6]) family2=([0-9]|1[0-6]) family3=([0-9]|1[0-6]) family4=([0-9]|1[0-6]) family5=([0-9]|1[0-6]) family6=([0-9]|1[0-6]) family7=([0-9]|1[0-6]) family8=([0-9]|1[0-6]) ctr_trials=([0-9]|1[0-6]) sp_trials=([0-9]|1[0-6]) lr_trials=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) classified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V295_BOUNDED_CANDIDATE inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V295_EXEC_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V295_BOUNDED_CANDIDATE inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V295 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -Fx 'V296_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V296_FRONTIER_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V296_SERVICE_PROBE inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V296 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -Fx 'V298_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V298_SCOPE_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V298 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          # Old native summaries belong to the V295-era process. A rejected
+          # legacy audit may not produce these lines at all. Keep their
+          # diagnostics, but require them only when that legacy audit passed.
+          if grep -Fqx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=0 next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V298 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=[01] next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          if grep -Fqx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V296 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          if grep -Fqx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V295 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          grep -E '^V294_AOT_COVERAGE targets=4 exact=4 bodies=4 dispatch=4 child_original=1 source_original=1 child_bl=1 unmapped=0 direct_emit=1 ready=1$' "$RUNNER_TEMP/sc298.log"
+          for stage in regenerate inspect coverage compile link; do
+            grep -Fx "V294_AOT_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+          done
+          grep -E '^V293_NAND_RESTORE owner=1 funcs=4 changed=[0-9]{1,5} total_words=[0-9]{1,5} roundtrip=1 candidate=1$' "$RUNNER_TEMP/sc298.log"
+          test "$(grep -Ec '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log")" -eq 4
+          grep -E '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V292_AOT_REACH owner=1 fixture=1 targets=4 child_original=[01] source_original=[01] child_aot=[01] source_aot=[01] child_bl=[01] unmapped_bl=[01] direct_emit=[01]$' "$RUNNER_TEMP/sc298.log"
+          test "$(grep -Ec '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log")" -eq 8
+          grep -E '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V289_NAND_ENTRY trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} zero=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V278_FCA4_CENSUS trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} child=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5} callback=[0-9]{1,5} nand=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V269_SC_WATCH trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) events=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} changed=[0-9]{1,5} write_zero=[0-9]{1,5} write_one=[0-9]{1,5} write_other=[0-9]{1,5} one_to_one=[0-9]{1,5} one_to_zero=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V263_HOTSPOT trials=16 calls=64 stable=1 unique_pc=([1-9]|[1-5][0-9]|6[0-4]) unique_pairs=([1-9]|[1-5][0-9]|6[0-4]) max_freq=([1-9]|[1-5][0-9]|6[0-4]) restore_hits=([0-9]|[1-5][0-9]|6[0-4]) disable_hits=([0-9]|[1-5][0-9]|6[0-4]) total_guest_inst=[0-9]{1,18} irq_ever=[01] request_ever=[01] sc_stable=[01]$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V263_PAIR rank=[123] pc=[0-9a-f]{8} lr=[0-9a-f]{8} freq=([1-9]|[1-5][0-9]|6[0-4]) first=([1-9]|[1-5][0-9]|6[0-4]) last=([1-9]|[1-5][0-9]|6[0-4]) first32=([0-9]|[1-2][0-9]|3[0-2]) last32=([0-9]|[1-2][0-9]|3[0-2]) ee_on=([0-9]|[1-5][0-9]|6[0-4]) ee_off=([0-9]|[1-5][0-9]|6[0-4]) gap_min=[0-9]{1,18} gap_med=[0-9]{1,18} gap_max=[0-9]{1,18}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V262_IPC_STATE trials=16 calls=64 stable=[01] distinct=([1-9]|1[0-6]) ee_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_edges=([0-9]|[1-5][0-9]|6[0-3]) request_edges=([0-9]|[1-5][0-9]|6[0-3]) queue_edges=([0-9]|[1-5][0-9]|6[0-3]) sc_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_ever=[01] request_ever=[01] queue_max=[0-9]{1,3} reply_all=[01] sc_first=[0-9]{1,3} sc_last=1 digest=[0-9a-f]{16}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$RUNNER_TEMP/sc298.log" | sort -u
+          # The private runner already enforces exactly sixteen source
+          # trials; its inherited stages repeat public trial rows in this
+          # combined log. Require every numbered trial instead of assuming
+          # that each row occurs only once in the wrapper output.
+          for n in $(seq 1 16); do
+            grep -Fqx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$RUNNER_TEMP/sc298.log"
+          done
+          echo 'PASS: V298 old SC observer scoped without changing original NAND guest state'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc298.log"
+ "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V447_REPAIR_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V447_REPAIR_STAGE (control|plan|generate|instrument|compile|link|inspected)=0
+          if grep -Fqx 'V437_FRAME_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V437_FRAME_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V437_FRAME_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V437_FRAME_RESULT rc=[0-9]{1,3} begins=([0-9]|1[0-6]) blr=([0-9]|1[0-6]) resume=([0-9]|1[0-6]) nested=[0-9]{1,4} max_calls=[0-9]{1,3} unique=[0-9]{1,4} original=[0-9]{1,4} first_nonoriginal=(none|nop|modified|missing|unknown) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V437_FRAME_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V437_FRAME_STAGE (control|derive|compile|link|inspected)=0( unit=(harness|output))?$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V432 is an independent exact-edge continuation, not a boot gate.
+          if grep -Fqx 'V432_NESTED_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V432_NESTED_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V432_NESTED_ROUTE installed=1 exact_edge=1 old_guards=1 cap=192$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_NESTED_RESULT rc=[0-9]{1,3} kind=(zero|timeout|signal|nonzero) trials=([0-9]|1[0-6]) complete=([0-9]|1[0-6]) target_seen=([0-9]|1[0-6]) resumed=([0-9]|1[0-6]) status3=([0-9]|1[0-6]) same_retry=([0-9]|1[0-6]) max_calls=[0-9]{1,3} boot_verified=0 retired_exact=([0-9]|1[0-6])$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V432_NESTED_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V432_NESTED_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V427 exposes only ordinal execution and known public assertion labels.
+          if grep -Fqx 'V427_STEP_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V427_STEP_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V427_STEP_RESULT rc=[0-9]{1,3} entered=[01] steps=[0-9]{1,2} prior_steps=[0-9]{1,2} last_slot=[0-9]{1,2} last_kind=(none|direct_link|direct_tail|conditional_link|conditional|return|indirect|syscall|other) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_(TRACE_)?ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_STATIC_EDGES external=[0-9]{1,2} original=[0-9]{1,2} nop=[0-9]{1,2} modified=[0-9]{1,2} missing=[0-9]{1,2} unknown=[0-9]{1,2} body=[0-9]{1,2} dispatch=[0-9]{1,2} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            # The failure-only trap already allowlists these public labels,
+            # but a completed diagnostic can itself contain an original-game
+            # abort. Print both matched public harness labels on that path.
+            grep -E '^V427_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_TRACE_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V427_STEP_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_STEP_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V424 is a separate candidate; a changed route is evidence, not boot.
+          if grep -Fqx 'V424_REPAIR_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control plan input generate compile link run inspected; do
+              grep -Fx "V424_REPAIR_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -E '^V424_REPAIR_PLAN kind=(none|exact|interior) words=[0-9]{1,4} body=[01] dispatch=[01] prepared=[01] reason=(no_placeholder|not_unique|route_differs|extent|aot_missing|not_nop|ready) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_RESULT rc=[0-9]{1,3} kind=(zero|timeout|signal|nonzero) trials=([0-9]|1[0-6]) complete=([0-9]|1[0-6]) target_seen=([0-9]|1[0-6]) resumed=([0-9]|1[0-6]) status3=([0-9]|1[0-6]) same_retry=([0-9]|1[0-6]) max_calls=[0-9]{1,3} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          elif grep -Fqx 'V424_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V424_REPAIR_STAGE plan=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_PLAN kind=(none|exact|interior) words=[0-9]{1,4} body=[01] dispatch=[01] prepared=[01] reason=(no_placeholder|not_unique|route_differs|extent|aot_missing|not_nop|ready) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V424_REPAIR_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V424_REPAIR_STAGE (control|plan|input|generate|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V420 retains the V416 control and audits private callback coverage.
+          if grep -Fqx 'V420_SC_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V420_SC_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V420_SC_ROUTE installed=1 read_only=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_CENSUS trials=16 pre_unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|original|nop|modified|missing|unknown) repairable=[01] sc_route=([0-9]|1[0-6]) sc1=([0-9]|1[0-6]) sc3=([0-9]|1[0-6]) writer=([0-9]|1[0-6]) selected_nand=([0-9]|1[0-6]) selected_negative=([0-9]|1[0-6]) entry_original=([0-9]|1[0-6]) entry_fixture=([0-9]|1[0-6]) entry_live_original=([0-9]|1[0-6]) entry_different=([0-9]|1[0-6]) entry_unmapped=([0-9]|1[0-6]) caller_original=([0-9]|1[0-6]) caller_fixture=([0-9]|1[0-6]) caller_live_original=([0-9]|1[0-6]) caller_different=([0-9]|1[0-6]) caller_unmapped=([0-9]|1[0-6]) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V420_SC_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            if grep -Fqx 'V420_PRIVATE_REPAIR prepared=1 roundtrip=1' "$RUNNER_TEMP/sc298.log"; then
+              grep -E '^V420_REPAIR_STAGE attempt=(completed|failed)$' "$RUNNER_TEMP/sc298.log"
+            else
+              grep -Fx 'V420_PRIVATE_REPAIR prepared=0 roundtrip=0' "$RUNNER_TEMP/sc298.log"
+              grep -Fx 'V420_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"
+            fi
+          else
+            grep -Fx 'V420_SC_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V416 classifies the resumed cycle without changing its execution.
+          if grep -Fqx 'V416_WAIT_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V416_WAIT_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V416_WAIT_ROUTE installed=1 read_only=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V416_WAIT_CENSUS trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} same_route=([0-9]|1[0-6]) periodic=([0-9]|1[0-6]) period=([0-9]|1[0-2]) inst_progress=([0-9]|1[0-6]) tb_progress=([0-9]|1[0-6]) mapped=([0-9]|1[0-6]) reply=([0-9]|1[0-6]) negative=([0-9]|1[0-6]) pending=([0-9]|1[0-6]) queued=([0-9]|1[0-6]) irq=([0-9]|1[0-6]) ee=([0-9]|1[0-6]) eligible=([0-9]|1[0-6]) x1=([0-9]|1[0-6]) y1=([0-9]|1[0-6]) y2=([0-9]|1[0-6]) flag=([0-9]|1[0-6]) expired=([0-9]|1[0-6]) disable=[0-9]{1,4} restore=[0-9]{1,4} time=[0-9]{1,4} scheduler=[0-9]{1,4} ipc=[0-9]{1,4} other=[0-9]{1,4} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V416_WAIT_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V416_WAIT_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V416_WAIT_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -E '^V397_NAND_ORIGINS_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 mask=([1-9]|1[0-5]) full_cap_all=[01] selected_any=[01] isfs_any=[01] parent_any=[01] other_any=[01] same_lr_any=[01] lineage_verified=1 return_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V398_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 max_samples=([0-9]|[1-5][0-9]|6[0-4]) sampled_any=[01] site_any=[01] mapped_any=[01] before_cap_any=[01] witness_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V399_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) bctrl_trials=([0-9]|1[0-6]) isfs_after_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V400_NAND_PARENT_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 site_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) linked_trials=([0-9]|1[0-6]) selected_first_trials=([0-9]|1[0-6]) parent_after_trials=([0-9]|1[0-6]) ordered_trials=([0-9]|1[0-6]) lineage_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V401_NAND_CALLSITE_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 kind0=([0-9]|1[0-6]) kind1=([0-9]|1[0-6]) kind2=([0-9]|1[0-6]) kind3=([0-9]|1[0-6]) kind4=([0-9]|1[0-6]) kind5=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) direct_match_trials=([0-9]|1[0-6]) classified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V403_NAND_CALL_PROVENANCE_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 family0=([0-9]|1[0-6]) family1=([0-9]|1[0-6]) family2=([0-9]|1[0-6]) family3=([0-9]|1[0-6]) family4=([0-9]|1[0-6]) family5=([0-9]|1[0-6]) family6=([0-9]|1[0-6]) family7=([0-9]|1[0-6]) family8=([0-9]|1[0-6]) ctr_trials=([0-9]|1[0-6]) sp_trials=([0-9]|1[0-6]) lr_trials=([0-9]|1[0-6]) site_trials=([0-9]|1[0-6]) classified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V295_BOUNDED_CANDIDATE inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V295_EXEC_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V295_BOUNDED_CANDIDATE inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V295 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -Fx 'V296_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V296_SERVICE_PROBE inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V296_FRONTIER_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V296_SERVICE_PROBE inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V296 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          grep -Fx 'V298_HARNESS_STAGE compile=1' "$RUNNER_TEMP/sc298.log"
+          if grep -Fqx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=1' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V298_SCOPE_AUDIT verified=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V298_RETIRED_OBSERVER inspected=0' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V396_LEGACY_V298 deferred=1' "$RUNNER_TEMP/sc298.log"
+          fi
+          # Old native summaries belong to the V295-era process. A rejected
+          # legacy audit may not produce these lines at all. Keep their
+          # diagnostics, but require them only when that legacy audit passed.
+          if grep -Fqx 'V298_SCOPE_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=0 next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V298 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V298_NATIVE_SCOPE rc=[0-9]{1,3} child=[0-9]{1,4} early=[0-9]{1,4} late=[0-9]{1,4} writer=[0-9]{1,4} old_assert=[01] next_assert=[0-9]{4} completed=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          if grep -Fqx 'V296_FRONTIER_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V296 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V296_NATIVE_FRONTIER rc=[0-9]{1,3} child=[0-9]{1,5} early=[0-9]{1,5} late=[0-9]{1,5} direct=[0-9]{1,5} assertion=[0-9]{4} exception=(runtime_error|out_of_range|invalid_argument|bad_alloc|logic_error|unclassified) original_guest=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          if grep -Fqx 'V295_EXEC_AUDIT verified=1' "$RUNNER_TEMP/sc298.log"; then
+            grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log"
+          else
+            grep -Fx 'V396_LEGACY_V295 deferred=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V295_NATIVE_OUTCOME class=(exit_zero|exit_nonzero|timeout|signal) rc=[0-9]{1,3} callbacks=[0-9]{1,5} nand_entries=[0-9]{1,5} writer_entries=[0-9]{1,5} trial_passes=[0-9]{1,2} guest_observed=[01] completed=[01]$' "$RUNNER_TEMP/sc298.log" || true
+          fi
+          grep -E '^V294_AOT_COVERAGE targets=4 exact=4 bodies=4 dispatch=4 child_original=1 source_original=1 child_bl=1 unmapped=0 direct_emit=1 ready=1$' "$RUNNER_TEMP/sc298.log"
+          for stage in regenerate inspect coverage compile link; do
+            grep -Fx "V294_AOT_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+          done
+          grep -E '^V293_NAND_RESTORE owner=1 funcs=4 changed=[0-9]{1,5} total_words=[0-9]{1,5} roundtrip=1 candidate=1$' "$RUNNER_TEMP/sc298.log"
+          test "$(grep -Ec '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log")" -eq 4
+          grep -E '^V293_RESTORED pc=[0-9a-f]{8} words=[0-9]{1,4} already=[0-9]{1,4} nop=[0-9]{1,4} foreign=0$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V292_AOT_REACH owner=1 fixture=1 targets=4 child_original=[01] source_original=[01] child_aot=[01] source_aot=[01] child_bl=[01] unmapped_bl=[01] direct_emit=[01]$' "$RUNNER_TEMP/sc298.log"
+          test "$(grep -Ec '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log")" -eq 8
+          grep -E '^V292_AOT_TARGET pc=[0-9a-f]{8} words=[0-9]{1,3} present=[01] same=[0-9]{1,3} nop=[0-9]{1,3} blr=[0-9]{1,3} other=[0-9]{1,3} emitted=[01] dispatch=[01]$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V289_NAND_ENTRY trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} zero=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V278_FCA4_CENSUS trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) entries=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} pre=[0-9]{1,5} post=[0-9]{1,5} child=[0-9]{1,5} sc1=[0-9]{1,5} sc3=[0-9]{1,5} callback=[0-9]{1,5} nand=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V269_SC_WATCH trials=16 frontier=64 stable=[01] distinct=([1-9]|1[0-6]) events=[0-9]{1,5} min_trial=[0-9]{1,3} max_trial=[0-9]{1,3} changed=[0-9]{1,5} write_zero=[0-9]{1,5} write_one=[0-9]{1,5} write_other=[0-9]{1,5} one_to_one=[0-9]{1,5} one_to_zero=[0-9]{1,5}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V263_HOTSPOT trials=16 calls=64 stable=1 unique_pc=([1-9]|[1-5][0-9]|6[0-4]) unique_pairs=([1-9]|[1-5][0-9]|6[0-4]) max_freq=([1-9]|[1-5][0-9]|6[0-4]) restore_hits=([0-9]|[1-5][0-9]|6[0-4]) disable_hits=([0-9]|[1-5][0-9]|6[0-4]) total_guest_inst=[0-9]{1,18} irq_ever=[01] request_ever=[01] sc_stable=[01]$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V263_PAIR rank=[123] pc=[0-9a-f]{8} lr=[0-9a-f]{8} freq=([1-9]|[1-5][0-9]|6[0-4]) first=([1-9]|[1-5][0-9]|6[0-4]) last=([1-9]|[1-5][0-9]|6[0-4]) first32=([0-9]|[1-2][0-9]|3[0-2]) last32=([0-9]|[1-2][0-9]|3[0-2]) ee_on=([0-9]|[1-5][0-9]|6[0-4]) ee_off=([0-9]|[1-5][0-9]|6[0-4]) gap_min=[0-9]{1,18} gap_med=[0-9]{1,18} gap_max=[0-9]{1,18}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V262_IPC_STATE trials=16 calls=64 stable=[01] distinct=([1-9]|1[0-6]) ee_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_edges=([0-9]|[1-5][0-9]|6[0-3]) request_edges=([0-9]|[1-5][0-9]|6[0-3]) queue_edges=([0-9]|[1-5][0-9]|6[0-3]) sc_edges=([0-9]|[1-5][0-9]|6[0-3]) irq_ever=[01] request_ever=[01] queue_max=[0-9]{1,3} reply_all=[01] sc_first=[0-9]{1,3} sc_last=1 digest=[0-9a-f]{16}$' "$RUNNER_TEMP/sc298.log"
+          grep -E '^V260_CALL_FRONTIER guest=1 coherent=1 mapped=1 calls=64 sc=[0-9]{1,3} pc=805265d4 lr=8052f92c$' "$RUNNER_TEMP/sc298.log" | sort -u
+          # The private runner already enforces exactly sixteen source
+          # trials; its inherited stages repeat public trial rows in this
+          # combined log. Require every numbered trial instead of assuming
+          # that each row occurs only once in the wrapper output.
+          for n in $(seq 1 16); do
+            grep -Fqx "V260_NAND_GUEST callback=1 event=1 memory=1 trial=$n" "$RUNNER_TEMP/sc298.log"
+          done
+          echo 'PASS: V298 old SC observer scoped without changing original NAND guest state'
+      - name: Remove private owner and generated code
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/originals" "$RUNNER_TEMP/sc298.log"
+ "$RUNNER_TEMP/sc298.log"
           fi
           # V437 reports a separate diagnostic attempt, not callback or boot completion.
           if grep -Fqx 'V437_FRAME_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then

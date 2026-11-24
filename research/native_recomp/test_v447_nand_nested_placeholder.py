@@ -1,0 +1,33 @@
+import unittest
+from repair_v447_nand_nested_placeholder import plan,outcome
+from test_v414_nand_resumed_coverage import dol,BODY,A,NOP
+from test_v424_nand_aot_placeholder import cpp
+from test_v437_nand_restored_frame import entry,log,BEGIN,BLR,RESUME
+PCS=[A+16*i for i in range(5)]
+SIZES={p:16 for p in PCS}
+RAW=log(BEGIN,entry(0,PCS[0],A+0x100),
+        b'V437_FRAME_NESTED call=1',entry(1,PCS[1],A+0x104),
+        entry(2,PCS[2],A+0x108),b'V437_FRAME_NESTED call=3',
+        entry(3,PCS[3],A+0x10c),entry(4,PCS[4],A+0x110))
+OWNER=dol(BODY*5)
+FIXTURE=dol(BODY*4+NOP*4)
+SOURCE=''.join(cpp(p) for p in PCS)
+class Tests(unittest.TestCase):
+    def test_restore(self):
+        p=plan(OWNER,FIXTURE,SIZES,SOURCE,RAW)
+        self.assertEqual(p.candidate,OWNER)
+        self.assertEqual(p.pc,PCS[-1]);self.assertEqual(p.size,16)
+        self.assertNotIn(f'{p.pc:08x}',p.row())
+        row=outcome(RAW+BLR+b'\n'+RESUME+b'\n',0,OWNER,SIZES,p)
+        self.assertIn('blr=1 resume=1',row);self.assertIn('original=5',row)
+        self.assertTrue(row.endswith('restored_entry=1'))
+    def test_reject(self):
+        for raw in (RAW.replace(b'call=4',b'call=5'),RAW.replace(b'call=4',b'call=3'),RAW+BEGIN+b'\n',RAW.replace(b'resumed=0',b'resumed=1',1)):
+            with self.assertRaises(ValueError):plan(OWNER,FIXTURE,SIZES,SOURCE,raw)
+        for image in (OWNER,dol(BODY*4+NOP*3+BODY[-4:]),dol(BODY*3+NOP*8)):
+            with self.assertRaises(ValueError):plan(OWNER,image,SIZES,SOURCE,RAW)
+        for source in (cpp(PCS[0]),SOURCE+cpp(PCS[-1])):
+            with self.assertRaises(ValueError):plan(OWNER,FIXTURE,SIZES,source,RAW)
+        p=plan(OWNER,FIXTURE,SIZES,SOURCE,RAW)
+        with self.assertRaises(ValueError):outcome(RAW.replace(b'call=4',b'call=5'),134,OWNER,SIZES,p)
+if __name__=='__main__':unittest.main()
