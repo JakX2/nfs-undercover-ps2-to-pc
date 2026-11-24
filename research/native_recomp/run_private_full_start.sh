@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 if [[ $# -ne 3 && $# -ne 4 ]]; then
-  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena]' >&2
+  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc]' >&2
   exit 2
 fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
@@ -18,6 +18,7 @@ case "$mode" in
   os-time) audit=audit_v435_full_os_time.py;;
   os-hardware) audit=audit_v439_full_os_hardware.py;;
   os-arena) audit=audit_v444_full_os_arena.py;;
+  os-ipc) audit=audit_v446_full_os_ipc.py;;
   *) echo 'Invalid bounded startup mode' >&2; exit 2;;
 esac
 [[ -x "$exe" && -f "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || {
