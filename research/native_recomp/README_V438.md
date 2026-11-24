@@ -26,3 +26,13 @@ functions in both output modes before and after applying the patch.
 It tests register results, return PCs and exact virtual time deltas.
 This is a separate candidate, not yet installed in the owner's full
 image or NAND build. Existing V435/V436/V437 owner runs are untouched.
+
+## Pinned CI follow-up
+
+Run 45317812393 proved the unpatched non-split AOT loop, resume, linked
+call and linked-call resume counts. Split generation succeeded but the
+harness incorrectly declared the split functions with C++ linkage, so
+linking failed before execution. The split generator publishes C linkage
+in functions.h; the harness now includes that exact generated header.
+Non-split keeps its C++ declarations. No timing result is claimed for the
+failed split link or the not-yet-executed patched pinned cases.

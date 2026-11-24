@@ -25,8 +25,10 @@ for version in baseline fixed; do
     dir="$work/$version-$mode"
     mkdir "$dir"
     "$work/generator" "$dir" "$mode"
+    mode_flags=()
+    if [[ "$mode" == split ]]; then mode_flags=(-DV438_SPLIT -I"$dir"); fi
     g++ -std=c++20 -O1 -Wall -Wextra -Wno-unused-label -Wno-unused-parameter -Wno-unused-variable \
-      -Wno-sign-compare -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" \
+      -Wno-sign-compare -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${mode_flags[@]}" \
       "$here/test_native_tick_v438.cpp" "$dir"/*.cpp \
       "$root/nWiiRuntime/src/core/os_hle_stubs.cpp" "$root/nWiiRuntime/src/hw/mmio_dispatcher.cpp" \
       "$root/nWiiRuntime/src/hw/hw_pi.cpp" "$root/nWiiRuntime/src/hw/hw_ipc.cpp" -o "$dir/native"

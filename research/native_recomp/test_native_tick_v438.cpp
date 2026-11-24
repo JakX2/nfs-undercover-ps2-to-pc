@@ -24,8 +24,12 @@ bool handle_syscall(CPUContext&){throw std::runtime_error("unexpected syscall");
 void interpret_step(CPUContext&){throw std::runtime_error("interpreter forbidden");}
 void micro_interpret(CPUContext&,uint32_t,uint32_t){throw std::runtime_error("micro interpreter forbidden");}
 }
+#ifdef V438_SPLIT
+#include "functions.h" // authoritative C linkage from the split emitter
+#else
 void func_80004000(nw::CPUContext&);
 void func_80004100(nw::CPUContext&);
+#endif
 int main(int argc,char** argv){
     need(argc==2,"expected baseline or fixed");
     const std::string_view mode=argv[1];need(mode=="baseline"||mode=="fixed","mode");
