@@ -1256,6 +1256,48 @@ else
   echo 'V427_STEP_STAGE attempt=failed'
 fi
 
+# V432: retire only the authenticated first nested call's obsolete region stop.
+if (
+  if ! grep -Fqx 'V427_STEP_RESULT rc=134 entered=1 steps=6 prior_steps=0 last_slot=5 last_kind=direct_link boot_verified=0' "$work/v427-result.log" ||
+     ! grep -Eq '^V427_TRACE_PUBLIC_FAILURE id=[0-9]{4} label=V402 extended original guest frontier incomplete$' "$work/v427-result.log"; then
+    echo 'V432_NESTED_STAGE control=0'; exit 1
+  fi
+  echo 'V432_NESTED_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+    "$work/generated-v310/output.cpp" "$work/v420-native.log" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v424-native.log" "$work/v427-native.log" \
+    "$work/v420-harness.cpp" "$work/v432-harness.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/derive_v432_nand_nested_call.py" "${args[@]}"; then
+    echo 'V432_NESTED_STAGE derive=0'; exit 1
+  fi
+  echo 'V432_NESTED_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v432-harness.cpp" -o "$work/v432-harness.o" > "$work/v432-compile.log" 2>&1; then
+    echo 'V432_NESTED_STAGE compile=0'; exit 1
+  fi
+  echo 'V432_NESTED_STAGE compile=1'
+  if ! g++ "$work/v432-harness.o" "$work/v424-generated.o" "$work/loader.o" \
+      -o "$work/v432-native" > "$work/v432-link.log" 2>&1 || ! test -x "$work/v432-native"; then
+    echo 'V432_NESTED_STAGE link=0'; exit 1
+  fi
+  echo 'V432_NESTED_STAGE link=1'
+  v432_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v432-native" "$work/private-v424.dol" owner-callback "$owner" \
+      > "$work/v432-native.log" 2>&1 || v432_rc=$?
+  echo 'V432_NESTED_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v432_nand_nested_call.py" "${args[@]}" \
+      --run-log "$work/v432-native.log" --run-rc "$v432_rc" | tee "$work/v432-result.log"; then
+    echo 'V432_NESTED_STAGE inspected=0'; exit 1
+  fi
+  echo 'V432_NESTED_STAGE inspected=1'
+); then
+  echo 'V432_NESTED_STAGE attempt=completed'
+else
+  echo 'V432_NESTED_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

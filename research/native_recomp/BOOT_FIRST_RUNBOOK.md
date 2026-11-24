@@ -309,6 +309,23 @@ workflow now also prints the exact allowlisted public guard labels,
 rather than only printing those labels on an overall job failure.
 No host guard is removed or guest state changed.
 
+### V432: allow only the authentic restored callback's first nested call
+
+The repeated authenticated [V427 run 45311591416](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45311591416)
+identified the exact abort as the public V402 extended original guest
+frontier incomplete assertion. The V396 LR-region early-stop rule can
+mistake a restored callback's real first nested call for the intended
+endpoint. The separate V432 candidate authenticates the original
+DOL/ELF, the V424 restored span, the exact six-slot V427 trace and
+its direct BL target, actual callee entry/LR, original callee coverage
+and the same public assertion in both controls. Only this one exact
+first edge, before selected/parent return or context restoration, may
+continue. Every other early stop, the 192-call cap and all posttrial
+guards are retained. No guest register, memory, code or IOS state is
+changed. The same V424 native generated object is reused. Four local
+tests passed, including compilation/execution of the scoped C++
+predicate and rejection of nonmatching callsites. Owner validation pending.
+
 Original-free tests:
 
 ```sh
