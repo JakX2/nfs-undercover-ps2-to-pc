@@ -1,6 +1,6 @@
 #pragma once
 #include "wii_boot_sc_route_v570.h"
-#include "arena_cache_range_trace_v596.h"
+#include "undercover/arena_cache_range_trace_v596.h"
 namespace undercover::wii {
 // A separate pair of one-shot routes. The original V570 DSP route remains
 // unchanged and is not reset or reused. This class is activated only after

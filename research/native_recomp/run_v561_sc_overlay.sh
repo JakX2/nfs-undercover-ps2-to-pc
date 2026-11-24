@@ -78,6 +78,6 @@ python3 "$here/patch_sc_trace_v570.py" "$work/arena-generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/arena-generated" --vector "$work/arena-input/vector.bin"
 python3 "$here/prepare_v598_arena_fixture.py" "$work/arena-generated"
 g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/arena-input" -I"$work/arena-generated" -I"$work/arena-generated/nWiiRuntime/include" \
-  "$here/test_native_arena_sc_v598.cpp" "$work/arena-generated"/*.cpp -o "$work/native-arena" > "$work/arena-compile.log" 2>&1 || { echo 'V598 arena compilation failed';exit 1; }
+  "$here/test_native_arena_sc_v598.cpp" "$work/arena-generated"/*.cpp -o "$work/native-arena" > "$work/arena-compile.log" 2>&1 || { python3 "$here/classify_v599_arena_compile.py" "$work/arena-compile.log"; echo 'V598 arena compilation failed';exit 1; }
 timeout 30s "$work/native-arena" "$mode" > "$work/arena-native.log" 2>&1 || { grep -E '^  what\(\):  (V598 line [0-9]+|V598 arena SC pair rejected|V570 boot SC route rejected|arena cache sequence rejected)$' "$work/arena-native.log" || true;echo 'V598 arena execution failed';exit 1; }
 grep -Ex "V598_ARENA_SC owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) lanes=2 flush_lines=16384 vectors=2 refusal=8 fallback=0 boot_verified=0" "$work/arena-native.log"

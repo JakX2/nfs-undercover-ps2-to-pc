@@ -6,6 +6,7 @@ on:
       - 'research/native_recomp/*v561*'
       - 'research/native_recomp/*v574*'
       - 'research/native_recomp/*v598*'
+      - 'research/native_recomp/*v599*'
       - 'research/native_recomp/*v596*'
       - '.github/workflows/wii-v561-native-sc-overlay.yml'
   workflow_dispatch:
@@ -20,6 +21,7 @@ jobs:
       - name: Fetch pinned NWiiRecomp and run synthetic SC overlay
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v599_arena_compile.py -v
           git init -q "$RUNNER_TEMP/nw561"
           git -C "$RUNNER_TEMP/nw561" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw561" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2

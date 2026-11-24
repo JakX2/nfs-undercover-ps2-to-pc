@@ -1,0 +1,3 @@
+# V599: canonical arena cache header identity
+
+V598's first original-free CI run passed the previous V561/V568/V570/V578 native execution gates but failed compilation of the new arena fixture. The generated CPUContext includes the installed `undercover/arena_cache_range_trace_v596.h`; the source-only pair header was including a second physical copy in the host source tree. `#pragma once` does not deduplicate distinct files. Use the generated runtime's canonical header in the pair. Add bounded, public-source-only compile error classification to diagnose any remaining failure without exposing original generated code. Rerun pending.
