@@ -15,7 +15,7 @@ game output, translated code, native binary or private compiler log is
 published. The existing owner-private authorization variable still gates
 the original-image job. On push the full link runs only if one of the
 two build scripts changes; normal NAND iteration does not trigger it.
-Manual workflow dispatch can choose `sample`, `all`, `link` or `startup`.
+Manual workflow dispatch can choose `sample`, `all`, `link`, `startup` or `hardware`.
 
 Original-free integration tests compile a synthetic executable, check
 that it is never launched, reject unresolved symbols and preserve an
@@ -46,8 +46,29 @@ No assets/FST are staged, no proprietary binary/log is uploaded, and the
 custom V418 IOS transport is not activated in this candidate. A successful
 owner result would establish only bounded original register initialization
 in the complete linked image, not complete continuous startup.
-Local source-only tests and a synthetic process witness passed. Owner
-validation remains pending.
+Local source-only tests and a synthetic process witness passed. The
+authenticated [V419 run 45305496147](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45305496147)
+also passed the complete-image link and launch with rc=0, all three
+stages verified and no observed interpreter fallback. This establishes
+the original entry and register initialization in the complete image,
+not execution of the hardware initializer.
+
+### V425: complete-image paired-single and FPR initialization
+
+The new independent hardware scope reuses V18 HID0/HID2 state and V19
+FPSCR field-mask patches before translating the whole owner image.
+The V419 three-stage register witness is retained. Six additional
+entries verify the original PSInit, HID2 read/write, instruction-cache
+invalidate helper, FPR initializer and cache entry, including the
+original caller LR and private text words. The final check compares
+all 32 scalar and paired-single second-lane registers and FPSCR to
+the actual finite guest memory seeds captured at FPR entry, plus
+GQR, HID0/HID2, MSR and stack preservation. Both interpreter entry
+paths are rejected. The process stops before the cache body.
+No game bytes are changed or published; the earlier startup and
+link-only modes are preserved. Three Python regression tests, the
+C++ sanitizer witness with eight negative controls, and synthetic
+private-header compilation passed locally. Owner validation pending.
 
 ## November 24, 2026: authenticated 96-call NAND frontier
 

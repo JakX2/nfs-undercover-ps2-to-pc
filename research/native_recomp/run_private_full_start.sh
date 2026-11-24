@@ -2,12 +2,18 @@
 # Bounded DOL-only launch of a private whole-image native executable.
 set -euo pipefail
 umask 077
-if [[ $# -ne 3 ]]; then
-  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR' >&2
+if [[ $# -ne 3 && $# -ne 4 ]]; then
+  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware]' >&2
   exit 2
 fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
+mode="${4:-startup}"
+case "$mode" in
+  startup) audit=audit_v419_full_start.py;;
+  hardware) audit=audit_v425_full_hardware.py;;
+  *) echo 'Invalid bounded startup mode' >&2; exit 2;;
+esac
 [[ -x "$exe" && -f "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || {
   echo 'V419_FULL_START_INPUT accepted=0'; exit 1;
 }
@@ -26,4 +32,4 @@ rc=0
     NWII_HEADLESS=1 NWII_TRACE_CALLS=1 UNDERCOVER_V419_START=1 \
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$exe" "$dol" "$work/config.toml"
 ) > "$work/run-private.log" 2>&1 || rc=$?
-python3 "$here/audit_v419_full_start.py" "$work/run-private.log" "$rc"
+python3 "$here/$audit" "$work/run-private.log" "$rc"

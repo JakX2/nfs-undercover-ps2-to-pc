@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Sample syntax, all shards, native link, or bounded native startup'
+        description: 'Sample syntax, all shards, native link, bounded startup, or hardware continuation'
         type: choice
         required: true
         default: sample
-        options: [sample, all, link, startup]
+        options: [sample, all, link, startup, hardware]
 permissions:
   contents: read
 concurrency:
@@ -25,6 +25,7 @@ jobs:
     outputs:
       link_requested: ${{ steps.link_request.outputs.link_requested }}
       startup_requested: ${{ steps.link_request.outputs.startup_requested }}
+      hardware_requested: ${{ steps.link_request.outputs.hardware_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +48,12 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v419_full_start.py -v
           g++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_wii_full_start_witness.cpp -o "$RUNNER_TEMP/v419-witness"
           "$RUNNER_TEMP/v419-witness"
+      - name: Test complete-image hardware continuation witness
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v425_full_hardware.py -v
+          g++ -std=c++20 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_full_hardware_witness.cpp -o "$RUNNER_TEMP/v425-witness"
+          "$RUNNER_TEMP/v425-witness"
       - name: Select private link or startup only for relevant changes
         if: github.event_name == 'push'
         id: link_request
@@ -56,6 +63,7 @@ jobs:
           set -euo pipefail
           requested=false
           startup=false
+          hardware=false
           # Do not run the expensive original-image build on every startup
           # probe. Compare the actual push range, not a commit message.
           if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
@@ -77,9 +85,20 @@ jobs:
               research/native_recomp/wii_full_start_probe_v419.h || rc=$?
             if [[ "$rc" == 1 ]]; then startup=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v425_full_hardware.py \
+              research/native_recomp/audit_v425_full_hardware.py \
+              research/native_recomp/wii_full_hardware_witness.h \
+              research/native_recomp/wii_full_hardware_probe_v425.h \
+              research/native_recomp/apply_hid_state_v18.py \
+              research/native_recomp/apply_fpscr_v19.py || rc=$?
+            if [[ "$rc" == 1 ]]; then hardware=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
           echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
           echo "startup_requested=$startup" >> "$GITHUB_OUTPUT"
+          echo "hardware_requested=$hardware" >> "$GITHUB_OUTPUT"
   private-translation:
     needs: synthetic-symbol-map
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || needs.synthetic-symbol-map.outputs.link_requested == 'true')
@@ -114,7 +133,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link') }}
+          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link')) }}
         run: |
           set -euo pipefail
           umask 077
