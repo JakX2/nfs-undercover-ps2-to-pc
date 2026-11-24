@@ -131,8 +131,28 @@ the fixture. The candidate must round-trip exactly. If applicable the
 runner independently regenerates, compiles, links and tests it. A mixed,
 missing or ambiguous span remains diagnostic; no SC state or IOS result
 is forced. All addresses, raw instruction words, code and candidate
-binaries remain in owner-private scratch. Five original-free tests pass;
-the new owner outcome is pending.
+binaries remain in owner-private scratch. The authenticated
+[V420 run 45306037053](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45306037053)
+found 12 distinct pre-restoration entries, 11 original spans and one
+NOP-only span. All 16 trials confirmed the exact SC retry route with
+status 1, no observed status 3 or known writer entry. Live text did
+not agree with either file; the existing reduced harness explicitly
+does not load all original text into guest RAM.
+
+### V424: restore the unique observed AOT placeholder
+
+Keep V420 unchanged as the control. V424 authenticates the original
+DOL and ELF, requires the same single all-NOP span in each complete
+trial, resolves its exact or unique interior ELF extent and confirms
+its actual generated trace and dispatch entry. Restore only that
+bounded span, require a byte-for-byte reversible installation and
+regenerate the private candidate. The live RAM text mismatch is not
+used as a gate because the reduced loader omits most text. The
+candidate audit requires the same emitted entry and reports partial
+or complete trial progress, observed SC state 3, return-context
+witness and the old retry route. It never forces a state change or
+claims boot. All five local synthetic tests passed; owner validation
+is pending.
 
 Original-free tests:
 

@@ -1158,6 +1158,64 @@ else
   echo 'V420_SC_STAGE attempt=failed'
 fi
 
+# V424: restore only an authenticated unique NOP-only AOT span in the
+# verified V420 route. The reduced loader does not map all DOL text in RAM.
+if (
+  if ! grep -Eq '^V420_SC_CENSUS trials=16 pre_unique=12 original=11 nop=1 modified=0 missing=0 unknown=0 first=nop repairable=0 sc_route=16 sc1=16 sc3=0 ' "$work/v420-coverage.log"; then
+    echo 'V424_REPAIR_STAGE control=0'
+    exit 1
+  fi
+  echo 'V424_REPAIR_STAGE control=1'
+  if ! python3 "$V110_SOURCE_ROOT/repair_v424_nand_aot_placeholder.py" \
+      "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+      "$work/generated-v310/output.cpp" "$work/v420-native.log" "$work/private-v424.dol" \
+      | tee "$work/v424-plan.log"; then
+    echo 'V424_REPAIR_STAGE plan=0'
+    exit 1
+  fi
+  echo 'V424_REPAIR_STAGE plan=1'
+  if ! grep -Eq '^V424_REPAIR_PLAN kind=(exact|interior) words=[0-9]+ body=1 dispatch=1 prepared=1 reason=ready boot_verified=0$' "$work/v424-plan.log"; then
+    echo 'V424_REPAIR_STAGE attempt=not_applicable'
+    exit 0
+  fi
+  test -s "$work/private-v424.dol" || { echo 'V424_REPAIR_STAGE input=0'; exit 1; }
+  echo 'V424_REPAIR_STAGE input=1'
+  mkdir "$work/generated-v424" || { echo 'V424_REPAIR_STAGE generate=0'; exit 1; }
+  if ! "$work/generator" "$work/private-v424.dol" "$work/generated-v424" owner > "$work/v424-generate.log" 2>&1; then
+    echo 'V424_REPAIR_STAGE generate=0'; exit 1
+  fi
+  echo 'V424_REPAIR_STAGE generate=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/generated-v424/output.cpp" -o "$work/v424-generated.o" > "$work/v424-compile.log" 2>&1; then
+    echo 'V424_REPAIR_STAGE compile=0'; exit 1
+  fi
+  echo 'V424_REPAIR_STAGE compile=1'
+  if ! g++ "$work/v420-harness.o" "$work/v424-generated.o" "$work/loader.o" \
+      -o "$work/v424-native" > "$work/v424-link.log" 2>&1 || ! test -x "$work/v424-native"; then
+    echo 'V424_REPAIR_STAGE link=0'; exit 1
+  fi
+  echo 'V424_REPAIR_STAGE link=1'
+  v424_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v424-native" "$work/private-v424.dol" owner-callback "$owner" \
+      > "$work/v424-native.log" 2>&1 || v424_rc=$?
+  echo 'V424_REPAIR_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/repair_v424_nand_aot_placeholder.py" \
+      "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+      "$work/generated-v310/output.cpp" "$work/v420-native.log" "$work/private-v424.dol" \
+      --result-log "$work/v424-native.log" --result-cpp "$work/generated-v424/output.cpp" --result-rc "$v424_rc" \
+      | tee "$work/v424-result.log"; then
+    echo 'V424_REPAIR_STAGE inspected=0'; exit 1
+  fi
+  echo 'V424_REPAIR_STAGE inspected=1'
+  echo 'V424_REPAIR_STAGE attempt=completed'
+); then
+  :
+else
+  echo 'V424_REPAIR_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
