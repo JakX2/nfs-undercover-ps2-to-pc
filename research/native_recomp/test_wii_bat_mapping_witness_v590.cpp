@@ -37,6 +37,15 @@ int main(){
         if(fault==1)c.gpr[3]^=1;
         if(fault==2)c.mmu.words[0x80003120]=0;
         if(fault==3)c.msr&=~0x30u;
+        const auto mask=w.entry_failures(c,fault!=4);
+        constexpr std::array<uint32_t,5> expected{0,1u<<4,1u<<11,1u<<6,1u<<1};
+        need(mask==(fault<=4?expected[fault]:0u));
+        if(fault==0){
+            auto f=c;f.bat_write_count=33;f.msr|=0x8000u;
+            need(w.entry_failures(f,true)==((1u<<12)|(1u<<5)));
+            f=c;f.dispatch_saved_ctx=1;need(w.entry_failures(f,true)==(1u<<7));
+            f=c;f.lr+=4;need(w.entry_failures(f,true)==(1u<<3));
+        }
         bool bad=fault>=1&&fault<=4;
         need(w.begin(c,fault!=4)==!bad);if(bad)continue;
         bool stopped=false;

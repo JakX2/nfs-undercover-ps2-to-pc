@@ -26,14 +26,25 @@ public:
     explicit BatMappingWitness(const BatMappingExpectations& e):e_(e){}
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
+    // Bitwise refusal reasons for the complete-image mapper entry. The
+    // acceptance predicate remains the conjunction of the original checks.
+    template<class Cpu>uint32_t entry_failures(Cpu& c,bool mi_ready)const{
+        uint32_t mask=0;
+        const auto flag=[&](bool bad,unsigned bit){if(bad)mask|=1u<<bit;};
+        flag(stage_||error_,0);flag(!mi_ready,1);flag(!c.is_running,2);
+        flag(!matches(c,e_.mapper),3);flag(c.gpr[3]!=0x000ba2cfu,4);
+        flag((c.msr&0x8000u)!=0,5);flag((c.msr&0x30u)!=0x30u,6);
+        flag(bool(c.dispatch_saved_ctx),7);
+        flag(!equal(c,0x80003100u,0x01800000u),8);
+        flag(!equal(c,0x80003104u,0x01800000u),9);
+        flag(!equal(c,0x8000311cu,0x04000000u),10);
+        flag(!equal(c,0x80003120u,0x93400000u),11);
+        flag(uint64_t(c.bat_write_count)+Writes.size()>c.bat_write_sprs.size(),12);
+        flag(c.bat_write_sprs.size()!=c.bat_write_values.size(),13);
+        return mask;
+    }
     template<class Cpu>bool begin(Cpu& c,bool mi_ready){
-        if(stage_||error_||!mi_ready||!c.is_running||!matches(c,e_.mapper)||
-           c.gpr[3]!=0x000ba2cfu||(c.msr&0x8000u)||(c.msr&0x30u)!=0x30u||
-           c.dispatch_saved_ctx||!equal(c,0x80003100u,0x01800000u)||
-           !equal(c,0x80003104u,0x01800000u)||!equal(c,0x8000311cu,0x04000000u)||
-           !equal(c,0x80003120u,0x93400000u)||
-           uint64_t(c.bat_write_count)+Writes.size()>c.bat_write_sprs.size()||
-           c.bat_write_sprs.size()!=c.bat_write_values.size())return fail(1);
+        if(entry_failures(c,mi_ready))return fail(1);
         base_=c.bat_write_count;initial_=c.bat_registers;
         sp_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;last_=c.inst_count;
         stage_=1;return true;

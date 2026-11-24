@@ -25,7 +25,9 @@ DECL_NEW=DECL+'''
     if(memory_init.stage()){
         const auto before=memory_init.stage();
         if(!memory_init.observe(addr,cpu)){std::cout<<"V591_MI_INVALID reason="<<memory_init.failure()<<" stage="<<memory_init.stage()<<std::endl;
-            std::cout<<"V604_MI_EDGE stage="<<before<<" pc="<<std::hex<<addr<<" lr="<<cpu.lr<<std::dec<<" outer="<<memory_init.outer_visits()<<" metadata="<<memory_init.mapping_metadata(cpu)<<std::endl;std::_Exit(115);}
+            std::cout<<"V604_MI_EDGE stage="<<before<<" pc="<<std::hex<<addr<<" lr="<<cpu.lr<<std::dec<<" outer="<<memory_init.outer_visits()<<" metadata="<<memory_init.mapping_metadata(cpu)<<std::endl;
+            if(before==11u){std::cout<<"V620_MI_MAPPER refusal="<<memory_init.mapper_refusal()<<" bat_count="<<cpu.bat_write_count<<" msr="<<std::hex<<cpu.msr<<std::dec<<std::endl;}
+            std::_Exit(115);}
         if(memory_init.stage()!=before)std::cout<<"V591_MI_STAGE n="<<memory_init.stage()<<std::endl;
         if(memory_init.stage()==20u){
             std::cout<<"V591_MI_RESULT handlers=5 shutdown=1 bat=32 rfi_returns=2 mi_mask=16 returned=1 permissions=0 firmware_executed=0 fallback=0 boot_verified=0"<<std::endl;

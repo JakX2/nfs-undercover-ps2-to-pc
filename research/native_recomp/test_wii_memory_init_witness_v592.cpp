@@ -39,7 +39,7 @@ int main(){
     e.outer_helpers.push_back({0x805265ac,0x805276f4,31,32});
     e.outer_helpers.push_back({0x805265d4,0x8052778c,33,34});
     constexpr uint32_t r13=0x8070e8e0,sp=ThreadInitWitness::StackTop-88;
-    for(unsigned fault=0;fault<=22;++fault){
+    for(unsigned fault=0;fault<=25;++fault){
         std::atomic<uint32_t> pi{0x40};
         WiiIrqBanks banks(pi);IrqBankBinding binding(banks);
         Cpu c;W w(e);auto& m=c.mmu.words;
@@ -85,7 +85,16 @@ int main(){
         m[r13-3372]=W::Node;m[W::AlarmNode+8]=W::Node;m[W::Node+12]=W::AlarmNode;
         enter(e.edges[10]);c.gpr[3]=0x000ba2cf;
         if(fault==10)m[W::Node+12]=0;
-        need(w.observe(c.pc,c)==(fault!=10));if(fault==10)continue;
+        if(fault==23)c.bat_write_count=33;
+        if(fault==24)m[W::IrqTable+16]=0;
+        if(fault==25){c.dispatch_saved_ctx=1;m[W::Node-4]^=1;}
+        const bool bad_mapper=fault==10||fault>=23;
+        need(w.observe(c.pc,c)==!bad_mapper);
+        if(bad_mapper){
+            const uint32_t mask=fault==10?1u<<22:fault==23?1u<<12:fault==24?1u<<29:(1u<<7)|(1u<<23);
+            need(w.mapper_refusal()==mask);continue;
+        }
+        need(w.mapper_refusal()==0);
         for(unsigned lane=0;lane<2;++lane){
             enter(e.bat.trampoline[lane]);c.gpr[3]=B::Entry[lane];c.gpr[1]=sp-48;
             need(w.observe(c.pc,c));c.pc=B::Entry[lane];c.lr=B::Resume[lane];c.srr0=c.pc&0x3fffffff;
@@ -115,5 +124,5 @@ int main(){
         need(w.observe(c.pc,c)==(fault==0));
         if(!fault){need(w.stage()==20&&pi.load()==0x40&&w.outer_visits()==2&&W::mapping_metadata(c)==15);need(!w.observe(c.pc,c));}
     }
-    std::cout<<"V592_MI_WITNESS stages=20 positive=1 refused=22 outer=2 bat=32 handlers=5 permissions=0\n";
+    std::cout<<"V592_MI_WITNESS stages=20 positive=1 refused=25 outer=2 bat=32 handlers=5 permissions=0\n";
 }

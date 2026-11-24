@@ -19,6 +19,7 @@ public:
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
     unsigned outer_visits()const noexcept{return outer_visits_;}
+    uint32_t mapper_refusal()const noexcept{return mapper_refusal_;}
     template<class Cpu>static unsigned mapping_metadata(Cpu& c){
         return unsigned(equal(c,0x80003100u,0x01800000u))|2u*unsigned(equal(c,0x80003104u,0x01800000u))|
                4u*unsigned(equal(c,0x8000311cu,0x04000000u))|8u*unsigned(equal(c,0x80003120u,0x93400000u));
@@ -71,7 +72,22 @@ public:
                 break;
             }
             case 10:if(c.gpr[3]!=Node||!handlers(c,5))return fail(4);break;
-            case 11:if(!links(c)||!handlers(c,5)||!bat_.begin(c,IrqBankBinding::mi_boot_ready()))return fail(4);break;
+            case 11:{
+                mapper_refusal_=bat_.entry_failures(c,IrqBankBinding::mi_boot_ready());
+                const auto mark=[&](bool bad,unsigned bit){if(bad)mapper_refusal_|=1u<<bit;};
+                mark(!equal(c,r13_-3376u,AlarmNode),16);
+                mark(!equal(c,r13_-3372u,Node),17);
+                mark(!equal(c,AlarmNode+8,Node),18);
+                mark(!equal(c,Node,0x80527040u),19);
+                mark(!equal(c,Node+4,127),20);
+                mark(!equal(c,Node+8,0),21);
+                mark(!equal(c,Node+12,AlarmNode),22);
+                mark(!equal(c,Node-4,guards_[0]),23);
+                mark(!equal(c,Node+16,guards_[1]),24);
+                for(unsigned i=0;i<5;++i)mark(!equal(c,IrqTable+4*i,Handler),25+i);
+                if(mapper_refusal_||!bat_.begin(c,IrqBankBinding::mi_boot_ready()))return fail(4);
+                break;
+            }
             case 18:if(c.gpr[3]!=0x08000000u||!bat_.final_state(c))return fail(4);break;
             default:return fail(4);
             }
@@ -97,7 +113,7 @@ public:
 private:
     MemoryInitExpectations e_;BatMappingWitness bat_;
     unsigned stage_=0,error_=0,extra_=0,outer_visits_=0;
-    uint32_t last_outer_lr_=0;
+    uint32_t last_outer_lr_=0,mapper_refusal_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,hid_=0;uint64_t start_=0;
     std::array<uint32_t,2> guards_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}

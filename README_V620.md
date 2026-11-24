@@ -1,0 +1,5 @@
+# V620: exact complete-image MI mapper refusal census
+
+V612 owner run 45491380033 advanced the mapping metadata mask from 4 to 15 but still stopped at stage 11, reason 4. Preserve the original mapper-entry acceptance predicates and record a bitwise refusal census, before any mapping writes. V620_MI_MAPPER is emitted only at stage 11 refusal, with BAT write count and MSR (no private instructions or image data).
+
+Bits 0–13: witness state, MI readiness, running state, exact mapper edge, r3, EE, IR/DR, saved dispatch context, MEM1 physical size, MEM1 simulated size, MEM2 size, mapped MEM2 high, BAT log capacity, log shape. Bits 16–24: shutdown head, tail, predecessor link, callback, priority, next, previous, leading/trailing canaries. Bits 25–29: five registered handler slots. Multiple defects can be reported together. All existing checks remain mandatory. Synthetic extracted C++ predicate compiled and passed under ASan/UBSan (1 positive, 12 individual bit controls, 1 combined). Repository witness tests expanded; full CI and owner retry pending. This is instrumentation, not an MI completion claim.
