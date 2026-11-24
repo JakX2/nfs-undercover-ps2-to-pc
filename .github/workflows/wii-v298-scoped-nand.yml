@@ -673,6 +673,11 @@ jobs:
             grep -E '^V427_STEP_RESULT rc=[0-9]{1,3} entered=[01] steps=[0-9]{1,2} prior_steps=[0-9]{1,2} last_slot=[0-9]{1,2} last_kind=(none|direct_link|direct_tail|conditional_link|conditional|return|indirect|syscall|other) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
             grep -E '^V427_(TRACE_)?ABORT_CENSUS rc=[0-9]{1,3} public_id=[0-9]{4} known=[01] category=(interpreter|micro|syscall|mmio|public_guard|unknown) exception=(runtime|logic|range|alloc|unclassified) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
             grep -E '^V427_STATIC_EDGES external=[0-9]{1,2} original=[0-9]{1,2} nop=[0-9]{1,2} modified=[0-9]{1,2} missing=[0-9]{1,2} unknown=[0-9]{1,2} body=[0-9]{1,2} dispatch=[0-9]{1,2} boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            # The failure-only trap already allowlists these public labels,
+            # but a completed diagnostic can itself contain an original-game
+            # abort. Print both matched public harness labels on that path.
+            grep -E '^V427_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V427_TRACE_PUBLIC_FAILURE id=[0-9]{4} label=[-A-Za-z0-9 _.,:/()]{1,170}$' "$RUNNER_TEMP/sc298.log"
           else
             grep -Fx 'V427_STEP_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
             grep -E '^V427_STEP_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"

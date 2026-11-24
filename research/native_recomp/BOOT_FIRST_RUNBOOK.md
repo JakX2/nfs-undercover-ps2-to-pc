@@ -268,7 +268,17 @@ guest state. An independent static branch-target census and the exact
 public harness assertion catalog classify the failure. Only bounded
 counts, categories and exact matched public harness labels leave CI.
 Five local original-free tests passed, including compiling and executing
-the inserted C++ observer. Owner validation pending.
+the inserted C++ observer. The authenticated
+[V427 run 45310140759](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45310140759)
+reproduced the V424 abort after six original instruction slots (last
+ordinal 5, direct linked branch). The single external target has an
+authentic original span and emitted body/dispatch. Both the baseline
+and traced process reported the same public guard ID 1282 and runtime
+exception; neither is classified as interpreter or missing MMIO.
+This is not proof of the callee's completed execution. The success-path
+workflow now also prints the exact allowlisted public guard labels,
+rather than only printing those labels on an overall job failure.
+No host guard is removed or guest state changed.
 
 Original-free tests:
 
