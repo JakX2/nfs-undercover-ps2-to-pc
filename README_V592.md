@@ -1,0 +1,3 @@
+# V592: full MI observer independent sequencing regression
+
+Exercise the actual V591 observer with synthetic CPU state, the real opt-in MI register model and the actual V590 BAT witness. One positive 20-stage path plus eighteen deliberately invalid inputs test cold flag and node state, HID2 ABI, MI write order, helper edge provenance, handler registrations, shutdown list, two physical entries/returns, exact BAT values, final mask, stack and memory canaries. The test also confirms PI peer bits survive. No original owner execution is claimed by this control; the separate owner job requires it before attempting V591.
