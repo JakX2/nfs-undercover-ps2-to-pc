@@ -1,0 +1,22 @@
+name: Wii Native Boot Report Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v600*'
+      - 'research/native_recomp/*v601*'
+      - '.github/workflows/wii-v601-report-witness.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise report observer with nine paths and independent rejection controls
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_boot_report_witness_v601.cpp -o "$RUNNER_TEMP/v601"
+          "$RUNNER_TEMP/v601"

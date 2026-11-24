@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 namespace undercover::wii {
 struct BootReportEdge {uint32_t pc,lr,branch,entry;};
@@ -132,7 +133,7 @@ private:
         return n&&a>=0x80000000u&&uint64_t(a)+n<=0x81800000ull&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+n-1u);
     }
     template<class Cpu>static bool equal(Cpu& c,uint32_t a,uint32_t w){return !(a&3u)&&mapped(c,a,4)&&c.mmu.read32(a)==w;}
-    template<class Cpu,size_t N>static bool bytes(Cpu& c,uint32_t a,const std::array<uint8_t,N>& expected){
+    template<class Cpu,std::size_t N>static bool bytes(Cpu& c,uint32_t a,const std::array<uint8_t,N>& expected){
         if(!mapped(c,a,N))return false;
         for(unsigned i=0;i<N;++i)if(c.mmu.read8(a+i)!=expected[i])return false;
         return true;
