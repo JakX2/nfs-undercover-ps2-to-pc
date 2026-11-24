@@ -1,0 +1,24 @@
+# V487–V491: native EXI controller and deeper OSInit startup
+
+2026-11-24. Branch `research/wii-native-recomp-preflight`.
+
+## New authenticated owner results
+
+- [Linux complete-image V476 IRQ MMIO run 45330878839](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45330878839): `V476_MMIO_CENSUS rc=0 irq=1 stages=2 fallback=0 verified=1 boot_verified=0`. The two original PI/Hollywood mask stores, register aliases and original interrupt-disable entry passed. All 113 translated syntax checks passed. This is not complete interrupt initialization.
+- [Windows complete-image IRQ table run 45333067332](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45333067332): `V426_WINDOWS_LINK linked=1 platform=windows-x64 synthetic=0 boot_verified=0`; `V473_IRQ_CENSUS rc=0 alarm=1 stages=5 fallback=0 verified=1 boot_verified=0`; `V429_WINDOWS_OWNER_SCOPE scope=os-irq verified=1 boot_verified=0`. Windows has reached the same verified alarm/module/table boundary as the earlier Linux run.
+- [V486 source-only run 45333318665](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45333318665): original-free context geometry, probe composition and gate passed, with 12 negative C++ witness controls.
+
+## Implementation
+
+- V487 `64541d5`: add selectable `os-context` Linux/Windows scope, with the exact bounded IRQ and native cold bank flags. Windows push default advances to `os-mmio`, which passed on Linux. [Source suite 45334216022](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334216022) passed. [Linux context owner queued 45334216118](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334216118), behind [active IRQ-return run 45333067322](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45333067322). [Windows MMIO 45334215957](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334215957).
+- V488 `e85cf0d`: authenticated second original cache initializer after OSContextInit, using the already-enabled L1/L2 cache state. Exact helper sequence, repeated original error-handler registration, stack and preserved registers, and original EXIInit entry. [Source suite 45334403432](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334403432) passed including 13 negative controls. This scope is not yet wired to owner CI, to avoid superseding queued context run.
+- V489 `1c3af48`: native EXI controller model: independent channels, MAR/LENGTH alignment, CR and immediate DATA state, CSR/W1C delegated to native IRQ banks. No automatic device attachments or replies. Explicit endpoint selection, transfer token and host completion. TSTART persists across polls, completion raises latched TC interrupt, write-only transfers preserve data, non-clocked bytes remain unchanged. DMA programming supported, DMA start rejected until real memory/device adapter exists. ROMDIS is only a guest-visible latch; Wii ROM mapping behavior remains unknown. Hardware reference: https://wiibrew.org/wiki/Hardware/External_Interface.
+- V490 `ac1b3bc`, follow-up `ae7df24`: opt-in EXI binding through actual pinned MMU wrappers, aliases and PI interrupt handling. Existing V481 strict CSR-only mode remains default. The initial test accidentally seeded the Hollywood-owned PI bit, which the IOS transport legitimately cleared; corrected test uses unrelated PI sources. [Pinned run 45334672884](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334672884) passed, including 36 immediate transfer cases, real register reads/writes, explicit completion, interrupt delivery and acknowledgement, width/alias rejection, unchanged RAM and no fabricated IOS service. No real EXI device attached in complete-image runtime yet.
+- V491 `d95a177`: candidate original cold EXI polling scope. Authenticates the three original channel polling loads and loopback branches, records actual EXI controller reads, requires 3 idle controls and no EXI write, verifies native __OSMaskInterrupts entry and original argument. [Source run 45334849734](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45334849734) pending at writing. Not yet wired into owner CI.
+
+## Next steps
+
+- Inspect V483 real complete-image IRQ-return run and V485 NAND precise guard diagnosis [45333157740](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45333157740). Fix actual observed errors; never force a guest return.
+- Allow queued V487 context owner to start before selecting V488 or V491 owner scope, preserving independent predecessors.
+- Expand EXI from controller state to actual device protocols: initial original mask setup, handler registration, internal ID transaction, SRAM DMA, RTC. Bind explicit endpoints and scheduler rather than fabricating immediate completion.
+- Preserve the original DOL/ELF and translated artifacts privately. Neither full OSInit, original main, rendered frame nor playable gameplay has been verified.
