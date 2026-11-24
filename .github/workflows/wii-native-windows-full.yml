@@ -22,13 +22,20 @@ on:
       - 'research/native_recomp/audit_v439_full_os_hardware.py'
       - 'research/native_recomp/wii_full_os_hardware_witness.h'
       - 'research/native_recomp/apply_function_root_v443.py'
+      - 'research/native_recomp/prepare_v444_full_os_arena.py'
+      - 'research/native_recomp/audit_v444_full_os_arena.py'
+      - 'research/native_recomp/wii_full_os_arena_witness.h'
+      - 'research/native_recomp/prepare_v446_full_os_ipc.py'
+      - 'research/native_recomp/audit_v446_full_os_ipc.py'
+      - 'research/native_recomp/wii_full_os_ipc_witness.h'
+      - 'research/native_recomp/apply_exact_dispatch_v445.py'
       - '.github/workflows/wii-native-windows-full.yml'
   workflow_dispatch:
     inputs:
       owner_scope:
         description: 'Bounded original startup through OS hardware, arenas or IPC pointer setup'
         type: choice
-        default: os-hardware
+        default: os-ipc
         required: true
         options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc]
       legacy_loader:
@@ -137,7 +144,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-hardware' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-ipc' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
