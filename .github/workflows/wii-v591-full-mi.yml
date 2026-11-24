@@ -1,0 +1,64 @@
+name: Wii Complete Native Memory Protection Startup
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v591*'
+      - '.github/workflows/wii-v591-full-mi.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v591-full-mi-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate independent MI witness and complete audit contract
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v591_memory_init.py -v
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          for src in test_wii_mi_profile_v587 test_wii_bat_mapping_witness_v590 test_wii_dsp_return_witness_v585; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
+            "$RUNNER_TEMP/$src"
+          done
+  owner-full-mi:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Prepare, link and execute original memory-protection continuation
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw591"
+          git -C "$RUNNER_TEMP/nw591" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw591" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw591" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw591" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-mi
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw591"
