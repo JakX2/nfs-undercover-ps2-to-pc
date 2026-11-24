@@ -222,7 +222,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
-        if scope=='os-si-sample':
+        if scope in ('os-si-sample','os-si-return'):
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
