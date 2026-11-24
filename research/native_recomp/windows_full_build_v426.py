@@ -135,12 +135,30 @@ def run_stage(name,args,work,seconds,**kwargs):
     if rc:raise BuildError(name+('_timeout' if rc==124 else '_failed'))
     print(f'V426_WINDOWS_STAGE stage={name} passed=1',flush=True)
 
-def build(root,work,dol=None,elf=None):
+def owner_scope(scope,synthetic):
+    # Preserve V426's verified startup lane. Hardware adds only the patches
+    # and exact witness already verified in V425 on the complete Linux image.
+    if scope not in ('startup','hardware') or (synthetic and scope!='startup'):
+        raise BuildError('owner_scope')
+    if scope=='hardware':
+        return ('apply_hid_state_v18','apply_fpscr_v19'),'prepare_v425_full_hardware.py'
+    return (),'prepare_v419_full_start.py'
+
+def audit_owner_start(raw,rc,scope):
+    owner_scope(scope,False)
+    if scope=='hardware':
+        from audit_v425_full_hardware import inspect
+    else:
+        from audit_v419_full_start import inspect
+    return inspect(raw,rc if 0<=rc<=255 else 255)
+
+def build(root,work,dol=None,elf=None,scope='startup'):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
     synthetic=dol is None
     if synthetic!=(elf is None):raise BuildError('input_pair')
+    extra_patches,observer=owner_scope(scope,synthetic)
     if not synthetic and hashlib.sha256(dol.read_bytes()).hexdigest()!=OWNER_SHA:raise BuildError('owner_dol')
     if subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()!=PIN:raise BuildError('pin')
     if subprocess.check_output(['git','-C',str(root),'status','--porcelain'],text=True).strip():raise BuildError('dirty_upstream')
@@ -149,7 +167,7 @@ def build(root,work,dol=None,elf=None):
     if synthetic:
         dol=work/'synthetic.dol';dol.write_bytes(synthetic_dol());symbols.write_text(f'Name,Location,Size\nfn_{ENTRY:08X},{ENTRY:08X},32\nfn_{NEXT:08X},{NEXT:08X},4\n',encoding='utf-8')
     else:run_stage('symbols',[sys.executable,HOST/'make_private_elf_symbol_map.py',elf,symbols],work,120)
-    for patch in ('apply_psq_indexed_patch','apply_psq_estimate_and_gqr_v5','apply_verified_elf_spans_v6'):
+    for patch in ('apply_psq_indexed_patch','apply_psq_estimate_and_gqr_v5','apply_verified_elf_spans_v6')+extra_patches:
         run_stage(patch,[sys.executable,HOST/(patch+'.py'),root],work,60)
     portable_patch(root)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root),encoding='utf-8')
@@ -168,7 +186,7 @@ def build(root,work,dol=None,elf=None):
     if synthetic and swaps!=2:raise BuildError('synthetic_swap')
     generated_patch(generated,synthetic)
     if not synthetic:
-        run_stage('startup_observer',[sys.executable,HOST/'prepare_v419_full_start.py',dol,generated],work,180)
+        run_stage('startup_observer',[sys.executable,HOST/observer,dol,generated],work,180)
     out=work/'native-build'
     run_stage('native_config',['cmake','-S',generated,'-B',out,*gen,'-DCMAKE_CXX_FLAGS_RELEASE=/Od /DNDEBUG /bigobj /utf-8 /Zc:__cplusplus','-DCMAKE_C_FLAGS_RELEASE=/Od /DNDEBUG'],work,600)
     run_stage('native_build',['cmake','--build',out,'--config','Release','--target','UndercoverWiiLocal','--parallel','2'],work,5400)
@@ -185,14 +203,14 @@ def build(root,work,dol=None,elf=None):
         markers=[l for l in raw.splitlines() if l.startswith(b'V426_SYNTHETIC_SWAP')]
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
-        from audit_v419_full_start import inspect
-        row,ok=inspect(raw,rc if 0<=rc<=255 else 255);print(row)
+        row,ok=audit_owner_start(raw,rc,scope);print(row)
+        print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=('startup','hardware'),default='startup');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):

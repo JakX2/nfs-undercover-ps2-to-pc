@@ -5,8 +5,20 @@ on:
     paths:
       - 'research/native_recomp/windows_full_build_v426.py'
       - 'research/native_recomp/test_v426_windows_full_build.py'
+      - 'research/native_recomp/test_v429_windows_scope.py'
+      - 'research/native_recomp/prepare_v425_full_hardware.py'
+      - 'research/native_recomp/audit_v425_full_hardware.py'
+      - 'research/native_recomp/wii_full_hardware_witness.h'
+      - 'research/native_recomp/wii_full_hardware_probe_v425.h'
       - '.github/workflows/wii-native-windows-full.yml'
   workflow_dispatch:
+    inputs:
+      owner_scope:
+        description: 'Original register startup or hardware continuation'
+        type: choice
+        default: hardware
+        required: true
+        options: [startup, hardware]
 permissions:
   contents: read
 concurrency:
@@ -22,7 +34,11 @@ jobs:
         with:
           python-version: '3.11'
       - name: Validate PE and reversible source changes
-        run: python -m unittest discover -s research/native_recomp -p test_v426_windows_full_build.py -v
+        run: |
+          python -m unittest discover -s research/native_recomp -p test_v426_windows_full_build.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v429_windows_scope.py -v
+          exit $LASTEXITCODE
       - name: Fetch exact pinned NWiiRecomp
         shell: pwsh
         run: |
@@ -94,10 +110,12 @@ jobs:
           git -C $root checkout -q --detach FETCH_HEAD
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
+        env:
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'hardware' }}
         shell: pwsh
         run: |
           $orig = Join-Path $env:RUNNER_TEMP 'orig426'
-          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf')
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf') --owner-scope $env:OWNER_SCOPE
           exit $LASTEXITCODE
       - name: Clean all private original files, logs and binaries
         if: always()

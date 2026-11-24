@@ -79,8 +79,29 @@ hardware body, main or gameplay.
 Six local tests passed, including a real AMD64 PE linked using
 clang-cl/lld-link on Linux, malformed PE rejection, exact source seams,
 independent PPC encoding validation, and 100,000 portable byte-swap
-comparisons under UBSan. This does not establish actual MSVC compilation
-of the generated project yet; Windows CI results are pending.
+comparisons under UBSan. The first Windows job failed only the incidental
+MinGW UBSan test; the follow-up confined that comparison to Linux.
+The authenticated [V426 run 45309773007](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45309773007)
+passed the independent Windows synthetic full-runtime control and then
+compiled and linked the complete original image with MSVC x64. The
+private PE passed validation, launched, and passed all three V419 stages
+with rc=0, fallback=0, verified=1. Original bounded Windows startup is
+therefore verified. The private executable and raw logs were removed
+by the owner workflow; they are not distributed. Hardware completion,
+OSInit and gameplay are not established by this Windows result.
+
+### V429: Windows hardware continuation
+
+The verified V426 startup command is unchanged by default. The
+new explicit `--owner-scope hardware` option adds only the previously
+authenticated V425 HID/FPSCR source patches, observer and exact nine-stage
+audit. The Windows owner workflow selects hardware on relevant pushes;
+manual dispatch retains either startup or hardware. The independently
+authored PPC/PE control still runs before admitting any owner image.
+The scope-specific audit rejects a three-stage startup result as hardware
+completion and rejects nonzero exits, including Windows exception codes.
+All eight local Windows build-helper/scope regression tests pass on Linux;
+the Windows hardware owner result is pending.
 
 ### V425: complete-image paired-single and FPR initialization
 
