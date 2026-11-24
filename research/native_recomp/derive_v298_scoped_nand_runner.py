@@ -1008,6 +1008,52 @@ else
   echo 'V414_COVERAGE_STAGE attempt=failed'
 fi
 
+# V416: a separate read-only wait-cycle candidate, only after the verified
+# V414 repeated authentic three-entry route has been reproduced.
+if (
+  if ! grep -Fqx 'V414_RESUMED_COVERAGE trials=16 entries=2800 unique=3 original=3 nop=0 modified=0 missing=0 unknown=0 first=none repairable=0 all_original=1 boot_verified=0' "$work/v414-coverage.log"; then
+    echo 'V416_WAIT_STAGE control=0'
+    exit 1
+  fi
+  echo 'V416_WAIT_STAGE control=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v416_nand_wait_state.py" \
+      "$work/v414-harness.cpp" "$work/v416-harness.cpp"; then
+    echo 'V416_WAIT_STAGE derive=0'
+    exit 1
+  fi
+  echo 'V416_WAIT_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v416-harness.cpp" -o "$work/v416-harness.o" \
+      > "$work/v416-compile.log" 2>&1; then
+    echo 'V416_WAIT_STAGE compile=0'
+    exit 1
+  fi
+  echo 'V416_WAIT_STAGE compile=1'
+  if ! g++ "$work/v416-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v416-native" > "$work/v416-link.log" 2>&1 ||
+      ! test -x "$work/v416-native"; then
+    echo 'V416_WAIT_STAGE link=0'
+    exit 1
+  fi
+  echo 'V416_WAIT_STAGE link=1'
+  v416_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v416-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v416-native.log" 2>&1 || v416_rc=$?
+  echo 'V416_WAIT_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/audit_v416_nand_wait_state.py" \
+      "$work/v416-native.log" "$v416_rc"; then
+    echo 'V416_WAIT_STAGE inspected=0'
+    exit 1
+  fi
+  echo 'V416_WAIT_STAGE inspected=1'
+); then
+  echo 'V416_WAIT_STAGE attempt=completed'
+else
+  echo 'V416_WAIT_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \

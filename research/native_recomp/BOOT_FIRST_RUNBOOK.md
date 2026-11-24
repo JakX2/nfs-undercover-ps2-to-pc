@@ -59,8 +59,24 @@ complete NOP-only ELF function of 16–8192 bytes. The private candidate must
 round-trip byte-for-byte, preserving all other sections. If prepared, it
 is independently retranslated, compiled, linked and executed against the
 same V413 gates. Unknown or mixed spans are never automatically changed.
-No V414 owner outcome is yet claimed. Raw addresses, code and logs remain
-private.
+The authenticated V414 owner run
+[45301607068](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45301607068)
+passed all 16 trials. It recorded 2,800 post-restoration entries (175 per
+trial), with only three distinct addresses and all three observed spans
+matching the original DOL. No repair was applicable. This is a bounded
+entry-span result, not a claim that every executed instruction in the
+reduced fixture is authentic.
+
+V416 independently repeats that control and records the PC/LR route,
+instruction counter, timebase, decrementer expiry, native IOS request and
+reply queue, PPCCTRL X1/Y1/Y2, Hollywood flag, IRQ level, EE, interrupt
+eligibility and reply-header status at the observed call boundaries.
+The audit detects repeated suffixes of up to 12 calls and aggregates
+already identified SDK entry categories; unrecognized targets are
+reported as other. It never pumps IOS, changes time, delivers an IRQ,
+alters guest state, or emits addresses and register values publicly.
+A recurring route is not by itself a proof of a deadlock. Owner V416
+results are pending.
 
 Original-free tests:
 
