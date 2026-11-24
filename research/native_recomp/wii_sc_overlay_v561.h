@@ -11,14 +11,17 @@ constexpr uint32_t ScSource=0x805290a8u,ScVector=0x80000c00u,ScSize=28u;
 inline void add_sc_overlay(nwii::loader::Executable& exe){
     std::vector<uint8_t> image;
     for(const auto& sec:exe.sections){
-        const uint64_t end=uint64_t(sec.address)+sec.data.size();
-        if(sec.address<uint64_t(ScVector)+ScSize&&ScVector<end)
+        const uint64_t end=uint64_t(sec.address)+sec.size;
+        if(end>0x100000000ull || (sec.is_bss ? (!sec.data.empty()||sec.is_text) : sec.data.size()!=sec.size))
+            throw std::runtime_error("SC section geometry");
+        if(sec.size&&sec.address<uint64_t(ScVector)+ScSize&&ScVector<end)
             throw std::runtime_error("SC translation overlay conflict");
-        if(sec.is_text&&sec.address<=ScSource&&uint64_t(ScSource)+ScSize<=end){
-            if(!image.empty())throw std::runtime_error("SC source ambiguous");
-            const auto off=ScSource-sec.address;
-            image.assign(sec.data.begin()+off,sec.data.begin()+off+ScSize);
-        }
+        if(!sec.size||sec.address>=uint64_t(ScSource)+ScSize||ScSource>=end)continue;
+        if(!sec.is_text||sec.is_bss||sec.address>ScSource||uint64_t(ScSource)+ScSize>end)
+            throw std::runtime_error("SC source overlap");
+        if(!image.empty())throw std::runtime_error("SC source ambiguous");
+        const auto off=ScSource-sec.address;
+        image.assign(sec.data.begin()+off,sec.data.begin()+off+ScSize);
     }
     if(image.size()!=ScSize)throw std::runtime_error("SC source missing");
     for(unsigned i=0;i<ScSize;i+=4){

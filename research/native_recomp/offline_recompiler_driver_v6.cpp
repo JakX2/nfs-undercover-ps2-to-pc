@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         try { undercover::wii::add_sc_overlay(exec); }
         catch (const std::exception& e) {
             const std::string reason=e.what();
-            if(reason=="SC translation overlay conflict"||reason=="SC source ambiguous"||reason=="SC source missing"||reason=="SC vector return"||reason=="SC vector control flow")std::cerr<<reason<<"\n";
+            if(reason=="SC translation overlay conflict"||reason=="SC source ambiguous"||reason=="SC source missing"||reason=="SC source overlap"||reason=="SC section geometry"||reason=="SC vector return"||reason=="SC vector control flow")std::cerr<<reason<<"\n";
             else std::cerr<<"SC overlay rejected\n";
             return 4;
         }
