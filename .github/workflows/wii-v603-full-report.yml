@@ -1,10 +1,11 @@
-name: Wii Complete Native Boot Report Preflight
+name: Wii Complete Native Boot Report Execution
 on:
   workflow_dispatch:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v603*'
+      - 'research/native_recomp/*v643*'
       - '.github/workflows/wii-v603-full-report.yml'
 permissions:
   contents: read
@@ -20,6 +21,7 @@ jobs:
       - name: Validate original-free report witness and scope contract
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v643_report_diagnostic.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v603_boot_report.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v594_boot_report.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v593_irq_exi_composition.py -v
@@ -29,7 +31,7 @@ jobs:
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
             "$RUNNER_TEMP/$src"
           done
-  owner-report-preflight:
+  owner-report-execution:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
@@ -60,7 +62,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw603" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw603" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw603" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw603" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-report-observer
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw603" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-report
       - name: Clean private original files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw603"

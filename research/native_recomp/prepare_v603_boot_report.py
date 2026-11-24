@@ -21,6 +21,7 @@ NEXT=DECL+'''
         const auto before=boot_report.reports(),getters=boot_report.getters();
         if(!boot_report.observe(addr,cpu)){
             std::cout<<"V603_REPORT_INVALID reason="<<boot_report.failure()<<" stage="<<boot_report.stage()<<" reports="<<boot_report.reports()<<" getters="<<boot_report.getters()<<std::endl;
+            if(boot_report.failure()==8u)std::cout<<"V643_REPORT_DIAG mask="<<boot_report.print_refusal()<<" class="<<boot_report.console_class()<<" call_offset="<<boot_report.call_offset()<<" format_offset="<<boot_report.format_offset()<<std::endl;
             std::_Exit(116);
         }
         if(boot_report.getters()!=getters)std::cout<<"V603_REPORT_GETTER n="<<boot_report.getters()<<std::endl;

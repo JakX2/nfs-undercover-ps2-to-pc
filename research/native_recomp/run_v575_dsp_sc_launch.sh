@@ -40,6 +40,17 @@ rc=0
 ) > "$work/run-private.log" 2>&1 || rc=$?
 audit_rc=0
 python3 "$here/$audit" "$work/run-private.log" "$rc" || audit_rc=$?
+if [[ "$rc" == 116 ]]; then
+  PYTHONPATH="$here" python3 - "$work/run-private.log" <<'PY'
+import sys
+from pathlib import Path
+from report_diagnostic_v643 import diagnostic,MAX_LOG
+p=Path(sys.argv[1])
+if p.stat().st_size<=MAX_LOG:
+    row=diagnostic(p.read_bytes(),116)
+    if row:print(row)
+PY
+fi
 # The longer chained audits deliberately emit only their own census. Export
 # the same bounded mapper diagnostic if an upstream MI refusal stopped them.
 if [[ "$rc" == 115 && "$audit" != audit_v591_memory_init.py ]]; then

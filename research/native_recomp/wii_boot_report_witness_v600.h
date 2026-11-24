@@ -29,6 +29,10 @@ public:
     unsigned reports()const noexcept{return reports_;}
     unsigned getters()const noexcept{return getters_;}
     bool computed()const noexcept{return case_seen_;}
+    unsigned print_refusal()const noexcept{return print_refusal_;}
+    unsigned console_class()const noexcept{return console_class_;}
+    unsigned call_offset()const noexcept{return call_offset_;}
+    unsigned format_offset()const noexcept{return format_offset_;}
     template<class Cpu>bool begin(Cpu& c){
         if(stage_||error_||!c.is_running||c.pc!=Begin||c.lr!=Begin||
            (c.msr&0x8000u)||c.gpr[13]!=0x8070e8e0u||!equal(c,Begin,e_.entry_word)||
@@ -83,7 +87,10 @@ public:
         if(addr==e_.console.lr){
             if(!console_||console_returned_||reports_!=3||c.pc!=addr||c.lr!=addr||
                c.gpr[1]!=sp_-16||!equal(c,addr,e_.console_return))return fail(5);
-            console_value_=c.gpr[3];console_returned_=true;last_=c.inst_count;return true;
+            console_value_=c.gpr[3];
+            console_class_=console_value_>=0x10000000u&&console_value_<=0x10000021u?unsigned(console_value_-0x10000000u):
+                console_value_==17u?34u:35u;
+            console_returned_=true;last_=c.inst_count;return true;
         }
         if(addr==e_.bctr){
             if(!console_returned_||reports_!=3||branch_seen_||!table_mode()||
@@ -101,10 +108,16 @@ public:
             ++getters_;return true;
         }
         if(addr==Print){
-            if(reports_>=10||c.pc!=addr||c.gpr[1]!=(reports_==9?sp_:sp_-16)||
-               c.cr[1].eq||!print_args(c))return fail(8);
             const auto* call=site(c.lr);
-            if(!call||!equal(c,call->lr-4u,call->branch))return fail(8);
+            print_refusal_=(reports_>=10?1u:0u)|(c.pc!=addr?2u:0u)|
+                (c.gpr[1]!=(reports_==9?sp_:sp_-16)?4u:0u)|(c.cr[1].eq?8u:0u)|
+                (!print_args(c)?16u:0u)|(!call?32u:0u)|
+                (call&&!equal(c,call->lr-4u,call->branch)?64u:0u);
+            // Export only bounded offsets from already authenticated public
+            // function/data ranges, never raw guest registers or strings.
+            call_offset_=c.lr>=0x80520410u&&c.lr<=0x8052055cu?c.lr-0x80520410u:512u;
+            format_offset_=c.gpr[3]>=Data&&c.gpr[3]<Data+496u?c.gpr[3]-Data:512u;
+            if(print_refusal_)return fail(8);
             pending_=call;print_sp_=c.gpr[1];print_tick_=c.inst_count;return true;
         }
         // Exact direct helper edges derived from authenticated report and
@@ -117,6 +130,7 @@ private:
     static constexpr std::array<uint32_t,4> ArenaOffsets{16400,3472,16396,3468};
     static constexpr std::array<uint32_t,4> Lowmem{0x80003100,0x8000311c,0x80003140,0x80003144};
     BootReportExpectations e_;unsigned stage_=0,error_=0,reports_=0,getters_=0,nested_=0,extra_=0;
+    unsigned print_refusal_=0,console_class_=36,call_offset_=512,format_offset_=512;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,print_sp_=0,console_value_=0,target_=0;
     uint64_t start_=0,last_=0,print_tick_=0;
     std::array<uint32_t,4> arena_{},low_{};

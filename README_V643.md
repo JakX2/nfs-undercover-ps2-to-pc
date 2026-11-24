@@ -1,0 +1,1 @@
+Add a bounded rejection mask for report ABI, argument selection and authenticated callsite identity. Export the console class and bounded call/format offsets only if the actual report rejection and exit code agree. Keep existing guards unchanged. The report workflow now executes the complete image rather than performing only preflight. V642 independent selector result is pending.
