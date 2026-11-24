@@ -8,7 +8,8 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags
+from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile
+from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -156,6 +157,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     synthetic=dol is None
     if synthetic!=(elf is None):raise BuildError('input_pair')
     extra_patches,observer=owner_scope(scope,synthetic)
+    if requires_exi_profile(scope) and legacy_ticks:raise BuildError('exi_requires_native_ticks')
     if not synthetic and hashlib.sha256(dol.read_bytes()).hexdigest()!=OWNER_SHA:raise BuildError('owner_dol')
     if subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()!=PIN:raise BuildError('pin')
     if subprocess.check_output(['git','-C',str(root),'status','--porcelain'],text=True).strip():raise BuildError('dirty_upstream')
@@ -168,6 +170,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage(patch,[sys.executable,HOST/(patch+'.py'),root],work,60)
     if not legacy_ticks:
         run_stage('native_tick_labels',[sys.executable,HOST/'apply_native_tick_v438.py',root],work,60)
+    if requires_exi_profile(scope):
+        run_stage('exi_tick_labels',[sys.executable,HOST/'apply_exi_tick_v497.py',root,'emitter'],work,60)
     portable_patch(root)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root),encoding='utf-8')
     tb=work/'translator-build';gen=['-G','Visual Studio 17 2022','-A','x64']
@@ -199,6 +203,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env={k:v for k,v in os.environ.items() if k.upper() in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','PATHEXT')}
     env.update(NWII_HEADLESS='1',NWII_TRACE_CALLS='1',SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy',USERPROFILE=str(launch),HOME=str(launch))
     env.update(launch_flags(scope,synthetic))
+    if requires_exi_profile(scope):
+        profile=launch/'exi-test-profile.txt'
+        create_exi_profile(profile,encode_exi_profile(0xbeef0010,1,0x12345678,8,bytes(64)))
+        env['UNDERCOVER_V501_EXI_PROFILE']=str(profile)
+        print('V505_EXI_TEST_PROFILE created=1 synthetic=1 bytes=64',flush=True)
     rc=command([exe,dol,config],launch/'private.log',20,env=env,cwd=launch)
     if (launch/'private.log').stat().st_size>8*1024*1024:raise BuildError('launch_log')
     raw=(launch/'private.log').read_bytes()
