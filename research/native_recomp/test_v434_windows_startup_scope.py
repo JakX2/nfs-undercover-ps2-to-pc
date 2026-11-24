@@ -1,5 +1,5 @@
 import unittest
-from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,MAX_LOG
+from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,OS_SRAM_PATCHES,MAX_LOG
 from audit_v419_full_start import STAGES as START,RESULT as START_RESULT
 from audit_v425_full_hardware import STAGES as HW,RESULT as HW_RESULT
 from audit_v428_full_cache import STAGES as CACHE,RESULT as CACHE_RESULT
@@ -24,6 +24,7 @@ from audit_v510_exi_absent import STAGES as ABSENT,RESULT as ABSENT_RESULT
 from audit_v520_si_entry import STAGES as SI_ENTRY,RESULT as SI_ENTRY_RESULT
 from audit_v524_si_sampling import STAGES as SI_SAMPLE,RESULT as SI_SAMPLE_RESULT
 from audit_v529_si_discovery import STAGES as SI_RETURN,RESULT as SI_RETURN_RESULT
+from audit_v534_sram_read import STAGES as SRAM,RESULT as SRAM_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -48,10 +49,11 @@ OS_EXI_ABSENT=OS_EXI_ID+ABSENT+[ABSENT_RESULT]
 OS_SI_ENTRY=OS_EXI_ABSENT+SI_ENTRY+[SI_ENTRY_RESULT]
 OS_SI_SAMPLE=OS_SI_ENTRY+SI_SAMPLE+[SI_SAMPLE_RESULT]
 OS_SI_RETURN=OS_SI_SAMPLE+SI_RETURN+[SI_RETURN_RESULT]
+OS_SRAM=OS_SI_RETURN+SRAM+[SRAM_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM))}
 
 
 class Tests(unittest.TestCase):
@@ -82,7 +84,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-si-entry'),(OS_VECTOR_PATCHES,'prepare_v520_si_entry.py','audit_v520_si_entry'))
         self.assertEqual(contract('os-si-sample'),(OS_VECTOR_PATCHES,'prepare_v524_si_sampling.py','audit_v524_si_sampling'))
         self.assertEqual(contract('os-si-return'),(OS_VECTOR_PATCHES,'prepare_v529_si_discovery.py','audit_v529_si_discovery'))
-        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return'):
+        self.assertEqual(OS_SRAM_PATCHES,OS_VECTOR_PATCHES+('apply_data_cache_invalidate_v532',))
+        self.assertEqual(contract('os-sram'),(OS_SRAM_PATCHES,'prepare_v534_sram_read.py','audit_v534_sram_read'))
+        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram'):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
@@ -90,9 +94,9 @@ class Tests(unittest.TestCase):
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
-            self.assertEqual(requires_exi_profile(scope),scope in ('os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return'))
-            self.assertEqual(requires_si_profile(scope),scope in ('os-si-entry','os-si-sample','os-si-return'))
-            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return') else {}),**({'UNDERCOVER_V490_EXI_CONTROLLER':'1'} if scope in ('os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return') else {}),**({'UNDERCOVER_V512_SI':'1'} if scope in ('os-si-entry','os-si-sample','os-si-return') else {}),**({'UNDERCOVER_V522_VICLK':'0'} if scope in ('os-si-sample','os-si-return') else {})})
+            self.assertEqual(requires_exi_profile(scope),scope in ('os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram'))
+            self.assertEqual(requires_si_profile(scope),scope in ('os-si-entry','os-si-sample','os-si-return','os-sram'))
+            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V490_EXI_CONTROLLER':'1'} if scope in ('os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V512_SI':'1'} if scope in ('os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V522_VICLK':'0'} if scope in ('os-si-sample','os-si-return','os-sram') else {})})
         with self.assertRaises(ValueError):launch_flags('os-mmio',True)
     def test_all_scope_pairs(self):
         for scope in SCOPES:
@@ -101,7 +105,7 @@ class Tests(unittest.TestCase):
                     self.assertEqual(audit(raw,0,scope)[1],scope==source)
     def test_optional_copy_and_hex_rejection(self):
         prefix=OS_TIME+[b'V439_HW_BEGIN copy=1']+OS_HW[:1]+[COPY]+OS_HW[1:]+[OS_HW_RESULT]
-        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):]),('os-cache-reuse',OS_REUSE[len(OS_HARDWARE):]),('os-exi-poll',OS_EXI_POLL[len(OS_HARDWARE):]),('os-exi-handlers',OS_EXI_HANDLERS[len(OS_HARDWARE):]),('os-exi-id',OS_EXI_ID[len(OS_HARDWARE):]),('os-exi-absent',OS_EXI_ABSENT[len(OS_HARDWARE):]),('os-si-entry',OS_SI_ENTRY[len(OS_HARDWARE):]),('os-si-sample',OS_SI_SAMPLE[len(OS_HARDWARE):]),('os-si-return',OS_SI_RETURN[len(OS_HARDWARE):])):
+        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):]),('os-cache-reuse',OS_REUSE[len(OS_HARDWARE):]),('os-exi-poll',OS_EXI_POLL[len(OS_HARDWARE):]),('os-exi-handlers',OS_EXI_HANDLERS[len(OS_HARDWARE):]),('os-exi-id',OS_EXI_ID[len(OS_HARDWARE):]),('os-exi-absent',OS_EXI_ABSENT[len(OS_HARDWARE):]),('os-si-entry',OS_SI_ENTRY[len(OS_HARDWARE):]),('os-si-sample',OS_SI_SAMPLE[len(OS_HARDWARE):]),('os-si-return',OS_SI_RETURN[len(OS_HARDWARE):]),('os-sram',OS_SRAM[len(OS_HARDWARE):])):
             good=log(prefix+tail)
             self.assertTrue(audit(good,0,scope)[1])
             self.assertFalse(audit(good.replace(b'V439_HW_STAGE n=10 valid=1',b'V439_HW_STAGE n=a valid=1'),0,scope)[1])

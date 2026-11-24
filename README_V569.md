@@ -1,0 +1,3 @@
+# V569: explicit Windows complete-image SRAM scope
+
+The V534 SRAM witness, V532 data-cache invalidation patch and V536 nonzero synthetic SRAM profile are now connected to the existing native Windows complete-image runner via `--owner-scope os-sram`. The scope includes all SI discovery predecessor checks, exact SRAM return and actual 64-byte EXI DMA verification, with the existing audit rejecting partial or foreign markers. The Windows manual workflow exposes the new scope; the default remains os-si-return while that original replay is pending. Source-only tests extend cross-scope rejection to SRAM and include the existing SRAM witness/profile controls. No Windows original SRAM run or full startup is claimed. The Linux runner is unchanged.

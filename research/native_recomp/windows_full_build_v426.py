@@ -10,6 +10,7 @@ import subprocess
 import sys
 from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
+from write_sram_profile_v536 import sram_fixture
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -207,7 +208,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env.update(launch_flags(scope,synthetic))
     if requires_exi_profile(scope):
         profile=launch/'exi-test-profile.txt'
-        create_exi_profile(profile,encode_exi_profile(0xbeef0010,1,0x12345678,8,bytes(64)))
+        sram=sram_fixture() if scope=='os-sram' else bytes(64)
+        create_exi_profile(profile,encode_exi_profile(0xbeef0010,1,0x12345678,8,sram))
         env['UNDERCOVER_V501_EXI_PROFILE']=str(profile)
         print('V505_EXI_TEST_PROFILE created=1 synthetic=1 bytes=64',flush=True)
     if requires_si_profile(scope):
@@ -222,7 +224,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
-        if scope in ('os-si-sample','os-si-return'):
+        if scope in ('os-si-sample','os-si-return','os-sram'):
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)

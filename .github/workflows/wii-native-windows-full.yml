@@ -56,7 +56,7 @@ on:
         type: choice
         default: os-si-return
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -88,6 +88,10 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v436_windows_loader.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v534_sram_read.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v536_sram_profile.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v441_windows_ticks.py -v
           exit $LASTEXITCODE
