@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v587*'
+      - 'research/native_recomp/wii_irq_banks_v480.h'
+      - 'research/native_recomp/wii_irq_bank_binding_v481.h'
       - '.github/workflows/wii-v587-mi-profile.yml'
 permissions:
   contents: read

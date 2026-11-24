@@ -95,6 +95,7 @@ private:
     struct Channel{uint32_t control=0,status=0;bool present=false;};
     std::array<Channel,3> exi_{};uint16_t mi_mask_=0,mi_status_=0;
     uint32_t ai_control_=0,ai_status_=0;
+    bool mi_boot_=false;unsigned mi_stage_=0;uint16_t mi_protection_=0,mi_aux_=0;
     std::atomic<uint32_t>& pi_;
     static constexpr uint32_t control_bits(unsigned ch){return 0x3f5u|(ch<2?0x400u:0u);}
     static constexpr uint32_t status_bits(unsigned ch){return EXI_INT|TC_INT|(ch<2?EXT_INT:0u);}
