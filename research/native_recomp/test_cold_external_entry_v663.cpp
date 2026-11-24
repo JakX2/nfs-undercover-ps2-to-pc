@@ -19,7 +19,7 @@ static void need(bool v){if(!v)throw std::runtime_error("V663 synthetic assertio
 int main(){
     ColdExternalExpectations e{{1,2,W::Entry+12,3,4},{},5,6};
     for(unsigned i=0;i<e.vector.size();++i)e.vector[i]=uint8_t(i);
-    for(unsigned trial=0;trial<12;++trial){
+    for(unsigned trial=0;trial<14;++trial){
         Cpu c;R route(e);auto& m=c.mmu;
         c.gpr[13]=0x8070e8e0u;
         for(unsigned i=0;i<32;++i)if(i!=13)c.gpr[i]=0x12340000u+i;
@@ -46,9 +46,12 @@ int main(){
         ok=route.poll(c,cause,mask);
         if(trial==6||trial==7){need(!ok&&route.failure());continue;}need(ok&&route.stage()==3);
         need(!route.poll(c,cause,mask)&&!route.failure());
+        // Model the real outer dispatch counter (not a guest instruction).
+        if(trial!=12)++c.inst_count;
+        if(trial==13)++c.inst_count;
         if(trial==8)c.gpr[4]^=1;
         ok=route.observe(c.pc,c,cause,mask);
-        if(trial==8){need(!ok&&route.failure()==6);continue;}need(ok);
+        if(trial==8||trial>=12){need(!ok&&route.failure()==6&&route.vector_refusal()==(trial==8?64u:2u));continue;}need(ok);
         c.pc=R::Trampoline;c.gpr[3]=4;c.gpr[4]=R::Thread;c.inst_count+=38;
         for(unsigned i=3;i<=5;++i)m.put(R::Thread+i*4,gp[i]);
         m.put(R::Thread+408,e.leaf.resume);m.put(R::Thread+412,prior&ExternalSrr1Mask);
@@ -64,5 +67,5 @@ int main(){
         if(trial>=10){need(!ok&&route.failure());continue;}
         need(ok&&route.stage()==6&&cause==8&&mask==8);
     }
-    std::cout<<"V663_EXTERNAL synthetic=1 rejects=11 source_held=1 original_execution=0\n";
+    std::cout<<"V663_EXTERNAL synthetic=1 rejects=13 dispatcher_tick=1 source_held=1 original_execution=0\n";
 }

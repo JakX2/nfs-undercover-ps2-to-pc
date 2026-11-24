@@ -32,6 +32,14 @@ def patch_ios(s):
     return replace_exact(s,CALLBACK,CALLBACK+'''
   if (undercover::wii::v663::route.stage())
     return undercover::wii::v663::poll(ctx);''')
+def verify_dispatch_tick(s):
+    a='        process_pending_callbacks(ctx);'
+    b='        uint32_t target = ctx.pc;'
+    pattern=r'(?m)^        if \(\(\+\+ctx\.inst_count % 100000\) == 0\) std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;$'
+    hits=list(re.finditer(pattern,s))
+    if s.count(a)!=1 or s.count(b)!=1 or len(hits)!=1 or not s.index(a)<s.index(b)<hits[0].start():raise ValueError('external dispatch tick geometry')
+    end=s.index('        switch (target) {',hits[0].end())
+    if '++ctx.inst_count' in s[s.index(a):hits[0].start()] or '++ctx.inst_count' in s[hits[0].end():end]:raise ValueError('external dispatch tick geometry')
 def install(dol,elf,root,host):
     if hashlib.sha256(dol).hexdigest()!=OWNER_SHA or hashlib.sha256(elf).hexdigest()!=ORIGINAL_SHA256:raise ValueError('identity')
     expectations(dol,elf)
@@ -40,6 +48,7 @@ def install(dol,elf,root,host):
     sizes=parse_functions(elf)
     shards=sorted(root.glob('output_*.cpp'))
     main=(root/'main_output.cpp').read_text(encoding='utf-8')
+    verify_dispatch_tick(main)
     targets=(0x80000500,TRAMP,DISPATCH)
     counts=dict.fromkeys(targets,0)
     for shard in shards:

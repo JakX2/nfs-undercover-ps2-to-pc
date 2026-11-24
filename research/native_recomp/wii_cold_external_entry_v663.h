@@ -19,6 +19,7 @@ public:
     explicit ColdExternalEntry(const ColdExternalExpectations& e):e_(e){}
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
+    uint32_t vector_refusal()const noexcept{return vector_refusal_;}
     template<class C> bool begin(C& c,uint32_t cause,uint32_t mask){
         using W=IrqEnableWitness;
         if(stage_||error_||!c.is_running||c.in_callback||c.dispatch_saved_ctx||
@@ -57,10 +58,21 @@ public:
                c.inst_count<=last_||!word(c,addr,e_.leaf.entry_word))return fail(5);
             entry_tick_=c.inst_count;stage_=2;
         }else if(stage_==3){
-            if(addr!=ExternalVector||c.inst_count!=last_||!image(c)||
-               c.srr0!=resume_||c.srr1!=(prior_&ExternalSrr1Mask)||
-               c.msr!=(prior_&~ExternalMsrClear)||c.gpr!=gp_||c.lr!=lr_||c.ctr!=ctr_||c.xer!=xer_)
-                return fail(6);
+            // The split outer dispatcher increments inst_count once after
+            // process_pending_callbacks, BEFORE the first vector entry trace.
+            // No guest instruction executes between these two boundaries.
+            vector_refusal_=0;
+            if(addr!=ExternalVector)vector_refusal_|=1u;
+            if(c.inst_count-last_!=1u)vector_refusal_|=2u;
+            if(!image(c))vector_refusal_|=4u;
+            if(c.srr0!=resume_)vector_refusal_|=8u;
+            if(c.srr1!=(prior_&ExternalSrr1Mask))vector_refusal_|=16u;
+            if(c.msr!=(prior_&~ExternalMsrClear))vector_refusal_|=32u;
+            if(c.gpr!=gp_)vector_refusal_|=64u;
+            if(c.lr!=lr_)vector_refusal_|=128u;
+            if(c.ctr!=ctr_)vector_refusal_|=256u;
+            if(c.xer!=xer_)vector_refusal_|=512u;
+            if(vector_refusal_)return fail(6);
             stage_=4;
         }else if(stage_==4){
             if(addr!=Trampoline||c.inst_count<=last_||(c.msr&0x8000u)||
@@ -83,6 +95,7 @@ public:
 private:
     ColdExternalExpectations e_;
     const void* ctx_=nullptr;unsigned stage_=0,error_=0;
+    uint32_t vector_refusal_=0;
     uint32_t cause_=0,mask_=0,msr_=0,prior_=0,resume_=0,lr_=0,ctr_=0,xer_=0;
     uint64_t last_=0,entry_tick_=0;
     std::array<uint32_t,32> gp_{};

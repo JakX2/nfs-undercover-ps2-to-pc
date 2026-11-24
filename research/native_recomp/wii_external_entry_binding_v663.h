@@ -27,7 +27,10 @@ template<class C> bool poll(C& c){
 }
 template<class C> void observe(uint32_t a,C& c){
     using namespace nwii::runtime::hw;
-    if(!route.observe(a,c,pi_intsr.load(),pi_intmr.load()))reject(route.failure());
+    if(!route.observe(a,c,pi_intsr.load(),pi_intmr.load())){
+        if(route.failure()==6u)std::cout<<"V670_VECTOR_REFUSAL mask="<<route.vector_refusal()<<std::endl;
+        reject(route.failure());
+    }
     event();
     if(route.stage()==6){
         std::cout<<"V663_EXTERNAL_RESULT vector=1 saved_context=1 dispatcher=1 si_pending=1 ack=0 rfi_return=0 fallback=0 boot_verified=0"<<std::endl;
