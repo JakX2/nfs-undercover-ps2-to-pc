@@ -25,6 +25,6 @@ g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$w
   "$here/test_native_open_request_v651.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { python3 "$here/classify_open_compile_v654.py" "$work/compile.log";echo 'V651 compile failed';exit 1; }
 rc=0
 ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1 timeout 30s "$work/native" > "$work/run.log" 2>&1 || rc=$?
-grep -Ex 'V651_OPEN_TRIAL n=[0-7] path=[12] request=1 serviced=0|V651_OPEN_FAILURE kind=(witness|assertion|interpreter|syscall|null_branch|mmio|mailbox|other) trial=[0-7] stage=[0-9]{1,2} open_stage=[0-9] open_reason=[0-6] reason=[0-7] line=[0-9]{1,4}' "$work/run.log" || true
+grep -Ex 'V651_OPEN_TRIAL n=[0-7] path=[12] request=1 serviced=0|V659_SUBMIT_TRIAL n=[0-7] path=[12] ack=1 reply=0|V651_OPEN_FAILURE kind=(witness|assertion|interpreter|syscall|null_branch|mmio|mailbox|other) trial=[0-7] stage=[0-9]{1,2} submit_stage=[0-8] open_stage=[0-9] open_reason=[0-6] reason=[0-7] line=[0-9]{1,4}' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V651 execution failed rc=$rc";exit 1; }
-grep -Fx 'V651_OPEN_NATIVE trials=8 heap=8 request=8 rfi=8 submitted=0 serviced=0 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
+grep -Fx 'V659_SUBMIT_NATIVE trials=8 heap=8 request=8 submitted=8 ack=8 reply=0 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"

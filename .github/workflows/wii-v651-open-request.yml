@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/*v654*'
       - 'research/native_recomp/*v655*'
       - 'research/native_recomp/*v657*'
+      - 'research/native_recomp/*v659*'
       - '.github/workflows/wii-v651-open-request.yml'
 permissions:
   contents: read
@@ -45,7 +46,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Execute original heap initialization and IOS Open request boundary
+      - name: Execute original IPC heap, IOS Open submission and first native ACK
         run: |
           set -euo pipefail
           git init -q "$RUNNER_TEMP/nw651"

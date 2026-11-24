@@ -17,16 +17,65 @@ static W* witness=nullptr;
 static OpenRequestWitness* open_witness=nullptr;
 static OpenScRoute* sc_route=nullptr;
 static unsigned open_stage=0,open_reason=0,open_vectors=0,open_returns=0,open_polls=0;
-struct OpenStop{};
+struct OpenStop{};struct SubmitStop{};
+static NativeIosTransport* submit_host=nullptr;
+static OpenScRoute* submit_route=nullptr;
+static unsigned submit_stage=0,submit_writes=0,submit_vectors=0,submit_acks=0,submit_kind=0;
+static uint32_t submit_request=0,submit_path=0;
+static uint64_t submit_tick=0;
+static unsigned submit_polls=0;
 static unsigned callbacks=0,loop_polls=0,control_writes=0,last_stage=0,last_reason=0,last_trial=0;
 struct HarnessFailure:std::runtime_error{unsigned line;explicit HarnessFailure(unsigned n):std::runtime_error("harness assertion"),line(n){}};
 struct WitnessFailure:std::runtime_error{WitnessFailure():std::runtime_error("witness refusal"){}};
 static void need(bool b,const std::source_location l=std::source_location::current()){
     if(!b)throw HarnessFailure(l.line());
 }
+static void submit_trace(uint32_t pc,nw::CPUContext& c){
+    using R=OpenScRoute;using S=StmIos;
+    need(submit_host&&submit_route&&c.is_running&&!c.dispatch_saved_ctx&&c.inst_count-submit_tick<200000u);
+    if(pc==R::Vector){need(submit_stage==4&&submit_route->vector_trace(pc,c));++submit_vectors;return;}
+    if(pc==OpenRequestWitness::Submit){need(submit_stage==1&&c.lr==0x80519a3cu);return;}
+    if(pc==R::Call){
+        need(submit_stage==3&&c.lr==R::SubmitCaller&&c.open_cache_range.ready_sc(c));
+        submit_route->arm(pc,c);submit_stage=4;return;
+    }
+    if(pc==R::SubmitCaller){
+        need(submit_stage==4&&submit_route->returned(c)&&c.open_cache_range.finish(c));
+        submit_stage=5;return;
+    }
+    const auto it=std::find_if(v626::submit_edges.begin(),v626::submit_edges.end(),[&](const auto& e){return e.pc==pc&&e.lr==c.lr;});
+    need(it!=v626::submit_edges.end()&&c.pc==pc&&c.mmu.read32(pc)==it->entry&&c.mmu.read32(c.lr-4)==it->branch);
+    if(pc==0x805293b0u){need(submit_stage==1);submit_stage=2;return;}
+    if(pc==R::Call-40u){
+        need(submit_stage==2&&c.lr==R::SubmitCaller&&(c.msr&0x8000u));
+        const uint32_t a=c.gpr[3]&0x3fffffffu,n=c.gpr[4];
+        need(n>=32&&n<=0x1000&&a<=submit_request&&uint64_t(a)+n>=uint64_t(submit_request)+32);
+        c.open_cache_range=OpenCacheRangeTrace{};
+        need(c.open_cache_range.begin(c,c.gpr[3],n));submit_stage=3;return;
+    }
+    if(pc==OpenRequestWitness::Disable){need(submit_stage==5&&(c.msr&0x8000u));submit_stage=6;return;}
+    if(pc==0x8051afe0u){need(submit_stage==6&&!(c.msr&0x8000u));submit_stage=7;return;}
+    if(pc==0x8051906cu||pc==0x8051905cu){need(submit_stage==7&&!(c.msr&0x8000u));return;}
+    if(pc==0x8052a430u){
+        const auto before=B::cold_snapshot();auto& ram=submit_host->physical_ram();
+        need(submit_stage==7&&submit_writes==2&&!(c.msr&0x8000u)&&before&&before->queued&&before->ppc==submit_request&&
+             (before->control&M::X1)&&!(before->control&(M::Y1|M::Y2))&&!before->steps&&!before->replies&&!(before->pi_cause&before->pi_mask));
+        need(ram.valid(submit_request,64)&&!(submit_request&31u)&&ram.read32(submit_request)==S::Open&&
+             ram.read32(submit_request+12)==submit_path&&ram.read32(submit_request+16)==0);
+        const auto ack=B::service_at_guest_boundary(c.msr);const auto after=B::cold_snapshot();
+        const auto device=submit_kind==1?S::Device::Immediate:S::Device::Event;
+        need(ack&&ack->progress==S::Pump::Ack&&ack->broadway_irq_level&&!ack->guest_exception_ready&&after&&
+             !after->queued&&after->steps==1&&after->replies==1&&!(after->control&(M::X1|M::Y1))&&(after->control&M::Y2)&&
+             (after->flags&H::IPC_PPC)&&(after->pi_cause&H::PI_HOLLYWOOD)&&submit_host->services().is_open(0,device)&&
+             ram.read32(submit_request)==S::Open);
+        ++submit_acks;submit_stage=8;throw SubmitStop{};
+    }
+    need(false);
+}
 namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
+    if(submit_host){submit_trace(pc,c);return;}
     if(open_witness){
         if(pc==OpenRequestWitness::Open)return;
         if(pc==OpenScRoute::Vector){need(sc_route->vector_trace(pc,c));++open_vectors;return;}
@@ -44,6 +93,13 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
     const auto s=B::cold_snapshot();need(s&&!(s->pi_cause&s->pi_mask)&&!s->queued&&!s->replies);
     need(c.is_running&&!c.dispatch_saved_ctx&&witness&&last_stage>=1);
+    if(submit_host){
+        need(++submit_polls<=8192u);
+        if(c.pc==OpenRequestWitness::Submit)need(submit_stage==1&&c.lr==0x80519a3cu);
+        else if(c.pc==OpenScRoute::Resume)need(submit_stage==4&&(c.msr&0x8000u));
+        else need(std::find(v626::backward_polls.begin(),v626::backward_polls.end(),c.pc)!=v626::backward_polls.end());
+        return false;
+    }
     if(open_witness){
         need(++open_polls<=8192u);
         // run_game polls before every dispatched root/resume, in addition
@@ -66,6 +122,15 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+    if(submit_host){
+        need(submit_stage==4&&submit_route);
+        need(submit_route->dispatch(c,[](auto& cpu){func_80000C00(cpu);},
+            [](auto& cpu,const auto& gp,uint32_t hid){
+                for(unsigned i=0;i<32;++i)if(cpu.gpr[i]!=(i==9?hid:i==10?(hid|8u):gp[i]))return false;
+                return true;
+            }));
+        return false;
+    }
     need(open_witness&&open_stage==7&&sc_route);
     need(sc_route->dispatch(c,[](auto& cpu){func_80000C00(cpu);},
         [](auto& cpu,const auto& gp,uint32_t hid){
@@ -85,6 +150,7 @@ void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V626 unexpected
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
     if(p==IosBus::PI_MASK)return mask.load();
+    if(submit_host&&(p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL)){auto v=B::read32(a);need(v.has_value());return *v;}
     if(p==IosBus::IPC+H::PPC_MASK||p==IosBus::MIRROR+H::PPC_MASK){
         auto v=B::read32(a);need(v.has_value());return *v;
     }
@@ -92,6 +158,13 @@ uint32_t HW_Reg_Read32(uint32_t a){
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
     const auto p=a&0x3fffffffu;
+    if(submit_host){
+        need(submit_stage==7);
+        if(p==IosBus::IPC+M::PPCMSG||p==IosBus::MIRROR+M::PPCMSG)need(submit_writes==0&&v==submit_request);
+        else if(p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL)need(submit_writes==1&&(v&M::X1));
+        else need(false);
+        need(B::write32(a,v));++submit_writes;return;
+    }
     if(p==IosBus::PI_MASK){mask.store(v);B::refresh_pi(a);return;}
     if(p==IosBus::IPC+H::PPC_MASK||p==IosBus::MIRROR+H::PPC_MASK){need(B::write32(a,v));return;}
     if(p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL){need(B::write32(a,v));++control_writes;return;}
@@ -107,6 +180,7 @@ int main()try{
         NativeIosTransport host(c.mmu.mem1,c.mmu.mem2,cause,mask);B binding(host);
         need(B::write32(IosBus::IPC+H::PPC_MASK,H::IPC_PPC));
         for(auto w:v626::words)c.mmu.write32(w.pc,w.word);
+        for(auto w:v626::submit_sda)c.mmu.write32(w.pc,w.word);
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
         c.mmu.write32(W::Lo,lo);c.mmu.write32(W::Hi,hi);
         c.mmu.write32(W::Sda-16336u,lo);c.mmu.write32(W::Sda-3352u,hi);
@@ -154,15 +228,25 @@ int main()try{
         need(stopped&&op.stage()==9&&op.request()&&host.serviced_steps()==0);
         need(c.pc==OpenRequestWitness::Submit&&open_vectors==trial+1&&open_returns==trial+1);
         std::cout<<"V651_OPEN_TRIAL n="<<trial<<" path="<<kind<<" request=1 serviced=0\n";
-        witness=nullptr;open_witness=nullptr;sc_route=nullptr;
+        // Continue from the exact original submit entry, retaining the
+        // real allocated guest request, registers and native heap.
+        open_witness=nullptr;sc_route=nullptr;
+        OpenScRoute next(v626::vector,OpenScRoute::SubmitCaller);
+        submit_host=&host;submit_route=&next;submit_stage=1;submit_writes=submit_polls=0;
+        submit_request=op.request()&0x3fffffffu;submit_path=path&0x3fffffffu;submit_kind=kind;submit_tick=c.inst_count;
+        bool acked=false;
+        try{run_game(c);}catch(const SubmitStop&){acked=true;}
+        need(acked&&submit_stage==8&&submit_acks==trial+1&&submit_vectors==trial+1&&host.serviced_steps()==1);
+        std::cout<<"V659_SUBMIT_TRIAL n="<<trial<<" path="<<kind<<" ack=1 reply=0\n";
+        submit_host=nullptr;submit_route=nullptr;witness=nullptr;
     }
     need(callbacks==16&&control_writes==8);
     std::cout<<"V627_IPC_POLLS restore=16 backward="<<loop_polls<<"\n";
-    std::cout<<"V651_OPEN_NATIVE trials=8 heap=8 request=8 rfi=8 submitted=0 serviced=0 fallback=0 complete_image=0 boot_verified=0\n";
+    std::cout<<"V659_SUBMIT_NATIVE trials=8 heap=8 request=8 submitted=8 ack=8 reply=0 fallback=0 complete_image=0 boot_verified=0\n";
 }catch(const WitnessFailure&){
-    std::cout<<"V651_OPEN_FAILURE kind=witness trial="<<last_trial<<" stage="<<last_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason="<<last_reason<<" line=0\n";return 1;
+    std::cout<<"V651_OPEN_FAILURE kind=witness trial="<<last_trial<<" stage="<<last_stage<<" submit_stage="<<submit_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason="<<last_reason<<" line=0\n";return 1;
 }catch(const HarnessFailure& e){
-    std::cout<<"V651_OPEN_FAILURE kind=assertion trial="<<last_trial<<" stage="<<last_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason=0 line="<<e.line<<"\n";return 1;
+    std::cout<<"V651_OPEN_FAILURE kind=assertion trial="<<last_trial<<" stage="<<last_stage<<" submit_stage="<<submit_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason=0 line="<<e.line<<"\n";return 1;
 }catch(const std::exception& e){
     const std::string_view msg=e.what();
     const char* kind="other";
@@ -171,5 +255,5 @@ int main()try{
     else if(msg=="V626 null branch")kind="null_branch";
     else if(msg=="V626 unexpected MMIO16"||msg=="V626 unexpected MMIO read"||msg=="V626 unexpected MMIO write")kind="mmio";
     else if(msg=="unexpected cold IPC control write"||msg=="cold IPC proof already rejected")kind="mailbox";
-    std::cout<<"V651_OPEN_FAILURE kind="<<kind<<" trial="<<last_trial<<" stage="<<last_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason=0 line=0\n";return 1;
+    std::cout<<"V651_OPEN_FAILURE kind="<<kind<<" trial="<<last_trial<<" stage="<<last_stage<<" submit_stage="<<submit_stage<<" open_stage="<<open_stage<<" open_reason="<<open_reason<<" reason=0 line=0\n";return 1;
 }

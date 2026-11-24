@@ -10,10 +10,10 @@ namespace undercover::wii {
 class OpenScRoute {
 public:
     static constexpr uint32_t Call=0x805222e8u, Resume=Call+4u,
-        Caller=0x80519a1cu, Source=0x805290a8u, Vector=0x80000c00u;
+        Caller=0x80519a1cu, SubmitCaller=0x8051963cu, Source=0x805290a8u, Vector=0x80000c00u;
     enum class Phase { Idle, Armed, Executing, Returned, Failed };
     explicit OpenScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller):bytes_(expected),caller_(caller){
-        if(caller_!=Caller)fail();
+        if(caller_!=Caller&&caller_!=SubmitCaller)fail();
         for(unsigned i=0;i<bytes_.size();i+=4){
             const uint32_t w=(uint32_t(bytes_[i])<<24)|(uint32_t(bytes_[i+1])<<16)|
                 (uint32_t(bytes_[i+2])<<8)|bytes_[i+3];

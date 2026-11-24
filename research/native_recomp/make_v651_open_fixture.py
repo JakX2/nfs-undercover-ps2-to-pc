@@ -9,7 +9,23 @@ from make_v626_ipc_fixture import assemble,backward_polls
 from make_private_elf_symbol_map import parse_functions
 from prepare_v419_full_start import MAX_DOL
 from prepare_v625_ipc_client import audit_native,patch_return
+from make_start_to_ipc_submit_v72 import SPANS as SUBMIT_SPANS,EDGES as SUBMIT_EDGES,STOP as SLEEP
+from prepare_v419_full_start import direct_bl
+from prepare_v453_debug_leaf import data_at
 SOURCE=0x805290a8;SUBMIT=0x805195ec;OPEN=0x80519944;RESUME=0x80519a1c
+def submit_geometry(dol,elf):
+    sizes=parse_functions(elf);blocks={};edges=[]
+    for pc,n in SUBMIT_SPANS:
+        if sizes.get(pc)!=n:raise ValueError('submit extent')
+        ws=exact_words(dol,elf,pc,n//4)
+        if ws[-1]!=0x4e800020:raise ValueError('submit return')
+        blocks[pc]=ws
+    for site,target in SUBMIT_EDGES:
+        w=exact_words(dol,elf,site,1)[0]
+        if direct_bl(w,site)!=target or not sizes.get(target):raise ValueError('submit edge')
+        edges.append((target,site+4,w,exact_words(dol,elf,target,1)[0]))
+    blocks[SLEEP]=exact_words(dol,elf,SLEEP,1)
+    return blocks,edges
 def build(dol,elf):
     ipc=ipc_geometry(dol,elf);rows,handler,hword,ret=ipc
     op=open_geometry(dol,elf);edges,extra,blocks=op
@@ -21,8 +37,12 @@ def build(dol,elf):
         body=exact_words(dol,elf,pc,n//4)
         if pc in blocks and blocks[pc]!=body:raise ValueError('shared extent')
         blocks[pc]=body
-    # Stop at the actual submission entry before its first instruction.
-    blocks[SUBMIT]=exact_words(dol,elf,SUBMIT,1)
+    # Restore the original submission helper and its exact dependency graph.
+    # Stop at the actual sleep entry before executing the first instruction.
+    submission,edges=submit_geometry(dol,elf)
+    for pc,ws in submission.items():
+        if pc in blocks and blocks[pc]!=ws:raise ValueError('shared extent')
+        blocks[pc]=ws
     vector=exact_words(dol,elf,SOURCE,7)
     raw=assemble({**blocks,SOURCE:vector},ROOT)
     csv='Name,Location,Size\n'+''.join(f'func_{pc:08X},{pc:08x},{len(ws)*4}\n' for pc,ws in sorted(blocks.items()))
@@ -42,19 +62,26 @@ def build(dol,elf):
        'inline constexpr uint32_t restore_resume='+f(resume[0])+';\n'
        'inline constexpr std::array<uint32_t,'+str(len(polls:=backward_polls(blocks)))+'> backward_polls{'+','.join(map(f,polls))+'};\n'
        'inline constexpr std::array<uint8_t,28> vector{'+','.join(map(str,struct.pack('>7I',*vector)))+'};\n'
-       'inline constexpr std::array<uint32_t,2> paths{'+','.join(f(next(a for a,k in paths if k==kind)) for kind in (1,2))+'};\n}\n')
+       'inline constexpr std::array<uint32_t,2> paths{'+','.join(f(next(a for a,k in paths if k==kind)) for kind in (1,2))+'};\n'
+       'struct Edge{uint32_t pc,lr,branch,entry;};\n'
+       'inline constexpr std::array<Edge,'+str(len(edges))+'> submit_edges{'+','.join('Edge{'+','.join(map(f,e))+'}' for e in edges)+'};\n'
+       'inline constexpr std::array<Word,2> submit_sda{'+','.join('Word{'+f(0x8070e8e0+off)+','+f(struct.unpack('>I',data_at(dol,0x8070e8e0+off,4))[0])+'}' for off in (-16664,-16660))+'};\n}\n')
     return raw,csv,ipc_render(*ipc),open_render(op),h,struct.pack('>7I',*vector)
 def trace(dol,elf,root):
     _,extra,blocks=open_geometry(dol,elf)
+    sub,_=submit_geometry(dol,elf);blocks.update(sub)
     expected={pc+4*i:(pc,w) for pc,ws in blocks.items() for i,w in enumerate(ws)}
     shards=sorted(root.glob('output_*.cpp'))
     n=audit_native((p.read_text() for p in shards),(root/'main_output.cpp').read_text(),expected)
-    hits=0
+    resumes={RESUME:extra[2],0x8051963c:exact_words(dol,elf,0x8051963c,1)[0]}
+    hits=dict.fromkeys(resumes,0)
     for p in shards:
-        s=p.read_text()
-        if f'loc_{RESUME:X}: ;' in s:
-            p.write_text(patch_return(s,extra[2],RESUME));hits+=1
-    if hits!=1:raise ValueError('resume coverage')
+        s=p.read_text();out=s
+        for pc,w in resumes.items():
+            if f'loc_{pc:X}: ;' in s:
+                out=patch_return(out,w,pc);hits[pc]+=1
+        if s!=out:p.write_text(out)
+    if any(n!=1 for n in hits.values()):raise ValueError('resume coverage')
     print(f'V651_OPEN_TRANSLATION verified=1 native_words={n}')
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);p.add_argument('--trace',action='store_true');a=p.parse_args()
@@ -68,7 +95,7 @@ def main():
             (a.out/name).write_text(body)
         (a.out/'fixture.dol').write_bytes(raw);(a.out/'vector.bin').write_bytes(vector)
     except (OSError,ValueError,struct.error) as e:
-        allowed={'client extent','shared extent','restore resume','fixture overlap','fixture range','fixture span','path coverage','resume coverage','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch'}
+        allowed={'client extent','shared extent','submit extent','submit return','submit edge','restore resume','fixture overlap','fixture range','fixture span','path coverage','resume coverage','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch'}
         why=str(e) if str(e) in allowed else 'geometry'
         print('V651_OPEN_FIXTURE accepted=0 reason='+why.replace(' ','_'));return 1
     print('V651_OPEN_FIXTURE accepted=1 exact_dol_elf=1 paths=2');return 0
