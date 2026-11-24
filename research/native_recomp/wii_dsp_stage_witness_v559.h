@@ -55,8 +55,10 @@ public:
             switch(stage_){
             case 1:if(!bytes(c,Staging,original_))return fail(4);break;
             case 2:if(c.gpr[3]!=backup_||c.gpr[4]!=Staging||c.gpr[5]!=128||!bytes(c,Staging,original_))return fail(4);break;
-            case 3:if(c.gpr[3]!=Staging||c.gpr[4]!=Source||c.gpr[5]!=128||
-                        !bytes(c,backup_,original_)||!bytes(c,Staging,original_))return fail(4);break;
+            case 3:
+                if(c.gpr[3]!=Staging||c.gpr[4]!=Source||c.gpr[5]!=128||
+                   !bytes(c,backup_,original_)||!bytes(c,Staging,original_))return fail(4);
+                break;
             case 4:if(c.gpr[3]!=Staging||c.gpr[4]!=128||!bytes(c,backup_,original_)||!bytes(c,Staging,e_.image))return fail(4);break;
             }
             ++stage_;last_=c.inst_count;return true;
