@@ -9,7 +9,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(owner_scope('startup',True),((),'prepare_v419_full_start.py'))
         self.assertEqual(owner_scope('startup',False),((),'prepare_v419_full_start.py'))
         self.assertEqual(owner_scope('hardware',False),(('apply_hid_state_v18','apply_fpscr_v19'),'prepare_v425_full_hardware.py'))
-        for scope,synthetic in (('hardware',True),('cache',False),('bogus',True)):
+        for scope,synthetic in (('hardware',True),('cache',True),('bogus',True)):
             with self.assertRaises(BuildError):owner_scope(scope,synthetic)
     def test_exact_scope_gate(self):
         start=b'\n'.join(START+[START_RESULT])+b'\n';hardware=b'\n'.join(HW+[HW_RESULT])+b'\n'

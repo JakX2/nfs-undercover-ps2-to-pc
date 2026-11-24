@@ -8,6 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
+from windows_startup_scope_v434 import SCOPES,contract,audit
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -136,21 +137,13 @@ def run_stage(name,args,work,seconds,**kwargs):
     print(f'V426_WINDOWS_STAGE stage={name} passed=1',flush=True)
 
 def owner_scope(scope,synthetic):
-    # Preserve V426's verified startup lane. Hardware adds only the patches
-    # and exact witness already verified in V425 on the complete Linux image.
-    if scope not in ('startup','hardware') or (synthetic and scope!='startup'):
-        raise BuildError('owner_scope')
-    if scope=='hardware':
-        return ('apply_hid_state_v18','apply_fpscr_v19'),'prepare_v425_full_hardware.py'
-    return (),'prepare_v419_full_start.py'
+    try:patches,observer,_=contract(scope,synthetic)
+    except ValueError as e:raise BuildError('owner_scope') from e
+    return patches,observer
 
 def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
-    if scope=='hardware':
-        from audit_v425_full_hardware import inspect
-    else:
-        from audit_v419_full_start import inspect
-    return inspect(raw,rc if 0<=rc<=255 else 255)
+    return audit(raw,rc,scope)
 
 def build(root,work,dol=None,elf=None,scope='startup'):
     if os.name!='nt':raise BuildError('windows_required')
@@ -209,7 +202,7 @@ def build(root,work,dol=None,elf=None,scope='startup'):
     if not ok:raise BuildError('launch_gate')
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=('startup','hardware'),default='startup');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');a=p.parse_args()
     try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1

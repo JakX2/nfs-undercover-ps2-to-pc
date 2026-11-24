@@ -6,6 +6,8 @@ on:
       - 'research/native_recomp/windows_full_build_v426.py'
       - 'research/native_recomp/test_v426_windows_full_build.py'
       - 'research/native_recomp/test_v429_windows_scope.py'
+      - 'research/native_recomp/windows_startup_scope_v434.py'
+      - 'research/native_recomp/test_v434_windows_startup_scope.py'
       - 'research/native_recomp/prepare_v425_full_hardware.py'
       - 'research/native_recomp/audit_v425_full_hardware.py'
       - 'research/native_recomp/wii_full_hardware_witness.h'
@@ -14,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       owner_scope:
-        description: 'Original register startup or hardware continuation'
+        description: 'Bounded original startup: registers, hardware, cache, data or OS entry'
         type: choice
-        default: hardware
+        default: cache
         required: true
-        options: [startup, hardware]
+        options: [startup, hardware, cache, data, os-entry]
 permissions:
   contents: read
 concurrency:
@@ -38,6 +40,8 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v426_windows_full_build.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v429_windows_scope.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
           exit $LASTEXITCODE
       - name: Fetch exact pinned NWiiRecomp
         shell: pwsh
@@ -111,7 +115,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'hardware' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'cache' }}
         shell: pwsh
         run: |
           $orig = Join-Path $env:RUNNER_TEMP 'orig426'
