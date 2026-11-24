@@ -6,9 +6,10 @@ from prepare_v419_full_start import OWNER_SHA,MAX_DOL,words_at,direct_bl,replace
 from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
 from make_v624_ipc_geometry import geometry as ipc_geometry,exact_words
 from make_start_to_stm_v70 import STM,STM_SIZE,OPEN,EDGES,SKIP
-from prepare_v625_ipc_client import install as install_ipc,audit_native
+from prepare_v625_ipc_client import install as install_ipc,audit_native,DEF,LABEL
 BEGIN=0x8052094c
 OSINIT=0x80520670
+FIRST_OPEN_CALL=0x8052b08c
 DECL='    static IpcClientWitness ipc_client(v624::expected_client);'
 INCLUDE='#include "v624_private_ipc_expectations.h"'
 END='''            std::cout<<"V625_IPC_RESULT calls=17 heap=1 handler=1 mailbox=1 returned=1 queued=0 serviced=0 actual_ios=0 fallback=0 boot_verified=0"<<std::endl;
@@ -74,13 +75,43 @@ def render(g):
             +f'{len(paths)}u,0x{handler:08x}u'+'};\n}\n')
 def patch_probe(s):
     return replace_exact(replace_exact(replace_exact(s,INCLUDE,INCLUDE+'\n#include "v629_private_stm_expectations.h"'),DECL,NEXT),END,CONT)
+def expected_scopes(bridge,body,op):
+    if len(bridge)!=7 or len(body)!=STM_SIZE//4:raise ValueError('STM span geometry')
+    split=(FIRST_OPEN_CALL-STM)//4+1
+    return {'bridge':{BEGIN+4*i:(OSINIT,w) for i,w in enumerate(bridge)},
+            'prefix':{STM+4*i:(STM,w) for i,w in enumerate(body[:split])},
+            'open':{OPEN:(OPEN,op[3])},
+            'post':{STM+4*i:(STM,w) for i,w in enumerate(body) if i>=split}}
+def coverage(shards,scopes):
+    expected={pc:pair for group in scopes.values() for pc,pair in group.items()}
+    hits=dict.fromkeys(expected,0);valid=dict.fromkeys(expected,0)
+    for s in shards:
+        fs=list(DEF.finditer(s))
+        for i,f in enumerate(fs):
+            root=int(f[1].split('_')[1],16)
+            body=s[f.end():fs[i+1].start() if i+1<len(fs) else len(s)]
+            for l in LABEL.finditer(body):
+                pc=int(l[1],16)
+                if pc not in expected:continue
+                hits[pc]+=1
+                owner,w=expected[pc]
+                if root==owner and int(l[2],16)==pc and int(l[3],16)==w:valid[pc]+=1
+    counts={name:(sum(hits[pc]==valid[pc]==1 for pc in group),len(group)) for name,group in scopes.items()}
+    return counts,sum(v>1 for v in hits.values()),sum(hits[p]!=valid[p] for p in hits)
 def install(dol,elf,generated,host,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     g=geometry(dol,elf,dd,ed);bridge,body,stm,op,paths,handler=g
-    expected={**{BEGIN+4*i:(OSINIT,w) for i,w in enumerate(bridge)},
-              **{STM+4*i:(STM,w) for i,w in enumerate(body)},OPEN:(OPEN,op[3])}
+    scopes=expected_scopes(bridge,body,op)
+    expected={pc:pair for name,group in scopes.items() if name!='post' for pc,pair in group.items()}
     shards=sorted(generated.glob('output_*.cpp'));main=generated/'main_output.cpp'
     if len(shards)<20 or any(p.is_symlink() or not p.is_file() or p.stat().st_size>64*1024*1024 for p in shards+[main]):
         raise ValueError('STM tree')
+    counts_by_scope,duplicates,mismatch=coverage((p.read_text(encoding='utf-8') for p in shards),scopes)
+    print('V631_STM_COVERAGE '+' '.join(f'{name}={a}/{b}' for name,(a,b) in counts_by_scope.items())
+          +f' duplicate={duplicates} mismatch={mismatch}')
+    # Only the cold execution prefix through the first open call is the
+    # current proof. The remaining original STM span is authenticated in
+    # geometry(), but its native label census is informational until the
+    # guest returns from IOS_Open.
     words=audit_native((p.read_text(encoding='utf-8') for p in shards),main.read_text(encoding='utf-8'),expected)
     counts={STM:0,OPEN:0}
     for p in shards:
@@ -105,6 +136,6 @@ def main():
                'native IPC label identity','native IPC label body','native IPC duplicate root','native IPC coverage','native IPC dispatch','source seam','identity'}
         reason=str(e) if str(e) in allow else 'prior_or_io'
         print('V629_STM_ROUTE installed=0 reason='+reason.replace(' ','_'));return 1
-    print(f'V629_STM_ROUTE installed=1 native_words={n} edges=2 pathname_identity=1 actual_ios=0')
+    print(f'V629_STM_ROUTE installed=1 prefix_native_words={n} edges=2 pathname_identity=1 actual_ios=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())
