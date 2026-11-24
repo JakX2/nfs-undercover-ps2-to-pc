@@ -1,0 +1,24 @@
+name: Wii Native DSP Control and Mailboxes
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v554*'
+      - 'research/native_recomp/*v552*'
+      - '.github/workflows/wii-v554-dsp-control.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dsp-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise DSP control and ARAM regression under sanitizers
+        run: |
+          set -euo pipefail
+          for test in test_wii_aram_dma_v552 test_wii_dsp_control_v554; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done
