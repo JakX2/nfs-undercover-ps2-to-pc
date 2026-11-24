@@ -19,6 +19,7 @@ public:
     static constexpr uint32_t Stack=0x80751cb8u-88u,Sda=0x8070e8e0u;
     static constexpr uint32_t Table=0x80003040u,MaskA=0x800000c4u,MaskB=0x800000c8u;
     static constexpr uint32_t Lo=0x80003130u,Hi=0x80003134u,HeapLimit=0x10000u;
+    static constexpr uint32_t IrqGlobal=Sda-3408u;
     explicit IpcClientWitness(const IpcClientExpectations& e):e_(e){}
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
@@ -31,7 +32,7 @@ public:
            e_.edges[0].pc!=Root||e_.edges[0].lr!=Return||
            !equal(c,Call,e_.edges[0].branch_word)||!equal(c,Root,e_.edges[0].entry_word)||
            !equal(c,MaskA,0xf7fff7f0u)||!equal(c,MaskB,0)||
-           !mapped(c,Lo,8)||!mapped(c,Table,128)||
+           !mapped(c,Lo,8)||!mapped(c,Table,128)||!equal(c,IrqGlobal,Table)||
            e_.handler<0x80519094u||e_.handler>=Root||(e_.handler&3u)||
            !equal(c,e_.handler,e_.handler_word))return fail(1);
         lo_=c.mmu.read32(Lo);hi_=c.mmu.read32(Hi);
@@ -53,7 +54,7 @@ public:
            c.gpr[2]!=regs_[2]||c.gpr[13]!=regs_[13]||
            !snap||!idle(*snap)||snap->steps!=before_.steps||
            snap->ppc!=before_.ppc||snap->arm!=before_.arm||
-           !equal(c,Lo,lo_)||!equal(c,Hi,hi_)||
+           !equal(c,Lo,lo_)||!equal(c,Hi,hi_)||!equal(c,IrqGlobal,Table)||
            !equal(c,Sda-16336u,lo_)||!equal(c,Sda-3352u,hi_))return fail(3);
         if(stage_==18){
             if(addr!=Return||c.lr!=Return||c.gpr[1]!=regs_[1]||c.gpr[3]!=0||

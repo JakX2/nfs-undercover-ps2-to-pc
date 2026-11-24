@@ -20,6 +20,21 @@ def assemble(blocks,entry):
     h=bytearray(256)
     for off,v in ((0,256),(0x48,lo),(0x90,len(raw)),(0xe0,entry)):struct.pack_into('>I',h,off,v)
     return bytes(h)+raw
+def backward_polls(blocks):
+    """Exactly the emitter's local backwards B/BC scheduling seams."""
+    out=[]
+    for root,words in sorted(blocks.items()):
+        end=root+4*len(words)
+        for i,w in enumerate(words):
+            pc=root+4*i;op=w>>26
+            if op not in (16,18):continue
+            bits=16 if op==16 else 26
+            disp=w&((1<<bits)-4)
+            if disp&(1<<(bits-1)):disp-=1<<bits
+            target=(disp if w&2 else pc+disp)&0xffffffff
+            if root<=target<=pc<end:out.append(pc)
+    if len(out)>128 or len(out)!=len(set(out)):raise ValueError('poll geometry')
+    return out
 def build(dol,elf):
     g=geometry(dol,elf);rows,handler,hword,ret=g;sizes=parse_functions(elf)
     roots={r[0] for r in rows}
@@ -40,11 +55,13 @@ def build(dol,elf):
     for pc,w in ((CALL,rows[0][2]),(RETURN,ret),(handler,hword)):
         if pc in words:raise ValueError('fixture overlap')
         words[pc]=w
+    polls=backward_polls(blocks)
     fmt=lambda v:f'0x{v:08x}u'
     image=('#pragma once\n#include <array>\n#include <cstdint>\nnamespace v626 {\n'
            'struct Word{uint32_t pc,word;};\ninline constexpr std::array<Word,'+str(len(words))+'> words{'
            +','.join('Word{'+fmt(pc)+','+fmt(w)+'}' for pc,w in sorted(words.items()))+'};\n'
-           'inline constexpr uint32_t restore_resume='+fmt(resume[0])+';\n}\n')
+           'inline constexpr uint32_t restore_resume='+fmt(resume[0])+';\n'
+           'inline constexpr std::array<uint32_t,'+str(len(polls))+'> backward_polls{'+','.join(map(fmt,polls))+'};\n}\n')
     csv='Name,Location,Size\n'+''.join(f'func_{pc:08X},{pc:08x},{len(ws)*4}\n' for pc,ws in blocks.items())
     return assemble(blocks,ROOT),csv,render(*g),image
 def main():
@@ -57,7 +74,7 @@ def main():
         (a.out/'v624_private_ipc_expectations.h').write_text(expect)
         (a.out/'v626_private_words.h').write_text(image)
     except (OSError,ValueError,struct.error) as e:
-        allow={'root count','fixture geometry','fixture range','fixture span','fixture overlap','fixture return','fixture call closure','restore resume','size'}
+        allow={'root count','fixture geometry','fixture range','fixture span','fixture overlap','fixture return','fixture call closure','restore resume','size','poll geometry'}
         reason=str(e) if str(e) in allow else 'identity_or_io'
         print('V626_IPC_FIXTURE accepted=0 reason='+reason.replace(' ','_'));return 1
     print('V626_IPC_FIXTURE owner=1 accepted=1 native_roots=15')

@@ -37,7 +37,7 @@ int main(){
     IpcClientExpectations e{};
     for(unsigned i=0;i<pc.size();++i)e.edges[i]={pc[i],lr[i],0x100u+i,pc[i]};
     e.handler=0x80519094u;e.handler_word=0x1234u;e.return_word=0x5678u;
-    for(unsigned fault=0;fault<=17;++fault){
+    for(unsigned fault=0;fault<=19;++fault){
         Cpu c;auto& m=c.mmu;std::atomic<uint32_t> cause{0},mask{0xf0};
         NativeIosTransport host(m.mem1,m.mem2,cause,mask);B binding(host);W w(e);
         m.mem2.fill(0x6b);
@@ -47,12 +47,13 @@ int main(){
         m.write32(e.handler,e.handler_word);m.write32(W::Return,e.return_word);
         m.write32(W::Lo,Mmu::heap);m.write32(W::Hi,0x93400000u);
         m.write32(W::Sda-16336u,Mmu::heap);m.write32(W::Sda-3352u,0x93400000u);
-        m.write32(W::MaskA,0xf7fff7f0u);
+        m.write32(W::MaskA,0xf7fff7f0u);m.write32(W::IrqGlobal,W::Table);
         if(fault==1)c.msr&=~0x8000u;
         if(fault==2)m.write32(W::Hi,Mmu::heap+16);
         if(fault==3)m.write32(W::Table+108u,1);
         if(fault==4)need(B::write32(IosBus::IPC+M::PPCCTRL,0x31));
-        const bool bad_begin=fault>=1&&fault<=4;
+        if(fault==18)m.write32(W::IrqGlobal,0);
+        const bool bad_begin=(fault>=1&&fault<=4)||fault==18;
         need(w.begin(c)==!bad_begin);if(bad_begin)continue;
         bool stopped=false;
         for(unsigned i=0;i<17;++i){
@@ -77,13 +78,14 @@ int main(){
                 c.gpr[3]=1;c.gpr[4]=fault==11?0x31:0x36;
             }
             if(i==2&&fault==5)c.lr+=4;
+            if(i==10&&fault==19)m.write32(W::IrqGlobal,W::Table+4);
             if(i==12&&fault==12)cause=0x10;
             if(i==16&&fault!=13){
                 need(B::write32(IosBus::IPC+M::PPCCTRL,0x36));
                 if(fault==14){bool refused=false;try{B::write32(IosBus::IPC+M::PPCCTRL,0x36);}catch(const std::runtime_error&){refused=true;}need(refused);}
             }
             const bool bad=(i==2&&fault==5)||(i==6&&fault==6)||(i==9&&fault>=7&&fault<=9)||
-                (i==10&&fault==10)||(i==15&&fault==11)||(i==12&&fault==12)||(i==16&&(fault==13||fault==14));
+                (i==10&&(fault==10||fault==19))||(i==15&&fault==11)||(i==12&&fault==12)||(i==16&&(fault==13||fault==14));
             need(w.observe(c.pc,c)==!bad);if(bad){stopped=true;break;}
         }
         if(stopped)continue;
@@ -94,5 +96,5 @@ int main(){
         need(w.observe(c.pc,c)==(fault==0));
         if(!fault){need(w.stage()==19&&w.heap_size()==64&&host.serviced_steps()==0);need(!w.observe(c.pc,c));}
     }
-    std::cout<<"V623_IPC_CLIENT positive=1 stages=19 calls=17 heap=1 mailbox=1 refusal=17 native_transport=1 actual_ios=0 boot_verified=0\n";
+    std::cout<<"V623_IPC_CLIENT positive=1 stages=19 calls=17 heap=1 mailbox=1 refusal=19 native_transport=1 actual_ios=0 boot_verified=0\n";
 }
