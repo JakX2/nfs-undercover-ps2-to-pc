@@ -1,5 +1,5 @@
 import unittest
-from windows_startup_scope_v434 import contract,audit,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,MAX_LOG
+from windows_startup_scope_v434 import contract,audit,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,MAX_LOG
 from audit_v419_full_start import STAGES as START,RESULT as START_RESULT
 from audit_v425_full_hardware import STAGES as HW,RESULT as HW_RESULT
 from audit_v428_full_cache import STAGES as CACHE,RESULT as CACHE_RESULT
@@ -9,6 +9,8 @@ from audit_v435_full_os_time import STAGES as TIME,RESULT as TIME_RESULT
 from audit_v439_full_os_hardware import STAGES as OS_HW,RESULT as OS_HW_RESULT,COPY
 from audit_v444_full_os_arena import STAGES as ARENA,RESULT as ARENA_RESULT
 from audit_v446_full_os_ipc import STAGES as IPC,RESULT as IPC_RESULT
+from audit_v457_exception_vector import STAGES as VECTOR,RESULT as VECTOR_RESULT
+from audit_v466_exception_pack import STAGES as PACK,RESULT as PACK_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -18,10 +20,12 @@ OS_TIME=OS+TIME+[TIME_RESULT]
 OS_HARDWARE=OS_TIME+[b'V439_HW_BEGIN copy=0']+OS_HW+[OS_HW_RESULT]
 OS_ARENA=OS_HARDWARE+[b'V444_ARENA_BEGIN boot_path=1 direct_low=0']+ARENA+[ARENA_RESULT]
 OS_IPC=OS_ARENA+[b'V446_IPC_BEGIN clamp=0']+IPC+[IPC_RESULT]
+OS_VECTOR=OS_IPC+[b'V457_VECTOR_BEGIN debug_needed=1',b'V457_VECTOR_PRELUDE n=1']+VECTOR+[VECTOR_RESULT]
+OS_PACK=OS_VECTOR+PACK+[PACK_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK))}
 
 
 class Tests(unittest.TestCase):
@@ -36,7 +40,10 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-ipc')[0],OS_IPC_PATCHES)
         self.assertEqual(OS_HW_PATCHES,('apply_function_root_v443','apply_perf_sprs_v29')+CACHE_PATCHES+('verify_perf_combo_v29','apply_hid4_continuous_v30'))
         self.assertEqual(OS_IPC_PATCHES,OS_HW_PATCHES+('apply_exact_dispatch_v445',))
-        for scope in ('os-hardware','os-arena','os-ipc'):
+        self.assertEqual(OS_VECTOR_PATCHES,OS_IPC_PATCHES+('apply_cache_continuous_v39','apply_cache_trace_v44','apply_dcbz_v67','apply_cache_order_v456'))
+        self.assertEqual(contract('os-vector'),(OS_VECTOR_PATCHES,'prepare_v457_exception_vector.py','audit_v457_exception_vector'))
+        self.assertEqual(contract('os-pack'),(OS_VECTOR_PATCHES,'prepare_v466_exception_pack.py','audit_v466_exception_pack'))
+        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack'):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
@@ -48,7 +55,7 @@ class Tests(unittest.TestCase):
                     self.assertEqual(audit(raw,0,scope)[1],scope==source)
     def test_optional_copy_and_hex_rejection(self):
         prefix=OS_TIME+[b'V439_HW_BEGIN copy=1']+OS_HW[:1]+[COPY]+OS_HW[1:]+[OS_HW_RESULT]
-        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):])):
+        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):])):
             good=log(prefix+tail)
             self.assertTrue(audit(good,0,scope)[1])
             self.assertFalse(audit(good.replace(b'V439_HW_STAGE n=10 valid=1',b'V439_HW_STAGE n=a valid=1'),0,scope)[1])
