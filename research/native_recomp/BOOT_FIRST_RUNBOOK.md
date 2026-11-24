@@ -15,13 +15,39 @@ game output, translated code, native binary or private compiler log is
 published. The existing owner-private authorization variable still gates
 the original-image job. On push the full link runs only if one of the
 two build scripts changes; normal NAND iteration does not trigger it.
-Manual workflow dispatch can choose `sample`, `all` or `link`.
+Manual workflow dispatch can choose `sample`, `all`, `link` or `startup`.
 
 Original-free integration tests compile a synthetic executable, check
 that it is never launched, reject unresolved symbols and preserve an
 existing build directory. This lane is not yet a native Windows
 executable or a verified full-game launch. The generated upstream runtime
 also has not yet been integrated with all of the custom NAND host services.
+
+The November 24 authenticated [V415 run 45302858172](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45302858172)
+translated 112 shards, passed 113/113 syntax checks, configured and linked
+the entire Linux x64 executable, and verified its ELF format. The output
+gate was `linked=1 platform=linux-x64 launch=0 boot_verified=0`.
+This is a verified complete-image native link, not a Windows build or boot.
+
+### V419: independent bounded complete-image startup candidate
+
+The new `startup` scope preserves the uninstrumented V415 link-only
+control. It SHA-verifies the original DOL, checks both entry-point linked
+branches and the complete register-initialization function, derives
+private word expectations, and requires the three actual generated AOT
+trace seams. It patches only runtime observers, not the translated game
+shards. The isolated headless process must execute the original entry,
+enter register initialization with the correct LR, and reach the hardware
+initializer with all 32 GPRs matching the independently established V16
+register results. It terminates before executing the hardware body.
+Interpreter fallback and invalid witness stages fail the gate; only three
+ordered valid stages, the final success marker and exit zero pass.
+No assets/FST are staged, no proprietary binary/log is uploaded, and the
+custom V418 IOS transport is not activated in this candidate. A successful
+owner result would establish only bounded original register initialization
+in the complete linked image, not complete continuous startup.
+Local source-only tests and a synthetic process witness passed. Owner
+validation remains pending.
 
 ## November 24, 2026: authenticated 96-call NAND frontier
 
@@ -75,8 +101,16 @@ The audit detects repeated suffixes of up to 12 calls and aggregates
 already identified SDK entry categories; unrecognized targets are
 reported as other. It never pumps IOS, changes time, delivers an IRQ,
 alters guest state, or emits addresses and register values publicly.
-A recurring route is not by itself a proof of a deadlock. Owner V416
-results are pending.
+A recurring route is not by itself a proof of a deadlock. The authenticated
+[V416 run 45303254206](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45303254206)
+observed the same three-call cycle in all 16 trials, 2,800 entries, advancing
+instruction counter and timebase, no expired decrementer, no pending IOS
+requests/replies, and no active IRQ. The recorded reply headers were not
+negative. Two targets classify as interrupt disable/restore; the third
+was unclassified. This resembles the previously studied SYSCONF retry
+loop, but the precise PC/LR identities and live status byte still need
+verification. Do not fabricate a status transition or force timer/IRQ
+progress.
 
 Original-free tests:
 

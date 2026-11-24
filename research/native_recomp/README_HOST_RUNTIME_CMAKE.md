@@ -93,5 +93,8 @@ Local strict C++20 ASan/UBSan binding and three Python source-seam tests
 passed. The new independent CI job compiles the actual pinned upstream
 MMU wrappers, IPC register implementation, PI implementation and MMIO
 dispatcher, then exercises synthetic native IOS requests without a game
-DOL. That integration result is pending; the whole-image link lane is not
-changed by this patch.
+DOL. [V418 run 45304722483](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45304722483)
+passed all three jobs, including 11/11 CTest programs on Windows and Linux,
+and the actual pinned NWiiRuntime MMIO transport test. The whole-image
+link lane is not changed by this patch; enabling the binding in genuine
+game execution still requires an authenticated dispatch boundary.
