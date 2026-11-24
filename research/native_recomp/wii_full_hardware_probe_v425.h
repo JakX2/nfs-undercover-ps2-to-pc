@@ -1,5 +1,6 @@
 #pragma once
 #include "wii_full_hardware_witness.h"
+#include "wii_probe_log_format.h"
 #include "v419_private_start_expectations.h"
 #include "v425_private_hardware_expectations.h"
 #include <cstdlib>
@@ -12,6 +13,7 @@ inline bool enabled() noexcept{
     return active;
 }
 template<class Cpu> void observe(uint32_t addr,Cpu& cpu){
+    ScopedProbeDecimal probe_decimal(std::cout);
     static FullStartWitness start(expected);
     static FullHardwareWitness hardware(v425::expected_hardware);
     FullStartResult result;

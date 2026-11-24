@@ -8,6 +8,7 @@ HW=b'V439_HW_'
 BEGIN=re.compile(rb'V439_HW_BEGIN copy=([01])')
 COPY=b'V439_HW_COPY valid=1'
 STAGES=[f'V439_HW_STAGE n={i} valid=1'.encode() for i in range(1,14)]
+HEX_STAGES=[f'V439_HW_STAGE n={i:x} valid=1'.encode() for i in range(1,14)]
 RESULT=b'V439_HW_RESULT exec=1 perf=6 hid4=1 hid0=1 fpscr=1 fallback=0 boot_verified=0'
 INVALID=re.compile(rb'V439_HW_INVALID reason=([1-8]) stage=([0-9]|1[0-3])')
 def inspect(raw,rc):
@@ -29,7 +30,11 @@ def inspect(raw,rc):
     reason=int(invalid[0][1]) if len(invalid)==1 else 0
     fallback=int(b'V425_HARDWARE_FALLBACK hit=1' in lines)
     ok=bool(rc==0 and time_ok and begin and tail[1:]==expected and not fallback)
-    return f'V439_HW_CENSUS rc={rc} time={int(time_ok)} stages={stages} matched={matched} copy={copy} fallback={fallback} reason={reason} verified={int(ok)} boot_verified=0',ok
+    # Diagnostic only: the exact legacy hex sequence does not pass the canonical gate.
+    legacy=HEX_STAGES[:1]+([COPY] if copy else [])+HEX_STAGES[1:]+[RESULT]
+    legacy_hex=int(bool(rc==0 and time_ok and begin and tail[1:]==legacy and not fallback))
+    terminal=int(tail.count(RESULT)==1)
+    return f'V439_HW_CENSUS rc={rc} time={int(time_ok)} stages={stages} matched={matched} copy={copy} fallback={fallback} reason={reason} terminal={terminal} legacy_hex_complete={legacy_hex} verified={int(ok)} boot_verified=0',ok
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('log',type=Path);p.add_argument('rc',type=int);a=p.parse_args()
     try:

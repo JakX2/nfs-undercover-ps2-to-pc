@@ -19,7 +19,7 @@ from prepare_v428_full_cache import expectations as cache_expectations
 from prepare_v430_full_data import expectations as data_expectations
 from audit_v435_full_os_time import STAGES as TIME,RESULT as TIME_RESULT
 from test_v435_full_os_time_audit import PREFIX
-from audit_v439_full_os_hardware import STAGES,RESULT,COPY,inspect
+from audit_v439_full_os_hardware import STAGES,HEX_STAGES,RESULT,COPY,inspect
 HOST=Path(__file__).parent
 def log(lines):return b'\n'.join(lines)+b'\n'
 def put(data,pc,word):
@@ -71,6 +71,7 @@ class Tests(unittest.TestCase):
                 self.assertEqual((e.exception.stage,e.exception.ordinal),(stage,1))
                 self.assertFalse((dest/'undercover').exists())
             shard.write_text(source);install(raw,root,HOST,sha)
+            self.assertTrue((dest/'undercover/wii_probe_log_format.h').is_file())
             self.assertIn('V430 original data return',shard.read_text())
             self.assertIn('V439 original hardware return',shard.read_text())
             self.assertEqual((dest/'undercover/wii_full_start_probe_v419.h').read_text().count('std::_Exit(0)'),1)
@@ -87,6 +88,17 @@ class Tests(unittest.TestCase):
         self.assertIn('trace_call(0x80520700, ctx)',return_seam(seam,0x60000000))
         for bad in (seam+seam,seam.replace('60000000','4E800020'),return_seam(seam,0x60000000)):
             with self.assertRaises(ValueError):return_seam(bad,0x60000000)
+    def test_hex_cutoff_is_diagnostic_not_success(self):
+        prefix=PREFIX+TIME+[TIME_RESULT]
+        for copy in (0,1):
+            begin=f'V439_HW_BEGIN copy={copy}'.encode()
+            rows=prefix+[begin]+HEX_STAGES[:1]+([COPY] if copy else [])+HEX_STAGES[1:]+[RESULT]
+            row,ok=inspect(log(rows),0)
+            self.assertFalse(ok)
+            self.assertIn('stages=9',row);self.assertIn('terminal=1 legacy_hex_complete=1',row)
+            for bad,rc in ((rows[:-1],0),(rows+[RESULT],0),(rows,88),(rows+[b'V425_HARDWARE_FALLBACK hit=1'],0)):
+                row,ok=inspect(log(bad),rc);self.assertFalse(ok)
+                self.assertIn('legacy_hex_complete=0',row)
     def test_gate(self):
         prefix=PREFIX+TIME+[TIME_RESULT]
         for copy in (0,1):

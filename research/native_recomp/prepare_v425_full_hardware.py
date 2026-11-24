@@ -41,7 +41,8 @@ def install(data:bytes,generated:Path,host:Path,digest:str=OWNER_SHA)->None:
     if interp.is_symlink():raise ValueError('interpreter symlink')
     replace_exact(interp.read_text(encoding='utf-8'),MICRO,MICRO_NEW)
     files={dest/'v425_private_hardware_expectations.h':expected,
-           dest/'wii_full_hardware_witness.h':(host/'wii_full_hardware_witness.h').read_text(encoding='utf-8')}
+           dest/'wii_full_hardware_witness.h':(host/'wii_full_hardware_witness.h').read_text(encoding='utf-8'),
+           dest/'wii_probe_log_format.h':(host/'wii_probe_log_format.h').read_text(encoding='utf-8')}
     if any(p.exists() or p.is_symlink() for p in files):raise ValueError('destination exists')
     probe=(host/'wii_full_hardware_probe_v425.h').read_text(encoding='utf-8')
     prepare(data,generated,host,digest)
