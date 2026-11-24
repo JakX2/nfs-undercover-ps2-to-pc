@@ -9,6 +9,7 @@ struct MemoryInitExpectations {
     BatMappingExpectations bat;
     uint32_t entry_word,return_word;
     std::vector<VectorEdge> helpers;
+    std::vector<VectorEdge> outer_helpers;
 };
 class MemoryInitWitness {
 public:
@@ -17,6 +18,11 @@ public:
     explicit MemoryInitWitness(const MemoryInitExpectations& e):e_(e),bat_(e.bat){}
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
+    unsigned outer_visits()const noexcept{return outer_visits_;}
+    template<class Cpu>static unsigned mapping_metadata(Cpu& c){
+        return unsigned(equal(c,0x80003100u,0x01800000u))|2u*unsigned(equal(c,0x80003104u,0x01800000u))|
+               4u*unsigned(equal(c,0x8000311cu,0x04000000u))|8u*unsigned(equal(c,0x80003120u,0x93400000u));
+    }
     template<class Cpu>bool begin(Cpu& c){
         if(stage_||error_||!c.is_running||c.pc!=Begin||c.lr!=Begin||
            c.gpr[1]!=ThreadInitWitness::StackTop-88u||(c.msr&0x8000u)||
@@ -71,6 +77,16 @@ public:
             }
             ++stage_;return true;
         }
+        // Additional original initializer-owned calls (e.g. interrupt
+        // save/restore) are permitted only in their exact phase window.
+        if(stage_>=4&&stage_<=19){
+            const uint32_t lower=stage_==4?0x805276d4u:stage_==19?e_.edges[11].lr:e_.edges[index-1].lr;
+            const uint32_t upper=stage_==19?0x805277a0u:e_.edges[index].lr;
+            for(auto e:e_.outer_helpers)if(addr==e.pc&&c.lr==e.lr){
+                if(e.lr<=lower||e.lr>=upper||e.lr<=last_outer_lr_||!matches(c,e)||++outer_visits_>16)return fail(5);
+                last_outer_lr_=e.lr;return true;
+            }
+        }
         // Only authenticated direct helper edges within the MI mask/unmask
         // and shutdown registration routines may interleave the main route.
         if(stage_<5||stage_==12||stage_>19||++extra_>128)return fail(5);
@@ -80,7 +96,8 @@ public:
     }
 private:
     MemoryInitExpectations e_;BatMappingWitness bat_;
-    unsigned stage_=0,error_=0,extra_=0;
+    unsigned stage_=0,error_=0,extra_=0,outer_visits_=0;
+    uint32_t last_outer_lr_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,hid_=0;uint64_t start_=0;
     std::array<uint32_t,2> guards_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}

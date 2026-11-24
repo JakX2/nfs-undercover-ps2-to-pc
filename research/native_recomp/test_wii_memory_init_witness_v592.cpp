@@ -36,8 +36,10 @@ int main(){
     e.bat={e.edges[10],{{{0x80527550,B::Resume[0],21,22},{0x80527550,B::Resume[1],23,22}}},{24,25},{26,27}};
     e.entry_word=e.edges[0].branch_word;e.return_word=28;
     e.helpers.push_back({0x805266e0,0x80526970,29,30});
+    e.outer_helpers.push_back({0x805265ac,0x805276f4,31,32});
+    e.outer_helpers.push_back({0x805265d4,0x8052778c,33,34});
     constexpr uint32_t r13=0x8070e8e0,sp=ThreadInitWitness::StackTop-88;
-    for(unsigned fault=0;fault<=18;++fault){
+    for(unsigned fault=0;fault<=22;++fault){
         std::atomic<uint32_t> pi{0x40};
         WiiIrqBanks banks(pi);IrqBankBinding binding(banks);
         Cpu c;W w(e);auto& m=c.mmu.words;
@@ -57,6 +59,10 @@ int main(){
         enter(e.edges[2]);c.hid2=c.gpr[3];if(fault==4)c.hid2|=0x40000000;
         need(w.observe(c.pc,c)==(fault!=4));if(fault==4)continue;
         c.gpr[1]-=16;
+        enter(e.outer_helpers[fault==19?1:0]);
+        if(fault==20)m[c.lr-4]^=1;
+        need(w.observe(c.pc,c)==(fault!=19&&fault!=20));if(fault==19||fault==20)continue;
+        if(fault==21){enter(e.outer_helpers[0]);need(!w.observe(c.pc,c));continue;}
         need(IrqBankBinding::write16(0xcc004020,0));
         if(fault!=5)need(IrqBankBinding::write16(0xcc004010,255));
         enter(e.edges[3]);c.gpr[3]=0xf0000000;
@@ -99,13 +105,15 @@ int main(){
         if(fault==13)c.gpr[3]=0;
         need(w.observe(c.pc,c)==(fault!=13));if(fault==13)continue;
         need(IrqBankBinding::write16(0xcc00401c,fault==14?0:16));
+        enter(e.outer_helpers[fault==22?0:1]);
+        need(w.observe(c.pc,c)==(fault!=22));if(fault==22)continue;
         c.pc=c.lr=W::Return;c.gpr[1]=sp;c.inst_count+=10;m[r13-3400]=1;
         if(fault==15)m[r13-3400]=0;
         if(fault==16)m[W::Node+16]^=1;
         if(fault==17)m[ThreadInitWitness::StackBottom]=0;
         if(fault==18)c.gpr[1]-=4;
         need(w.observe(c.pc,c)==(fault==0));
-        if(!fault){need(w.stage()==20&&pi.load()==0x40);need(!w.observe(c.pc,c));}
+        if(!fault){need(w.stage()==20&&pi.load()==0x40&&w.outer_visits()==2&&W::mapping_metadata(c)==15);need(!w.observe(c.pc,c));}
     }
-    std::cout<<"V592_MI_WITNESS stages=20 positive=1 refused=18 bat=32 handlers=5 permissions=0\n";
+    std::cout<<"V592_MI_WITNESS stages=20 positive=1 refused=22 outer=2 bat=32 handlers=5 permissions=0\n";
 }

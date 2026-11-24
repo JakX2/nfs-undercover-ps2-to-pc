@@ -28,5 +28,8 @@ def main():
     for l in raw.splitlines():
         if re.fullmatch(rb'V591_MI_INVALID reason=[0-9]{1,2} stage=[0-9]{1,2}|V581_DSP_RETURN_INVALID reason=[0-9]{1,2} stage=[0-9]{1,2}|V581_DSP_PROFILE_INVALID rejected=1',l):
             print(l.decode());break
+    for l in raw.splitlines():
+        if re.fullmatch(rb'V604_MI_EDGE stage=[0-9]{1,2} pc=[0-9a-f]{1,8} lr=[0-9a-f]{1,8} outer=[0-9]{1,2} metadata=[0-9]{1,2}',l):
+            print(l.decode());break
     print(row);print('V591_MI_AUDIT inspected=1');return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

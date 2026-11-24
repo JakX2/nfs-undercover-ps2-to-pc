@@ -9,6 +9,7 @@ from prepare_v574_dsp_sc import diagnostic
 from audit_v584_bat_translation import install as audit_bat,geometry as bat_geometry
 from make_start_to_memory_protect_v65 import EDGES,STOP
 from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
+from audit_v264_osinit_retry_elf import read_words
 import hashlib
 BEGIN=0x805208d8
 MAP=0x80527568
@@ -22,7 +23,8 @@ DECL_NEW=DECL+'''
     static MemoryInitWitness memory_init(v591::expected_memory);
     if(memory_init.stage()){
         const auto before=memory_init.stage();
-        if(!memory_init.observe(addr,cpu)){std::cout<<"V591_MI_INVALID reason="<<memory_init.failure()<<" stage="<<memory_init.stage()<<std::endl;std::_Exit(115);}
+        if(!memory_init.observe(addr,cpu)){std::cout<<"V591_MI_INVALID reason="<<memory_init.failure()<<" stage="<<memory_init.stage()<<std::endl;
+            std::cout<<"V604_MI_EDGE stage="<<before<<" pc="<<std::hex<<addr<<" lr="<<cpu.lr<<std::dec<<" outer="<<memory_init.outer_visits()<<" metadata="<<memory_init.mapping_metadata(cpu)<<std::endl;std::_Exit(115);}
         if(memory_init.stage()!=before)std::cout<<"V591_MI_STAGE n="<<memory_init.stage()<<std::endl;
         if(memory_init.stage()==20u){
             std::cout<<"V591_MI_RESULT handlers=5 shutdown=1 bat=32 rfi_returns=2 mi_mask=16 returned=1 permissions=0 firmware_executed=0 fallback=0 boot_verified=0"<<std::endl;
@@ -53,6 +55,19 @@ def expectations(data,elf,digest=OWNER_SHA,elf_digest=ORIGINAL_SHA256):
         for i,w in enumerate(words_at(data,pc,n//4)):
             if w>>26==18 and w&3==1:helper.append(edge(data,pc+4*i))
     if len(helper)>64:raise ValueError('MI helper count')
+    # The complete original initializer also owns calls omitted from the old
+    # high-level witness (before mask and after unmask). Authenticate them
+    # against BOTH private inputs; phase authorization is in the witness.
+    memory=0x805276d4;extent=sizes.get(memory,0)
+    if extent!=0x805277a0-memory:raise ValueError('MI outer extent')
+    known={s for s,_ in SITES};outer=[]
+    for i,w in enumerate(words_at(data,memory,extent//4)):
+        site=memory+4*i
+        if site not in known and w>>26==18 and w&3==1:
+            row=edge(data,site)
+            if tuple(read_words(elf,site,1))!=(w,) or tuple(read_words(elf,row[0],1))!=(row[3],):raise ValueError('MI outer identity')
+            outer.append(row)
+    if not 1<=len(outer)<=16:raise ValueError('MI outer calls')
     entry=words_at(data,BEGIN,1)[0];ret=words_at(data,STOP,1)[0]
     ew=[words_at(data,p,1)[0] for p in ENTRIES];rw=[words_at(data,p,1)[0] for p in RESUMES]
     fmt=lambda r:'VectorEdge{'+','.join(f'0x{v:08x}u' for v in r)+'}'
@@ -60,8 +75,8 @@ def expectations(data,elf,digest=OWNER_SHA,elf_digest=ORIGINAL_SHA256):
     words=lambda r:'{'+','.join(f'0x{v:08x}u' for v in r)+'}'
     header=('#pragma once\n#include "wii_memory_init_witness_v591.h"\nnamespace undercover::wii::v591 {\n'
         'inline const MemoryInitExpectations expected_memory{'+arr(rows)+',BatMappingExpectations{'+fmt(rows[10])+','+arr(tramp)+','+words(ew)+','+words(rw)+'},'
-        +f'0x{entry:08x}u,0x{ret:08x}u,'+arr(helper)+'};\n}\n')
-    return header,sorted({r[0] for r in rows+tramp}|set(ENTRIES)),dict(zip((*RESUMES,STOP),(*rw,ret)))
+        +f'0x{entry:08x}u,0x{ret:08x}u,'+arr(helper)+','+arr(outer)+'};\n}\n')
+    return header,sorted({r[0] for r in rows+tramp+outer}|set(ENTRIES)),dict(zip((*RESUMES,STOP),(*rw,ret)))
 def patch_probe(source):
     return replace_exact(replace_exact(replace_exact(source,INCLUDE,INCLUDE+'\n#include "v591_private_mi_expectations.h"'),DECL,DECL_NEW),END,NEXT)
 def patch_label(source,pc,word):
