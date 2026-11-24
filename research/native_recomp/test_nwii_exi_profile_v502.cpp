@@ -3,9 +3,10 @@
 #include "undercover/wii_exi_profile_v501.h"
 #include <iostream>
 #include <memory>
+#include <source_location>
 namespace nw=nwii::runtime;using namespace undercover::wii;
-static void need(bool b){if(!b)throw std::runtime_error("pinned EXI profile");}
-template<class F>void reject(F f){bool caught=false;try{f();}catch(const std::exception&){caught=true;}need(caught);}
+static void need(bool b,const std::source_location loc=std::source_location::current()){if(!b)throw std::runtime_error("pinned EXI profile line "+std::to_string(loc.line()));}
+template<class F>void reject(F f,const std::source_location loc=std::source_location::current()){bool caught=false;try{f();}catch(const std::exception&){caught=true;}need(caught,loc);}
 namespace nwii::runtime {
 CPUContext* g_ctx_ptr=nullptr;MMU* g_mmu=nullptr;int g_ipc_interrupt_delay=0;
 void GX_WGPIPE_Write8(uint8_t){} void GX_WGPIPE_Write16(uint16_t){} void GX_WGPIPE_Write32(uint32_t){}
@@ -16,7 +17,7 @@ int main(){
     auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;nw::g_ctx_ptr=&c;nw::g_mmu=&c.mmu;
     auto& d=nw::MMIODispatcher::get();d.clear();nw::hw::register_pi(d);nw::hw::register_ipc(d);
     unsigned legacy=0;
-    d.register_region(0xcd006024u,0xcd006027u,[&](uint32_t){++legacy;return 0xffu;},[&](uint32_t,uint32_t){++legacy;});
+    d.register_region(0x0d006024u,0x0d006027u,[&](uint32_t){++legacy;return 0xffu;},[&](uint32_t,uint32_t){++legacy;});
     NativeIosTransport ios(c.mmu.mem1,c.mmu.mem2,nw::hw::pi_intsr,nw::hw::pi_intmr);
     NativeIosBinding native(ios);WiiIrqBanks banks(nw::hw::pi_intsr);ExiController exi(banks,&ios.physical_ram());
     IrqBankBinding mmio(banks,&exi);
