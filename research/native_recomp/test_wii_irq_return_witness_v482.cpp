@@ -5,7 +5,7 @@ using namespace undercover::wii;
 static void need(bool b){if(!b)throw std::runtime_error("IRQ return witness");}
 constexpr std::array<uint32_t,7> addrs{0x0c00401c,0x0c00500a,0x0d006c00,0x0d006800,0x0d006814,0x0d006828,0x0c003004};
 constexpr std::array<uint32_t,7> masks{0u,0xfffffe07u,0xffffffd3u,0xffffd3f0u,0xfffff3f0u,0xfffffff0u,0u};
-constexpr std::array<uint32_t,7> select{0xfffffff0u,0x07fffff0u,0x00fffff0u,0x007ffff0u,0x000ffff0u,0x0001fff0u,0x00007ff0u};
+constexpr std::array<uint32_t,7> selected_masks{0xfffffff0u,0x07fffff0u,0x00fffff0u,0x007ffff0u,0x000ffff0u,0x0001fff0u,0x00007ff0u};
 void transaction(IrqMaskIo& io,unsigned bank,unsigned fault=0){
     const unsigned width=bank<2?16:32;const bool native=bank!=1&&bank!=6;
     const uint32_t in=width==16?0xf7f7u:0xdeadbeefu;
@@ -42,7 +42,7 @@ int main(){
         for(auto edge:e.edges){m[edge.pc]=edge.entry_word;m[edge.lr-4]=edge.branch_word;}
         auto enter=[&](unsigned i){c.pc=e.edges[i].pc;c.lr=e.edges[i].lr;++c.inst_count;};
         enter(0);IrqReturnWitness w(e);need(w.begin(c));m[0x800000c4]=0xfffffff0;
-        for(unsigned i=0;i<7;++i){enter(1);c.gpr[3]=select[i];c.gpr[4]=0xfffffff0;
+        for(unsigned i=0;i<7;++i){enter(1);c.gpr[3]=selected_masks[i];c.gpr[4]=0xfffffff0;
             if(fault==1&&i==4){c.gpr[3]^=1;need(!w.observe(c.pc,c));break;}
             need(w.observe(c.pc,c));transaction(irq_mask_io,i);
         }
