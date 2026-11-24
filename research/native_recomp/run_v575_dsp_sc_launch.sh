@@ -2,7 +2,10 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 ]] || exit 2
+[[ $# == 3 || ( $# == 4 && "$4" == dsp-return ) ]] || exit 2
+mode="${4:-dsp-sc}"
+extra=();audit=audit_v575_dsp_sc_frontier.py
+if [[ "$mode" == dsp-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }
@@ -24,6 +27,6 @@ rc=0
     "UNDERCOVER_V501_EXI_PROFILE=$work/exi-test-profile.txt" \
     UNDERCOVER_V512_SI=1 "UNDERCOVER_V518_SI_PROFILE=$work/si-test-profile.txt" \
     UNDERCOVER_V522_VICLK=0 UNDERCOVER_V537_ACR=1 UNDERCOVER_V574_SC=1 \
-    "$exe" "$dol" "$work/config.toml"
+    "${extra[@]}" "$exe" "$dol" "$work/config.toml"
 ) > "$work/run-private.log" 2>&1 || rc=$?
-python3 "$here/audit_v575_dsp_sc_frontier.py" "$work/run-private.log" "$rc"
+python3 "$here/$audit" "$work/run-private.log" "$rc"

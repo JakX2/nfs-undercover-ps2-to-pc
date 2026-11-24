@@ -84,6 +84,26 @@ public:
         for(unsigned i=0;i<4;++i)if(c.guest_flush_lines[flush_+i]!=Staging+32*i)return fail(7);
         stage_=7;return true;
     }
+    template<class Cpu>bool restore_ready(Cpu& c){
+        if(error_||stage_!=7||!c.is_running||c.gpr[1]!=sp_||
+           c.gpr[2]!=r2_||c.gpr[13]!=r13_||c.msr!=msr_||
+           !equal(c,0x800000e4u,ThreadInitWitness::Thread)||
+           !equal(c,r13_-3472u,backup_+128)||!preserved(c)||
+           !bytes(c,Staging,e_.image)||!bytes(c,backup_,original_)||
+           uint64_t(c.guest_flush_count)!=uint64_t(flush_)+4)return fail(8);
+        for(unsigned i=0;i<4;++i)if(c.guest_flush_lines[flush_+i]!=Staging+32*i)return fail(8);
+        return true;
+    }
+    template<class Cpu>bool finish_restore(Cpu& c){
+        if(error_||stage_!=7||!c.is_running||c.gpr[1]!=sp_+16u||
+           c.gpr[2]!=r2_||c.gpr[13]!=r13_||c.msr!=msr_||
+           !equal(c,0x800000e4u,ThreadInitWitness::Thread)||
+           !equal(c,r13_-3472u,backup_+128)||!preserved(c)||
+           !bytes(c,Staging,original_)||!bytes(c,backup_,original_)||
+           uint64_t(c.guest_flush_count)!=uint64_t(flush_)+4)return fail(9);
+        for(unsigned i=0;i<4;++i)if(c.guest_flush_lines[flush_+i]!=Staging+32*i)return fail(9);
+        stage_=8;return true;
+    }
 private:
     DspStageExpectations e_;unsigned stage_=0,error_=0,extra_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,backup_=0,flush_=0;uint64_t last_=0;

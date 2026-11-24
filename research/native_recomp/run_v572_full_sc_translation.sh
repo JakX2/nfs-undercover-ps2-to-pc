@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return ) ) ]] || exit 2
 mode="${4:-translation-only}"
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -20,6 +20,9 @@ if [[ "$mode" != translation-only ]]; then
     python3 "$here/$p.py" "$nw" emitter > "$work/patch.log" 2>&1 || { echo "V574 emitter patch failed: $p";exit 1; }
   done
 fi
+if [[ "$mode" == --run-dsp-return ]]; then
+  python3 "$here/apply_aram_binding_v553.py" "$nw" emitter > "$work/patch.log" 2>&1 || { echo "V581 ARAM emitter patch failed";exit 1; }
+fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \
   "$nw/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$nw/nWiiAnalyzer/src/signature_scanner.cpp" "$nw/nWiiRecomp/src/recompiler.cpp" "$nw/nWiiRecomp/src/symbols.cpp" \
@@ -27,7 +30,11 @@ g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I
 timeout 300s "$work/translator" "$dol" "$work/symbols.csv" "$work/generated" --strict-symbol-spans --native-sc-overlay --generate "$nw/nWiiRuntime" > "$work/generate.log" 2>&1 || { grep -Ex 'SC translation overlay conflict|SC source ambiguous|SC source missing|SC source overlap|SC section geometry|SC vector return|SC vector control flow|SC overlay rejected|SC overlay analysis rejected|SC overlay instruction coverage rejected|SC overlay overlaps trusted span' "$work/generate.log" || true;echo "V572 full-image translation failed";exit 1; }
 [[ "$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | wc -l)" -ge 20 ]]
 if [[ "$mode" != translation-only ]]; then
-  python3 "$here/prepare_v574_dsp_sc.py" "$dol" "$work/generated"
+  if [[ "$mode" == --run-dsp-return ]]; then
+    python3 "$here/prepare_v581_dsp_return.py" "$dol" "$work/generated"
+  else
+    python3 "$here/prepare_v574_dsp_sc.py" "$dol" "$work/generated"
+  fi
   cat > "$work/probe.cpp" <<'CPP'
 #include "runtime/cpu_context.h"
 #include "undercover/wii_full_start_probe_v419.h"
@@ -43,7 +50,11 @@ else
 fi
 echo "V572_FULL_SC_TRANSLATION owner=1 full_image=1 vector=7 direct_only=1 link=0 execution=0 boot_verified=0"
 
-if [[ "$mode" == --run-dsp-sc ]]; then
+if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
-  bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
+  if [[ "$mode" == --run-dsp-return ]]; then
+    bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" dsp-return
+  else
+    bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
+  fi
 fi

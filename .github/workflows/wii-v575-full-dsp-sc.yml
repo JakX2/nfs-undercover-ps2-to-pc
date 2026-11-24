@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v575*'
+      - 'research/native_recomp/*v580*'
+      - 'research/native_recomp/*v581*'
       - 'research/native_recomp/prepare_v574_dsp_sc.py'
       - 'research/native_recomp/wii_boot_sc_binding_v574.h'
       - '.github/workflows/wii-v575-full-dsp-sc.yml'
@@ -24,6 +26,9 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v574_dsp_sc.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v575_dsp_sc_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v581_dsp_return.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_dsp_boot_profile_v580.cpp -o "$RUNNER_TEMP/v580-profile"
+          "$RUNNER_TEMP/v580-profile"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_dsp_stage_witness_v559.cpp -o "$RUNNER_TEMP/v575-dsp"
           "$RUNNER_TEMP/v575-dsp"
           git init -q "$RUNNER_TEMP/nw575"
@@ -62,7 +67,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw575" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw575" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw575" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw575" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-dsp-sc
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw575" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-dsp-return
       - name: Clean private original files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw575"
