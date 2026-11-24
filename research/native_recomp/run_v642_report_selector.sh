@@ -19,6 +19,6 @@ g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$w
   "$here/test_native_report_selector_v642.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { echo 'V642 compile failed';exit 1; }
 rc=0
 ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1 timeout 30s "$work/native" > "$work/run.log" 2>&1 || rc=$?
-grep -Ex 'V642_REPORT_CASE trial=[0-9]{1,2} site=[0-9]{1,2} fmt=[0-9]{1,3} value_arg=[01] cr=[01]|V642_REPORT_FAILURE trial=[0-9]{1,2} (line=[0-9]{1,4}|kind=exception)' "$work/run.log" || true
+grep -Ex 'V644_REPORT_CASE trial=[0-9]{1,2} class=[0-9]{1,2} call_offset=[0-9]{1,3} fmt=[0-9]{1,3} value_arg=[01] cr=[01]|V642_REPORT_FAILURE trial=[0-9]{1,2} (line=[0-9]{1,4}|kind=exception)' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V642 execution failed rc=$rc";exit 1; }
-grep -Fx 'V642_REPORT_NATIVE trials=43 returned_to_print=43 fallback=0 complete_image=0' "$work/run.log"
+grep -Fx 'V644_REPORT_NATIVE trials=75 returned_to_print=75 query=8 fallback=0 complete_image=0' "$work/run.log"
