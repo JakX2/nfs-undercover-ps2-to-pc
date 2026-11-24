@@ -28,4 +28,21 @@ class Tests(unittest.TestCase):
             self.assertIn(f'history=1 final_clear={clear}',outcome(good,134,OWNER,OWNER,SIZES,p))
             for bad in (CONTROL,good+marker,good.replace(b'history=1',b'history=0'),good.replace(b'call=44 pc=',b'call=45 pc=')):
                 with self.assertRaises(ValueError):outcome(bad,134,OWNER,OWNER,SIZES,p)
+    def test_next_guard(self):
+        from tempfile import TemporaryDirectory
+        label='V390 original NAND guest never left Hollywood ACK for next callee'
+        source='check(ok, "'+label+'");'
+        raw=('terminate called after throwing an instance of std::runtime_error\\n  what():  '+label+'\\n').encode().replace(b'\\n',b'\n')
+        with TemporaryDirectory() as tmp:
+            host=Path(tmp)
+            (host/'derive_public.py').write_text(source,encoding='utf-8')
+            (host/'test_secret.py').write_text(source,encoding='utf-8')
+            rows=next_guard(raw,134,source,host,('derive_public.py','test_secret.py','../secret.py'))
+            self.assertIn('class=post_ack matches=1',rows[0])
+            self.assertIn('file=derive_public.py line=1',rows[1])
+            self.assertNotIn(label,' '.join(rows))
+            self.assertIn('matches=0',next_guard(raw,134,source,host,('test_secret.py',))[0])
+            self.assertIn('class=unknown',next_guard(b'what(): private-data\n',134,source,host,('derive_public.py',))[0])
+            self.assertNotIn('private-data',' '.join(next_guard(b'what(): private-data\n',134,source,host,())))
+            self.assertEqual(next_guard(raw,0,source,host,()),('V517_NAND_NEXT_GUARD aborted=0 boot_verified=0',))
 if __name__=='__main__':unittest.main()

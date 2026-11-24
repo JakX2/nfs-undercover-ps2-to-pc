@@ -12,6 +12,8 @@ from pathlib import Path
 import re
 import struct
 from derive_v478_nand_post_return import terminal,trace,ack_history,ACK_GUARD,MAX_LOG,MAX_CPP,RESUME,inspect,abort_row
+from derive_v478_nand_post_return import source_matches,tracked_public_source,GUARD_CLASSES
+import subprocess
 from make_osinit_execparams_v28 import ORIGINAL_SHA
 from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
 STATE='static uint64_t v389_y1_inst=0u;'
@@ -82,6 +84,18 @@ def outcome(raw,rc,owner,fixture,sizes,p):
     # Passing this assertion is not the same as completing the callback.
     result=inspect(raw,rc,owner,fixture,sizes).replace('V437_FRAME_RESULT','V508_FRAME_RESULT',1)
     return result+f' history=1 final_clear={clear}'
+def next_guard(raw,rc,harness,host,names):
+    """Report only bounded public source locations and a fixed guard class."""
+    if rc!=134:return ('V517_NAND_NEXT_GUARD aborted=0 boot_verified=0',)
+    census,label=abort_row(raw,harness,rc)
+    ident,hits=source_matches(raw,harness,host,names)
+    if ident!=int(census.split(' public_id=')[1].split()[0]):raise ValueError('guard identity')
+    kind=GUARD_CLASSES.get(label.split(' label=',1)[1],'other' if ident else 'unknown')
+    rows=[f'V517_NAND_NEXT_GUARD aborted=1 id={ident:04d} class={kind} matches={min(len(hits),9999)} boot_verified=0']
+    if 1<=len(hits)<=8:
+        rows.extend(f'V517_NAND_GUARD_SOURCE id={ident:04d} n={i+1} file={name} line={line} boot_verified=0'
+                    for i,(name,line) in enumerate(hits))
+    return tuple(rows)
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for n in ('owner','elf','fixture','cpp','harness','control','output'):p.add_argument(n,type=Path)
@@ -104,7 +118,9 @@ def main():
             raw=get(a.run_log,MAX_LOG)
             print(outcome(raw,a.run_rc,owner,fixture,sizes,q))
             print(abort_row(raw,new,a.run_rc)[0].replace('V427_ABORT_CENSUS','V508_ABORT_CENSUS',1))
+            host=Path(__file__).resolve().parent
+            for row in next_guard(raw,a.run_rc,new,host,tracked_public_source(host)):print(row)
         print('V508_NAND_ACK_AUDIT inspected=1');return 0
-    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError):
+    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError,subprocess.SubprocessError):
         print('V508_NAND_ACK_AUDIT inspected=0');return 1
 if __name__=='__main__':raise SystemExit(main())
