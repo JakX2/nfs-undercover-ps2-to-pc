@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate corrected BAT witness and runner syntax
         run: |
-          python3 -m py_compile research/native_recomp/make_v634_bat_fixture.py
+          python3 -m unittest discover -s research/native_recomp -p test_v636_bat_calls.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_bat_mapping_witness_v590.cpp -o "$RUNNER_TEMP/bat"
           "$RUNNER_TEMP/bat"
           bash -n research/native_recomp/run_v634_native_bat_mapper.sh

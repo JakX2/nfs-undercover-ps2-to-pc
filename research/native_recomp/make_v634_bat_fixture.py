@@ -11,6 +11,12 @@ from prepare_v591_memory_init import MAP,ENTRIES,RESUMES,TRAMP
 CALL=0x8052776c
 RETURN=CALL+4
 END=0x80527688
+def verify_calls(body):
+    calls=[(MAP+4*i,direct_bl(w,MAP+4*i)) for i,w in enumerate(body) if w>>26==18 and w&3==1]
+    required=set(TRAMP)
+    if not required.issubset(calls) or len(calls)>16 or len(calls)!=len(set(calls)):
+        raise ValueError('mapper calls')
+    return calls
 def build(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     geometry(dol,dd)
     if hashlib.sha256(elf).hexdigest()!=ed:raise ValueError('identity')
@@ -19,8 +25,13 @@ def build(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     blocks={lo:exact_words(dol,elf,lo,(hi-lo)//4) for lo,hi,_ in MAPS}
     body=exact_words(dol,elf,MAP,(END-MAP)//4)
     if body[-1]!=0x4e800020:raise ValueError('mapper return')
-    calls=[(MAP+4*i,direct_bl(w,MAP+4*i)) for i,w in enumerate(body) if w>>26==18 and w&3==1]
-    if calls!=list(TRAMP):raise ValueError('mapper calls')
+    calls=verify_calls(body)
+    # Alternate memory-size routes remain original and authenticated, but
+    # their targets are not installed in this cold fixture. The native
+    # witness accepts only the two required callsites and the dispatcher
+    # callback refuses all PCs outside the selected route.
+    for _,target in calls:exact_words(dol,elf,target,1)
+    print(f'V636_BAT_CALLS required=2 alternate={len(calls)-2} exact_dol_elf=1')
     blocks[MAP]=body
     def edge(site,pc):
         w=exact_words(dol,elf,site,1)[0]

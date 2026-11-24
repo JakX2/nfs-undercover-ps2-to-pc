@@ -1,0 +1,3 @@
+# V636: classify original mapper alternative callsites
+
+V634 owner run 45499024720 failed before translation because the original mapper has additional linked callsites outside the two selected cold-memory edges. Require the exact two known calls as a subset of a bounded original DOL/ELF-identical call graph. Authenticate every direct-call target and retain all original mapper words. Alternative callees remain excluded from the private cold fixture, and the actual witness and dispatcher refuse any unexpected call edge or PC. No original branch is replaced or forced. Add synthetic missing/wrong/oversized graph controls and bounded translation failure classification. Native mapper execution remains pending; V633's full-image owner run is independent.

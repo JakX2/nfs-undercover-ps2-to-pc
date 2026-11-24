@@ -34,8 +34,12 @@ try:
         hits=[p for p in shards if re.search(r'(?mi)^loc_'+f'{pc:X}'+r': ;$',p.read_text())]
         if len(hits)!=1:raise ValueError('resume coverage')
         p=hits[0];p.write_text(patch_label(p.read_text(),pc,words_at(d,pc,1)[0]))
-except ValueError:
-    print('V634_BAT_TRANSLATION verified=0');sys.exit(1)
+except ValueError as e:
+    allow={'native IPC label identity','native IPC label body','native IPC duplicate root','native IPC coverage','native IPC dispatch',
+           'original word provenance','native fallback','native tick','native BAT write','native RFI','native RFI transfer','unique native coverage',
+           'native dispatch target','physical PC normalization','BAT coverage','resume coverage','MI return label'}
+    reason=str(e) if str(e) in allow else 'other'
+    print('V634_BAT_TRANSLATION verified=0 reason='+reason.replace(' ','_'));sys.exit(1)
 print(f'V634_BAT_TRANSLATION verified=1 native_words={n} writes=32 rfi=3')
 PY
 g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/input" -I"$work/generated" -I"$work/generated/nWiiRuntime/include" \
