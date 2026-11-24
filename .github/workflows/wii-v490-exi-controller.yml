@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/*v493*'
       - 'research/native_recomp/*v494*'
       - 'research/native_recomp/*v495*'
+      - 'research/native_recomp/*v497*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -54,3 +55,18 @@ jobs:
             "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
             "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v490-pinned"
           "$RUNNER_TEMP/v490-pinned"
+      - name: Exercise native instruction-boundary SRAM device against actual MMU and PI
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          python3 research/native_recomp/apply_native_tick_v438.py "$root"
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" emitter
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" emitter
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" runtime
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" runtime
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_exi_tick_v497.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v497-pinned"
+          "$RUNNER_TEMP/v497-pinned"
