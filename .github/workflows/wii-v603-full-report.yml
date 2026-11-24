@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v603*'
       - 'research/native_recomp/*v643*'
+      - 'research/native_recomp/*v646*'
       - '.github/workflows/wii-v603-full-report.yml'
 permissions:
   contents: read

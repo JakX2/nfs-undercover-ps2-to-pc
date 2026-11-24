@@ -10,7 +10,7 @@ class Tests(unittest.TestCase):
         old='\n'.join((INCLUDE,DECL,MI_END))
         out=patch_probe(old)
         self.assertIn(NEXT,out);self.assertIn(MI_NEXT,out)
-        self.assertEqual(len(LRS),17);self.assertEqual(len(set(LRS)),17)
+        self.assertEqual(len(LRS),19);self.assertEqual(len(set(LRS)),19)
         for bad in (old+old,old.replace(MI_END,''),out):
             with self.assertRaises(ValueError):patch_probe(bad)
     def test_labels(self):

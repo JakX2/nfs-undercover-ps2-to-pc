@@ -169,11 +169,19 @@ private:
         case 3:
             if(!console_returned_)return false;
             if(console_value_==17){lr=0x8052047cu;fmt=Data+152;}
+            else if(console_value_==18){lr=0x8052048cu;fmt=Data+176;}
+            else if(console_value_<32u){
+                if(branch_seen_||case_seen_)return false;
+                lr=0x805204c0u;fmt=Data+232;a[0]=console_value_;n=1;
+            }
             else if(table_mode()){
                 if(!branch_seen_||!case_seen_)return false;
                 if(target_!=Case+96){lr=target_+12;fmt=Data+244+12*((target_-Case)/16);break;}
                 lr=0x8052055cu;fmt=Data+328;a[0]=console_value_;n=1;
-            }else{if(branch_seen_||case_seen_)return false;lr=0x8052055cu;fmt=Data+328;a[0]=console_value_;n=1;}
+            }else{
+                if(branch_seen_||case_seen_||console_value_<0x10000000u||console_value_>0x10000022u)return false;
+                lr=0x8052055cu;fmt=Data+328;a[0]=console_value_;n=1;
+            }
             break;
         case 4:lr=0x805205acu;fmt=Data+384;a={(low_[2]>>16)&255,(low_[2]>>8)&255,low_[2]&255};n=3;break;
         case 5:lr=0x805205f8u;fmt=Data+412;a={bcd((low_[3]>>16)&255),bcd((low_[3]>>8)&255),2000+bcd(low_[3]&255)};n=3;break;

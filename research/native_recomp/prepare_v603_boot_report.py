@@ -12,7 +12,7 @@ from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
 from audit_v264_osinit_retry_elf import read_words
 from audit_v594_report_translation import check
 from make_start_to_boot_report_v66 import DATA,EDGES,STOP
-LRS=(0x805203ec,0x80520400,0x8052040c,0x8052047c,0x8052055c,0x805205ac,0x805205f8,0x80520618,0x80520638,0x80520658,STOP)+tuple(t+12 for t in TARGETS[:-1])
+LRS=(0x805203ec,0x80520400,0x8052040c,0x8052047c,0x8052048c,0x805204c0,0x8052055c,0x805205ac,0x805205f8,0x80520618,0x80520638,0x80520658,STOP)+tuple(t+12 for t in TARGETS[:-1])
 INCLUDE='#include "v591_private_mi_expectations.h"'
 DECL='    static MemoryInitWitness memory_init(v591::expected_memory);'
 NEXT=DECL+'''
@@ -121,5 +121,5 @@ def main():
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,struct.error,UnicodeError) as exc:
         print(diagnostic(exc));print('V603_REPORT_ROUTE installed=0');return 1
-    print('V603_REPORT_ROUTE installed=1 callsites=17 computed_targets=7 output_backend=0');return 0
+    print('V603_REPORT_ROUTE installed=1 callsites=19 computed_targets=7 output_backend=0');return 0
 if __name__=='__main__':raise SystemExit(main())

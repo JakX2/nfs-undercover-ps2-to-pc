@@ -34,7 +34,7 @@ static BootReportExpectations expected(){
     for(unsigned i=0;i<26;++i){e.table[i]=W::Case+16*(i%7);for(unsigned j=0;j<4;++j)e.data[496+4*i+j]=uint8_t(e.table[i]>>(24-8*j));}
     e.case_words.fill(0x60000000);e.small[0]=0x80;e.small[1]=0x60;e.small[2]=0xb7;e.small[3]=0xa8;
     auto add=[&](uint32_t lr){e.calls.push_back({lr,branch(lr-4,W::Print),0x60000000});};
-    for(uint32_t lr:{0x805203ecu,0x80520400u,0x8052040cu,0x8052047cu,0x8052055cu,0x805205acu,0x805205f8u,0x80520618u,0x80520638u,0x80520658u,W::Return})add(lr);
+    for(uint32_t lr:{0x805203ecu,0x80520400u,0x8052040cu,0x8052047cu,0x8052048cu,0x805204c0u,0x8052055cu,0x805205acu,0x805205f8u,0x80520618u,0x80520638u,0x80520658u,W::Return})add(lr);
     for(unsigned i=0;i<6;++i)add(W::Case+16*i+12);
     // In the original, several report resumes are themselves the next BL.
     for(auto& c:e.calls){
@@ -47,7 +47,7 @@ static BootReportExpectations expected(){
 struct Rejected{};
 static void trial(unsigned mode,unsigned fault){
     const auto e=expected();W w(e);Cpu c;
-    const bool table=mode>=2;const uint32_t value=mode==0?0x10000002u:mode==1?17u:0x10000008u+mode-2;
+    const bool table=mode>=2&&mode<9;const uint32_t value=mode==0?0x10000002u:mode==1?17u:mode<9?0x10000008u+mode-2:mode-9u;
     const uint32_t target=table?e.table[value-0x10000008u]:0;
     c.gpr[1]=Sp;c.gpr[2]=0x80715ee0;c.gpr[13]=R13;c.pc=c.lr=W::Begin;
     auto put=[&](uint32_t a,uint32_t v){c.mmu.write32(a,v);};
@@ -97,7 +97,9 @@ static void trial(unsigned mode,unsigned fault){
             c.ctr=target;if(fault==10)c.ctr+=16;event(e.bctr,10);
             c.pc=target;if(fault==11)c.pc+=4;event(target,11);
         }
-        if(mode==1)report(0x8052047c,W::Data+152);
+        if(value==17)report(0x8052047c,W::Data+152);
+        else if(value==18)report(0x8052048c,W::Data+176);
+        else if(value<32u)report(0x805204c0,W::Data+232,{value,0,0},20);
         else if(table&&target!=W::Case+96)report(target+12,W::Data+244+12*((target-W::Case)/16));
         else report(0x8052055c,W::Data+328,{value,0,0});
         report(0x805205ac,W::Data+384,{4,10,33},12);report(0x805205f8,W::Data+412,{19,12,2026},13);
@@ -114,7 +116,8 @@ static void trial(unsigned mode,unsigned fault){
     else need(w.failure()!=0);
 }
 int main(){
-    for(unsigned mode=0;mode<9;++mode)trial(mode,0);
+    for(unsigned mode=0;mode<41;++mode)trial(mode,0);
+    trial(9,20);
     for(unsigned fault=1;fault<=19;++fault)trial(2,fault);
-    std::cout<<"V601_BOOT_REPORT paths=9 reports=90 getters=54 refusal=19 table_cases=7 output_backend=0 boot_verified=0\n";
+    std::cout<<"V601_BOOT_REPORT paths=41 reports=410 getters=246 refusal=20 table_cases=7 output_backend=0 boot_verified=0\n";
 }

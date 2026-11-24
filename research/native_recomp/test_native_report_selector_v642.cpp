@@ -53,6 +53,10 @@ int main()try{
         if(query){
             const unsigned mode=trial-67u;
             c->pc=0x8051fd44u;
+            // Original OSInit established this pointer; without it the
+            // query takes the default no-boot-record path (all class 2).
+            c->mmu.write32(0x8070e8e0u-3512u,0x80000000u);
+            c->mmu.write32(0x80000020u,0x10000006u);
             c->mmu.write32(0x8000002cu,mode<4?0x10000006u:mode==4?0u:0x10000002u);
             c->mmu.write16(0x800030e6u,mode==0||mode==1?0u:mode==2||mode==5?2u:0x8000u);
             c->mmu.write32(0x80003118u,mode>=6?0x08000000u:0x04000000u);
@@ -63,6 +67,10 @@ int main()try{
         hits=0;bool stopped=false;
         try{run_game(*c);}catch(const Stop&){stopped=true;}
         need(stopped&&hits==1&&c->gpr[1]==0x80751c50&&c->inst_count<256);
+        if(trial>=71){
+            constexpr std::array<uint32_t,4> old{0x10000002u,17u,0x10000010u,0x10000021u};
+            need(actual==old[trial-71]);
+        }
         const unsigned kind=actual>=0x10000000u&&actual<=0x10000022u?actual-0x10000000u:actual<32u?35u+actual:67u;
         std::cout<<"V644_REPORT_CASE trial="<<trial<<" class="<<kind<<" call_offset="<<v642::sites[site]-Entry<<" fmt="<<fmt<<" value_arg="<<arg<<" cr="<<cr<<"\n";
     }
