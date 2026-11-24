@@ -24,13 +24,13 @@ public:
         last_=c.inst_count;return true;
     }
     template<class Cpu> bool first_copy(Cpu& c){
-        if(!valid(c,0x80004338u)||!edge(c,e_.exception_edges,e_.exception_count))return fail(12);
+        if(error_||pack_.failure()||!valid(c,0x80004338u)||!edge(c,e_.exception_edges,e_.exception_count))return fail(12);
         if(!pack_.first_copy(c))return false;
         index_=0;step_=1;last_=c.inst_count;return true;
     }
     // Called only for the next three already-authenticated V457 events.
     template<class Cpu> bool first_vector_event(uint32_t addr,Cpu& c,unsigned stage){
-        if(pack_.phase()!=2||stage!=step_+1||stage<2||stage>4)return fail(12);
+        if(error_||pack_.failure()||pack_.phase()!=2||stage!=step_+1||stage<2||stage>4)return fail(12);
         return vector_event(addr,c);
     }
     template<class Cpu> bool observe(uint32_t addr,Cpu& c){
