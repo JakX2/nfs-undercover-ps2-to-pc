@@ -1,0 +1,3 @@
+# V613: native original interrupt-enable leaf and exact resume test
+
+Authenticate the original 20-byte OS interrupt-enable leaf and its caller at 0x80520944. Require one original mfmsr and mtmsr and terminal BLR, and audit the emitted resume dispatch case. Execute 32 trials with both initial EE states, 16 expected pending-callback checks and eight intentional callback yields; re-enter the generated body at the exact post-mtmsr label, proving no repeated instruction or skipped return. Independent synthetic PPC control uses different temporaries. No real IRQ exception is delivered in the fixture. Actual original return and resume results pending.
