@@ -1,0 +1,3 @@
+# V594: exact native boot-report table preflight
+
+The prior V66 isolated fixture used a general jump-table decoder repair. The complete-image V594 scope instead authenticates both original DOL and ELF, exact report extent, report strings' bounds, all ten known call edges, the 26-entry table and sole BCTR preceded by a CTR definition. It allows only the seven original internal case targets and prevents accidental separate roots for that function. The independent native-source audit requires all seven exact dispatcher cases to target the single original report body, and native CTR transfer without fallback. This is translation only, no report execution claim. Other startup modes do not enable this scope. Tests pending.
