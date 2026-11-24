@@ -61,13 +61,16 @@ def expectations(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     z=[(zero+4*i,w) for i,w in enumerate(words_at(dol,zero,11)) if w>>26==31 and (w>>1)&1023==1014]
     if len(z)!=1:raise ValueError('zero opcode geometry')
     labels={r[-1][1]:word(r[-1][1]) for r in rows};labels[STOP]=word(STOP)
-    fmt=lambda r:'ArenaClearEdge{'+','.join(f'0x{x:08x}u' for x in r)+'}'
-    arr=lambda r:'{'+','.join(map(fmt,r))+'}'
-    h=('#pragma once\n#include "wii_arena_clear_witness_v607.h"\nnamespace undercover::wii::v609 {\n'
-        'inline const ArenaClearExpectations expected_arena{{'+','.join(map(arr,rows))+'},'
-        '{'+','.join(f'0x{labels[r[-1][1]]:08x}u' for r in rows)+'},'
-        f'0x{word(BEGIN):08x}u,0x{word(STOP):08x}u'+'};\n}\n')
+    h=render_header(rows,[labels[r[-1][1]] for r in rows],word(BEGIN),word(STOP))
     return h,sorted({r[0] for lane in rows for r in lane}),labels,z[0]
+def render_header(rows,resumes,begin,stop):
+    if len(rows)!=2 or any(len(r)!=7 for r in rows) or len(resumes)!=2:raise ValueError('arena header geometry')
+    fmt=lambda r:'ArenaClearEdge{'+','.join(f'0x{x:08x}u' for x in r)+'}'
+    arr=lambda r:'std::array<ArenaClearEdge,7>{'+','.join(map(fmt,r))+'}'
+    return ('#pragma once\n#include "wii_arena_clear_witness_v607.h"\nnamespace undercover::wii::v609 {\n'
+        'inline const ArenaClearExpectations expected_arena{std::array<std::array<ArenaClearEdge,7>,2>{'+','.join(map(arr,rows))+'},'
+        '{'+','.join(f'0x{x:08x}u' for x in resumes)+'},'
+        f'0x{begin:08x}u,0x{stop:08x}u'+'};\n}\n')
 def patch_probe(s):
     return replace_exact(replace_exact(replace_exact(s,INCLUDE,INCLUDE+'\n#include "v609_private_arena_expectations.h"\n#include "wii_arena_binding_v609.h"'),DECL,NEXT),END,CONT)
 def patch_ios(s):

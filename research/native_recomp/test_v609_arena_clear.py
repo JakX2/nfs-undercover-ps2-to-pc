@@ -1,6 +1,8 @@
-import unittest
+import unittest,subprocess,shutil
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
-from prepare_v609_arena_clear import patch_probe,patch_ios,patch_label,native_zero,INCLUDE,DECL,END,HOOK_NEW,IOS_INCLUDE,LANES
+from prepare_v609_arena_clear import patch_probe,patch_ios,patch_label,native_zero,INCLUDE,DECL,END,HOOK_NEW,IOS_INCLUDE,LANES,render_header
 from audit_v609_arena_clear import EVENTS,inspect
 class Tests(unittest.TestCase):
     def test_composition(self):
@@ -12,6 +14,17 @@ class Tests(unittest.TestCase):
         old=IOS_INCLUDE+'\n'+HOOK_NEW;out=patch_ios(old)
         self.assertLess(out.index('v609::try_sc'),out.index('v574::try_sc'))
         self.assertEqual(len(set(s for lane in LANES for s,p in lane)),14)
+    def test_rendered_header(self):
+        host=Path(__file__).resolve().parent
+        rows=[[(p,s+4,1,2) for s,p in lane] for lane in LANES]
+        with TemporaryDirectory() as d:
+            root=Path(d);(root/'undercover').mkdir()
+            shutil.copyfile(host/'arena_cache_range_trace_v596.h',root/'undercover/arena_cache_range_trace_v596.h')
+            (root/'expected.h').write_text(render_header(rows,[3,4],5,6))
+            (root/'check.cpp').write_text('#include "expected.h"\nint main(){return undercover::wii::v609::expected_arena.edges[1][6].lr==0x80520208u?0:1;}\n')
+            subprocess.run(['g++','-std=c++20','-Wall','-Wextra','-Werror','-I'+str(root),'-I'+str(host),str(root/'check.cpp'),'-o',str(root/'check')],check=True)
+            subprocess.run([str(root/'check')],check=True)
+        with self.assertRaises(ValueError):render_header(rows[:1],[3,4],5,6)
     def test_native_label(self):
         old='loc_80522360: ;\n    // 0x80522360: 7C001FEC\n    ++ctx.inst_count;\n    ctx.guest_dcbz(ctx.gpr[3]);\n'
         self.assertTrue(native_zero(old,0x80522360,0x7c001fec))
