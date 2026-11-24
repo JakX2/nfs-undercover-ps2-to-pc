@@ -19,6 +19,7 @@ struct Mmu{
 struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};
     uint32_t pc=W::Open,lr=0x8052b090,msr=0x8032,dispatch_saved_ctx=0,srr0=0,srr1=0,ctr=0,hid0=0x100;
+    OpenCacheRangeTrace open_cache_range;
     uint32_t guest_flush_count=18000,guest_last_flush=0,guest_sync_count=0,guest_isync_count=0;
     uint64_t inst_count=100;bool is_running=true;
 };
@@ -33,7 +34,7 @@ int main(){
         auto& m=c.mmu;std::fill(m.mem1.begin(),m.mem1.end(),0);std::fill(m.mem2.begin(),m.mem2.end(),0);
         c.pc=W::Open;c.lr=e.entry.lr;c.msr=0x8032;c.dispatch_saved_ctx=0;c.srr0=c.srr1=0;c.inst_count=100;
         c.gpr.fill(0);c.gpr[1]=I::Stack-32;c.gpr[2]=0x80715ee0;c.gpr[13]=I::Sda;c.gpr[3]=path;
-        c.guest_flush_count=18000;c.guest_sync_count=c.guest_isync_count=0;
+        c.open_cache_range=OpenCacheRangeTrace{};c.guest_flush_count=18000;c.guest_sync_count=c.guest_isync_count=0;
         std::atomic<uint32_t> cause{0},mask{H::PI_HOLLYWOOD|0x40u};
         NativeIosTransport host(m.mem1,m.mem2,cause,mask);B binding(host);
         need(B::write32(IosBus::IPC+H::PPC_MASK,H::IPC_PPC)&&B::write32(IosBus::IPC+M::PPCCTRL,0x30));
@@ -63,6 +64,7 @@ int main(){
         enter(e.flush);c.msr|=0x8000u;c.gpr[3]=path;c.gpr[4]=fault==9?1u:uint32_t(str.size()+1);
         if(fault==10)m.write32(I::Table+4,1);
         need(w.observe(c.pc,c,route)==(fault!=9&&fault!=10));if(fault==9||fault==10){++bad;continue;}
+        c.open_cache_range.on_flush((path&~31u)+(fault==12?32u:0u));
         c.pc=R::Call;c.inst_count+=10;c.guest_flush_count+=fault==11?2u:1u;c.guest_last_flush=(path&~31u)+(fault==12?32u:0u);
         need(w.observe(c.pc,c,route)==(fault!=11&&fault!=12));if(fault==11||fault==12){++bad;continue;}
         ++c.inst_count;

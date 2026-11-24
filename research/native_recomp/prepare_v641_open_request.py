@@ -8,6 +8,7 @@ from make_v639_open_geometry import geometry,render,exact_words,STOP
 from prepare_v629_stm_open import install as install_stm,INCLUDE as PRIOR_INCLUDE
 from prepare_v625_ipc_client import audit_native,patch_return,DEF,LABEL
 from apply_open_roots_v645 import irq_spans
+from apply_open_cache_trace_v649 import apply as install_open_cache
 INCLUDE='#include "v629_private_stm_expectations.h"'
 DECL='    static StmPrefixWitness stm_prefix(v629::expected_stm);'
 RESULT='            std::cout<<"V629_STM_RESULT entry=1 open=1 pathname="<<stm_prefix.path_kind()<<" mode=0 native_transport=1 serviced=0 actual_ios=0 fallback=0 boot_verified=0"<<std::endl;\n            std::_Exit(0);'
@@ -82,6 +83,7 @@ def install(dol,elf,generated,host,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
         files[dest/name]=(host/name).read_text(encoding='utf-8')
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('open destination')
     install_stm(dol,elf,generated,host,dd,ed)
+    install_open_cache(generated,host)
     probe=dest/'wii_full_start_probe_v419.h';ios=rt/'src/hle/ios.cpp'
     files[probe]=patch_probe(probe.read_text(encoding='utf-8'))
     files[ios]=patch_ios(ios.read_text(encoding='utf-8'))

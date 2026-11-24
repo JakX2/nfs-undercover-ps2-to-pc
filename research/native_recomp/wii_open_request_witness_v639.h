@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_ipc_client_witness_v623.h"
 #include "wii_open_sc_route_v637.h"
+#include "open_cache_range_trace_v649.h"
 #include <string_view>
 namespace undercover::wii {
 struct OpenRequestExpectations {
@@ -60,18 +61,18 @@ public:
             const uint32_t a=canonical(c.gpr[3]),n=c.gpr[4];
             if(!n||n>0x1000u||!mapped(c,a,n)||a>path_||uint64_t(path_)+path_length()>uint64_t(a)+n)return fail(4);
             first_line_=a&~31u;lines_=((a&31u)+n+31u)/32u;flush_count_=c.guest_flush_count;
-            if(uint64_t(flush_count_)+lines_>0xffffffffu)return fail(4);
+            if(uint64_t(flush_count_)+lines_>0xffffffffu||!c.open_cache_range.begin(c,c.gpr[3],n))return fail(4);
             break;}
         case 6:
             if(addr!=R::Call||c.lr!=R::Caller||!equal(c,addr,e_.sc_word)||
-               c.guest_flush_count!=flush_count_+lines_||canonical(c.guest_last_flush)!=first_line_+(lines_-1u)*32u)return fail(4);
+               c.guest_flush_count!=flush_count_+lines_||canonical(c.guest_last_flush)!=first_line_+(lines_-1u)*32u||!c.open_cache_range.ready_sc(c))return fail(4);
             try{sc.arm(addr,c);}catch(const std::exception&){return fail(5);}break;
         case 7:
             if(addr!=R::Caller||!equal(c,addr,e_.flush_return_word)||!sc.returned(c)||
-               c.guest_flush_count!=flush_count_+lines_)return fail(5);
+               c.guest_flush_count!=flush_count_+lines_||!c.open_cache_range.finish(c))return fail(5);
             break;
         case 8:{
-            if(addr!=Submit||!edge(c,e_.submit)||c.lr!=0x80519a3cu||sc.phase()!=R::Phase::Returned)return fail(3);
+            if(addr!=Submit||!edge(c,e_.submit)||c.lr!=0x80519a3cu||sc.phase()!=R::Phase::Returned||c.open_cache_range.phase()!=OpenCacheRangeTrace::Phase::Done)return fail(3);
             const uint32_t req=canonical(c.gpr[3]);
             if(!req||(req&3u)||req<lo_||uint64_t(req)+32>uint64_t(lo_)+size_||!mapped(c,req,32)||
                c.mmu.read32(req)!=1u||canonical(c.mmu.read32(req+12u))!=path_||c.mmu.read32(req+16u)!=0)return fail(6);
