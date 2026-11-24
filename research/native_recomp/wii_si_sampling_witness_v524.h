@@ -86,7 +86,8 @@ public:
                 // original boundary or publish guest register/memory values.
                 if(c.gpr[1]!=sp_)detail_|=1u;
                 if(c.gpr[3]!=0)detail_|=2u;
-                if(!equal(c,r13_-3148u,1))detail_|=4u;
+                // Authenticated V544: the flag is set after all four queries.
+                if(!equal(c,r13_-3148u,0))detail_|=4u;
                 if(!equal(c,0x80619a64u,si_sampling_trace.poll()))detail_|=8u;
                 if(!equal(c,0x80619a78u,8))detail_|=16u;
                 if(!equal(c,0x806fe340u,0xffffffffu))detail_|=32u;

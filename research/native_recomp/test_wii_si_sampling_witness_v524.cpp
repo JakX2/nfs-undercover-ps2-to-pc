@@ -35,7 +35,7 @@ int main(){
         bad=fault>=5&&fault<=8;need(w.observe(c.pc,c)==!bad);if(bad)continue;
         enter(e.unmask);c.gpr[3]=0x800;m[0x80003090]=fault==9?0:0x80531b34u;
         need(w.observe(c.pc,c)==(fault!=9));if(fault==9)continue;
-        enter(e.first_type);c.gpr[3]=0;m[r13-3148]=fault==10?0:1;m[0xcc003004]=fault==11?0xf0:0xf8;
+        enter(e.first_type);c.gpr[3]=0;m[r13-3148]=fault==10?1:0;m[0xcc003004]=fault==11?0xf0:0xf8;
         if(fault==12)m[0x80003040]=1;
         if(fault==13)c.gpr[3]=1;
         if(fault==14)m[0x80619a64]^=1;

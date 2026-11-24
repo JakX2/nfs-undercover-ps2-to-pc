@@ -4,6 +4,7 @@ from unittest.mock import patch
 from test_v520_si_entry import fixture as entry_fixture,HOST,cache_probe,data_probe,os_probe,time_probe,hw_probe,arena_probe,ipc_probe,vector_probe,pack_probe,alarm_probe,irq_probe,mmio_probe,return_probe,context_probe,reuse_probe,poll_probe,handler_probe,id_probe,absent_probe,patch_probe as entry_probe
 from test_v468_exception_pack_geometry import digest,bl,put
 from prepare_v524_si_sampling import expectations,patch_probe,patch_si,patch_vi,CALLS,RATE_END,XY_END,TV_END
+from audit_v544_si_init_flag import FIRST,LAST,TYPE,SI_END,FLAG
 from audit_v510_exi_absent import STAGES as A,RESULT as AR
 from audit_v520_si_entry import STAGES as E,RESULT as ER
 from audit_v524_si_sampling import STAGES,RESULT,inspect
@@ -11,7 +12,9 @@ from test_v434_windows_startup_scope import OS_EXI_ID,log
 def fixture():
     data=bytearray(entry_fixture())
     for site,target in CALLS:put(data,site,bl(site,target))
-    for end in (RATE_END,XY_END,TV_END):put(data,end-4,0x4e800020)
+    for end in (RATE_END,XY_END,TV_END,SI_END):put(data,end-4,0x4e800020)
+    for pc in range(FIRST,LAST+1,8):put(data,pc,bl(pc,TYPE))
+    put(data,LAST+4,0x90000000|(3<<21)|(13<<16)|(FLAG&0xffff))
     for slot in range(11):
         if struct.unpack_from('>I',data,0xac+4*slot)[0]==0:break
     else:raise ValueError('data slot')
@@ -23,9 +26,12 @@ class Tests(unittest.TestCase):
     def test_geometry(self,_):
         raw=fixture();header,targets=expectations(raw,digest(raw))
         self.assertEqual(targets,sorted({pc for _,pc in CALLS}));self.assertEqual(header.count('VectorEdge{'),6)
-        for pc in {s for s,_ in CALLS}|{RATE_END-4,XY_END-4,TV_END-4}:
+        for pc in {s for s,_ in CALLS}|{RATE_END-4,XY_END-4,TV_END-4,SI_END-4,LAST+4}|set(range(FIRST,LAST+1,8)):
             bad=bytearray(raw);put(bad,pc,0)
             with self.assertRaises(ValueError):expectations(bad,digest(bad))
+        bad=bytearray(raw);put(bad,LAST+4,0x60000000)
+        put(bad,FIRST-4,0x90000000|(3<<21)|(13<<16)|(FLAG&0xffff))
+        with self.assertRaises(ValueError):expectations(bad,digest(bad))
     def test_composition(self):
         old=(HOST/'wii_full_hardware_probe_v425.h').read_text()
         for f in (cache_probe,data_probe,os_probe,time_probe,hw_probe,arena_probe,ipc_probe,vector_probe,pack_probe,alarm_probe,irq_probe,mmio_probe,return_probe,context_probe,reuse_probe,poll_probe,handler_probe,id_probe,absent_probe,entry_probe):old=f(old)

@@ -18,7 +18,7 @@ int main(){
     constexpr SiDiscoveryExpectations e{{VectorEdge{0x80532aa8,0x80532110,1,2},VectorEdge{0x80532aa8,0x80532118,3,2},
         VectorEdge{0x80532aa8,0x80532120,4,2},VectorEdge{0x80532aa8,0x80532128,5,2}},
         {0x8053268c,0x80532c38,6,7},{0x80532140,0x8053279c,8,9},{0x80528754,0x805208d0,10,11}};
-    for(unsigned fault=0;fault<=17;++fault){
+    for(unsigned fault=0;fault<=20;++fault){
         exi_id_completion={};si_sampling_trace={};si_discovery_trace={};
         need(exi_id_completion.begin(true));
         exi_id_completion.record({1,0,2,2,1,0},0);exi_id_completion.record({2,0,2,4,0,0},id);
@@ -29,7 +29,7 @@ int main(){
         need(si_sampling_trace.finish());
         std::atomic<uint32_t> pi{0};SiController si(pi);Cpu c;c.mmu.si=&si;auto& m=c.mmu.mem;
         c.gpr[1]=sp;c.gpr[2]=0x80715ee0;c.gpr[13]=r13;c.gpr[3]=0;
-        m[r13-3824]=id;m[r13-3148]=1;m[0x800000f8]=243000000;m[Data]=0xffffffffu;
+        m[r13-3824]=id;m[r13-3148]=fault==18?1:0;m[0x800000f8]=243000000;m[Data]=0xffffffffu;
         m[Data+4]=si_sampling_trace.poll();m[0x80003090]=0x80531b34;
         for(unsigned i=0;i<4;++i){m[TypeData+4*i]=8;m[Slot+32*i]=0xffffffffu;}
         for(auto x:{e.type[0],e.type[1],e.type[2],e.type[3],e.transfer,e.start,e.sram}){
@@ -38,15 +38,16 @@ int main(){
         auto enter=[&](VectorEdge x){c.pc=x.pc;c.lr=x.lr;c.inst_count+=100;};
         enter(e.type[0]);SiDiscoveryWitness w(e);
         if(fault==1)c.msr|=0x8000u;
-        need(w.begin(c,fault!=2)==(fault!=1&&fault!=2));
-        if(fault==1||fault==2)continue;
+        need(w.begin(c,fault!=2)==(fault!=1&&fault!=2&&fault!=18));
+        if(fault==1||fault==2||fault==18)continue;
         bool rejected=false;
         for(unsigned ch=0;ch<4;++ch){
             if(ch){
                 enter(e.type[ch]);c.gpr[1]=sp;c.gpr[3]=ch;
                 if(fault==3&&ch==1)c.gpr[3]=0;
                 if(fault==4&&ch==1)c.lr^=4;
-                const bool bad=ch==1&&(fault==3||fault==4||fault==5||fault==6);
+                if(fault==19&&ch==1)m[r13-3148]=1;
+                const bool bad=ch==1&&(fault==3||fault==4||fault==5||fault==6||fault==19);
                 need(w.observe(c.pc,c)==!bad);
                 if(bad){rejected=true;break;}
             }
@@ -82,7 +83,7 @@ int main(){
             }
         }
         if(rejected)continue;
-        enter(e.sram);c.gpr[1]=sp+16;m[0xcc003000]=pi.load();m[0xcc003004]=0xf8;
+        enter(e.sram);c.gpr[1]=sp+16;m[r13-3148]=fault==20?0:1;m[0xcc003000]=pi.load();m[0xcc003004]=0xf8;
         if(fault==13)m[Slot+32*2+4]^=4;
         if(fault==14)m[Data+16]=0;
         if(fault==15)m[0xcc003000]=0;
@@ -90,5 +91,5 @@ int main(){
         if(fault==17)m[TypeTime+4]^=1;
         need(w.observe(c.pc,c)==(fault==0));if(!fault)need(w.stage()==13);
     }
-    std::cout<<"PASS: SI type transfer, native NOREP, four original query ABIs, three guest queue packets and 17 negative controls\n";
+    std::cout<<"PASS: SI type transfer, native NOREP, four original query ABIs, three guest queue packets and 20 negative controls\n";
 }

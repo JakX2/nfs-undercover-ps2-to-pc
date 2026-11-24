@@ -46,7 +46,7 @@ public:
            !equal(c,0x800000f8u,243000000u)||!equal(c,0x80619a60u,0xffffffffu)||
            !equal(c,0x80619a78u,8u)||!equal(c,0x806fe340u,0xffffffffu))return fail(1);
         sp_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;last_=c.inst_count;
-        if(!equal(c,r13_-3148u,1)||!equal(c,r13_-3136u,0)||
+        if(!equal(c,r13_-3148u,0)||!equal(c,r13_-3136u,0)||
            !equal(c,0x80003090u,0x80531b34u)||!si_discovery_trace.begin())return fail(1);
         stage_=1;return true;
     }
@@ -58,6 +58,7 @@ public:
         const auto next=stage_==12?e_.sram:phase==0?e_.type[ch]:phase==1?e_.transfer:e_.start;
         if(matches(c,next)){
             if(c.msr!=msr_)return fail(3);
+            if(stage_<12&&!equal(c,r13_-3148u,0))return fail(8);
             if(stage_==12){
                 if(c.gpr[1]!=sp_+16u||!final_guest(c)||!si_discovery_trace.finish()||
                    si_discovery_trace.tick()>c.inst_count||

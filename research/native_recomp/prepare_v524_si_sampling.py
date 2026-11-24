@@ -8,10 +8,12 @@ from prepare_v466_exception_pack import edge
 from prepare_v520_si_entry import expectations as entry_geometry,install as install_entry
 from make_start_to_si_sampling_v58 import data_at,RATE_END,XY_END,TV_END
 from apply_vi_clock_v522 import apply as install_vi
+from audit_v544_si_init_flag import classify as init_flag_geometry
 CALLS=((0x805320d0,0x80532d6c),(0x80532da8,0x80536bf8),(0x80532e1c,0x8053238c),
        (0x805320fc,0x805265f8),(0x80532104,0x805269bc),(0x8053210c,0x80532aa8))
 def expectations(data,digest=OWNER_SHA):
     entry_geometry(data,digest)
+    if init_flag_geometry(data,digest)!=('after',1):raise ValueError('SI initialization flag ordering')
     rows=[edge(data,s) for s,_ in CALLS]
     if [x[0] for x in rows]!=[p for _,p in CALLS] or any(words_at(data,hi-4,1)[0]!=0x4e800020 for hi in (RATE_END,XY_END,TV_END)):
         raise ValueError('SI sample geometry')
