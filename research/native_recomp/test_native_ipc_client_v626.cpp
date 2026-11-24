@@ -1,0 +1,81 @@
+#include "runtime/cpu_context.h"
+#include "functions.h"
+#include "v624_private_ipc_expectations.h"
+#include "v626_private_words.h"
+#include <iostream>
+#include <memory>
+#include <source_location>
+#include <stdexcept>
+using namespace undercover::wii;
+using W=IpcClientWitness;using B=NativeIosBinding;using H=HollywoodIrq;using M=IpcMailbox;
+namespace nw=nwii::runtime;
+static std::atomic<uint32_t> cause{0},mask{0xf0};
+static W* witness=nullptr;
+static unsigned callbacks=0,control_writes=0;
+static void need(bool b,const std::source_location l=std::source_location::current()){
+    if(!b)throw std::runtime_error("V626 line "+std::to_string(l.line()));
+}
+namespace nwii::runtime {
+bool g_trace_calls=true;uint32_t g_watch_addr=0;
+void trace_call(uint32_t pc,CPUContext& c){need(witness);if(!witness->observe(pc,c))throw std::runtime_error("V626 witness stage "+std::to_string(witness->stage())+" reason "+std::to_string(witness->failure()));}
+bool process_pending_callbacks(CPUContext& c){
+    const auto s=B::cold_snapshot();need(s&&!(s->pi_cause&s->pi_mask)&&!s->queued&&!s->replies);
+    need(c.pc==v626::restore_resume&&(c.msr&0x8000u));++callbacks;return false;
+}
+bool handle_syscall(CPUContext&){throw std::runtime_error("V626 unexpected syscall");}
+void interpret_step(CPUContext&){throw std::runtime_error("V626 interpreter forbidden");}
+void micro_interpret(CPUContext&,uint32_t,uint32_t){throw std::runtime_error("V626 interpreter forbidden");}
+void note_null_call(uint32_t,uint32_t){throw std::runtime_error("V626 null branch");}
+void watch_hit(uint32_t,uint32_t,int){}
+void GX_WGPIPE_Write8(uint8_t){} void GX_WGPIPE_Write16(uint16_t){} void GX_WGPIPE_Write32(uint32_t){}
+void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
+uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V626 unexpected MMIO16");}
+void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V626 unexpected MMIO16");}
+uint32_t HW_Reg_Read32(uint32_t a){
+    const auto p=a&0x3fffffffu;
+    if(p==IosBus::PI_MASK)return mask.load();
+    if(p==IosBus::IPC+H::PPC_MASK||p==IosBus::MIRROR+H::PPC_MASK){
+        auto v=B::read32(a);need(v.has_value());return *v;
+    }
+    throw std::runtime_error("V626 unexpected MMIO read");
+}
+void HW_Reg_Write32(uint32_t a,uint32_t v){
+    const auto p=a&0x3fffffffu;
+    if(p==IosBus::PI_MASK){mask.store(v);B::refresh_pi(a);return;}
+    if(p==IosBus::IPC+H::PPC_MASK||p==IosBus::MIRROR+H::PPC_MASK){need(B::write32(a,v));return;}
+    if(p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL){need(B::write32(a,v));++control_writes;return;}
+    throw std::runtime_error("V626 unexpected MMIO write");
+}
+}
+int main(){
+    for(unsigned trial=0;trial<8;++trial){
+        auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;
+        cause=0;mask=0xf0;
+        NativeIosTransport host(c.mmu.mem1,c.mmu.mem2,cause,mask);B binding(host);
+        need(B::write32(IosBus::IPC+H::PPC_MASK,H::IPC_PPC));
+        for(auto w:v626::words)c.mmu.write32(w.pc,w.word);
+        const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
+        c.mmu.write32(W::Lo,lo);c.mmu.write32(W::Hi,hi);
+        c.mmu.write32(W::Sda-16336u,lo);c.mmu.write32(W::Sda-3352u,hi);
+        c.mmu.write32(W::MaskA,0xf7fff7f0u);c.mmu.write32(W::MaskB,0);
+        for(unsigned i=0;i<32;++i)c.mmu.write32(W::Table+4*i,i==27?0:0x80005000u+4*i);
+        for(unsigned i=0;i<W::HeapLimit+2u;++i)c.mmu.write8(lo-1u+i,uint8_t(0x6b+trial));
+        for(unsigned i=0;i<32;++i)c.gpr[i]=0x12340000u+trial*32u+i;
+        c.gpr[1]=W::Stack;c.gpr[2]=0x80715ee0u;c.gpr[3]=0;c.gpr[13]=W::Sda;
+        c.pc=c.lr=W::Call;c.msr=0x8032u;c.inst_count=0;c.is_running=true;c.dispatch_saved_ctx=0;
+        W w(v624::expected_client);witness=&w;
+        need(w.begin(c));
+        // Isolated call ABI setup, NOT an execution of the OSInit caller.
+        // The root and its complete linked dependency graph execute natively.
+        c.pc=W::Root;c.lr=W::Return;++c.inst_count;
+        const auto before_callbacks=callbacks,before_writes=control_writes;
+        func_805194C4(c);
+        need(c.pc==W::Return&&c.lr==W::Return&&c.is_running);
+        if(!w.observe(c.pc,c))throw std::runtime_error("V626 witness stage "+std::to_string(w.stage())+" reason "+std::to_string(w.failure()));
+        need(w.stage()==19&&w.heap_size()>0&&host.serviced_steps()==0);
+        need(callbacks==before_callbacks+2&&control_writes==before_writes+1);
+        witness=nullptr;
+    }
+    need(callbacks==16&&control_writes==8);
+    std::cout<<"V626_IPC_NATIVE owner=1 trials=8 returned=8 calls=136 callbacks=16 mailbox=8 fallback=0 actual_ios=0 complete_image=0 boot_verified=0\n";
+}
