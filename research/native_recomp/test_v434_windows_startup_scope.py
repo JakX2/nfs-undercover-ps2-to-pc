@@ -1,5 +1,5 @@
 import unittest
-from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,OS_SRAM_PATCHES,MAX_LOG
+from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,OS_SRAM_PATCHES,OS_SC_PATCHES,MAX_LOG,requires_sram_profile,requires_sc_overlay
 from audit_v419_full_start import STAGES as START,RESULT as START_RESULT
 from audit_v425_full_hardware import STAGES as HW,RESULT as HW_RESULT
 from audit_v428_full_cache import STAGES as CACHE,RESULT as CACHE_RESULT
@@ -25,6 +25,10 @@ from audit_v520_si_entry import STAGES as SI_ENTRY,RESULT as SI_ENTRY_RESULT
 from audit_v524_si_sampling import STAGES as SI_SAMPLE,RESULT as SI_SAMPLE_RESULT
 from audit_v529_si_discovery import STAGES as SI_RETURN,RESULT as SI_RETURN_RESULT
 from audit_v534_sram_read import STAGES as SRAM,RESULT as SRAM_RESULT
+from audit_v549_thread_init import STAGES as THREAD,RESULT as THREAD_RESULT
+from audit_v556_audio_reset import STAGES as AUDIO,RESULT as AUDIO_RESULT
+from audit_v559_dsp_stage import STAGES as DSP_STAGE,RESULT as DSP_STAGE_RESULT
+from audit_v574_dsp_sc import STAGES as DSP_SC,RESULT as DSP_SC_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -50,10 +54,14 @@ OS_SI_ENTRY=OS_EXI_ABSENT+SI_ENTRY+[SI_ENTRY_RESULT]
 OS_SI_SAMPLE=OS_SI_ENTRY+SI_SAMPLE+[SI_SAMPLE_RESULT]
 OS_SI_RETURN=OS_SI_SAMPLE+SI_RETURN+[SI_RETURN_RESULT]
 OS_SRAM=OS_SI_RETURN+SRAM+[SRAM_RESULT]
+OS_THREAD=OS_SRAM+THREAD+[THREAD_RESULT]
+OS_AUDIO=OS_THREAD+AUDIO+[AUDIO_RESULT]
+OS_DSP_STAGE=OS_AUDIO+DSP_STAGE+[DSP_STAGE_RESULT]
+OS_DSP_SC=OS_DSP_STAGE+DSP_SC+[DSP_SC_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC))}
 
 
 class Tests(unittest.TestCase):
@@ -85,8 +93,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-si-sample'),(OS_VECTOR_PATCHES,'prepare_v524_si_sampling.py','audit_v524_si_sampling'))
         self.assertEqual(contract('os-si-return'),(OS_VECTOR_PATCHES,'prepare_v529_si_discovery.py','audit_v529_si_discovery'))
         self.assertEqual(OS_SRAM_PATCHES,OS_VECTOR_PATCHES+('apply_data_cache_invalidate_v532',))
-        self.assertEqual(contract('os-sram'),(OS_SRAM_PATCHES,'prepare_v534_sram_read.py','audit_v534_sram_read'))
-        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram'):
+        self.assertEqual(contract('os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'),(OS_SRAM_PATCHES,'prepare_v534_sram_read.py','audit_v534_sram_read'))
+        self.assertEqual(contract('os-thread'),(OS_SRAM_PATCHES,'prepare_v549_thread_init.py','audit_v549_thread_init'))
+        self.assertEqual(contract('os-audio'),(OS_SRAM_PATCHES,'prepare_v556_audio_reset.py','audit_v556_audio_reset'))
+        self.assertEqual(contract('os-dsp-stage'),(OS_SRAM_PATCHES,'prepare_v559_dsp_stage.py','audit_v559_dsp_stage'))
+        self.assertEqual(contract('os-dsp-sc'),(OS_SC_PATCHES,'prepare_v574_dsp_sc.py','audit_v574_dsp_sc'))
+        self.assertEqual(OS_SC_PATCHES,OS_SRAM_PATCHES+('apply_native_lowmem_v63','apply_syscall_pc_v26','apply_syscall_transfer_v461'))
+        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
@@ -94,9 +107,11 @@ class Tests(unittest.TestCase):
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
-            self.assertEqual(requires_exi_profile(scope),scope in ('os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram'))
-            self.assertEqual(requires_si_profile(scope),scope in ('os-si-entry','os-si-sample','os-si-return','os-sram'))
-            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V490_EXI_CONTROLLER':'1'} if scope in ('os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V512_SI':'1'} if scope in ('os-si-entry','os-si-sample','os-si-return','os-sram') else {}),**({'UNDERCOVER_V522_VICLK':'0'} if scope in ('os-si-sample','os-si-return','os-sram') else {})})
+            self.assertEqual(requires_sram_profile(scope),scope in ('os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'))
+            self.assertEqual(requires_sc_overlay(scope),scope=='os-dsp-sc')
+            self.assertEqual(requires_exi_profile(scope),scope in ('os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'))
+            self.assertEqual(requires_si_profile(scope),scope in ('os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'))
+            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V490_EXI_CONTROLLER':'1'} if scope in ('os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V512_SI':'1'} if scope in ('os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V522_VICLK':'0'} if scope in ('os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V537_ACR':'1'} if scope in ('os-audio','os-dsp-stage','os-dsp-sc') else {}),**({'UNDERCOVER_V574_SC':'1'} if scope=='os-dsp-sc' else {})})
         with self.assertRaises(ValueError):launch_flags('os-mmio',True)
     def test_all_scope_pairs(self):
         for scope in SCOPES:
@@ -105,7 +120,7 @@ class Tests(unittest.TestCase):
                     self.assertEqual(audit(raw,0,scope)[1],scope==source)
     def test_optional_copy_and_hex_rejection(self):
         prefix=OS_TIME+[b'V439_HW_BEGIN copy=1']+OS_HW[:1]+[COPY]+OS_HW[1:]+[OS_HW_RESULT]
-        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):]),('os-cache-reuse',OS_REUSE[len(OS_HARDWARE):]),('os-exi-poll',OS_EXI_POLL[len(OS_HARDWARE):]),('os-exi-handlers',OS_EXI_HANDLERS[len(OS_HARDWARE):]),('os-exi-id',OS_EXI_ID[len(OS_HARDWARE):]),('os-exi-absent',OS_EXI_ABSENT[len(OS_HARDWARE):]),('os-si-entry',OS_SI_ENTRY[len(OS_HARDWARE):]),('os-si-sample',OS_SI_SAMPLE[len(OS_HARDWARE):]),('os-si-return',OS_SI_RETURN[len(OS_HARDWARE):]),('os-sram',OS_SRAM[len(OS_HARDWARE):])):
+        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):]),('os-cache-reuse',OS_REUSE[len(OS_HARDWARE):]),('os-exi-poll',OS_EXI_POLL[len(OS_HARDWARE):]),('os-exi-handlers',OS_EXI_HANDLERS[len(OS_HARDWARE):]),('os-exi-id',OS_EXI_ID[len(OS_HARDWARE):]),('os-exi-absent',OS_EXI_ABSENT[len(OS_HARDWARE):]),('os-si-entry',OS_SI_ENTRY[len(OS_HARDWARE):]),('os-si-sample',OS_SI_SAMPLE[len(OS_HARDWARE):]),('os-si-return',OS_SI_RETURN[len(OS_HARDWARE):]),('os-sram',OS_SRAM[len(OS_HARDWARE):]),('os-thread',OS_THREAD[len(OS_HARDWARE):]),('os-audio',OS_AUDIO[len(OS_HARDWARE):]),('os-dsp-stage',OS_DSP_STAGE[len(OS_HARDWARE):]),('os-dsp-sc',OS_DSP_SC[len(OS_HARDWARE):])):
             good=log(prefix+tail)
             self.assertTrue(audit(good,0,scope)[1])
             self.assertFalse(audit(good.replace(b'V439_HW_STAGE n=10 valid=1',b'V439_HW_STAGE n=a valid=1'),0,scope)[1])

@@ -8,7 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile
+from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile,requires_sram_profile,requires_sc_overlay
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 from write_sram_profile_v536 import sram_fixture
 
@@ -110,7 +110,7 @@ def validate_pe(path):
         if hits!=1:raise BuildError('pe_entry_section')
 
 # The source-only offline translator is built separately, without SDL/TOML.
-def translator_project(host,root):
+def translator_project(host,root,sc_overlay=False):
     def cm(p):return '"'+p.resolve().as_posix()+'"'
     files=[host/'offline_recompiler_driver_v6.cpp']+[root/p for p in (
         'nWiiRuntime/src/core/loader.cpp','nWiiAnalyzer/src/analyzer.cpp',
@@ -121,7 +121,7 @@ def translator_project(host,root):
             'set(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n'
             'add_executable(translator '+' '.join(map(cm,files))+')\n'
             'target_include_directories(translator PRIVATE '+' '.join(map(cm,inc))+')\n'
-            'target_compile_definitions(translator PRIVATE NOMINMAX)\n'
+            'target_compile_definitions(translator PRIVATE NOMINMAX'+(' UNDERCOVER_NATIVE_SC_OVERLAY' if sc_overlay else '')+')\n'
             'target_compile_options(translator PRIVATE /bigobj /utf-8 /Zc:__cplusplus)\n'
             'add_executable(dol_equivalence '+cm(host/'check_wii_dol_equivalence_v436.cpp')+' '+cm(root/'nWiiRuntime/src/core/loader.cpp')+')\n'
             'target_include_directories(dol_equivalence PRIVATE '+cm(host)+' '+cm(root/'nWiiRuntime/include')+')\n'
@@ -176,14 +176,15 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if requires_si_profile(scope):
         run_stage('si_tick_labels',[sys.executable,HOST/'apply_si_tick_v515.py',root,'emitter'],work,60)
     portable_patch(root)
-    src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root),encoding='utf-8')
+    sc_overlay=requires_sc_overlay(scope)
+    src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root,sc_overlay),encoding='utf-8')
     tb=work/'translator-build';gen=['-G','Visual Studio 17 2022','-A','x64']
     run_stage('translator_config',['cmake','-S',src,'-B',tb,*gen],work,180)
     run_stage('translator_build',['cmake','--build',tb,'--config','Release','--parallel','2'],work,600)
     if not legacy_loader:
         run_stage('dol_equivalence',[tb/'Release/dol_equivalence.exe',dol],work,60)
     generated=work/'generated';generated.mkdir()
-    run_stage('translation',[tb/'Release/translator.exe',dol,symbols,generated,'--strict-symbol-spans','--generate',root/'nWiiRuntime'],work,1200)
+    run_stage('translation',[tb/'Release/translator.exe',dol,symbols,generated,'--strict-symbol-spans',*(['--native-sc-overlay'] if sc_overlay else []),'--generate',root/'nWiiRuntime'],work,1200)
     shards=list(generated.glob('output_*.cpp'))
     if len(shards)<(1 if synthetic else 20) or not (generated/'main_output.cpp').is_file():raise BuildError('shards')
     swaps=0
@@ -208,7 +209,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env.update(launch_flags(scope,synthetic))
     if requires_exi_profile(scope):
         profile=launch/'exi-test-profile.txt'
-        sram=sram_fixture() if scope=='os-sram' else bytes(64)
+        sram=sram_fixture() if requires_sram_profile(scope) else bytes(64)
         create_exi_profile(profile,encode_exi_profile(0xbeef0010,1,0x12345678,8,sram))
         env['UNDERCOVER_V501_EXI_PROFILE']=str(profile)
         print('V505_EXI_TEST_PROFILE created=1 synthetic=1 bytes=64',flush=True)
@@ -224,7 +225,12 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
-        if scope in ('os-si-sample','os-si-return','os-sram'):
+        if scope=='os-dsp-sc':
+            from audit_v575_dsp_sc_frontier import frontier
+            census,diag=frontier(raw,rc if 0<=rc<=255 else 255)
+            print(census,flush=True)
+            if diag:print(diag,flush=True)
+        elif scope in ('os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage'):
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
