@@ -12,6 +12,11 @@ on:
       - 'research/native_recomp/wii_sysconf_image.h'
       - 'research/native_recomp/wii_ios_yield_scheduler.h'
       - 'research/native_recomp/wii_nand_ios_reply_yield.h'
+      - 'research/native_recomp/wii_ios_memory.h'
+      - 'research/native_recomp/wii_physical_ram.h'
+      - 'research/native_recomp/wii_native_ios_transport.h'
+      - 'research/native_recomp/test_wii_physical_ram.cpp'
+      - 'research/native_recomp/test_wii_native_ios_transport.cpp'
       - 'research/native_recomp/test_wii_ipc_mailbox.cpp'
       - 'research/native_recomp/test_wii_hollywood_irq.cpp'
       - 'research/native_recomp/test_wii_ios_bus.cpp'
@@ -47,7 +52,7 @@ jobs:
           else
             cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           fi
-      - name: Build original-free host runtime and eight native test programs
+      - name: Build original-free host runtime and ten native test programs
         shell: bash
         run: |
           set -euo pipefail

@@ -15,6 +15,9 @@ target_sources(undercover_wii_host_runtime INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_sysconf_image.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_ios_yield_scheduler.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_nand_ios_reply_yield.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_ios_memory.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_physical_ram.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_transport.h"
 )
 if(MSVC)
     target_compile_options(undercover_wii_host_runtime INTERFACE /W4 /WX)
@@ -34,6 +37,8 @@ if(BUILD_TESTING)
         wii_sysconf_image
         wii_ios_yield_scheduler
         wii_nand_ios_reply_v374
+        wii_physical_ram
+        wii_native_ios_transport
     )
         add_executable("undercover_${suite}" "test_${suite}.cpp")
         target_link_libraries("undercover_${suite}" PRIVATE
