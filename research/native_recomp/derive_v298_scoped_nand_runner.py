@@ -790,6 +790,169 @@ else
   echo 'V408_NAND_CUT50_STAGE attempt=failed'
 fi
 
+# V412: independently try the exact V260 stop only if the unchanged
+# V411 control reproduces site 12 at the authenticated 50-call boundary.
+# The original 24/48/50/96-call processes and their gates remain intact.
+if (
+  if ! grep -Fqx 'V411_HOST_STOP event=1 site=12 throws=1' "$work/v405-native.log" ||
+     ! grep -Eq '^V410_NAND_GUEST_RUN_EXIT calls=50 kind=[0-2] running=0 mapped=1 matched_stop=0 v390=0
+# across the separate V304 and V310 owner-native trial processes.
+python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
+    "$work/v304-native.log" "$work/v310-native.log"
+echo 'V321_ENTRY_COMPARE inspected=1'
+'''
+
+AFTER=r'''
+if python3 "$V110_SOURCE_ROOT/analyze_v298_scope_native.py"    "$work/v295-native.log" "$work/v298-harness.cpp" "$v295_rc"; then
+  echo 'V298_RETIRED_OBSERVER inspected=1'
+else
+  echo 'V298_RETIRED_OBSERVER inspected=0'
+  grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "$work/v396-owner-gate.log"
+  echo 'V396_LEGACY_V298 deferred=1'
+fi
+'''
+V296_AUDIT_GUARDED=r'''
+if python3 "$V110_SOURCE_ROOT/analyze_v296_native_frontier.py"    "$work/v295-native.log" "$work/v296-harness.cpp" "$v295_rc"; then
+  echo 'V296_SERVICE_PROBE inspected=1'
+else
+  echo 'V296_SERVICE_PROBE inspected=0'
+  grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "$work/v396-owner-gate.log"
+  echo 'V396_LEGACY_V296 deferred=1'
+fi
+'''
+
+def patch(source: str) -> str:
+    if source.count(LINK)!=1 or source.count(DONE)!=1:
+        raise ValueError("V298 owner-native compiler seam changed")
+    staged=(source.replace(LINK,PRE+"\n"+
+                           LINK.replace("v296-harness.o","v298-harness.o"),1)
+                  .replace(DONE,DONE+"\n"+AFTER,1))
+    if staged.count(V296_AUDIT)!=1:
+        raise ValueError("V396 inherited V296 legacy-audit seam changed")
+    staged=staged.replace(V296_AUDIT,V296_AUDIT_GUARDED,1)
+    aot_anchor="echo 'V294_RESTORED_AOT verified=1'"
+    if staged.count(aot_anchor)!=1:
+        raise ValueError("V301 authenticated helper AOT seam changed")
+    helper_probe=(
+        'python3 "$V110_SOURCE_ROOT/analyze_v301_nand_first_helper.py" '+
+        '"$owner" "$work/v293-original.elf" "$work/private-v293.dol" '+
+        '"$work/generated-v294/output.cpp"\n'+
+        "echo 'V301_HELPER_AUDIT inspected=1'\n"+
+        'python3 "$V110_SOURCE_ROOT/restore_v302_private_helper.py" '+
+        '"$owner" "$work/v293-original.elf" "$work/private-v293.dol" '+
+        '"$work/private-v302.dol"\n'+
+        "echo 'V302_HELPER_CANDIDATE inspected=1'")
+    staged=staged.replace(aot_anchor,aot_anchor+"\n"+helper_probe,1)
+    v302_anchor="echo 'V302_HELPER_CANDIDATE inspected=1'"
+    if staged.count(v302_anchor)!=1:
+        raise ValueError("V303 private candidate seam changed")
+    staged=staged.replace(v302_anchor,v302_anchor+"\n"+V303_STAGE,1)
+    failure="  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n  exit 1"
+    if staged.count(failure)!=1:
+        raise ValueError("V298 native failure-classifier seam changed")
+    # Print only a matched public C++ assertion label, never native logs.
+    diagnostic=(
+        '  python3 "$V110_SOURCE_ROOT/diagnose_v250_native_phase.py" '+
+        '"$work/v295-native.log" "$work/v298-harness.cpp"\n'+
+        '  python3 "$V110_SOURCE_ROOT/diagnose_v299_native_log.py" '+
+        '"$work/v295-native.log" "$v295_rc" || true\n'+
+        '  python3 "$V110_SOURCE_ROOT/analyze_v300_trace_hotspots.py" '+
+        '"$work/v295-native.log" "$work/v298-harness.cpp" || true\n')
+    # The old V295 classifier may reject later successful V396 runs.
+    # Defer it only if the separate V310 genuine-guest evidence gate passed.
+    fallback=(
+        "  echo 'V295_BOUNDED_CANDIDATE inspected=0'\n"
+        "  if ! grep -Fqx 'V396_OWNER_RESULT_GATE verified=1' "
+        '"$work/v396-owner-gate.log"; then\n'
+        "    exit 1\n"
+        "  fi\n"
+        "  echo 'V396_LEGACY_V295 deferred=1'"
+    )
+    # The legacy V296/V298 audits are inserted on V295's successful path.
+    # When V295 rejects the old stop, the authenticated V396 owner gate may
+    # allow the older branch to continue. Preserve both legacy diagnostics
+    # in *that* path too; otherwise CI sees no V296/V298 audit at all.
+    return staged.replace(failure,diagnostic+fallback+"\n"+
+                          V296_AUDIT_GUARDED+"\n"+AFTER,1)
+
+def main()->int:
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument("source",type=Path)
+    p.add_argument("output",type=Path)
+    a=p.parse_args()
+    with tempfile.TemporaryDirectory(prefix="v298-") as td:
+        prev=Path(td)/"v296.sh"
+        r=subprocess.run(
+            [sys.executable,str(HERE/"derive_v296_restored_nand_runner.py"),
+             str(a.source),str(prev)],capture_output=True,text=True)
+        if r.returncode:
+            raise ValueError("V298 inherited owner-native runner changed")
+        with a.output.open("x",encoding="utf-8") as dst:
+            dst.write(patch(prev.read_text(encoding="utf-8")))
+    return 0
+
+if __name__=="__main__":
+    sys.exit(main())
+ "$work/v405-native.log"; then
+    echo 'V412_LEGACY_STAGE control=0'
+    exit 1
+  fi
+  echo 'V412_LEGACY_STAGE control=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v412_nand_legacy_frontier.py" \
+      "$work/v405-harness.cpp" "$work/v412-harness.cpp"; then
+    echo 'V412_LEGACY_STAGE derive=0'
+    exit 1
+  fi
+  echo 'V412_LEGACY_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v412-harness.cpp" -o "$work/v412-harness.o" \
+      > "$work/v412-compile.log" 2>&1; then
+    echo 'V412_LEGACY_STAGE compile=0'
+    exit 1
+  fi
+  echo 'V412_LEGACY_STAGE compile=1'
+  if ! g++ "$work/v412-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v412-native" > "$work/v412-link.log" 2>&1 ||
+      ! test -x "$work/v412-native"; then
+    echo 'V412_LEGACY_STAGE link=0'
+    exit 1
+  fi
+  echo 'V412_LEGACY_STAGE link=1'
+  v412_rc=0
+  timeout --signal=TERM --kill-after=3s 12s \
+      "$work/v412-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v412-native.log" 2>&1 || v412_rc=$?
+  echo 'V412_LEGACY_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/analyze_v410_nand_run_exit.py" \
+      "$work/v412-native.log" "$v412_rc" |
+      sed 's/^V410_NAND_GUEST_RUN_EXIT_/V412_EXIT_/'; then
+    echo 'V412_LEGACY_STAGE inspected=0'
+    exit 1
+  fi
+  v412_markers=$(grep -Fxc 'V412_LEGACY_FRONTIER continued=1' "$work/v412-native.log" || true)
+  if ! [[ "$v412_markers" =~ ^([0-9]|1[0-6])$ ]]; then
+    echo 'V412_LEGACY_STAGE inspected=0'
+    exit 1
+  fi
+  if ! v412_gate=$(python3 "$V110_SOURCE_ROOT/audit_v405_nand_second_half.py" \
+       "$work/v412-native.log" "$v412_rc"); then
+    echo 'V412_LEGACY_STAGE inspected=0'
+    exit 1
+  fi
+  v412_verified=0
+  if [[ "$v412_gate" == 'V405_OWNER_RESULT_GATE verified=1 '* &&
+        "$v412_markers" == 16 ]]; then
+    v412_verified=1
+  fi
+  echo "V412_OWNER_RESULT_GATE verified=$v412_verified retired_trials=$v412_markers boot_verified=0"
+  echo 'V412_LEGACY_STAGE inspected=1'
+); then
+  echo 'V412_LEGACY_STAGE attempt=completed'
+else
+  echo 'V412_LEGACY_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
