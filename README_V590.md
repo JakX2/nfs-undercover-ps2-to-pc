@@ -1,0 +1,3 @@
+# V590: read-only native BAT mapping witness
+
+Before composing the full memory-protection startup scope, independently check both physical mapping entries and returns, authenticated instruction words, LR/SRR0/SRR1/MSR, unchanged context registers, exact 12+20 ordered native BAT writes, and every final BAT register including untouched baseline values. The test is independent synthetic CPU state with 20 negative controls, prior trace entries and repeated observation rejection. No new owner execution claimed. The V65 expected register sequence is existing public research; private original instruction words remain generated from the owner DOL during future composition. This does not enforce memory translation permissions.
