@@ -175,6 +175,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage('exi_tick_labels',[sys.executable,HOST/'apply_exi_tick_v497.py',root,'emitter'],work,60)
     if requires_si_profile(scope):
         run_stage('si_tick_labels',[sys.executable,HOST/'apply_si_tick_v515.py',root,'emitter'],work,60)
+    if scope=='os-dsp-return':
+        run_stage('aram_tick_labels',[sys.executable,HOST/'apply_aram_binding_v553.py',root,'emitter'],work,60)
     portable_patch(root)
     sc_overlay=requires_sc_overlay(scope)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root,sc_overlay),encoding='utf-8')
@@ -225,7 +227,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
-        if scope=='os-dsp-sc':
+        if scope in ('os-dsp-sc','os-dsp-return'):
             from audit_v575_dsp_sc_frontier import frontier
             census,diag=frontier(raw,rc if 0<=rc<=255 else 255)
             print(census,flush=True)

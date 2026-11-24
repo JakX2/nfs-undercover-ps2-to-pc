@@ -54,9 +54,9 @@ on:
       owner_scope:
         description: 'Bounded original startup through OS hardware, IPC or exception vectors'
         type: choice
-        default: os-sram
+        default: os-dsp-sc
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -96,6 +96,8 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v576_windows_dsp_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v574_dsp_sc.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v581_dsp_return.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v441_windows_ticks.py -v
           exit $LASTEXITCODE
@@ -171,7 +173,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-sram' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-dsp-sc' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh

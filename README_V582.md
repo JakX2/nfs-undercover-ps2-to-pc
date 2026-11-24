@@ -1,0 +1,3 @@
+# V582: Windows startup target advances to verified Linux SC frontier
+
+Windows SRAM owner runs 45433650490/45436796461 verified complete native SRAM return. Linux owner run 45437274001 verified the complete original DSP staging and native syscall return. The Windows default now targets `os-dsp-sc`, reusing the proven Linux observer chain, while all earlier modes remain selectable. An optional `os-dsp-return` mode integrates V581 with ARAM emitter ticks and explicit synthetic DSP profile; it is not the default until the new owner bootstrap trial passes. Expanded cross-scope/flag tests distinguish both overlay modes and the new backend flag. No Windows DSP execution claimed yet.
