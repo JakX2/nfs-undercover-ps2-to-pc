@@ -13,6 +13,7 @@ from write_exi_profile_v505 import encode as encode_exi_profile,create as create
 from write_sram_profile_v536 import sram_fixture
 
 HOST=Path(__file__).resolve().parent
+REPORT_SCOPES=('os-report','os-arena-clear')
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
 OWNER_SHA='16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4'
 ENTRY=0x80004000
@@ -166,7 +167,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     symbols=work/'symbols.csv'
     if synthetic:
         dol=work/'synthetic.dol';dol.write_bytes(synthetic_dol());symbols.write_text(f'Name,Location,Size\nfn_{ENTRY:08X},{ENTRY:08X},32\nfn_{NEXT:08X},{NEXT:08X},4\n',encoding='utf-8')
-    elif scope=='os-report':run_stage('symbols',[sys.executable,HOST/'make_v586_bat_roots.py',dol,elf,symbols],work,120)
+    elif scope in REPORT_SCOPES:run_stage('symbols',[sys.executable,HOST/'make_v586_bat_roots.py',dol,elf,symbols],work,120)
     else:run_stage('symbols',[sys.executable,HOST/'make_private_elf_symbol_map.py',elf,symbols],work,120)
     for patch in ('apply_psq_indexed_patch','apply_psq_estimate_and_gqr_v5','apply_verified_elf_spans_v6')+extra_patches:
         run_stage(patch,[sys.executable,HOST/(patch+'.py'),root],work,60)
@@ -176,9 +177,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage('exi_tick_labels',[sys.executable,HOST/'apply_exi_tick_v497.py',root,'emitter'],work,60)
     if requires_si_profile(scope):
         run_stage('si_tick_labels',[sys.executable,HOST/'apply_si_tick_v515.py',root,'emitter'],work,60)
-    if scope in ('os-dsp-return','os-report'):
+    if scope in ('os-dsp-return',*REPORT_SCOPES):
         run_stage('aram_tick_labels',[sys.executable,HOST/'apply_aram_binding_v553.py',root,'emitter'],work,60)
-    if scope=='os-report':
+    if scope in REPORT_SCOPES:
         run_stage('bat_roots',[sys.executable,HOST/'apply_bat_roots_v586.py',root],work,60)
         run_stage('report_table',[sys.executable,HOST/'apply_report_table_v594.py',root,dol,elf],work,60)
     portable_patch(root)
@@ -201,9 +202,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if synthetic and swaps!=2:raise BuildError('synthetic_swap')
     generated_patch(generated,synthetic)
     if not synthetic:
-        observer_inputs=[dol,elf,generated] if scope=='os-report' else [dol,generated]
-        run_stage('startup_observer',[sys.executable,HOST/observer,*observer_inputs],work,600 if scope=='os-report' else 180)
-        if scope=='os-report':
+        observer_inputs=[dol,elf,generated] if scope in REPORT_SCOPES else [dol,generated]
+        run_stage('startup_observer',[sys.executable,HOST/observer,*observer_inputs],work,900 if scope=='os-arena-clear' else 600 if scope=='os-report' else 180)
+        if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
             run_stage('bat_translation_audit',[sys.executable,HOST/'audit_v584_bat_translation.py',dol,generated],work,300)
     if not legacy_loader:
@@ -235,7 +236,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
-        if scope=='os-report':
+        if scope in REPORT_SCOPES:
             from report_diagnostic_v643 import diagnostic as report_diag
             from audit_v591_memory_init import mapper_diagnostic
             mapping=b'V612_MAPPING_PROFILE accepted=1 mem1=24 mem2=64 mapped_mem2=52 ipc_kib=512 synthetic=1'

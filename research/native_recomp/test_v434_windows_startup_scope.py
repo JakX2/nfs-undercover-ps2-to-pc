@@ -32,6 +32,7 @@ from audit_v574_dsp_sc import STAGES as DSP_SC,RESULT as DSP_SC_RESULT
 from audit_v581_dsp_return import STAGES as DSP_RETURN,RESULT as DSP_RETURN_RESULT
 from audit_v591_memory_init import STAGES as MI,RESULT as MI_RESULT
 from audit_v603_boot_report import EVENTS as REPORT
+from audit_v609_arena_clear import EVENTS as ARENA_CLEAR
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -63,10 +64,11 @@ OS_DSP_STAGE=OS_AUDIO+DSP_STAGE+[DSP_STAGE_RESULT]
 OS_DSP_SC=OS_DSP_STAGE+DSP_SC+[DSP_SC_RESULT]
 OS_DSP_RETURN=OS_DSP_SC+DSP_RETURN+[DSP_RETURN_RESULT]
 OS_REPORT=OS_DSP_RETURN+MI+[MI_RESULT]+REPORT+[b'V603_REPORT_RESULT reports=10 getters=6 native_console=1 computed=0 returned=1 output_backend=0 fallback=0 boot_verified=0']
+OS_ARENA_CLEAR=OS_REPORT+ARENA_CLEAR+[b'V609_ARENA_RESULT lanes=2 reset=2 getters=6 zeros=20000 flush=16384 vectors=2 returned=1 hardware_cache=0 fallback=0 boot_verified=0']
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT),('os-arena-clear',OS_ARENA_CLEAR))}
 
 
 class Tests(unittest.TestCase):
@@ -109,12 +111,18 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(contract('os-report'),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v603_boot_report.py','audit_v603_boot_report'))
         with self.assertRaises(ValueError):contract('os-report',True)
+        self.assertEqual(contract('os-arena-clear'),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v609_arena_clear.py','audit_v609_arena_clear'))
+        with self.assertRaises(ValueError):contract('os-arena-clear',True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
             with self.assertRaises(ValueError):contract(scope)
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
+            if scope=='os-arena-clear':
+                self.assertTrue(all(f(scope) for f in (requires_sram_profile,requires_sc_overlay,requires_exi_profile,requires_si_profile)))
+                self.assertEqual(launch_flags(scope),{**launch_flags('os-report'),'UNDERCOVER_V609_ARENA':'1'})
+                continue
             if scope=='os-report':
                 self.assertTrue(all(f(scope) for f in (requires_sram_profile,requires_sc_overlay,requires_exi_profile,requires_si_profile)))
                 self.assertEqual(launch_flags(scope),{**launch_flags('os-dsp-return'),'UNDERCOVER_V591_MI':'1','UNDERCOVER_V612_MAPPING':'1','UNDERCOVER_V603_REPORT':'1'})
