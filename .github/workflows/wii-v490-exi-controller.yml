@@ -18,6 +18,8 @@ on:
       - 'research/native_recomp/*v515*'
       - 'research/native_recomp/*v518*'
       - 'research/native_recomp/*v522*'
+      - 'research/native_recomp/*v524*'
+      - 'research/native_recomp/*v525*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -181,3 +183,25 @@ jobs:
             "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
             "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v522-pinned"
           "$RUNNER_TEMP/v522-pinned"
+      - name: Verify private sampling observer against actual native SI and VI MMIO
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          for file in wii_exi_id_witness_v504.h wii_exi_absent_witness_v510.h wii_si_entry_witness_v520.h wii_si_sampling_witness_v524.h; do
+            cp "research/native_recomp/$file" "$rt/include/undercover/"
+          done
+          PYTHONPATH=research/native_recomp python3 - "$rt/include/undercover" <<'PY'
+          import sys
+          from pathlib import Path
+          from prepare_v524_si_sampling import patch_si,patch_vi
+          root=Path(sys.argv[1])
+          for name,patch in (('wii_si_binding_v512.h',patch_si),('wii_vi_clock_v522.h',patch_vi)):
+              p=root/name
+              p.write_text(patch(p.read_text(encoding='utf-8')),encoding='utf-8')
+          PY
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_si_sampling_v525.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v525-pinned"
+          "$RUNNER_TEMP/v525-pinned"
