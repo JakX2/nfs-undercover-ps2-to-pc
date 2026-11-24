@@ -15,7 +15,7 @@ int main(){
     nw::CPUContext c;nw::g_ctx_ptr=&c;nw::g_mmu=&c.mmu;
     auto& d=nw::MMIODispatcher::get();d.clear();nw::hw::register_pi(d);nw::hw::register_ipc(d);
     constexpr uint32_t base=0xcd006800u,pi=0xcc003000u;
-    nw::hw::pi_intsr=0x4100u;
+    nw::hw::pi_intsr=0x300u;
     NativeIosTransport ios(c.mmu.mem1,c.mmu.mem2,nw::hw::pi_intsr,nw::hw::pi_intmr);
     NativeIosBinding native(ios);WiiIrqBanks banks(nw::hw::pi_intsr);
     {IrqBankBinding old(banks);reject([&]{c.mmu.read32(base+12);});}
@@ -35,11 +35,11 @@ int main(){
             exi.attach(ch,0,true);
             c.mmu.write32(a+0x80000c,0x31);
             auto p=exi.pending(ch);need(p&&p->length==4&&p->direction==0&&p->tx==0xaabbccdd);
-            need(c.mmu.read32(a+12)==0x31&&c.mmu.read32(pi)==0x4100);
+            need(c.mmu.read32(a+12)==0x31&&c.mmu.read32(pi)==0x300);
             exi.complete_immediate(ch,p->token,0x12345678);
             need(c.mmu.read32(a+16)==0x12345678&&c.mmu.read32(a+12)==0x30);
-            need(c.mmu.read32(pi)==(0x4100|WiiIrqBanks::PI_EXI));
-            c.mmu.write32(a,0x8c);need(c.mmu.read32(pi)==0x4100);
+            need(c.mmu.read32(pi)==(0x300|WiiIrqBanks::PI_EXI));
+            c.mmu.write32(a,0x8c);need(c.mmu.read32(pi)==0x300);
             reject([&]{c.mmu.read16(a+12);});reject([&]{c.mmu.write64(a+8,0);});
             reject([&]{c.mmu.write_f32(a+12,0.0f);});reject([&]{c.mmu.write32(a+1,0);});
             reject([&]{c.mmu.read32((a&0x3fffffffu)|0x40000000u);});
