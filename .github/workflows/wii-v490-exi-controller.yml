@@ -20,6 +20,8 @@ on:
       - 'research/native_recomp/*v522*'
       - 'research/native_recomp/*v524*'
       - 'research/native_recomp/*v525*'
+      - 'research/native_recomp/*v529*'
+      - 'research/native_recomp/*v531*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -205,3 +207,29 @@ jobs:
             "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
             "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v525-pinned"
           "$RUNNER_TEMP/v525-pinned"
+      - name: Verify native discovery observer on generated PPC and actual device completion
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          cp research/native_recomp/wii_si_discovery_witness_v529.h "$rt/include/undercover/"
+          PYTHONPATH=research/native_recomp python3 - "$rt/include/undercover" <<'PY'
+          import sys
+          from pathlib import Path
+          from prepare_v529_si_discovery import patch_si,patch_scheduler
+          root=Path(sys.argv[1])
+          for name,patch in (('wii_si_binding_v512.h',patch_si),('wii_si_type_scheduler_v514.h',patch_scheduler)):
+              p=root/name
+              p.write_text(patch(p.read_text(encoding='utf-8')),encoding='utf-8')
+          PY
+          inc=(-I"$rt/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
+          for mode in nonsplit split; do
+            dir="$RUNNER_TEMP/v515-$mode"
+            flags=()
+            if [[ "$mode" == split ]]; then flags=(-DV438_SPLIT -I"$dir"); fi
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_si_discovery_v531.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$RUNNER_TEMP/v531-$mode"
+            timeout 20s "$RUNNER_TEMP/v531-$mode"
+          done
