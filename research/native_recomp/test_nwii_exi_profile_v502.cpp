@@ -15,9 +15,11 @@ namespace hw {void vi_trigger_interrupt(){} extern "C" int32_t handle_ios_ipc(CP
 }
 int main(){
     auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;nw::g_ctx_ptr=&c;nw::g_mmu=&c.mmu;
-    auto& d=nw::MMIODispatcher::get();d.clear();nw::hw::register_pi(d);nw::hw::register_ipc(d);
+    auto& d=nw::MMIODispatcher::get();d.clear();nw::hw::register_pi(d);
     unsigned legacy=0;
     d.register_region(0x0d006024u,0x0d006027u,[&](uint32_t){++legacy;return 0xffu;},[&](uint32_t,uint32_t){++legacy;});
+    // Dispatcher uses first-match ordering; its broad IPC region otherwise shadows the test fixture.
+    nw::hw::register_ipc(d);
     NativeIosTransport ios(c.mmu.mem1,c.mmu.mem2,nw::hw::pi_intsr,nw::hw::pi_intmr);
     NativeIosBinding native(ios);WiiIrqBanks banks(nw::hw::pi_intsr);ExiController exi(banks,&ios.physical_ram());
     IrqBankBinding mmio(banks,&exi);
