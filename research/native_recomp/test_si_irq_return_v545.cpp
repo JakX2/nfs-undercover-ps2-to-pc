@@ -34,7 +34,7 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){need(c.pc==Stop);++stops;c.is_running=false;return true;}
-void interpret_step(CPUContext&){throw std::runtime_error("interpreter forbidden");}
+void interpret_step(CPUContext& c){throw std::runtime_error("interpreter forbidden at synthetic PC "+std::to_string(c.pc));}
 void micro_interpret(CPUContext&,uint32_t,uint32_t){throw std::runtime_error("micro interpreter forbidden");}
 void note_null_call(uint32_t,uint32_t){throw std::runtime_error("null branch");}
 void watch_hit(uint32_t,uint32_t,int){}

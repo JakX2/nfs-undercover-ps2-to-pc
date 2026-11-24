@@ -9,6 +9,8 @@ python3 "$here/apply_nonsplit_dispatch_v15.py" "$root"
 python3 "$here/apply_mtmsr_resume_v74.py" "$root"
 python3 "$here/apply_syscall_pc_v26.py" "$root"
 python3 "$here/apply_exception_sprg.py" "$root"
+python3 "$here/test_native_lowmem_patch_v63.py"
+python3 "$here/apply_native_lowmem_v63.py" "$root"
 inc=(-I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
 g++ -std=c++20 -O2 "${inc[@]}" "$here/generate_si_irq_return_v545.cpp" \
     "$root/nWiiRuntime/src/core/loader.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \

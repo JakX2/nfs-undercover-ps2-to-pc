@@ -41,12 +41,21 @@ int main(int argc,char**argv){
     add(irq,std::move(vector));
     nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({irq});
     nwii::recomp::RecompilerConfig config;config.output_dir=dir.string();config.split_output=split;
+    // The pinned emitter deliberately defaults copied low-memory code to
+    // interpretation; allow only this explicitly installed synthetic vector.
+    config.native_low_mem_entries.insert(irq);
     nwii::recomp::Recompiler recomp(analyzer,nullptr,config);
     auto files=recomp.generate_cpp(entry);
     assert(!files.empty());
     std::ifstream file(dir/(split?"main_output.cpp":"output.cpp"));
     const std::string text((std::istreambuf_iterator<char>(file)),{});
     assert(text.find("case 0x8000400C: func_80004000(ctx); break;")!=std::string::npos);
+    bool native_vector=false;
+    for(const auto& f:std::filesystem::directory_iterator(dir))if(f.path().extension()==".cpp"){
+        std::ifstream v(f.path());const std::string src((std::istreambuf_iterator<char>(v)),{});
+        native_vector|=src.find("loc_80000500: ;")!=std::string::npos;
+    }
+    assert(native_vector);
     std::ofstream raw(dir/"vector.bin",std::ios::binary); // exact synthetic vector bytes for installed-memory authentication
     for(const auto& section:exe.sections)if(section.address==irq)raw.write(reinterpret_cast<const char*>(section.data.data()),section.data.size());
     assert(raw.good());
