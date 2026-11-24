@@ -1,0 +1,22 @@
+name: Wii Original DSP Staging Witness
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v559*'
+      - '.github/workflows/wii-v559-dsp-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dsp-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s research/native_recomp -p test_v559_dsp_stage.py -v
+      - name: Exercise staging witness with sanitizers
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_dsp_stage_witness_v559.cpp -o "$RUNNER_TEMP/v559"
+          "$RUNNER_TEMP/v559"
