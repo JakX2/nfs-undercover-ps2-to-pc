@@ -15,7 +15,7 @@ game output, translated code, native binary or private compiler log is
 published. The existing owner-private authorization variable still gates
 the original-image job. On push the full link runs only if one of the
 two build scripts changes; normal NAND iteration does not trigger it.
-Manual workflow dispatch can choose `sample`, `all`, `link`, `startup` or `hardware`.
+Manual workflow dispatch can choose `sample`, `all`, `link`, `startup`, `hardware` or `cache`.
 
 Original-free integration tests compile a synthetic executable, check
 that it is never launched, reject unresolved symbols and preserve an
@@ -103,6 +103,29 @@ passed 113/113 full-image syntax checks, complete linking and all nine
 startup stages with rc=0, fallback=0, malformed=0, verified=1. Original
 PS/FPR initialization now executes in the complete image; the cache body,
 main and gameplay remain unverified.
+
+### V428: whole-image cache control, error handler and data entry
+
+The separate cache scope retains all nine V425 checks, adds the verified
+V20 bounded L2CR handshake and V74 mtmsr resume dispatch, and then runs
+the original cache body rather than exiting at its entry. Private DOL
+validation derives the 26 exact original direct callsites, the ordinary
+index-1 OSSetErrorHandler disable/restore edges and the next startup BL
+into __init_data. Each observed entry requires both the original loaded
+entry word and the original caller instruction. Unexpected nested calls
+are rejected rather than bypassed. The witness is bounded to 128 calls.
+
+It checks L1 enablement, L2 read/write counts and final enable/invalidate
+bits, preserved unrelated bits and MSR, actual error handler registration
+with adjacent table words preserved, and the original stack sentinel
+prologue at __init_data. No test callback substitutes for an original
+routine. L2 busy duration remains a deterministic model, not physical
+cache coherency. It stops before executing data initialization; reaching
+that boundary does not establish OSInit or game boot.
+
+Local strict C++20 ASan/UBSan tests passed eight valid initial cache
+combinations and 56 negative cases; four Python tests and a synthetic
+private-header/probe instantiation also passed. Owner validation pending.
 
 ## November 24, 2026: authenticated 96-call NAND frontier
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Private whole-image translation, syntax, native link and optional bounded startup.
-# Only startup and hardware modes launch the instrumented executable; never claim game boot.
+# Startup, hardware and cache modes launch bounded witnesses; never claim game boot.
 set -euo pipefail
 if [[ $# -ne 5 ]]; then
-  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware' >&2
+  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache' >&2
   exit 2
 fi
 root="$(realpath "$1")"
@@ -11,7 +11,7 @@ dol="$(realpath "$2")"
 elf="$(realpath "$3")"
 work="$4"
 mode="$5"
-[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
+[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
 [[ ! -e "$work" ]] || { echo 'Private work destination must be fresh' >&2; exit 2; }
 mkdir -p -m 700 "$work"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -26,12 +26,21 @@ python3 "$here/apply_psq_estimate_and_gqr_v5.py" "$root" >> "$work/patch.log" 2>
 python3 "$here/apply_verified_elf_spans_v6.py" "$root" >> "$work/patch.log" 2>&1 || {
   echo 'Conservative ELF code-span patch failed' >&2; exit 1;
 }
-if [[ "$mode" == hardware ]]; then
+if [[ "$mode" == hardware || "$mode" == cache ]]; then
   # Reuse earlier independently validated register implementations only
   # in the extended lane. V419 remains the unmodified control.
   for patch in apply_hid_state_v18 apply_fpscr_v19; do
     python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
       echo 'V425 hardware runtime patch failed' >&2; exit 1;
+    }
+  done
+fi
+if [[ "$mode" == cache ]]; then
+  # Bounded guest L2CR handshake and explicit mtmsr resume PCs, previously
+  # validated in isolated execution. Do not replace any original OS body.
+  for patch in apply_l2cr_v20 apply_mtmsr_resume_v74; do
+    python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
+      echo 'V428 cache runtime patch failed' >&2; exit 1;
     }
   done
 fi
@@ -83,8 +92,10 @@ if [[ "$mode" == startup ]]; then
   python3 "$here/prepare_v419_full_start.py" "$dol" "$work/generated"
 elif [[ "$mode" == hardware ]]; then
   python3 "$here/prepare_v425_full_hardware.py" "$dol" "$work/generated"
+elif [[ "$mode" == cache ]]; then
+  python3 "$here/prepare_v428_full_cache.py" "$dol" "$work/generated"
 fi
-if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware ]]; then
+if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$mode" == startup ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
@@ -92,6 +103,9 @@ if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware ]]; then
   elif [[ "$mode" == hardware ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" hardware
     echo 'INFO: bounded native PS/FPR initialization only; cache body, main, boot, frontend and gameplay NOT proven'
+  elif [[ "$mode" == cache ]]; then
+    bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" cache
+    echo 'INFO: bounded native cache control and error-handler registration only; data body, OSInit, main, boot and gameplay NOT proven'
   else
     echo 'INFO: native game launch, main, boot, frontend and gameplay NOT proven'
   fi
