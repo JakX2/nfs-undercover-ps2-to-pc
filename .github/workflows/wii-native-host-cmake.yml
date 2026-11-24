@@ -17,6 +17,16 @@ on:
       - 'research/native_recomp/wii_native_ios_transport.h'
       - 'research/native_recomp/wii_native_ios_binding.h'
       - 'research/native_recomp/wii_native_ios_boundary.h'
+      - 'research/native_recomp/wii_native_ios_aot_session.h'
+      - 'research/native_recomp/test_wii_native_ios_aot_session.cpp'
+      - 'research/native_recomp/wii_v423_synthetic_program.h'
+      - 'research/native_recomp/generate_native_ios_aot_v423.cpp'
+      - 'research/native_recomp/test_native_ios_aot_v423.cpp'
+      - 'research/native_recomp/apply_native_lowmem_v63.py'
+      - 'research/native_recomp/apply_nonsplit_dispatch_v15.py'
+      - 'research/native_recomp/apply_mtmsr_resume_v74.py'
+      - 'research/native_recomp/apply_exception_sprg.py'
+      - 'research/native_recomp/apply_syscall_pc_v26.py'
       - 'research/native_recomp/native_external_irq.h'
       - 'research/native_recomp/test_wii_native_ios_boundary.cpp'
       - 'research/native_recomp/test_wii_native_ios_binding.cpp'
@@ -63,7 +73,7 @@ jobs:
           else
             cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           fi
-      - name: Build original-free host runtime and twelve native test programs
+      - name: Build original-free host runtime and thirteen native test programs
         shell: bash
         run: |
           set -euo pipefail
@@ -76,7 +86,7 @@ jobs:
   pinned-nwii-mmio:
     name: Pinned NWiiRuntime MMIO transport
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Validate reversible source-only patch
@@ -122,3 +132,33 @@ jobs:
             "$root/nWiiRuntime/src/hw/hw_ipc.cpp" \
             -o "$RUNNER_TEMP/v421-mmio"
           timeout 20s "$RUNNER_TEMP/v421-mmio"
+      - name: Generate and execute native AOT IOS request and both guest rfi returns
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v418"
+          host="$GITHUB_WORKSPACE/research/native_recomp"
+          work="$RUNNER_TEMP/v423-aot"
+          mkdir "$work"
+          for patch in apply_nonsplit_dispatch_v15 apply_mtmsr_resume_v74 apply_syscall_pc_v26 apply_exception_sprg apply_native_lowmem_v63; do
+            python3 "$host/$patch.py" "$root"
+          done
+          inc=(-I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include" -I"$host")
+          g++ -std=c++20 -O2 -Wno-unused-variable -Wno-sign-compare "${inc[@]}" \
+            "$host/generate_native_ios_aot_v423.cpp" \
+            "$root/nWiiRuntime/src/core/loader.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \
+            "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$root/nWiiAnalyzer/src/signature_scanner.cpp" \
+            "$root/nWiiRecomp/src/recompiler.cpp" "$root/nWiiRecomp/src/symbols.cpp" \
+            -o "$work/generator"
+          for mode in nonsplit split; do
+            mkdir "$work/$mode"
+            "$work/generator" "$work/$mode" "$mode"
+            g++ -std=c++20 -O1 -Wall -Wextra -Wno-unused-label -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -pthread \
+              -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" \
+              "$host/test_native_ios_aot_v423.cpp" "$work/$mode"/*.cpp \
+              "$root/nWiiRuntime/src/core/os_hle_stubs.cpp" \
+              "$root/nWiiRuntime/src/hw/mmio_dispatcher.cpp" \
+              "$root/nWiiRuntime/src/hw/hw_pi.cpp" \
+              "$root/nWiiRuntime/src/hw/hw_ipc.cpp" \
+              -o "$work/test-$mode"
+            timeout 20s "$work/test-$mode"
+          done

@@ -23,7 +23,7 @@ ctest --test-dir build/wii-host --output-on-failure
 
 The `undercover_wii_host_runtime` target is a header-only interface library.
 Link it into a future Windows host executable when the translated Wii AOT
-can be linked safely. The twelve original-free CTest programs are compiled
+can be linked safely. The thirteen original-free CTest programs are compiled
 with strict warnings, including MSVC `/W4 /WX`.
 The owner-private Wii AOT harness and all authenticated NAND gates remain
 independent of this build.
@@ -154,4 +154,33 @@ Original-free strict C++20 sanitizer tests passed the deferred ACK,
 separate Y2/Y1 entry, vector mismatch rejection, preserved register state
 and unrelated PI ownership. The pinned CPU/MMU test now includes the same
 boundary bridge using a synthetic vector and explicit synthetic return.
-Windows/Linux CMake and pinned CPU validation are pending.
+[V422 run 45306524682](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45306524682) passed 12/12 CTest programs on Windows and Linux and the pinned CPU/MMU integration.
+
+## V423: exclusive AOT IOS dispatch session
+
+A scoped `NativeIosAotSession` binds the V422 transport to one CPU and
+allows polling only at explicitly certified dispatch boundaries. It
+rejects other enabled PI sources, legacy callbacks, expired decrementer,
+vblank and outstanding host context dispatch rather than hiding them.
+It tracks an in-flight external interrupt and requires a matching
+certified saved PC/MSR before admitting another service step. This is
+a bounded exclusive experiment, not a general Wii event dispatcher:
+it does not support nested interrupts or guest-selected alternative
+contexts, and matching PC/MSR alone is not proof of RFI.
+
+The original-free program in `wii_v423_synthetic_program.h` constructs
+PowerPC words independently. It submits a native IOS Open request using
+guest MMIO writes, enables EE with mtmsr, and executes a low-memory
+handler which reads the live Y bits, acknowledges both mailbox and
+Hollywood registers, restores its scratch GPR through SPRG0 and uses
+rfi. The test harness requires two handler bodies and two certified
+resumes, then executes the next guest instruction exactly once.
+It checks both positive and negative IOS replies, preserved unrelated
+PI bits, and zero legacy IOS calls or interpreter fallback. The runner
+uses the real pinned NWiiRecomp Analyzer and both C++ emission modes
+with the already tested V15/V26/V63/V74/SPRG patches and real MMIO wrappers.
+
+The standalone session test passed strict C++20 ASan/UBSan locally; the
+synthetic encoding checks passed. Actual generated split and non-split
+execution is pending CI. No original game data or generated C++ is
+committed. The full original-game runtime remains unchanged and opt-in.

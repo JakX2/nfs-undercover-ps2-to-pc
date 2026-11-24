@@ -20,6 +20,7 @@ target_sources(undercover_wii_host_runtime INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_transport.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_binding.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_boundary.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_aot_session.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/native_external_irq.h"
 )
 if(MSVC)
@@ -45,6 +46,7 @@ if(BUILD_TESTING)
         wii_native_ios_transport
         wii_native_ios_binding
         wii_native_ios_boundary
+        wii_native_ios_aot_session
     )
         add_executable("undercover_${suite}" "test_${suite}.cpp")
         target_link_libraries("undercover_${suite}" PRIVATE
