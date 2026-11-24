@@ -1,0 +1,20 @@
+# V559–V565 native startup status (2026-11-24)
+
+## Verified results
+
+- [Windows complete original SI sampling](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45426502167): native Windows x64 complete-image link; V524 SI sample 6/6, rc=0, fallback=0, verified=1; strict DOL loader and corrected native instruction timing passed. This independently validates V546's correction of the premature SI initialized-flag check. It is the first SI type-query entry, not SIInit return.
+- [V555 combined DSP/ARAM generated integration](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45429088787): split and nonsplit each passed 16 generated PPC DSP reset/init/mailbox and mixed interrupt trials, plus 16 ARAM DMA trials. Actual native MMU and physical RAM; explicit backend events; no interpreter. This is synthetic PPC, not original DSP firmware execution.
+- [V558 private DOL geometry](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45429775741): all four SI, SRAM, thread and audio geometry scopes authenticated. Static verification does not establish execution.
+- [V551 private NAND replay](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45427637226): historical successor chain proof passed, rc=134, begins=1, blr=1, resume=1, nested=2, max_calls=44, unique=25, original=25, first_nonoriginal=none, history=1, successor=1, chain=1, legacy_stop=0, chain_legacy=0. Next public guard 1249, class=other. This is an audit success, not NAND initialization or boot.
+- [V559/V560/V562 DSP staging witness](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45431115645): original-free geometry, composition and gate tests, 18 sanitizer negative controls. The initial test run 45430574403 failed on a misleading-indentation warning treated as error; V562 fixed formatting only. Observer checks 128-byte staging/backup, boundary canaries and four original guest cache-line operations before the SC instruction. No SC execution in this scope.
+- [V561 SC overlay control](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45430988699): original-free strict-span translation and native synthetic vector execution passed. Private original vector translation rejected; no owner SC execution claimed. V565 permits the exact nonbranch isync encoding, adds actual cache-order observability and allowlisted rejection diagnostics. This is a candidate correction, not yet verified.
+
+## New continuation candidates
+
+- V563 authenticates the exact V551 abort label and a unique, ordered, verified original non-cache successor event before accepting a historical V392 stop assertion. It retains the old stop comparison as a diagnostic, does not modify guest instructions or state, and rejects missing evidence. [Candidate replay](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45431390303).
+- V564 advances the Windows default owner scope to os-si-return (all four controller queries, immediate native NOREP, queued packets and SRAM entry). The prior os-si-sample scope remains separately selectable. [New Windows owner workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45431536483).
+- V561/V565 add compile-time and launch-time explicit native low-memory syscall overlay selection to the offline translator, with a dedicated synthetic/owner-private test. The copied source must be a straight-line 28-byte vector ending in RFI, must not overlap another loaded section or trusted span, and the installed guest RAM copy must match before native dispatch. Existing owner full-image builds do not enable this option.
+
+## Remaining gates
+
+Corrected [Linux original SI return](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45426293326) is still running. Original SIInit completion is not yet verified, and SRAM/threads/audio/DSP staging remain behind it. No DSP firmware execution, full OSInit, main, rendered frame or gameplay claim. All private DOL/ELF bytes and generated original C++ stay in ephemeral owner runners.
