@@ -36,6 +36,19 @@ class Tests(unittest.TestCase):
         self.assertIn('continued=1',outcome(good,134,OWNER,OWNER,SIZES,p))
         for bad in (RAW,good+MARK+b'\n',good.replace(b'call=44 pc=',b'call=45 pc=')):
             with self.assertRaises(ValueError):outcome(bad,134,OWNER,OWNER,SIZES,p)
+    def test_diagnosis(self):
+        row=diagnosis(RAW,HARNESS)
+        self.assertIn('guard=frontier',row)
+        self.assertIn('stop=1 stop_calls=44 owner=1 selected=0 parent=0',row)
+        self.assertIn('exit=0 exit_calls=0',row)
+        with_exit=RAW+b'V410_NAND_GUEST_RUN_EXIT calls=44 kind=1 running=0 mapped=1 matched_stop=1 v390=1\n'
+        self.assertIn('exit=1 exit_calls=44 kind=1 running=0 mapped=1 matched=1 post_ack=1',diagnosis(with_exit,HARNESS))
+        private=RAW.replace(b'what():  V402 extended original guest frontier incomplete',b'what():  private address 0x81234567')
+        self.assertIn('guard=unknown id=0000',diagnosis(private,HARNESS))
+        self.assertNotIn('81234567',diagnosis(private,HARNESS))
+        for bad in (RAW+b'V404_NAND_EXTENDED_STOP calls=44 owner=1 selected_return=0 parent_return=0\n',
+                    RAW+b'V410_NAND_GUEST_RUN_EXIT malformed\n'):
+            with self.assertRaises(ValueError):diagnosis(bad,HARNESS)
     def test_other_stop_preserved(self):
         for raw in (RAW.replace(b'owner=1',b'owner=0'),
                     RAW.replace(b'what():  V402 extended original guest frontier incomplete',b'what():  unrelated runtime failure'),

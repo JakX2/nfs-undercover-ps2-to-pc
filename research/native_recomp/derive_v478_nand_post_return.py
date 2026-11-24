@@ -73,6 +73,43 @@ def terminal(owner,fixture,sizes,cpp,harness,raw):
     ready=bool(owned and region and auth and not resumed and
                abort_row(raw,harness,134)[1].endswith('label=V402 extended original guest frontier incomplete'))
     return Frontier(pc,lr,word,kind,owned,reason,ready,e)
+# Exact public source labels only. Never forward unknown exception strings.
+GUARD_CLASSES={
+    'V402 extended original guest frontier incomplete':'frontier',
+    'V395 original NAND _isfsFuncCb did not reach its next guest call':'selected',
+    'V396 original guest-selected ISFS callback did not reach next call':'callback_body',
+    'V396 original ISFS-selected guest callee provenance lost':'provenance',
+    'V396 original callback body next guest entry not verified':'body_entry',
+    'V390 original NAND guest never left Hollywood ACK for next callee':'post_ack',
+    'V399 original ISFS continuation classification incomplete':'return_order',
+    'V400 original parent return-PC classification incomplete':'parent_return',
+    'V401 original PPC linksite classification incomplete':'linksite',
+    'V405 original guest post-48 call census incomplete':'call_census',
+    'V413 bounded NAND context continuation incomplete':'context',
+    'V437 restored callback BLR frame mismatch':'blr_frame',
+    'V437 restored callback resume frame mismatch':'resume_frame',
+    'interpreter fallback':'interpreter',
+    'unexpected micro interpreter fallback':'micro',
+}
+EXIT_ROW=re.compile(rb'V410_NAND_GUEST_RUN_EXIT calls=([0-9]{1,3}) kind=([0-9]) running=([01]) mapped=([01]) matched_stop=([01]) v390=([01])')
+STOP_ANY=re.compile(rb'V404_NAND_EXTENDED_STOP calls=([0-9]{1,3}) owner=([01]) selected_return=([01]) parent_return=([01])')
+def diagnosis(raw,harness):
+    if len(raw)>MAX_LOG:raise ValueError('diagnostic size')
+    census,label=abort_row(raw,harness,134)
+    ident=int(census.split(' public_id=')[1].split()[0])
+    name=label.split(' label=',1)[1]
+    guard=GUARD_CLASSES.get(name,'other' if ident else 'unknown')
+    lines=raw.splitlines()
+    stop=[STOP_ANY.fullmatch(l) for l in lines if l.startswith(b'V404_NAND_EXTENDED_STOP ')]
+    exits=[EXIT_ROW.fullmatch(l) for l in lines if l.startswith(b'V410_NAND_GUEST_RUN_EXIT ')]
+    if len(stop)>1 or len(exits)>1 or any(x is None for x in stop+exits):raise ValueError('diagnostic geometry')
+    s=list(map(int,stop[0].groups())) if stop else [0,0,0,0]
+    e=list(map(int,exits[0].groups())) if exits else [0,0,0,0,0,0]
+    if s[0]>192 or e[0]>192:raise ValueError('diagnostic bounds')
+    return (f'V485_NAND_DIAG guard={guard} id={ident:04d} stop={int(bool(stop))} '
+            f'stop_calls={s[0]} owner={s[1]} selected={s[2]} parent={s[3]} '
+            f'exit={int(bool(exits))} exit_calls={e[0]} kind={e[1]} running={e[2]} '
+            f'mapped={e[3]} matched={e[4]} post_ack={e[5]} boot_verified=0')
 def row(p):
     return f'V478_NAND_FRONTIER calls=44 original=25 resumed=1 owner={p.owned} edge={p.kind} category={p.reason} ready={int(p.ready)} boot_verified=0'
 def patch(harness,p):
@@ -116,9 +153,10 @@ def main():
         harness=get(a.harness,24_000_000,True)
         p=terminal(owner,fixture,sizes,get(a.cpp,MAX_CPP,True),harness,get(a.control,MAX_LOG))
         print(row(p))
+        print(diagnosis(get(a.control,MAX_LOG),harness))
         if not p.ready:
             if a.run_log is not None:raise ValueError('no authorized edge')
-            print('V478_NAND_ROUTE installed=0 eligible=0');return 0
+            print('V478_NAND_ROUTE installed=0 eligible=0');print('V478_NAND_AUDIT inspected=1');return 0
         new=patch(harness,p)
         if a.run_log is None:
             if a.run_rc is not None or a.output.exists() or a.output.is_symlink():raise ValueError('destination')
