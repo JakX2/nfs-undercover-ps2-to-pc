@@ -1,0 +1,3 @@
+# V610: isolated native original reset-code query
+
+Use the pinned AOT recompiler to translate the authenticated original 48-byte reset-query leaf at 0x805285d0, after verifying both original arena callsites. Independent original-free PPC control reads the same PI register and shifts the reset code by three. Sixteen trials invoke each caller-specific LR using the actual V606 binding and explicit cold value 0x100, verify the anticipated cold return 0x20, preserved nonvolatile registers and adjacent flag memory, and reject unarmed/duplicate reads. No original game bytes are published. Owner validation is pending and the expected result is a test hypothesis until it passes. This is isolated leaf execution, not the complete arena scope.
