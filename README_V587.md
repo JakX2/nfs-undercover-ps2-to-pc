@@ -1,0 +1,3 @@
+# V587: opt-in cold MI protection-register subset
+
+The original V65 witness shows MI writes to offsets 0x20 (0), 0x10 (255), then mask 0x1c (16). V587 adds an explicitly activated one-shot register profile to existing IRQ banks; without activation prior MMIO ownership is unchanged. It stores the two cold values, requires ordering, rejects wrong widths, aliases, values and neighboring registers, exposes read-only readiness and final mask/status checks, and preserves PI ownership and W1C behavior. It does not enforce memory permissions. Independent sanitizer regression pending; not activated in existing DSP scopes.

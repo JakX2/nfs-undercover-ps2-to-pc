@@ -1,0 +1,23 @@
+name: Wii Memory Interface Cold Register Profile
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v587*'
+      - '.github/workflows/wii-v587-mi-profile.yml'
+permissions:
+  contents: read
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test cold MI profile and prior IRQ banks
+        run: |
+          set -euo pipefail
+          for src in test_wii_mi_profile_v587 test_wii_irq_banks_v480; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
+            "$RUNNER_TEMP/$src"
+          done

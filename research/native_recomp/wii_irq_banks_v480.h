@@ -26,6 +26,20 @@ public:
     void clear_mi(uint16_t bits){mi_status_&=~(bits&MI_BITS);refresh();}
     uint16_t mi_mask()const noexcept{return mi_mask_;}
     uint16_t mi_status()const noexcept{return mi_status_;}
+    // Explicit cold protection-register profile, no memory permissions.
+    void enable_mi_boot(){if(mi_boot_)throw std::logic_error("MI boot already enabled");mi_boot_=true;}
+    bool mi_boot()const noexcept{return mi_boot_;}
+    unsigned mi_boot_stage()const noexcept{return mi_stage_;}
+    uint16_t mi_protection()const noexcept{return mi_protection_;}
+    uint16_t mi_aux()const noexcept{return mi_aux_;}
+    void write_mi_aux(uint16_t v){
+        if(!mi_boot_||mi_stage_!=0||v!=0)throw std::runtime_error("unsupported MI cold auxiliary write");
+        mi_aux_=v;++mi_stage_;
+    }
+    void write_mi_protection(uint16_t v){
+        if(!mi_boot_||mi_stage_!=1||v!=255)throw std::runtime_error("unsupported MI cold protection write");
+        mi_protection_=v;++mi_stage_;
+    }
     // EXI status is distinct from interrupt enable and chip select.
     // Only the device/backend may assert a status event.
     void raise_exi(unsigned ch,uint32_t bits){
