@@ -84,7 +84,9 @@ def install(data,generated,host,digest=OWNER_SHA):
     dest=generated/'nWiiRuntime/include/undercover'
     files={dest/'v439_private_hw_expectations.h':expected,dest/'wii_full_os_hardware_witness.h':(host/'wii_full_os_hardware_witness.h').read_text(encoding='utf-8')}
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('destination exists')
-    probe=patch_probe(time_probe(os_probe(data_probe(cache_probe((host/'wii_full_hardware_probe_v425.h').read_text(encoding='utf-8'))))))
+    probe=(host/'wii_full_hardware_probe_v425.h').read_text(encoding='utf-8')
+    for transform in (cache_probe,data_probe,os_probe,time_probe,patch_probe):
+        probe=transform(probe)
     install_time(data,generated,host,digest)
     # The previous data-return observer may share this shard. Read again.
     updated=return_seam(shard.read_text(encoding='utf-8'),stop)

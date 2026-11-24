@@ -12,7 +12,9 @@ HOST=Path(__file__).parent
 def log(lines):return b'\n'.join(lines)+b'\n'
 class Tests(unittest.TestCase):
     def test_probe(self):
-        old=time_probe(os_probe(data_probe(cache_probe((HOST/'wii_full_hardware_probe_v425.h').read_text())))))
+        old=(HOST/'wii_full_hardware_probe_v425.h').read_text()
+        for transform in (cache_probe,data_probe,os_probe,time_probe):
+            old=transform(old)
         new=patch_probe(old)
         self.assertEqual(new.count('std::_Exit(0)'),1)
         self.assertIn('os_hw.begin(cpu)',new);self.assertIn('os_hw.observe(addr,cpu)',new)
