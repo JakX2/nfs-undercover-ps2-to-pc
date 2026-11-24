@@ -8,7 +8,7 @@ from apply_sc_dispatch_gate_v572 import install as gate
 from make_start_to_dsp_stage_v63 import STOP
 SOURCE=0x805290a8
 RETURN=STOP
-HEADER='#include "runtime/cpu_context.h"'
+HEADER='#include "runtime/platform/platform.h"\n#include "runtime/config.h"\n#include "runtime/cpu_context.h"'
 HOOK='bool handle_syscall(CPUContext &ctx) {'
 HOOK_NEW=HOOK+'\n  if (undercover::wii::v574::try_sc(ctx)) return false;'
 INCLUDE='#include "v559_private_dsp_stage_expectations.h"'
@@ -93,13 +93,16 @@ def diagnostic(exc):
         'missing original function symbol table or startup':'symbol_map',
     }
     reason=known.get(str(exc),'other')
+    public=[]
     for f in reversed(frames):
         path=Path(f.filename)
         if (path.parent.resolve()==host and path.is_file() and
             re.fullmatch(r'(?:prepare|apply|make)_v?[A-Za-z0-9_]{1,100}\.py',path.name) and
             1<=f.lineno<=10000):
-            return f'V577_DSP_SC_PREP_FAILURE file={path.name} line={f.lineno} kind={kind} reason={reason}'
-    return f'V577_DSP_SC_PREP_FAILURE file=unknown line=0 kind={kind} reason={reason}'
+            public.append((path.name,f.lineno))
+    leaf,line=public[0] if public else ('unknown',0)
+    caller,at=public[1] if len(public)>1 else ('unknown',0)
+    return f'V577_DSP_SC_PREP_FAILURE file={leaf} line={line} kind={kind} reason={reason} caller={caller} caller_line={at}'
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('dol',type=Path);p.add_argument('generated',type=Path);a=p.parse_args()

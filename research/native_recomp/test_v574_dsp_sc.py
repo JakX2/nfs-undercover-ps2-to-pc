@@ -11,9 +11,12 @@ class Tests(unittest.TestCase):
         self.assertIn('v574::arm(addr,cpu)',new)
         self.assertIn('v574::route.returned(cpu)',new)
         with self.assertRaises(ValueError):patch_probe(new)
-        source=HEADER+'\n'+HOOK+'\n  uint32_t syscall_id = ctx.gpr[0];\n}'
+        source=HEADER+'\n#include <algorithm>\n\n#include "runtime/cpu_context.h"\n\n'+HOOK+'\n  uint32_t syscall_id = ctx.gpr[0];\n}'
         out=patch_ios(source)
         self.assertIn('try_sc(ctx)) return false;',out)
+        self.assertEqual(out.count('#include "runtime/cpu_context.h"'),2)
+        self.assertEqual(out.count('#include "undercover/wii_boot_sc_binding_v574.h"'),1)
+        self.assertEqual(out.replace('\n#include "undercover/wii_boot_sc_binding_v574.h"','',1).replace('\n  if (undercover::wii::v574::try_sc(ctx)) return false;','',1),source)
         self.assertIn('uint32_t syscall_id = ctx.gpr[0];',out)
         for bad in (out,source+source,source.replace(HOOK,'')):
             with self.assertRaises(ValueError):patch_ios(bad)
@@ -27,6 +30,7 @@ class Tests(unittest.TestCase):
             row=diagnostic(e)
             self.assertIn('file=prepare_v419_full_start.py',row)
             self.assertIn('reason=source_seam',row)
+            self.assertIn('caller=prepare_v574_dsp_sc.py',row)
             self.assertNotIn('private',row)
         try:raise ValueError('private unknown text 0x1234')
         except ValueError as e:

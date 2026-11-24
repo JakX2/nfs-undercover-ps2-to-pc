@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v575*'
+      - 'research/native_recomp/prepare_v574_dsp_sc.py'
+      - 'research/native_recomp/wii_boot_sc_binding_v574.h'
       - '.github/workflows/wii-v575-full-dsp-sc.yml'
 permissions:
   contents: read
