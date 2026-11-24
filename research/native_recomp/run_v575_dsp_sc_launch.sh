@@ -10,7 +10,7 @@ if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-retur
 if [[ "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return || "$mode" == ipc-client-return ]]; then extra+=(UNDERCOVER_V603_REPORT=1);audit=audit_v603_boot_report.py;fi
 if [[ "$mode" == arena-return || "$mode" == irq-enable-return || "$mode" == ipc-client-return ]]; then extra+=(UNDERCOVER_V609_ARENA=1);audit=audit_v609_arena_clear.py;fi
 if [[ "$mode" == irq-enable-return || "$mode" == ipc-client-return ]]; then extra+=(UNDERCOVER_V616_IRQ=1);audit=audit_v616_irq_enable.py;fi
-if [[ "$mode" == ipc-client-return ]]; then extra+=(UNDERCOVER_V625_IPC=1);audit=audit_v625_ipc_client.py;fi
+if [[ "$mode" == ipc-client-return ]]; then extra+=(UNDERCOVER_V625_IPC=1);audit=audit_v628_startup_census.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }
