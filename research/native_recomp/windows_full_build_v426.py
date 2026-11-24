@@ -222,6 +222,10 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
+        if scope=='os-si-sample':
+            from audit_v524_si_sampling import diagnostic
+            diag=diagnostic(raw,rc)
+            if diag:print(diag,flush=True)
         print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
