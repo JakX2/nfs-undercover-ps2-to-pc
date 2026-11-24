@@ -98,3 +98,33 @@ passed all three jobs, including 11/11 CTest programs on Windows and Linux,
 and the actual pinned NWiiRuntime MMIO transport test. The whole-image
 link lane is not changed by this patch; enabling the binding in genuine
 game execution still requires an authenticated dispatch boundary.
+
+## V421: strict access-width and original-address checks
+
+The pinned MMU previously widened byte reads into word reads, ignored byte
+writes in hardware space and treated several integer/floating-point wide
+accesses as unmapped RAM. It also normalized away the original alias before
+the V418 wrapper saw it. The new opt-in patch validates accesses at the
+entry to all twelve guest MMU read/write methods, before normalization,
+watch callbacks, widening or memory access.
+
+```sh
+python3 research/native_recomp/apply_native_ios_mmio_v418.py /path/to/disposable/NWiiRecomp
+python3 research/native_recomp/apply_native_ios_width_v421.py /path/to/disposable/NWiiRecomp
+```
+
+When the native binding is active, both IPC register windows accept only
+aligned 32-bit integer accesses through the supported physical/cached/
+uncached aliases. Partial, floating-point, 64-bit, unaligned,
+cross-aperture and unsupported alias accesses fail closed. Unknown aligned
+words are still rejected by the V418 wrapper. Inactive binding and
+non-IPC RAM/GX accesses retain existing behavior. This is a conservative
+native IOS ownership contract, not a claim about the hardware behavior
+of undocumented widths.
+
+The direct binding tests passed under strict C++20 ASan/UBSan and the
+source patch passed three original-free geometry/idempotence tests.
+The pinned MMU test now runs the V418 baseline first, then independently
+rebuilds with V421 and verifies unsupported widths, alias rejection and
+ordinary MEM1/MEM2 accesses. Complete pinned integration results are
+pending. The full-image runtime remains opt-in.

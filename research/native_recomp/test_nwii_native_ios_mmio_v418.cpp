@@ -51,6 +51,21 @@ int main(){
         rejects([&]{cpu.mmu.write32(ppcmsg+12u,1u);});
         rejects([&]{(void)cpu.mmu.read16(ppcctrl);});
         rejects([&]{cpu.mmu.write16(ppcctrl,1u);});
+#ifdef V421_WIDTH_CHECKS
+        for(uint32_t a:{ppcmsg,ppcctrl,flag,mask,0x8d000000u,0x0d800030u}){
+            rejects([&]{(void)cpu.mmu.read8(a);});rejects([&]{cpu.mmu.write8(a,1u);});
+            rejects([&]{(void)cpu.mmu.read64(a);});rejects([&]{cpu.mmu.write64(a,0u);});
+            rejects([&]{(void)cpu.mmu.read_f32(a);});rejects([&]{cpu.mmu.write_f32(a,1.0f);});
+            rejects([&]{(void)cpu.mmu.read_f64(a);});rejects([&]{cpu.mmu.write_f64(a,1.0);});
+        }
+        rejects([&]{(void)cpu.mmu.read32(0x4d000000u);});
+        rejects([&]{cpu.mmu.write32(0x4d800004u,0u);});
+        rejects([&]{(void)cpu.mmu.read64(0xcd7ffffcu);});
+        rejects([&]{cpu.mmu.write16(0xccffffffu,0u);});
+        need(cpu.mmu.read32(ppcmsg)==req&&host.serviced_steps()==0u,"invalid access changed mailbox");
+        cpu.mmu.write8(0x80000700u,0xa5u);need(cpu.mmu.read8(0x80000700u)==0xa5u,"ordinary RAM byte blocked");
+        cpu.mmu.write64(0x90000000u,0x123456789abcdef0ull);need(cpu.mmu.read64(0x90000000u)==0x123456789abcdef0ull,"ordinary MEM2 access blocked");
+#endif
         auto ack=Bind::service_at_guest_boundary(0u);
         need(ack&&ack->progress==S::Pump::Ack&&!ack->guest_exception_ready,"native ACK did not respect EE");
         need(cpu.mmu.read32(0x80000000u+req)==S::Open&&(cpu.mmu.read32(ppcctrl)&M::Y2)!=0u,"ACK became early reply");

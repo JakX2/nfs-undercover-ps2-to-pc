@@ -24,6 +24,17 @@ int main(){
         for(uint32_t a:{B::IPC+M::ARMCTRL,B::IPC+0x10u,B::MIRROR+1u}){
             rejects([&]{(void)Bind::read32(a);});rejects([&]{(void)Bind::write32(a,0u);});rejects([&]{Bind::reject_subword(a);});
         }
+        for(uint32_t a:{B::IPC,B::MIRROR,0xcd000000u,0x8d800000u}){
+            Bind::check_cpu_access(a,4u,true);
+            rejects([&]{Bind::check_cpu_access(a,1u,false);});
+            rejects([&]{Bind::check_cpu_access(a,8u,false);});
+            rejects([&]{Bind::check_cpu_access(a,4u,false);});
+            rejects([&]{Bind::check_cpu_access(a+1u,4u,true);});
+            rejects([&]{Bind::check_cpu_access(a-1u,2u,false);});
+        }
+        rejects([&]{Bind::check_cpu_access(0x4d000000u,4u,true);});
+        Bind::check_cpu_access(0x80000700u,8u,false);
+        Bind::check_cpu_access(0xcc008000u,1u,false);
         constexpr uint32_t req=0x100u,path=0x400u,en=M::IY1|M::IY2;
         auto& ram=host.physical_ram();const std::string_view dev="/dev/stm/immediate";
         for(std::size_t i=0;i<dev.size();++i)ram.write8(path+uint32_t(i),uint8_t(dev[i]));

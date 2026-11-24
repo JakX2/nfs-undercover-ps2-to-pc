@@ -35,6 +35,19 @@ public:
     static void reject_subword(uint32_t address){
         if(active_&&ipc_window(address))throw std::runtime_error("subword native IOS MMIO access");
     }
+    // Check the original virtual address before MMU normalization. A
+    // partial access, invalid alias, or access straddling either native
+    // IPC aperture must not widen, disappear, or reach legacy IOS.
+    static void check_cpu_access(uint32_t address,unsigned width,bool allow_word){
+        if(!active_)return;
+        const uint32_t phys=address&0x3fffffffu;
+        const uint64_t end=uint64_t(phys)+width;
+        const auto overlaps=[&](uint32_t base){return phys<base+0x40u&&end>base;};
+        if(!overlaps(IosBus::IPC)&&!overlaps(IosBus::MIRROR))return;
+        if(!allow_word||width!=4u||(address&3u)||
+           (address&0xc0000000u)==0x40000000u||!ipc_window(address))
+            throw std::runtime_error("unsupported native IOS CPU MMIO access");
+    }
     // After a legacy PI write (or before a PI read), refresh just the
     // hardware-derived Hollywood level. Preserve all other device bits.
     static void refresh_pi(uint32_t address){

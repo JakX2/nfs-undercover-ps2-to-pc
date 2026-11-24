@@ -18,6 +18,8 @@ on:
       - 'research/native_recomp/wii_native_ios_binding.h'
       - 'research/native_recomp/test_wii_native_ios_binding.cpp'
       - 'research/native_recomp/apply_native_ios_mmio_v418.py'
+      - 'research/native_recomp/apply_native_ios_width_v421.py'
+      - 'research/native_recomp/test_v421_native_ios_width.py'
       - 'research/native_recomp/apply_hollywood_mmio_v62.py'
       - 'research/native_recomp/test_v418_native_ios_mmio.py'
       - 'research/native_recomp/test_nwii_native_ios_mmio_v418.cpp'
@@ -101,3 +103,19 @@ jobs:
             "$root/nWiiRuntime/src/hw/hw_ipc.cpp" \
             -o "$RUNNER_TEMP/v418-mmio"
           timeout 20s "$RUNNER_TEMP/v418-mmio"
+      - name: Check native IOS widths and aliases in real pinned MMU
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v418"
+          python3 -m unittest discover -s research/native_recomp -p test_v421_native_ios_width.py -v
+          python3 research/native_recomp/apply_native_ios_width_v421.py "$root"
+          python3 research/native_recomp/apply_native_ios_width_v421.py "$root"
+          g++ -DV421_WIDTH_CHECKS -std=c++20 -O1 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -pthread \
+            -I"$root/nWiiRuntime/include" \
+            research/native_recomp/test_nwii_native_ios_mmio_v418.cpp \
+            "$root/nWiiRuntime/src/core/os_hle_stubs.cpp" \
+            "$root/nWiiRuntime/src/hw/mmio_dispatcher.cpp" \
+            "$root/nWiiRuntime/src/hw/hw_pi.cpp" \
+            "$root/nWiiRuntime/src/hw/hw_ipc.cpp" \
+            -o "$RUNNER_TEMP/v421-mmio"
+          timeout 20s "$RUNNER_TEMP/v421-mmio"
