@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from prepare_v616_irq_enable import patch_probe,patch_label,INCLUDE,DECL,END
+from prepare_v616_irq_enable import patch_probe,patch_label,native_leaf,INCLUDE,DECL,END,ENTRY
 from audit_v616_irq_enable import EVENTS,RESULT,inspect
 class Tests(unittest.TestCase):
     def test_probe(self):
@@ -14,6 +14,15 @@ class Tests(unittest.TestCase):
         self.assertIn('V616 native IRQ resume',patch_label(s,0x805265cc,0x60000000))
         for bad in (s+s,s.replace('60000000','00000000'),patch_label(s,0x805265cc,0x60000000)):
             with self.assertRaises(ValueError):patch_label(bad,0x805265cc,0x60000000)
+    def test_native_leaf_identity(self):
+        words=(1,2,3,4,0x4e800020);resume=ENTRY+12
+        def source(owner):
+            return 'void '+owner+'(CPUContext& ctx) {\n'+''.join(f'loc_{ENTRY+4*i:X}: ;\n    // 0x{ENTRY+4*i:08X}: {w:08X}\n    ++ctx.inst_count;\n' for i,w in enumerate(words))+'}\n'
+        for owner in ('func_805265C0','fn_805265C0'):
+            s=source(owner);main=f'case 0x{ENTRY:X}: {owner}(ctx); break;\ncase 0x{resume:X}: {owner}(ctx); break;\n'
+            self.assertEqual(native_leaf([s],main,resume,words),owner)
+            for bad,m in ((s+s,main),(s.replace(owner,'fn_805265C4'),main),(s,main.replace(owner+'(ctx); break;\n', 'fn_805265C4(ctx); break;\n',1)),(s,main+main),(s.replace('++ctx.inst_count;','interpret_step(ctx);',1),main),(s.replace('00000003','00000004',1),main)):
+                with self.assertRaises(ValueError):native_leaf([bad],m,resume,words)
     def test_audit(self):
         seq=EVENTS+[RESULT]
         with patch('audit_v616_irq_enable.inspect_arena',return_value=('ok',True)):
