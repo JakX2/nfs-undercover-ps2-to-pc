@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Sample syntax, all shards, native link, bounded startup, hardware, cache or data continuation'
+        description: 'Sample syntax, all shards, native link, bounded startup, hardware, cache, data or OS entry continuation'
         type: choice
         required: true
         default: sample
-        options: [sample, all, link, startup, hardware, cache, data]
+        options: [sample, all, link, startup, hardware, cache, data, os-entry]
 permissions:
   contents: read
 concurrency:
@@ -28,6 +28,7 @@ jobs:
       hardware_requested: ${{ steps.link_request.outputs.hardware_requested }}
       cache_requested: ${{ steps.link_request.outputs.cache_requested }}
       data_requested: ${{ steps.link_request.outputs.data_requested }}
+      os_entry_requested: ${{ steps.link_request.outputs.os_entry_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,6 +69,12 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v430_full_data.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_full_data_witness.cpp -o "$RUNNER_TEMP/v430-witness"
           "$RUNNER_TEMP/v430-witness"
+      - name: Test complete-image DBInit and OSInit entry witness
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v433_full_os_entry.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_full_os_entry_witness.cpp -o "$RUNNER_TEMP/v433-witness"
+          "$RUNNER_TEMP/v433-witness"
       - name: Select private link or startup only for relevant changes
         if: github.event_name == 'push'
         id: link_request
@@ -80,6 +87,7 @@ jobs:
           hardware=false
           cache=false
           data=false
+          os_entry=false
           # Do not run the expensive original-image build on every startup
           # probe. Compare the actual push range, not a commit message.
           if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
@@ -127,12 +135,20 @@ jobs:
               research/native_recomp/wii_full_data_witness.h || rc=$?
             if [[ "$rc" == 1 ]]; then data=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v433_full_os_entry.py \
+              research/native_recomp/audit_v433_full_os_entry.py \
+              research/native_recomp/wii_full_os_entry_witness.h || rc=$?
+            if [[ "$rc" == 1 ]]; then os_entry=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
           echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
           echo "startup_requested=$startup" >> "$GITHUB_OUTPUT"
           echo "hardware_requested=$hardware" >> "$GITHUB_OUTPUT"
           echo "cache_requested=$cache" >> "$GITHUB_OUTPUT"
           echo "data_requested=$data" >> "$GITHUB_OUTPUT"
+          echo "os_entry_requested=$os_entry" >> "$GITHUB_OUTPUT"
   private-translation:
     needs: synthetic-symbol-map
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || needs.synthetic-symbol-map.outputs.link_requested == 'true')
@@ -167,7 +183,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link')))) }}
+          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link'))))) }}
         run: |
           set -euo pipefail
           umask 077
