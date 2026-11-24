@@ -6,6 +6,9 @@ on:
     paths:
       - 'research/native_recomp/*v591*'
       - 'research/native_recomp/*v592*'
+      - 'research/native_recomp/*v593*'
+      - 'research/native_recomp/apply_exi_controller_v490.py'
+      - 'research/native_recomp/wii_irq_bank_binding_v481.h'
       - '.github/workflows/wii-v591-full-mi.yml'
 permissions:
   contents: read
@@ -22,6 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v591_memory_init.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v593_irq_exi_composition.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           for src in test_wii_mi_profile_v587 test_wii_bat_mapping_witness_v590 test_wii_dsp_return_witness_v585 test_wii_memory_init_witness_v592; do

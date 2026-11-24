@@ -1,0 +1,3 @@
+# V595: rerun MI after verified DSP bootstrap and EXI repair
+
+The complete Linux owner V581 run 45482902766 succeeded, linking the original executable and reaching the audio return with all five DSP checkpoints and no interpreter fallback. The earlier V591/V592 owner preparations 45485030899 and 45485134087 both refused the stale EXI enum before compilation; V592's real C++ observer passed its 18 rejection controls. V595 makes the MI workflow directly dependent on the V593 actual-header composition test and triggers a new owner attempt at the corrected revision. No prior stages or private staging rules are removed. DSP firmware responses are synthetic; BAT permission enforcement and original MI return are not yet verified.
