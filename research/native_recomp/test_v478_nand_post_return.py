@@ -65,7 +65,13 @@ class Tests(unittest.TestCase):
             self.assertNotIn(msg,row)
             (root/'derive_v101.py').write_text('"'+msg+'"')
             self.assertIn('matches=2 file=none line=0 unique=0',source_provenance(raw,harness,root,names+['derive_v101.py']))
+            rows=source_candidates(raw,harness,root,names+['derive_v101.py'])
+            self.assertEqual(len(rows),2)
+            self.assertIn('n=1 total=2 file=derive_v100.py line=2',rows[0])
+            self.assertIn('n=2 total=2 file=derive_v101.py line=1',rows[1])
+            self.assertNotIn(msg,' '.join(rows))
             private=raw.replace(msg.encode(),b'private address 0x81234567')
+            self.assertEqual(source_candidates(private,harness,root,names),())
             self.assertIn('id=0000 matches=0 file=none line=0 unique=0',source_provenance(private,harness,root,names))
     def test_other_stop_preserved(self):
         for raw in (RAW.replace(b'owner=1',b'owner=0'),

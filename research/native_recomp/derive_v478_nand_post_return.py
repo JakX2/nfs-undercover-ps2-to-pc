@@ -114,7 +114,7 @@ def diagnosis(raw,harness):
 # Correlate the actual private exception only with literal occurrences in
 # committed public source. Publish a filename/line, never the exception text.
 SOURCE_NAME=re.compile(r'[A-Za-z0-9_]{1,100}\.(?:py|cpp|h)\Z')
-def source_provenance(raw,harness,host,names):
+def source_matches(raw,harness,host,names):
     if len(raw)>MAX_LOG or len(harness)>24_000_000:raise ValueError('provenance size')
     strings=sorted(set(STRINGS.findall(harness)))
     if len(strings)>9999:raise ValueError('catalog')
@@ -131,8 +131,18 @@ def source_provenance(raw,harness,host,names):
             for i,line in enumerate(content.splitlines(),1):
                 if token in line:
                     hits.append((name,i))
+    return ident,hits
+def source_provenance(raw,harness,host,names):
+    ident,hits=source_matches(raw,harness,host,names)
     name,line=hits[0] if len(hits)==1 else ('none',0)
     return f'V492_NAND_SOURCE id={ident:04d} matches={min(len(hits),9999)} file={name} line={line} unique={int(len(hits)==1)} boot_verified=0'
+def source_candidates(raw,harness,host,names):
+    ident,hits=source_matches(raw,harness,host,names)
+    # All emitted paths are from the tracked public source catalog, not
+    # from raw logs. Report bounded ambiguity rather than suppressing it.
+    if not 1<=len(hits)<=8:return ()
+    return tuple(f'V499_NAND_CANDIDATE id={ident:04d} n={i+1} total={len(hits)} file={name} line={line} boot_verified=0'
+                 for i,(name,line) in enumerate(hits))
 def tracked_public_source(host):
     raw=subprocess.check_output(['git','-C',str(host),'ls-files','-z','--','*.py','*.cpp','*.h'],timeout=10)
     if len(raw)>2_000_000:raise ValueError('source catalog size')
@@ -182,7 +192,10 @@ def main():
         print(row(p))
         print(diagnosis(get(a.control,MAX_LOG),harness))
         host=Path(__file__).resolve().parent
-        print(source_provenance(get(a.control,MAX_LOG),harness,host,tracked_public_source(host)))
+        names=tracked_public_source(host)
+        raw=get(a.control,MAX_LOG)
+        print(source_provenance(raw,harness,host,names))
+        for candidate in source_candidates(raw,harness,host,names):print(candidate)
         if not p.ready:
             if a.run_log is not None:raise ValueError('no authorized edge')
             print('V478_NAND_ROUTE installed=0 eligible=0');print('V478_NAND_AUDIT inspected=1');return 0
