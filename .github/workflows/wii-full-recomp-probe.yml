@@ -3,7 +3,37 @@ on:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
-      - 'research/native_recomp/**'
+      # Do not displace a queued original-image run on unrelated NAND,
+      # Windows-only or documentation changes. Match shared build inputs.
+      - 'research/native_recomp/prepare_v*_full_*.py'
+      - 'research/native_recomp/audit_v*_full_*.py'
+      - 'research/native_recomp/test_v*_full_*.py'
+      - 'research/native_recomp/wii_full_*.h'
+      - 'research/native_recomp/test_wii_full_*.cpp'
+      - 'research/native_recomp/wii_probe_log_format.h'
+      - 'research/native_recomp/test_wii_probe_log_format.cpp'
+      - 'research/native_recomp/run_full_recomp_probe_ci.sh'
+      - 'research/native_recomp/run_private_full_*.sh'
+      - 'research/native_recomp/make_private_elf_symbol_map.py'
+      - 'research/native_recomp/test_private_elf_symbol_map.py'
+      - 'research/native_recomp/offline_recompiler_driver_v6.cpp'
+      - 'research/native_recomp/apply_psq_indexed_patch.py'
+      - 'research/native_recomp/apply_psq_estimate_and_gqr_v5.py'
+      - 'research/native_recomp/apply_verified_elf_spans_v6.py'
+      - 'research/native_recomp/apply_hid_state_v18.py'
+      - 'research/native_recomp/apply_fpscr_v19.py'
+      - 'research/native_recomp/apply_l2cr_v20.py'
+      - 'research/native_recomp/apply_mtmsr_resume_v74.py'
+      - 'research/native_recomp/apply_perf_sprs_v29.py'
+      - 'research/native_recomp/verify_perf_combo_v29.py'
+      - 'research/native_recomp/apply_hid4*'
+      - 'research/native_recomp/*v443*'
+      - 'research/native_recomp/*v445*'
+      - 'research/native_recomp/*v438*'
+      - 'research/native_recomp/make_osinit_lowmem_v31.py'
+      - 'research/native_recomp/make_osinit_arena_v32.py'
+      - 'research/native_recomp/make_osinit_mem2_v37.py'
+      - 'research/native_recomp/make_osinit_ipc_v38.py'
       - '.github/workflows/wii-full-recomp-probe.yml'
   workflow_dispatch:
     inputs:
@@ -131,7 +161,12 @@ jobs:
             rc=0
             git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
               research/native_recomp/run_private_full_link.sh \
-              research/native_recomp/run_full_recomp_probe_ci.sh || rc=$?
+              research/native_recomp/run_full_recomp_probe_ci.sh \
+              research/native_recomp/offline_recompiler_driver_v6.cpp \
+              research/native_recomp/make_private_elf_symbol_map.py \
+              research/native_recomp/apply_psq_indexed_patch.py \
+              research/native_recomp/apply_psq_estimate_and_gqr_v5.py \
+              research/native_recomp/apply_verified_elf_spans_v6.py || rc=$?
             if [[ "$rc" == 1 ]]; then requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
             rc=0
@@ -187,6 +222,11 @@ jobs:
             git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
               research/native_recomp/prepare_v439_full_os_hardware.py \
               research/native_recomp/audit_v439_full_os_hardware.py \
+              research/native_recomp/test_v439_full_os_hardware.py \
+              research/native_recomp/apply_perf_sprs_v29.py \
+              research/native_recomp/verify_perf_combo_v29.py \
+              research/native_recomp/apply_hid4_continuous_v30.py \
+              research/native_recomp/apply_hid4_fp_v30.py \
               research/native_recomp/wii_full_os_hardware_witness.h \
               research/native_recomp/wii_probe_log_format.h \
               research/native_recomp/test_wii_probe_log_format.cpp \
@@ -200,7 +240,9 @@ jobs:
             git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
               research/native_recomp/prepare_v444_full_os_arena.py \
               research/native_recomp/audit_v444_full_os_arena.py \
-              research/native_recomp/wii_full_os_arena_witness.h || rc=$?
+              research/native_recomp/wii_full_os_arena_witness.h \
+              research/native_recomp/make_osinit_lowmem_v31.py \
+              research/native_recomp/make_osinit_arena_v32.py || rc=$?
             if [[ "$rc" == 1 ]]; then os_arena=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
             rc=0
@@ -208,6 +250,8 @@ jobs:
               research/native_recomp/prepare_v446_full_os_ipc.py \
               research/native_recomp/audit_v446_full_os_ipc.py \
               research/native_recomp/wii_full_os_ipc_witness.h \
+              research/native_recomp/make_osinit_mem2_v37.py \
+              research/native_recomp/make_osinit_ipc_v38.py \
               research/native_recomp/apply_exact_dispatch_v445.py \
               research/native_recomp/apply_native_tick_v438.py || rc=$?
             if [[ "$rc" == 1 ]]; then os_ipc=true; requested=true

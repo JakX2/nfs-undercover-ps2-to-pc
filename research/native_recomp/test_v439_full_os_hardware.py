@@ -99,6 +99,15 @@ class Tests(unittest.TestCase):
             for bad,rc in ((rows[:-1],0),(rows+[RESULT],0),(rows,88),(rows+[b'V425_HARDWARE_FALLBACK hit=1'],0)):
                 row,ok=inspect(log(bad),rc);self.assertFalse(ok)
                 self.assertIn('legacy_hex_complete=0',row)
+    def test_terminal_census(self):
+        prefix=PREFIX+TIME+[TIME_RESULT,b'V439_HW_BEGIN copy=0']
+        good=prefix+STAGES+[RESULT]
+        for rows,rc,terminal,verified in ((good,0,1,True),(good,88,1,False),
+                (good[:-1],0,0,False),(good+[RESULT],0,0,False),
+                (prefix+STAGES[:9]+[RESULT],0,1,False)):
+            row,ok=inspect(log(rows),rc)
+            self.assertEqual(ok,verified)
+            self.assertIn(f'terminal={terminal} legacy_hex_complete=0',row)
     def test_gate(self):
         prefix=PREFIX+TIME+[TIME_RESULT]
         for copy in (0,1):
