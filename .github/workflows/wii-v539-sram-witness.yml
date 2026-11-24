@@ -1,0 +1,27 @@
+name: Wii Native SRAM Witness Checks
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v534*'
+      - 'research/native_recomp/*v536*'
+      - '.github/workflows/wii-v539-sram-witness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sram-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test authenticated SRAM call geometry, audit and profile
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v534_sram_read.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v536_sram_profile.py -v
+      - name: Execute standalone SRAM device and original call witness regression
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie \
+            -Iresearch/native_recomp research/native_recomp/test_wii_sram_read_witness_v534.cpp -o "$RUNNER_TEMP/v534-sram"
+          "$RUNNER_TEMP/v534-sram"
