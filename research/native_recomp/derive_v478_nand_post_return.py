@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""V478: classify the authenticated post-BLR NAND frontier, never guess an edge.
+The selected callback has returned. An obsolete LR-region stop may only
+be retired for the exact original direct link observed at the frontier.
+Otherwise report the failure category and preserve all existing guards.
+"""
+import argparse
+from dataclasses import dataclass
+import hashlib
+from pathlib import Path
+import re
+import struct
+from audit_v420_nand_sc_provenance import LINE
+from derive_v437_nand_restored_frame import inspect,BEGIN,BLR,RESUME
+from derive_v432_nand_nested_call import STOP,GUARD
+from trace_v427_restored_function import abort_row,branch,MAX_LOG,MAX_CPP
+from repair_v424_nand_aot_placeholder import aot_entry
+from make_osinit_execparams_v28 import ORIGINAL_SHA,text_at
+from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
+from audit_v414_nand_resumed_coverage import classify
+from resolve_v308_descendant_boundaries import resolve
+
+CONTROL='V437_FRAME_RESULT rc=134 begins=1 blr=1 resume=1 nested=2 max_calls=44 unique=25 original=25 first_nonoriginal=none boot_verified=0'
+OWN='    const bool owned=v437_region_owned&&!v437_frame.active();'
+RESET='  nwii::runtime::v437_frame={};'
+STATE='static undercover::wii::RestoredFrameWitness v437_frame{};'
+STOP_ROW=re.compile(rb'V404_NAND_EXTENDED_STOP calls=44 owner=([01]) selected_return=([01]) parent_return=([01])')
+MARK=b'V478_NAND_EDGE continued=1 call=44'
+@dataclass(frozen=True)
+class Frontier:
+    pc:int
+    lr:int
+    word:int
+    kind:str
+    owned:int
+    reason:str
+    ready:bool
+    prefix:tuple
+def trace(raw):
+    e=[]
+    for line in raw.splitlines():
+        if line.startswith(b'V420_CB_ENTRY'):
+            m=LINE.fullmatch(line)
+            if not m:raise ValueError('entry')
+            row=(int(m[1]),*(int(m[i],16) for i in range(2,6)),*(int(m[i]) for i in range(6,11)))
+            if row[0]!=len(e) or row[0]>192 or row[1]&3 or row[2]&3:raise ValueError('order')
+            e.append(row)
+    return tuple(e)
+def terminal(owner,fixture,sizes,cpp,harness,raw):
+    if inspect(raw,134,owner,fixture,sizes)!=CONTROL:raise ValueError('control')
+    e=trace(raw)
+    if len(e)!=45 or any(aot_entry(cpp,x[1])!=(1,1) for x in e):raise ValueError('AOT coverage')
+    lines=raw.splitlines()
+    if lines.index(RESUME)>=next(i for i,l in enumerate(lines) if l.startswith(b'V420_CB_ENTRY call=44 ')):raise ValueError('resume order')
+    _,pc,lr,ew,lw,em,lm,resumed,_,_=e[-1]
+    reason=abort_row(raw,harness,134)[0].split(' category=')[1].split()[0]
+    stop=[m for l in lines if (m:=STOP_ROW.fullmatch(l))]
+    owned=int(len(stop)==1 and stop[0][1]==b'1')
+    kind='unknown';word=0;auth=False
+    try:
+        word=struct.unpack('>I',text_at(owner,lr-4,4))[0]
+        k,target=branch(word,lr-4)
+        kind=k if k in ('direct_link','conditional_link','indirect','direct_tail','return','other','syscall','conditional') else 'unknown'
+        span=resolve(sizes,lr-4)
+        # Match the actual immutable original caller word and ensure the
+        # whole caller extent is still original in this reduced image.
+        auth=(kind=='direct_link' and target==pc and span.length>0 and
+              text_at(owner,span.entry,sizes[span.entry])==text_at(fixture,span.entry,sizes[span.entry]) and
+              text_at(fixture,lr-4,4)==struct.pack('>I',word) and
+              (not lm or lw==word) and classify(owner,fixture,sizes,pc)[0]=='original')
+    except (ValueError,IndexError,KeyError,struct.error):pass
+    region=0<=lr-e[0][1]<0x800
+    ready=bool(owned and region and auth and not resumed and
+               abort_row(raw,harness,134)[1].endswith('label=V402 extended original guest frontier incomplete'))
+    return Frontier(pc,lr,word,kind,owned,reason,ready,e)
+def row(p):
+    return f'V478_NAND_FRONTIER calls=44 original=25 resumed=1 owner={p.owned} edge={p.kind} category={p.reason} ready={int(p.ready)} boot_verified=0'
+def patch(harness,p):
+    if not p.ready or 'v478_continued' in harness or any(harness.count(x)!=1 for x in (OWN,STATE,RESET,STOP,GUARD)):
+        raise ValueError('route')
+    replacement=f'''    const bool v478_exact=v437_region_owned&&v437_frame.stage()==3u&&
+         !v478_continued&&v396_calls==43u&&addr==0x{p.pc:08x}u&&ctx.lr==0x{p.lr:08x}u&&
+         !v413_context.restored();
+    const bool owned=v437_region_owned&&!v437_frame.active()&&!v478_exact;
+    if(v478_exact){{
+      v478_continued=true;
+      std::cout<<"V478_NAND_EDGE continued=1 call=44"<<std::endl;
+    }}'''
+    pairs=((STATE,STATE+'\nstatic bool v478_continued=false;'),(RESET,RESET+'\n  nwii::runtime::v478_continued=false;'),(OWN,replacement))
+    out=harness
+    for a,b in pairs:out=out.replace(a,b,1)
+    back=out
+    for a,b in reversed(pairs):back=back.replace(b,a,1)
+    if back!=harness or out.count(STOP)!=1 or out.count(GUARD)!=1:raise ValueError('guards')
+    return out
+def outcome(raw,rc,owner,fixture,sizes,p):
+    e=trace(raw)
+    # Compare call identity and resume phase, not dynamic return-value
+    # classifications after the edge has been permitted.
+    key=lambda x:(x[0],x[1],x[2],x[7])
+    if tuple(map(key,e[:45]))!=tuple(map(key,p.prefix)) or raw.splitlines().count(MARK)!=1:raise ValueError('prefix')
+    lines=raw.splitlines();at=lines.index(MARK)
+    if not lines.index(RESUME)<at<next(i for i,l in enumerate(lines) if l.startswith(b'V420_CB_ENTRY call=44 ')):raise ValueError('marker order')
+    return inspect(raw,rc,owner,fixture,sizes).replace('V437_FRAME_RESULT','V478_FRAME_RESULT',1)+' continued=1'
+def main():
+    a=argparse.ArgumentParser(description=__doc__)
+    for n in ('owner','elf','fixture','cpp','harness','control','output'):a.add_argument(n,type=Path)
+    a.add_argument('--run-log',type=Path);a.add_argument('--run-rc',type=int);a=a.parse_args()
+    def get(p,cap,as_text=False):
+        if p.stat().st_size>cap:raise ValueError('size')
+        return p.read_text(encoding='utf-8') if as_text else p.read_bytes()
+    try:
+        owner=get(a.owner,20_000_000);elf=get(a.elf,64_000_000)
+        if hashlib.sha256(owner).hexdigest()!=ORIGINAL_SHA or hashlib.sha256(elf).hexdigest()!=ORIGINAL_SHA256:raise ValueError('identity')
+        sizes=parse_functions(elf);fixture=get(a.fixture,20_000_000)
+        harness=get(a.harness,24_000_000,True)
+        p=terminal(owner,fixture,sizes,get(a.cpp,MAX_CPP,True),harness,get(a.control,MAX_LOG))
+        print(row(p))
+        if not p.ready:
+            if a.run_log is not None:raise ValueError('no authorized edge')
+            print('V478_NAND_ROUTE installed=0 eligible=0');return 0
+        new=patch(harness,p)
+        if a.run_log is None:
+            if a.run_rc is not None or a.output.exists() or a.output.is_symlink():raise ValueError('destination')
+            with a.output.open('x',encoding='utf-8') as f:f.write(new)
+            print('V478_NAND_ROUTE installed=1 eligible=1 guards_preserved=1')
+        else:
+            if a.run_rc is None or get(a.output,24_000_000,True)!=new:raise ValueError('harness identity')
+            raw=get(a.run_log,MAX_LOG);print(outcome(raw,a.run_rc,owner,fixture,sizes,p))
+            print(abort_row(raw,new,a.run_rc)[0].replace('V427_ABORT_CENSUS','V478_ABORT_CENSUS',1))
+        print('V478_NAND_AUDIT inspected=1');return 0
+    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError):
+        print('V478_NAND_AUDIT inspected=0');return 1
+if __name__=='__main__':raise SystemExit(main())
