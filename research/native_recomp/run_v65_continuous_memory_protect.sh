@@ -107,5 +107,6 @@ grep -Eq '^PASS: [0-9]+ V65 recovered continuous original __start->OSInit memory
   "$work/private-native.log" || {
   echo 'V65 original native return checkpoint marker is missing' >&2; exit 1;
 }
+grep -Ex 'V632_MAPPER_MODES entry=([0-9]{1,2},){3}[0-9]{1,2} return=([0-9]{1,2},){3}[0-9]{1,2} trials=16' "$work/private-native.log"
 echo 'PASS: original Wii continuous __start returned from original memory protection init at 0x805208f4'
 echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805208f4 stage=65'

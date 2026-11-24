@@ -37,6 +37,9 @@ if [[ "$mode" == --prepare-report || "$mode" == --prepare-report-observer || "$m
   python3 "$here/make_v594_boot_report_geometry.py" "$dol" "$elf"
   python3 "$here/apply_report_table_v594.py" "$nw" "$dol" "$elf"
 fi
+if [[ "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
+  python3 "$here/apply_stm_native_open_v632.py" "$nw" "$dol" "$elf"
+fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \
   "$nw/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$nw/nWiiAnalyzer/src/signature_scanner.cpp" "$nw/nWiiRecomp/src/recompiler.cpp" "$nw/nWiiRecomp/src/symbols.cpp" \

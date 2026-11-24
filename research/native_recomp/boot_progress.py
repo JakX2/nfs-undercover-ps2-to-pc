@@ -302,6 +302,12 @@ def run(args: argparse.Namespace) -> int:
     stop = f"0x{observed['pc']:08X}" if observed else "unobserved"
     print(f"BOOT_RESULT status={status} lane={args.lane} pc={stop} passes={passes}"
           + (f" reason={reason}" if reason else ""))
+    if reason is None and args.diagnostic_runner == "V65" and observed and observed["stage"] == 65:
+        census = [re.fullmatch(r"V632_MAPPER_MODES entry=([0-9]{1,2}(?:,[0-9]{1,2}){3}) return=([0-9]{1,2}(?:,[0-9]{1,2}){3}) trials=16", line)
+                  for line in stdout.splitlines()]
+        census = [m for m in census if m]
+        if len(census) == 1 and all(sum(map(int, census[0][i].split(","))) == 16 for i in (1, 2)):
+            print(census[0][0])
     if reason is not None and args.diagnostic_runner is not None:
         prefix = args.diagnostic_runner
         allowed = SAFE_RUNNER_STAGES[prefix]

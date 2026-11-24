@@ -156,6 +156,7 @@ static bool mi_active=false;
 static unsigned mi_writes=0,mi_handlers=0,mi_trampolines=0,mi_maps=0;
 static uint64_t mi_entries=0,mi_map_entries=0,mi_shutdown_entries=0,mi_unmask_entries=0,mi_hid_reads=0,mi_hid_writes=0;
 static uint32_t mi_hid_before=0;
+static std::array<unsigned,4> mapper_entry_modes{},mapper_return_modes{};
 static DspBootDevice dsp;
 static CPUContext* dsp_ctx=nullptr;
 static std::array<uint8_t,64> aram{};
@@ -450,6 +451,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
           ctx.mmu.read32(0x80003100u)==MEM1_BYTES&&ctx.mmu.read32(0x80003104u)==MEM1_BYTES&&
           ctx.mmu.read32(0x8000311cu)==MEM2_BYTES&&ctx.mmu.read32(0x80003120u)==MEM2_MAP_HI&&
           ctx.mmu.read32(SHUTDOWN_TAIL)==MI_NODE,"original memory mapper input or shutdown registration differs");
+    ++mapper_entry_modes[(ctx.msr>>4)&3u];
     ++mi_map_entries;
   }
   else if(addr==0x80527550u){
@@ -1641,6 +1643,7 @@ int main(int argc,char**argv){
        }
        check(c.bat_registers==bat_expected&&c.srr0==0x80527600u&&(c.srr1&0x30u)==0x30u,
              "original final BAT registers or second rfi return differs");
+       ++nwii::runtime::mapper_return_modes[(c.msr>>4)&3u];
        check(nwii::runtime::dsp.complete()&&nwii::runtime::dsp_wait_finished,
              "original DSP device did not finish both DMA transfers and resets");
        for(unsigned i=0;i<64u;++i)
@@ -2200,6 +2203,13 @@ int main(int argc,char**argv){
     }
   }
   check(nwii::runtime::unknown_calls==0&&nwii::runtime::interpreter_calls==0,"unexpected syscall/interpreter fallback");
+  if(owner){
+    const auto& a=nwii::runtime::mapper_entry_modes;
+    const auto& b=nwii::runtime::mapper_return_modes;
+    check(a[0]+a[1]+a[2]+a[3]==trials&&b[0]+b[1]+b[2]+b[3]==trials,"mapper mode census count differs");
+    std::cout<<std::dec<<"V632_MAPPER_MODES entry="<<a[0]<<","<<a[1]<<","<<a[2]<<","<<a[3]
+             <<" return="<<b[0]<<","<<b[1]<<","<<b[2]<<","<<b[3]<<" trials="<<trials<<"\n";
+  }
   std::cout<<std::dec<<"PASS: "<<checks<<" V65 recovered continuous original __start->OSInit memory-protect assertions; mode="
            <<(owner?"owner":"synthetic")<<" trials="<<trials<<" stop=0x"<<std::hex<<(owner?POST_OWNER:POST_SYNTH)<<std::dec<<"\n";
 }

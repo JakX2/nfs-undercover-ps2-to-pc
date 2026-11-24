@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v629*'
+      - 'research/native_recomp/*v632*'
       - '.github/workflows/wii-v629-stm-open.yml'
 permissions:
   contents: read
@@ -21,6 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v629_stm_open.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_stm_native_open_v632.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v628_startup_census.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v625_ipc_client.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v

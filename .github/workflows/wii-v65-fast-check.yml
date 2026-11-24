@@ -84,6 +84,7 @@ jobs:
               echo 'V65 focused original Wii test failed; owner logs withheld' >&2
               exit 1
             }
+          grep -Ex 'V632_MAPPER_MODES entry=([0-9]{1,2},){3}[0-9]{1,2} return=([0-9]{1,2},){3}[0-9]{1,2} trials=16' "$RUNNER_TEMP/v65-focused.log"
           python3 - "$RUNNER_TEMP/v65-focused.json" <<'PY'
           import json,sys
           from pathlib import Path
