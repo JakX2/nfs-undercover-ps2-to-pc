@@ -1,0 +1,18 @@
+name: Wii IOS Open SC route
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v637*'
+      - '.github/workflows/wii-v637-open-sc.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_open_sc_route_v637.cpp -o "$RUNNER_TEMP/open-sc"
+          "$RUNNER_TEMP/open-sc"
