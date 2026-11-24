@@ -227,6 +227,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v529_si_discovery.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_si_discovery_witness_v529.cpp -o "$RUNNER_TEMP/v529-si-discovery"
           "$RUNNER_TEMP/v529-si-discovery"
+          python3 -m unittest discover -s research/native_recomp -p test_v534_sram_read.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_sram_read_witness_v534.cpp -o "$RUNNER_TEMP/v534-sram"
+          "$RUNNER_TEMP/v534-sram"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
