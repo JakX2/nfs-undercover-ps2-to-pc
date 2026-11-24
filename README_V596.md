@@ -1,0 +1,3 @@
+# V596: constant-space native arena cache sequence witness
+
+After verified V581 DSP return, the original V67 path clears both MEM1/MEM2 arenas then flushes each final 256 KiB. Earlier bounded cache counters retain only 256 addresses and dcbz first/last/count. V596 adds an explicit opt-in per-CPU streaming witness for every native zero/flush line, requiring correct bank/range, order, exact legacy counts, contiguous zeroed memory and adjacent canaries. The hook checks before mutation, and inactive behavior preserves previous diagnostics. A real flat-RAM dcbz fixture executes 32,768 zero lines and 16,384 flush events with seventeen deliberate faults. Not yet enabled in original complete-image scope; no hardware cache or arena execution claim. CI pending.

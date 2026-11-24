@@ -1,0 +1,22 @@
+name: Wii Streaming Arena Cache Trace
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v596*'
+      - '.github/workflows/wii-v596-arena-cache.yml'
+permissions:
+  contents: read
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify ordered large arena zero and flush without retained address list
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v596_arena_cache_patch.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_arena_cache_range_v596.cpp -o "$RUNNER_TEMP/v596"
+          "$RUNNER_TEMP/v596"
