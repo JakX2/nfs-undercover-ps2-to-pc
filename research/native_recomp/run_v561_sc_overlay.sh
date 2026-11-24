@@ -47,3 +47,25 @@ g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$w
   "$here/test_native_sc_route_v570.cpp" "$work/flush-generated"/*.cpp -o "$work/native-route" > "$work/route-compile.log" 2>&1 || { echo 'V570 route compilation failed';exit 1; }
 timeout 15s "$work/native-route" "$work/flush-input/vector.bin" "$mode" > "$work/route-native.log" 2>&1 || { grep -E '^  what\(\):  (SC overlay line [0-9]+|V570 boot SC route rejected)$' "$work/route-native.log" || true; echo 'V570 route execution failed';exit 1; }
 grep -Ex "V570_SC_ROUTE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 lines=128 vectors=32 refusal=6 delegated=1 stop=1 direct_only=30 fallback=0 boot_verified=0" "$work/route-native.log"
+
+# V578: actual binding header spans two translation units, like IOS + observer.
+python3 "$here/make_v561_sc_overlay_fixture.py" "$work/binding-input" --flush --binding "${args[@]}"
+mkdir "$work/binding-generated"
+"$work/driver-flush" "$work/binding-input/fixture.dol" "$work/binding-input/symbols.csv" "$work/binding-generated" --strict-symbol-spans --native-sc-overlay --generate "$root/nWiiRuntime" > "$work/binding-generate.log" 2>&1 || { echo 'V578 binding translation failed';exit 1; }
+python3 "$here/patch_sc_trace_v570.py" "$work/binding-generated"
+python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/binding-generated" --vector "$work/binding-input/vector.bin"
+g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/binding-input" -I"$work/binding-generated" -I"$work/binding-generated/nWiiRuntime/include" \
+  "$here/test_native_sc_binding_v578.cpp" "$here/test_native_sc_binding_ios_v578.cpp" "$work/binding-generated"/*.cpp -o "$work/native-binding" > "$work/binding-compile.log" 2>&1 || { echo 'V578 binding compilation failed';exit 1; }
+for trial in normal disabled installed source unarmed irq caller return repeat; do
+  rc=0;on=1
+  [[ "$trial" != disabled ]] || on=0
+  UNDERCOVER_V574_SC="$on" timeout 15s "$work/native-binding" "$trial" > "$work/binding-native.log" 2>&1 || rc=$?
+  if [[ "$trial" == normal ]]; then
+    [[ "$rc" == 0 ]]; grep -Fx 'V578_SC_BINDING native=1 shared=1 delegated=1 lines=4 fallback=0 boot_verified=0' "$work/binding-native.log"
+  elif [[ "$trial" == disabled ]]; then
+    [[ "$rc" == 0 ]]; grep -Fx 'V578_SC_BINDING disabled=1 delegated=2 shared=1 fallback=0' "$work/binding-native.log"
+  else
+    [[ "$rc" == 113 ]]; grep -Fxq 'V574_DSP_SC_INVALID rejected=1' "$work/binding-native.log"
+  fi
+done
+echo "V578_SC_BINDING_RESULT owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) native=1 shared=1 disabled=1 refused=7 fallback=0 boot_verified=0"

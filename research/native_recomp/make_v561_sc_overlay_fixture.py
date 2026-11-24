@@ -22,13 +22,21 @@ def build(vector,flush=None):
     struct.pack_into('>I',header,0xe0,entry)
     return bytes(header)+caller+vector
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path);p.add_argument('--owner',type=Path);p.add_argument('--flush',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path);p.add_argument('--owner',type=Path);p.add_argument('--flush',action='store_true');p.add_argument('--binding',action='store_true');a=p.parse_args()
     try:
+        if a.binding and not a.flush:raise ValueError('binding requires flush')
         if a.owner:
             if a.owner.stat().st_size>MAX_DOL:raise ValueError('size')
             raw=a.owner.read_bytes()
             if hashlib.sha256(raw).hexdigest()!=OWNER_SHA:raise ValueError('identity')
             vector=struct.pack('>7I',*words_at(raw,SOURCE,7))
+        elif a.binding:
+            # Independently assembled ABI control: read HID0, compute its
+            # bit-3-set value in r10, order, no HID0 write, then return.
+            spr=1008
+            mfspr=(31<<26)|(9<<21)|((spr&31)<<16)|((spr>>5)<<11)|(339<<1)
+            ori=(24<<26)|(9<<21)|(10<<16)|8
+            vector=struct.pack('>7I',mfspr,ori,0x7c0004ac,0x4c00012c,0x60000000,0x60000000,0x4c000064)
         else:
             # Independent fixture, changes r11 but does not touch HID0.
             vector=struct.pack('>7I',0x396b0001,0x4c00012c,*([0x60000000]*4),0x4c000064)
@@ -46,6 +54,9 @@ def main():
         a.output.mkdir(mode=0o700)
         (a.output/'fixture.dol').write_bytes(build(vector,flush))
         (a.output/'vector.bin').write_bytes(vector)
+        if a.binding:
+            header='#pragma once\n#include <array>\n#include <cstdint>\nnamespace undercover::wii::v574 {\ninline constexpr std::array<uint8_t,28> expected_vector{'+','.join(map(str,vector))+'};\ninline constexpr uint32_t return_word=0x60000000u;\n}\n'
+            (a.output/'v574_private_sc_expectations.h').write_text(header,encoding='utf-8')
         symbol='func_805222C0,805222c0,48' if a.flush else 'func_80004000,80004000,16'
         (a.output/'symbols.csv').write_text('Name,Location,Size\n'+symbol+'\n',encoding='utf-8')
         print(f'V561_SC_FIXTURE owner={int(a.owner is not None)} bytes=28')

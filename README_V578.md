@@ -1,0 +1,3 @@
+# V578: cross-translation-unit production SC binding test
+
+The full-image V574 preparer is still blocked pending V577's public-only diagnostic. V578 independently tests its actual one-shot binding header in two compiled C++ translation units, with the generated native flush/vector and a sentinel for the existing IOS body. Owner mode uses authenticated private original code; synthetic mode uses an independently assembled HID0 read/ORI/order/RFI ABI control. Both require shared route identity, exact original caller return, four flush records and unchanged staging bytes, unrelated syscall delegation, disabled mode preserving the prior handler, and seven rejected invalid/repeated states. This does not claim full-image runtime execution. CI pending.
