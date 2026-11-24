@@ -78,6 +78,7 @@ on:
       - 'research/native_recomp/*v413*'
       - 'research/native_recomp/*v414*'
       - 'research/native_recomp/*v416*'
+      - 'research/native_recomp/*v420*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -282,6 +283,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v414_nand_resumed_coverage.py' -v
           python3 -m py_compile research/native_recomp/derive_v416_nand_wait_state.py research/native_recomp/audit_v416_nand_wait_state.py research/native_recomp/test_v416_nand_wait_state.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v416_nand_wait_state.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v420_nand_sc_provenance.py' -v
           python3 -m py_compile research/native_recomp/audit_v396_native_gate.py research/native_recomp/test_v396_native_gate.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v396_native_gate.py' -v
           python3 -m py_compile research/native_recomp/scan_original_guest_markers.py research/native_recomp/test_original_guest_markers_v395.py
@@ -473,6 +475,7 @@ jobs:
               grep -E '^V413_CONTEXT_ROUTE installed=1 cap=192 prefix96=1 read_only=1$|^V413_CONTEXT_ROUTE installed=0$|^V413_CONTEXT_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V413_CONTEXT_STAGE attempt=(completed|failed)$|^V413_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$|^V413_ABORT_CLASS candidate=v413 rc=[0-9]{1,3} kind=(zero|nonzero|timeout|signal|launch) size_band=[0-3] known_public=[01] public_id=[0-9]{4} phase=(other|v[0-9]{3}) guard=(other|pre_ack|trial_witness) exception=(runtime|logic|range|alloc|unclassified) callback=[01] boot_verified=0$|^V413_ABORT_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V414_COVERAGE_ROUTE installed=1 read_only=1 cap=192$|^V414_COVERAGE_ROUTE installed=0$|^V414_COVERAGE_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V414_COVERAGE_STAGE attempt=(completed|failed)$|^V414_(RESUMED|REPAIR)_COVERAGE trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|nop|modified|missing|unknown|original) repairable=[01] all_original=[01] boot_verified=0$|^V414_(PRIVATE_REPAIR|REPAIR_NEXT) prepared=[01] roundtrip=[01]$|^V414_(COVERAGE|REPAIR)_AUDIT inspected=[01]$|^V414_REPAIR_STAGE (input|generate|compile|link|run|inspected)=[01]$|^V414_REPAIR_STAGE attempt=(completed|failed|not_applicable)$|^V414_REPAIR_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V416_WAIT_ROUTE installed=1 read_only=1$|^V416_WAIT_ROUTE installed=0$|^V416_WAIT_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V416_WAIT_STAGE attempt=(completed|failed)$|^V416_WAIT_AUDIT inspected=[01]$|^V416_WAIT_CENSUS trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} same_route=([0-9]|1[0-6]) periodic=([0-9]|1[0-6]) period=([0-9]|1[0-2]) inst_progress=([0-9]|1[0-6]) tb_progress=([0-9]|1[0-6]) mapped=([0-9]|1[0-6]) reply=([0-9]|1[0-6]) negative=([0-9]|1[0-6]) pending=([0-9]|1[0-6]) queued=([0-9]|1[0-6]) irq=([0-9]|1[0-6]) ee=([0-9]|1[0-6]) eligible=([0-9]|1[0-6]) x1=([0-9]|1[0-6]) y1=([0-9]|1[0-6]) y2=([0-9]|1[0-6]) flag=([0-9]|1[0-6]) expired=([0-9]|1[0-6]) disable=[0-9]{1,4} restore=[0-9]{1,4} time=[0-9]{1,4} scheduler=[0-9]{1,4} ipc=[0-9]{1,4} other=[0-9]{1,4} boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V420_SC_ROUTE installed=1 read_only=1$|^V420_SC_ROUTE installed=0$|^V420_SC_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V420_SC_STAGE attempt=(completed|failed)$|^V420_(SC_AUDIT|REPAIR_AUDIT) inspected=[01]$|^V420_(PRIVATE_REPAIR|REPAIR_NEXT) prepared=[01] roundtrip=[01]$|^V420_REPAIR_STAGE (input|generate|compile|link|run|inspected)=[01]$|^V420_REPAIR_STAGE attempt=(completed|failed|not_applicable)$|^V420_(SC_CENSUS|REPAIR_CENSUS) trials=16 pre_unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|original|nop|modified|missing|unknown) repairable=[01] sc_route=([0-9]|1[0-6]) sc1=([0-9]|1[0-6]) sc3=([0-9]|1[0-6]) writer=([0-9]|1[0-6]) selected_nand=([0-9]|1[0-6]) selected_negative=([0-9]|1[0-6]) entry_original=([0-9]|1[0-6]) entry_fixture=([0-9]|1[0-6]) entry_live_original=([0-9]|1[0-6]) entry_different=([0-9]|1[0-6]) entry_unmapped=([0-9]|1[0-6]) caller_original=([0-9]|1[0-6]) caller_fixture=([0-9]|1[0-6]) caller_live_original=([0-9]|1[0-6]) caller_different=([0-9]|1[0-6]) caller_unmapped=([0-9]|1[0-6]) boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V408_NAND_CUT50_ROUTE installed=[01]( original_guest=1 cap50=1 baseline48_preserved=1)?$|^V408_NAND_CUT50_ERROR reason=(missing_96_harness|geometry|cap_[1-4]|route|output_exists|io|other)$|^V408_NAND_CUT50_STAGE (derive|compile|link|run|inspected)=[01]$|^V408_NAND_CUT50_STAGE attempt=(completed|failed)$|^V408_NAND_CUT50_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=([0-9]|[1-4][0-9]|50) owner_trials=([0-9]|1[0-6]) cap50_trials=([0-9]|1[0-6]) selected_return_trials=([0-9]|1[0-6]) parent_return_trials=([0-9]|1[0-6]) full_progress=[01] boot_verified=0$|^V408_NAND_CUT50_AUDIT inspected=[01]$|^V408_OWNER_RESULT_GATE verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V407_NATIVE_ABORT_STAGE v40[45]=[01]$|^V407_NATIVE_ABORT_CLASS candidate=v40[45] rc=[0-9]{1,3} kind=(zero|nonzero|timeout|signal|launch) size_band=[0-3] known_public=[01] public_id=[0-9]{4} phase=(other|v[0-9]{3}) guard=(other|pre_ack|trial_witness) exception=(runtime|logic|range|alloc|unclassified) callback=[01] boot_verified=0$|^V407_NATIVE_ABORT_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V406_NAND_CHECKPOINT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] seen=([0-9]|[1-3][0-9]|4[0-8]) first=(0|49) last=(0|49|[5-8][0-9]|9[0-6]) mask=([0-9]|1[0-5]) selected_any=[01] parent_any=[01] contiguous=[01] boundary96=[01] boot_verified=0$|^V406_NAND_CHECKPOINT_AUDIT inspected=[01]$|^V406_NAND_CHECKPOINT_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
@@ -655,6 +658,24 @@ jobs:
           else
             grep -Fx 'V414_COVERAGE_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
             grep -E '^V414_COVERAGE_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V420 retains the V416 control and audits private callback coverage.
+          if grep -Fqx 'V420_SC_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V420_SC_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V420_SC_ROUTE installed=1 read_only=1' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_CENSUS trials=16 pre_unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|original|nop|modified|missing|unknown) repairable=[01] sc_route=([0-9]|1[0-6]) sc1=([0-9]|1[0-6]) sc3=([0-9]|1[0-6]) writer=([0-9]|1[0-6]) selected_nand=([0-9]|1[0-6]) selected_negative=([0-9]|1[0-6]) entry_original=([0-9]|1[0-6]) entry_fixture=([0-9]|1[0-6]) entry_live_original=([0-9]|1[0-6]) entry_different=([0-9]|1[0-6]) entry_unmapped=([0-9]|1[0-6]) caller_original=([0-9]|1[0-6]) caller_fixture=([0-9]|1[0-6]) caller_live_original=([0-9]|1[0-6]) caller_different=([0-9]|1[0-6]) caller_unmapped=([0-9]|1[0-6]) boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V420_SC_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            if grep -Fqx 'V420_PRIVATE_REPAIR prepared=1 roundtrip=1' "$RUNNER_TEMP/sc298.log"; then
+              grep -E '^V420_REPAIR_STAGE attempt=(completed|failed)$' "$RUNNER_TEMP/sc298.log"
+            else
+              grep -Fx 'V420_PRIVATE_REPAIR prepared=0 roundtrip=0' "$RUNNER_TEMP/sc298.log"
+              grep -Fx 'V420_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"
+            fi
+          else
+            grep -Fx 'V420_SC_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V420_SC_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
           fi
           # V416 classifies the resumed cycle without changing its execution.
           if grep -Fqx 'V416_WAIT_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then

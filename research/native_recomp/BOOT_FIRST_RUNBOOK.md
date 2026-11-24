@@ -112,6 +112,28 @@ loop, but the precise PC/LR identities and live status byte still need
 verification. Do not fabricate a status transition or force timer/IRQ
 progress.
 
+### V420: actual callback and live callsite provenance
+
+V414 authenticated only the post-restoration successor spans. V420 keeps
+the V416 control, then records the selected callback entry and all 192
+counted successors in a separate native process. The private observer
+classifies the known SDA SYSCONF status, callback input sign, live entry
+word and live LR-minus-four word. The private audit compares the latter
+two words independently against the owner DOL and actual reduced fixture,
+including caller words in functions that were not observed at entry.
+It checks the historical V263 exact PC/LR route, counts status-writer
+entries before restoration, and validates all resumed entries against
+V416's own trace. The observer does not alter guest state.
+
+Only the first non-authentic, complete NOP-only entry span may be repaired
+with original bytes, and only if the live first word also agrees with
+the fixture. The candidate must round-trip exactly. If applicable the
+runner independently regenerates, compiles, links and tests it. A mixed,
+missing or ambiguous span remains diagnostic; no SC state or IOS result
+is forced. All addresses, raw instruction words, code and candidate
+binaries remain in owner-private scratch. Five original-free tests pass;
+the new owner outcome is pending.
+
 Original-free tests:
 
 ```sh

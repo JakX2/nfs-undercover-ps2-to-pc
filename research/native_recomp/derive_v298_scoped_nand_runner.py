@@ -1043,7 +1043,7 @@ if (
       > "$work/v416-native.log" 2>&1 || v416_rc=$?
   echo 'V416_WAIT_STAGE run=1'
   if ! python3 "$V110_SOURCE_ROOT/audit_v416_nand_wait_state.py" \
-      "$work/v416-native.log" "$v416_rc"; then
+      "$work/v416-native.log" "$v416_rc" | tee "$work/v416-verified.log"; then
     echo 'V416_WAIT_STAGE inspected=0'
     exit 1
   fi
@@ -1052,6 +1052,110 @@ if (
   echo 'V416_WAIT_STAGE attempt=completed'
 else
   echo 'V416_WAIT_STAGE attempt=failed'
+fi
+
+# V420: observe the actual selected callback and its successors before and
+# after context restoration. Keep V416 as an independent verified control.
+if (
+  if ! test -s "$work/v416-verified.log" ||
+     ! grep -Fq 'same_route=16 periodic=16 period=3 inst_progress=16 tb_progress=16' "$work/v416-verified.log" ||
+     ! grep -Fqx 'V416_WAIT_AUDIT inspected=1' "$work/v416-verified.log"; then
+    echo 'V420_SC_STAGE control=0'
+    exit 1
+  fi
+  echo 'V420_SC_STAGE control=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v420_nand_sc_provenance.py" \
+      "$work/v416-harness.cpp" "$work/v420-harness.cpp"; then
+    echo 'V420_SC_STAGE derive=0'
+    exit 1
+  fi
+  echo 'V420_SC_STAGE derive=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+      -c "$work/v420-harness.cpp" -o "$work/v420-harness.o" \
+      > "$work/v420-compile.log" 2>&1; then
+    echo 'V420_SC_STAGE compile=0'
+    exit 1
+  fi
+  echo 'V420_SC_STAGE compile=1'
+  if ! g++ "$work/v420-harness.o" "$work/v310-generated.o" "$work/loader.o" \
+      -o "$work/v420-native" > "$work/v420-link.log" 2>&1 ||
+      ! test -x "$work/v420-native"; then
+    echo 'V420_SC_STAGE link=0'
+    exit 1
+  fi
+  echo 'V420_SC_STAGE link=1'
+  v420_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v420-native" "$work/private-v310.dol" owner-callback "$owner" \
+      > "$work/v420-native.log" 2>&1 || v420_rc=$?
+  echo 'V420_SC_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/audit_v420_nand_sc_provenance.py" \
+      "$owner" "$work/v293-original.elf" "$work/private-v310.dol" \
+      "$work/v420-native.log" "$work/private-v420-repaired.dol" "$v420_rc" \
+      | tee "$work/v420-coverage.log"; then
+    echo 'V420_SC_STAGE inspected=0'
+    exit 1
+  fi
+  echo 'V420_SC_STAGE inspected=1'
+  if grep -Fqx 'V420_PRIVATE_REPAIR prepared=1 roundtrip=1' "$work/v420-coverage.log"; then
+    if (
+      test -s "$work/private-v420-repaired.dol" || { echo 'V420_REPAIR_STAGE input=0'; exit 1; }
+      echo 'V420_REPAIR_STAGE input=1'
+      mkdir "$work/generated-v420-repaired"
+      if ! "$work/generator" "$work/private-v420-repaired.dol" "$work/generated-v420-repaired" owner \
+          > "$work/v420-repair-generate.log" 2>&1; then
+        echo 'V420_REPAIR_STAGE generate=0'
+        exit 1
+      fi
+      echo 'V420_REPAIR_STAGE generate=1'
+      if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+          -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+          -c "$work/generated-v420-repaired/output.cpp" -o "$work/v420-repair-generated.o" \
+          > "$work/v420-repair-compile.log" 2>&1; then
+        echo 'V420_REPAIR_STAGE compile=0'
+        exit 1
+      fi
+      echo 'V420_REPAIR_STAGE compile=1'
+      if ! g++ "$work/v420-harness.o" "$work/v420-repair-generated.o" "$work/loader.o" \
+          -o "$work/v420-repair-native" > "$work/v420-repair-link.log" 2>&1 ||
+          ! test -x "$work/v420-repair-native"; then
+        echo 'V420_REPAIR_STAGE link=0'
+        exit 1
+      fi
+      echo 'V420_REPAIR_STAGE link=1'
+      v420_repair_rc=0
+      timeout --signal=TERM --kill-after=3s 16s \
+          "$work/v420-repair-native" "$work/private-v420-repaired.dol" owner-callback "$owner" \
+          > "$work/v420-repair-native.log" 2>&1 || v420_repair_rc=$?
+      echo 'V420_REPAIR_STAGE run=1'
+      if ! python3 "$V110_SOURCE_ROOT/audit_v413_nand_context_resume.py" \
+          "$work/v420-repair-native.log" "$v420_repair_rc" \
+          | sed 's/^V413_CONTEXT_CENSUS /V420_REPAIR_CONTEXT_CENSUS /'; then
+        echo 'V420_REPAIR_STAGE inspected=0'
+        exit 1
+      fi
+      if python3 "$V110_SOURCE_ROOT/audit_v420_nand_sc_provenance.py" \
+          "$owner" "$work/v293-original.elf" "$work/private-v420-repaired.dol" \
+          "$work/v420-repair-native.log" "$work/unused-v420.dol" "$v420_repair_rc" --no-repair \
+          | sed 's/^V420_SC_CENSUS /V420_REPAIR_CENSUS /;s/^V420_PRIVATE_REPAIR /V420_REPAIR_NEXT /;s/^V420_SC_AUDIT /V420_REPAIR_AUDIT /'; then
+        echo 'V420_REPAIR_STAGE inspected=1'
+      else
+        echo 'V420_REPAIR_STAGE inspected=0'
+        exit 1
+      fi
+    ); then
+      echo 'V420_REPAIR_STAGE attempt=completed'
+    else
+      echo 'V420_REPAIR_STAGE attempt=failed'
+    fi
+  else
+    echo 'V420_REPAIR_STAGE attempt=not_applicable'
+  fi
+); then
+  echo 'V420_SC_STAGE attempt=completed'
+else
+  echo 'V420_SC_STAGE attempt=failed'
 fi
 
 # V321: compare positive, once-only AOT function-entry markers
