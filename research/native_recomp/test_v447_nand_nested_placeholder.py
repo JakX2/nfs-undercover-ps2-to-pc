@@ -1,5 +1,5 @@
 import unittest
-from repair_v447_nand_nested_placeholder import plan,outcome
+from repair_v447_nand_nested_placeholder import plan,outcome,RepairRejected
 from test_v414_nand_resumed_coverage import dol,BODY,A,NOP
 from test_v424_nand_aot_placeholder import cpp
 from test_v437_nand_restored_frame import entry,log,BEGIN,BLR,RESUME
@@ -21,6 +21,15 @@ class Tests(unittest.TestCase):
         row=outcome(RAW+BLR+b'\n'+RESUME+b'\n',0,OWNER,SIZES,p)
         self.assertIn('blr=1 resume=1',row);self.assertIn('original=5',row)
         self.assertTrue(row.endswith('restored_entry=1'))
+    def test_rejection_census(self):
+        for raw,source,reason,ordinal,body,dispatch in (
+            (RAW.replace(b'call=4',b'call=5'),SOURCE,'entry_order',0,0,0),
+            (RAW.replace(f'pc={PCS[-1]:08x}'.encode(),b'pc=80004338'),SOURCE,'entry_range',5,0,0),
+            (RAW,cpp(PCS[0]),'aot_entry',5,0,0),
+            (RAW,SOURCE.replace(f'func_{PCS[-1]:08X}}}', 'other}'),'aot_entry',5,1,0)):
+            with self.assertRaises(RepairRejected) as e:plan(OWNER,FIXTURE,SIZES,source,raw)
+            self.assertEqual(e.exception.row(),f'V452_REPAIR_REJECT reason={reason} ordinal={ordinal} body={body} dispatch={dispatch}')
+            self.assertNotIn(f'{PCS[-1]:08x}',e.exception.row())
     def test_reject(self):
         for raw in (RAW.replace(b'call=4',b'call=5'),RAW.replace(b'call=4',b'call=3'),RAW+BEGIN+b'\n',RAW.replace(b'resumed=0',b'resumed=1',1)):
             with self.assertRaises(ValueError):plan(OWNER,FIXTURE,SIZES,SOURCE,raw)
