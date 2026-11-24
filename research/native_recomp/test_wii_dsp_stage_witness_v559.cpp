@@ -24,7 +24,7 @@ int main(){
     DspStageExpectations e{{{{0x80521d28,0x80522014,1,2},{0x80004338,0x80522024,3,4},
         {0x80004338,0x80522038,5,4},{0x805222c0,0x80522044,6,7}}},{},0x44000002u};
     for(unsigned i=0;i<128;++i)e.image[i]=uint8_t(i*17+9);
-    for(unsigned fault=0;fault<=18;++fault){
+    for(unsigned fault=0;fault<=30;++fault){
         Cpu c;auto& m=c.mmu;
         c.gpr[1]=sp;c.gpr[2]=0x80715ee0;c.gpr[13]=0x8070e8e0;c.lr=AudioResetWitness::Return;
         for(auto x:e.edges){m.write32(x.pc,x.entry_word);m.write32(x.lr-4,x.branch_word);}
@@ -72,8 +72,26 @@ int main(){
         if(fault==15)c.gpr[1]-=4;
         if(fault==16)c.lr^=4;
         if(fault==17)m.write32(W::Syscall,0);
-        need(w.observe(fault==18?W::Syscall+4:W::Syscall,c)==(fault==0));
-        if(!fault)need(w.stage()==6);
+        need(w.observe(fault==18?W::Syscall+4:W::Syscall,c)==(fault==0||fault>18));
+        if(fault>=1&&fault<=18)continue;
+        need(w.stage()==6);
+        c.pc=c.lr=e.edges[3].lr;c.inst_count+=9;
+        const uint32_t ret=0x60000000u;m.write32(c.pc,ret);
+        if(fault==19)c.pc+=4;
+        if(fault==20)c.lr+=4;
+        if(fault==21)c.inst_count++;
+        if(fault==22)c.gpr[2]^=4;
+        if(fault==23)c.gpr[13]^=4;
+        if(fault==24)c.msr^=2;
+        if(fault==25)m.mem[W::Staging+1]^=1;
+        if(fault==26)m.mem[backup+1]^=1;
+        if(fault==27)m.mem[backup-1]^=1;
+        if(fault==28)++c.guest_flush_count;
+        if(fault==29)m.write32(c.pc,0);
+        if(fault==30)m.write32(0x800000e4u,0);
+        need(w.finish_sc(e.edges[3].lr,c,ret)==(fault==0));
+        if(!fault){need(w.stage()==7);need(!w.finish_sc(e.edges[3].lr,c,ret));}
+
     }
-    std::cout<<"PASS: original-free DSP staging witness, 128-byte image and backup, four cache lines, 18 negative controls\n";
+    std::cout<<"PASS: original-free DSP staging witness, 128-byte image and backup, four cache lines, 30 negative controls, original SC return boundary\n";
 }

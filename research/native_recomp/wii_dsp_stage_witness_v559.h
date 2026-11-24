@@ -48,7 +48,7 @@ public:
                !bytes(c,backup_,original_)||uint64_t(c.guest_flush_count)!=uint64_t(flush_)+4)
                 return fail(5);
             for(unsigned i=0;i<4;++i)if(c.guest_flush_lines[flush_+i]!=Staging+32*i)return fail(5);
-            stage_=6;return true;
+            stage_=6;last_=c.inst_count;return true;
         }
         if(matches(c,e_.edges[stage_-1])){
             if(c.gpr[1]!=sp_||c.guest_flush_count!=flush_)return fail(3);
@@ -69,6 +69,20 @@ public:
         for(auto e:e_.edges)if(addr==e.pc&&c.lr==e.lr)return fail(6);
         if(stage_==1||stage_==4)return fail(6);
         return true;
+    }
+    // Optional continuation only after the independently authenticated
+    // SC vector completed RFI and the original flush executed BLR.
+    template<class Cpu>bool finish_sc(uint32_t addr,Cpu& c,uint32_t return_word){
+        if(error_||stage_!=6||!c.is_running||addr!=e_.edges[3].lr||
+           c.pc!=addr||c.lr!=addr||c.gpr[1]!=sp_||c.gpr[2]!=r2_||
+           c.gpr[13]!=r13_||c.msr!=msr_||c.inst_count<last_||
+           c.inst_count-last_!=9u||!equal(c,addr,return_word)||
+           !equal(c,0x800000e4u,ThreadInitWitness::Thread)||
+           !equal(c,r13_-3472u,backup_+128)||!preserved(c)||
+           !bytes(c,Staging,e_.image)||!bytes(c,backup_,original_)||
+           uint64_t(c.guest_flush_count)!=uint64_t(flush_)+4)return fail(7);
+        for(unsigned i=0;i<4;++i)if(c.guest_flush_lines[flush_+i]!=Staging+32*i)return fail(7);
+        stage_=7;return true;
     }
 private:
     DspStageExpectations e_;unsigned stage_=0,error_=0,extra_=0;
