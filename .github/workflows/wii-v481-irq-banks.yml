@@ -1,0 +1,45 @@
+name: Wii Native IRQ Bank Routing
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v480*'
+      - 'research/native_recomp/*v481*'
+      - '.github/workflows/wii-v481-irq-banks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify register models under sanitizers
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_banks_v480.cpp -o "$RUNNER_TEMP/v480-banks"
+          "$RUNNER_TEMP/v480-banks"
+      - name: Fetch pinned NWiiRecomp
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v481"
+          git init -q "$root"
+          git -C "$root" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$root" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$root" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Route original-free register tests through pinned real MMU and PI wrappers
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v481"
+          mkdir -p "$root/nWiiRuntime/include/undercover"
+          cp research/native_recomp/wii_exception_vector_witness_v457.h "$root/nWiiRuntime/include/undercover/"
+          python3 research/native_recomp/apply_irq_bootstrap_v475.py "$root"
+          python3 research/native_recomp/apply_irq_banks_v481.py "$root"
+          rt="$root/nWiiRuntime"
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_irq_banks_v481.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v481-pinned"
+          "$RUNNER_TEMP/v481-pinned"
