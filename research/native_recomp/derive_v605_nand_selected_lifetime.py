@@ -32,8 +32,9 @@ def history(raw,control=True):
     k,t=one(lines,b'V395_NAND_ISFS_TRIAL ',TRIAL)
     first=[i for i,l in enumerate(lines) if l.startswith(b'V420_CB_ENTRY call=0 ')]
     e=trace(raw)
-    if len(first)!=1 or not e or not a<f<first[0]<g<h<j<k or t.groups()!=(b'1',b'1',b'0' if control else b'1'):
-        raise ValueError('selected return order')
+    if len(first)!=1 or not e:raise ValueError('selected entry count')
+    if not a<f<first[0]<g<h<j<k:raise ValueError('selected return order')
+    if t.groups()!=(b'1',b'1',b'0' if control else b'1'):raise ValueError('selected trial state')
     if not control:
         n,p=one(lines,b'V605_NAND_SELECTED_PROOF ',PROOF)
         if not j<n<k or p[1]!=b'1':raise ValueError('historical selected trial')
@@ -42,13 +43,15 @@ def history(raw,control=True):
     return pc,lr,ew,lw
 def authenticate(raw,owner,fixture,sizes,cpp,control=True,reader=text_at):
     pc,lr,ew,lw=history(raw,control)
-    if classify(owner,fixture,sizes,pc,reader)[0]!='original' or aot_entry(cpp,pc)!=(1,1):raise ValueError('selected original root')
+    if classify(owner,fixture,sizes,pc,reader)[0]!='original':raise ValueError('selected original root')
+    if aot_entry(cpp,pc)!=(1,1):raise ValueError('selected native root')
     caller=0x804f0e04
     n=sizes.get(caller,0)
     if not 4<=n<=4096 or lr-4<caller or lr>caller+n:raise ValueError('ISFS extent')
     for addr,w in ((pc,ew),(lr-4,lw)):
         data=struct.pack('>I',w)
-        if reader(owner,addr,4)!=data or reader(fixture,addr,4)!=data:raise ValueError('selected live word')
+        if reader(owner,addr,4)!=data:raise ValueError('selected owner word')
+        if reader(fixture,addr,4)!=data:raise ValueError('selected fixture word')
     # An authenticated bctrl (indirect call) or exact relative BL. No
     # arbitrary address-range-only classification of the selected caller.
     direct=lw>>26==18 and lw&3==1
@@ -76,6 +79,10 @@ def patch(source,pc,lr):
     out=source[:a]+new+source[b:]
     if out.replace(new,old,1)!=source or out.count(GUARD)!=1:raise ValueError('roundtrip')
     return out
+def diagnostic(exc,phase):
+    reasons={'identity','size','source identity','frame census','guard identity','selected entry count','selected return order','selected trial state','historical selected trial','selected trace geometry','selected original root','selected native root','ISFS extent','selected owner word','selected fixture word','selected link','source seam','legacy proof','roundtrip','destination','candidate identity','selected replay identity'}
+    reason=str(exc) if type(exc) is ValueError and str(exc) in reasons else 'other'
+    return f'V614_NAND_DERIVE phase={phase} reason={reason.lower().replace(" ","_")}'
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     for n in ('owner','elf','fixture','cpp','base','control','prior','prior_log','candidate','chain','cache','next_candidate','isfs_candidate','isfs_log','output'):
@@ -84,23 +91,31 @@ def main():
     def get(path,cap,txt=False):
         if path.stat().st_size>cap:raise ValueError('size')
         return path.read_text(encoding='utf-8') if txt else path.read_bytes()
+    phase='inputs'
     try:
         owner=get(a.owner,20_000_000);elf=get(a.elf,64_000_000)
         if hashlib.sha256(owner).hexdigest()!=ORIGINAL_SHA or hashlib.sha256(elf).hexdigest()!=ORIGINAL_SHA256:raise ValueError('identity')
         sizes=parse_functions(elf);fixture=get(a.fixture,20_000_000);prior=get(a.prior,24_000_000,True);cpp=get(a.cpp,MAX_CPP,True)
+        phase='prior_auth'
         q=auth542(owner,fixture,sizes,cpp,get(a.base,24_000_000,True),get(a.control,MAX_LOG),prior,get(a.prior_log,MAX_LOG))
+        phase='source_chain'
         candidate=get(a.candidate,24_000_000,True);chain=get(a.chain,24_000_000,True);cache=get(a.cache,24_000_000,True);nxt=get(a.next_candidate,24_000_000,True);isfs=get(a.isfs_candidate,24_000_000,True)
         if candidate!=patch542(prior) or chain!=patch551(candidate) or cache!=patch563(chain) or nxt!=patch573(cache) or isfs!=patch583(nxt):raise ValueError('source identity')
+        phase='guard'
         raw=get(a.isfs_log,MAX_LOG)
-        if inspect542(raw,134,owner,fixture,sizes,q)!=FRAME_RESULT or not abort_row(raw,isfs,134)[1].endswith('label='+LABEL):raise ValueError('guard identity')
+        if inspect542(raw,134,owner,fixture,sizes,q)!=FRAME_RESULT:raise ValueError('frame census')
+        if not abort_row(raw,isfs,134)[1].endswith('label='+LABEL):raise ValueError('guard identity')
+        phase='selected_auth'
         pc,lr=authenticate(raw,owner,fixture,sizes,cpp)
         print('V605_NAND_SELECTED_HISTORY owner=1 selected=1 original_link=1 blr=1 resume=1 ordered=1 boot_verified=0')
+        phase='patch'
         new=patch(isfs,pc,lr)
         if a.run_log is None:
             if a.run_rc is not None or a.output.exists() or a.output.is_symlink():raise ValueError('destination')
             with a.output.open('x',encoding='utf-8') as f:f.write(new)
             print('V605_NAND_SELECTED_ROUTE installed=1 legacy_snapshot=1 later_guards=1')
         else:
+            phase='replay'
             if a.run_rc is None or get(a.output,24_000_000,True)!=new:raise ValueError('candidate identity')
             raw=get(a.run_log,MAX_LOG)
             if authenticate(raw,owner,fixture,sizes,cpp,False)!=(pc,lr):raise ValueError('selected replay identity')
@@ -109,6 +124,6 @@ def main():
             host=Path(__file__).resolve().parent
             for row in next_guard(raw,a.run_rc,new,host,tracked_public_source(host)):print(row.replace('V517_NAND_','V605_NAND_',1))
         print('V605_NAND_SELECTED_AUDIT inspected=1');return 0
-    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError):
-        print('V605_NAND_SELECTED_AUDIT inspected=0');return 1
+    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError) as exc:
+        print(diagnostic(exc,phase));print('V605_NAND_SELECTED_AUDIT inspected=0');return 1
 if __name__=='__main__':raise SystemExit(main())
