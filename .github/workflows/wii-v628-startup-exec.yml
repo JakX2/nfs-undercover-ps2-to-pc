@@ -1,4 +1,4 @@
-name: Wii Complete Native Startup Through STM
+name: Wii Complete Native Startup Through First IOS Request
 on:
   workflow_dispatch:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v628*'
       - 'research/native_recomp/*v635*'
+      - 'research/native_recomp/*v653*'
       - '.github/workflows/wii-v628-startup-exec.yml'
 permissions:
   contents: read
@@ -22,6 +23,10 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v635_stm_full_run.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v641_open_request.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v645_open_roots.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v649_open_cache.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v643_report_diagnostic.py -v
           python3 -m unittest discover -s research/native_recomp -p test_stm_native_open_v632.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v629_stm_open.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v591_memory_init.py -v
@@ -38,7 +43,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v593_irq_exi_composition.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
-          for src in test_wii_mi_profile_v587 test_wii_bat_mapping_witness_v590 test_wii_dsp_return_witness_v585 test_wii_memory_init_witness_v592 test_wii_boot_report_witness_v601 test_wii_arena_clear_witness_v608 test_wii_arena_reset_v606 test_wii_cold_mapping_v612 test_wii_irq_enable_witness_v615 test_wii_ipc_client_witness_v623 test_wii_stm_prefix_witness_v629; do
+          for src in test_wii_mi_profile_v587 test_wii_bat_mapping_witness_v590 test_wii_dsp_return_witness_v585 test_wii_memory_init_witness_v592 test_wii_boot_report_witness_v601 test_wii_arena_clear_witness_v608 test_wii_arena_reset_v606 test_wii_cold_mapping_v612 test_wii_irq_enable_witness_v615 test_wii_ipc_client_witness_v623 test_wii_stm_prefix_witness_v629 test_wii_open_request_witness_v639 test_wii_open_sc_route_v637 test_open_cache_range_v649; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$RUNNER_TEMP/include" -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
             "$RUNNER_TEMP/$src"
           done
@@ -65,7 +70,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Link complete original executable and execute startup through first STM IOS_Open
+      - name: Link complete original executable and execute startup through first IOS request construction
         run: |
           set -euo pipefail
           umask 077
@@ -73,7 +78,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw616" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw616" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw616" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw616" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-stm-open
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw616" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-open-request
       - name: Clean private original files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw616"

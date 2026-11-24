@@ -22,5 +22,16 @@ class Tests(unittest.TestCase):
         for bad in (good[:-1],good+[OPEN_RESULT],good+[STM],good+[b'V425_HARDWARE_FALLBACK hit=1'],ALL+EVENTS+[OPEN_RESULT]):
             self.assertFalse(inspect(log(bad),0)[1])
         self.assertFalse(inspect(log(good),122)[1])
+        # A verified complete report is not a completed STM/open proof.
+        from audit_v603_boot_report import EVENTS as report_events
+        stop=next(i for i,x in enumerate(ALL) if x==report_events[0])
+        rows,ok=inspect(log(ALL[:stop]+report_events[:4]+[b'V603_REPORT_INVALID reason=8 stage=2 reports=3 getters=0']),116)
+        self.assertFalse(ok)
+        self.assertIn('mi=20/20 report=4/17',rows[1])
+        self.assertIn('stm=0 events=0/11 verified=0',rows[-1])
+        # An open request with a skipped vector or a duplicate stage cannot
+        # consume a preceding complete-image STM proof as its own success.
+        for bad in (EVENTS[:7]+EVENTS[8:],EVENTS[:8]+EVENTS[7:]):
+            self.assertFalse(inspect(log(ALL+STAGES+[STM]+bad+[OPEN_RESULT]),0)[1])
         self.assertIn('events=3/11',inspect(log(ALL+STAGES+[STM]+EVENTS[:3]+[b'V641_OPEN_INVALID reason=3 stage=3']),122)[0][-1])
 if __name__=='__main__':unittest.main()

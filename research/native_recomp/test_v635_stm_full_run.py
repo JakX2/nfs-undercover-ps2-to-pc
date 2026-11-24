@@ -7,13 +7,16 @@ HERE=Path(__file__).parent
 class Tests(unittest.TestCase):
     def test_full_launch_contract(self):
         workflow=(HERE.parent.parent/'.github/workflows/wii-v628-startup-exec.yml').read_text()
-        self.assertEqual(workflow.count('--run-stm-open'),1)
+        self.assertEqual(workflow.count('--run-open-request'),1)
+        self.assertNotIn('--run-stm-open',workflow)
         self.assertNotIn('--run-ipc-client',workflow)
         self.assertIn('cancel-in-progress: false',workflow)
         launcher=(HERE/'run_v575_dsp_sc_launch.sh').read_text()
         self.assertIn('UNDERCOVER_V629_STM=1);audit=audit_v629_stm_open.py',launcher)
         self.assertIn('UNDERCOVER_V625_IPC=1',launcher)
         self.assertIn('mapper_diagnostic',launcher)
+        self.assertIn('UNDERCOVER_V641_OPEN=1);audit=audit_v641_open_request.py',launcher)
+        self.assertIn('report_diagnostic_v643',launcher)
     def test_stm_failure_preserves_verified_ipc(self):
         rows,ok=inspect(log(ALL+STAGES[:2]+[b'V629_STM_INVALID reason=5 stage=2']),121)
         self.assertFalse(ok)
