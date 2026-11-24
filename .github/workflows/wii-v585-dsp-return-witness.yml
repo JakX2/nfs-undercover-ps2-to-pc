@@ -1,0 +1,21 @@
+name: Wii DSP Return Witness Controls
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v585*'
+      - '.github/workflows/wii-v585-dsp-return-witness.yml'
+permissions:
+  contents: read
+jobs:
+  witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test read-only DSP guest continuation witness
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_dsp_return_witness_v585.cpp -o "$RUNNER_TEMP/v585"
+          "$RUNNER_TEMP/v585"

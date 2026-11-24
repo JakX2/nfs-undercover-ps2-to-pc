@@ -1,0 +1,3 @@
+# V585: DSP return observer negative controls
+
+V581 original-free preflight passed; its private complete-image run remains in progress. V585 directly instantiates the actual C++ V559/V581 witnesses using independent synthetic staging bytes, a fake CPU/MMU, and a read-only backend view (real backend independently tested in V580). Tests cover exact 32-bit timebase wrap, ordered delay and guest call edges, restore ABI, stack and backup/canary restoration, final return instruction and duplicate observation. Sixteen deliberate faults must be rejected. No original execution or firmware claim from this fixture. CI pending.
