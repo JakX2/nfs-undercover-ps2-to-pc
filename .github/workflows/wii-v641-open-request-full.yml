@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v641*'
+      - 'research/native_recomp/*v645*'
       - '.github/workflows/wii-v641-open-request-full.yml'
 permissions:
   contents: read
@@ -20,6 +21,7 @@ jobs:
       - name: Validate original-free report witness and scope contract
         run: |
           set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v645_open_roots.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v641_open_request.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v625_ipc_client.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v

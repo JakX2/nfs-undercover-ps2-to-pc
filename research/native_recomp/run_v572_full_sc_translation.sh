@@ -42,6 +42,7 @@ if [[ "$mode" == --prepare-report || "$mode" == --prepare-report-observer || "$m
 fi
 if [[ "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
   python3 "$here/apply_stm_native_open_v632.py" "$nw" "$dol" "$elf"
+  if [[ "$open_request" == 1 ]]; then python3 "$here/apply_open_roots_v645.py" "$nw" "$dol" "$elf";fi
 fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \

@@ -6,7 +6,7 @@ from prepare_v419_full_start import MAX_DOL,OWNER_SHA,replace_exact
 from make_private_elf_symbol_map import ORIGINAL_SHA256
 from make_v639_open_geometry import geometry,render,exact_words,STOP
 from prepare_v629_stm_open import install as install_stm,INCLUDE as PRIOR_INCLUDE
-from prepare_v625_ipc_client import audit_native,patch_return
+from prepare_v625_ipc_client import audit_native,patch_return,DEF,LABEL
 INCLUDE='#include "v629_private_stm_expectations.h"'
 DECL='    static StmPrefixWitness stm_prefix(v629::expected_stm);'
 RESULT='            std::cout<<"V629_STM_RESULT entry=1 open=1 pathname="<<stm_prefix.path_kind()<<" mode=0 native_transport=1 serviced=0 actual_ios=0 fallback=0 boot_verified=0"<<std::endl;\n            std::_Exit(0);'
@@ -47,6 +47,22 @@ def install(dol,elf,generated,host,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
         if target not in blocks:expected[target]=(target,word)
     paths=sorted(generated.glob('output_*.cpp'));main=generated/'main_output.cpp'
     if len(paths)<20 or any(p.is_symlink() or not p.is_file() or p.stat().st_size>64*1024*1024 for p in paths+[main]):raise ValueError('open tree')
+    groups={pc:{a:pair for a,pair in expected.items() if pair[0]==pc} for pc in sorted({p for p,_ in expected.values()})}
+    counts={pc:[0,0,0] for pc in groups}
+    for p in paths:
+        s=p.read_text(encoding='utf-8');defs=list(DEF.finditer(s))
+        for i,f in enumerate(defs):
+            root=int(f[1].split('_')[1],16)
+            body=s[f.end():defs[i+1].start() if i+1<len(defs) else len(s)]
+            for l in LABEL.finditer(body):
+                pc=int(l[1],16)
+                if pc not in expected:continue
+                owner,w=expected[pc];row=counts[owner];row[0]+=1
+                row[1]+=int(root==owner);row[2]+=int(int(l[2],16)==pc and int(l[3],16)==w)
+    # Bounded counts by publicly defined root role; no generated C++.
+    for i,(pc,group) in enumerate(groups.items()):
+        seen,owned,words=counts[pc]
+        print(f'V645_OPEN_COVERAGE group={i} expected={len(group)} seen={seen} owned={owned} words={words}')
     n=audit_native((p.read_text(encoding='utf-8') for p in paths),main.read_text(encoding='utf-8'),expected)
     targets={r[0] for r in rows}|{0x8051ab34};counts=dict.fromkeys(targets,0)
     resume=0x80519a1c;owners={}
