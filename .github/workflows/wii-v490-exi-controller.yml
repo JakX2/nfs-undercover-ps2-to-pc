@@ -6,6 +6,7 @@ on:
       - 'research/native_recomp/*v489*'
       - 'research/native_recomp/*v490*'
       - 'research/native_recomp/*v493*'
+      - 'research/native_recomp/*v494*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -23,6 +24,8 @@ jobs:
           "$RUNNER_TEMP/v489-exi"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_dma_v493.cpp -o "$RUNNER_TEMP/v493-dma"
           "$RUNNER_TEMP/v493-dma"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_mx_device_v494.cpp -o "$RUNNER_TEMP/v494-mx"
+          "$RUNNER_TEMP/v494-mx"
       - name: Fetch exact pinned NWiiRecomp
         run: |
           set -euo pipefail
