@@ -194,6 +194,7 @@ jobs:
           "$RUNNER_TEMP/v480-banks"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_return_witness_v482.cpp -o "$RUNNER_TEMP/v482-irq"
           "$RUNNER_TEMP/v482-irq"
+          python3 -m unittest discover -s research/native_recomp -p test_v483_irq_return.py -v
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
