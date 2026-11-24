@@ -24,3 +24,13 @@ This short targeted workflow does not displace the queued full-image
 runs. Both synthetic and owner results are pending CI. A successful
 leaf result would remove a specific unresolved original exception
 dependency, not prove full exception initialization or OS boot.
+
+## V455 follow-up
+
+Run 45323748614 passed all three Python geometry tests and generated the
+synthetic native leaf, but failed compiling the test harness. The pinned
+CPUContext exposes CR as eight ConditionField values; the test had used
+a packed integer. It now initializes and compares all 32 field bits
+individually. Original-free compiler failures show a bounded log tail;
+the owner lane still emits only fixed failure stages. No original debug
+execution result is claimed before the corrected CI run.
