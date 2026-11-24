@@ -42,6 +42,7 @@ on:
       - 'research/native_recomp/*v524*'
       - 'research/native_recomp/*v529*'
       - 'research/native_recomp/*v656*'
+      - 'research/native_recomp/*v658*'
       - 'research/native_recomp/prepare_v603_boot_report.py'
       - 'research/native_recomp/audit_v544_si_init_flag.py'
       - 'research/native_recomp/wii_exception_pack_v462.h'

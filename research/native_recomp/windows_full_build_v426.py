@@ -201,11 +201,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if synthetic and swaps!=2:raise BuildError('synthetic_swap')
     generated_patch(generated,synthetic)
     if not synthetic:
+        observer_inputs=[dol,elf,generated] if scope=='os-report' else [dol,generated]
+        run_stage('startup_observer',[sys.executable,HOST/observer,*observer_inputs],work,600 if scope=='os-report' else 180)
         if scope=='os-report':
-            run_stage('startup_observer',[sys.executable,HOST/observer,dol,elf,generated],work,600)
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
             run_stage('bat_translation_audit',[sys.executable,HOST/'audit_v584_bat_translation.py',dol,generated],work,300)
-        else:run_stage('startup_observer',[sys.executable,HOST/observer,dol,generated],work,180)
     if not legacy_loader:
         run_stage('strict_runtime_loader',[sys.executable,HOST/'apply_dol_loader_v431.py',generated],work,60)
     out=work/'native-build'
