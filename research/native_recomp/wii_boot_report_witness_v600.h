@@ -25,7 +25,7 @@ public:
         Data=0x8060b7a8u,Small=0x8070a898u,Print=0x80522f00u,Case=0x805204ecu;
     explicit BootReportWitness(const BootReportExpectations& e):e_(e){}
     unsigned stage()const noexcept{return stage_;}
-    unsigned failure()const noexcept{return failure_;}
+    unsigned failure()const noexcept{return error_;}
     unsigned reports()const noexcept{return reports_;}
     unsigned getters()const noexcept{return getters_;}
     bool computed()const noexcept{return case_seen_;}

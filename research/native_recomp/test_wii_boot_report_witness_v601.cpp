@@ -60,7 +60,8 @@ static void trial(unsigned mode,unsigned fault){
     load(e.report);load(e.console);load(e.mem2);for(auto a:e.getters)load(a);for(auto a:e.helpers)load(a);
     for(auto a:e.calls){put(a.lr-4,a.branch);put(a.lr,a.resume);}
     // Restore adjacent callsites overwritten by synthetic resume setup.
-    for(auto a:e.getters)load(a);load(e.console);load(e.report);
+    for(auto a:e.getters)load(a);
+    load(e.console);load(e.report);
     put(e.bctr,e.bctr_word);put(e.console.lr,e.console_return);for(unsigned i=0;i<7;++i)put(W::Case+16*i,e.case_words[i]);
     if(fault==1)put(R13-3400,0);
     if(fault==2)put(R13-Off[0],Arenas[1]);
@@ -90,7 +91,8 @@ static void trial(unsigned mode,unsigned fault){
         report(0x8052040c,W::Data+136);enter(e.console);
         if(mode)enter(e.mem2);
         c.pc=c.lr=e.console.lr;c.gpr[3]=value;
-        if(fault==9)c.lr+=4;event(e.console.lr,9);
+        if(fault==9)c.lr+=4;
+        event(e.console.lr,9);
         if(table){
             c.ctr=target;if(fault==10)c.ctr+=16;event(e.bctr,10);
             c.pc=target;if(fault==11)c.pc+=4;event(target,11);
