@@ -5,6 +5,8 @@ on:
     paths:
       - 'research/native_recomp/*v489*'
       - 'research/native_recomp/*v490*'
+      - 'research/native_recomp/*v593*'
+      - 'research/native_recomp/wii_irq_bank_binding_v481.h'
       - 'research/native_recomp/*v493*'
       - 'research/native_recomp/*v494*'
       - 'research/native_recomp/*v495*'
@@ -36,6 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test independent EXI controller with sanitizers
         run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v593_irq_exi_composition.py -v
           set -euo pipefail
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_controller_v489.cpp -o "$RUNNER_TEMP/v489-exi"
           "$RUNNER_TEMP/v489-exi"

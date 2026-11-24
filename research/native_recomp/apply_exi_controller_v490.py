@@ -6,7 +6,7 @@ from apply_irq_bootstrap_v475 import rewrite
 HEADER='#include "wii_irq_banks_v480.h"'
 CTOR='    explicit IrqBankBinding(WiiIrqBanks& b):banks_(b){'
 FIELD='    WiiIrqBanks& banks_;'
-ENUM='enum class Reg{None,Unsupported,MiMask,MiStatus,Exi0,Exi1,Exi2,Ai};'
+ENUM='enum class Reg{None,Unsupported,MiMask,MiStatus,MiProtect,MiAux,Exi0,Exi1,Exi2,Ai};'
 CASE_R='            case Reg::Exi0:return active_->banks_.exi_csr(0);'
 CASE_W='            case Reg::Exi0:active_->banks_.write_exi_csr(0,value);return true;'
 IDENT='            if(bad)return Reg::Unsupported;\n            return p==Exi?Reg::Exi0:'
