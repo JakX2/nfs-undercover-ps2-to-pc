@@ -12,7 +12,7 @@ int main(){
     constexpr SiSamplingExpectations e{{0x80532d6c,0x805320d4,1,2},{0x80536bf8,0x80532dac,3,4},
       {0x8053238c,0x80532e20,5,6},{0x805265f8,0x80532100,7,8},
       {0x805269bc,0x80532108,9,10},{0x80532aa8,0x80532110,11,12},0x000f0200};
-    for(unsigned clock=0;clock<=1;++clock)for(unsigned fault=0;fault<=12;++fault){
+    for(unsigned clock=0;clock<=1;++clock)for(unsigned fault=0;fault<=16;++fault){
         exi_id_completion={};si_sampling_trace={};need(exi_id_completion.begin(true));
         exi_id_completion.record({1,0,2,2,1,0},0);exi_id_completion.record({2,0,2,4,0,0},id);
         need(exi_id_completion.finish());
@@ -37,7 +37,15 @@ int main(){
         need(w.observe(c.pc,c)==(fault!=9));if(fault==9)continue;
         enter(e.first_type);c.gpr[3]=0;m[r13-3148]=fault==10?0:1;m[0xcc003004]=fault==11?0xf0:0xf8;
         if(fault==12)m[0x80003040]=1;
+        if(fault==13)c.gpr[3]=1;
+        if(fault==14)m[0x80619a64]^=1;
+        if(fault==15)m[0x80619a78]=0;
+        if(fault==16)m[0x806fe340]=0;
         need(w.observe(c.pc,c)==(fault==0));if(!fault)need(w.stage()==6);
+        if(fault>=10){
+            constexpr unsigned details[]{4,64,128,2,8,16,32};
+            need(w.failure()==6&&w.detail()==details[fault-10]);
+        }
     }
-    std::cout<<"PASS: both VI clock selectors, original SI sampling/IRQ witness and 24 negative controls\n";
+    std::cout<<"PASS: both VI clock selectors, original SI sampling/IRQ witness and 32 negative controls\n";
 }

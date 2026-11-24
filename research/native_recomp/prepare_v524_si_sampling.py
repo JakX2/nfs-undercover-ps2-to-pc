@@ -22,11 +22,11 @@ def expectations(data,digest=OWNER_SHA):
             'inline constexpr SiSamplingExpectations expected_sampling{'+','.join(map(fmt,rows))+f',0x{w:08x}u'+'};\n}\n')
     return header,sorted({x[0] for x in rows})
 ENTRY_END='        if(si_entry.stage()==6u){std::cout<<"V520_SI_ENTRY_RESULT exi_return=1 version_tails=2 slots=4 rate_entry=1 fallback=0 boot_verified=0"<<std::endl;std::_Exit(0);}'
-ENTRY_NEXT=ENTRY_END.replace('std::_Exit(0);','const auto clock=ViClockBinding::selected();if(!si_sample.begin(cpu,SiBinding::active()&&SiTickBinding::active()&&clock.has_value(),clock.value_or(2))){std::cout<<"V524_SI_SAMPLE_INVALID reason="<<si_sample.failure()<<" stage="<<si_sample.stage()<<std::endl;std::_Exit(106);}std::cout<<"V524_SI_SAMPLE_STAGE n=1"<<std::endl;')
+ENTRY_NEXT=ENTRY_END.replace('std::_Exit(0);','const auto clock=ViClockBinding::selected();if(!si_sample.begin(cpu,SiBinding::active()&&SiTickBinding::active()&&clock.has_value(),clock.value_or(2))){std::cout<<"V524_SI_SAMPLE_INVALID reason="<<si_sample.failure()<<" stage="<<si_sample.stage()<<" detail="<<si_sample.detail()<<std::endl;std::_Exit(106);}std::cout<<"V524_SI_SAMPLE_STAGE n=1"<<std::endl;')
 PROBE='''    static SiSamplingWitness si_sample(v524::expected_sampling);
     if(si_sample.stage()){
         const auto before=si_sample.stage();
-        if(!si_sample.observe(addr,cpu)){std::cout<<"V524_SI_SAMPLE_INVALID reason="<<si_sample.failure()<<" stage="<<si_sample.stage()<<std::endl;std::_Exit(106);}
+        if(!si_sample.observe(addr,cpu)){std::cout<<"V524_SI_SAMPLE_INVALID reason="<<si_sample.failure()<<" stage="<<si_sample.stage()<<" detail="<<si_sample.detail()<<std::endl;std::_Exit(106);}
         if(si_sample.stage()!=before)std::cout<<"V524_SI_SAMPLE_STAGE n="<<si_sample.stage()<<std::endl;
         if(si_sample.stage()==6u){std::cout<<"V524_SI_SAMPLE_RESULT vi=1 poll=1 clear=1 irq=1 type_entry=1 fallback=0 boot_verified=0"<<std::endl;std::_Exit(0);}
         return;

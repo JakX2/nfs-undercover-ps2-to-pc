@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from audit_v524_si_sampling import diagnostic
 from pathlib import Path
 from audit_v524_si_sampling import MARKERS as PRIOR,MAX_LOG,inspect as inspect_sample
 DISC=b'V529_SI_DISCOVERY_'
@@ -22,8 +23,10 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('log',type=Path);p.add_argument('rc',type=int);a=p.parse_args()
     try:
         if a.log.stat().st_size>MAX_LOG:raise ValueError('size')
-        row,ok=inspect(a.log.read_bytes(),a.rc)
+        raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
+        diag=diagnostic(raw,a.rc)
     except (OSError,ValueError):
         print('V529_SI_DISCOVERY_AUDIT inspected=0');return 1
+    if diag:print(diag)
     print(row);print('V529_SI_DISCOVERY_AUDIT inspected=1');return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

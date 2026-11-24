@@ -45,6 +45,7 @@ public:
     explicit SiSamplingWitness(const SiSamplingExpectations& e):e_(e){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    unsigned detail()const{return detail_;}
     template<class Cpu>bool begin(Cpu& c,bool bound,unsigned clock){
         if(stage_||error_||!bound||!c.is_running||!matches(c,e_.rate)||c.gpr[3]!=0||
            !equal(c,0x80619a88u,e_.table_word)||!equal(c,0x80619a64u,0)||
@@ -81,12 +82,18 @@ public:
                     return fail(5);
                 break;
             case 5:
-                if(c.gpr[1]!=sp_||c.gpr[3]!=0||!equal(c,r13_-3148u,1)||
-                   !equal(c,0x80619a64u,si_sampling_trace.poll())||
-                   !equal(c,0x80619a78u,8)||!equal(c,0x806fe340u,0xffffffffu)||
-                   c.mmu.read32(0xcc003004u)!=0xf8u)return fail(6);
-                for(unsigned i=0;i<32;++i)if(!equal(c,0x80003040u+4*i,i==20?0x80531b34u:irq_[i]))return fail(6);
-                if(!si_sampling_trace.finish())return fail(6);
+                // Separate the eight final invariants; do not weaken the
+                // original boundary or publish guest register/memory values.
+                if(c.gpr[1]!=sp_)detail_|=1u;
+                if(c.gpr[3]!=0)detail_|=2u;
+                if(!equal(c,r13_-3148u,1))detail_|=4u;
+                if(!equal(c,0x80619a64u,si_sampling_trace.poll()))detail_|=8u;
+                if(!equal(c,0x80619a78u,8))detail_|=16u;
+                if(!equal(c,0x806fe340u,0xffffffffu))detail_|=32u;
+                if(c.mmu.read32(0xcc003004u)!=0xf8u)detail_|=64u;
+                for(unsigned i=0;i<32;++i)if(!equal(c,0x80003040u+4*i,i==20?0x80531b34u:irq_[i]))detail_|=128u;
+                if(detail_)return fail(6);
+                if(!si_sampling_trace.finish())return fail(8);
                 break;
             }
             ++stage_;last_=c.inst_count;return true;
@@ -98,7 +105,7 @@ public:
         return true;
     }
 private:
-    SiSamplingExpectations e_;unsigned stage_=0,error_=0,extra_=0;
+    SiSamplingExpectations e_;unsigned stage_=0,error_=0,extra_=0,detail_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0;uint64_t last_=0;std::array<uint32_t,32> irq_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class Cpu>static bool mapped(Cpu& c,uint32_t a,unsigned n){
