@@ -13,10 +13,10 @@
 | --- | --- | --- |
 | V520 | Read-only original EXI version tail to SIInit, SI version tail, cold packet slots and sampling-rate entry | [Source-only suite passed, including 12 C++ negative controls](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343216904) |
 | V521 | Complete-image os-si-entry Linux scope; V515 native tick emitter, V512 SI MMIO, V518 explicit four-port absent profile, inherited EXI device profile and verification | [Owner run queued](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343275397) |
-| V522 | Explicit 16-bit native VI clock register and strict access; 0=27 MHz, 1=54 MHz; no VI timing or display generation | [Pinned runtime test](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343393954) |
+| V522 | Explicit 16-bit native VI clock register and strict access; 0=27 MHz, 1=54 MHz; no VI timing or display generation | [Pinned actual MMU tests passed](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343393954) |
 | V523 | Windows complete-image os-exi-id next boundary | [Owner run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343470660) |
 | V524 | Original sampling-rate, TV format and XY calls; native clock read, polling write, idle read and TC acknowledgment; IRQ installation/unmask and first SI type-query entry | [Source-only tests](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343599846); candidate not yet wired to owner scope |
-| V525 | Verify V524 observers against actual pinned runtime MMU and real modeled device register operations for both clocks and 12 negative controls | Candidate CI |
+| V525 | Verify V524 observers against actual pinned runtime MMU and real modeled device register operations for both clocks and 12 negative controls | [Pinned observer CI running](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45343760903) |
 
 V522 hardware reference: [YAGCD section 5.3](https://hitmen.c02.at/files/yagcd/yagcd/chap5.html), VICLK at 0xCC00206C. A clock selection register is not an implemented video interface or display backend.
 
