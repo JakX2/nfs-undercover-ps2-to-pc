@@ -1,0 +1,3 @@
+# V580: explicit tick-driven DSP bootstrap backend
+
+Authenticated complete-image Linux run 45437274001 passed all six frontiers through original DSP flush return, zero fallback. Windows SRAM passed 45436796461. V580 builds the next bounded DSP service on the existing real MEM1/MEM2 ARAM DMA, DSP control and mailbox components. Reset/init and one boot mailbox are explicit synthetic events scheduled by native ticks; reads never fabricate completion. It checks the two 32-byte transfers, W1C transitions, staged and neighboring bytes, exact reset/mailbox ordering and a bounded lifetime. The original-free test covers sixteen trials and seven negative controls. No firmware execution or original DSP-return claim. Integration follows separately.

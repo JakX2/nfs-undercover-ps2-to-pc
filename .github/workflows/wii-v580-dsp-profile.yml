@@ -1,0 +1,21 @@
+name: Wii Tick Driven DSP Boot Profile
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v580*'
+      - '.github/workflows/wii-v580-dsp-profile.yml'
+permissions:
+  contents: read
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Exercise backend events and real DMA bytes
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_dsp_boot_profile_v580.cpp -o "$RUNNER_TEMP/v580"
+          "$RUNNER_TEMP/v580"
