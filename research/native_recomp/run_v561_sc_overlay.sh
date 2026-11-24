@@ -6,8 +6,8 @@ mode=synthetic
 args=()
 if [[ $# == 2 ]]; then mode=owner; args=(--owner "$2"); fi
 # Source-only patches; no game instructions written to source control.
-for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_exact_dispatch_v445 apply_native_tick_v438 apply_native_lowmem_v63 apply_hid_state_v18 apply_syscall_pc_v26 apply_cache_events_v43; do
-  python3 "$here/$patch.py" "$root" > "$work/patch.log" 2>&1 || { echo 'V561 patch failed';exit 1; }
+for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_exact_dispatch_v445 apply_native_tick_v438 apply_native_lowmem_v63 apply_hid_state_v18 apply_syscall_pc_v26 apply_cache_events_v561; do
+  python3 "$here/$patch.py" "$root" > "$work/patch.log" 2>&1 || { echo "V561 patch failed: $patch";exit 1; }
 done
 python3 "$here/make_v561_sc_overlay_fixture.py" "$work/input" "${args[@]}"
 inc=(-I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
