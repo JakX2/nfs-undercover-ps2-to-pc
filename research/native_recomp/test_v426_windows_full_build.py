@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 import shutil
 import struct
 import subprocess
@@ -52,6 +53,7 @@ class Tests(unittest.TestCase):
             subprocess.run([clang,'/nologo','/c','/GS-','/O1','/Fo'+str(obj),str(src)],check=True,capture_output=True)
             subprocess.run([link,'/entry:entry','/subsystem:console','/nodefaultlib','/machine:x64','/out:'+str(exe),str(obj)],check=True,capture_output=True)
             validate_pe(exe)
+    @unittest.skipIf(os.name=='nt','GCC/UBSan comparison is a Linux test; Windows executes translated swaps under MSVC')
     def test_portable_swap_cpp(self):
         cc=shutil.which('g++')
         if not cc:self.skipTest('GCC unavailable')
