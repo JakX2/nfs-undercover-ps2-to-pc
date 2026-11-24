@@ -36,6 +36,9 @@ public:
     }
     // The host PI mask can change outside this transport (e.g. OS IRQ code).
     bool exception_pending(uint32_t msr) {sync();return bus_.external_exception_pending(msr);}
+    // Return the synchronized, enabled PI sources without taking ownership
+    // of any non-Hollywood device. CPU-thread use only.
+    uint32_t active_pi_causes(){sync();return bus_.pi_cause()&mask_.load(std::memory_order_relaxed);}
     StmIos& services() noexcept{return bus_.services();}
     WiiPhysicalRam& physical_ram() noexcept{return ram_;}
     uint64_t serviced_steps() const noexcept{return scheduler_.serviced_steps();}

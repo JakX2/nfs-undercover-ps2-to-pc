@@ -23,7 +23,7 @@ ctest --test-dir build/wii-host --output-on-failure
 
 The `undercover_wii_host_runtime` target is a header-only interface library.
 Link it into a future Windows host executable when the translated Wii AOT
-can be linked safely. The eleven original-free CTest programs are compiled
+can be linked safely. The twelve original-free CTest programs are compiled
 with strict warnings, including MSVC `/W4 /WX`.
 The owner-private Wii AOT harness and all authenticated NAND gates remain
 independent of this build.
@@ -128,3 +128,30 @@ The pinned MMU test now runs the V418 baseline first, then independently
 rebuilds with V421 and verifies unsupported widths, alias rejection and
 ordinary MEM1/MEM2 accesses. Complete pinned integration results are
 pending. The full-image runtime remains opt-in.
+
+## V422: native scheduling and authentic external exception entry
+
+The reusable `service_native_ios_boundary` bridge combines one permitted
+IOS scheduler step with the existing native PowerPC external IRQ entry.
+It rejects uncertified, stopped, unmapped, unaligned or unsupported guest
+contexts and defers host callbacks, pending HLE reschedules and in-flight
+context dispatch. A pending unrelated PI source remains the responsibility
+of the existing runtime and prevents another IOS service step. An enabled
+Hollywood source with EE disabled remains latched; with EE enabled, the
+bridge requires mapped, byte-verified vector contents before changing
+PC, MSR, SRR0 and SRR1. It neither acknowledges the hardware nor executes
+the vector or a guest return.
+
+The caller must provide an independently authenticated original vector,
+certify that the PC is the next not-yet-executed guest instruction and
+account for guest-side nested interrupt handlers. On NativeEntered the
+caller must redispatch the changed PC; NativeMasked must not be sent to
+the legacy IOS dispatcher. The helper is deliberately not automatically
+called by upstream process_pending_callbacks. Full runtime scheduler
+integration needs a verified AOT boundary and original vector emission.
+
+Original-free strict C++20 sanitizer tests passed the deferred ACK,
+separate Y2/Y1 entry, vector mismatch rejection, preserved register state
+and unrelated PI ownership. The pinned CPU/MMU test now includes the same
+boundary bridge using a synthetic vector and explicit synthetic return.
+Windows/Linux CMake and pinned CPU validation are pending.

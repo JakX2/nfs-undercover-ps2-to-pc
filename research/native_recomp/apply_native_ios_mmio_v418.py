@@ -8,7 +8,7 @@ from apply_hollywood_mmio_v62 import rewrite as aperture
 HEADERS=("wii_ios_memory.h","wii_physical_ram.h","wii_ipc_mailbox.h",
          "wii_hollywood_irq.h","wii_guest_filesystem.h","wii_stm_ios.h",
          "wii_ios_bus.h","wii_ios_yield_scheduler.h","wii_native_ios_transport.h",
-         "wii_native_ios_binding.h")
+         "wii_native_ios_binding.h","native_external_irq.h","wii_native_ios_boundary.h")
 INCLUDE='#include "runtime/hw/mmio_dispatcher.h"'
 BIND='undercover::wii::NativeIosBinding'
 PAIRS=(

@@ -19,6 +19,8 @@ target_sources(undercover_wii_host_runtime INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_physical_ram.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_transport.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_binding.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_boundary.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/native_external_irq.h"
 )
 if(MSVC)
     target_compile_options(undercover_wii_host_runtime INTERFACE /W4 /WX)
@@ -42,6 +44,7 @@ if(BUILD_TESTING)
         wii_physical_ram
         wii_native_ios_transport
         wii_native_ios_binding
+        wii_native_ios_boundary
     )
         add_executable("undercover_${suite}" "test_${suite}.cpp")
         target_link_libraries("undercover_${suite}" PRIVATE

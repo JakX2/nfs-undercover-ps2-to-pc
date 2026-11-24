@@ -16,6 +16,9 @@ on:
       - 'research/native_recomp/wii_physical_ram.h'
       - 'research/native_recomp/wii_native_ios_transport.h'
       - 'research/native_recomp/wii_native_ios_binding.h'
+      - 'research/native_recomp/wii_native_ios_boundary.h'
+      - 'research/native_recomp/native_external_irq.h'
+      - 'research/native_recomp/test_wii_native_ios_boundary.cpp'
       - 'research/native_recomp/test_wii_native_ios_binding.cpp'
       - 'research/native_recomp/apply_native_ios_mmio_v418.py'
       - 'research/native_recomp/apply_native_ios_width_v421.py'
@@ -60,7 +63,7 @@ jobs:
           else
             cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           fi
-      - name: Build original-free host runtime and eleven native test programs
+      - name: Build original-free host runtime and twelve native test programs
         shell: bash
         run: |
           set -euo pipefail
@@ -110,7 +113,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v421_native_ios_width.py -v
           python3 research/native_recomp/apply_native_ios_width_v421.py "$root"
           python3 research/native_recomp/apply_native_ios_width_v421.py "$root"
-          g++ -DV421_WIDTH_CHECKS -std=c++20 -O1 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -pthread \
+          g++ -DV421_WIDTH_CHECKS -DV422_BOUNDARY_CHECKS -std=c++20 -O1 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -pthread \
             -I"$root/nWiiRuntime/include" \
             research/native_recomp/test_nwii_native_ios_mmio_v418.cpp \
             "$root/nWiiRuntime/src/core/os_hle_stubs.cpp" \

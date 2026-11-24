@@ -2,6 +2,9 @@
 #include "runtime/cpu_context.h"
 #include "runtime/hw/hw.h"
 #include "undercover/wii_native_ios_binding.h"
+#ifdef V422_BOUNDARY_CHECKS
+#include "undercover/wii_native_ios_boundary.h"
+#endif
 #include <iostream>
 #include <stdexcept>
 #include <string_view>
@@ -80,6 +83,28 @@ int main(){
         need(cpu.mmu.read32(armmsg)==req&&cpu.mmu.read32(0x80000000u+req)==S::Reply&&cpu.mmu.read32(0x80000000u+req+4u)==0u,"reply data not shared with MMU");
         cpu.mmu.write32(ppcctrl,en|M::Y1);cpu.mmu.write32(flag,H::IPC_PPC);
         need(nw::hw::legacy_calls==0u&&nw::g_ipc_interrupt_delay==0&&cpu.mmu.read32(pi_cause)==other,"native transport leaked into legacy IPC");
+#ifdef V422_BOUNDARY_CHECKS
+        constexpr std::array<uint8_t,8> vector{0x60,0,0,0,0x4c,0,0,0x64};
+        for(std::size_t i=0;i<vector.size();++i)cpu.mmu.write8(ExternalVector+uint32_t(i),vector[i]);
+        constexpr uint32_t resume=0x80001000u,msr=0x0000b032u,req2=0x200u;
+        cpu.pc=resume;cpu.msr=msr&~B::MSR_EE;cpu.gpr.fill(0x12345678u);cpu.lr=resume+4u;cpu.ctr=9u;cpu.xer=10u;
+        const auto regs=cpu.gpr;
+        cpu.mmu.write32(0x80000000u+req2,S::Open);cpu.mmu.write32(0x80000000u+req2+12u,path);
+        cpu.mmu.write32(ppcmsg,req2);cpu.mmu.write32(ppcctrl,en|M::X1);
+        auto boundary=[&](bool safe=true){return service_native_ios_boundary(host,cpu,vector,safe);};
+        need(boundary(false).route==NativeBoundaryRoute::Unsafe&&host.serviced_steps()==2u,"unsafe pinned boundary pumped IOS");
+        auto masked=boundary();need(masked.route==NativeBoundaryRoute::NativeMasked&&masked.service&&masked.service->progress==S::Pump::Ack&&cpu.pc==resume,"pinned boundary ACK incorrect");
+        cpu.msr=msr;auto y2=boundary();
+        need(y2.route==NativeBoundaryRoute::NativeEntered&&cpu.pc==ExternalVector&&cpu.srr0==resume&&cpu.srr1==(msr&ExternalSrr1Mask)&&cpu.msr==(msr&~ExternalMsrClear)&&cpu.gpr==regs&&cpu.lr==resume+4u&&cpu.ctr==9u&&cpu.xer==10u,"pinned CPU exception state incorrect");
+        cpu.mmu.write32(ppcctrl,en|M::Y2);cpu.mmu.write32(flag,H::IPC_PPC);
+        // Synthetic test return, not an implementation of the guest handler.
+        cpu.pc=cpu.srr0;cpu.msr=msr;
+        auto y1=boundary();need(y1.route==NativeBoundaryRoute::NativeEntered&&y1.service&&y1.service->progress==S::Pump::Replied&&cpu.mmu.read32(0x80000000u+req2)==S::Reply,"pinned CPU reply entry incorrect");
+        cpu.mmu.write32(ppcctrl,en|M::Y1);cpu.mmu.write32(flag,H::IPC_PPC);
+        cpu.pc=cpu.srr0;cpu.msr=msr;
+        need(boundary().route==NativeBoundaryRoute::Idle&&host.serviced_steps()==4u&&cpu.mmu.read32(pi_cause)==other&&nw::hw::legacy_calls==0u,"pinned boundary did not preserve idle and other PI");
+        std::cout<<"PASS: pinned CPU native IOS boundary with authenticated synthetic vector\n";
+#endif
     }
     need(cpu.mmu.read32(ppcmsg)==legacy&&!Bind::active(),"scope exit changed legacy state");
     nw::g_ctx_ptr=nullptr;nw::g_mmu=nullptr;
