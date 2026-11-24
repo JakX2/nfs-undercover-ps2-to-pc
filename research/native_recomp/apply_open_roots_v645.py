@@ -24,8 +24,10 @@ def pairs():
 '''+READ
     # Only the authenticated original spans and the exact submit root
     # are in scope. Do not disable the general scanner.
-    scanner=SCANNER+'''
-    if(open_owner(func.start_address)||func.start_address==0x805195ecu)func.hle_hook_name.clear();'''
+    # Signature scanning occurs AFTER the function queue loop, outside
+    # the local open_owner lambda's scope. Use exact root equality here.
+    scan_roots='||'.join(f'func.start_address==0x{pc:08x}u' for pc in sorted({pc for pc,_ in SPANS}|{0x805195ec}))
+    scanner=SCANNER+'\n    if('+scan_roots+')func.hle_hook_name.clear();'
     return ((ROOT,roots),(READ,read),(SCANNER,scanner))
 def apply(root):
     p=root/FILE

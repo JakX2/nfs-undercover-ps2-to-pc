@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v641*'
       - 'research/native_recomp/*v645*'
+      - 'research/native_recomp/*v647*'
       - '.github/workflows/wii-v641-open-request-full.yml'
 permissions:
   contents: read
@@ -22,6 +23,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v645_open_roots.py -v
+          git init -q "$RUNNER_TEMP/nw647"
+          git -C "$RUNNER_TEMP/nw647" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw647" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw647" checkout -q --detach FETCH_HEAD
+          python3 research/native_recomp/check_open_analyzer_v647.py "$RUNNER_TEMP/nw647"
           python3 -m unittest discover -s research/native_recomp -p test_v641_open_request.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v625_ipc_client.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v

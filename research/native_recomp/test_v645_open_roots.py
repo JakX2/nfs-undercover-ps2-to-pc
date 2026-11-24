@@ -13,6 +13,7 @@ class Tests(unittest.TestCase):
         self.assertIn('report_pc!=(func_start==0x805203c4u)',out)
         self.assertIn('open_owner(func_start)',out)
         self.assertIn('func.start_address==0x805195ecu',out)
+        self.assertNotIn('open_owner(func.start_address)',out)
         self.assertEqual(rewrite(out,c),out)
         self.assertEqual(out.count('func.hle_hook_name = scanner.match(opcodes);'),1)
     def test_refusal(self):
