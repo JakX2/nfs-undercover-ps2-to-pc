@@ -21,6 +21,24 @@ class Tests(unittest.TestCase):
         row=outcome(RAW+BLR+b'\n'+RESUME+b'\n',0,OWNER,SIZES,p)
         self.assertIn('blr=1 resume=1',row);self.assertIn('original=5',row)
         self.assertTrue(row.endswith('restored_entry=1'))
+    def test_observed_nop_position_and_changed_suffix(self):
+        for index in (2,3,4):
+            fixture=dol(BODY*index+NOP*4+BODY*(4-index))
+            p=plan(OWNER,fixture,SIZES,SOURCE,RAW)
+            self.assertEqual(p.pc,PCS[index])
+            self.assertEqual(p.candidate,OWNER)
+            self.assertEqual(len(p.prefix),index+1)
+            # Native execution after the repaired function may follow a
+            # completely different path; never require old stub behavior.
+            rows=RAW.splitlines()
+            last=next(i for i,l in enumerate(rows) if l.startswith(f'V420_CB_ENTRY call={index} '.encode()))
+            new=log(*rows[:last+1],BLR,RESUME)
+            self.assertIn('restored_entry=1',outcome(new,0,OWNER,SIZES,p))
+            altered=new.replace(f'pc={PCS[index]:08x}'.encode(),f'pc={PCS[0]:08x}'.encode())
+            with self.assertRaises(ValueError):outcome(altered,0,OWNER,SIZES,p)
+        for index in (0,1):
+            fixture=dol(BODY*index+NOP*4+BODY*(4-index))
+            with self.assertRaises(ValueError):plan(OWNER,fixture,SIZES,SOURCE,RAW)
     def test_rejection_census(self):
         for raw,source,reason,ordinal,body,dispatch in (
             (RAW.replace(b'call=4',b'call=5'),SOURCE,'entry_order',0,0,0),

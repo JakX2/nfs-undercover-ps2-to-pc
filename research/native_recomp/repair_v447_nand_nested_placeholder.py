@@ -46,23 +46,28 @@ def plan(owner,fixture,sizes,cpp,raw,reader=text_at):
     try:summary=inspect(raw,134,owner,fixture,sizes,reader)
     except ValueError:raise RepairRejected('control_parse') from None
     require(summary==CONTROL,'control_result')
-    for i,x in enumerate(e,1):
-        require(classify(owner,fixture,sizes,x[1],reader)[0]==('nop' if i==5 else 'original'),'coverage',i)
-    pc=e[-1][1];w=resolve(sizes,pc)
-    require(w.kind in ('exact','interior') and 4<=w.length<=MAX_SPAN,'extent',5)
+    # V459: aggregate coverage does not imply chronological position.
+    # Select the unique observed NOP, preserving the two original frame
+    # entries required by V437 control. No guessed target or mixed repair.
+    kinds=[classify(owner,fixture,sizes,x[1],reader)[0] for x in e]
+    require(kinds[:2]==['original','original'] and kinds.count('original')==4 and kinds.count('nop')==1,'coverage')
+    index=kinds.index('nop')
+    ordinal=index+1
+    pc=e[index][1];w=resolve(sizes,pc)
+    require(w.kind in ('exact','interior') and 4<=w.length<=MAX_SPAN,'extent',ordinal)
     body,dispatch=aot_entry(cpp,pc)
-    require((body,dispatch)==(1,1),'aot_entry',5,body,dispatch)
+    require((body,dispatch)==(1,1),'aot_entry',ordinal,body,dispatch)
     try:before=reader(fixture,pc,w.length);original=reader(owner,pc,w.length)
-    except (ValueError,IndexError,struct.error):raise RepairRejected('mapping',5) from None
-    require(len(before)==w.length and len(original)==w.length and before==NOP*(w.length//4) and original!=before,'placeholder',5)
+    except (ValueError,IndexError,struct.error):raise RepairRejected('mapping',ordinal) from None
+    require(len(before)==w.length and len(original)==w.length and before==NOP*(w.length//4) and original!=before,'placeholder',ordinal)
     try:
         candidate=install(fixture,[(pc,before,original)])
-        require(reader(candidate,pc,w.length)==original and install(candidate,[(pc,original,before)])==fixture,'roundtrip',5)
+        require(reader(candidate,pc,w.length)==original and install(candidate,[(pc,original,before)])==fixture,'roundtrip',ordinal)
     except RepairRejected:raise
-    except (ValueError,IndexError,struct.error):raise RepairRejected('installation',5) from None
+    except (ValueError,IndexError,struct.error):raise RepairRejected('installation',ordinal) from None
     for i,x in enumerate(e,1):
         require(classify(owner,candidate,sizes,x[1],reader)[0]=='original','new_coverage',i)
-    return Plan(pc,w.length,w.kind,candidate,tuple(e))
+    return Plan(pc,w.length,w.kind,candidate,tuple(e[:ordinal]))
 
 def frame_geometry(owner,fixture,sizes,p,reader=text_at):
     _,pc,lr,_=p.prefix[0]
@@ -82,7 +87,7 @@ def regenerated(owner,fixture,sizes,p,old_cpp,old_observed,new_cpp,reader=text_a
 
 def outcome(raw,rc,owner,sizes,p,reader=text_at):
     e=entries(raw)
-    if tuple(e[:5])!=p.prefix:raise ValueError('route changed before restored entry')
+    if tuple(e[:len(p.prefix)])!=p.prefix:raise ValueError('route changed before restored entry')
     if classify(owner,p.candidate,sizes,p.pc,reader)[0]!='original':raise ValueError('restoration')
     return inspect(raw,rc,owner,p.candidate,sizes,reader).replace('V437_FRAME_RESULT','V447_FRAME_RESULT',1)+' restored_entry=1'
 
