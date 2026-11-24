@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 if [[ $# -ne 3 && $# -ne 4 ]]; then
-  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll]' >&2
+  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll|os-exi-handlers]' >&2
   exit 2
 fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
@@ -28,6 +28,7 @@ case "$mode" in
   os-context) audit=audit_v486_context_startup.py;;
   os-cache-reuse) audit=audit_v488_os_cache_reuse.py;;
   os-exi-poll) audit=audit_v491_exi_poll.py;;
+  os-exi-handlers) audit=audit_v500_exi_handlers.py;;
   *) echo 'Invalid bounded startup mode' >&2; exit 2;;
 esac
 [[ -x "$exe" && -f "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || {
@@ -40,9 +41,9 @@ mkdir -m 700 "$work"
 printf '%s\n' '[system]' 'platform = "Wii"' '[input]' 'mode = 6' > "$work/config.toml"
 echo 'V419_FULL_START_INPUT accepted=1 dol_only=1'
 extra_env=()
-if [[ "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll ]]; then extra_env+=(UNDERCOVER_V475_IRQ_MMIO=1); fi
-if [[ "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll ]]; then extra_env+=(UNDERCOVER_V481_IRQ_BANKS=1); fi
-if [[ "$mode" == os-exi-poll ]]; then extra_env+=(UNDERCOVER_V490_EXI_CONTROLLER=1); fi
+if [[ "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers ]]; then extra_env+=(UNDERCOVER_V475_IRQ_MMIO=1); fi
+if [[ "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers ]]; then extra_env+=(UNDERCOVER_V481_IRQ_BANKS=1); fi
+if [[ "$mode" == os-exi-poll || "$mode" == os-exi-handlers ]]; then extra_env+=(UNDERCOVER_V490_EXI_CONTROLLER=1); fi
 rc=0
 (
   cd "$work"
