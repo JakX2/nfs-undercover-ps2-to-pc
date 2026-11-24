@@ -27,6 +27,9 @@ python3 "$here/apply_verified_elf_spans_v6.py" "$root" >> "$work/patch.log" 2>&1
   echo 'Conservative ELF code-span patch failed' >&2; exit 1;
 }
 if [[ "$mode" == os-hardware ]]; then
+  python3 "$here/apply_function_root_v443.py" "$root" >> "$work/patch.log" 2>&1 || {
+    echo 'V443 function root patch failed' >&2; exit 1;
+  }
   python3 "$here/apply_perf_sprs_v29.py" "$root" >> "$work/patch.log" 2>&1 || {
     echo 'V439 performance runtime patch failed' >&2; exit 1;
   }

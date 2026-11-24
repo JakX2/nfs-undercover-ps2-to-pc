@@ -169,7 +169,11 @@ jobs:
             git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
               research/native_recomp/prepare_v439_full_os_hardware.py \
               research/native_recomp/audit_v439_full_os_hardware.py \
-              research/native_recomp/wii_full_os_hardware_witness.h || rc=$?
+              research/native_recomp/wii_full_os_hardware_witness.h \
+              research/native_recomp/apply_function_root_v443.py \
+              research/native_recomp/run_v443_function_root.sh \
+              research/native_recomp/generate_function_root_v443.cpp \
+              research/native_recomp/test_native_root_v443.cpp || rc=$?
             if [[ "$rc" == 1 ]]; then os_hardware=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
@@ -181,6 +185,16 @@ jobs:
           echo "os_entry_requested=$os_entry" >> "$GITHUB_OUTPUT"
           echo "os_time_requested=$os_time" >> "$GITHUB_OUTPUT"
           echo "os_hardware_requested=$os_hardware" >> "$GITHUB_OUTPUT"
+      - name: Prove actual backward-tail root identity before owner hardware continuation
+        if: steps.link_request.outputs.os_hardware_requested == 'true' || inputs.scope == 'os-hardware'
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v443_function_root.py -v
+          git init -q "$RUNNER_TEMP/nwii-v443"
+          git -C "$RUNNER_TEMP/nwii-v443" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii-v443" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii-v443" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v443_function_root.sh "$RUNNER_TEMP/nwii-v443"
   private-translation:
     needs: synthetic-symbol-map
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || needs.synthetic-symbol-map.outputs.link_requested == 'true')
