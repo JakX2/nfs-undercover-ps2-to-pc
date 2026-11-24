@@ -36,6 +36,24 @@ class Tests(unittest.TestCase):
         self.assertEqual(new.count('std::_Exit(0)'),1)
         self.assertIn('os_ipc.begin(cpu)',new);self.assertIn('os_ipc.observe(addr,cpu)',new)
         with self.assertRaises(ValueError):patch_probe(new)
+    def test_legacy_chain_diagnostic(self):
+        for upper in (False,True):
+            legacy=[line if i<9 else f'V439_HW_STAGE n={format(i+1,"X" if upper else "x")} valid=1'.encode()
+                    for i,line in enumerate(HW)]
+            for copy in (0,1):
+                prefix=PREFIX+TIME+[TIME_RESULT,f'V439_HW_BEGIN copy={copy}'.encode()]+legacy[:1]+([COPY] if copy else [])+legacy[1:]+[HW_RESULT]
+                prefix += [b'V444_ARENA_BEGIN boot_path=1 direct_low=0']+ARENA+[ARENA_RESULT]
+                good=prefix+[b'V446_IPC_BEGIN clamp=0']+STAGES+[RESULT]
+                row,ok=inspect(log(good),0)
+                self.assertFalse(ok)
+                self.assertIn('arena=0 stages=4',row)
+                self.assertIn('terminal=1 legacy_chain_complete=1 verified=0',row)
+                for bad,rc in ((good[:-1],0),(good+[RESULT],0),(good,90),
+                        (good+[b'V425_HARDWARE_FALLBACK hit=1'],0),
+                        (good+[legacy[-1]],0),
+                        (good[:good.index(legacy[9])]+good[good.index(legacy[9])+1:],0)):
+                    row,ok=inspect(log(bad),rc);self.assertFalse(ok)
+                    self.assertIn('legacy_chain_complete=0',row)
     def test_gate(self):
         for copy in (0,1):
             prior=PREFIX+TIME+[TIME_RESULT,f'V439_HW_BEGIN copy={copy}'.encode()]+HW[:1]+([COPY] if copy else [])+HW[1:]+[HW_RESULT]
