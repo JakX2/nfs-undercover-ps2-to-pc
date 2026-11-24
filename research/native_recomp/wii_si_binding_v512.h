@@ -13,6 +13,7 @@ public:
     SiBinding(const SiBinding&)=delete;
     SiBinding& operator=(const SiBinding&)=delete;
     static bool active()noexcept{return active_!=nullptr;}
+    static bool owns(const SiController& controller)noexcept{return active_ && &active_->controller_==&controller;}
     static void check(uint32_t addr,unsigned width,bool integer){
         if(!active_)return;
         const auto p=addr&0x3fffffffu;

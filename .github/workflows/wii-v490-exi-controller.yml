@@ -166,5 +166,5 @@ jobs:
           rt="$root/nWiiRuntime"
           python3 research/native_recomp/apply_si_profile_v518.py "$root"
           python3 research/native_recomp/apply_si_profile_v518.py "$root"
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$rt/include/undercover" research/native_recomp/test_wii_si_profile_v518.cpp -o "$RUNNER_TEMP/v518-pinned"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DV518_PINNED -I"$rt/include" research/native_recomp/test_wii_si_profile_v518.cpp -o "$RUNNER_TEMP/v518-pinned"
           "$RUNNER_TEMP/v518-pinned"

@@ -57,13 +57,15 @@ struct SiHostProfile {
 class SiProfileSession {
 public:
     SiProfileSession(SiController& ctl,const SiHostProfile& p)
-        :scheduler_(ctl,p.ports,p.latency),tick_(scheduler_){
-        if(!SiBinding::active())throw std::logic_error("SI profile missing MMIO binding");
-    }
+        :scheduler_(checked_controller(ctl),p.ports,p.latency),tick_(scheduler_){} 
     SiProfileSession(const SiProfileSession&)=delete;
     SiProfileSession& operator=(const SiProfileSession&)=delete;
     uint64_t completed()const noexcept{return scheduler_.completed();}
 private:
+    static SiController& checked_controller(SiController& ctl){
+        if(!SiBinding::owns(ctl))throw std::logic_error("SI profile MMIO owner mismatch");
+        return ctl;
+    }
     SiTypeScheduler scheduler_;
     SiTickBinding tick_;
 };

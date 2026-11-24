@@ -1,4 +1,8 @@
+#ifdef V518_PINNED
+#include "undercover/wii_si_profile_v518.h"
+#else
 #include "wii_si_profile_v518.h"
+#endif
 #include <iostream>
 #include <string>
 using namespace undercover::wii;
@@ -22,6 +26,8 @@ int main(){
     reject([&]{SiProfileSession s(ctl,p);});need(!SiTickBinding::active());
     {
         SiBinding mmio(ctl);
+        std::atomic<uint32_t> other_pi{0};SiController other(other_pi);
+        reject([&]{SiProfileSession wrong(other,p);});need(!SiTickBinding::active());
         {
             SiProfileSession s(ctl,p);
             reject([&]{SiProfileSession duplicate(ctl,p);});
