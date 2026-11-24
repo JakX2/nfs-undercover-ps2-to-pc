@@ -23,7 +23,7 @@ ctest --test-dir build/wii-host --output-on-failure
 
 The `undercover_wii_host_runtime` target is a header-only interface library.
 Link it into a future Windows host executable when the translated Wii AOT
-can be linked safely. The thirteen original-free CTest programs are compiled
+can be linked safely. The fourteen original-free CTest programs are compiled
 with strict warnings, including MSVC `/W4 /WX`.
 The owner-private Wii AOT harness and all authenticated NAND gates remain
 independent of this build.
@@ -184,3 +184,29 @@ The standalone session test passed strict C++20 ASan/UBSan locally; the
 synthetic encoding checks passed. Actual generated split and non-split
 execution is pending CI. No original game data or generated C++ is
 committed. The full original-game runtime remains unchanged and opt-in.
+
+## V431: transactional DOL loading for native Wii images
+
+The pinned loader resized section buffers and ignored short reads,
+then returned success even with incomplete data. V431 adds an
+original-free bounded stream parser and opt-in integration patch.
+It checks the complete header, file and cached MEM1/MEM2 ranges,
+text alignment, disjoint initialized sections, and entry containment
+before allocating buffers. It allows BSS/initialized overlap because
+the pinned runtime clears BSS first and copies initialized sections
+afterwards. A successful load replaces the executable's section vector;
+a failed load preserves the prior entry and sections.
+
+```sh
+python3 research/native_recomp/apply_dol_loader_v431.py /path/to/disposable/NWiiRecomp
+```
+
+The patch checks the exact pinned loader blob before installing and
+does not change REL loading. This is a scoped Wii/GC DOL policy, not
+a universal DOL/ELF/REL validator. It is not yet enabled by default
+in the authenticated full-image startup modes.
+
+The local strict C++20 ASan/UBSan test passed valid reload, MEM2 data
+inside BSS, and 20 invalid/truncated input cases with unchanged prior
+state. Two Python source-seam/idempotence tests passed. Cross-platform
+CTest and actual pinned-loader integration are pending.

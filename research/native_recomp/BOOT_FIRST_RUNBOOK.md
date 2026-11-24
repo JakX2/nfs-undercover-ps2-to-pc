@@ -101,7 +101,10 @@ authored PPC/PE control still runs before admitting any owner image.
 The scope-specific audit rejects a three-stage startup result as hardware
 completion and rejects nonzero exits, including Windows exception codes.
 All eight local Windows build-helper/scope regression tests pass on Linux;
-the Windows hardware owner result is pending.
+the authenticated [V429 run 45311353033](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45311353033)
+passed the complete Windows x64 translation/link, all nine V425
+hardware stages, rc=0 and fallback=0. Windows reaches the same cache
+entry as Linux without executing the cache body in this lane.
 
 ### V425: complete-image paired-single and FPR initialization
 
@@ -146,7 +149,13 @@ that boundary does not establish OSInit or game boot.
 
 Local strict C++20 ASan/UBSan tests passed eight valid initial cache
 combinations and 56 negative cases; four Python tests and a synthetic
-private-header/probe instantiation also passed. Owner validation pending.
+private-header/probe instantiation also passed. The authenticated
+[V428 run 45311186970](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45311186970)
+passed 113/113 syntax checks, complete native linking and all 13
+execution stages (hardware=9 cache=4 fallback=0 malformed=0
+verified=1 rc=0). Original cache control, ordinary error-handler
+registration and entry into __init_data are verified in the full
+Linux image. The data body remains a separate V430 candidate.
 
 ### V430: complete-image original data initialization and return witness
 

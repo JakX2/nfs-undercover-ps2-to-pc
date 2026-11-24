@@ -18,6 +18,10 @@ on:
       - 'research/native_recomp/wii_native_ios_binding.h'
       - 'research/native_recomp/wii_native_ios_boundary.h'
       - 'research/native_recomp/wii_native_ios_aot_session.h'
+      - 'research/native_recomp/wii_dol_loader_v431.h'
+      - 'research/native_recomp/test_wii_dol_loader_v431.cpp'
+      - 'research/native_recomp/apply_dol_loader_v431.py'
+      - 'research/native_recomp/test_v431_dol_loader_patch.py'
       - 'research/native_recomp/test_wii_native_ios_aot_session.cpp'
       - 'research/native_recomp/wii_v423_synthetic_program.h'
       - 'research/native_recomp/generate_native_ios_aot_v423.cpp'
@@ -73,7 +77,7 @@ jobs:
           else
             cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           fi
-      - name: Build original-free host runtime and thirteen native test programs
+      - name: Build original-free host runtime and fourteen native test programs
         shell: bash
         run: |
           set -euo pipefail
@@ -162,3 +166,16 @@ jobs:
               -o "$work/test-$mode"
             timeout 20s "$work/test-$mode"
           done
+      - name: Validate transactional DOL loading through the actual pinned loader API
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v418"
+          host="$GITHUB_WORKSPACE/research/native_recomp"
+          python3 -m unittest discover -s "$host" -p test_v431_dol_loader_patch.py -v
+          python3 "$host/apply_dol_loader_v431.py" "$root"
+          python3 "$host/apply_dol_loader_v431.py" "$root"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare \
+            -fsanitize=address,undefined -fno-pie -no-pie -DV431_PINNED_LOADER \
+            -I"$root/nWiiRuntime/include" -I"$host" "$host/test_wii_dol_loader_v431.cpp" \
+            "$root/nWiiRuntime/src/core/loader.cpp" -o "$RUNNER_TEMP/v431-loader"
+          timeout 20s "$RUNNER_TEMP/v431-loader" "$RUNNER_TEMP/v431-synthetic.dol"
