@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Generated C++ syntax probe, sample or every shard'
+        description: 'Sample syntax, all shards, or complete Linux x64 native link'
         type: choice
         required: true
         default: sample
-        options: [sample, all]
+        options: [sample, all, link]
 permissions:
   contents: read
 concurrency:
@@ -21,20 +21,51 @@ concurrency:
 jobs:
   synthetic-symbol-map:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    outputs:
+      link_requested: ${{ steps.link_request.outputs.link_requested }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Test original-free big-endian Wii ELF symbol reader
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_private_elf_symbol_map.py -v
           python3 -m py_compile research/native_recomp/make_private_elf_symbol_map.py
           bash -n research/native_recomp/run_full_recomp_probe_ci.sh
+      - name: Test private complete-link helper without game code
+        run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_private_full_link.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v415_private_full_link.py -v
+      - name: Select private link only for relevant changes
+        if: github.event_name == 'push'
+        id: link_request
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          requested=false
+          # Do not run the expensive original-image build on every startup
+          # probe. Compare the actual push range, not a commit message.
+          if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
+            if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              git fetch -q --depth=1 origin "$BEFORE"
+            fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/run_private_full_link.sh \
+              research/native_recomp/run_full_recomp_probe_ci.sh || rc=$?
+            if [[ "$rc" == 1 ]]; then requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+          fi
+          echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
   private-translation:
     needs: synthetic-symbol-map
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || needs.synthetic-symbol-map.outputs.link_requested == 'true')
     runs-on: ubuntu-latest
-    timeout-minutes: 115
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -64,7 +95,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope }}
+          PROBE_SCOPE: ${{ inputs.scope || 'link' }}
         run: |
           set -euo pipefail
           umask 077

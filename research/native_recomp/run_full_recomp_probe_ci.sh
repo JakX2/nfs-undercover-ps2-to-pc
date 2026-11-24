@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Private whole-image PowerPC translation and C++ syntax probe.
-# This does NOT claim complete linking, boot or gameplay.
+# Private whole-image PowerPC translation, C++ syntax and optional native link probe.
+# Never launch the generated executable or claim game boot or gameplay.
 set -euo pipefail
 if [[ $# -ne 5 ]]; then
-  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all' >&2
+  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link' >&2
   exit 2
 fi
 root="$(realpath "$1")"
@@ -11,7 +11,7 @@ dol="$(realpath "$2")"
 elf="$(realpath "$3")"
 work="$4"
 mode="$5"
-[[ "$mode" == sample || "$mode" == all ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
+[[ "$mode" == sample || "$mode" == all || "$mode" == link ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
 [[ ! -e "$work" ]] || { echo 'Private work destination must be fresh' >&2; exit 2; }
 mkdir -p -m 700 "$work"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -70,4 +70,9 @@ for cpp in "$@"; do
 done
 echo "PASS: whole Wii DOL translated into $count ephemeral C++ shards"
 echo "PASS: translated syntax checks $checks/$checks mode=$mode"
-echo 'INFO: original full-image linking, game main, boot, frontend and gameplay NOT proven'
+if [[ "$mode" == link ]]; then
+  bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
+  echo 'INFO: native game launch, main, boot, frontend and gameplay NOT proven'
+else
+  echo 'INFO: original full-image linking, game main, boot, frontend and gameplay NOT proven'
+fi

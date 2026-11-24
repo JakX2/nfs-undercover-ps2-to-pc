@@ -1,5 +1,28 @@
 # Boot-first native recompilation loop (source-only tooling)
 
+## V415: complete-image native link lane (independent of NAND startup)
+
+The authenticated November 17 whole-image run
+[43996721127](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/43996721127)
+prepared 27,941 ELF function symbols, generated 112 C++ shards and passed
+113/113 syntax checks. It did not link or launch a complete executable.
+
+The whole-image workflow now has a third scope, `link`. After all
+syntax checks it configures the generated NWiiRecomp project with its
+pinned runtime, builds the complete `UndercoverWiiLocal` target and
+validates a Linux x64 ELF executable without launching it. No original
+game output, translated code, native binary or private compiler log is
+published. The existing owner-private authorization variable still gates
+the original-image job. On push the full link runs only if one of the
+two build scripts changes; normal NAND iteration does not trigger it.
+Manual workflow dispatch can choose `sample`, `all` or `link`.
+
+Original-free integration tests compile a synthetic executable, check
+that it is never launched, reject unresolved symbols and preserve an
+existing build directory. This lane is not yet a native Windows
+executable or a verified full-game launch. The generated upstream runtime
+also has not yet been integrated with all of the custom NAND host services.
+
 ## November 24, 2026: authenticated 96-call NAND frontier
 
 V412 [owner run 45297574228](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45297574228)
