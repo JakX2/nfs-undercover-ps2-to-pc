@@ -1,0 +1,3 @@
+# V607: bounded original MEM1/MEM2 arena-clear observer
+
+The original V67 cold path performs two arena entries, two reset-code queries, six ordered getters, two DCZeroRange calls, two DCFlushRange calls and two native syscall returns. The new observer composes the V606 reset profile, V596 streaming cache trace and independently verified V598 syscall pair. It derives both arena bounds from actual OSInit small-data globals, refuses alternate boot records, checks exact call/return words and stable CPU state, and rechecks both zeroed regions plus adjacent canaries at the final original return. No guest memory is seeded or cleared by this observer. Integration and tests pending; this is not an original arena execution claim.
