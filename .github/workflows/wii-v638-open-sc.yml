@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v638*'
+      - 'research/native_recomp/*v640*'
       - '.github/workflows/wii-v638-open-sc.yml'
 permissions:
   contents: read
@@ -21,6 +22,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw616" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw616" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw616" checkout -q --detach FETCH_HEAD
+          python3 -m unittest discover -s research/native_recomp -p test_v640_sc_trace.py -v
           bash research/native_recomp/run_v638_open_sc.sh "$RUNNER_TEMP/nw616"
   owner-native-open:
     needs: original-free

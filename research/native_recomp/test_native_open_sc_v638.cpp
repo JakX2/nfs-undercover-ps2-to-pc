@@ -19,7 +19,7 @@ static bool suppress_arm=false;
 static unsigned delegated=0;
 using namespace undercover::wii;
 static std::atomic<uint32_t> cause{0},mask{HollywoodIrq::PI_HOLLYWOOD|0x40u};
-static unsigned fault_id=0,expected_lines=4;
+static unsigned fault_id=0,expected_lines=4,trial_id=0;
 static void need(bool b,const std::source_location loc=std::source_location::current()){
     if(!b)throw std::runtime_error("V638 line "+std::to_string(loc.line()));
 }
@@ -62,13 +62,13 @@ uint32_t HW_Reg_Read32(uint32_t){throw std::runtime_error("unexpected MMIO");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("unexpected MMIO");}
 void HW_Reg_Write32(uint32_t,uint32_t){throw std::runtime_error("unexpected MMIO");}
 }
-int main(int argc,char** argv){
+int main(int argc,char** argv)try{
     need(argc==3);const std::string_view mode=argv[2];need(mode=="owner"||mode=="synthetic");owner=mode=="owner";
     std::ifstream raw(argv[1],std::ios::binary);raw.read(reinterpret_cast<char*>(installed.data()),installed.size());
     need(raw.gcount()==std::streamsize(installed.size())&&raw.peek()==std::char_traits<char>::eof());
     auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;
     auto reset=[&](unsigned trial){
-        cause=0;mask=HollywoodIrq::PI_HOLLYWOOD|0x40u;
+        trial_id=trial;cause=0;mask=HollywoodIrq::PI_HOLLYWOOD|0x40u;
         fault_id=0;
         for(unsigned i=0;i<32;++i)c.gpr[i]=trial*257+i;
         route=std::make_unique<Route>(installed);suppress_arm=false;
@@ -111,4 +111,8 @@ int main(int argc,char** argv){
         need(rejected&&scs==32&&vectors==32&&c.pc==Sc&&c.srr0==0&&c.srr1==0&&route->phase()==Route::Phase::Failed);
     }
     std::cout<<"V638_OPEN_SC owner="<<unsigned(owner)<<" trials=32 returned=32 vectors=32 ee_restored=32 refusal=10 serviced=0 fallback=0 boot_verified=0\n";
+}catch(const std::exception& e){
+    const std::string_view msg=e.what();
+    if(msg.starts_with("V638 line ")||msg=="V637 open SC route rejected")std::cout<<msg<<"\n";
+    std::cout<<"V640_OPEN_FAILURE trial="<<trial_id<<" fault="<<fault_id<<" phase="<<unsigned(route?route->phase():Route::Phase::Idle)<<"\n";return 1;
 }

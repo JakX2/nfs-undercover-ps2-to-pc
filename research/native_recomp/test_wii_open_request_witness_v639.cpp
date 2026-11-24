@@ -7,8 +7,8 @@ static void need(bool b,const std::source_location l=std::source_location::curre
 struct Mmu{
     std::vector<uint8_t> mem1=std::vector<uint8_t>(24u*1024u*1024u),mem2=std::vector<uint8_t>(0x20000);
     uint8_t* get_ptr(uint32_t a){
-        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+a-0x80000000u;
-        if(a>=0x90000000u&&a<0x90020000u)return mem2.data()+a-0x90000000u;
+        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+(a-0x80000000u);
+        if(a>=0x90000000u&&a<0x90020000u)return mem2.data()+(a-0x90000000u);
         return nullptr;
     }
     uint8_t read8(uint32_t a){auto* p=get_ptr(a);need(p);return *p;}

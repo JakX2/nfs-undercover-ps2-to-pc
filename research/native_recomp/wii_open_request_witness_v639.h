@@ -46,11 +46,15 @@ public:
            !mapped(c,lo_-1u,size_+2u)||c.mmu.read8(lo_-1u)!=lower_||c.mmu.read8(lo_+size_)!=upper_)return fail(2);
         for(unsigned i=0;i<32;++i)if(!equal(c,W::Table+4*i,irqs_[i]))return fail(2);
         switch(stage_){
-        case 1:if(addr!=Profile||!edge(c,e_.profile)||c.lr!=0x8051998cu)return fail(3);break;
+        case 1:if(addr!=Profile||!edge(c,e_.profile)||c.lr!=0x8051998cu)return fail(3);
+            break;
         case 2:if(addr!=Alloc||c.lr!=e_.profile.lr||!equal(c,Alloc,e_.alloc_word)||
-                  !equal(c,Profile,e_.profile.entry_word)||c.gpr[4]<64u||c.gpr[4]>0x1000u)return fail(3);break;
-        case 3:if(addr!=Disable||!edge(c,e_.disable)||c.lr!=0x8051ab64u)return fail(3);break;
-        case 4:if(addr!=Restore||!edge(c,e_.restore)||c.lr!=0x8051ad14u||c.gpr[3]!=1u)return fail(3);break;
+                  !equal(c,Profile,e_.profile.entry_word)||c.gpr[4]<64u||c.gpr[4]>0x1000u)return fail(3);
+            break;
+        case 3:if(addr!=Disable||!edge(c,e_.disable)||c.lr!=0x8051ab64u)return fail(3);
+            break;
+        case 4:if(addr!=Restore||!edge(c,e_.restore)||c.lr!=0x8051ad14u||c.gpr[3]!=1u)return fail(3);
+            break;
         case 5:{
             if(addr!=Flush||!edge(c,e_.flush)||c.lr!=R::Caller)return fail(3);
             const uint32_t a=canonical(c.gpr[3]),n=c.gpr[4];
