@@ -83,6 +83,10 @@ if grep -lF 'UNIMPLEMENTED Opcode' "$work/generated"/output_*.cpp > "$work/opcod
   echo 'Explicit unsupported opcode markers remain in full-image translation' >&2
   exit 1
 fi
+# Authenticate the new observer before the expensive all-shard syntax pass.
+if [[ "$mode" == os-hardware ]]; then
+  python3 "$here/prepare_v439_full_os_hardware.py" "$dol" "$work/generated"
+fi
 if [[ "$mode" == sample ]]; then
   first="$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | sort | head -1)"
   last="$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | sort | tail -1)"
@@ -112,8 +116,6 @@ elif [[ "$mode" == os-entry ]]; then
   python3 "$here/prepare_v433_full_os_entry.py" "$dol" "$work/generated"
 elif [[ "$mode" == os-time ]]; then
   python3 "$here/prepare_v435_full_os_time.py" "$dol" "$work/generated"
-elif [[ "$mode" == os-hardware ]]; then
-  python3 "$here/prepare_v439_full_os_hardware.py" "$dol" "$work/generated"
 fi
 if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"

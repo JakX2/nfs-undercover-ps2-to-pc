@@ -17,24 +17,40 @@ EDGES=((0x805206bc,EXEC),)+tuple((0x805206c4+8*i,PERF+8*i) for i in range(6))+(
 REGS=(952,956,953,954,957,958)
 BODIES=((EXEC,9),(COPY,20),(HID4,20),(SPEC,10),(READ,2),(WRITE,2),(FP,2))+tuple((PERF+8*i,2) for i in range(6))
 
+# Publish fixed stage labels and ordinals only, never private code or paths.
+class PreparationError(ValueError):
+    def __init__(self,stage,ordinal=0):
+        self.stage=stage;self.ordinal=ordinal
+        super().__init__('V439 preparation failed')
+
 def spr(word):return ((word>>11)&31)*32+((word>>16)&31)
+def require(condition,stage,ordinal=0):
+    if not condition:raise PreparationError(stage,ordinal)
+def read_words(data,pc,n,ordinal):
+    try:return words_at(data,pc,n)
+    except (ValueError,struct.error):raise PreparationError('text_mapping',ordinal) from None
 def expectations(data,digest=OWNER_SHA):
-    time_expectations(data,digest)
-    for pc,n in BODIES:
-        if words_at(data,pc,n)[-1]!=0x4e800020:raise ValueError('helper return')
-    tail=words_at(data,EXEC+20,1)[0]
-    if tail&3 or direct_bl(tail|1,EXEC+20)!=COPY:raise ValueError('exec tail')
+    try:time_expectations(data,digest)
+    except (ValueError,struct.error):raise PreparationError('prior_geometry') from None
+    for i,(pc,n) in enumerate(BODIES,1):
+        require(read_words(data,pc,n,i)[-1]==0x4e800020,'helper_return',i)
+    tail=read_words(data,EXEC+20,1,1)[0]
+    try:tail_ok=not tail&3 and direct_bl(tail|1,EXEC+20)==COPY
+    except ValueError:tail_ok=False
+    require(tail_ok,'exec_tail')
     for i,reg in enumerate(REGS):
-        word=words_at(data,PERF+i*8,1)[0]
-        if word>>26!=31 or ((word>>1)&1023)!=467 or ((word>>21)&31)!=3 or spr(word)!=reg:raise ValueError('performance helper')
-    word=words_at(data,FP,1)[0]
-    if word>>26!=63 or ((word>>1)&1023)!=38 or ((word>>21)&31)!=29:raise ValueError('FP helper')
+        word=read_words(data,PERF+i*8,1,i+1)[0]
+        require(word>>26==31 and ((word>>1)&1023)==467 and ((word>>21)&31)==3 and spr(word)==reg,'performance_helper',i+1)
+    word=read_words(data,FP,1,1)[0]
+    require(word>>26==63 and ((word>>1)&1023)==38 and ((word>>21)&31)==29,'fp_helper')
     rows=[]
-    for site,target in EDGES:
-        branch=words_at(data,site,1)[0]
-        if direct_bl(branch,site)!=target:raise ValueError('hardware call geometry')
-        rows.append('OsTimeEdge{'+','.join(f'0x{x:08x}u' for x in (target,site+4,branch,words_at(data,target,1)[0]))+'}')
-    stop=words_at(data,STOP,1)[0]
+    for i,(site,target) in enumerate(EDGES,1):
+        branch=read_words(data,site,1,i)[0]
+        try:ok=direct_bl(branch,site)==target
+        except ValueError:ok=False
+        require(ok,'call_geometry',i)
+        rows.append('OsTimeEdge{'+','.join(f'0x{x:08x}u' for x in (target,site+4,branch,read_words(data,target,1,i)[0]))+'}')
+    stop=read_words(data,STOP,1,0)[0]
     header=('#pragma once\n#include "wii_full_os_hardware_witness.h"\nnamespace undercover::wii::v439 {\n'
             'inline constexpr OsHardwareExpectations expected_hw{{'+',\n'.join(rows)+'},'+
             ','.join(f'0x{x:08x}u' for x in (words_at(data,COPY,1)[0],tail,stop))+'};\n}\n')
@@ -72,22 +88,27 @@ def return_seam(source,word):
 
 def install(data,generated,host,digest=OWNER_SHA):
     expected,stop=expectations(data,digest)
-    counts=dict.fromkeys({pc for _,pc in EDGES}|{COPY},0);shards=[]
+    counts=dict.fromkeys([pc for _,pc in EDGES]+[COPY],0);shards=[]
     for shard in generated.glob('output_*.cpp'):
         source=shard.read_text(encoding='utf-8')
         for pc in counts:counts[pc]+=source.count(f'if (nwii::runtime::g_trace_calls && ctx.pc == 0x{pc:X}) nwii::runtime::trace_call(0x{pc:X}, ctx);')
         if re.search(r'(?mi)^loc_80520700: ;$',source):shards.append((shard,source))
-    if any(n!=1 for n in counts.values()) or len(shards)!=1:raise ValueError('native hardware coverage')
+    for i,n in enumerate(counts.values(),1):
+        require(n==1,'trace_missing' if n==0 else 'trace_duplicate',i)
+    require(len(shards)==1,'return_shard_missing' if not shards else 'return_shard_duplicate')
     shard,source=shards[0]
-    if shard.is_symlink():raise ValueError('symlink')
-    return_seam(source,stop)
+    require(not shard.is_symlink(),'symlink')
+    try:return_seam(source,stop)
+    except ValueError:raise PreparationError('return_seam') from None
     dest=generated/'nWiiRuntime/include/undercover'
     files={dest/'v439_private_hw_expectations.h':expected,dest/'wii_full_os_hardware_witness.h':(host/'wii_full_os_hardware_witness.h').read_text(encoding='utf-8')}
-    if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('destination exists')
+    require(not dest.is_symlink() and not any(p.exists() or p.is_symlink() for p in files),'destination')
     probe=(host/'wii_full_hardware_probe_v425.h').read_text(encoding='utf-8')
-    for transform in (cache_probe,data_probe,os_probe,time_probe,patch_probe):
-        probe=transform(probe)
-    install_time(data,generated,host,digest)
+    for i,transform in enumerate((cache_probe,data_probe,os_probe,time_probe,patch_probe),1):
+        try:probe=transform(probe)
+        except ValueError:raise PreparationError('probe_seam',i) from None
+    try:install_time(data,generated,host,digest)
+    except (ValueError,struct.error):raise PreparationError('prior_install') from None
     # The previous data-return observer may share this shard. Read again.
     updated=return_seam(shard.read_text(encoding='utf-8'),stop)
     for p,s in files.items():p.write_text(s,encoding='utf-8')
@@ -99,7 +120,11 @@ def main():
     try:
         if a.dol.stat().st_size>MAX_DOL:raise ValueError('size')
         install(a.dol.read_bytes(),a.generated,Path(__file__).parent)
+    except PreparationError as e:
+        print(f'V440_HW_PREP stage={e.stage} ordinal={e.ordinal} verified=0')
+        print('V439_HW_ROUTE installed=0');return 1
     except (OSError,ValueError,struct.error,UnicodeError):
+        print('V440_HW_PREP stage=io_or_other ordinal=0 verified=0')
         print('V439_HW_ROUTE installed=0');return 1
     print('V439_HW_ROUTE installed=1 edges=12 optional_copy=1 read_only=1');return 0
 if __name__=='__main__':raise SystemExit(main())
