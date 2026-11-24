@@ -16,6 +16,8 @@ from audit_v473_module_irq import STAGES as IRQ,RESULT as IRQ_RESULT
 from audit_v476_irq_mmio import STAGES as MMIO,RESULT as MMIO_RESULT
 from audit_v483_irq_return import STAGES as IRQ_RETURN,RESULT as IRQ_RETURN_RESULT
 from audit_v486_context_startup import STAGES as CONTEXT,RESULT as CONTEXT_RESULT
+from audit_v488_os_cache_reuse import STAGES as REUSE,RESULT as REUSE_RESULT
+from audit_v491_exi_poll import STAGES as POLL,RESULT as POLL_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -32,10 +34,12 @@ OS_IRQ=OS_ALARM+IRQ+[IRQ_RESULT]
 OS_MMIO=OS_IRQ+MMIO+[MMIO_RESULT]
 OS_IRQ_RETURN=OS_MMIO+IRQ_RETURN+[IRQ_RETURN_RESULT]
 OS_CONTEXT=OS_IRQ_RETURN+CONTEXT+[CONTEXT_RESULT]
+OS_REUSE=OS_CONTEXT+REUSE+[REUSE_RESULT]
+OS_EXI_POLL=OS_REUSE+POLL+[POLL_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL))}
 
 
 class Tests(unittest.TestCase):
@@ -58,7 +62,9 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-mmio'),(OS_VECTOR_PATCHES,'prepare_v476_irq_mmio.py','audit_v476_irq_mmio'))
         self.assertEqual(contract('os-irq-return'),(OS_VECTOR_PATCHES,'prepare_v483_irq_return.py','audit_v483_irq_return'))
         self.assertEqual(contract('os-context'),(OS_VECTOR_PATCHES,'prepare_v486_context_startup.py','audit_v486_context_startup'))
-        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context'):
+        self.assertEqual(contract('os-cache-reuse'),(OS_VECTOR_PATCHES,'prepare_v488_os_cache_reuse.py','audit_v488_os_cache_reuse'))
+        self.assertEqual(contract('os-exi-poll'),(OS_VECTOR_PATCHES,'prepare_v491_exi_poll.py','audit_v491_exi_poll'))
+        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll'):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
@@ -66,7 +72,7 @@ class Tests(unittest.TestCase):
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
-            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context') else {})})
+            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll') else {}),**({'UNDERCOVER_V490_EXI_CONTROLLER':'1'} if scope=='os-exi-poll' else {})})
         with self.assertRaises(ValueError):launch_flags('os-mmio',True)
     def test_all_scope_pairs(self):
         for scope in SCOPES:
@@ -75,7 +81,7 @@ class Tests(unittest.TestCase):
                     self.assertEqual(audit(raw,0,scope)[1],scope==source)
     def test_optional_copy_and_hex_rejection(self):
         prefix=OS_TIME+[b'V439_HW_BEGIN copy=1']+OS_HW[:1]+[COPY]+OS_HW[1:]+[OS_HW_RESULT]
-        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):])):
+        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):]),('os-context',OS_CONTEXT[len(OS_HARDWARE):]),('os-cache-reuse',OS_REUSE[len(OS_HARDWARE):]),('os-exi-poll',OS_EXI_POLL[len(OS_HARDWARE):])):
             good=log(prefix+tail)
             self.assertTrue(audit(good,0,scope)[1])
             self.assertFalse(audit(good.replace(b'V439_HW_STAGE n=10 valid=1',b'V439_HW_STAGE n=a valid=1'),0,scope)[1])

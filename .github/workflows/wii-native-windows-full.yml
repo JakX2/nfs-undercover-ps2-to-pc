@@ -47,9 +47,9 @@ on:
       owner_scope:
         description: 'Bounded original startup through OS hardware, IPC or exception vectors'
         type: choice
-        default: os-mmio
+        default: os-irq-return
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -156,7 +156,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-mmio' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-irq-return' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
