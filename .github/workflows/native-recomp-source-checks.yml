@@ -201,6 +201,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v488_os_cache_reuse.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_os_cache_reuse_v488.cpp -o "$RUNNER_TEMP/v488-reuse"
           "$RUNNER_TEMP/v488-reuse"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_controller_v489.cpp -o "$RUNNER_TEMP/v489-exi"
+          "$RUNNER_TEMP/v489-exi"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
