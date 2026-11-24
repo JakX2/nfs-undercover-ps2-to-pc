@@ -12,7 +12,10 @@ class Tests(unittest.TestCase):
         def read(data,pc,n):return list(words(data,pc,n))
         with patch.object(p,'geometry'),patch.object(p.hashlib,'sha256') as sha,patch.object(p,'parse_functions',return_value=funcs),patch.object(p,'words_at',side_effect=words),patch.object(p,'read_words',side_effect=read),patch.object(p,'direct_bl',return_value=0x80527550):
             sha.return_value.hexdigest.return_value='digest'
+            before=dict(funcs)
             out,stats=p.plan(b'dol',b'elf','digest','digest')
+            self.assertEqual(funcs,before)
+            self.assertEqual(p.plan(b'dol',b'elf','digest','digest'),(out,stats))
             self.assertEqual(stats,(1,32,2))
             self.assertEqual(len(out),len(funcs)+2)
             for a,b,_ in MAPS:self.assertGreaterEqual(out[a],b-a)

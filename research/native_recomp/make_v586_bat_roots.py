@@ -10,7 +10,7 @@ CALLS=((0x805275cc,0x80527550),(0x805275fc,0x80527550))
 def plan(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     geometry(dol,dd)
     if hashlib.sha256(elf).hexdigest()!=ed:raise ValueError('ELF identity')
-    funcs=parse_functions(elf)
+    funcs=dict(parse_functions(elf))
     if len(funcs)<25000:raise ValueError('ELF map')
     for pc,target in CALLS:
         w=words_at(dol,pc,1)
