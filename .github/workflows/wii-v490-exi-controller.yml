@@ -9,6 +9,7 @@ on:
       - 'research/native_recomp/*v494*'
       - 'research/native_recomp/*v495*'
       - 'research/native_recomp/*v497*'
+      - 'research/native_recomp/*v498*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -70,3 +71,27 @@ jobs:
             "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
             "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v497-pinned"
           "$RUNNER_TEMP/v497-pinned"
+      - name: Translate synthetic PPC loop and execute EXI scheduler from emitted labels
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          python3 research/native_recomp/apply_nonsplit_dispatch_v15.py "$root"
+          inc=(-I"$rt/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
+          g++ -std=c++20 -O2 -Wno-unused-variable -Wno-sign-compare "${inc[@]}" \
+            research/native_recomp/generate_native_tick_v438.cpp "$rt/src/core/loader.cpp" \
+            "$root/nWiiAnalyzer/src/analyzer.cpp" "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" \
+            "$root/nWiiAnalyzer/src/signature_scanner.cpp" "$root/nWiiRecomp/src/recompiler.cpp" \
+            "$root/nWiiRecomp/src/symbols.cpp" -o "$RUNNER_TEMP/v498-generator"
+          for mode in nonsplit split; do
+            dir="$RUNNER_TEMP/v498-$mode"
+            mkdir "$dir"
+            "$RUNNER_TEMP/v498-generator" "$dir" "$mode"
+            flags=()
+            if [[ "$mode" == split ]]; then flags=(-DV438_SPLIT -I"$dir"); fi
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_exi_aot_v498.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/native"
+            timeout 20s "$dir/native"
+          done
