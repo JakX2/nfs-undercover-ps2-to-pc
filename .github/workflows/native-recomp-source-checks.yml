@@ -218,6 +218,9 @@ jobs:
           "$RUNNER_TEMP/v510-absent"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_si_controller_v511.cpp -o "$RUNNER_TEMP/v511-si"
           "$RUNNER_TEMP/v511-si"
+          python3 -m unittest discover -s research/native_recomp -p test_v520_si_entry.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_si_entry_witness_v520.cpp -o "$RUNNER_TEMP/v520-si-entry"
+          "$RUNNER_TEMP/v520-si-entry"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
