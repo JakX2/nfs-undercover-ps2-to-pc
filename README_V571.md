@@ -1,0 +1,3 @@
+# V571: Linux complete-image original SRAM continuation
+
+Run 45426293326 independently verified the complete Linux original SIInit return and SRAM entry (13/13, fallback 0). V571 extends the existing Linux build and bounded launch scope to os-sram, composing the V532 native data-invalidate patch, V534 original read-only DMA observer and V536 nonzero 64-byte test profile. The prior SI return scope remains unchanged and selectable. Automatic scope selection targets SRAM only for relevant shared runner/SRAM changes. Existing witness controls and source/scope checks run before the private complete-image job. No original SRAM execution result is claimed until CI validates it.

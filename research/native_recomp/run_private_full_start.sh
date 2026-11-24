@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 if [[ $# -ne 3 && $# -ne 4 ]]; then
-  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll|os-exi-handlers|os-exi-id|os-exi-absent|os-si-entry|os-si-sample|os-si-return]' >&2
+  echo 'Usage: run_private_full_start.sh PRIVATE_EXE OWNER_DOL FRESH_PRIVATE_RUN_DIR [startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll|os-exi-handlers|os-exi-id|os-exi-absent|os-si-entry|os-si-sample|os-si-return|os-sram]' >&2
   exit 2
 fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
@@ -34,6 +34,7 @@ case "$mode" in
   os-si-entry) audit=audit_v520_si_entry.py;;
   os-si-sample) audit=audit_v524_si_sampling.py;;
   os-si-return) audit=audit_v529_si_discovery.py;;
+  os-sram) audit=audit_v534_sram_read.py;;
   *) echo 'Invalid bounded startup mode' >&2; exit 2;;
 esac
 [[ -x "$exe" && -f "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || {
@@ -46,22 +47,26 @@ mkdir -m 700 "$work"
 printf '%s\n' '[system]' 'platform = "Wii"' '[input]' 'mode = 6' > "$work/config.toml"
 echo 'V419_FULL_START_INPUT accepted=1 dol_only=1'
 extra_env=()
-if [[ "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return ]]; then extra_env+=(UNDERCOVER_V475_IRQ_MMIO=1); fi
-if [[ "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return ]]; then extra_env+=(UNDERCOVER_V481_IRQ_BANKS=1); fi
-if [[ "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return ]]; then extra_env+=(UNDERCOVER_V490_EXI_CONTROLLER=1); fi
-if [[ "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return ]]; then
+if [[ "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then extra_env+=(UNDERCOVER_V475_IRQ_MMIO=1); fi
+if [[ "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then extra_env+=(UNDERCOVER_V481_IRQ_BANKS=1); fi
+if [[ "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then extra_env+=(UNDERCOVER_V490_EXI_CONTROLLER=1); fi
+if [[ "$mode" == os-exi-id || "$mode" == os-exi-absent || "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then
   # Explicit original-free fixture, not claimed physical Wii ID/SRAM.
-  python3 "$here/write_exi_profile_v505.py" "$work/exi-test-profile.txt" \
-    --id beef0010 --di-config 00000001 --rtc-seconds 12345678 --latency 00000008 \
-    --sram-hex "$(printf '00%.0s' {1..64})"
+  if [[ "$mode" == os-sram ]]; then
+    python3 "$here/write_sram_profile_v536.py" "$work/exi-test-profile.txt"
+  else
+    python3 "$here/write_exi_profile_v505.py" "$work/exi-test-profile.txt" \
+      --id beef0010 --di-config 00000001 --rtc-seconds 12345678 --latency 00000008 \
+      --sram-hex "$(printf '00%.0s' {1..64})"
+  fi
   extra_env+=("UNDERCOVER_V501_EXI_PROFILE=$work/exi-test-profile.txt")
 fi
-if [[ "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return ]]; then
+if [[ "$mode" == os-si-entry || "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then
   # Explicit absent ports for a deterministic test, not production input.
   printf '%s\n' UNDERCOVER_SI_PROFILE_V1 latency=00000008 port0=absent port1=absent port2=absent port3=absent > "$work/si-test-profile.txt"
   extra_env+=(UNDERCOVER_V512_SI=1 "UNDERCOVER_V518_SI_PROFILE=$work/si-test-profile.txt")
 fi
-if [[ "$mode" == os-si-sample || "$mode" == os-si-return ]]; then extra_env+=(UNDERCOVER_V522_VICLK=0); fi
+if [[ "$mode" == os-si-sample || "$mode" == os-si-return || "$mode" == os-sram ]]; then extra_env+=(UNDERCOVER_V522_VICLK=0); fi
 rc=0
 (
   cd "$work"
