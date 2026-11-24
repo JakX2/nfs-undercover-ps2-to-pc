@@ -29,11 +29,11 @@ int main(int argc,char** argv){
     add(0x80004100u,{branch(16,20,0,1)});
     add(0x80004200u,{branch(528,20,0,0)});
     add(0x80004300u,{branch(528,20,0,1)});
-    add(0x80004400u,{branch(16,12,2,0),0x48000bfcu});
-    add(0x80004500u,{branch(528,12,2,1),0x48000afcu});
-    add(0x80004600u,{branch(16,16,0,1),0x480009fcu});
-    add(0x80005000u,{0x4e800020u});
-    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({0x80004100u,0x80004200u,0x80004300u,0x80004400u,0x80004500u,0x80004600u,0x80005000u});
+    add(0x80004400u,{branch(16,12,2,0),0x480fbbfcu});
+    add(0x80004500u,{branch(528,12,2,1),0x480fbafcu});
+    add(0x80004600u,{branch(16,16,0,1),0x480fb9fcu});
+    add(0x80100000u,{0x4e800020u});
+    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({0x80004100u,0x80004200u,0x80004300u,0x80004400u,0x80004500u,0x80004600u,0x80100000u});
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=dir.string();cfg.split_output=mode=="split";
     nwii::recomp::Recompiler recomp(analyzer,nullptr,cfg);
     if(recomp.generate_cpp(exe.entry_point).empty())throw std::runtime_error("no generated C++");

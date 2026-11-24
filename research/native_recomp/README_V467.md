@@ -16,3 +16,11 @@ same LR/CTR state, exact executed instruction count, and correct
 taken/fallthrough PC. Baseline must reproduce 33 mismatches out of
 44 taken cases; fixed must have zero. Both output modes run with
 ASan/UBSan. No owner scope altered pending CI.
+
+The first run 45327454427 failed the baseline instruction count. The
+short fixture fallthrough tail was analyzed as local code and executed
+its BLR, not an external dispatch. Place the independent tail target
+outside the analyzer's 0x80000 local-branch window; this isolates the
+indirect alignment behavior without altering the production analyzer.
+The corrected fixture retains the exact tick assertion and emits a
+bounded synthetic-only failure row. Verification pending.

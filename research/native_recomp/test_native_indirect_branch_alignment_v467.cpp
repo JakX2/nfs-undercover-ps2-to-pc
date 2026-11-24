@@ -57,18 +57,21 @@ int main(int argc,char** argv){
         setup(*native);setup(*reference);
         const uint32_t opcode=(19u<<26)|(x.bo<<21)|(x.bi<<16)|(x.xo<<1)|x.lk;
         reference->mmu.write32(x.root,opcode);
-        reference->mmu.write32(x.root+4,0x48000000u|((0x80005000u-x.root-4)&0x03fffffcu));
+        reference->mmu.write32(x.root+4,0x48000000u|((0x80100000u-x.root-4)&0x03fffffcu));
         need(nw::interpret_one(*reference),"reference branch");
         const bool taken=reference->pc!=x.root+4;
         if(!taken){++not_taken_count;need(nw::interpret_one(*reference),"reference tail");}
         else ++taken_count;
         x.f(*native);
         need(native->lr==reference->lr&&native->ctr==reference->ctr&&native->is_running,"branch register semantics");
-        need(native->inst_count==(taken?101u:102u),"dynamic instruction count");
+        if(native->inst_count!=(taken?101u:102u)){
+            std::cerr<<"V467_SYNTHETIC_MISMATCH xo="<<x.xo<<" bo="<<x.bo<<" lk="<<x.lk<<" low="<<low<<" predicate="<<pred<<" taken="<<taken<<" ticks="<<native->inst_count-100<<"\n";
+            throw std::runtime_error("dynamic instruction count");
+        }
         const bool mismatch=native->pc!=reference->pc;
         need(mismatch==(!fixed&&taken&&low!=0),"native aligned target comparison");
         if(mismatch)++mismatches;
-        need(native->pc==(taken?(fixed?raw&~3u:raw):0x80005000u),"exact target");
+        need(native->pc==(taken?(fixed?raw&~3u:raw):0x80100000u),"exact target");
     }
     need(taken_count==44&&not_taken_count==12&&mismatches==(fixed?0u:33u),"coverage");
     std::cout<<"V467_BRANCH_AOT mode="<<mode<<" taken=44 not_taken=12 mismatches="<<mismatches<<" lr_ctr=1 ticks=1\n";
