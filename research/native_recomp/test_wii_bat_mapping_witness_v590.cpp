@@ -25,8 +25,8 @@ struct Cpu{
 int main(){
     BatMappingExpectations e{{0x80527568,0x80527770,1,2},
         {{{0x80527550,W::Resume[0],3,4},{0x80527550,W::Resume[1],5,4}}},{6,7},{8,9}};
-    for(unsigned fault=0;fault<=20;++fault){
-        W w(e);Cpu c;
+    for(unsigned mode=0;mode<4;++mode)for(unsigned fault=0;fault<=20;++fault){
+        W w(e);Cpu c;c.msr=2u|(mode<<4);
         c.gpr[1]=0x80751c20;c.gpr[2]=0x80715ee0;c.gpr[13]=0x8070e8e0;
         for(unsigned i=0;i<32;++i)c.bat_registers[i]=0xabcd0000u+i;
         c.write(543,0xcafebabe);c.write(563,0x1234);
@@ -36,9 +36,9 @@ int main(){
         edge(e.mapper);c.gpr[3]=0x000ba2cf;
         if(fault==1)c.gpr[3]^=1;
         if(fault==2)c.mmu.words[0x80003120]=0;
-        if(fault==3)c.msr&=~0x30u;
+        if(fault==3)c.msr|=0x8000u;
         const auto mask=w.entry_failures(c,fault!=4);
-        constexpr std::array<uint32_t,5> expected{0,1u<<4,1u<<11,1u<<6,1u<<1};
+        constexpr std::array<uint32_t,5> expected{0,1u<<4,1u<<11,1u<<5,1u<<1};
         need(mask==(fault<=4?expected[fault]:0u));
         if(fault==0){
             auto f=c;f.bat_write_count=33;f.msr|=0x8000u;
@@ -85,5 +85,5 @@ int main(){
         need(w.final_state(c)==(fault==0));
         if(!fault)need(!w.observe(c.pc,c));
     }
-    std::cout<<"V590_BAT_MAPPING positive=1 writes=32 physical_entries=2 returns=2 refused=20 prior_state=1 permissions=0\n";
+    std::cout<<"V590_BAT_MAPPING positive=4 writes=32 physical_entries=2 returns=2 refused=80 prior_state=1 permissions=0\n";
 }

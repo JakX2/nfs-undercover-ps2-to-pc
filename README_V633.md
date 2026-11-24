@@ -1,0 +1,5 @@
+# V633: correct complete-image MI witness from original evidence
+
+V632 owner run 45497567279 verified 16 original mapper returns: incoming IR/DR modes 0/1/2/3 = 5/2/8/1; all returns mode 3. Full-image owner run 45494658474 refused at stage 11 with mask 0x670040, MSR=2, BAT count=0 and all four metadata checks correct. The old V65 fixture had explicitly seeded the alarm shutdown priority below MI's priority 127. Full-image execution disagrees with that fixed list order.
+
+The witness now accepts incoming translation modes and requires exact preservation of other MSR bits and IR/DR enabled after original mapping. Shutdown registration must produce the exact ascending-priority order with both forward/back links, node identity, priorities, callbacks and canaries intact. Equal priorities are deliberately outside this cold route. The original V65 harness tests eight priorities on either side of 127. Synthetic controls cover both orders, all four modes, and corrupted links/state. No guest writes or forced branches are introduced. Full-image execution and the expanded owner test remain to be verified.

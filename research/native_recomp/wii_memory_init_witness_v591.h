@@ -33,6 +33,13 @@ public:
         if(!equal(c,r13_-3400u,0)||!equal(c,r13_-3376u,AlarmNode)||
            !equal(c,r13_-3372u,AlarmNode)||!equal(c,Node,0x80527040u)||
            !equal(c,Node+4,127)||!equal(c,Node+8,0)||!equal(c,Node+12,0))return fail(1);
+        if(!equal(c,AlarmNode+8,0)||!equal(c,AlarmNode+12,0))return fail(1);
+        alarm_priority_=c.mmu.read32(AlarmNode+4);
+        alarm_callback_=c.mmu.read32(AlarmNode);
+        alarm_guard_=c.mmu.read32(AlarmNode+16);
+        // V65 seeded priorities below 127. Full-image startup must retain
+        // its own original priority. Equality is outside this cold route.
+        if(alarm_priority_==127u)return fail(1);
         guards_={c.mmu.read32(Node-4),c.mmu.read32(Node+16)};
         stage_=1;return true;
     }
@@ -45,7 +52,7 @@ public:
             if(!bat_.observe(addr,c))return fail(3);
             ++stage_;return true;
         }
-        if(c.msr!=msr_)return fail(2);
+        if(c.msr!=(stage_>=18?(msr_|0x30u):msr_))return fail(2);
         if(stage_==19&&addr==Return){
             if(c.lr!=Return||c.gpr[1]!=sp_||!equal(c,Return,e_.return_word)||
                !equal(c,r13_-3400u,1)||!links(c)||!handlers(c,5)||
@@ -75,17 +82,18 @@ public:
             case 11:{
                 mapper_refusal_=bat_.entry_failures(c,IrqBankBinding::mi_boot_ready());
                 const auto mark=[&](bool bad,unsigned bit){if(bad)mapper_refusal_|=1u<<bit;};
-                mark(!equal(c,r13_-3376u,AlarmNode),16);
-                mark(!equal(c,r13_-3372u,Node),17);
-                mark(!equal(c,AlarmNode+8,Node),18);
+                const bool alarm_first=alarm_priority_<127u;
+                mark(!equal(c,r13_-3376u,alarm_first?AlarmNode:Node),16);
+                mark(!equal(c,r13_-3372u,alarm_first?Node:AlarmNode),17);
+                mark(!equal(c,AlarmNode+8,alarm_first?Node:0u),18);
                 mark(!equal(c,Node,0x80527040u),19);
                 mark(!equal(c,Node+4,127),20);
-                mark(!equal(c,Node+8,0),21);
-                mark(!equal(c,Node+12,AlarmNode),22);
+                mark(!equal(c,Node+8,alarm_first?0u:AlarmNode),21);
+                mark(!equal(c,Node+12,alarm_first?AlarmNode:0u),22);
                 mark(!equal(c,Node-4,guards_[0]),23);
                 mark(!equal(c,Node+16,guards_[1]),24);
                 for(unsigned i=0;i<5;++i)mark(!equal(c,IrqTable+4*i,Handler),25+i);
-                if(mapper_refusal_||!bat_.begin(c,IrqBankBinding::mi_boot_ready()))return fail(4);
+                if(mapper_refusal_||!alarm_unchanged(c)||!bat_.begin(c,IrqBankBinding::mi_boot_ready()))return fail(4);
                 break;
             }
             case 18:if(c.gpr[3]!=0x08000000u||!bat_.final_state(c))return fail(4);break;
@@ -114,7 +122,7 @@ private:
     MemoryInitExpectations e_;BatMappingWitness bat_;
     unsigned stage_=0,error_=0,extra_=0,outer_visits_=0;
     uint32_t last_outer_lr_=0,mapper_refusal_=0;
-    uint32_t sp_=0,r2_=0,r13_=0,msr_=0,hid_=0;uint64_t start_=0;
+    uint32_t sp_=0,r2_=0,r13_=0,msr_=0,hid_=0,alarm_priority_=0,alarm_callback_=0,alarm_guard_=0;uint64_t start_=0;
     std::array<uint32_t,2> guards_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class Cpu>static bool equal(Cpu& c,uint32_t a,uint32_t w){
@@ -127,10 +135,16 @@ private:
         for(unsigned i=0;i<n;++i)if(!equal(c,IrqTable+4*i,Handler))return false;
         return true;
     }
+    template<class Cpu>bool alarm_unchanged(Cpu& c){
+        return equal(c,AlarmNode,alarm_callback_)&&equal(c,AlarmNode+4,alarm_priority_)&&
+            equal(c,AlarmNode+12,alarm_priority_<127u?0u:Node)&&equal(c,AlarmNode+16,alarm_guard_);
+    }
     template<class Cpu>bool links(Cpu& c){
-        return equal(c,r13_-3376u,AlarmNode)&&equal(c,r13_-3372u,Node)&&
-            equal(c,AlarmNode+8,Node)&&equal(c,Node,0x80527040u)&&equal(c,Node+4,127)&&
-            equal(c,Node+8,0)&&equal(c,Node+12,AlarmNode)&&
+        const bool alarm_first=alarm_priority_<127u;
+        return equal(c,r13_-3376u,alarm_first?AlarmNode:Node)&&equal(c,r13_-3372u,alarm_first?Node:AlarmNode)&&
+            equal(c,AlarmNode+8,alarm_first?Node:0u)&&alarm_unchanged(c)&&
+            equal(c,Node,0x80527040u)&&equal(c,Node+4,127)&&
+            equal(c,Node+8,alarm_first?0u:AlarmNode)&&equal(c,Node+12,alarm_first?AlarmNode:0u)&&
             equal(c,Node-4,guards_[0])&&equal(c,Node+16,guards_[1]);
     }
 };

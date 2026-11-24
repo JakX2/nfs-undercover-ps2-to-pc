@@ -33,7 +33,9 @@ public:
         const auto flag=[&](bool bad,unsigned bit){if(bad)mask|=1u<<bit;};
         flag(stage_||error_,0);flag(!mi_ready,1);flag(!c.is_running,2);
         flag(!matches(c,e_.mapper),3);flag(c.gpr[3]!=0x000ba2cfu,4);
-        flag((c.msr&0x8000u)!=0,5);flag((c.msr&0x30u)!=0x30u,6);
+        flag((c.msr&0x8000u)!=0,5);
+        // Bit 6 retired: V632 original execution accepts all four IR/DR modes.
+        // Both mapping returns must establish IR|DR, never mutate guest MSR.
         flag(bool(c.dispatch_saved_ctx),7);
         flag(!equal(c,0x80003100u,0x01800000u),8);
         flag(!equal(c,0x80003104u,0x01800000u),9);
@@ -57,7 +59,7 @@ public:
         const unsigned before=lane?12u:0u,after=lane?32u:12u;
         if(phase==0){
             if(!matches(c,e_.trampoline[lane])||c.gpr[3]!=Entry[lane]||
-               c.lr!=Resume[lane]||c.msr!=msr_||!registers(c,before)||
+               c.lr!=Resume[lane]||c.msr!=(lane?(msr_|0x30u):msr_)||!registers(c,before)||
                c.gpr[1]>sp_||sp_-c.gpr[1]>256u)return fail(3);
             map_sp_=c.gpr[1];
         }else if(phase==1){
@@ -67,13 +69,13 @@ public:
                !equal(c,addr,e_.entry_word[lane])||!registers(c,before))return fail(4);
         }else{
             if(addr!=Resume[lane]||c.lr!=addr||c.gpr[1]!=map_sp_||
-               c.srr0!=addr||c.srr1!=msr_||c.msr!=msr_||
+               c.srr0!=addr||c.srr1!=(msr_|0x30u)||c.msr!=(msr_|0x30u)||
                !equal(c,addr,e_.return_word[lane])||!registers(c,after))return fail(5);
         }
         ++stage_;last_=c.inst_count;return true;
     }
     template<class Cpu>bool final_state(Cpu& c){
-        if(error_||stage_!=7||!c.is_running||c.msr!=msr_||
+        if(error_||stage_!=7||!c.is_running||c.msr!=(msr_|0x30u)||
            c.gpr[2]!=r2_||c.gpr[13]!=r13_||!registers(c,32))return fail(6);
         return true;
     }

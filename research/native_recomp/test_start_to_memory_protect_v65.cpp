@@ -450,7 +450,7 @@ void trace_call(uint32_t addr, CPUContext&ctx){
     check(mi_active&&mi_handlers==5u&&ctx.lr==0x80527770u&&ctx.gpr[3]==0x000ba2cfu&&
           ctx.mmu.read32(0x80003100u)==MEM1_BYTES&&ctx.mmu.read32(0x80003104u)==MEM1_BYTES&&
           ctx.mmu.read32(0x8000311cu)==MEM2_BYTES&&ctx.mmu.read32(0x80003120u)==MEM2_MAP_HI&&
-          ctx.mmu.read32(SHUTDOWN_TAIL)==MI_NODE,"original memory mapper input or shutdown registration differs");
+          ctx.mmu.read32(SHUTDOWN_TAIL)==(ctx.mmu.read32(SHUTDOWN_NODE+4u)<127u?MI_NODE:SHUTDOWN_NODE),"original memory mapper input or shutdown registration differs");
     ++mapper_entry_modes[(ctx.msr>>4)&3u];
     ++mi_map_entries;
   }
@@ -1518,7 +1518,7 @@ int main(int argc,char**argv){
       c.mmu.write32(SHUTDOWN_HEAD,0u);
       c.mmu.write32(SHUTDOWN_TAIL,0u);
       c.mmu.write32(SHUTDOWN_NODE,0xFACA0000u+trial);
-      c.mmu.write32(SHUTDOWN_NODE+4u,100u+trial);
+      c.mmu.write32(SHUTDOWN_NODE+4u,(trial&1u?200u:100u)+trial);
       c.mmu.write32(SHUTDOWN_NODE+8u,0xAACA0000u+trial);
       c.mmu.write32(SHUTDOWN_NODE+12u,0xBBCA0000u+trial);
       // The former adjacent canary is the genuine DSP image's first word.
@@ -2027,15 +2027,16 @@ int main(int argc,char**argv){
       check(c.mmu.read32(ALARM_HEAD)==0u &&
             c.mmu.read32(ALARM_HEAD+4u)==0u,
             "original __OSInitAlarm failed to reset its alarm list head");
-      check(c.mmu.read32(SHUTDOWN_HEAD)==SHUTDOWN_NODE &&
-            c.mmu.read32(SHUTDOWN_TAIL)==MI_NODE&&
-            c.mmu.read32(MI_NODE+8u)==0u&&c.mmu.read32(MI_NODE+12u)==SHUTDOWN_NODE&&
+      const bool alarm_first=(trial&1u)==0;
+      check(c.mmu.read32(SHUTDOWN_HEAD)==(alarm_first?SHUTDOWN_NODE:MI_NODE) &&
+            c.mmu.read32(SHUTDOWN_TAIL)==(alarm_first?MI_NODE:SHUTDOWN_NODE)&&
+            c.mmu.read32(MI_NODE+8u)==(alarm_first?0u:SHUTDOWN_NODE)&&c.mmu.read32(MI_NODE+12u)==(alarm_first?SHUTDOWN_NODE:0u)&&
             c.mmu.read32(MI_NODE)==0x80527040u&&c.mmu.read32(MI_NODE+4u)==127u&&
             c.mmu.read32(MI_NODE-4u)==0xa1a1a1a1u&&c.mmu.read32(MI_NODE+16u)==0xb2b2b2b2u,
             "original Wii alarm shutdown callback was not registered");
-      check(c.mmu.read32(SHUTDOWN_NODE+8u)==MI_NODE &&
-            c.mmu.read32(SHUTDOWN_NODE+12u)==0u &&
-            c.mmu.read32(SHUTDOWN_NODE+4u)==100u+trial,
+      check(c.mmu.read32(SHUTDOWN_NODE+8u)==(alarm_first?MI_NODE:0u) &&
+            c.mmu.read32(SHUTDOWN_NODE+12u)==(alarm_first?0u:MI_NODE) &&
+            c.mmu.read32(SHUTDOWN_NODE+4u)==(alarm_first?100u:200u)+trial,
             "original Wii shutdown-list node links/priority incorrect");
       check(c.mmu.read32(SHUTDOWN_NODE)==0xFACA0000u+trial &&
             c.mmu.read32(SHUTDOWN_NODE+16u)==
