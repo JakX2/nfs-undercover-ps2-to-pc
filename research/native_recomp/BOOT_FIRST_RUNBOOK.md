@@ -1,5 +1,36 @@
 # Boot-first native recompilation loop (source-only tooling)
 
+## November 24, 2026: authenticated 96-call NAND frontier
+
+V412 [owner run 45297574228](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45297574228)
+verified all 16 original Wii AOT trials at the 96-call boundary after the
+guest-selected ISFS callback, with exit code zero and all inherited trial
+assertions intact. V411 identified host stop site 12 at call 50. V412
+proved that site belonged to the old V260 64-call post-IPC discovery
+observer, retiring its stop only after authenticated NAND/ISFS progress.
+The 24-, 48- and 50-call controls were preserved.
+
+```text
+V412_EXIT_CENSUS rc=0 ... entries=16 max_calls=96 last_calls=96 guest_stop_trials=16 running_trials=0 mapped_trials=16 v390_trials=16 classified=1 boot_verified=0
+V412_OWNER_RESULT_GATE verified=1 retired_trials=16 boot_verified=0
+```
+
+V413 is an independent candidate targeting 192 original function entries,
+with a separate 96-call prefix witness. It snapshots the guest-selected
+OSContext at the original dispatcher OSLoadContext entry and compares
+PC, MSR, GPRs, LR, CTR and XER at the first natural successor matching the
+saved PC. It checks IRQ coherence without changing guest state or IOS
+behavior. A separate gate distinguishes bounded execution, exact context
+restoration, and restoration of the interrupted PC/MSR. The latter two
+are not yet verified for NAND. Even a successful witness is not direct
+instruction-level proof of RFI, nor proof of full boot or game main.
+
+Original-free tests:
+
+```sh
+python3 -m unittest discover -s research/native_recomp -p 'test_v413_nand_context_resume.py' -v
+```
+
 ## November 23, 2026: NAND IPC checkpoint and next guest frontier
 
 **Do not conflate test lanes.** This runbook's historical V51 continuous
