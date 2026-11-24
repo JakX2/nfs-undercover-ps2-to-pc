@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v667*'
+      - 'research/native_recomp/*v669*'
       - '.github/workflows/wii-v667-si-dispatch.yml'
 permissions:
   contents: read
@@ -17,6 +18,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v667_si_dispatch.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v669_si_roots.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_dispatch_v667.cpp -o "$RUNNER_TEMP/v667"
