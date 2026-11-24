@@ -190,6 +190,8 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_bootstrap_v475.cpp -o "$RUNNER_TEMP/v475-irq"
           "$RUNNER_TEMP/v475-irq"
           python3 -m unittest discover -s research/native_recomp -p test_v476_irq_mmio.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_banks_v480.cpp -o "$RUNNER_TEMP/v480-banks"
+          "$RUNNER_TEMP/v480-banks"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
