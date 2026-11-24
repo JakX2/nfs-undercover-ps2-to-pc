@@ -22,8 +22,22 @@ PC, MSR, GPRs, LR, CTR and XER at the first natural successor matching the
 saved PC. It checks IRQ coherence without changing guest state or IOS
 behavior. A separate gate distinguishes bounded execution, exact context
 restoration, and restoration of the interrupted PC/MSR. The latter two
-are not yet verified for NAND. Even a successful witness is not direct
-instruction-level proof of RFI, nor proof of full boot or game main.
+are now verified for NAND in all 16 original trials, with exit code zero
+and 192 counted entries ([owner run 45299374133](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45299374133)).
+This is an exact restoration witness, not direct instruction-level proof
+of RFI, nor proof of full boot or game main.
+
+V414 records every counted original AOT entry after that restoration,
+including the final observed (not necessarily executed) boundary, in private
+scratch. Each entry is checked against the SHA-pinned owner DOL and ELF
+function extent; a tail window for interior entries is not a whole-function
+proof. The earliest non-authentic span is repaired only if it is an exact
+complete NOP-only ELF function of 16–8192 bytes. The private candidate must
+round-trip byte-for-byte, preserving all other sections. If prepared, it
+is independently retranslated, compiled, linked and executed against the
+same V413 gates. Unknown or mixed spans are never automatically changed.
+No V414 owner outcome is yet claimed. Raw addresses, code and logs remain
+private.
 
 Original-free tests:
 

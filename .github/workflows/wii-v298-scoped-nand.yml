@@ -76,6 +76,7 @@ on:
       - 'research/native_recomp/*v411*'
       - 'research/native_recomp/*v412*'
       - 'research/native_recomp/*v413*'
+      - 'research/native_recomp/*v414*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -276,6 +277,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v412_nand_legacy_frontier.py' -v
           python3 -m py_compile research/native_recomp/derive_v413_nand_context_resume.py research/native_recomp/audit_v413_nand_context_resume.py research/native_recomp/test_v413_nand_context_resume.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v413_nand_context_resume.py' -v
+          python3 -m py_compile research/native_recomp/derive_v414_nand_resumed_coverage.py research/native_recomp/audit_v414_nand_resumed_coverage.py research/native_recomp/test_v414_nand_resumed_coverage.py
+          python3 -m unittest discover -s research/native_recomp -p 'test_v414_nand_resumed_coverage.py' -v
           python3 -m py_compile research/native_recomp/audit_v396_native_gate.py research/native_recomp/test_v396_native_gate.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v396_native_gate.py' -v
           python3 -m py_compile research/native_recomp/scan_original_guest_markers.py research/native_recomp/test_original_guest_markers_v395.py
@@ -465,6 +468,7 @@ jobs:
               grep -E '^V411_HOST_STOP_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] events=[0-8] first_site=[0-9]{1,4} last_site=[0-9]{1,4} adjacent_throw=[0-8] classified=[01] boot_verified=0$|^V411_HOST_STOP_AUDIT inspected=[01]$|^V411_HOST_STOP_ROUTE installed=0$|^V411_HOST_STOP_ROUTE installed=1 sites=[1-9][0-9]{0,3} original_guards=1$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V412_LEGACY_ROUTE installed=1 site=12 legacy_v260=1 guards_preserved=1$|^V412_LEGACY_ROUTE installed=0 reason=(geometry|site_mismatch|route|io|other)$|^V412_LEGACY_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V412_LEGACY_STAGE attempt=(completed|failed)$|^V412_EXIT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) max_calls=([0-9]|[1-9][0-9]) last_calls=([0-9]|[1-9][0-9]) guest_stop_trials=([0-9]|1[0-6]) running_trials=([0-9]|1[0-6]) mapped_trials=([0-9]|1[0-6]) v390_trials=([0-9]|1[0-6]) classified=[01] boot_verified=0$|^V412_EXIT_AUDIT inspected=[01]$|^V412_OWNER_RESULT_GATE verified=[01] retired_trials=([0-9]|1[0-6]) boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V413_CONTEXT_ROUTE installed=1 cap=192 prefix96=1 read_only=1$|^V413_CONTEXT_ROUTE installed=0$|^V413_CONTEXT_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V413_CONTEXT_STAGE attempt=(completed|failed)$|^V413_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$|^V413_ABORT_CLASS candidate=v413 rc=[0-9]{1,3} kind=(zero|nonzero|timeout|signal|launch) size_band=[0-3] known_public=[01] public_id=[0-9]{4} phase=(other|v[0-9]{3}) guard=(other|pre_ack|trial_witness) exception=(runtime|logic|range|alloc|unclassified) callback=[01] boot_verified=0$|^V413_ABORT_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
+              grep -E '^V414_COVERAGE_ROUTE installed=1 read_only=1 cap=192$|^V414_COVERAGE_ROUTE installed=0$|^V414_COVERAGE_STAGE (control|derive|compile|link|run|inspected)=[01]$|^V414_COVERAGE_STAGE attempt=(completed|failed)$|^V414_(RESUMED|REPAIR)_COVERAGE trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|nop|modified|missing|unknown|original) repairable=[01] all_original=[01] boot_verified=0$|^V414_(PRIVATE_REPAIR|REPAIR_NEXT) prepared=[01] roundtrip=[01]$|^V414_(COVERAGE|REPAIR)_AUDIT inspected=[01]$|^V414_REPAIR_STAGE (input|generate|compile|link|run|inspected)=[01]$|^V414_REPAIR_STAGE attempt=(completed|failed|not_applicable)$|^V414_REPAIR_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V408_NAND_CUT50_ROUTE installed=[01]( original_guest=1 cap50=1 baseline48_preserved=1)?$|^V408_NAND_CUT50_ERROR reason=(missing_96_harness|geometry|cap_[1-4]|route|output_exists|io|other)$|^V408_NAND_CUT50_STAGE (derive|compile|link|run|inspected)=[01]$|^V408_NAND_CUT50_STAGE attempt=(completed|failed)$|^V408_NAND_CUT50_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] entries=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=([0-9]|[1-4][0-9]|50) owner_trials=([0-9]|1[0-6]) cap50_trials=([0-9]|1[0-6]) selected_return_trials=([0-9]|1[0-6]) parent_return_trials=([0-9]|1[0-6]) full_progress=[01] boot_verified=0$|^V408_NAND_CUT50_AUDIT inspected=[01]$|^V408_OWNER_RESULT_GATE verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V407_NATIVE_ABORT_STAGE v40[45]=[01]$|^V407_NATIVE_ABORT_CLASS candidate=v40[45] rc=[0-9]{1,3} kind=(zero|nonzero|timeout|signal|launch) size_band=[0-3] known_public=[01] public_id=[0-9]{4} phase=(other|v[0-9]{3}) guard=(other|pre_ack|trial_witness) exception=(runtime|logic|range|alloc|unclassified) callback=[01] boot_verified=0$|^V407_NATIVE_ABORT_AUDIT inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
               grep -E '^V406_NAND_CHECKPOINT_CENSUS rc=[0-9]{1,3} kind=(timeout|launch|signal|zero|nonzero) size_band=[0-3] sample_complete=[01] seen=([0-9]|[1-3][0-9]|4[0-8]) first=(0|49) last=(0|49|[5-8][0-9]|9[0-6]) mask=([0-9]|1[0-5]) selected_any=[01] parent_any=[01] contiguous=[01] boundary96=[01] boot_verified=0$|^V406_NAND_CHECKPOINT_AUDIT inspected=[01]$|^V406_NAND_CHECKPOINT_STAGE inspected=[01]$' "$RUNNER_TEMP/sc298.log" | sort -u || true
@@ -619,6 +623,34 @@ jobs:
           else
             grep -Fx 'V413_CONTEXT_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
             grep -E '^V413_CONTEXT_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+          fi
+          # V414 has a private coverage/repair lane distinct from V413.
+          if grep -Fqx 'V414_COVERAGE_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+            for stage in control derive compile link run inspected; do
+              grep -Fx "V414_COVERAGE_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+            done
+            grep -Fx 'V414_COVERAGE_ROUTE installed=1 read_only=1 cap=192' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V414_RESUMED_COVERAGE trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|nop|modified|missing|unknown|original) repairable=[01] all_original=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+            grep -Fx 'V414_COVERAGE_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+            if grep -Fqx 'V414_PRIVATE_REPAIR prepared=1 roundtrip=1' "$RUNNER_TEMP/sc298.log"; then
+              if grep -Fqx 'V414_REPAIR_STAGE attempt=completed' "$RUNNER_TEMP/sc298.log"; then
+                for stage in input generate compile link run inspected; do
+                  grep -Fx "V414_REPAIR_STAGE $stage=1" "$RUNNER_TEMP/sc298.log"
+                done
+                grep -E '^V414_REPAIR_CONTEXT_CENSUS rc=[0-9]{1,3} retired=([0-9]|1[0-6]) prefix96=([0-9]|1[0-6]) loads=([0-9]|1[0-6]) hits=([0-9]|1[0-6]) restored=([0-9]|1[0-6]) interrupted=([0-9]|1[0-6]) trials=([0-9]|1[0-6]) max_calls=[0-9]{1,3} verified=[01] context_verified=[01] interrupted_verified=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+                grep -E '^V414_REPAIR_COVERAGE trials=16 entries=[0-9]{1,4} unique=[0-9]{1,4} original=[0-9]{1,4} nop=[0-9]{1,4} modified=[0-9]{1,4} missing=[0-9]{1,4} unknown=[0-9]{1,4} first=(none|nop|modified|missing|unknown|original) repairable=[01] all_original=[01] boot_verified=0$' "$RUNNER_TEMP/sc298.log"
+                grep -Fx 'V414_REPAIR_AUDIT inspected=1' "$RUNNER_TEMP/sc298.log"
+              else
+                grep -Fx 'V414_REPAIR_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+                grep -E '^V414_REPAIR_STAGE (input|generate|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
+              fi
+            else
+              grep -Fx 'V414_PRIVATE_REPAIR prepared=0 roundtrip=0' "$RUNNER_TEMP/sc298.log"
+              grep -Fx 'V414_REPAIR_STAGE attempt=not_applicable' "$RUNNER_TEMP/sc298.log"
+            fi
+          else
+            grep -Fx 'V414_COVERAGE_STAGE attempt=failed' "$RUNNER_TEMP/sc298.log"
+            grep -E '^V414_COVERAGE_STAGE (control|derive|compile|link|inspected)=0$' "$RUNNER_TEMP/sc298.log"
           fi
           grep -E '^V397_NAND_ORIGINS_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 mask=([1-9]|1[0-5]) full_cap_all=[01] selected_any=[01] isfs_any=[01] parent_any=[01] other_any=[01] same_lr_any=[01] lineage_verified=1 return_verified=0$' "$RUNNER_TEMP/sc298.log"
           grep -E '^V398_NAND_RETURN_CENSUS rc=0 kind=zero size_band=[0-3] sample_complete=[01] entries=16 trials=16 max_samples=([0-9]|[1-5][0-9]|6[0-4]) sampled_any=[01] site_any=[01] mapped_any=[01] before_cap_any=[01] witness_verified=1 blr_verified=0$' "$RUNNER_TEMP/sc298.log"
