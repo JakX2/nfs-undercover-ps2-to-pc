@@ -1,0 +1,1 @@
+V633 complete-image MI run 45498712558 passed 20/20 with zero fallback. V637 synthetic route run 45499952865 returned 32/32, refusing 12 invalid states. V638 tests the actual translated cache-flush and installed vector with EE enabled and real idle IOS transport. The original input and translated code remain private. Native owner execution pending.
