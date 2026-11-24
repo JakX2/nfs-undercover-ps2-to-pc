@@ -27,14 +27,16 @@ SCOPES={
     'os-exi-poll':(OS_VECTOR_PATCHES,'prepare_v491_exi_poll.py','audit_v491_exi_poll'),
     'os-exi-handlers':(OS_VECTOR_PATCHES,'prepare_v500_exi_handlers.py','audit_v500_exi_handlers'),
     'os-exi-id':(OS_VECTOR_PATCHES,'prepare_v504_exi_id.py','audit_v504_exi_id'),
+    'os-exi-absent':(OS_VECTOR_PATCHES,'prepare_v510_exi_absent.py','audit_v510_exi_absent'),
+    'os-si-entry':(OS_VECTOR_PATCHES,'prepare_v520_si_entry.py','audit_v520_si_entry'),
 }
-PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_',b'V470_ALARM_',b'V473_IRQ_',b'V476_MMIO_',b'V483_IRQ_RETURN_',b'V486_CONTEXT_',b'V488_REUSE_',b'V491_EXI_POLL_',b'V500_EXI_HANDLER_',b'V504_EXI_ID_')
+PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_',b'V470_ALARM_',b'V473_IRQ_',b'V476_MMIO_',b'V483_IRQ_RETURN_',b'V486_CONTEXT_',b'V488_REUSE_',b'V491_EXI_POLL_',b'V500_EXI_HANDLER_',b'V504_EXI_ID_',b'V510_EXI_ABSENT_',b'V520_SI_ENTRY_',b'V524_SI_SAMPLE_')
 ALLOWED={
     'startup':PREFIXES[:1], 'hardware':PREFIXES[1:2],
     'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:6],
     'os-hardware':PREFIXES[1:7], 'os-arena':PREFIXES[1:8], 'os-ipc':PREFIXES[1:9],
     'os-vector':PREFIXES[1:10], 'os-pack':PREFIXES[1:11],
-    'os-alarm':PREFIXES[1:12], 'os-irq':PREFIXES[1:13], 'os-mmio':PREFIXES[1:14], 'os-irq-return':PREFIXES[1:15], 'os-context':PREFIXES[1:16], 'os-cache-reuse':PREFIXES[1:17], 'os-exi-poll':PREFIXES[1:18], 'os-exi-handlers':PREFIXES[1:19], 'os-exi-id':PREFIXES[1:20],
+    'os-alarm':PREFIXES[1:12], 'os-irq':PREFIXES[1:13], 'os-mmio':PREFIXES[1:14], 'os-irq-return':PREFIXES[1:15], 'os-context':PREFIXES[1:16], 'os-cache-reuse':PREFIXES[1:17], 'os-exi-poll':PREFIXES[1:18], 'os-exi-handlers':PREFIXES[1:19], 'os-exi-id':PREFIXES[1:20], 'os-exi-absent':PREFIXES[1:21], 'os-si-entry':PREFIXES[1:22],
 }
 MAX_LOG=8*1024*1024
 
@@ -47,15 +49,21 @@ def contract(scope,synthetic=False):
 
 def requires_exi_profile(scope):
     contract(scope)
-    return scope=='os-exi-id'
+    return scope in ('os-exi-id','os-exi-absent','os-si-entry')
+
+
+def requires_si_profile(scope):
+    contract(scope)
+    return scope=='os-si-entry'
 
 
 def launch_flags(scope,synthetic=False):
     contract(scope,synthetic)
     flags={'UNDERCOVER_V426_SYNTHETIC' if synthetic else 'UNDERCOVER_V419_START':'1'}
-    if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id'):flags['UNDERCOVER_V475_IRQ_MMIO']='1'
-    if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id'):flags['UNDERCOVER_V481_IRQ_BANKS']='1'
-    if scope in ('os-exi-poll','os-exi-handlers','os-exi-id'):flags['UNDERCOVER_V490_EXI_CONTROLLER']='1'
+    if scope in ('os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry'):flags['UNDERCOVER_V475_IRQ_MMIO']='1'
+    if scope in ('os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry'):flags['UNDERCOVER_V481_IRQ_BANKS']='1'
+    if scope in ('os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry'):flags['UNDERCOVER_V490_EXI_CONTROLLER']='1'
+    if requires_si_profile(scope):flags['UNDERCOVER_V512_SI']='1'
     return flags
 
 

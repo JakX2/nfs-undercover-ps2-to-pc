@@ -8,7 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile
+from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 
 HOST=Path(__file__).resolve().parent
@@ -172,6 +172,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage('native_tick_labels',[sys.executable,HOST/'apply_native_tick_v438.py',root],work,60)
     if requires_exi_profile(scope):
         run_stage('exi_tick_labels',[sys.executable,HOST/'apply_exi_tick_v497.py',root,'emitter'],work,60)
+    if requires_si_profile(scope):
+        run_stage('si_tick_labels',[sys.executable,HOST/'apply_si_tick_v515.py',root,'emitter'],work,60)
     portable_patch(root)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root),encoding='utf-8')
     tb=work/'translator-build';gen=['-G','Visual Studio 17 2022','-A','x64']
@@ -208,6 +210,10 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         create_exi_profile(profile,encode_exi_profile(0xbeef0010,1,0x12345678,8,bytes(64)))
         env['UNDERCOVER_V501_EXI_PROFILE']=str(profile)
         print('V505_EXI_TEST_PROFILE created=1 synthetic=1 bytes=64',flush=True)
+    if requires_si_profile(scope):
+        profile=launch/'si-test-profile.txt'
+        with profile.open('xb') as f:f.write(b'UNDERCOVER_SI_PROFILE_V1\nlatency=00000008\nport0=absent\nport1=absent\nport2=absent\nport3=absent\n')
+        env['UNDERCOVER_V518_SI_PROFILE']=str(profile)
     rc=command([exe,dol,config],launch/'private.log',20,env=env,cwd=launch)
     if (launch/'private.log').stat().st_size>8*1024*1024:raise BuildError('launch_log')
     raw=(launch/'private.log').read_bytes()
