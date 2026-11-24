@@ -1,0 +1,18 @@
+# V467: native indirect branch address alignment
+
+The pinned interpreter correctly masks low two address bits for bclr
+and bcctr, including linked variants. The native emitter does not.
+V445's strict dispatch geometry therefore can reject an otherwise
+valid indirect target if its LR or CTR contains low address bits.
+V467 masks the emitted native target and the saved pre-link LR,
+preserving existing BO/BI evaluation, CTR decrement, LR update and
+the exact-zero linked-CTR compatibility guard. Zero-target policy
+is not redesigned by this change.
+
+The original-free pinned compiler regression compares seven indirect
+branch forms with the actual interpreter, all four low-bit values,
+both predicate states and conditional fallthrough. It checks the
+same LR/CTR state, exact executed instruction count, and correct
+taken/fallthrough PC. Baseline must reproduce 33 mismatches out of
+44 taken cases; fixed must have zero. Both output modes run with
+ASan/UBSan. No owner scope altered pending CI.
