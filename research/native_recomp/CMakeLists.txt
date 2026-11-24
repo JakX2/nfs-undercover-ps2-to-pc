@@ -18,6 +18,7 @@ target_sources(undercover_wii_host_runtime INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_ios_memory.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_physical_ram.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_transport.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wii_native_ios_binding.h"
 )
 if(MSVC)
     target_compile_options(undercover_wii_host_runtime INTERFACE /W4 /WX)
@@ -28,6 +29,7 @@ endif()
 
 include(CTest)
 if(BUILD_TESTING)
+    find_package(Threads REQUIRED)
     foreach(suite IN ITEMS
         wii_ipc_mailbox
         wii_hollywood_irq
@@ -39,10 +41,14 @@ if(BUILD_TESTING)
         wii_nand_ios_reply_v374
         wii_physical_ram
         wii_native_ios_transport
+        wii_native_ios_binding
     )
         add_executable("undercover_${suite}" "test_${suite}.cpp")
         target_link_libraries("undercover_${suite}" PRIVATE
             undercover_wii_host_runtime)
+        if(suite STREQUAL "wii_native_ios_binding")
+            target_link_libraries("undercover_${suite}" PRIVATE Threads::Threads)
+        endif()
         add_test(NAME "undercover_${suite}" COMMAND "undercover_${suite}")
         set_tests_properties("undercover_${suite}" PROPERTIES TIMEOUT 30)
     endforeach()

@@ -15,6 +15,12 @@ on:
       - 'research/native_recomp/wii_ios_memory.h'
       - 'research/native_recomp/wii_physical_ram.h'
       - 'research/native_recomp/wii_native_ios_transport.h'
+      - 'research/native_recomp/wii_native_ios_binding.h'
+      - 'research/native_recomp/test_wii_native_ios_binding.cpp'
+      - 'research/native_recomp/apply_native_ios_mmio_v418.py'
+      - 'research/native_recomp/apply_hollywood_mmio_v62.py'
+      - 'research/native_recomp/test_v418_native_ios_mmio.py'
+      - 'research/native_recomp/test_nwii_native_ios_mmio_v418.cpp'
       - 'research/native_recomp/test_wii_physical_ram.cpp'
       - 'research/native_recomp/test_wii_native_ios_transport.cpp'
       - 'research/native_recomp/test_wii_ipc_mailbox.cpp'
@@ -52,7 +58,7 @@ jobs:
           else
             cmake -S research/native_recomp -B "$RUNNER_TEMP/wii-host" -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
           fi
-      - name: Build original-free host runtime and ten native test programs
+      - name: Build original-free host runtime and eleven native test programs
         shell: bash
         run: |
           set -euo pipefail
@@ -62,3 +68,36 @@ jobs:
         run: |
           set -euo pipefail
           ctest --test-dir "$RUNNER_TEMP/wii-host" -C Debug --output-on-failure --parallel 2
+  pinned-nwii-mmio:
+    name: Pinned NWiiRuntime MMIO transport
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate reversible source-only patch
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v418_native_ios_mmio.py -v
+      - name: Fetch pinned original-free NWiiRuntime
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii-v418"
+          git -C "$RUNNER_TEMP/nwii-v418" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii-v418" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii-v418" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$RUNNER_TEMP/nwii-v418" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Compile and execute real MMU IPC PI wrappers with synthetic IOS requests
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v418"
+          python3 research/native_recomp/apply_native_ios_mmio_v418.py "$root"
+          python3 research/native_recomp/apply_native_ios_mmio_v418.py "$root"
+          g++ -std=c++20 -O1 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -pthread \
+            -I"$root/nWiiRuntime/include" \
+            research/native_recomp/test_nwii_native_ios_mmio_v418.cpp \
+            "$root/nWiiRuntime/src/core/os_hle_stubs.cpp" \
+            "$root/nWiiRuntime/src/hw/mmio_dispatcher.cpp" \
+            "$root/nWiiRuntime/src/hw/hw_pi.cpp" \
+            "$root/nWiiRuntime/src/hw/hw_ipc.cpp" \
+            -o "$RUNNER_TEMP/v418-mmio"
+          timeout 20s "$RUNNER_TEMP/v418-mmio"
