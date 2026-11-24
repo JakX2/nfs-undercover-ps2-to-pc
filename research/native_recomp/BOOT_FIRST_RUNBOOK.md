@@ -15,7 +15,7 @@ game output, translated code, native binary or private compiler log is
 published. The existing owner-private authorization variable still gates
 the original-image job. On push the full link runs only if one of the
 two build scripts changes; normal NAND iteration does not trigger it.
-Manual workflow dispatch can choose `sample`, `all`, `link`, `startup`, `hardware` or `cache`.
+Manual workflow dispatch can choose `sample`, `all`, `link`, `startup`, `hardware`, `cache` or `data`.
 
 Original-free integration tests compile a synthetic executable, check
 that it is never launched, reject unresolved symbols and preserve an
@@ -147,6 +147,26 @@ that boundary does not establish OSInit or game boot.
 Local strict C++20 ASan/UBSan tests passed eight valid initial cache
 combinations and 56 negative cases; four Python tests and a synthetic
 private-header/probe instantiation also passed. Owner validation pending.
+
+### V430: complete-image original data initialization and return witness
+
+The separate data scope retains every V425 and V428 check. It validates
+the private DOL's original eleven in-place copy rows, three BSS rows
+(963,456 bytes), four direct data-helper callsites and the original
+post-call instruction. The runtime observer admits only the six
+expected memset/fill entries with exact caller, arguments, and loaded
+instruction words. It checks the original BSS bytes and neighboring
+bytes, all r13-r31, MSR, stack linkage and original return PC before
+executing the next startup instruction. The count of nonzero BSS
+bytes on entry is reported as a bounded aggregate, not fabricated by
+poisoning memory. No original bytes or runtime guest state are changed.
+An exact reversible observer is inserted at the original return label.
+The whole-image candidate deliberately stops before DBInit, OSInit or
+game main. Any earlier cache mismatch remains a failed prerequisite.
+
+Four original-free Python tests, strict C++20 ASan/UBSan execution with
+nine negative cases and synthetic expectation-header/probe instantiation
+passed locally. Authenticated owner validation is pending.
 
 ## November 24, 2026: authenticated 96-call NAND frontier
 
