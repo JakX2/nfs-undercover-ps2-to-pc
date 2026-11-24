@@ -46,18 +46,24 @@ int main(int argc,char** argv){
     need(argc==3);const std::string_view mode=argv[2];need(mode=="owner"||mode=="synthetic");owner=mode=="owner";
     std::ifstream raw(argv[1],std::ios::binary);raw.read(reinterpret_cast<char*>(installed.data()),installed.size());
     need(raw.gcount()==std::streamsize(installed.size())&&raw.peek()==std::char_traits<char>::eof());
+    unsigned syncs=0,isyncs=0;
+    for(unsigned i=0;i<installed.size();i+=4){
+        const uint32_t word=(uint32_t(installed[i])<<24)|(uint32_t(installed[i+1])<<16)|(uint32_t(installed[i+2])<<8)|installed[i+3];
+        if(word==0x4c00012cu)++isyncs;
+        if(word>>26==31&&((word>>1)&1023u)==598u)++syncs;
+    }
     auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;
     auto reset=[&](unsigned trial){
         for(unsigned i=0;i<32;++i)c.gpr[i]=trial*257+i;
         for(unsigned i=0;i<installed.size();++i)c.mmu.write8(Vector+i,installed[i]);
         c.pc=Entry;c.lr=Back;c.ctr=0x1234+trial;c.msr=trial&1?2u:0x2002u;c.hid0=trial*0x10101u;
-        c.is_running=true;c.dispatch_saved_ctx=0;c.inst_count=0;c.srr0=0;c.srr1=0;
+        c.is_running=true;c.dispatch_saved_ctx=0;c.inst_count=0;c.srr0=0;c.srr1=0;c.guest_sync_count=0;c.guest_isync_count=0;
     };
     for(unsigned i=0;i<32;++i){
         reset(i);const auto hid=c.hid0,msr=c.msr;
         func_80004000(c);
         need(c.pc==Back&&c.gpr[4]==10&&c.hid0==hid&&c.msr==msr&&c.srr0==Resume);
-        need(scs==i+1&&vectors==i+1&&c.inst_count==11);
+        need(scs==i+1&&vectors==i+1&&c.inst_count==11&&c.guest_sync_count==syncs&&c.guest_isync_count==isyncs);
     }
     for(unsigned fault=0;fault<3;++fault){
         reset(fault);if(fault==0)c.mmu.write8(Vector,installed[0]^1u);

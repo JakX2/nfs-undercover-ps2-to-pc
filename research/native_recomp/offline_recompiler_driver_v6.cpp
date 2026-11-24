@@ -56,7 +56,12 @@ int main(int argc, char** argv) {
     if (sc_overlay) {
         if (!strict || !do_generate) { std::cerr << "SC overlay requires strict generation\n"; return 2; }
         try { undercover::wii::add_sc_overlay(exec); }
-        catch (const std::exception&) { std::cerr << "SC overlay rejected\n"; return 4; }
+        catch (const std::exception& e) {
+            const std::string reason=e.what();
+            if(reason=="SC translation overlay conflict"||reason=="SC source ambiguous"||reason=="SC source missing"||reason=="SC vector return"||reason=="SC vector control flow")std::cerr<<reason<<"\n";
+            else std::cerr<<"SC overlay rejected\n";
+            return 4;
+        }
         addrs.push_back(undercover::wii::ScVector);
     }
 #endif

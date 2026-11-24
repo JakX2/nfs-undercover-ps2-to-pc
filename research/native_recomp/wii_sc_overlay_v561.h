@@ -27,7 +27,7 @@ inline void add_sc_overlay(nwii::loader::Executable& exe){
         // No position-dependent branch, nested SC or early RFI in this
         // immutable, straight-line vector. The final instruction is RFI.
         if(i==ScSize-4){if(w!=0x4c000064u)throw std::runtime_error("SC vector return");}
-        else if(w>>26==16||w>>26==18||w>>26==17||w>>26==19)
+        else if(w>>26==16||w>>26==18||w>>26==17||(w>>26==19&&w!=0x4c00012cu))
             throw std::runtime_error("SC vector control flow");
     }
     exe.sections.push_back({ScVector,ScSize,std::move(image),true,false});

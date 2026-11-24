@@ -26,7 +26,7 @@ def main():
             vector=struct.pack('>7I',*words_at(raw,SOURCE,7))
         else:
             # Independent fixture, changes r11 but does not touch HID0.
-            vector=struct.pack('>7I',0x396b0001,*([0x60000000]*5),0x4c000064)
+            vector=struct.pack('>7I',0x396b0001,0x4c00012c,*([0x60000000]*4),0x4c000064)
         a.output.mkdir(mode=0o700)
         (a.output/'fixture.dol').write_bytes(build(vector))
         (a.output/'vector.bin').write_bytes(vector)
