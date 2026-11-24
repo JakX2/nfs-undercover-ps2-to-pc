@@ -1,0 +1,109 @@
+name: Wii Native Windows Complete Image
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/windows_full_build_v426.py'
+      - 'research/native_recomp/test_v426_windows_full_build.py'
+      - '.github/workflows/wii-native-windows-full.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: wii-native-windows-full-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  synthetic-windows:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate PE and reversible source changes
+        run: python -m unittest discover -s research/native_recomp -p test_v426_windows_full_build.py -v
+      - name: Fetch exact pinned NWiiRecomp
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'nw426-s'
+          git init -q $root
+          git -C $root remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C $root fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git -C $root checkout -q --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Translate, compile, link and launch an independent PPC program on Windows
+        shell: pwsh
+        run: |
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-s') (Join-Path $env:RUNNER_TEMP 'w426-s')
+          exit $LASTEXITCODE
+      - name: Show original-free diagnostics if the synthetic build fails
+        if: failure()
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'w426-s'
+          if (Test-Path $work) {
+            Get-ChildItem $work -File -Filter '*.log' | ForEach-Object {
+              Write-Host ("--- " + $_.Name)
+              Get-Content $_.FullName -Tail 80
+            }
+            $launchLog = Join-Path $work 'launch/private.log'
+            if (Test-Path $launchLog) { Get-Content $launchLog -Tail 80 }
+          }
+      - name: Clean synthetic build
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($name in @('nw426-s','w426-s')) {
+            $path = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path $path) { Remove-Item -Recurse -Force $path }
+          }
+  owner-windows:
+    needs: synthetic-windows
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned staging dependency
+        run: python -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage and SHA-verify private original inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        shell: pwsh
+        run: |
+          python owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py (Join-Path $env:RUNNER_TEMP 'orig426')
+          exit $LASTEXITCODE
+      - name: Fetch exact pinned NWiiRecomp
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'nw426-o'
+          git init -q $root
+          git -C $root remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C $root fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git -C $root checkout -q --detach FETCH_HEAD
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Build complete private native Windows executable and verify bounded startup
+        shell: pwsh
+        run: |
+          $orig = Join-Path $env:RUNNER_TEMP 'orig426'
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf')
+          exit $LASTEXITCODE
+      - name: Clean all private original files, logs and binaries
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($name in @('orig426','nw426-o','w426-o')) {
+            $path = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path $path) { Remove-Item -Recurse -Force $path }
+          }

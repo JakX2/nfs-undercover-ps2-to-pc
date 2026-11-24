@@ -53,6 +53,35 @@ stages verified and no observed interpreter fallback. This establishes
 the original entry and register initialization in the complete image,
 not execution of the hardware initializer.
 
+### V426: independent Windows x64 complete-image build and startup lane
+
+The existing V419 Linux whole-image startup is verified. V426 adds
+a distinct Windows-2022/MSVC C++20 lane, initially reproducing the V419
+boundary rather than combining it with unverified V425 hardware changes.
+The source-only portable byte-reverse helper replaces the two GCC-specific
+emitter intrinsics for lwbrx/stwbrx. The generated Windows CMake project
+explicitly selects SDL's application-owned main and calls SDL_SetMainReady.
+
+The original-free prerequisite builds the pinned offline translator,
+creates a small independently authored PPC DOL, translates it, builds
+the complete runtime, validates a PE32+ AMD64 executable with an
+executable entry section, and launches it headlessly. The translated
+byte-reverse store/load must reproduce both guest RAM and GPR values,
+with both interpreter paths rejected. Only if that passes can the
+existing owner-private authorization enable a separate original-image
+job. That job stages SHA-verified DOL/ELF inputs, translates all sized
+symbol spans, compiles and links all shards, validates PE geometry and
+runs the exact V419 witness in an isolated directory. Neither the
+proprietary source, executable, inputs nor raw private logs are uploaded.
+A linked PE is not boot, and the startup gate does not establish the
+hardware body, main or gameplay.
+
+Six local tests passed, including a real AMD64 PE linked using
+clang-cl/lld-link on Linux, malformed PE rejection, exact source seams,
+independent PPC encoding validation, and 100,000 portable byte-swap
+comparisons under UBSan. This does not establish actual MSVC compilation
+of the generated project yet; Windows CI results are pending.
+
 ### V425: complete-image paired-single and FPR initialization
 
 The new independent hardware scope reuses V18 HID0/HID2 state and V19
