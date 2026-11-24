@@ -33,9 +33,9 @@ int main(){
         {0x80522294,0x80528788,3,4},{0x804efb80,0x80528798,5,6},
         {0x804ef3ec,0x805287b8,7,8},{0x804ee984,0x805287f4,9,10},
         {0x804eed9c,0x80528804,11,12},{0x804eeca4,0x80528828,13,14},
-        {0x804eed9c,0x8052883c,11,16},{0x804ef51c,0x80528850,17,18},
+        {0x804eed9c,0x8052883c,15,12},{0x804ef51c,0x80528850,17,18},
         {0x804efc7c,0x80528864,19,20},{0x80528954,0x805288bc,21,22},
-        {0x80528954,0x80528928,21,24}}},25};
+        {0x80528954,0x80528928,23,22}}},25};
     for(unsigned fault=0;fault<=18;++fault){
         trial=fault;checkpoint=0;exi_id_completion={};sram_completion={};
         need(exi_id_completion.begin(true));
