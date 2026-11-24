@@ -36,10 +36,11 @@ public:
         DspInt=0x80u,DspMask=0x100u,Init=0x400u,Boot=0x800u;
     static constexpr uint16_t Masks=AiMask|DspMask,Status=AiInt|DspInt;
     struct Request{uint64_t token;bool boot;};
-    explicit DspControl(AramDma& dma):dma_(dma){refresh();}
-    ~DspControl(){dma_.set_peer_irq(false);}
+    explicit DspControl(AramDma& dma):dma_(dma){dma_.claim_peer();refresh();}
+    ~DspControl(){dma_.release_peer();}
     DspControl(const DspControl&)=delete;
     DspControl& operator=(const DspControl&)=delete;
+    bool owns(const AramDma& dma)const noexcept{return &dma_==&dma;}
     uint16_t read_control()const noexcept{
         return uint16_t(mode_|status_|masks_|dma_.control_bits()|
             (reset_?Reset:0u)|(init_?Init:0u));

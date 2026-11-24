@@ -5,6 +5,8 @@ on:
     paths:
       - 'research/native_recomp/*v552*'
       - 'research/native_recomp/*v553*'
+      - 'research/native_recomp/*v554*'
+      - 'research/native_recomp/*v555*'
       - '.github/workflows/wii-v553-native-aram.yml'
   workflow_dispatch:
 permissions:
@@ -55,4 +57,9 @@ jobs:
               "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
               "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/native"
             timeout 20s "$dir/native"
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_dsp_aot_v555.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/dsp-native"
+            timeout 20s "$dir/dsp-native"
           done

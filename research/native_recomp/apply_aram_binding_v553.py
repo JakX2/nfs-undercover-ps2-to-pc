@@ -24,7 +24,7 @@ def apply(root,phase,host):
     else:
         pairs=((rt/'include/runtime/cpu_context.h',CTX_PAIRS),(rt/'src/core/os_hle_stubs.cpp',STUB_PAIRS))
         if dest.is_symlink():raise ValueError('symlink')
-        for name in ('wii_aram_binding_v553.h','wii_aram_dma_v552.h','wii_physical_ram.h','wii_ios_memory.h'):
+        for name in ('wii_aram_binding_v553.h','wii_aram_dma_v552.h','wii_dsp_control_v554.h','wii_physical_ram.h','wii_ios_memory.h'):
             p=dest/name;data=(host/name).read_bytes()
             if p.is_symlink() or (p.exists() and p.read_bytes()!=data):raise ValueError('header conflict')
             updates[p]=data

@@ -27,7 +27,12 @@ int main(int argc,char** argv){
         0x38e00010u,0x7ce903a6u,0xa0a3000au,0x4200fffcu,0x4e800020u});
     // Guest W1C acknowledgment, independent native function.
     add(0x80004100u,{0x3c60cc00u,0x60635000u,0x38800060u,0xb083000au,0x4e800020u});
-    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({0x80004100u});
+    // Independently written guest control and mailbox accesses.
+    add(0x80004200u,{0x3c60cc00u,0x60635000u,0xb083000au,0xa0a3000au,0x4e800020u});
+    add(0x80004300u,{0x3c60cc00u,0x60635000u,0xb0830000u,0xb0a30002u,0xa0c30000u,0x4e800020u});
+    add(0x80004400u,{0x3c60cc00u,0x60635000u,0xa0830004u,0xa0a30006u,0xa0c30004u,0x4e800020u});
+    add(0x80004500u,{0x3c60cc00u,0x60635000u,0xa0a3000au,0x4e800020u});
+    nwii::analyzer::Analyzer analyzer(exe);analyzer.analyze({0x80004100u,0x80004200u,0x80004300u,0x80004400u,0x80004500u});
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=dir.string();cfg.split_output=mode=="split";
     nwii::recomp::Recompiler recomp(analyzer,nullptr,cfg);
     if(recomp.generate_cpp(exe.entry_point).empty())throw std::runtime_error("no generated C++");

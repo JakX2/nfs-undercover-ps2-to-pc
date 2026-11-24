@@ -63,7 +63,6 @@ public:
     }
     // One PI owner merges explicit DSP and AI peer sources. The standalone
     // ARAM binding leaves this false throughout its lifetime.
-    void set_peer_irq(bool level)noexcept{peer_irq_=level;refresh();}
     void refresh()noexcept{
         const uint32_t desired=(irq_&&mask_)||peer_irq_?PiDsp:0u;
         auto cur=pi_.load(std::memory_order_relaxed);
@@ -92,9 +91,13 @@ public:
         }
     }
 private:
+    friend class DspControl;
+    void claim_peer(){if(peer_owned_)throw std::logic_error("DSP control already attached");peer_owned_=true;}
+    void release_peer()noexcept{peer_owned_=false;set_peer_irq(false);}
+    void set_peer_irq(bool level)noexcept{peer_irq_=level;refresh();}
     WiiPhysicalRam& ram_;std::atomic<uint32_t>& pi_;const uint64_t latency_;
     uint16_t info_=0,mask_=0;uint32_t main_=0,aram_=0,count_=0,direction_=0;
-    uint64_t last_=0,due_=0,completed_=0;bool pending_=false,armed_=false,irq_=false,peer_irq_=false;
+    uint64_t last_=0,due_=0,completed_=0;bool pending_=false,armed_=false,irq_=false,peer_irq_=false,peer_owned_=false;
     void idle()const{if(pending_)throw std::logic_error("ARAM DMA busy");}
 };
 }
