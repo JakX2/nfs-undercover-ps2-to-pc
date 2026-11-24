@@ -209,6 +209,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v500_exi_handlers.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_handler_witness_v500.cpp -o "$RUNNER_TEMP/v500-handlers"
           "$RUNNER_TEMP/v500-handlers"
+          python3 -m py_compile research/native_recomp/prepare_v504_exi_id.py research/native_recomp/audit_v504_exi_id.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_id_witness_v504.cpp -o "$RUNNER_TEMP/v504-id"
+          "$RUNNER_TEMP/v504-id"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
