@@ -22,6 +22,7 @@ on:
       - 'research/native_recomp/*v525*'
       - 'research/native_recomp/*v529*'
       - 'research/native_recomp/*v531*'
+      - 'research/native_recomp/*v536*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -232,4 +233,34 @@ jobs:
               "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
               "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$RUNNER_TEMP/v531-$mode"
             timeout 20s "$RUNNER_TEMP/v531-$mode"
+          done
+      - name: Verify exact SRAM profile and DMA observer on native generated instructions
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          python3 -m unittest discover -s research/native_recomp -p test_v536_sram_profile.py -v
+          python3 research/native_recomp/write_sram_profile_v536.py "$RUNNER_TEMP/v536-profile.txt"
+          cp research/native_recomp/wii_sram_read_witness_v534.h "$rt/include/undercover/"
+          PYTHONPATH=research/native_recomp python3 - "$rt/include/undercover" <<'PY'
+          import sys
+          from pathlib import Path
+          from prepare_v534_sram_read import patch_scheduler
+          root=Path(sys.argv[1])
+          p=root/'wii_exi_endpoint_scheduler_v495.h'
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('#include "wii_exi_mx_device_v494.h"','#include "wii_exi_mx_device_v494.h"\n#include "wii_exi_id_witness_v504.h"')
+          s=s.replace('        ++completed_;token_=0;','        exi_id_completion.record(*req,ctl_.read(req->channel,16));\n        ++completed_;token_=0;')
+          p.write_text(patch_scheduler(s),encoding='utf-8')
+          PY
+          inc=(-I"$rt/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
+          for mode in nonsplit split; do
+            dir="$RUNNER_TEMP/v515-$mode"
+            flags=()
+            if [[ "$mode" == split ]]; then flags=(-DV438_SPLIT -I"$dir"); fi
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_sram_read_v536.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$RUNNER_TEMP/v536-$mode"
+            timeout 20s "$RUNNER_TEMP/v536-$mode" "$RUNNER_TEMP/v536-profile.txt"
           done
