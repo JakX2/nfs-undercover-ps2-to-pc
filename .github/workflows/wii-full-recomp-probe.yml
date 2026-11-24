@@ -35,6 +35,8 @@ on:
       - 'research/native_recomp/make_osinit_mem2_v37.py'
       - 'research/native_recomp/make_osinit_ipc_v38.py'
       - 'research/native_recomp/*v457*'
+      - 'research/native_recomp/*v466*'
+      - 'research/native_recomp/test_v468_exception_pack_geometry.py'
       - 'research/native_recomp/apply_cache_order_v456.py'
       - 'research/native_recomp/apply_cache_continuous_v39.py'
       - 'research/native_recomp/apply_cache_events_v43.py'
@@ -45,11 +47,11 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: 'Sample syntax, all shards, native link, bounded startup, hardware, cache, data, OS entry, time, memory arenas, IPC or first exception vector'
+        description: 'Sample syntax, all shards, native link, bounded startup, hardware, cache, data, OS entry, time, memory arenas, IPC, first exception vector or full exception pack'
         type: choice
         required: true
         default: sample
-        options: [sample, all, link, startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector]
+        options: [sample, all, link, startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack]
 permissions:
   contents: read
 concurrency:
@@ -71,6 +73,7 @@ jobs:
       os_arena_requested: ${{ steps.link_request.outputs.os_arena_requested }}
       os_ipc_requested: ${{ steps.link_request.outputs.os_ipc_requested }}
       os_vector_requested: ${{ steps.link_request.outputs.os_vector_requested }}
+      os_pack_requested: ${{ steps.link_request.outputs.os_pack_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -149,6 +152,13 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v457_exception_vector.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exception_vector_witness_v457.cpp -o "$RUNNER_TEMP/v457-witness"
           "$RUNNER_TEMP/v457-witness"
+      - name: Verify complete exception pack and private geometry
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v466_exception_pack.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v468_exception_pack_geometry.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exception_pack_route_v466.cpp -o "$RUNNER_TEMP/v466-route"
+          "$RUNNER_TEMP/v466-route"
       - name: Select private link or startup only for relevant changes
         if: github.event_name == 'push'
         id: link_request
@@ -167,6 +177,7 @@ jobs:
           os_arena=false
           os_ipc=false
           os_vector=false
+          os_pack=false
           # Do not run the expensive original-image build on every startup
           # probe. Compare the actual push range, not a commit message.
           if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
@@ -284,6 +295,16 @@ jobs:
               research/native_recomp/flat_cacheline_zero_v67.h || rc=$?
             if [[ "$rc" == 1 ]]; then os_vector=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v466_exception_pack.py \
+              research/native_recomp/audit_v466_exception_pack.py \
+              research/native_recomp/wii_exception_pack_route_v466.h \
+              research/native_recomp/wii_exception_pack_v462.h \
+              research/native_recomp/test_v468_exception_pack_geometry.py \
+              .github/workflows/wii-full-recomp-probe.yml || rc=$?
+            if [[ "$rc" == 1 ]]; then os_pack=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
           echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
           echo "startup_requested=$startup" >> "$GITHUB_OUTPUT"
@@ -296,8 +317,9 @@ jobs:
           echo "os_arena_requested=$os_arena" >> "$GITHUB_OUTPUT"
           echo "os_ipc_requested=$os_ipc" >> "$GITHUB_OUTPUT"
           echo "os_vector_requested=$os_vector" >> "$GITHUB_OUTPUT"
+          echo "os_pack_requested=$os_pack" >> "$GITHUB_OUTPUT"
       - name: Prove actual backward-tail root identity before owner hardware continuation
-        if: steps.link_request.outputs.os_hardware_requested == 'true' || steps.link_request.outputs.os_arena_requested == 'true' || steps.link_request.outputs.os_ipc_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc' || steps.link_request.outputs.os_vector_requested == 'true' || inputs.scope == 'os-vector'
+        if: steps.link_request.outputs.os_hardware_requested == 'true' || steps.link_request.outputs.os_arena_requested == 'true' || steps.link_request.outputs.os_ipc_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc' || steps.link_request.outputs.os_vector_requested == 'true' || inputs.scope == 'os-vector' || steps.link_request.outputs.os_pack_requested == 'true' || inputs.scope == 'os-pack'
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v443_function_root.py -v
@@ -340,7 +362,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_vector_requested == 'true' && 'os-vector' || (needs.synthetic-symbol-map.outputs.os_ipc_requested == 'true' && 'os-ipc' || (needs.synthetic-symbol-map.outputs.os_arena_requested == 'true' && 'os-arena' || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link')))))))))) }}
+          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_pack_requested == 'true' && 'os-pack' || (needs.synthetic-symbol-map.outputs.os_vector_requested == 'true' && 'os-vector' || (needs.synthetic-symbol-map.outputs.os_ipc_requested == 'true' && 'os-ipc' || (needs.synthetic-symbol-map.outputs.os_arena_requested == 'true' && 'os-arena' || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link'))))))))))) }}
         run: |
           set -euo pipefail
           umask 077
