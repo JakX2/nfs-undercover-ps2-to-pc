@@ -16,6 +16,11 @@ for width in (16,32):
     g=f'  MMIODispatcher::get().write{width}(addr, val);'
     j=g+f'\n  {T}.record(true,addr,{width}u,val,false);'
     PAIRS+=((a,b),(c,d),(e,f),(g,j))
+# An unexpected IPC operation must not escape the active bank census.
+NATIVE='  if (auto value = undercover::wii::NativeIosBinding::read32(addr)) return *value;'
+WRITE='    undercover::wii::irq_boot_trace.record(addr,val,32u,true);'
+PAIRS+=((NATIVE,'  if (auto value = undercover::wii::NativeIosBinding::read32(addr)) { '+T+'.record(false,addr,32u,*value,true); return *value; }'),
+        (WRITE,WRITE+'\n    '+T+'.record(true,addr,32u,val,true);'))
 def apply(root,host):
     rt=root/'nWiiRuntime';p=rt/'src/core/os_hle_stubs.cpp';out=rt/'include/undercover/wii_irq_return_witness_v482.h'
     if p.is_symlink() or out.is_symlink() or not (out.parent/'wii_irq_bank_binding_v481.h').is_file():raise ValueError('predecessor')

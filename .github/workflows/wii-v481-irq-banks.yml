@@ -5,6 +5,7 @@ on:
     paths:
       - 'research/native_recomp/*v480*'
       - 'research/native_recomp/*v481*'
+      - 'research/native_recomp/*v482*'
       - '.github/workflows/wii-v481-irq-banks.yml'
   workflow_dispatch:
 permissions:
@@ -43,3 +44,15 @@ jobs:
             "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
             "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v481-pinned"
           "$RUNNER_TEMP/v481-pinned"
+      - name: Exercise full seven-bank transaction census with real pinned DSP and PI backends
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v481"
+          rt="$root/nWiiRuntime"
+          python3 -c 'import sys; from pathlib import Path; sys.path.insert(0,"research/native_recomp"); from apply_irq_mask_trace_v482 import apply; apply(Path(sys.argv[1]),Path("research/native_recomp"))' "$root"
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_irq_mask_v482.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/hw_dsp.cpp" "$rt/src/core/event_scheduler.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+            -Wl,--gc-sections -o "$RUNNER_TEMP/v482-pinned"
+          "$RUNNER_TEMP/v482-pinned"
