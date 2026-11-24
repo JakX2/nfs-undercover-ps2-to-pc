@@ -1,0 +1,50 @@
+name: Wii Native IRQ Bootstrap Integration
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v475*'
+      - 'research/native_recomp/apply_native_ios_mmio_v418.py'
+      - 'research/native_recomp/apply_native_ios_width_v421.py'
+      - 'research/native_recomp/wii_native_ios_binding.h'
+      - 'research/native_recomp/wii_native_ios_transport.h'
+      - 'research/native_recomp/wii_ios_bus.h'
+      - 'research/native_recomp/wii_hollywood_irq.h'
+      - '.github/workflows/wii-v475-irq-bootstrap.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test original-free bootstrap source transforms
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v475_irq_bootstrap.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_bootstrap_v475.cpp -o "$RUNNER_TEMP/v475-model"
+          "$RUNNER_TEMP/v475-model"
+      - name: Fetch pinned NWiiRecomp
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v475"
+          git init -q "$root"
+          git -C "$root" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$root" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$root" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Apply actual runtime bootstrap and execute real PI and IPC MMIO wrappers
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v475"
+          mkdir -p "$root/nWiiRuntime/include/undercover"
+          cp research/native_recomp/wii_exception_vector_witness_v457.h "$root/nWiiRuntime/include/undercover/"
+          python3 research/native_recomp/apply_irq_bootstrap_v475.py "$root"
+          rt="$root/nWiiRuntime"
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_irq_bootstrap_v475.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v475-pinned"
+          "$RUNNER_TEMP/v475-pinned"

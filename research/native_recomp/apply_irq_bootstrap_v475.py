@@ -5,8 +5,9 @@ This does not install the asynchronous scheduling boundary or prove IOS IPC.
 """
 import argparse
 from pathlib import Path
-from apply_native_ios_mmio_v418 import apply as apply_mmio
-from apply_native_ios_width_v421 import apply as apply_width
+from apply_native_ios_mmio_v418 import HEADERS,rewrite as mmio_rewrite
+from apply_native_ios_width_v421 import rewrite as width_rewrite
+from apply_hollywood_mmio_v62 import rewrite as aperture
 MAIN_INCLUDE='#include "runtime/hw/hw.h"'
 MAIN_RUN='  run_game(*ctx);'
 MAIN_PAIRS=((MAIN_INCLUDE,MAIN_INCLUDE+'\n#include "undercover/wii_native_ios_binding.h"'),
@@ -47,16 +48,23 @@ def rewrite(source,pairs):
     return out
 def apply(root,host):
     rt=root/'nWiiRuntime';main=rt/'src/core/main.cpp';stubs=rt/'src/core/os_hle_stubs.cpp'
-    dest=rt/'include/undercover/wii_irq_bootstrap_v475.h'
-    vector=dest.with_name('wii_exception_vector_witness_v457.h')
-    if any(p.is_symlink() for p in (main,stubs,dest,vector)) or not vector.is_file():raise ValueError('predecessor')
-    data=(host/dest.name).read_bytes()
-    if dest.exists() and dest.read_bytes()!=data:raise ValueError('header conflict')
-    m=rewrite(main.read_text(encoding='utf-8'),MAIN_PAIRS)
-    # V418 must be installed before the write-routing seams are patched.
-    apply_mmio(root,host);apply_width(root)
-    s=rewrite(stubs.read_text(encoding='utf-8'),STUB_PAIRS)
-    main.write_text(m,encoding='utf-8');stubs.write_text(s,encoding='utf-8');dest.write_bytes(data)
+    ctx=rt/'include/runtime/cpu_context.h';dest=rt/'include/undercover'
+    vector=dest/'wii_exception_vector_witness_v457.h'
+    if any(p.is_symlink() for p in (main,stubs,ctx,dest,vector)) or not vector.is_file():raise ValueError('predecessor')
+    sources={p:p.read_text(encoding='utf-8') for p in (main,stubs,ctx)}
+    # All transformations and destination identities are checked before
+    # any file is written. This installer is for a fresh generated tree.
+    updates={
+        main:rewrite(sources[main],MAIN_PAIRS).encode(),
+        stubs:rewrite(mmio_rewrite(sources[stubs]),STUB_PAIRS).encode(),
+        ctx:width_rewrite(aperture(sources[ctx])).encode(),
+    }
+    for name in (*HEADERS,'wii_irq_bootstrap_v475.h'):
+        out=dest/name;data=(host/name).read_bytes()
+        if out.is_symlink() or (out.exists() and out.read_bytes()!=data):raise ValueError('header conflict')
+        updates[out]=data
+    for p,data in updates.items():
+        if not p.exists() or p.read_bytes()!=data:p.write_bytes(data)
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('generated',type=Path);a=p.parse_args()
     try:apply(a.generated,Path(__file__).parent)
