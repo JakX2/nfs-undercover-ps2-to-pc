@@ -14,7 +14,7 @@ MICRO='''    out << "    if (ctx.pc != 0x" << std::hex << (inst.address + 4) << 
 DISPATCH='''    out << "        process_pending_callbacks(ctx);\\n";'''
 PAIRS=((DIRECT,DIRECT.replace('if (ctx.pc','if (!ctx.is_running || ctx.pc'),1),
        (MICRO,MICRO.replace('if (ctx.pc','if (!ctx.is_running || ctx.pc'),1),
-       (DISPATCH,DISPATCH+'\\n    out << "        if (!ctx.is_running) break;\\\\n";',2))
+       (DISPATCH,DISPATCH+'\n    out << "        if (!ctx.is_running) break;\\n";',2))
 # The dispatcher anchor is a substring of its replacement; use a
 # reverse roundtrip to identify a wholly installed version.
 def rewrite(source):
