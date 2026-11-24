@@ -1,0 +1,29 @@
+name: Wii Native Data Cache Invalidation
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v532*'
+      - '.github/workflows/wii-v532-data-cache.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-data-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify reversible dcbi composition and shell syntax
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v532_dcbi_composition.py -v
+          bash -n research/native_recomp/run_v532_cache_invalidate.sh
+      - name: Fetch pinned compiler
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw532"
+          git -C "$RUNNER_TEMP/nw532" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw532" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw532" checkout -q --detach FETCH_HEAD
+      - name: Execute generated native cache operations with dcbi and sanitizer guards
+        run: bash research/native_recomp/run_v532_cache_invalidate.sh "$RUNNER_TEMP/nw532"
