@@ -41,6 +41,8 @@ on:
       - 'research/native_recomp/*v520*'
       - 'research/native_recomp/*v524*'
       - 'research/native_recomp/*v529*'
+      - 'research/native_recomp/*v656*'
+      - 'research/native_recomp/prepare_v603_boot_report.py'
       - 'research/native_recomp/audit_v544_si_init_flag.py'
       - 'research/native_recomp/wii_exception_pack_v462.h'
       - 'research/native_recomp/apply_cache_continuous_v39.py'
@@ -54,9 +56,9 @@ on:
       owner_scope:
         description: 'Bounded original startup through OS hardware, IPC or exception vectors'
         type: choice
-        default: os-dsp-return
+        default: os-report
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -175,7 +177,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-dsp-return' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-report' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh

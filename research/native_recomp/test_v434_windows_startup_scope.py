@@ -30,6 +30,8 @@ from audit_v556_audio_reset import STAGES as AUDIO,RESULT as AUDIO_RESULT
 from audit_v559_dsp_stage import STAGES as DSP_STAGE,RESULT as DSP_STAGE_RESULT
 from audit_v574_dsp_sc import STAGES as DSP_SC,RESULT as DSP_SC_RESULT
 from audit_v581_dsp_return import STAGES as DSP_RETURN,RESULT as DSP_RETURN_RESULT
+from audit_v591_memory_init import STAGES as MI,RESULT as MI_RESULT
+from audit_v603_boot_report import EVENTS as REPORT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -60,10 +62,11 @@ OS_AUDIO=OS_THREAD+AUDIO+[AUDIO_RESULT]
 OS_DSP_STAGE=OS_AUDIO+DSP_STAGE+[DSP_STAGE_RESULT]
 OS_DSP_SC=OS_DSP_STAGE+DSP_SC+[DSP_SC_RESULT]
 OS_DSP_RETURN=OS_DSP_SC+DSP_RETURN+[DSP_RETURN_RESULT]
+OS_REPORT=OS_DSP_RETURN+MI+[MI_RESULT]+REPORT+[b'V603_REPORT_RESULT reports=10 getters=6 native_console=1 computed=0 returned=1 output_backend=0 fallback=0 boot_verified=0']
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT))}
 
 
 class Tests(unittest.TestCase):
@@ -104,12 +107,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(OS_SC_PATCHES,OS_SRAM_PATCHES+('apply_native_lowmem_v63','apply_syscall_pc_v26','apply_syscall_transfer_v461'))
         for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return','os-context','os-cache-reuse','os-exi-poll','os-exi-handlers','os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc','os-dsp-return'):
             with self.assertRaises(ValueError):contract(scope,True)
+        self.assertEqual(contract('os-report'),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v603_boot_report.py','audit_v603_boot_report'))
+        with self.assertRaises(ValueError):contract('os-report',True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
             with self.assertRaises(ValueError):contract(scope)
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
+            if scope=='os-report':
+                self.assertTrue(all(f(scope) for f in (requires_sram_profile,requires_sc_overlay,requires_exi_profile,requires_si_profile)))
+                self.assertEqual(launch_flags(scope),{**launch_flags('os-dsp-return'),'UNDERCOVER_V591_MI':'1','UNDERCOVER_V612_MAPPING':'1','UNDERCOVER_V603_REPORT':'1'})
+                continue
             self.assertEqual(requires_sram_profile(scope),scope in ('os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc','os-dsp-return'))
             self.assertEqual(requires_sc_overlay(scope),scope in ('os-dsp-sc','os-dsp-return'))
             self.assertEqual(requires_exi_profile(scope),scope in ('os-exi-id','os-exi-absent','os-si-entry','os-si-sample','os-si-return','os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc','os-dsp-return'))
