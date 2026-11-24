@@ -1,0 +1,58 @@
+name: Wii Generated Native ARAM DMA
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v552*'
+      - 'research/native_recomp/*v553*'
+      - '.github/workflows/wii-v553-native-aram.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-aram:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact pinned NWiiRecomp
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nw553"
+          git init -q "$root"
+          git -C "$root" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$root" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$root" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Patch native tick and ARAM register ownership
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nw553"
+          python3 research/native_recomp/apply_nonsplit_dispatch_v15.py "$root"
+          python3 research/native_recomp/apply_native_tick_v438.py "$root"
+          for phase in emitter runtime; do
+            python3 research/native_recomp/apply_aram_binding_v553.py "$root" "$phase"
+            python3 research/native_recomp/apply_aram_binding_v553.py "$root" "$phase"
+          done
+      - name: Execute generated PPC DMA in split and nonsplit native code
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nw553"
+          rt="$root/nWiiRuntime"
+          inc=(-I"$rt/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
+          g++ -std=c++20 -O2 -Wno-unused-variable -Wno-sign-compare "${inc[@]}" \
+            research/native_recomp/generate_aram_native_v553.cpp "$rt/src/core/loader.cpp" \
+            "$root/nWiiAnalyzer/src/analyzer.cpp" "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" \
+            "$root/nWiiAnalyzer/src/signature_scanner.cpp" "$root/nWiiRecomp/src/recompiler.cpp" \
+            "$root/nWiiRecomp/src/symbols.cpp" -o "$RUNNER_TEMP/v553-generator"
+          for mode in nonsplit split; do
+            dir="$RUNNER_TEMP/v553-$mode"; mkdir "$dir"
+            "$RUNNER_TEMP/v553-generator" "$dir" "$mode"
+            flags=()
+            if [[ "$mode" == split ]]; then flags=(-DV438_SPLIT -I"$dir"); fi
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_aram_aot_v553.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/native"
+            timeout 20s "$dir/native"
+          done
