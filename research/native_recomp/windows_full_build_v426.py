@@ -149,7 +149,7 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
-def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
@@ -166,6 +166,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False):
     else:run_stage('symbols',[sys.executable,HOST/'make_private_elf_symbol_map.py',elf,symbols],work,120)
     for patch in ('apply_psq_indexed_patch','apply_psq_estimate_and_gqr_v5','apply_verified_elf_spans_v6')+extra_patches:
         run_stage(patch,[sys.executable,HOST/(patch+'.py'),root],work,60)
+    if not legacy_ticks:
+        run_stage('native_tick_labels',[sys.executable,HOST/'apply_native_tick_v438.py',root],work,60)
     portable_patch(root)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root),encoding='utf-8')
     tb=work/'translator-build';gen=['-G','Visual Studio 17 2022','-A','x64']
@@ -209,10 +211,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False):
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
     print(f'V436_WINDOWS_LOADER strict={int(not legacy_loader)} equivalence={int(not legacy_loader)} launch_verified=1 boot_verified=0',flush=True)
+    print(f'V441_WINDOWS_TICKS corrected={int(not legacy_ticks)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):
