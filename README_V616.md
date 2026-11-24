@@ -1,0 +1,3 @@
+# V616: complete-image original interrupt enable preflight
+
+Compose the validated V609 arena preflight with exact authenticated original OS interrupt-enable call, 20-byte leaf, post-mtmsr resume and OSInit return. Require the native dispatch case and unique source labels. Install V615's read-only observer after the arena proof and check actual runtime PI status/mask, no enabled pending interrupt and unchanged SRR/CTR/nonvolatile state. Audit requires the entire prior arena/report/MI prefix and exact four stages. New prepare-only owner scope by default; optional explicit run scope is not enabled automatically. Also require the V612 mapping profile marker for MI and later launches. No original IRQ return execution or first boot claim. CI pending.

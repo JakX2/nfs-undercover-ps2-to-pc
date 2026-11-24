@@ -2,13 +2,14 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 extra=();audit=audit_v575_dsp_sc_frontier.py
-if [[ "$mode" == dsp-return || "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
-if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V591_MI=1 UNDERCOVER_V612_MAPPING=1);audit=audit_v591_memory_init.py;fi
-if [[ "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V603_REPORT=1);audit=audit_v603_boot_report.py;fi
-if [[ "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V609_ARENA=1);audit=audit_v609_arena_clear.py;fi
+if [[ "$mode" == dsp-return || "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
+if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return ]]; then extra+=(UNDERCOVER_V591_MI=1 UNDERCOVER_V612_MAPPING=1);audit=audit_v591_memory_init.py;fi
+if [[ "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return ]]; then extra+=(UNDERCOVER_V603_REPORT=1);audit=audit_v603_boot_report.py;fi
+if [[ "$mode" == arena-return || "$mode" == irq-enable-return ]]; then extra+=(UNDERCOVER_V609_ARENA=1);audit=audit_v609_arena_clear.py;fi
+if [[ "$mode" == irq-enable-return ]]; then extra+=(UNDERCOVER_V616_IRQ=1);audit=audit_v616_irq_enable.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }
@@ -32,4 +33,10 @@ rc=0
     UNDERCOVER_V522_VICLK=0 UNDERCOVER_V537_ACR=1 UNDERCOVER_V574_SC=1 \
     "${extra[@]}" "$exe" "$dol" "$work/config.toml"
 ) > "$work/run-private.log" 2>&1 || rc=$?
-python3 "$here/$audit" "$work/run-private.log" "$rc"
+audit_rc=0
+python3 "$here/$audit" "$work/run-private.log" "$rc" || audit_rc=$?
+if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return ]]; then
+  if [[ "$(grep -Fxc 'V612_MAPPING_PROFILE accepted=1 mem1=24 mem2=64 mapped_mem2=52 ipc_kib=512 synthetic=1' "$work/run-private.log" || true)" != 1 ]]; then echo "V612_MAPPING_LAUNCH verified=0";exit 1;fi
+  echo "V612_MAPPING_LAUNCH verified=1"
+fi
+exit "$audit_rc"
