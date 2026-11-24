@@ -1,0 +1,24 @@
+name: Wii Native Arena Clear Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v607*'
+      - 'research/native_recomp/*v608*'
+      - '.github/workflows/wii-v608-arena-witness.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test actual streaming RAM and reset observer with independent syscall pair control
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/include/undercover"
+          cp research/native_recomp/arena_cache_range_trace_v596.h "$RUNNER_TEMP/include/undercover/"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$RUNNER_TEMP/include" -Iresearch/native_recomp research/native_recomp/test_wii_arena_clear_witness_v608.cpp -o "$RUNNER_TEMP/v608"
+          "$RUNNER_TEMP/v608"

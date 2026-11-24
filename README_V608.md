@@ -1,0 +1,3 @@
+# V608: independent complete two-arena observer control
+
+Drive the actual V607 witness, V606 reset binding and real flat-RAM dcbz helper with synthetic CPU state and independent syscall-pair control. The latter is explicitly a test double: V598 separately executed the owner native SC pair. One positive 20-stage sequence clears and verifies 1 MiB total RAM and checks 16,384 flush events. Eighteen faults cover cold record, alignment, earlier arena corruption, frame, reset order, getter provenance, size, missing zero, nonzero data, canary, flush range, short flush, wrong SC caller, missing native return, wrong resume instruction, and final bounds. CI pending.
