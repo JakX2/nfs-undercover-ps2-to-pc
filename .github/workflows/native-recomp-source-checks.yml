@@ -183,6 +183,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v470_alarm_startup.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_alarm_startup_witness_v470.cpp -o "$RUNNER_TEMP/v470-alarm"
           "$RUNNER_TEMP/v470-alarm"
+          python3 -m unittest discover -s research/native_recomp -p test_v473_module_irq.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_module_irq_witness_v473.cpp -o "$RUNNER_TEMP/v473-irq"
+          "$RUNNER_TEMP/v473-irq"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
