@@ -1,0 +1,1 @@
+First IOS_Open request observer: authenticate allocation tail and six call edges against the private DOL and ELF, require preserved pathname and IRQ table, original cache flush and RFI, and a correctly formed request in the verified IPC heap. No request submission or IOS reply. Synthetic and owner geometry verification pending; full-image integration not yet installed.
