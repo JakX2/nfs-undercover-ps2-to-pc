@@ -16,6 +16,11 @@ public:
     NativeIosBinding(const NativeIosBinding&)=delete;
     NativeIosBinding& operator=(const NativeIosBinding&)=delete;
     static bool active() noexcept{return active_!=nullptr;}
+    // Pure snapshot of the already-bound native transport; no IOS pump.
+    static std::optional<ColdIpcSnapshot> cold_snapshot(){
+        if(!active_)return std::nullopt;
+        return active_->transport_.cold_ipc_snapshot();
+    }
     // Unsupported words in the IPC window must never reach the old IOS
     // handler, even if the native bus does not implement them yet.
     static std::optional<uint32_t> read32(uint32_t address){
