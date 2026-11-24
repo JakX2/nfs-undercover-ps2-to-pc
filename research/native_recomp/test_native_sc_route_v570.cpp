@@ -7,6 +7,7 @@
 #include <source_location>
 #include <string_view>
 namespace nw=nwii::runtime;
+extern "C" void run_game(nw::CPUContext&);
 constexpr uint32_t Entry=0x805222c0,Sc=Entry+40,Resume=Sc+4,Back=0x80522044,Vector=0x80000c00;
 static uint32_t staging=0x81000000;
 static std::array<uint8_t,28> installed{};
@@ -92,7 +93,12 @@ int main(int argc,char** argv){
         need(rejected&&scs==32&&vectors==32&&c.pc==Sc&&c.srr0==0&&c.srr1==0&&route->phase()==Route::Phase::Failed);
     }
     reset(34);c.pc=0x80004000;need(!nw::handle_syscall(c)&&delegated==1&&route->phase()==Route::Phase::Idle);
+    for(unsigned i=0;i<30;++i){
+        reset(35);c.pc=i<28?Vector+i:i==28?0xc0000c00u:0x00000c00u;
+        run_game(c);
+        need(!c.is_running&&scs==32&&vectors==32&&c.srr0==0&&c.srr1==0&&route->phase()==Route::Phase::Idle);
+    }
     reset(33);stop_after_sc=true;func_805222C0(c);
     need(!c.is_running&&c.pc==Resume&&scs==33&&vectors==33);
-    std::cout<<"V570_SC_ROUTE owner="<<unsigned(owner)<<" trials=32 lines=128 vectors=32 refusal=6 delegated=1 stop=1 fallback=0 boot_verified=0\n";
+    std::cout<<"V570_SC_ROUTE owner="<<unsigned(owner)<<" trials=32 lines=128 vectors=32 refusal=6 delegated=1 stop=1 direct_only=30 fallback=0 boot_verified=0\n";
 }

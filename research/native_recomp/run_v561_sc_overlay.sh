@@ -42,7 +42,8 @@ grep -Ex "V568_SC_FLUSH owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) tr
 
 # V570 uses the same translated flush and original vector, with the explicit one-shot route.
 python3 "$here/patch_sc_trace_v570.py" "$work/flush-generated"
+python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/flush-generated" --vector "$work/flush-input/vector.bin"
 g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/flush-generated" -I"$work/flush-generated/nWiiRuntime/include" \
   "$here/test_native_sc_route_v570.cpp" "$work/flush-generated"/*.cpp -o "$work/native-route" > "$work/route-compile.log" 2>&1 || { echo 'V570 route compilation failed';exit 1; }
 timeout 15s "$work/native-route" "$work/flush-input/vector.bin" "$mode" > "$work/route-native.log" 2>&1 || { grep -E '^  what\(\):  (SC overlay line [0-9]+|V570 boot SC route rejected)$' "$work/route-native.log" || true; echo 'V570 route execution failed';exit 1; }
-grep -Ex "V570_SC_ROUTE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 lines=128 vectors=32 refusal=6 delegated=1 stop=1 fallback=0 boot_verified=0" "$work/route-native.log"
+grep -Ex "V570_SC_ROUTE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 lines=128 vectors=32 refusal=6 delegated=1 stop=1 direct_only=30 fallback=0 boot_verified=0" "$work/route-native.log"

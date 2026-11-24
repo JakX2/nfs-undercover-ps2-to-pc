@@ -26,7 +26,7 @@ jobs:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -53,6 +53,8 @@ jobs:
           git -C "$RUNNER_TEMP/nw561" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw561" checkout -q --detach FETCH_HEAD
           bash research/native_recomp/run_v561_sc_overlay.sh "$RUNNER_TEMP/nw561" "$RUNNER_TEMP/originals/NfsMWRelease.dol"
+      - name: Verify direct-only installed SC overlay in the complete original translation
+        run: bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw561" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Clean private owner files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
