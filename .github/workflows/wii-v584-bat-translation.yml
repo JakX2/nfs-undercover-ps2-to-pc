@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v584*'
+      - 'research/native_recomp/*v586*'
       - '.github/workflows/wii-v584-bat-translation.yml'
 permissions:
   contents: read
@@ -20,6 +21,7 @@ jobs:
       - name: Validate independent BAT instruction and dispatcher audit
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_v584_bat_translation.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v586_bat_roots.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
   owner-translation:
     needs: original-free

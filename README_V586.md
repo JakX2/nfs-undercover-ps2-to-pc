@@ -1,0 +1,3 @@
+# V586: exact authenticated physical mapper roots
+
+V584 original translation rejected unique native coverage (not a runtime failure); V585 witness passed 16 negative controls. V586 makes a private map only for the BAT scope, comparing every word in the three exact DOL mapper spans against authenticated ELF executable sections and checking both direct trampoline callers. It retains all existing function extents and adds only missing mapper roots. The isolated analyzer scope excludes interior synthetic roots and cross-region fallthrough, treats exact mapper RFI as terminal and reports missing/duplicate counts on audit failure. Prior DSP and Windows scopes are unchanged. Tests and private retranslation pending; no BAT permissions claim.

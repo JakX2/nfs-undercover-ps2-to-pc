@@ -43,7 +43,9 @@ def audit_shards(shards,expected):
                 raise ValueError('native RFI')
             elif 'return;' not in body:raise ValueError('native RFI transfer')
             hits[pc]+=1
-    if any(n!=1 for n in hits.values()):raise ValueError('unique native coverage')
+    if any(n!=1 for n in hits.values()):
+        print(f'V586_BAT_COVERAGE missing={sum(n==0 for n in hits.values())} duplicate={sum(n>1 for n in hits.values())}')
+        raise ValueError('unique native coverage')
     return sum(s is not None for _,s,_ in expected.values()),sum(s is None for _,s,_ in expected.values())
 def audit_dispatch(source):
     for pc in (*ROOTS,*RESUMES):

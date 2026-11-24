@@ -11,7 +11,11 @@ work="$(mktemp -d)"; trap 'rm -rf -- "$work"' EXIT; umask 077
 mkdir "$work/nwii" "$work/generated"
 git -C "$root" archive HEAD | tar -x -C "$work/nwii"
 nw="$work/nwii"
-python3 "$here/make_private_elf_symbol_map.py" "$elf" "$work/symbols.csv"
+if [[ "$mode" == --prepare-mi ]]; then
+  python3 "$here/make_v586_bat_roots.py" "$dol" "$elf" "$work/symbols.csv"
+else
+  python3 "$here/make_private_elf_symbol_map.py" "$elf" "$work/symbols.csv"
+fi
 for p in apply_psq_indexed_patch apply_psq_estimate_and_gqr_v5 apply_verified_elf_spans_v6 apply_function_root_v443 apply_exact_dispatch_v445 apply_native_tick_v438 apply_perf_sprs_v29 apply_hid_state_v18 apply_fpscr_v19 apply_l2cr_v20 apply_mtmsr_resume_v74 verify_perf_combo_v29 apply_hid4_continuous_v30 apply_cache_continuous_v39 apply_cache_trace_v44 apply_dcbz_v67 apply_cache_order_v456 apply_data_cache_invalidate_v532 apply_native_lowmem_v63 apply_syscall_pc_v26 apply_syscall_transfer_v461; do
   python3 "$here/$p.py" "$nw" > "$work/patch.log" 2>&1 || { echo "V572 full-image source patch failed: $p";exit 1; }
 done
@@ -24,6 +28,7 @@ if [[ "$mode" == --run-dsp-return ]]; then
   python3 "$here/apply_aram_binding_v553.py" "$nw" emitter > "$work/patch.log" 2>&1 || { echo "V581 ARAM emitter patch failed";exit 1; }
 fi
 if [[ "$mode" == --prepare-mi ]]; then
+  python3 "$here/apply_bat_roots_v586.py" "$nw"
   python3 "$here/apply_bat_registers_v65.py" "$nw" > "$work/patch.log" 2>&1 || { echo "V584 BAT source patch failed";exit 1; }
   g++ -std=c++20 -O1 -Wall -Wextra -Werror -I"$nw/nWiiRuntime/include" "$here/test_bat_registers_v65.cpp" -o "$work/bat-registers" > "$work/bat-compile.log" 2>&1 || { echo "V584 BAT register test build failed";exit 1; }
   "$work/bat-registers"
