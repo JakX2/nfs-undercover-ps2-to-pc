@@ -15,6 +15,7 @@
 #include "recompiler/recompiler.h"
 #ifdef UNDERCOVER_NATIVE_SC_OVERLAY
 #include "wii_sc_overlay_v561.h"
+#include "wii_external_overlay_v662.h"
 #endif
 
 int main(int argc, char** argv) {
@@ -34,7 +35,7 @@ int main(int argc, char** argv) {
     std::cout << "Root symbols=" << addrs.size() << std::endl;
     bool strict = false, do_generate = false;
 #ifdef UNDERCOVER_NATIVE_SC_OVERLAY
-    bool sc_overlay = false;
+    bool sc_overlay = false, external_overlay = false;
 #endif
     std::string runtime_dir, extra_spans_csv;
     for (int i = 4; i < argc; ++i) {
@@ -42,6 +43,7 @@ int main(int argc, char** argv) {
         if (flag == "--strict-symbol-spans") strict = true;
 #ifdef UNDERCOVER_NATIVE_SC_OVERLAY
         else if (flag == "--native-sc-overlay" && !sc_overlay) sc_overlay = true;
+        else if (flag == "--native-external-overlay-preflight" && !external_overlay) external_overlay = true;
 #endif
         else if (flag == "--trusted-extra-spans" && ++i < argc) extra_spans_csv = argv[i];
         else if (flag == "--generate" && ++i < argc) {
@@ -63,6 +65,12 @@ int main(int argc, char** argv) {
             return 4;
         }
         addrs.push_back(undercover::wii::ScVector);
+    }
+    if (external_overlay) {
+        if (!strict || !do_generate || !sc_overlay) { std::cerr << "IRQ overlay requires strict SC preflight generation\n"; return 2; }
+        try { undercover::wii::add_external_overlay(exec); }
+        catch (const std::exception&) { std::cerr << "IRQ overlay rejected\n"; return 4; }
+        addrs.push_back(undercover::wii::IrqVector);
     }
 #endif
     nwii::analyzer::Analyzer analyzer(exec);
@@ -137,6 +145,11 @@ int main(int argc, char** argv) {
             }
             spans.push_back({lo,hi});
         }
+        if (external_overlay) {
+            constexpr auto lo=undercover::wii::IrqVector,hi=lo+undercover::wii::IrqSize;
+            for(const auto& [a,b]:spans) if(a<hi&&lo<b) { std::cerr << "IRQ overlay overlaps trusted span\n"; return 4; }
+            spans.push_back({lo,hi});
+        }
 #endif
         try { analyzer.set_trusted_code_spans(spans); }
         catch(const std::exception& e) {
@@ -157,6 +170,21 @@ int main(int argc, char** argv) {
                 std::cerr << "SC overlay instruction coverage rejected\n";return 4;
             }
     }
+    if (external_overlay) {
+        constexpr auto lo=undercover::wii::IrqVector,hi=lo+undercover::wii::IrqSize;
+        const auto it=funcs.find(lo);
+        if(it==funcs.end()||it->second.instructions.size()<12u||it->second.instructions.size()>undercover::wii::IrqSize/4u||!it->second.hle_hook_name.empty()) {
+            std::cerr << "IRQ overlay analysis rejected\n"; return 4;
+        }
+        unsigned previous=0;
+        for(const auto& ins:it->second.instructions){
+            if(ins.address<lo||ins.address>=hi||(ins.address&3u)||ins.address<=previous||(!previous&&ins.address!=lo)) {
+                std::cerr << "IRQ overlay instruction coverage rejected\n"; return 4;
+            }
+            previous=ins.address;
+        }
+        std::cout << "V662_IRQ_OVERLAY analyzed=" << it->second.instructions.size() << " runtime_delivery=0\n";
+    }
 #endif
     std::cout << "Discovered functions=" << funcs.size() << std::endl;
     uint64_t ninst = 0;
@@ -173,6 +201,7 @@ int main(int argc, char** argv) {
         cfg.instructions_per_file = 16000;
 #ifdef UNDERCOVER_NATIVE_SC_OVERLAY
         if (sc_overlay) cfg.native_low_mem_entries.insert(undercover::wii::ScVector);
+        if (external_overlay) cfg.native_low_mem_entries.insert(undercover::wii::IrqVector);
 #endif
         nwii::recomp::Recompiler recomp(analyzer, &symbols, cfg);
         const bool ok = recomp.generate_cmake_project(exec.entry_point);

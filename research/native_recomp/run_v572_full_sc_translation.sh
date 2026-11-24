@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay ) ) ]] || exit 2
 mode="${4:-translation-only}"
+external_args=()
+if [[ "$mode" == --prepare-external-overlay ]]; then
+  mode=translation-only;external_args+=(--native-external-overlay-preflight)
+fi
 open_request=0
 if [[ "$mode" == --prepare-open-request ]]; then mode=--prepare-stm-open;open_request=1;fi
 if [[ "$mode" == --run-open-request ]]; then mode=--run-stm-open;open_request=1;fi
@@ -48,7 +52,7 @@ g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \
   "$nw/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$nw/nWiiAnalyzer/src/signature_scanner.cpp" "$nw/nWiiRecomp/src/recompiler.cpp" "$nw/nWiiRecomp/src/symbols.cpp" \
   -o "$work/translator" > "$work/build.log" 2>&1 || { echo "V572 full-image translator build failed";exit 1; }
-timeout 300s "$work/translator" "$dol" "$work/symbols.csv" "$work/generated" --strict-symbol-spans --native-sc-overlay --generate "$nw/nWiiRuntime" > "$work/generate.log" 2>&1 || { grep -Ex 'SC translation overlay conflict|SC source ambiguous|SC source missing|SC source overlap|SC section geometry|SC vector return|SC vector control flow|SC overlay rejected|SC overlay analysis rejected|SC overlay instruction coverage rejected|SC overlay overlaps trusted span' "$work/generate.log" || true;echo "V572 full-image translation failed";exit 1; }
+timeout 300s "$work/translator" "$dol" "$work/symbols.csv" "$work/generated" --strict-symbol-spans --native-sc-overlay "${external_args[@]}" --generate "$nw/nWiiRuntime" > "$work/generate.log" 2>&1 || { grep -Ex 'SC translation overlay conflict|SC source ambiguous|SC source missing|SC source overlap|SC section geometry|SC vector return|SC vector control flow|SC overlay rejected|SC overlay analysis rejected|SC overlay instruction coverage rejected|SC overlay overlaps trusted span|IRQ overlay rejected|IRQ overlay overlaps trusted span|IRQ overlay analysis rejected|IRQ overlay instruction coverage rejected' "$work/generate.log" || true;echo "V572 full-image translation failed";exit 1; }
 [[ "$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | wc -l)" -ge 20 ]]
 if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --prepare-report ]]; then
   if [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
@@ -88,6 +92,9 @@ else
   python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --owner "$dol"
 fi
 echo "V572_FULL_SC_TRANSLATION owner=1 full_image=1 vector=7 direct_only=1 link=0 execution=0 boot_verified=0"
+if [[ ${#external_args[@]} == 1 ]]; then
+  python3 "$here/audit_v662_external_overlay.py" "$dol" "$work/generated"
+fi
 if [[ "$mode" == --prepare-report || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
   python3 "$here/audit_v594_report_translation.py" "$dol" "$elf" "$work/generated"
 fi
