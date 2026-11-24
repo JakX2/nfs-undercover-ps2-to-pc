@@ -82,6 +82,7 @@ on:
       - 'research/native_recomp/*v424*'
       - 'research/native_recomp/*v427*'
       - 'research/native_recomp/*v432*'
+      - 'research/native_recomp/*v437*'
       - 'research/native_recomp/wii_nand_y1_exception.h'
       - '.github/workflows/wii-v298-scoped-nand.yml'
 permissions:
@@ -290,6 +291,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p 'test_v424_nand_aot_placeholder.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v427_restored_function.py' -v
           python3 -m unittest discover -s research/native_recomp -p 'test_v432_nand_nested_call.py' -v
+          python3 -m unittest discover -s research/native_recomp -p 'test_v437_nand_restored_frame.py' -v
+          g++ -std=c++20 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie research/native_recomp/test_wii_restored_frame_v437.cpp -o "$RUNNER_TEMP/v437-frame"
+          "$RUNNER_TEMP/v437-frame"
           python3 -m py_compile research/native_recomp/audit_v396_native_gate.py research/native_recomp/test_v396_native_gate.py
           python3 -m unittest discover -s research/native_recomp -p 'test_v396_native_gate.py' -v
           python3 -m py_compile research/native_recomp/scan_original_guest_markers.py research/native_recomp/test_original_guest_markers_v395.py

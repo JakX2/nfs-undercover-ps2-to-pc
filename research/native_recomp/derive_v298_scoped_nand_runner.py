@@ -1298,6 +1298,48 @@ else
   echo 'V432_NESTED_STAGE attempt=failed'
 fi
 
+# V437: observe the exact native restored-frame return, not an LR range.
+if (
+  if ! grep -Fqx 'V432_NESTED_RESULT rc=134 kind=signal trials=1 complete=0 target_seen=1 resumed=0 status3=0 same_retry=0 max_calls=2 boot_verified=0 retired_exact=1' "$work/v432-result.log"; then
+    echo 'V437_FRAME_STAGE control=0'; exit 1
+  fi
+  echo 'V437_FRAME_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v432-native.log" "$work/v420-harness.cpp" \
+    "$work/v432-harness.cpp" "$work/v437-harness.cpp" "$work/v437-output.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/derive_v437_nand_restored_frame.py" "${args[@]}"; then
+    echo 'V437_FRAME_STAGE derive=0'; exit 1
+  fi
+  echo 'V437_FRAME_STAGE derive=1'
+  for unit in harness output; do
+    if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+        -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" \
+        -c "$work/v437-$unit.cpp" -o "$work/v437-$unit.o" > "$work/v437-$unit.log" 2>&1; then
+      echo "V437_FRAME_STAGE compile=0 unit=$unit"; exit 1
+    fi
+  done
+  echo 'V437_FRAME_STAGE compile=1'
+  if ! g++ "$work/v437-harness.o" "$work/v437-output.o" "$work/loader.o" \
+      -o "$work/v437-native" > "$work/v437-link.log" 2>&1 || ! test -x "$work/v437-native"; then
+    echo 'V437_FRAME_STAGE link=0'; exit 1
+  fi
+  echo 'V437_FRAME_STAGE link=1'
+  v437_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v437-native" "$work/private-v424.dol" owner-callback "$owner" \
+      > "$work/v437-native.log" 2>&1 || v437_rc=$?
+  echo 'V437_FRAME_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/derive_v437_nand_restored_frame.py" "${args[@]}" \
+      --run-log "$work/v437-native.log" --run-rc "$v437_rc" | tee "$work/v437-result.log"; then
+    echo 'V437_FRAME_STAGE inspected=0'; exit 1
+  fi
+  echo 'V437_FRAME_STAGE inspected=1'
+); then
+  echo 'V437_FRAME_STAGE attempt=completed'
+else
+  echo 'V437_FRAME_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
