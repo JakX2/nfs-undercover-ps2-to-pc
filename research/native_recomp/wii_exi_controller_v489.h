@@ -13,6 +13,7 @@ public:
     explicit ExiController(WiiIrqBanks& banks):banks_(banks){}
     ExiController(const ExiController&)=delete;
     ExiController& operator=(const ExiController&)=delete;
+    bool bound_to(const WiiIrqBanks& banks)const noexcept{return &banks==&banks_;}
     void attach(unsigned ch,unsigned dev,bool connected){
         auto& s=channel(ch);if(dev>=3||s.pending)throw std::invalid_argument("EXI endpoint change");
         s.attached[dev]=connected;

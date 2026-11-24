@@ -1,0 +1,47 @@
+name: Wii Native EXI Controller
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v489*'
+      - 'research/native_recomp/*v490*'
+      - '.github/workflows/wii-v490-exi-controller.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test independent EXI controller with sanitizers
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_controller_v489.cpp -o "$RUNNER_TEMP/v489-exi"
+          "$RUNNER_TEMP/v489-exi"
+      - name: Fetch exact pinned NWiiRecomp
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          git init -q "$root"
+          git -C "$root" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$root" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$root" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Exercise real MMU wrappers with and without EXI controller
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          mkdir -p "$rt/include/undercover"
+          cp research/native_recomp/wii_exception_vector_witness_v457.h "$rt/include/undercover/"
+          python3 research/native_recomp/apply_irq_bootstrap_v475.py "$root"
+          python3 research/native_recomp/apply_irq_banks_v481.py "$root"
+          python3 research/native_recomp/apply_exi_controller_v490.py "$root"
+          python3 research/native_recomp/apply_exi_controller_v490.py "$root"
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_exi_controller_v490.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v490-pinned"
+          "$RUNNER_TEMP/v490-pinned"
