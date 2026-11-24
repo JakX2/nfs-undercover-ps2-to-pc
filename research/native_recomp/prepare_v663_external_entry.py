@@ -57,7 +57,9 @@ def install(dol,elf,root,host):
     private=dest/'v663_private_external_expectations.h'
     probe=dest/'wii_full_start_probe_v419.h'
     ios=root/'nWiiRuntime/src/hle/ios.cpp'
-    names=('native_external_irq.h','wii_cold_external_entry_v663.h','wii_external_entry_binding_v663.h')
+    shared=dest/'native_external_irq.h'
+    if shared.is_symlink() or not shared.is_file() or shared.read_bytes()!=(host/shared.name).read_bytes():raise ValueError('shared IRQ header identity')
+    names=('wii_cold_external_entry_v663.h','wii_external_entry_binding_v663.h')
     files={dest/name:(host/name).read_text(encoding='utf-8') for name in names}
     raw=struct.pack('>38I',*words)
     files[private]=('#pragma once\n#include "v616_private_irq_expectations.h"\n#include "wii_cold_external_entry_v663.h"\n'
