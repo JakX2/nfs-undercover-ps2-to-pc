@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
+external_entry=0
+if [[ "$mode" == --prepare-external-entry || "$mode" == --run-external-entry ]]; then
+  external_entry=1;external_args+=(--native-external-overlay-preflight)
+  mode="${mode%-external-entry}-irq-enable"
+fi
 if [[ "$mode" == --prepare-external-overlay ]]; then
   mode=translation-only;external_args+=(--native-external-overlay-preflight)
 fi
@@ -78,6 +83,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
   else
     python3 "$here/prepare_v574_dsp_sc.py" "$dol" "$work/generated"
   fi
+  if [[ "$external_entry" == 1 ]]; then
+    python3 "$here/prepare_v663_external_entry.py" "$dol" "$elf" "$work/generated"
+  fi
   cat > "$work/probe.cpp" <<'CPP'
 #include "runtime/cpu_context.h"
 #include "undercover/wii_full_start_probe_v419.h"
@@ -112,6 +120,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$mode" != --run-ipc-client ]] || target=ipc-client-return
     [[ "$mode" != --run-stm-open ]] || target=stm-open
     [[ "$open_request" != 1 ]] || target=open-request
+    [[ "$external_entry" != 1 ]] || target=irq-pending-entry
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
