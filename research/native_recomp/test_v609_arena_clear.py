@@ -1,4 +1,4 @@
-import unittest,subprocess,shutil
+import os,unittest,subprocess,shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -14,6 +14,7 @@ class Tests(unittest.TestCase):
         old=IOS_INCLUDE+'\n'+HOOK_NEW;out=patch_ios(old)
         self.assertLess(out.index('v609::try_sc'),out.index('v574::try_sc'))
         self.assertEqual(len(set(s for lane in LANES for s,p in lane)),14)
+    @unittest.skipIf(os.name=='nt','GCC header smoke test runs on Linux; owner Windows build compiles the same header under MSVC')
     def test_rendered_header(self):
         host=Path(__file__).resolve().parent
         rows=[[(p,s+4,1,2) for s,p in lane] for lane in LANES]
