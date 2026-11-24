@@ -1,6 +1,6 @@
 import unittest
 from prepare_v591_memory_init import patch_probe,patch_label,DECL,END,INCLUDE,SITES,TRAMP
-from audit_v591_memory_init import STAGES,RESULT,inspect,mapper_diagnostic
+from audit_v591_memory_init import STAGES,RESULT,inspect,mapper_diagnostic,MARKERS
 from test_v575_dsp_sc_frontier import GOOD
 from audit_v581_dsp_return import STAGES as DSP,RESULT as DSP_RESULT
 from test_v559_dsp_stage import log
@@ -36,4 +36,9 @@ class Tests(unittest.TestCase):
             self.assertIsNone(mapper_diagnostic(raw,rc))
         good=GOOD+DSP+[DSP_RESULT]+STAGES+[RESULT]
         self.assertFalse(inspect(log(good+[row]),0)[1])
+        # The report/arena/IRQ parent audits filter by inherited MARKERS.
+        # A contradictory refusal must survive that filter.
+        filtered=[line for line in log(good+[row]).splitlines() if line.startswith(MARKERS)]
+        self.assertIn(row,filtered)
+        self.assertFalse(inspect(b'\n'.join(filtered),0)[1])
 if __name__=='__main__':unittest.main()

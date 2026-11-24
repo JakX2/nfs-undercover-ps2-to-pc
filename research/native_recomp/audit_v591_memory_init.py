@@ -4,7 +4,7 @@ from pathlib import Path
 from audit_v581_dsp_return import MARKERS as PRIOR,MAX_LOG,inspect as inspect_dsp
 PREFIX=b'V591_MI_'
 MAPPER=b'V620_MI_MAPPER'
-MARKERS=PRIOR+(PREFIX,)
+MARKERS=PRIOR+(PREFIX,MAPPER)
 STAGES=[f'V591_MI_STAGE n={i}'.encode() for i in range(1,21)]
 RESULT=b'V591_MI_RESULT handlers=5 shutdown=1 bat=32 rfi_returns=2 mi_mask=16 returned=1 permissions=0 firmware_executed=0 fallback=0 boot_verified=0'
 def inspect(raw,rc):

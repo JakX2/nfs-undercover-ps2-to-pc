@@ -35,6 +35,19 @@ rc=0
 ) > "$work/run-private.log" 2>&1 || rc=$?
 audit_rc=0
 python3 "$here/$audit" "$work/run-private.log" "$rc" || audit_rc=$?
+# The longer chained audits deliberately emit only their own census. Export
+# the same bounded mapper diagnostic if an upstream MI refusal stopped them.
+if [[ "$rc" == 115 && "$audit" != audit_v591_memory_init.py ]]; then
+  PYTHONPATH="$here" python3 - "$work/run-private.log" <<'PY'
+import sys
+from pathlib import Path
+from audit_v591_memory_init import MAX_LOG,mapper_diagnostic
+p=Path(sys.argv[1])
+if p.stat().st_size<=MAX_LOG:
+    row=mapper_diagnostic(p.read_bytes(),115)
+    if row:print(row)
+PY
+fi
 if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return || "$mode" == irq-enable-return ]]; then
   if [[ "$(grep -Fxc 'V612_MAPPING_PROFILE accepted=1 mem1=24 mem2=64 mapped_mem2=52 ipc_kib=512 synthetic=1' "$work/run-private.log" || true)" != 1 ]]; then echo "V612_MAPPING_LAUNCH verified=0";exit 1;fi
   echo "V612_MAPPING_LAUNCH verified=1"
