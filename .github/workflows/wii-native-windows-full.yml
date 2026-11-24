@@ -8,6 +8,9 @@ on:
       - 'research/native_recomp/test_v429_windows_scope.py'
       - 'research/native_recomp/windows_startup_scope_v434.py'
       - 'research/native_recomp/test_v434_windows_startup_scope.py'
+      - 'research/native_recomp/*v436*'
+      - 'research/native_recomp/wii_dol_loader_v431.h'
+      - 'research/native_recomp/apply_dol_loader_v431.py'
       - 'research/native_recomp/prepare_v425_full_hardware.py'
       - 'research/native_recomp/audit_v425_full_hardware.py'
       - 'research/native_recomp/wii_full_hardware_witness.h'
@@ -16,11 +19,15 @@ on:
   workflow_dispatch:
     inputs:
       owner_scope:
-        description: 'Bounded original startup: registers, hardware, cache, data or OS entry'
+        description: 'Bounded original startup through OS entry or system time'
         type: choice
-        default: cache
+        default: os-entry
         required: true
-        options: [startup, hardware, cache, data, os-entry]
+        options: [startup, hardware, cache, data, os-entry, os-time]
+      legacy_loader:
+        description: 'Use the old DOL loader as an independent control'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -42,6 +49,8 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v429_windows_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v436_windows_loader.py -v
           exit $LASTEXITCODE
       - name: Fetch exact pinned NWiiRecomp
         shell: pwsh
@@ -115,11 +124,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'cache' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-entry' }}
+          LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
         run: |
           $orig = Join-Path $env:RUNNER_TEMP 'orig426'
-          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf') --owner-scope $env:OWNER_SCOPE
+          $extra = @()
+          if ($env:LEGACY_LOADER -eq '1') { $extra += '--legacy-loader' }
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf') --owner-scope $env:OWNER_SCOPE @extra
           exit $LASTEXITCODE
       - name: Clean all private original files, logs and binaries
         if: always()

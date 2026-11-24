@@ -5,18 +5,19 @@ from audit_v425_full_hardware import STAGES as HW,RESULT as HW_RESULT
 from audit_v428_full_cache import STAGES as CACHE,RESULT as CACHE_RESULT
 from audit_v430_full_data import HELPERS,RESULT as DATA_RESULT
 from audit_v433_full_os_entry import DB,RESULT as OS_RESULT
+from audit_v435_full_os_time import STAGES as TIME,RESULT as TIME_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
 DATA=CACHE+[b'V430_DATA_BEGIN before_nonzero=0']+HELPERS+[DATA_RESULT]
 OS=DATA+[b'V433_OS_BEGIN arena_hi_nonzero=1 boot_info_nonzero=0',DB,OS_RESULT]
-LOGS=dict(zip(SCOPES,map(log,(START+[START_RESULT],HW+[HW_RESULT],CACHE+[CACHE_RESULT],DATA,OS))))
+LOGS=dict(zip(SCOPES,map(log,(START+[START_RESULT],HW+[HW_RESULT],CACHE+[CACHE_RESULT],DATA,OS,OS+TIME+[TIME_RESULT]))))
 
 class Tests(unittest.TestCase):
     def test_contract(self):
         self.assertEqual(contract('startup',True),((),'prepare_v419_full_start.py','audit_v419_full_start'))
         self.assertEqual(contract('hardware')[0],HARDWARE_PATCHES)
-        for scope in ('cache','data','os-entry'):
+        for scope in ('cache','data','os-entry','os-time'):
             self.assertEqual(contract(scope)[0],CACHE_PATCHES)
             with self.assertRaises(ValueError):contract(scope,True)
         for scope in ('', 'bogus', 'CACHE'):

@@ -120,7 +120,11 @@ def translator_project(host,root):
             'add_executable(translator '+' '.join(map(cm,files))+')\n'
             'target_include_directories(translator PRIVATE '+' '.join(map(cm,inc))+')\n'
             'target_compile_definitions(translator PRIVATE NOMINMAX)\n'
-            'target_compile_options(translator PRIVATE /bigobj /utf-8 /Zc:__cplusplus)\n')
+            'target_compile_options(translator PRIVATE /bigobj /utf-8 /Zc:__cplusplus)\n'
+            'add_executable(dol_equivalence '+cm(host/'check_wii_dol_equivalence_v436.cpp')+' '+cm(root/'nWiiRuntime/src/core/loader.cpp')+')\n'
+            'target_include_directories(dol_equivalence PRIVATE '+cm(host)+' '+cm(root/'nWiiRuntime/include')+')\n'
+            'target_compile_definitions(dol_equivalence PRIVATE NOMINMAX)\n'
+            'target_compile_options(dol_equivalence PRIVATE /utf-8 /Zc:__cplusplus)\n')
 
 def command(args,log,seconds,env=None,cwd=None):
     with log.open('wb') as f:
@@ -145,7 +149,7 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
-def build(root,work,dol=None,elf=None,scope='startup'):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
@@ -167,6 +171,8 @@ def build(root,work,dol=None,elf=None,scope='startup'):
     tb=work/'translator-build';gen=['-G','Visual Studio 17 2022','-A','x64']
     run_stage('translator_config',['cmake','-S',src,'-B',tb,*gen],work,180)
     run_stage('translator_build',['cmake','--build',tb,'--config','Release','--parallel','2'],work,600)
+    if not legacy_loader:
+        run_stage('dol_equivalence',[tb/'Release/dol_equivalence.exe',dol],work,60)
     generated=work/'generated';generated.mkdir()
     run_stage('translation',[tb/'Release/translator.exe',dol,symbols,generated,'--strict-symbol-spans','--generate',root/'nWiiRuntime'],work,1200)
     shards=list(generated.glob('output_*.cpp'))
@@ -180,6 +186,8 @@ def build(root,work,dol=None,elf=None,scope='startup'):
     generated_patch(generated,synthetic)
     if not synthetic:
         run_stage('startup_observer',[sys.executable,HOST/observer,dol,generated],work,180)
+    if not legacy_loader:
+        run_stage('strict_runtime_loader',[sys.executable,HOST/'apply_dol_loader_v431.py',generated],work,60)
     out=work/'native-build'
     run_stage('native_config',['cmake','-S',generated,'-B',out,*gen,'-DCMAKE_CXX_FLAGS_RELEASE=/Od /DNDEBUG /bigobj /utf-8 /Zc:__cplusplus','-DCMAKE_C_FLAGS_RELEASE=/Od /DNDEBUG'],work,600)
     run_stage('native_build',['cmake','--build',out,'--config','Release','--target','UndercoverWiiLocal','--parallel','2'],work,5400)
@@ -200,10 +208,11 @@ def build(root,work,dol=None,elf=None,scope='startup'):
         print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
+    print(f'V436_WINDOWS_LOADER strict={int(not legacy_loader)} equivalence={int(not legacy_loader)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):

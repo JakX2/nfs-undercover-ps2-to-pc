@@ -9,11 +9,12 @@ SCOPES={
     'cache':(CACHE_PATCHES,'prepare_v428_full_cache.py','audit_v428_full_cache'),
     'data':(CACHE_PATCHES,'prepare_v430_full_data.py','audit_v430_full_data'),
     'os-entry':(CACHE_PATCHES,'prepare_v433_full_os_entry.py','audit_v433_full_os_entry'),
+    'os-time':(CACHE_PATCHES,'prepare_v435_full_os_time.py','audit_v435_full_os_time'),
 }
-PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_')
+PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_')
 ALLOWED={
     'startup':PREFIXES[:1], 'hardware':PREFIXES[1:2],
-    'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:],
+    'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:],
 }
 MAX_LOG=8*1024*1024
 
