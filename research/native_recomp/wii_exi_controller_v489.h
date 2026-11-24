@@ -40,7 +40,10 @@ public:
                 // Latch the observed ROMDIS bit without claiming Wii ROM
                 // remapping semantics. Other channels do not own the bit.
                 const uint32_t rom=ch==0?value&0x2000u:0;
+                const bool changed=((banks_.exi_csr(ch)^value)&0x380u)!=0;
+                if(changed&&s.selection_epoch==std::numeric_limits<uint64_t>::max())throw std::runtime_error("EXI select epoch overflow");
                 banks_.write_exi_csr(ch,value&~rom);
+                if(changed)++s.selection_epoch;
                 if(ch==0)romdis_=rom;
                 break;
             }
@@ -52,6 +55,7 @@ public:
         }
     }
     std::optional<Request> pending(unsigned ch)const{return channel(ch).pending;}
+    uint64_t selection_epoch(unsigned ch)const{return channel(ch).selection_epoch;}
     void complete_immediate(unsigned ch,uint64_t token,uint32_t response){
         auto& s=channel(ch);
         if(!s.pending||s.pending->token!=token||s.pending->dma)throw std::runtime_error("EXI immediate completion token");
@@ -83,6 +87,7 @@ public:
 private:
     struct Channel{
         uint32_t mar=0,length=0,control=0,data=0;
+        uint64_t selection_epoch=0;
         std::array<bool,3> attached{};
         std::optional<Request> pending;
     };
