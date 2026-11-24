@@ -1,6 +1,6 @@
 import unittest
 from test_v559_dsp_stage import (HOST,cache_probe,data_probe,os_probe,time_probe,hw_probe,arena_probe,ipc_probe,vector_probe,pack_probe,alarm_probe,irq_probe,mmio_probe,return_probe,context_probe,reuse_probe,poll_probe,handler_probe,id_probe,absent_probe,entry_probe,sample_probe,discovery_probe,sram_probe,thread_probe,audio_probe,patch_probe as dsp_probe,OS_EXI_ID,A,AR,E,ER,S,SR,D,DR,R,RR,T,TR,O,OR,STAGES as DSP,RESULT as DRSP,log)
-from prepare_v574_dsp_sc import patch_probe,patch_ios,patch_return,HEADER,HOOK
+from prepare_v574_dsp_sc import patch_probe,patch_ios,patch_return,HEADER,HOOK,diagnostic
 from audit_v574_dsp_sc import STAGES,RESULT,inspect
 class Tests(unittest.TestCase):
     def test_composition(self):
@@ -21,6 +21,18 @@ class Tests(unittest.TestCase):
         self.assertIn('trace_call(0x80522044, ctx)',patch_return(label,0x60000000))
         for bad in (label+label,patch_return(label,0x60000000),label.replace('++ctx.inst_count','ctx.inst_count++')):
             with self.assertRaises(ValueError):patch_return(bad,0x60000000)
+    def test_diagnostic(self):
+        try:patch_ios('private bytes and paths must not be printed')
+        except ValueError as e:
+            row=diagnostic(e)
+            self.assertIn('file=prepare_v419_full_start.py',row)
+            self.assertIn('reason=source_seam',row)
+            self.assertNotIn('private',row)
+        try:raise ValueError('private unknown text 0x1234')
+        except ValueError as e:
+            row=diagnostic(e)
+            self.assertIn('reason=other',row)
+            self.assertNotIn('0x1234',row)
     def test_exact_history(self):
         prior=OS_EXI_ID+A+[AR]+E+[ER]+S+[SR]+D+[DR]+R+[RR]+T+[TR]+O+[OR]+DSP+[DRSP]
         good=prior+STAGES+[RESULT]

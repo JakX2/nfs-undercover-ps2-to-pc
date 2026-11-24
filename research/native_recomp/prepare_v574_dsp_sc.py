@@ -65,12 +65,48 @@ def install(data,generated,host,digest=OWNER_SHA):
     files[ios]=new_ios
     shard=labels[0];files[shard]=patch_return(shard.read_text(encoding='utf-8'),ret)
     for p,s in files.items():p.write_text(s,encoding='utf-8')
+def diagnostic(exc):
+    # Only source provenance from tracked, original-free preparation code.
+    # Never publish exception strings, traceback source, private paths,
+    # generated C++, register values, owner bytes or unbounded fields.
+    import traceback
+    host=Path(__file__).resolve().parent
+    frames=traceback.extract_tb(exc.__traceback__)
+    allowed={'ValueError','OSError','UnicodeError','error','FileNotFoundError','PermissionError','UnicodeDecodeError'}
+    kind=type(exc).__name__
+    if kind not in allowed:kind='Other'
+    known={
+        'source seam':'source_seam','destination':'destination','destination exists':'destination',
+        'predecessor':'predecessor','header conflict':'header_conflict',
+        'return trace':'return_trace','return coverage':'return_coverage',
+        'SC vector geometry':'sc_geometry','DSP return geometry':'dsp_return',
+        'DSP staging geometry':'dsp_geometry','DSP trace coverage':'dsp_trace',
+        'thread trace coverage':'thread_trace','audio trace coverage':'audio_trace',
+        'SRAM trace coverage':'sram_trace','trace coverage':'trace_coverage',
+        'SC label':'sc_label','return label':'return_label',
+        'vector definition':'vector_definition','vector instruction provenance':'vector_provenance',
+        'vector native instruction coverage':'vector_native','vector fallback':'vector_fallback',
+        'dispatcher geometry':'dispatcher_geometry','vector RFI':'vector_rfi',
+        'native declaration':'native_declaration','generated tree':'generated_tree',
+        'source symlink':'symlink','symlink':'symlink','owner identity':'owner_identity',
+        'text mapping':'text_mapping','text geometry':'text_geometry',
+        'missing original function symbol table or startup':'symbol_map',
+    }
+    reason=known.get(str(exc),'other')
+    for f in reversed(frames):
+        path=Path(f.filename)
+        if (path.parent.resolve()==host and path.is_file() and
+            re.fullmatch(r'(?:prepare|apply|make)_v?[A-Za-z0-9_]{1,100}\.py',path.name) and
+            1<=f.lineno<=10000):
+            return f'V577_DSP_SC_PREP_FAILURE file={path.name} line={f.lineno} kind={kind} reason={reason}'
+    return f'V577_DSP_SC_PREP_FAILURE file=unknown line=0 kind={kind} reason={reason}'
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('dol',type=Path);p.add_argument('generated',type=Path);a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL:raise ValueError('size')
         install(a.dol.read_bytes(),a.generated,Path(__file__).parent)
-    except (OSError,ValueError,struct.error,UnicodeError):
-        print('V574_DSP_SC_ROUTE installed=0');return 1
+    except (OSError,ValueError,struct.error,UnicodeError) as exc:
+        print(diagnostic(exc));print('V574_DSP_SC_ROUTE installed=0');return 1
     print('V574_DSP_SC_ROUTE installed=1 direct_only=1 ios_delegation=1');return 0
 if __name__=='__main__':raise SystemExit(main())

@@ -93,7 +93,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-si-sample'),(OS_VECTOR_PATCHES,'prepare_v524_si_sampling.py','audit_v524_si_sampling'))
         self.assertEqual(contract('os-si-return'),(OS_VECTOR_PATCHES,'prepare_v529_si_discovery.py','audit_v529_si_discovery'))
         self.assertEqual(OS_SRAM_PATCHES,OS_VECTOR_PATCHES+('apply_data_cache_invalidate_v532',))
-        self.assertEqual(contract('os-sram','os-thread','os-audio','os-dsp-stage','os-dsp-sc'),(OS_SRAM_PATCHES,'prepare_v534_sram_read.py','audit_v534_sram_read'))
+        self.assertEqual(contract('os-sram'),(OS_SRAM_PATCHES,'prepare_v534_sram_read.py','audit_v534_sram_read'))
         self.assertEqual(contract('os-thread'),(OS_SRAM_PATCHES,'prepare_v549_thread_init.py','audit_v549_thread_init'))
         self.assertEqual(contract('os-audio'),(OS_SRAM_PATCHES,'prepare_v556_audio_reset.py','audit_v556_audio_reset'))
         self.assertEqual(contract('os-dsp-stage'),(OS_SRAM_PATCHES,'prepare_v559_dsp_stage.py','audit_v559_dsp_stage'))

@@ -1,0 +1,3 @@
+# V577: bounded original preparation diagnostic and Windows scope test correction
+
+V574 synthetic CI 45436133885 passed two source/audit checks and all 30 DSP witness negative controls, but owner preparation refused before native syntax/link. V577 retains fail-closed behavior and reports only tracked public preparer basename, source line, exception class and an allowlisted reason token. No private exception strings or generated source are emitted. Corrects the V576 regression-test call to the unchanged one-argument SRAM scope API; no runtime change to that scope. The full-image observer remains unverified until the private preflight succeeds.
