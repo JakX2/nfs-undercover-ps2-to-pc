@@ -1,0 +1,29 @@
+name: Wii Native System Call Transfer
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v461*'
+      - '.github/workflows/wii-v461-syscall-transfer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test source patch and shell syntax
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v461_syscall_transfer.py -v
+          bash -n research/native_recomp/run_v461_syscall_transfer.sh
+      - name: Fetch pinned compiler
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw461"
+          git -C "$RUNNER_TEMP/nw461" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw461" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw461" checkout -q --detach FETCH_HEAD
+      - name: Compare actual native and interpreter syscall control transfer
+        run: bash research/native_recomp/run_v461_syscall_transfer.sh "$RUNNER_TEMP/nw461"
