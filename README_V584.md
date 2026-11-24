@@ -1,0 +1,3 @@
+# V584: complete-image BAT mapping preflight
+
+The V65 memory-protection path follows audio return. V584 composes the BAT register patch with current complete-image source patches, runs the independent register-storage test, and authenticates both original physical mapper bodies and entry trampoline from the owner DOL. The generated audit requires unique native coverage of 32 BAT SPR writes and three RFI instructions, exact SPR/source-register identity, ticks, no fallback, and five dispatcher roots/resumes with physical-PC normalization. Owner translation only, no full executable link or run. Tests pending. Diagnostic BAT state, not BAT permission enforcement. The verified DSP SC scope and pending V581 continuation remain unchanged.
