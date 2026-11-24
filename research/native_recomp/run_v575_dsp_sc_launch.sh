@@ -2,11 +2,12 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 extra=();audit=audit_v575_dsp_sc_frontier.py
-if [[ "$mode" == dsp-return || "$mode" == mi-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
-if [[ "$mode" == mi-return ]]; then extra+=(UNDERCOVER_V591_MI=1);audit=audit_v591_memory_init.py;fi
+if [[ "$mode" == dsp-return || "$mode" == mi-return || "$mode" == report-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
+if [[ "$mode" == mi-return || "$mode" == report-return ]]; then extra+=(UNDERCOVER_V591_MI=1);audit=audit_v591_memory_init.py;fi
+if [[ "$mode" == report-return ]]; then extra+=(UNDERCOVER_V603_REPORT=1);audit=audit_v603_boot_report.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }

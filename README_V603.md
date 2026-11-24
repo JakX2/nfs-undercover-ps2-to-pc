@@ -1,0 +1,3 @@
+# V603: compose complete original report observer preflight
+
+Authenticate all 17 original OSReport callsites/resume words, six getter edges, console entry/return and seven table-case labels in the original DOL and ELF. Install read-only original report trace labels only after V591 MI preparation, preserving predecessor results and interpreter refusal. The audit requires the exact 17-event sequence after the verified MI prefix. The combined BAT/report analyzer is independently tested and the owner workflow prepares the complete image and syntax-checks the observer without linking/launching. A separate explicit `--run-report` option is available but not the default until the MI frontier is verified. No original report return or full boot claimed. Tests pending.
