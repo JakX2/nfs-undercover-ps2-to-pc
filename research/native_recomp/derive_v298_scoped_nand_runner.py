@@ -1437,6 +1437,56 @@ else
   echo 'V464_MISSING_STAGE attempt=failed'
 fi
 
+# V471: restore the next authenticated original NOP after V464.
+if (
+  if ! grep -Fqx 'V464_FRAME_RESULT rc=134 begins=1 blr=0 resume=0 nested=2 max_calls=34 unique=23 original=22 first_nonoriginal=nop boot_verified=0 restored_entry=1' "$work/v464-result.log"; then
+    echo 'V471_REPAIR_STAGE control=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v437-native.log" "$work/v437-output.cpp" \
+    "$work/private-v447.dol" "$work/generated-v447/output.cpp" "$work/v447-output.cpp" "$work/v447-native.log" \
+    "$work/private-v464.dol" "$work/generated-v464/output.cpp" "$work/v464-output.cpp" "$work/v464-native.log" "$work/private-v471.dol")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v471_nand_next_placeholder.py" "${args[@]}"; then
+    echo 'V471_REPAIR_STAGE plan=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE plan=1'
+  mkdir "$work/generated-v471" || { echo 'V471_REPAIR_STAGE generate=0'; exit 1; }
+  if ! "$work/generator" "$work/private-v471.dol" "$work/generated-v471" owner > "$work/v471-generate.log" 2>&1; then
+    echo 'V471_REPAIR_STAGE generate=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE generate=1'
+  extra=(--new-cpp "$work/generated-v471/output.cpp" --out-cpp "$work/v471-output.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v471_nand_next_placeholder.py" "${args[@]}" "${extra[@]}"; then
+    echo 'V471_REPAIR_STAGE instrument=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE instrument=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" -c "$work/v471-output.cpp" \
+      -o "$work/v471-output.o" > "$work/v471-compile.log" 2>&1; then
+    echo 'V471_REPAIR_STAGE compile=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE compile=1'
+  if ! g++ "$work/v437-harness.o" "$work/v471-output.o" "$work/loader.o" -o "$work/v471-native" > "$work/v471-link.log" 2>&1; then
+    echo 'V471_REPAIR_STAGE link=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE link=1'
+  v471_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v471-native" "$work/private-v471.dol" owner-callback "$owner" \
+      > "$work/v471-native.log" 2>&1 || v471_rc=$?
+  echo 'V471_REPAIR_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/repair_v471_nand_next_placeholder.py" "${args[@]}" "${extra[@]}" \
+      --run-log "$work/v471-native.log" --run-rc "$v471_rc" | tee "$work/v471-result.log"; then
+    echo 'V471_REPAIR_STAGE inspected=0'; exit 1
+  fi
+  echo 'V471_REPAIR_STAGE inspected=1'
+); then
+  echo 'V471_REPAIR_STAGE attempt=completed'
+else
+  echo 'V471_REPAIR_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
