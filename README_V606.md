@@ -1,0 +1,3 @@
+# V606: explicit cold arena reset-code register profile
+
+The original V67 arena lane reads PI + 0x24 once in each reset-code query. Pinned NWiiRecomp returns default zero at this address. V606 adds an opt-in CPU-thread binding with the cold fixture value 0x100, two single-use ordered reads and width/write/alias validation. No PI IRQ/FIFO or other registers are intercepted. Inactive behavior is unchanged. Three aliases and twelve rejection controls exercise this independent profile; this is not a general reset device, and has not yet been integrated with the complete image. Windows original DSP bootstrap owner run 45486202636 passed five stages, zero fallback.

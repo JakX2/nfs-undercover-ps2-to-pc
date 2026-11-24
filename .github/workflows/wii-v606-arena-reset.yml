@@ -1,0 +1,22 @@
+name: Wii Arena Cold Reset Profile
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v606*'
+      - '.github/workflows/wii-v606-arena-reset.yml'
+permissions:
+  contents: read
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify explicit PI reset read order, aliases and narrow MMIO routing
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v606_arena_reset_patch.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_arena_reset_v606.cpp -o "$RUNNER_TEMP/v606"
+          "$RUNNER_TEMP/v606"
