@@ -8,7 +8,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from windows_startup_scope_v434 import SCOPES,contract,audit
+from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -198,7 +198,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     launch=work/'launch';launch.mkdir();config=launch/'config.toml';config.write_text('[system]\nplatform = "Wii"\n[input]\nmode = 6\n',encoding='utf-8')
     env={k:v for k,v in os.environ.items() if k.upper() in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','PATHEXT')}
     env.update(NWII_HEADLESS='1',NWII_TRACE_CALLS='1',SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy',USERPROFILE=str(launch),HOME=str(launch))
-    env['UNDERCOVER_V426_SYNTHETIC' if synthetic else 'UNDERCOVER_V419_START']='1'
+    env.update(launch_flags(scope,synthetic))
     rc=command([exe,dol,config],launch/'private.log',20,env=env,cwd=launch)
     if (launch/'private.log').stat().st_size>8*1024*1024:raise BuildError('launch_log')
     raw=(launch/'private.log').read_bytes()

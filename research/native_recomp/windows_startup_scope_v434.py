@@ -18,13 +18,17 @@ SCOPES={
     'os-ipc':(OS_IPC_PATCHES,'prepare_v446_full_os_ipc.py','audit_v446_full_os_ipc'),
     'os-vector':(OS_VECTOR_PATCHES,'prepare_v457_exception_vector.py','audit_v457_exception_vector'),
     'os-pack':(OS_VECTOR_PATCHES,'prepare_v466_exception_pack.py','audit_v466_exception_pack'),
+    'os-alarm':(OS_VECTOR_PATCHES,'prepare_v470_alarm_startup.py','audit_v470_alarm_startup'),
+    'os-irq':(OS_VECTOR_PATCHES,'prepare_v473_module_irq.py','audit_v473_module_irq'),
+    'os-mmio':(OS_VECTOR_PATCHES,'prepare_v476_irq_mmio.py','audit_v476_irq_mmio'),
 }
-PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_')
+PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_',b'V470_ALARM_',b'V473_IRQ_',b'V476_MMIO_')
 ALLOWED={
     'startup':PREFIXES[:1], 'hardware':PREFIXES[1:2],
     'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:6],
     'os-hardware':PREFIXES[1:7], 'os-arena':PREFIXES[1:8], 'os-ipc':PREFIXES[1:9],
     'os-vector':PREFIXES[1:10], 'os-pack':PREFIXES[1:11],
+    'os-alarm':PREFIXES[1:12], 'os-irq':PREFIXES[1:13], 'os-mmio':PREFIXES[1:14],
 }
 MAX_LOG=8*1024*1024
 
@@ -33,6 +37,13 @@ def contract(scope,synthetic=False):
     if scope not in SCOPES or (synthetic and scope!='startup'):
         raise ValueError('owner_scope')
     return SCOPES[scope]
+
+
+def launch_flags(scope,synthetic=False):
+    contract(scope,synthetic)
+    flags={'UNDERCOVER_V426_SYNTHETIC' if synthetic else 'UNDERCOVER_V419_START':'1'}
+    if scope=='os-mmio':flags['UNDERCOVER_V475_IRQ_MMIO']='1'
+    return flags
 
 
 def audit(raw,rc,scope):

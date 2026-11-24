@@ -31,6 +31,10 @@ on:
       - 'research/native_recomp/apply_exact_dispatch_v445.py'
       - 'research/native_recomp/*v457*'
       - 'research/native_recomp/*v466*'
+      - 'research/native_recomp/*v470*'
+      - 'research/native_recomp/*v473*'
+      - 'research/native_recomp/*v475*'
+      - 'research/native_recomp/*v476*'
       - 'research/native_recomp/wii_exception_pack_v462.h'
       - 'research/native_recomp/apply_cache_continuous_v39.py'
       - 'research/native_recomp/apply_cache_trace_v44.py'
@@ -43,9 +47,9 @@ on:
       owner_scope:
         description: 'Bounded original startup through OS hardware, IPC or exception vectors'
         type: choice
-        default: os-vector
+        default: os-pack
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -152,7 +156,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-vector' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-pack' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
