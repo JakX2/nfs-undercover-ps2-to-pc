@@ -2,8 +2,12 @@
 #include "wii_exi_endpoint_scheduler_v495.h"
 #include <iostream>
 #include <map>
+#include <source_location>
 using namespace undercover::wii;
-static void need(bool b){if(!b)throw std::runtime_error("SRAM read witness");}
+static unsigned trial=0,checkpoint=0;
+static void need(bool b,const std::source_location loc=std::source_location::current()){
+    if(!b)throw std::runtime_error("SRAM read witness trial="+std::to_string(trial)+" step="+std::to_string(checkpoint)+" line="+std::to_string(loc.line()));
+}
 struct Ram final:IosMemory{
     std::map<uint32_t,uint8_t> mem;uint8_t dummy=0;
     bool valid(uint32_t a,uint32_t n)const override{return uint64_t(a)+n<=0x1800000ull;}
@@ -33,7 +37,7 @@ int main(){
         {0x804efc7c,0x80528864,19,20},{0x80528954,0x805288bc,21,22},
         {0x80528954,0x80528928,21,24}}},25};
     for(unsigned fault=0;fault<=18;++fault){
-        exi_id_completion={};sram_completion={};
+        trial=fault;checkpoint=0;exi_id_completion={};sram_completion={};
         need(exi_id_completion.begin(true));
         exi_id_completion.record({1,0,2,2,1,0},0);exi_id_completion.record({2,0,2,4,0,0},device_id);
         need(exi_id_completion.finish());
@@ -56,7 +60,7 @@ int main(){
         };
         bool stopped=false;
         for(unsigned step=1;step<=11;++step){
-            enter(e.edges[step-1]);c.gpr[1]=sp-128;c.gpr[3]=c.gpr[4]=c.gpr[5]=c.gpr[6]=c.gpr[7]=0;
+            checkpoint=step;enter(e.edges[step-1]);c.gpr[1]=sp-128;c.gpr[3]=c.gpr[4]=c.gpr[5]=c.gpr[6]=c.gpr[7]=0;
             bool bad=false;
             switch(step){
             case 1:c.gpr[3]=SramGuest;c.gpr[4]=fault==3?32:64;bad=fault==3;break;
@@ -83,14 +87,16 @@ int main(){
                 if(fault==10&&step==10)c.gpr[3]=1;
                 bad=fault==10&&step==10;break;
             }
-            need(w.observe(c.pc,c)==!bad);
+            const bool passed=w.observe(c.pc,c);
+            if(passed==bad)std::cerr<<"SRAM observer stage="<<w.stage()<<" reason="<<w.failure()<<" completed="<<sram_completion.count()<<'\n';
+            need(passed==!bad);
             if(bad){stopped=true;break;}
             if(step==5){exi.write(0,0,0x130);exi.write(0,16,0x20000100);complete(0x35);}
             if(step==7){exi.write(0,4,SramGuest+(fault==8?32:0));exi.write(0,8,64);complete(3);}
             if(step==8)exi.write(0,0,8);
         }
         if(stopped)continue;
-        c.pc=e.entry.lr;c.lr=e.entry.lr;c.gpr[1]=sp;c.inst_count+=100;
+        checkpoint=12;c.pc=e.entry.lr;c.lr=e.entry.lr;c.gpr[1]=sp;c.inst_count+=100;
         m.write32(SramGuest+64,64);m.write32(SramGuest+68,0);m.write32(SramGuest+72,0);m.write32(SramGuest+76,1);
         m.write32(meta,0);m.write32(meta+4,0);m.write32(meta+8,cmd);m.write32(meta+12,1);
         if(fault==11)m.write32(SramGuest+64,32);
