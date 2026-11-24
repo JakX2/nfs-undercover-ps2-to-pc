@@ -1388,6 +1388,55 @@ else
   echo 'V447_REPAIR_STAGE attempt=failed'
 fi
 
+# V464: restore the next uniquely observed missing original function span.
+if (
+  if ! grep -Fqx 'V447_FRAME_RESULT rc=134 begins=1 blr=0 resume=0 nested=2 max_calls=192 unique=6 original=5 first_nonoriginal=missing boot_verified=0 restored_entry=1' "$work/v447-result.log"; then
+    echo 'V464_MISSING_STAGE control=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE control=1'
+  args=("$owner" "$work/v293-original.elf" "$work/private-v424.dol" \
+    "$work/generated-v424/output.cpp" "$work/v437-native.log" "$work/v437-output.cpp" \
+    "$work/private-v447.dol" "$work/generated-v447/output.cpp" "$work/v447-output.cpp" "$work/v447-native.log" "$work/private-v464.dol")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v464_nand_missing_span.py" "${args[@]}"; then
+    echo 'V464_MISSING_STAGE plan=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE plan=1'
+  mkdir "$work/generated-v464" || { echo 'V464_MISSING_STAGE generate=0'; exit 1; }
+  if ! "$work/generator" "$work/private-v464.dol" "$work/generated-v464" owner > "$work/v464-generate.log" 2>&1; then
+    echo 'V464_MISSING_STAGE generate=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE generate=1'
+  extra=(--new-cpp "$work/generated-v464/output.cpp" --out-cpp "$work/v464-output.cpp")
+  if ! python3 "$V110_SOURCE_ROOT/repair_v464_nand_missing_span.py" "${args[@]}" "${extra[@]}"; then
+    echo 'V464_MISSING_STAGE instrument=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE instrument=1'
+  if ! g++ -std=c++20 -O2 -Wall -Wextra -Werror -Wno-type-limits -Wno-unused-label \
+      -I"$V110_SOURCE_ROOT" -I"$root/nWiiRuntime/include" -c "$work/v464-output.cpp" \
+      -o "$work/v464-output.o" > "$work/v464-compile.log" 2>&1; then
+    echo 'V464_MISSING_STAGE compile=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE compile=1'
+  if ! g++ "$work/v437-harness.o" "$work/v464-output.o" "$work/loader.o" -o "$work/v464-native" > "$work/v464-link.log" 2>&1; then
+    echo 'V464_MISSING_STAGE link=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE link=1'
+  v464_rc=0
+  timeout --signal=TERM --kill-after=3s 16s \
+      "$work/v464-native" "$work/private-v464.dol" owner-callback "$owner" \
+      > "$work/v464-native.log" 2>&1 || v464_rc=$?
+  echo 'V464_MISSING_STAGE run=1'
+  if ! python3 "$V110_SOURCE_ROOT/repair_v464_nand_missing_span.py" "${args[@]}" "${extra[@]}" \
+      --run-log "$work/v464-native.log" --run-rc "$v464_rc" | tee "$work/v464-result.log"; then
+    echo 'V464_MISSING_STAGE inspected=0'; exit 1
+  fi
+  echo 'V464_MISSING_STAGE inspected=1'
+); then
+  echo 'V464_MISSING_STAGE attempt=completed'
+else
+  echo 'V464_MISSING_STAGE attempt=failed'
+fi
+
 # V321: compare positive, once-only AOT function-entry markers
 # across the separate V304 and V310 owner-native trial processes.
 python3 "$V110_SOURCE_ROOT/analyze_v321_native_entry_comparison.py" \
