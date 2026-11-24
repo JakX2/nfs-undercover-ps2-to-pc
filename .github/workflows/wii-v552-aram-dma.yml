@@ -1,0 +1,22 @@
+name: Wii Native ARAM DMA
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v552*'
+      - '.github/workflows/wii-v552-aram-dma.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  aram-dma:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test native DMA timing and memory under sanitizers
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie \
+            -Iresearch/native_recomp research/native_recomp/test_wii_aram_dma_v552.cpp -o "$RUNNER_TEMP/v552-dma"
+          "$RUNNER_TEMP/v552-dma"
