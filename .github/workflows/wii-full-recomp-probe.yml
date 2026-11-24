@@ -51,6 +51,8 @@ on:
       - 'research/native_recomp/*v490*'
       - 'research/native_recomp/*v491*'
       - 'research/native_recomp/*v500*'
+      - 'research/native_recomp/*v504*'
+      - 'research/native_recomp/*v505*'
       - 'research/native_recomp/apply_cache_order_v456.py'
       - 'research/native_recomp/apply_cache_continuous_v39.py'
       - 'research/native_recomp/apply_cache_events_v43.py'
@@ -65,7 +67,7 @@ on:
         type: choice
         required: true
         default: sample
-        options: [sample, all, link, startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers]
+        options: [sample, all, link, startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id]
 permissions:
   contents: read
 concurrency:
@@ -95,6 +97,7 @@ jobs:
       os_context_requested: ${{ steps.link_request.outputs.os_context_requested }}
       os_exi_poll_requested: ${{ steps.link_request.outputs.os_exi_poll_requested }}
       os_exi_handlers_requested: ${{ steps.link_request.outputs.os_exi_handlers_requested }}
+      os_exi_id_requested: ${{ steps.link_request.outputs.os_exi_id_requested }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -209,6 +212,10 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v500_exi_handlers.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_handler_witness_v500.cpp -o "$RUNNER_TEMP/v500-handlers"
           "$RUNNER_TEMP/v500-handlers"
+          python3 -m unittest discover -s research/native_recomp -p test_v504_exi_id.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v505_exi_profile_writer.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exi_id_witness_v504.cpp -o "$RUNNER_TEMP/v504-id"
+          "$RUNNER_TEMP/v504-id"
       - name: Select private link or startup only for relevant changes
         if: github.event_name == 'push'
         id: link_request
@@ -235,6 +242,7 @@ jobs:
           os_context=false
           os_exi_poll=false
           os_exi_handlers=false
+          os_exi_id=false
           # Do not run the expensive original-image build on every startup
           # probe. Compare the actual push range, not a commit message.
           if [[ "$BEFORE" =~ ^[0-9a-f]{40}$ && "$BEFORE" != 0000000000000000000000000000000000000000 ]]; then
@@ -427,6 +435,15 @@ jobs:
               .github/workflows/wii-full-recomp-probe.yml || rc=$?
             if [[ "$rc" == 1 ]]; then os_exi_handlers=true; requested=true
             elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
+            rc=0
+            git diff --quiet "$BEFORE" "$GITHUB_SHA" -- \
+              research/native_recomp/prepare_v504_exi_id.py \
+              research/native_recomp/audit_v504_exi_id.py \
+              research/native_recomp/wii_exi_id_witness_v504.h \
+              research/native_recomp/write_exi_profile_v505.py \
+              .github/workflows/wii-full-recomp-probe.yml || rc=$?
+            if [[ "$rc" == 1 ]]; then os_exi_id=true; requested=true
+            elif [[ "$rc" != 0 ]]; then exit "$rc"; fi
           fi
           echo "link_requested=$requested" >> "$GITHUB_OUTPUT"
           echo "startup_requested=$startup" >> "$GITHUB_OUTPUT"
@@ -447,8 +464,9 @@ jobs:
           echo "os_context_requested=$os_context" >> "$GITHUB_OUTPUT"
           echo "os_exi_poll_requested=$os_exi_poll" >> "$GITHUB_OUTPUT"
           echo "os_exi_handlers_requested=$os_exi_handlers" >> "$GITHUB_OUTPUT"
+          echo "os_exi_id_requested=$os_exi_id" >> "$GITHUB_OUTPUT"
       - name: Prove actual backward-tail root identity before owner hardware continuation
-        if: steps.link_request.outputs.os_hardware_requested == 'true' || steps.link_request.outputs.os_arena_requested == 'true' || steps.link_request.outputs.os_ipc_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc' || steps.link_request.outputs.os_vector_requested == 'true' || inputs.scope == 'os-vector' || steps.link_request.outputs.os_pack_requested == 'true' || inputs.scope == 'os-pack' || steps.link_request.outputs.os_alarm_requested == 'true' || inputs.scope == 'os-alarm' || steps.link_request.outputs.os_irq_requested == 'true' || inputs.scope == 'os-irq' || steps.link_request.outputs.os_mmio_requested == 'true' || inputs.scope == 'os-mmio' || steps.link_request.outputs.os_irq_return_requested == 'true' || inputs.scope == 'os-irq-return' || steps.link_request.outputs.os_context_requested == 'true' || inputs.scope == 'os-context' || steps.link_request.outputs.os_exi_poll_requested == 'true' || inputs.scope == 'os-cache-reuse' || inputs.scope == 'os-exi-poll' || steps.link_request.outputs.os_exi_handlers_requested == 'true' || inputs.scope == 'os-exi-handlers'
+        if: steps.link_request.outputs.os_hardware_requested == 'true' || steps.link_request.outputs.os_arena_requested == 'true' || steps.link_request.outputs.os_ipc_requested == 'true' || inputs.scope == 'os-hardware' || inputs.scope == 'os-arena' || inputs.scope == 'os-ipc' || steps.link_request.outputs.os_vector_requested == 'true' || inputs.scope == 'os-vector' || steps.link_request.outputs.os_pack_requested == 'true' || inputs.scope == 'os-pack' || steps.link_request.outputs.os_alarm_requested == 'true' || inputs.scope == 'os-alarm' || steps.link_request.outputs.os_irq_requested == 'true' || inputs.scope == 'os-irq' || steps.link_request.outputs.os_mmio_requested == 'true' || inputs.scope == 'os-mmio' || steps.link_request.outputs.os_irq_return_requested == 'true' || inputs.scope == 'os-irq-return' || steps.link_request.outputs.os_context_requested == 'true' || inputs.scope == 'os-context' || steps.link_request.outputs.os_exi_poll_requested == 'true' || inputs.scope == 'os-cache-reuse' || inputs.scope == 'os-exi-poll' || steps.link_request.outputs.os_exi_handlers_requested == 'true' || inputs.scope == 'os-exi-handlers' || steps.link_request.outputs.os_exi_id_requested == 'true' || inputs.scope == 'os-exi-id'
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v443_function_root.py -v
@@ -491,7 +509,7 @@ jobs:
           test "$(git -C "$RUNNER_TEMP/nwii" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
       - name: Translate owner Wii DOL and validate generated C++ without publishing it
         env:
-          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_exi_handlers_requested == 'true' && 'os-exi-handlers' || (needs.synthetic-symbol-map.outputs.os_exi_poll_requested == 'true' && 'os-exi-poll' || (needs.synthetic-symbol-map.outputs.os_context_requested == 'true' && 'os-context' || (needs.synthetic-symbol-map.outputs.os_irq_return_requested == 'true' && 'os-irq-return' || (needs.synthetic-symbol-map.outputs.os_mmio_requested == 'true' && 'os-mmio' || (needs.synthetic-symbol-map.outputs.os_irq_requested == 'true' && 'os-irq' || (needs.synthetic-symbol-map.outputs.os_alarm_requested == 'true' && 'os-alarm' || (needs.synthetic-symbol-map.outputs.os_pack_requested == 'true' && 'os-pack' || (needs.synthetic-symbol-map.outputs.os_vector_requested == 'true' && 'os-vector' || (needs.synthetic-symbol-map.outputs.os_ipc_requested == 'true' && 'os-ipc' || (needs.synthetic-symbol-map.outputs.os_arena_requested == 'true' && 'os-arena' || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link')))))))))))))))))) }}
+          PROBE_SCOPE: ${{ inputs.scope || (needs.synthetic-symbol-map.outputs.os_exi_id_requested == 'true' && 'os-exi-id' || (needs.synthetic-symbol-map.outputs.os_exi_handlers_requested == 'true' && 'os-exi-handlers' || (needs.synthetic-symbol-map.outputs.os_exi_poll_requested == 'true' && 'os-exi-poll' || (needs.synthetic-symbol-map.outputs.os_context_requested == 'true' && 'os-context' || (needs.synthetic-symbol-map.outputs.os_irq_return_requested == 'true' && 'os-irq-return' || (needs.synthetic-symbol-map.outputs.os_mmio_requested == 'true' && 'os-mmio' || (needs.synthetic-symbol-map.outputs.os_irq_requested == 'true' && 'os-irq' || (needs.synthetic-symbol-map.outputs.os_alarm_requested == 'true' && 'os-alarm' || (needs.synthetic-symbol-map.outputs.os_pack_requested == 'true' && 'os-pack' || (needs.synthetic-symbol-map.outputs.os_vector_requested == 'true' && 'os-vector' || (needs.synthetic-symbol-map.outputs.os_ipc_requested == 'true' && 'os-ipc' || (needs.synthetic-symbol-map.outputs.os_arena_requested == 'true' && 'os-arena' || (needs.synthetic-symbol-map.outputs.os_hardware_requested == 'true' && 'os-hardware' || (needs.synthetic-symbol-map.outputs.os_time_requested == 'true' && 'os-time' || (needs.synthetic-symbol-map.outputs.os_entry_requested == 'true' && 'os-entry' || (needs.synthetic-symbol-map.outputs.data_requested == 'true' && 'data' || (needs.synthetic-symbol-map.outputs.cache_requested == 'true' && 'cache' || (needs.synthetic-symbol-map.outputs.hardware_requested == 'true' && 'hardware' || (needs.synthetic-symbol-map.outputs.startup_requested == 'true' && 'startup' || 'link'))))))))))))))))))) }}
         run: |
           set -euo pipefail
           umask 077
