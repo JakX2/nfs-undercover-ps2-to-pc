@@ -24,3 +24,18 @@ g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$w
   "$here/test_native_sc_overlay_v561.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { echo 'V561 native compilation failed';exit 1; }
 timeout 15s "$work/native" "$work/input/vector.bin" "$mode" > "$work/native.log" 2>&1 || { echo 'V561 native execution failed';exit 1; }
 grep -Ex "V561_SC_NATIVE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 vectors=32 refusal=3 fallback=0 boot_verified=0" "$work/native.log"
+
+# V568: verify the native flush->SC->RFI->BLR path in the same pinned runtime.
+python3 "$here/apply_syscall_transfer_v461.py" "$root" > "$work/transfer.log" 2>&1 || { echo 'V568 syscall transfer patch failed';exit 1; }
+# Rebuild the offline driver after editing its emitter.
+g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY "${inc[@]}" "$here/offline_recompiler_driver_v6.cpp" \
+  "$root/nWiiRuntime/src/core/loader.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \
+  "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$root/nWiiAnalyzer/src/signature_scanner.cpp" \
+  "$root/nWiiRecomp/src/recompiler.cpp" "$root/nWiiRecomp/src/symbols.cpp" -o "$work/driver-flush" > "$work/flush-build.log" 2>&1 || { echo 'V568 driver build failed';exit 1; }
+python3 "$here/make_v561_sc_overlay_fixture.py" "$work/flush-input" --flush "${args[@]}"
+mkdir "$work/flush-generated"
+"$work/driver-flush" "$work/flush-input/fixture.dol" "$work/flush-input/symbols.csv" "$work/flush-generated" --strict-symbol-spans --native-sc-overlay --generate "$root/nWiiRuntime" > "$work/flush-generate.log" 2>&1 || { echo 'V568 flush translation failed';exit 1; }
+g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/flush-generated" -I"$work/flush-generated/nWiiRuntime/include" \
+  "$here/test_native_sc_flush_v568.cpp" "$work/flush-generated"/*.cpp -o "$work/native-flush" > "$work/flush-compile.log" 2>&1 || { echo 'V568 flush compilation failed';exit 1; }
+timeout 15s "$work/native-flush" "$work/flush-input/vector.bin" "$mode" > "$work/flush-native.log" 2>&1 || { grep -E '^  what\(\):  SC overlay line [0-9]+$' "$work/flush-native.log" || true; echo 'V568 flush execution failed';exit 1; }
+grep -Ex "V568_SC_FLUSH owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 lines=128 vectors=32 refusal=3 stop=1 fallback=0 boot_verified=0" "$work/flush-native.log"
