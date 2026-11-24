@@ -167,6 +167,13 @@ jobs:
       - name: Run boot checkpoint driver regressions
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
+      - name: Check complete-image first-vector candidate and bounded debug oracle
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v457_exception_vector.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v458_debug_stack.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exception_vector_witness_v457.cpp -o "$RUNNER_TEMP/v457-source"
+          "$RUNNER_TEMP/v457-source"
       - name: Prepare pinned patched public NWiiRuntime for harness syntax check
         run: |
           set -euo pipefail
