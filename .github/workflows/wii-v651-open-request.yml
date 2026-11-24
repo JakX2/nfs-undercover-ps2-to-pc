@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v651*'
       - 'research/native_recomp/*v654*'
       - 'research/native_recomp/*v655*'
+      - 'research/native_recomp/*v657*'
       - '.github/workflows/wii-v651-open-request.yml'
 permissions:
   contents: read

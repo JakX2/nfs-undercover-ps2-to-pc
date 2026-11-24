@@ -16,7 +16,7 @@ static std::atomic<uint32_t> cause{0},mask{0xf0};
 static W* witness=nullptr;
 static OpenRequestWitness* open_witness=nullptr;
 static OpenScRoute* sc_route=nullptr;
-static unsigned open_stage=0,open_reason=0,open_vectors=0,open_returns=0;
+static unsigned open_stage=0,open_reason=0,open_vectors=0,open_returns=0,open_polls=0;
 struct OpenStop{};
 static unsigned callbacks=0,loop_polls=0,control_writes=0,last_stage=0,last_reason=0,last_trial=0;
 struct HarnessFailure:std::runtime_error{unsigned line;explicit HarnessFailure(unsigned n):std::runtime_error("harness assertion"),line(n){}};
@@ -45,7 +45,13 @@ bool process_pending_callbacks(CPUContext& c){
     const auto s=B::cold_snapshot();need(s&&!(s->pi_cause&s->pi_mask)&&!s->queued&&!s->replies);
     need(c.is_running&&!c.dispatch_saved_ctx&&witness&&last_stage>=1);
     if(open_witness){
-        if(c.pc==v626::restore_resume)need(open_stage==5&&(c.msr&0x8000u));
+        need(++open_polls<=8192u);
+        // run_game polls before every dispatched root/resume, in addition
+        // to the exact generated backward-loop and MSR callback seams.
+        if(c.pc==OpenRequestWitness::Open)need(open_stage==1&&c.lr==0x8052b090u);
+        else if(c.pc==OpenRequestWitness::Alloc)need(open_stage==2&&c.lr==0x8051998cu);
+        else if(c.pc==0x8051998cu)need(open_stage==5&&c.lr==c.pc&&(c.msr&0x8000u));
+        else if(c.pc==v626::restore_resume)need(open_stage==5&&(c.msr&0x8000u));
         else if(c.pc==OpenScRoute::Resume)need(open_stage==7&&(c.msr&0x8000u));
         else need(std::find(v626::backward_polls.begin(),v626::backward_polls.end(),c.pc)!=v626::backward_polls.end());
         return false;
@@ -138,7 +144,7 @@ int main()try{
         c.pc=OpenRequestWitness::Open;c.lr=0x8052b090u;
         c.guest_flush_count=18000;
         OpenRequestWitness op(v639::expected_open);OpenScRoute route(v626::vector);
-        open_witness=&op;sc_route=&route;open_stage=open_reason=0;
+        open_witness=&op;sc_route=&route;open_stage=open_reason=open_polls=0;
         const bool ready=op.begin(c,kind,w.heap_size());open_stage=op.stage();open_reason=op.failure();
         if(!ready)throw WitnessFailure{};
         bool stopped=false;
