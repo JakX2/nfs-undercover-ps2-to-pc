@@ -1,0 +1,29 @@
+name: Wii Native CPU Stop Propagation
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v463*'
+      - '.github/workflows/wii-v463-native-stop.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test source patch and shell syntax
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v463_native_stop.py -v
+          bash -n research/native_recomp/run_v463_native_stop.sh
+      - name: Fetch pinned compiler
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw463"
+          git -C "$RUNNER_TEMP/nw463" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw463" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw463" checkout -q --detach FETCH_HEAD
+      - name: Compare nested native CPU stop propagation
+        run: bash research/native_recomp/run_v463_native_stop.sh "$RUNNER_TEMP/nw463"
