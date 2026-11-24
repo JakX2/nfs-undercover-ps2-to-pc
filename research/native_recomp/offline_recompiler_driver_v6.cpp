@@ -13,6 +13,9 @@
 #include "loader/loader.h"
 #include "analyzer/analyzer.h"
 #include "recompiler/recompiler.h"
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+#include "wii_sc_overlay_v561.h"
+#endif
 
 int main(int argc, char** argv) {
     if (argc < 4) {
@@ -29,12 +32,17 @@ int main(int argc, char** argv) {
     std::vector<uint32_t> addrs;
     for (const auto& p : symbols.get_all_symbols()) addrs.push_back(p.first);
     std::cout << "Root symbols=" << addrs.size() << std::endl;
-    nwii::analyzer::Analyzer analyzer(exec);
     bool strict = false, do_generate = false;
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+    bool sc_overlay = false;
+#endif
     std::string runtime_dir, extra_spans_csv;
     for (int i = 4; i < argc; ++i) {
         const std::string flag = argv[i];
         if (flag == "--strict-symbol-spans") strict = true;
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+        else if (flag == "--native-sc-overlay" && !sc_overlay) sc_overlay = true;
+#endif
         else if (flag == "--trusted-extra-spans" && ++i < argc) extra_spans_csv = argv[i];
         else if (flag == "--generate" && ++i < argc) {
             do_generate = true;
@@ -44,6 +52,15 @@ int main(int argc, char** argv) {
     if (!extra_spans_csv.empty() && !strict) {
         std::cerr << "Extra spans require --strict-symbol-spans\n"; return 2;
     }
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+    if (sc_overlay) {
+        if (!strict || !do_generate) { std::cerr << "SC overlay requires strict generation\n"; return 2; }
+        try { undercover::wii::add_sc_overlay(exec); }
+        catch (const std::exception&) { std::cerr << "SC overlay rejected\n"; return 4; }
+        addrs.push_back(undercover::wii::ScVector);
+    }
+#endif
+    nwii::analyzer::Analyzer analyzer(exec);
     if (strict) {
         // Original-free parser; this CSV's Size column is decimal and its
         // Location column is hexadecimal (the NWii symbol map format).
@@ -107,6 +124,15 @@ int main(int argc, char** argv) {
             }
             std::cout << "Independent source-verified extra spans=" << added << "\n";
         }
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+        if (sc_overlay) {
+            constexpr auto lo=undercover::wii::ScVector,hi=lo+undercover::wii::ScSize;
+            for (const auto& [a,b] : spans) if (a<hi&&lo<b) {
+                std::cerr << "SC overlay overlaps trusted span\n";return 4;
+            }
+            spans.push_back({lo,hi});
+        }
+#endif
         try { analyzer.set_trusted_code_spans(spans); }
         catch(const std::exception& e) {
             std::cerr << "Invalid trusted code spans: " << e.what() << "\n"; return 4;
@@ -115,6 +141,18 @@ int main(int argc, char** argv) {
     }
     analyzer.analyze(addrs);
     const auto& funcs = analyzer.get_functions();
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+    if (sc_overlay) {
+        const auto it=funcs.find(undercover::wii::ScVector);
+        if (it==funcs.end()||it->second.instructions.size()!=undercover::wii::ScSize/4u) {
+            std::cerr << "SC overlay analysis rejected\n";return 4;
+        }
+        for(unsigned i=0;i<it->second.instructions.size();++i)
+            if(it->second.instructions[i].address!=undercover::wii::ScVector+4*i) {
+                std::cerr << "SC overlay instruction coverage rejected\n";return 4;
+            }
+    }
+#endif
     std::cout << "Discovered functions=" << funcs.size() << std::endl;
     uint64_t ninst = 0;
     for (const auto& [addr, fun] : funcs) ninst += fun.instructions.size();
@@ -128,6 +166,9 @@ int main(int argc, char** argv) {
         cfg.runtime_source_dir = runtime_dir;
         cfg.split_output = true;
         cfg.instructions_per_file = 16000;
+#ifdef UNDERCOVER_NATIVE_SC_OVERLAY
+        if (sc_overlay) cfg.native_low_mem_entries.insert(undercover::wii::ScVector);
+#endif
         nwii::recomp::Recompiler recomp(analyzer, &symbols, cfg);
         const bool ok = recomp.generate_cmake_project(exec.entry_point);
         std::cout << "Generated_project=" << ok << std::endl;
