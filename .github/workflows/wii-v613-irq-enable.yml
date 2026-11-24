@@ -4,6 +4,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v613*'
+      - 'research/native_recomp/*v615*'
       - 'research/native_recomp/apply_mtmsr_resume_v74.py'
       - '.github/workflows/wii-v613-irq-enable.yml'
   workflow_dispatch:
@@ -23,6 +24,8 @@ jobs:
           git -C "$RUNNER_TEMP/nw613" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw613" checkout -q --detach FETCH_HEAD
           bash research/native_recomp/run_v613_irq_enable.sh "$RUNNER_TEMP/nw613"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_irq_enable_witness_v615.cpp -o "$RUNNER_TEMP/v615"
+          "$RUNNER_TEMP/v615"
   owner-geometry:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'

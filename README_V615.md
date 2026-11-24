@@ -1,0 +1,3 @@
+# V615: interrupt-enable fixture marker correction and quiescent full-image witness
+
+V613 original-free translation and exact dispatcher audit passed; the fixture executable exited successfully but the shell searched for stale `V613_RESET_NATIVE`, so the workflow refused before owner execution. Correct the result marker without weakening its exact counts. Add read-only IRQ enable observer requiring no active PI cause under mask, original call and leaf words, exact five native instruction ticks, correct EE transition, exact post-mtmsr label and return, unchanged SRR/CTR/nonvolatile state and no saved dispatch context. Fifteen independent rejection controls. This is a quiescent startup lane, not proof of actual IRQ delivery. Owner tests pending.

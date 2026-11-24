@@ -19,4 +19,4 @@ python3 "$here/audit_v613_irq_resume.py" "$work/input/v613_expected.h" "$work/ge
 g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/input" -I"$work/generated" -I"$work/generated/nWiiRuntime/include" \
   "$here/test_native_irq_enable_v613.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { echo 'V613 compile failed';exit 1; }
 timeout 15s "$work/native" "$mode" > "$work/run.log" 2>&1 || { grep -E '^  what\(\):  (V613 line [0-9]+|unexpected syscall)$' "$work/run.log" || true; echo 'V613 execution failed';exit 1; }
-grep -Ex "V613_RESET_NATIVE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 returned=32 callbacks=16 yields=8 native_resume=8 fallback=0 actual_irq=0 boot_verified=0" "$work/run.log"
+grep -Ex "V613_IRQ_NATIVE owner=$( [[ "$mode" == owner ]] && echo 1 || echo 0 ) trials=32 returned=32 callbacks=16 yields=8 native_resume=8 fallback=0 actual_irq=0 boot_verified=0" "$work/run.log"
