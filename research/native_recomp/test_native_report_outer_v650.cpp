@@ -59,7 +59,7 @@ int main()try{
         m.write16(0x800030e6u,mode==0||mode==1?0u:mode==2||mode==5?2u:0x8000u);
         m.write32(0x80003118u,mode>=6?0x08000000u:0x04000000u);
         m.write32(0x80003138u,mode==7?17u:mode==5?1u:0u);
-        m.write32(0x80003100u,0x01800000u);m.write32(0x8000311cu,0x04000000u);
+        m.write32(0x80003100u,0x01800000u);m.write32(0x80003104u,0x01800000u);m.write32(0x80000028u,0x01800000u);m.write32(0x8000311cu,0x04000000u);
         m.write32(0x80003140u,trial<8?0u:0x00040a21u);m.write32(0x80003144u,trial<8?0u:0x00191226u);
         for(unsigned i=0;i<32;++i)c->gpr[i]=0x12340000u+trial*32+i;
         c->gpr[1]=sp;c->gpr[2]=0x80715ee0u;c->gpr[13]=sda;

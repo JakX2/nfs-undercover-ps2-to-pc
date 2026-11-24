@@ -46,7 +46,7 @@ static BootReportExpectations expected(){
 }
 struct Rejected{};
 static void trial(unsigned mode,unsigned fault){
-    const auto e=expected();W w(e);Cpu c;
+    auto e=expected();if(mode&1u)e.size_sources={0x8000311cu,0x80003104u};W w(e);Cpu c;
     const bool table=mode>=2&&mode<9;const uint32_t value=mode==0?0x10000002u:mode==1?17u:mode<9?0x10000008u+mode-2:mode-9u;
     const uint32_t target=table?e.table[value-0x10000008u]:0;
     c.gpr[1]=Sp;c.gpr[2]=0x80715ee0;c.gpr[13]=R13;c.pc=c.lr=W::Begin;
@@ -55,7 +55,7 @@ static void trial(unsigned mode,unsigned fault){
     for(unsigned i=0;i<e.data.size();++i)c.mmu.mem[W::Data+i]=e.data[i];
     for(unsigned i=0;i<e.small.size();++i)c.mmu.mem[W::Small+i]=e.small[i];
     for(unsigned i=0;i<4;++i)put(R13-Off[i],Arenas[i]);
-    put(0x80003100,0x01800000);put(0x8000311c,0x04000000);put(0x80003140,0x00040a21);put(0x80003144,0x00191226);
+    put(0x80003100,0x01800000);put(0x80003104,0x01800000);put(0x8000311c,0x04000000);put(0x80003140,0x00040a21);put(0x80003144,0x00191226);
     auto load=[&](BootReportEdge a){put(a.pc,a.entry);put(a.lr-4,a.branch);};
     load(e.report);load(e.console);load(e.mem2);for(auto a:e.getters)load(a);for(auto a:e.helpers)load(a);
     for(auto a:e.calls){put(a.lr-4,a.branch);put(a.lr,a.resume);}

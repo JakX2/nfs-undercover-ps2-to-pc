@@ -38,6 +38,17 @@ MI_NEXT=MI_END.replace('std::_Exit(0);','''const char* mode=std::getenv("UNDERCO
             if(!mode||mode[0]!='1'||mode[1]!='\\0'||!boot_report.begin(cpu)){
                 std::cout<<"V603_REPORT_INVALID reason=1 stage=0 reports=0 getters=0"<<std::endl;std::_Exit(116);}
             std::cout<<"V603_REPORT_BEGIN native=1"<<std::endl;''')
+def size_source(words):
+    # Authenticate the exact absolute-word load and return in the original
+    # leaf. Decode the address; do not guess physical versus simulated size.
+    if len(words)!=3 or words[2]!=0x4e800020:raise ValueError('size getter return')
+    hi,load,_=words;r=(hi>>21)&31
+    if hi>>26!=15 or (hi>>16)&31 or not r or load>>26!=32 or (load>>21)&31!=3 or (load>>16)&31!=r:
+        raise ValueError('size getter load')
+    imm=load&0xffff
+    addr=(((hi&0xffff)<<16)+imm-(0x10000 if imm&0x8000 else 0))&0xffffffff
+    if addr not in {0x80003100,0x80003104,0x80000028,0x80003118,0x8000311c}:raise ValueError('size getter source')
+    return addr
 def expectations(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     bctr,table=geometry(dol,elf,dd,ed)
     sizes=parse_functions(elf)
@@ -49,6 +60,12 @@ def expectations(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     if [r[0] for r in roots]!=[p for _,p in EDGES]:raise ValueError('report edges')
     main,console,mem2=roots[0],roots[2],roots[3]
     getters=roots[4:]
+    sources=[]
+    for pc,_,_,_ in getters[:2]:
+        if sizes.get(pc)!=12:raise ValueError('size getter extent')
+        ws=tuple(word(pc+4*i) for i in range(3))
+        sources.append(size_source(ws))
+    if sum(x in {0x80003100,0x80003104,0x80000028} for x in sources)!=1 or len(set(sources))!=2:raise ValueError('size getter pairing')
     calls=[]
     for lr in LRS:
         w=word(lr-4)
@@ -79,7 +96,7 @@ def expectations(dol,elf,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
        'inline const BootReportExpectations expected_report{'+','.join(fmt(x,'BootReportEdge') for x in (main,console,mem2))+','+
        edges(getters)+',{'+','.join(fmt(x,'BootReportSite') for x in calls)+'},'+edges(helpers)+','+
        ','.join(f'0x{x:08x}u' for x in (bctr,word(bctr),word(console[1]),word(STOP),word(EDGES[0][0])))+','+
-       arr(table)+','+arr(word(p) for p in TARGETS)+','+raw(data_at(dol,*DATA[0]))+','+raw(data_at(dol,*DATA[1]))+'};\n}\n')
+       arr(table)+','+arr(word(p) for p in TARGETS)+','+raw(data_at(dol,*DATA[0]))+','+raw(data_at(dol,*DATA[1]))+','+arr(sources)+'};\n}\n')
     return h,sorted({r[0] for r in roots+helpers}),labels,bctr
 def patch_probe(source):
     return replace_exact(replace_exact(replace_exact(source,INCLUDE,INCLUDE+'\n#include "v603_private_report_expectations.h"'),DECL,NEXT),MI_END,MI_NEXT)

@@ -1,11 +1,17 @@
 import unittest
-from prepare_v603_boot_report import patch_probe,patch_label,INCLUDE,DECL,MI_END,NEXT,MI_NEXT,LRS
+from prepare_v603_boot_report import patch_probe,patch_label,INCLUDE,DECL,MI_END,NEXT,MI_NEXT,LRS,size_source
 from apply_bat_roots_v586 import PAIRS as BAT
 from apply_report_table_v594 import pairs
 from apply_irq_bootstrap_v475 import rewrite
 from audit_v603_boot_report import EVENTS,inspect
 from unittest.mock import patch
 class Tests(unittest.TestCase):
+    def test_size_source(self):
+        # Authored independent PPC leaf instructions.
+        for off in (0x3100,0x3104,0x28,0x3118,0x311c):
+            self.assertEqual(size_source((0x3ca08000,0x80650000|off,0x4e800020)),0x80000000+off)
+        for bad in ((0x3ca08000,0x80653104,0),(0x3ca08000,0x80643104,0x4e800020),(0x3ca08000,0x80853104,0x4e800020),(0x3ca08000,0x80653114,0x4e800020),(0x3ca08000,0x80653104)):
+            with self.assertRaises(ValueError):size_source(bad)
     def test_probe(self):
         old='\n'.join((INCLUDE,DECL,MI_END))
         out=patch_probe(old)

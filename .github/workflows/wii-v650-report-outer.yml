@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v650*'
+      - 'research/native_recomp/*v652*'
       - '.github/workflows/wii-v650-report-outer.yml'
 permissions:
   contents: read
@@ -51,4 +52,4 @@ jobs:
           bash research/native_recomp/run_v650_report_outer.sh "$RUNNER_TEMP/nw650" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Clean private original files
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw616"
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw650"

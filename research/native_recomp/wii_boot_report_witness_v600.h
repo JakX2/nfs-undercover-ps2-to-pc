@@ -16,6 +16,7 @@ struct BootReportExpectations {
     std::array<uint32_t,7> case_words;
     std::array<uint8_t,600> data;
     std::array<uint8_t,24> small;
+    std::array<uint32_t,2> size_sources{0x80003100u,0x8000311cu};
 };
 // Read-only proof of the original outer boot report, not an OSReport
 // implementation or a proof of the internal formatting/output backend.
@@ -45,7 +46,12 @@ public:
         if(arena_[0]>=arena_[1]||arena_[2]>=arena_[3]||
            arena_[0]<0x80000000u||arena_[1]>0x81800000u||
            arena_[2]<0x90000000u||arena_[3]>0x94000000u)return fail(1);
-        for(unsigned i=0;i<4;++i)if(!mapped(c,Lowmem[i],4))return fail(1);else low_[i]=c.mmu.read32(Lowmem[i]);
+        const auto a=e_.size_sources[0],b=e_.size_sources[1];
+        const auto mem1=[](uint32_t p){return p==0x80003100u||p==0x80003104u||p==0x80000028u;};
+        const auto mem2=[](uint32_t p){return p==0x80003118u||p==0x8000311cu;};
+        if(!((mem1(a)&&mem2(b))||(mem2(a)&&mem1(b))))return fail(1);
+        low_addr_={a,b,0x80003140u,0x80003144u};
+        for(unsigned i=0;i<4;++i)if(!mapped(c,low_addr_[i],4))return fail(1);else low_[i]=c.mmu.read32(low_addr_[i]);
         stage_=1;return true;
     }
     template<class Cpu>bool observe(uint32_t addr,Cpu& c){
@@ -128,7 +134,7 @@ public:
     }
 private:
     static constexpr std::array<uint32_t,4> ArenaOffsets{16400,3472,16396,3468};
-    static constexpr std::array<uint32_t,4> Lowmem{0x80003100,0x8000311c,0x80003140,0x80003144};
+    std::array<uint32_t,4> low_addr_{};
     BootReportExpectations e_;unsigned stage_=0,error_=0,reports_=0,getters_=0,nested_=0,extra_=0;
     unsigned print_refusal_=0,console_class_=36,call_offset_=512,format_offset_=512;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,print_sp_=0,console_value_=0,target_=0;
@@ -157,7 +163,7 @@ private:
     }
     template<class Cpu>bool preserved(Cpu& c)const{
         if(!equal(c,r13_-3400u,1))return false;
-        for(unsigned i=0;i<4;++i)if(!equal(c,r13_-ArenaOffsets[i],arena_[i])||!equal(c,Lowmem[i],low_[i]))return false;
+        for(unsigned i=0;i<4;++i)if(!equal(c,r13_-ArenaOffsets[i],arena_[i])||!equal(c,low_addr_[i],low_[i]))return false;
         return bytes(c,Data,e_.data)&&bytes(c,Small,e_.small);
     }
     template<class Cpu>bool print_args(Cpu& c)const{
