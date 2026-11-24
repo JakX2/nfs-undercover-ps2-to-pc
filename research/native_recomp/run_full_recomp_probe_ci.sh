@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Private whole-image translation, syntax, native link and optional bounded startup.
-# Startup, hardware, cache, data and os-entry modes launch bounded witnesses; never claim game boot.
+# Startup, hardware, cache, data, os-entry and os-time modes launch bounded witnesses; never claim game boot.
 set -euo pipefail
 if [[ $# -ne 5 ]]; then
-  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry' >&2
+  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry|os-time' >&2
   exit 2
 fi
 root="$(realpath "$1")"
@@ -11,7 +11,7 @@ dol="$(realpath "$2")"
 elf="$(realpath "$3")"
 work="$4"
 mode="$5"
-[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
+[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
 [[ ! -e "$work" ]] || { echo 'Private work destination must be fresh' >&2; exit 2; }
 mkdir -p -m 700 "$work"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -26,7 +26,7 @@ python3 "$here/apply_psq_estimate_and_gqr_v5.py" "$root" >> "$work/patch.log" 2>
 python3 "$here/apply_verified_elf_spans_v6.py" "$root" >> "$work/patch.log" 2>&1 || {
   echo 'Conservative ELF code-span patch failed' >&2; exit 1;
 }
-if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry ]]; then
+if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time ]]; then
   # Reuse earlier independently validated register implementations only
   # in the extended lane. V419 remains the unmodified control.
   for patch in apply_hid_state_v18 apply_fpscr_v19; do
@@ -35,7 +35,7 @@ if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == o
     }
   done
 fi
-if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry ]]; then
+if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time ]]; then
   # Bounded guest L2CR handshake and explicit mtmsr resume PCs, previously
   # validated in isolated execution. Do not replace any original OS body.
   for patch in apply_l2cr_v20 apply_mtmsr_resume_v74; do
@@ -98,8 +98,10 @@ elif [[ "$mode" == data ]]; then
   python3 "$here/prepare_v430_full_data.py" "$dol" "$work/generated"
 elif [[ "$mode" == os-entry ]]; then
   python3 "$here/prepare_v433_full_os_entry.py" "$dol" "$work/generated"
+elif [[ "$mode" == os-time ]]; then
+  python3 "$here/prepare_v435_full_os_time.py" "$dol" "$work/generated"
 fi
-if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry ]]; then
+if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$mode" == startup ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
@@ -116,6 +118,9 @@ if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" ==
   elif [[ "$mode" == os-entry ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-entry
     echo 'INFO: bounded DBInit return and OSInit entry only; OSInit body, main, boot and gameplay NOT proven'
+  elif [[ "$mode" == os-time ]]; then
+    bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-time
+    echo 'INFO: bounded original OSInit prologue and system-time return only; OSInit completion, main and gameplay NOT proven'
   else
     echo 'INFO: native game launch, main, boot, frontend and gameplay NOT proven'
   fi
