@@ -10,10 +10,11 @@ import hashlib
 from pathlib import Path
 import re
 import struct
+import subprocess
 from audit_v420_nand_sc_provenance import LINE
 from derive_v437_nand_restored_frame import inspect,BEGIN,BLR,RESUME
 from derive_v432_nand_nested_call import STOP,GUARD
-from trace_v427_restored_function import abort_row,branch,MAX_LOG,MAX_CPP
+from trace_v427_restored_function import abort_row,branch,MAX_LOG,MAX_CPP,STRINGS,ERROR
 from repair_v424_nand_aot_placeholder import aot_entry
 from make_osinit_execparams_v28 import ORIGINAL_SHA,text_at
 from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
@@ -110,6 +111,32 @@ def diagnosis(raw,harness):
             f'stop_calls={s[0]} owner={s[1]} selected={s[2]} parent={s[3]} '
             f'exit={int(bool(exits))} exit_calls={e[0]} kind={e[1]} running={e[2]} '
             f'mapped={e[3]} matched={e[4]} post_ack={e[5]} boot_verified=0')
+# Correlate the actual private exception only with literal occurrences in
+# committed public source. Publish a filename/line, never the exception text.
+SOURCE_NAME=re.compile(r'[A-Za-z0-9_]{1,100}\.(?:py|cpp|h)\Z')
+def source_provenance(raw,harness,host,names):
+    if len(raw)>MAX_LOG or len(harness)>24_000_000:raise ValueError('provenance size')
+    strings=sorted(set(STRINGS.findall(harness)))
+    if len(strings)>9999:raise ValueError('catalog')
+    known=next((s for s in ERROR.findall(raw.decode('utf-8',errors='replace')) if s in strings),None)
+    ident=strings.index(known)+1 if known is not None else 0
+    hits=[]
+    if known and len(known)<=1024 and '\n' not in known and '\r' not in known:
+        token='"'+known+'"'
+        for name in sorted(set(names)):
+            if not SOURCE_NAME.fullmatch(name) or name.startswith('test_') or name==Path(__file__).name:continue
+            path=host/name
+            if path.is_symlink() or not path.is_file() or path.stat().st_size>2_000_000:continue
+            content=path.read_text(encoding='utf-8',errors='replace')
+            for i,line in enumerate(content.splitlines(),1):
+                if token in line:
+                    hits.append((name,i))
+    name,line=hits[0] if len(hits)==1 else ('none',0)
+    return f'V492_NAND_SOURCE id={ident:04d} matches={min(len(hits),9999)} file={name} line={line} unique={int(len(hits)==1)} boot_verified=0'
+def tracked_public_source(host):
+    raw=subprocess.check_output(['git','-C',str(host),'ls-files','-z','--','*.py','*.cpp','*.h'],timeout=10)
+    if len(raw)>2_000_000:raise ValueError('source catalog size')
+    return raw.decode('utf-8').split('\0')
 def row(p):
     return f'V478_NAND_FRONTIER calls=44 original=25 resumed=1 owner={p.owned} edge={p.kind} category={p.reason} ready={int(p.ready)} boot_verified=0'
 def patch(harness,p):
@@ -154,6 +181,8 @@ def main():
         p=terminal(owner,fixture,sizes,get(a.cpp,MAX_CPP,True),harness,get(a.control,MAX_LOG))
         print(row(p))
         print(diagnosis(get(a.control,MAX_LOG),harness))
+        host=Path(__file__).resolve().parent
+        print(source_provenance(get(a.control,MAX_LOG),harness,host,tracked_public_source(host)))
         if not p.ready:
             if a.run_log is not None:raise ValueError('no authorized edge')
             print('V478_NAND_ROUTE installed=0 eligible=0');print('V478_NAND_AUDIT inspected=1');return 0
@@ -167,6 +196,6 @@ def main():
             raw=get(a.run_log,MAX_LOG);print(outcome(raw,a.run_rc,owner,fixture,sizes,p))
             print(abort_row(raw,new,a.run_rc)[0].replace('V427_ABORT_CENSUS','V478_ABORT_CENSUS',1))
         print('V478_NAND_AUDIT inspected=1');return 0
-    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError):
+    except (OSError,ValueError,IndexError,StopIteration,struct.error,UnicodeError,subprocess.SubprocessError):
         print('V478_NAND_AUDIT inspected=0');return 1
 if __name__=='__main__':raise SystemExit(main())

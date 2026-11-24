@@ -1,5 +1,7 @@
 import struct
 import unittest
+import tempfile
+from pathlib import Path
 from derive_v478_nand_post_return import *
 from test_v414_nand_resumed_coverage import A,BODY,dol
 from test_v424_nand_aot_placeholder import cpp
@@ -49,6 +51,22 @@ class Tests(unittest.TestCase):
         for bad in (RAW+b'V404_NAND_EXTENDED_STOP calls=44 owner=1 selected_return=0 parent_return=0\n',
                     RAW+b'V410_NAND_GUEST_RUN_EXIT malformed\n'):
             with self.assertRaises(ValueError):diagnosis(bad,HARNESS)
+    def test_source_provenance(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            msg='public guard [specific]'
+            harness=HARNESS+'\ncheck(false,"'+msg+'");'
+            raw=RAW.replace(b'what():  V402 extended original guest frontier incomplete',('what():  '+msg).encode())
+            (root/'derive_v100.py').write_text('first\ncheck(false,"'+msg+'");\n')
+            (root/'test_v100.py').write_text('"'+msg+'"')
+            names=['derive_v100.py','test_v100.py','../private.cpp']
+            row=source_provenance(raw,harness,root,names)
+            self.assertIn('matches=1 file=derive_v100.py line=2 unique=1',row)
+            self.assertNotIn(msg,row)
+            (root/'derive_v101.py').write_text('"'+msg+'"')
+            self.assertIn('matches=2 file=none line=0 unique=0',source_provenance(raw,harness,root,names+['derive_v101.py']))
+            private=raw.replace(msg.encode(),b'private address 0x81234567')
+            self.assertIn('id=0000 matches=0 file=none line=0 unique=0',source_provenance(private,harness,root,names))
     def test_other_stop_preserved(self):
         for raw in (RAW.replace(b'owner=1',b'owner=0'),
                     RAW.replace(b'what():  V402 extended original guest frontier incomplete',b'what():  unrelated runtime failure'),
