@@ -4,7 +4,7 @@ All private bytes and generated code stay inside the private runner.
 """
 import argparse,hashlib,struct
 from pathlib import Path
-from prepare_v419_full_start import OWNER_SHA,MAX_DOL,words_at
+from prepare_v419_full_start import OWNER_SHA,MAX_DOL,words_at,direct_bl
 SOURCE=0x805290a8
 ENTRY=0x80004000
 FLUSH=0x805222c0
@@ -22,9 +22,10 @@ def build(vector,flush=None):
     struct.pack_into('>I',header,0xe0,entry)
     return bytes(header)+caller+vector
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path);p.add_argument('--owner',type=Path);p.add_argument('--flush',action='store_true');p.add_argument('--binding',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('output',type=Path);p.add_argument('--owner',type=Path);p.add_argument('--flush',action='store_true');p.add_argument('--binding',action='store_true');p.add_argument('--arena',action='store_true');a=p.parse_args()
     try:
-        if a.binding and not a.flush:raise ValueError('binding requires flush')
+        if (a.binding or a.arena) and not a.flush:raise ValueError('binding requires flush')
+        if a.arena and not a.binding:raise ValueError('arena requires ABI fixture')
         if a.owner:
             if a.owner.stat().st_size>MAX_DOL:raise ValueError('size')
             raw=a.owner.read_bytes()
@@ -43,8 +44,18 @@ def main():
         flush=None
         if a.flush:
             if a.owner:
+                if a.arena:
+                    for site in (0x80520028,0x80520204):
+                        if direct_bl(words_at(raw,site,1)[0],site)!=FLUSH:raise ValueError('arena flush callsite')
                 w=words_at(raw,FLUSH,12)
                 if w[-2:]!=(0x44000002,0x4e800020):raise ValueError('flush SC return geometry')
+            elif a.arena:
+                # Independent counted native loop for any nonzero aligned size.
+                # srwi r4,r4,5; mtctr r4; dcbf 0,r3; addi r3,r3,32;
+                # bdnz to dcbf; pad to the authenticated SC/BLR seam.
+                shift=(21<<26)|(4<<21)|(4<<16)|(27<<11)|(5<<6)|(31<<1)
+                mtctr=(31<<26)|(4<<21)|(9<<16)|(467<<1)
+                w=(shift,mtctr,0x7c0018ac,0x38630020,0x4200fff8,*([0x60000000]*5),0x44000002,0x4e800020)
             else:
                 # Independent straight-line dcbf fixture, four lines from r3.
                 w=(0x7c0018ac,0x38630020,0x7c0018ac,0x38630020,

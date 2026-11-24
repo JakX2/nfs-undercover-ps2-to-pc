@@ -11,7 +11,8 @@ public:
     static constexpr uint32_t Call=0x805222e8u, Resume=Call+4u,
         Caller=0x80522044u, Source=0x805290a8u, Vector=0x80000c00u;
     enum class Phase { Idle, Armed, Executing, Returned, Failed };
-    explicit BootScRoute(const std::array<uint8_t,28>& expected):bytes_(expected){
+    explicit BootScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller):bytes_(expected),caller_(caller){
+        if(caller_!=Caller&&caller_!=0x8052002cu&&caller_!=0x80520208u)fail();
         for(unsigned i=0;i<bytes_.size();i+=4){
             const uint32_t w=(uint32_t(bytes_[i])<<24)|(uint32_t(bytes_[i+1])<<16)|
                 (uint32_t(bytes_[i+2])<<8)|bytes_[i+3];
@@ -21,7 +22,7 @@ public:
     }
     Phase phase()const noexcept{return phase_;}
     template<class Cpu>void arm(uint32_t addr,Cpu& c){
-        if(phase_!=Phase::Idle||addr!=Call||c.lr!=Caller||!c.is_running)
+        if(phase_!=Phase::Idle||addr!=Call||c.lr!=caller_||!c.is_running)
             fail();
         context_=&c;sp_=c.gpr[1];msr_=c.msr;tick_=c.inst_count;
         phase_=Phase::Armed;
@@ -37,7 +38,7 @@ public:
     // is an error, never an invitation to substitute the HLE handler.
     template<class Cpu,class Native,class Verify>
     bool dispatch(Cpu& c,Native native,Verify verify){
-        const bool target=c.pc==Call&&c.lr==Caller;
+        const bool target=c.pc==Call&&c.lr==caller_;
         if(phase_!=Phase::Armed){
             if(phase_==Phase::Executing||target)fail();
             return false;
@@ -69,10 +70,11 @@ public:
     }
     template<class Cpu>bool returned(const Cpu& c)const{
         return phase_==Phase::Returned&&context_==&c&&c.is_running&&
-               c.pc==Caller&&c.lr==Caller&&c.msr==msr_&&c.gpr[1]==sp_;
+               c.pc==caller_&&c.lr==caller_&&c.msr==msr_&&c.gpr[1]==sp_;
     }
 private:
     std::array<uint8_t,28> bytes_;
+    uint32_t caller_;
     Phase phase_=Phase::Idle;
     const void* context_=nullptr;
     uint32_t sp_=0,msr_=0;

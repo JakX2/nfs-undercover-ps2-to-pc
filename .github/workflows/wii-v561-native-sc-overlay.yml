@@ -5,6 +5,8 @@ on:
     paths:
       - 'research/native_recomp/*v561*'
       - 'research/native_recomp/*v574*'
+      - 'research/native_recomp/*v598*'
+      - 'research/native_recomp/*v596*'
       - '.github/workflows/wii-v561-native-sc-overlay.yml'
   workflow_dispatch:
 permissions:
