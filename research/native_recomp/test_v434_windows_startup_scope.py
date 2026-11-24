@@ -14,6 +14,7 @@ from audit_v466_exception_pack import STAGES as PACK,RESULT as PACK_RESULT
 from audit_v470_alarm_startup import STAGES as ALARM,RESULT as ALARM_RESULT
 from audit_v473_module_irq import STAGES as IRQ,RESULT as IRQ_RESULT
 from audit_v476_irq_mmio import STAGES as MMIO,RESULT as MMIO_RESULT
+from audit_v483_irq_return import STAGES as IRQ_RETURN,RESULT as IRQ_RETURN_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -28,10 +29,11 @@ OS_PACK=OS_VECTOR+PACK+[PACK_RESULT]
 OS_ALARM=OS_PACK+ALARM+[ALARM_RESULT]
 OS_IRQ=OS_ALARM+IRQ+[IRQ_RESULT]
 OS_MMIO=OS_IRQ+MMIO+[MMIO_RESULT]
+OS_IRQ_RETURN=OS_MMIO+IRQ_RETURN+[IRQ_RETURN_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN))}
 
 
 class Tests(unittest.TestCase):
@@ -52,7 +54,8 @@ class Tests(unittest.TestCase):
         self.assertEqual(contract('os-alarm'),(OS_VECTOR_PATCHES,'prepare_v470_alarm_startup.py','audit_v470_alarm_startup'))
         self.assertEqual(contract('os-irq'),(OS_VECTOR_PATCHES,'prepare_v473_module_irq.py','audit_v473_module_irq'))
         self.assertEqual(contract('os-mmio'),(OS_VECTOR_PATCHES,'prepare_v476_irq_mmio.py','audit_v476_irq_mmio'))
-        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio'):
+        self.assertEqual(contract('os-irq-return'),(OS_VECTOR_PATCHES,'prepare_v483_irq_return.py','audit_v483_irq_return'))
+        for scope in ('os-hardware','os-arena','os-ipc','os-vector','os-pack','os-alarm','os-irq','os-mmio','os-irq-return'):
             with self.assertRaises(ValueError):contract(scope,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
@@ -60,7 +63,7 @@ class Tests(unittest.TestCase):
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
-            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope=='os-mmio' else {})})
+            self.assertEqual(launch_flags(scope),{'UNDERCOVER_V419_START':'1',**({'UNDERCOVER_V475_IRQ_MMIO':'1'} if scope in ('os-mmio','os-irq-return') else {}),**({'UNDERCOVER_V481_IRQ_BANKS':'1'} if scope=='os-irq-return' else {})})
         with self.assertRaises(ValueError):launch_flags('os-mmio',True)
     def test_all_scope_pairs(self):
         for scope in SCOPES:
@@ -69,7 +72,7 @@ class Tests(unittest.TestCase):
                     self.assertEqual(audit(raw,0,scope)[1],scope==source)
     def test_optional_copy_and_hex_rejection(self):
         prefix=OS_TIME+[b'V439_HW_BEGIN copy=1']+OS_HW[:1]+[COPY]+OS_HW[1:]+[OS_HW_RESULT]
-        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):])):
+        for scope,tail in (('os-hardware',[]),('os-arena',OS_ARENA[len(OS_HARDWARE):]),('os-ipc',OS_IPC[len(OS_HARDWARE):]),('os-vector',OS_VECTOR[len(OS_HARDWARE):]),('os-pack',OS_PACK[len(OS_HARDWARE):]),('os-alarm',OS_ALARM[len(OS_HARDWARE):]),('os-irq',OS_IRQ[len(OS_HARDWARE):]),('os-mmio',OS_MMIO[len(OS_HARDWARE):]),('os-irq-return',OS_IRQ_RETURN[len(OS_HARDWARE):])):
             good=log(prefix+tail)
             self.assertTrue(audit(good,0,scope)[1])
             self.assertFalse(audit(good.replace(b'V439_HW_STAGE n=10 valid=1',b'V439_HW_STAGE n=a valid=1'),0,scope)[1])
