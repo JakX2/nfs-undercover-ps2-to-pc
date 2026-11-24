@@ -16,6 +16,7 @@ on:
       - 'research/native_recomp/*v512*'
       - 'research/native_recomp/*v514*'
       - 'research/native_recomp/*v515*'
+      - 'research/native_recomp/*v518*'
       - '.github/workflows/wii-v490-exi-controller.yml'
   workflow_dispatch:
 permissions:
@@ -41,6 +42,8 @@ jobs:
           "$RUNNER_TEMP/v501-profile"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_si_type_scheduler_v514.cpp -o "$RUNNER_TEMP/v514-si-scheduler"
           "$RUNNER_TEMP/v514-si-scheduler"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_si_profile_v518.cpp -o "$RUNNER_TEMP/v518-si-profile"
+          "$RUNNER_TEMP/v518-si-profile"
       - name: Fetch exact pinned NWiiRecomp
         run: |
           set -euo pipefail
@@ -156,3 +159,12 @@ jobs:
               "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/native"
             timeout 20s "$dir/native"
           done
+      - name: Verify explicit SI profile installer and native context session
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v490"
+          rt="$root/nWiiRuntime"
+          python3 research/native_recomp/apply_si_profile_v518.py "$root"
+          python3 research/native_recomp/apply_si_profile_v518.py "$root"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$rt/include/undercover" research/native_recomp/test_wii_si_profile_v518.cpp -o "$RUNNER_TEMP/v518-pinned"
+          "$RUNNER_TEMP/v518-pinned"
