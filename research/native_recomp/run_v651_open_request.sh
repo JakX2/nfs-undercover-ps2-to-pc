@@ -22,7 +22,7 @@ python3 "$here/patch_sc_trace_v570.py" "$work/generated"
 python3 "$here/patch_sc_trace_v640.py" "$work/generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --vector "$work/input/vector.bin"
 g++ -std=c++20 -O1 -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/input" -I"$work/generated" -I"$work/generated/nWiiRuntime/include" \
-  "$here/test_native_open_request_v651.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { echo 'V651 compile failed';exit 1; }
+  "$here/test_native_open_request_v651.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { python3 "$here/classify_open_compile_v654.py" "$work/compile.log";echo 'V651 compile failed';exit 1; }
 rc=0
 ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1 timeout 30s "$work/native" > "$work/run.log" 2>&1 || rc=$?
 grep -Ex 'V651_OPEN_TRIAL n=[0-7] path=[12] request=1 serviced=0|V651_OPEN_FAILURE kind=(witness|assertion|interpreter|syscall|null_branch|mmio|mailbox|other) trial=[0-7] stage=[0-9]{1,2} open_stage=[0-9] open_reason=[0-6] reason=[0-7] line=[0-9]{1,4}' "$work/run.log" || true

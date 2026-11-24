@@ -1,4 +1,5 @@
-#pragma once
+#ifndef UNDERCOVER_OPEN_CACHE_RANGE_TRACE_V649_H
+#define UNDERCOVER_OPEN_CACHE_RANGE_TRACE_V649_H
 #include <cstdint>
 namespace undercover::wii {
 // Independent bounded observer of the real native pathname DCBF operations.
@@ -54,3 +55,4 @@ private:
     }
 };
 }
+#endif

@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v651*'
+      - 'research/native_recomp/*v654*'
       - '.github/workflows/wii-v651-open-request.yml'
 permissions:
   contents: read
@@ -18,6 +19,7 @@ jobs:
         run: |
           python3 -m py_compile research/native_recomp/make_v651_open_fixture.py research/native_recomp/apply_isolated_open_cache_v651.py
           bash -n research/native_recomp/run_v651_open_request.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v654_open_compile.py -v
   owner-open-request:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
