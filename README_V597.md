@@ -1,0 +1,3 @@
+# V597: advance Windows owner target to original DSP bootstrap return
+
+Windows owner run 45483030018 reached original DSP staging and native SC/RFI/BLR return, all four SC stages, zero fallback, verified scope `os-dsp-sc`. Linux owner run 45482902766 already proved the complete DSP bootstrap return, five stages and zero fallback. Advance the Windows automatic owner scope to `os-dsp-return` using V582's existing selectable implementation, with earlier scopes unchanged. Require the V593 EXI composition regression before expensive compilation. V594 owner report translation and V596 streaming cache tests passed independently. Windows DSP bootstrap remains unverified until this new owner job passes; synthetic firmware events are still required.
