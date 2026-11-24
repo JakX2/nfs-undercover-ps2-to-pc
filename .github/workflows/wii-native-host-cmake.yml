@@ -18,6 +18,7 @@ on:
       - 'research/native_recomp/wii_native_ios_binding.h'
       - 'research/native_recomp/wii_native_ios_boundary.h'
       - 'research/native_recomp/wii_native_ios_aot_session.h'
+      - 'research/native_recomp/*v438*'
       - 'research/native_recomp/wii_dol_loader_v431.h'
       - 'research/native_recomp/test_wii_dol_loader_v431.cpp'
       - 'research/native_recomp/apply_dol_loader_v431.py'
@@ -179,3 +180,21 @@ jobs:
             -I"$root/nWiiRuntime/include" -I"$host" "$host/test_wii_dol_loader_v431.cpp" \
             "$root/nWiiRuntime/src/core/loader.cpp" -o "$RUNNER_TEMP/v431-loader"
           timeout 20s "$RUNNER_TEMP/v431-loader" "$RUNNER_TEMP/v431-synthetic.dol"
+
+  pinned-native-tick:
+    name: Pinned NWiiRecomp native instruction visits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact emitter source transformation
+        run: python3 -m unittest discover -s research/native_recomp -p test_v438_native_tick.py -v
+      - name: Fetch pinned original-free NWiiRecomp
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nwii-v438"
+          git -C "$RUNNER_TEMP/nwii-v438" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii-v438" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii-v438" checkout -q --detach FETCH_HEAD
+      - name: Compare actual native generated loop and resume ticks
+        run: bash research/native_recomp/run_v438_native_tick.sh "$RUNNER_TEMP/nwii-v438"

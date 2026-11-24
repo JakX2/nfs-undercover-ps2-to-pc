@@ -1,0 +1,65 @@
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+from apply_native_tick_v438 import BEFORE,AFTER,LABEL,LABEL_TICK,TICK,FILE,rewrite,apply
+
+SOURCE='''void emit_function(){
+  for(const auto& inst: instructions){
+'''+BEFORE+'''
+  }
+}
+void emit_instruction(){
+'''+LABEL+'''
+  out << "original body\\n";
+}
+'''
+
+class Tests(unittest.TestCase):
+    def test_geometry(self):
+        out=rewrite(SOURCE)
+        self.assertEqual(rewrite(out),out)
+        self.assertEqual(out.count(TICK),1)
+        self.assertIn(LABEL_TICK,out);self.assertNotIn(BEFORE,out)
+        for bad in (SOURCE+SOURCE,SOURCE.replace(LABEL,''),SOURCE.replace(BEFORE,AFTER),SOURCE+TICK,out+TICK):
+            with self.assertRaises(ValueError):rewrite(bad)
+    def test_install(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);p=root/FILE;p.parent.mkdir(parents=True);p.write_text(SOURCE)
+            self.assertTrue(apply(root));self.assertFalse(apply(root))
+            p.write_text(SOURCE+TICK)
+            with self.assertRaises(ValueError):apply(root)
+            self.assertEqual(p.read_text(),SOURCE+TICK)
+    def test_emitted_control_flow(self):
+        cc=shutil.which('g++')
+        if not cc:self.skipTest('GCC unavailable')
+        # Compile a miniature emitter containing the real source seams.
+        # It emits a synthetic loop and a resume switch, never game code.
+        generator='''#include <iostream>
+#include <iomanip>
+struct Instruction{unsigned address;const char* body;unsigned opcode=0;};
+void emit_instruction(std::ostream& out,const Instruction& inst,int){
+'''+LABEL+'''
+  out << inst.body << "\\n";
+}
+int main(){
+  auto& out=std::cout;const int func=0;
+  out << "#include <cstdint>\\nstruct CPU{uint64_t inst_count=0;unsigned ctr=0,r=0,pc=0;};\\nvoid run(CPU& ctx){\\nif(ctx.pc==1)goto loc_10;\\nif(ctx.pc==2)goto loc_18;\\n";
+  Instruction instructions[]={{0xc,"ctx.ctr=3; ctx.r=0;"},{0x10,"++ctx.r;"},{0x14,"if(--ctx.ctr)goto loc_10;"},{0x18,"ctx.r+=2;"},{0x1c,"return;"}};
+  for(const auto& inst:instructions){
+'''+BEFORE+'''
+  }
+  out << "}\\nint main(){CPU a;run(a);if(a.inst_count!=9||a.r!=5)return 1;CPU b{100,2,8,1};run(b);if(b.inst_count!=106||b.r!=12)return 2;CPU c{40,0,9,2};run(c);if(c.inst_count!=42||c.r!=11)return 3;}\\n";
+}
+'''
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            for patched in (False,True):
+                (root/'gen.cpp').write_text(rewrite(generator) if patched else generator)
+                subprocess.run([cc,'-std=c++20','-Wall','-Wextra','-Werror',str(root/'gen.cpp'),'-o',str(root/'gen')],check=True,capture_output=True)
+                (root/'native.cpp').write_bytes(subprocess.check_output([str(root/'gen')]))
+                subprocess.run([cc,'-std=c++20','-Wall','-Wextra','-Werror','-Wno-unused-label','-fsanitize=address,undefined','-fno-pie','-no-pie',str(root/'native.cpp'),'-o',str(root/'native')],check=True,capture_output=True)
+                rc=subprocess.run([str(root/'native')],capture_output=True).returncode
+                self.assertEqual(rc,0 if patched else 1)
+if __name__=='__main__':unittest.main()
