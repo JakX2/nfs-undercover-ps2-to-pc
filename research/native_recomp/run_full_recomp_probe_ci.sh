@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Private whole-image translation, syntax, native link and optional bounded startup.
-# Startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers and os-exi-id modes launch bounded witnesses; never claim game boot.
+# Startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id and os-exi-absent modes launch bounded witnesses; never claim game boot.
 set -euo pipefail
 if [[ $# -ne 5 ]]; then
-  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll|os-exi-handlers|os-exi-id' >&2
+  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena|os-ipc|os-vector|os-pack|os-alarm|os-irq|os-mmio|os-irq-return|os-context|os-cache-reuse|os-exi-poll|os-exi-handlers|os-exi-id|os-exi-absent' >&2
   exit 2
 fi
 root="$(realpath "$1")"
@@ -11,7 +11,7 @@ dol="$(realpath "$2")"
 elf="$(realpath "$3")"
 work="$4"
 mode="$5"
-[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
+[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
 [[ ! -e "$work" ]] || { echo 'Private work destination must be fresh' >&2; exit 2; }
 mkdir -p -m 700 "$work"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -26,11 +26,11 @@ python3 "$here/apply_psq_estimate_and_gqr_v5.py" "$root" >> "$work/patch.log" 2>
 python3 "$here/apply_verified_elf_spans_v6.py" "$root" >> "$work/patch.log" 2>&1 || {
   echo 'Conservative ELF code-span patch failed' >&2; exit 1;
 }
-if [[ "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   python3 "$here/apply_function_root_v443.py" "$root" >> "$work/patch.log" 2>&1 || {
     echo 'V443 function root patch failed' >&2; exit 1;
   }
-  if [[ "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+  if [[ "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
     for patch in apply_exact_dispatch_v445 apply_native_tick_v438; do
       python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
         echo 'V446 validated dispatcher/tick patch failed' >&2; exit 1;
@@ -41,7 +41,7 @@ if [[ "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mo
     echo 'V439 performance runtime patch failed' >&2; exit 1;
   }
 fi
-if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   # Reuse earlier independently validated register implementations only
   # in the extended lane. V419 remains the unmodified control.
   for patch in apply_hid_state_v18 apply_fpscr_v19; do
@@ -50,7 +50,7 @@ if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == o
     }
   done
 fi
-if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   # Bounded guest L2CR handshake and explicit mtmsr resume PCs, previously
   # validated in isolated execution. Do not replace any original OS body.
   for patch in apply_l2cr_v20 apply_mtmsr_resume_v74; do
@@ -59,14 +59,14 @@ if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == o
     }
   done
 fi
-if [[ "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   for patch in verify_perf_combo_v29 apply_hid4_continuous_v30; do
     python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
       echo 'V439 combined hardware runtime patch failed' >&2; exit 1;
     }
   done
 fi
-if [[ "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   # V456 independently verified this exact cache patch composition.
   for patch in apply_cache_continuous_v39 apply_cache_trace_v44 apply_dcbz_v67 apply_cache_order_v456; do
     python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
@@ -74,7 +74,7 @@ if [[ "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mod
     }
   done
 fi
-if [[ "$mode" == os-exi-id ]]; then
+if [[ "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   python3 "$here/apply_exi_tick_v497.py" "$root" emitter >> "$work/patch.log" 2>&1 || { echo "V497 EXI emitter patch failed" >&2; exit 1; }
 fi
 mkdir -p "$work/generated" "$work/bin"
@@ -133,6 +133,8 @@ elif [[ "$mode" == os-exi-handlers ]]; then
   python3 "$here/prepare_v500_exi_handlers.py" "$dol" "$work/generated"
 elif [[ "$mode" == os-exi-id ]]; then
   python3 "$here/prepare_v504_exi_id.py" "$dol" "$work/generated"
+elif [[ "$mode" == os-exi-absent ]]; then
+  python3 "$here/prepare_v510_exi_absent.py" "$dol" "$work/generated"
 fi
 if [[ "$mode" == sample ]]; then
   first="$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | sort | head -1)"
@@ -164,7 +166,7 @@ elif [[ "$mode" == os-entry ]]; then
 elif [[ "$mode" == os-time ]]; then
   python3 "$here/prepare_v435_full_os_time.py" "$dol" "$work/generated"
 fi
-if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id ]]; then
+if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena || "$mode" == os-ipc || "$mode" == os-vector || "$mode" == os-pack || "$mode" == os-alarm || "$mode" == os-irq || "$mode" == os-mmio || "$mode" == os-irq-return || "$mode" == os-context || "$mode" == os-cache-reuse || "$mode" == os-exi-poll || "$mode" == os-exi-handlers || "$mode" == os-exi-id || "$mode" == os-exi-absent ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$mode" == startup ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
@@ -226,6 +228,9 @@ if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" ==
   elif [[ "$mode" == os-exi-id ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-exi-id
     echo 'INFO: bounded original EXI ID with explicit synthetic device profile; OSInit completion, main and gameplay NOT proven'
+  elif [[ "$mode" == os-exi-absent ]]; then
+    bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-exi-absent
+    echo 'INFO: bounded original removable-card discovery and version entry; OSInit completion, main and gameplay NOT proven'
   else
     echo 'INFO: native game launch, main, boot, frontend and gameplay NOT proven'
   fi
