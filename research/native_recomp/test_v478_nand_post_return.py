@@ -73,6 +73,19 @@ class Tests(unittest.TestCase):
             private=raw.replace(msg.encode(),b'private address 0x81234567')
             self.assertEqual(source_candidates(private,harness,root,names),())
             self.assertIn('id=0000 matches=0 file=none line=0 unique=0',source_provenance(private,harness,root,names))
+    def test_ack_history(self):
+        harness=HARNESS+'\ncheck(false,"'+ACK_GUARD+'");'
+        prefix=(b'V389_NAND_FLAG_ACK before=1 wrote=1 cleared=1 down=1 y1=1 guest=1 registered=1\n'
+                b'V390_NAND_POST_ACK guest=1 clear=1 registered=1 masked=1 cache=1 context=0\n'
+                b'V388_NAND_BOUNDED_TRIAL kind=1 calls=44 stopped=1 completed=1\n'
+                b'V389_NAND_FLAG_TRIAL y1=1 flag=1 completed=0\n')
+        raw=prefix+RAW.replace(b'V402 extended original guest frontier incomplete',ACK_GUARD.encode())
+        self.assertIn('stale_candidate=1',ack_history(raw,harness))
+        for bad in (raw.replace(b'down=1',b'down=0'),raw.replace(b'masked=1',b'masked=0'),
+                    raw.replace(b'stopped=1 completed=1',b'stopped=0 completed=0'),
+                    raw.replace(ACK_GUARD.encode(),b'unrelated failure'),RAW):
+            self.assertIn('stale_candidate=0',ack_history(bad,harness))
+        with self.assertRaises(ValueError):ack_history(prefix+raw,harness)
     def test_other_stop_preserved(self):
         for raw in (RAW.replace(b'owner=1',b'owner=0'),
                     RAW.replace(b'what():  V402 extended original guest frontier incomplete',b'what():  unrelated runtime failure'),

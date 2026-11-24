@@ -114,6 +114,31 @@ def diagnosis(raw,harness):
 # Correlate the actual private exception only with literal occurrences in
 # committed public source. Publish a filename/line, never the exception text.
 SOURCE_NAME=re.compile(r'[A-Za-z0-9_]{1,100}\.(?:py|cpp|h)\Z')
+ACK_GUARD='V389 original NAND Hollywood flag ACK did not release native IRQ'
+ACK_EVENT=re.compile(rb'V389_NAND_FLAG_ACK before=([01]) wrote=([01]) cleared=([01]) down=([01]) y1=([01]) guest=([01]) registered=([01])')
+ACK_TRIAL=re.compile(rb'V389_NAND_FLAG_TRIAL y1=([01]) flag=([01]) completed=([01])')
+PRE_TRIAL=re.compile(rb'V388_NAND_BOUNDED_TRIAL kind=([0-9]) calls=([0-9]{1,3}) stopped=([01]) completed=([01])')
+POST_EVENT=re.compile(rb'V390_NAND_POST_ACK guest=([01]) clear=([01]) registered=([01]) masked=([01]) cache=([01]) context=([01])')
+def ack_history(raw,harness):
+    if len(raw)>MAX_LOG:raise ValueError('ACK history size')
+    # This is a diagnostic only: the original trial guard remains intact.
+    guard=int(abort_row(raw,harness,134)[1].endswith('label='+ACK_GUARD))
+    lines=raw.splitlines()
+    def one(prefix,pat):
+        matches=[(i,pat.fullmatch(l)) for i,l in enumerate(lines) if l.startswith(prefix)]
+        if len(matches)>1 or any(m is None for _,m in matches):raise ValueError('ACK history geometry')
+        return matches[0] if matches else (-1,None)
+    ai,a=one(b'V389_NAND_FLAG_ACK ',ACK_EVENT)
+    pi,p=one(b'V388_NAND_BOUNDED_TRIAL ',PRE_TRIAL)
+    ti,t=one(b'V389_NAND_FLAG_TRIAL ',ACK_TRIAL)
+    qi,q=one(b'V390_NAND_POST_ACK ',POST_EVENT)
+    event=int(a is not None and all(v==b'1' for v in a.groups()))
+    prior=int(p is not None and p[1]==b'1' and p[3]==p[4]==b'1')
+    trial=int(t is not None and t[1]==t[2]==b'1' and t[3]==b'0')
+    post=int(q is not None and all(v==b'1' for v in q.groups()[:4]))
+    order=int(0<=ai<qi<pi<ti)
+    stale=int(guard and event and prior and trial and post and order)
+    return f'V506_NAND_ACK_HISTORY guard={guard} event={event} post={post} prior={prior} failed_snapshot={trial} order={order} stale_candidate={stale} boot_verified=0'
 def source_matches(raw,harness,host,names):
     if len(raw)>MAX_LOG or len(harness)>24_000_000:raise ValueError('provenance size')
     strings=sorted(set(STRINGS.findall(harness)))
@@ -196,6 +221,7 @@ def main():
         raw=get(a.control,MAX_LOG)
         print(source_provenance(raw,harness,host,names))
         for candidate in source_candidates(raw,harness,host,names):print(candidate)
+        print(ack_history(raw,harness))
         if not p.ready:
             if a.run_log is not None:raise ValueError('no authorized edge')
             print('V478_NAND_ROUTE installed=0 eligible=0');print('V478_NAND_AUDIT inspected=1');return 0
