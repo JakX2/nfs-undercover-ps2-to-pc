@@ -6,7 +6,7 @@ umask 077
 mode="${4:-dsp-sc}"
 extra=();audit=audit_v575_dsp_sc_frontier.py
 if [[ "$mode" == dsp-return || "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V581_DSP=1);audit=audit_v581_dsp_return.py;fi
-if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V591_MI=1);audit=audit_v591_memory_init.py;fi
+if [[ "$mode" == mi-return || "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V591_MI=1 UNDERCOVER_V612_MAPPING=1);audit=audit_v591_memory_init.py;fi
 if [[ "$mode" == report-return || "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V603_REPORT=1);audit=audit_v603_boot_report.py;fi
 if [[ "$mode" == arena-return ]]; then extra+=(UNDERCOVER_V609_ARENA=1);audit=audit_v609_arena_clear.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"

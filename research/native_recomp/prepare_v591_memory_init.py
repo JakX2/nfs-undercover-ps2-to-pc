@@ -11,6 +11,7 @@ from make_start_to_memory_protect_v65 import EDGES,STOP
 from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
 from audit_v264_osinit_retry_elf import read_words
 import hashlib
+from apply_cold_mapping_v612 import apply as install_mapping
 BEGIN=0x805208d8
 MAP=0x80527568
 SITES=tuple(EDGES[:4])+tuple((0x80527724+12*i,0x805265f8) for i in range(5))+tuple(EDGES[4:7])
@@ -102,6 +103,7 @@ def install(data,elf,generated,host,digest=OWNER_SHA,elf_digest=ORIGINAL_SHA256)
         files[dest/name]=(host/name).read_text(encoding='utf-8')
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('destination')
     install_dsp(data,generated,host,digest)
+    install_mapping(generated,host)
     probe=dest/'wii_full_start_probe_v419.h';files[probe]=patch_probe(probe.read_text(encoding='utf-8'))
     for pc,path in owners.items():
         s=files[path] if path in files else path.read_text(encoding='utf-8')
