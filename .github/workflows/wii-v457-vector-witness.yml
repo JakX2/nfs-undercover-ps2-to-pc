@@ -1,0 +1,23 @@
+name: Wii First Exception Vector Candidate
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v457*'
+      - '.github/workflows/wii-v457-vector-witness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify composed observer and original-free audit
+        run: python3 -m unittest discover -s research/native_recomp -p test_v457_exception_vector.py -v
+      - name: Verify first-vector witness with sanitizers
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_exception_vector_witness_v457.cpp -o "$RUNNER_TEMP/v457"
+          "$RUNNER_TEMP/v457"
