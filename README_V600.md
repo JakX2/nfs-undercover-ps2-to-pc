@@ -1,0 +1,3 @@
+# V600: original outer boot report read-only observer
+
+Adds a source-only witness for the next complete-image startup lane after V591 MI. It checks original report entry, console helper and return, optional MEM2 query, native computed branch and exact selected private table entry, ten original OSReport call/return pairs and six ordered getter calls, dynamic version/date and memory/arena arguments, exact data/lowmem preservation and final OSInit resume. Nested report-backend calls are bounded but are not individually classified; this does not implement OSReport or claim its internal formatting behavior. This observer is not yet installed in a complete-image executable. Independent tests and private installer follow.
