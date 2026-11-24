@@ -1,0 +1,31 @@
+name: Wii Original Audio Reset Witness Checks
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v556*'
+      - '.github/workflows/wii-v556-audio-reset.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audio-reset-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate geometry, composition and audit gate
+        run: python3 -m unittest discover -s research/native_recomp -p test_v556_audio_reset.py -v
+      - name: Run stateful ACR trace and virtual guest delay regression
+        run: |
+          set -euo pipefail
+          PYTHONPATH=research/native_recomp python3 - "$RUNNER_TEMP" <<'PY'
+          from pathlib import Path
+          import sys
+          from prepare_v556_audio_reset import patch_acr
+          src=Path('research/native_recomp/wii_audio_acr_v537.h')
+          (Path(sys.argv[1])/'v556_test_acr.h').write_text(patch_acr(src.read_text()))
+          PY
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie \
+            -Iresearch/native_recomp -I"$RUNNER_TEMP" research/native_recomp/test_wii_audio_reset_witness_v556.cpp -o "$RUNNER_TEMP/v556-test"
+          "$RUNNER_TEMP/v556-test"
