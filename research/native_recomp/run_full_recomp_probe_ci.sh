@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Private whole-image translation, syntax, native link and optional bounded startup.
-# Startup, hardware, cache, data, os-entry, os-time and os-hardware modes launch bounded witnesses; never claim game boot.
+# Startup, hardware, cache, data, os-entry, os-time, os-hardware and os-arena modes launch bounded witnesses; never claim game boot.
 set -euo pipefail
 if [[ $# -ne 5 ]]; then
-  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry|os-time|os-hardware' >&2
+  echo 'Usage: run_full_recomp_probe_ci.sh NWII_ROOT OWNER_DOL OWNER_ELF PRIVATE_WORK sample|all|link|startup|hardware|cache|data|os-entry|os-time|os-hardware|os-arena' >&2
   exit 2
 fi
 root="$(realpath "$1")"
@@ -11,7 +11,7 @@ dol="$(realpath "$2")"
 elf="$(realpath "$3")"
 work="$4"
 mode="$5"
-[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
+[[ "$mode" == sample || "$mode" == all || "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena ]] || { echo 'Invalid compile probe mode' >&2; exit 2; }
 [[ ! -e "$work" ]] || { echo 'Private work destination must be fresh' >&2; exit 2; }
 mkdir -p -m 700 "$work"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -26,7 +26,7 @@ python3 "$here/apply_psq_estimate_and_gqr_v5.py" "$root" >> "$work/patch.log" 2>
 python3 "$here/apply_verified_elf_spans_v6.py" "$root" >> "$work/patch.log" 2>&1 || {
   echo 'Conservative ELF code-span patch failed' >&2; exit 1;
 }
-if [[ "$mode" == os-hardware ]]; then
+if [[ "$mode" == os-hardware || "$mode" == os-arena ]]; then
   python3 "$here/apply_function_root_v443.py" "$root" >> "$work/patch.log" 2>&1 || {
     echo 'V443 function root patch failed' >&2; exit 1;
   }
@@ -34,7 +34,7 @@ if [[ "$mode" == os-hardware ]]; then
     echo 'V439 performance runtime patch failed' >&2; exit 1;
   }
 fi
-if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware ]]; then
+if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena ]]; then
   # Reuse earlier independently validated register implementations only
   # in the extended lane. V419 remains the unmodified control.
   for patch in apply_hid_state_v18 apply_fpscr_v19; do
@@ -43,7 +43,7 @@ if [[ "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == o
     }
   done
 fi
-if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware ]]; then
+if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena ]]; then
   # Bounded guest L2CR handshake and explicit mtmsr resume PCs, previously
   # validated in isolated execution. Do not replace any original OS body.
   for patch in apply_l2cr_v20 apply_mtmsr_resume_v74; do
@@ -52,7 +52,7 @@ if [[ "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == o
     }
   done
 fi
-if [[ "$mode" == os-hardware ]]; then
+if [[ "$mode" == os-hardware || "$mode" == os-arena ]]; then
   for patch in verify_perf_combo_v29 apply_hid4_continuous_v30; do
     python3 "$here/$patch.py" "$root" >> "$work/patch.log" 2>&1 || {
       echo 'V439 combined hardware runtime patch failed' >&2; exit 1;
@@ -86,9 +86,11 @@ if grep -lF 'UNIMPLEMENTED Opcode' "$work/generated"/output_*.cpp > "$work/opcod
   echo 'Explicit unsupported opcode markers remain in full-image translation' >&2
   exit 1
 fi
-# Authenticate the new observer before the expensive all-shard syntax pass.
+# Authenticate the observer before the expensive all-shard syntax pass.
 if [[ "$mode" == os-hardware ]]; then
   python3 "$here/prepare_v439_full_os_hardware.py" "$dol" "$work/generated"
+elif [[ "$mode" == os-arena ]]; then
+  python3 "$here/prepare_v444_full_os_arena.py" "$dol" "$work/generated"
 fi
 if [[ "$mode" == sample ]]; then
   first="$(find "$work/generated" -maxdepth 1 -name 'output_*.cpp' | sort | head -1)"
@@ -120,7 +122,7 @@ elif [[ "$mode" == os-entry ]]; then
 elif [[ "$mode" == os-time ]]; then
   python3 "$here/prepare_v435_full_os_time.py" "$dol" "$work/generated"
 fi
-if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware ]]; then
+if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" == cache || "$mode" == data || "$mode" == os-entry || "$mode" == os-time || "$mode" == os-hardware || "$mode" == os-arena ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$mode" == startup ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
@@ -143,6 +145,9 @@ if [[ "$mode" == link || "$mode" == startup || "$mode" == hardware || "$mode" ==
   elif [[ "$mode" == os-hardware ]]; then
     bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-hardware
     echo 'INFO: bounded original OSInit hardware-value setup only; OSInit completion, main and gameplay NOT proven'
+  elif [[ "$mode" == os-arena ]]; then
+    bash "$here/run_private_full_start.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" os-arena
+    echo 'INFO: bounded original OSInit MEM1 arena stores; MEM2, OSInit completion, main and gameplay NOT proven'
   else
     echo 'INFO: native game launch, main, boot, frontend and gameplay NOT proven'
   fi
