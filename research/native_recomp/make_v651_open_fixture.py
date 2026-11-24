@@ -28,7 +28,7 @@ def submit_geometry(dol,elf):
     return blocks,edges
 def build(dol,elf):
     ipc=ipc_geometry(dol,elf);rows,handler,hword,ret=ipc
-    op=open_geometry(dol,elf);edges,extra,blocks=op
+    op=open_geometry(dol,elf);open_edges,extra,blocks=op
     sizes=parse_functions(elf)
     blocks=dict(blocks)
     for pc in {r[0] for r in rows}:
@@ -39,7 +39,7 @@ def build(dol,elf):
         blocks[pc]=body
     # Restore the original submission helper and its exact dependency graph.
     # Stop at the actual sleep entry before executing the first instruction.
-    submission,edges=submit_geometry(dol,elf)
+    submission,submit_edges=submit_geometry(dol,elf)
     for pc,ws in submission.items():
         if pc in blocks and blocks[pc]!=ws:raise ValueError('shared extent')
         blocks[pc]=ws
@@ -50,7 +50,7 @@ def build(dol,elf):
     resume=[restore+4*(i+1) for i,w in enumerate(blocks[restore]) if w>>26==31 and (w>>1)&1023==146]
     if len(resume)!=1:raise ValueError('restore resume')
     words={pc+4*i:w for pc,ws in blocks.items() for i,w in enumerate(ws)}
-    for pc,w in ((CALL,rows[0][2]),(RETURN,ret),(handler,hword),(0x8052b08c,edges[0][2])):
+    for pc,w in ((CALL,rows[0][2]),(RETURN,ret),(handler,hword),(0x8052b08c,open_edges[0][2])):
         if pc in words:raise ValueError('fixture overlap')
         words[pc]=w
     paths=paths_at(dol)
@@ -64,7 +64,7 @@ def build(dol,elf):
        'inline constexpr std::array<uint8_t,28> vector{'+','.join(map(str,struct.pack('>7I',*vector)))+'};\n'
        'inline constexpr std::array<uint32_t,2> paths{'+','.join(f(next(a for a,k in paths if k==kind)) for kind in (1,2))+'};\n'
        'struct Edge{uint32_t pc,lr,branch,entry;};\n'
-       'inline constexpr std::array<Edge,'+str(len(edges))+'> submit_edges{'+','.join('Edge{'+','.join(map(f,e))+'}' for e in edges)+'};\n'
+       'inline constexpr std::array<Edge,'+str(len(submit_edges))+'> submit_edges{'+','.join('Edge{'+','.join(map(f,e))+'}' for e in submit_edges)+'};\n'
        'inline constexpr std::array<Word,2> submit_sda{'+','.join('Word{'+f(0x8070e8e0+off)+','+f(struct.unpack('>I',data_at(dol,0x8070e8e0+off,4))[0])+'}' for off in (-16664,-16660))+'};\n}\n')
     return raw,csv,ipc_render(*ipc),open_render(op),h,struct.pack('>7I',*vector)
 def trace(dol,elf,root):

@@ -174,7 +174,7 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(nw::CPUContext&);
 int main()try{
     for(unsigned trial=0;trial<8;++trial){
-        last_trial=trial;last_stage=last_reason=0;
+        last_trial=trial;last_stage=last_reason=submit_stage=0;
         auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;
         cause=0;mask=0xf0;
         NativeIosTransport host(c.mmu.mem1,c.mmu.mem2,cause,mask);B binding(host);
