@@ -1,0 +1,52 @@
+name: Wii Original Cold IPC Client Geometry
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v624*'
+      - '.github/workflows/wii-v624-ipc-geometry.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check conservative pointer derivation and route
+        run: python3 -m unittest discover -s research/native_recomp -p test_v624_ipc_geometry.py -v
+  owner-ipc-geometry:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Derive private IPC call graph and compile expected witness header
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/make_v624_ipc_geometry.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --private-header "$RUNNER_TEMP/originals/expected.h"
+          printf '%s\n' '#include "expected.h"' 'int main(){return undercover::wii::v624::expected_client.edges.size()!=17;}' > "$RUNNER_TEMP/originals/check.cpp"
+          g++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp -fsyntax-only "$RUNNER_TEMP/originals/check.cpp"
+          echo 'V624_IPC_HEADER syntax=1 owner=1'
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals"

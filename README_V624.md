@@ -1,0 +1,3 @@
+# V624: authenticated IPC client route and handler identity
+
+Derive all 17 ordered call events from the SHA-pinned DOL and ELF. Require full byte identity and exact ELF extent for ten V69 IPC functions, exact direct call edges, native return words, and a conservatively materialized IRQ handler pointer from the original caller. The known unmask helper's three call edges are also individually authenticated. No private instructions or handler pointer are emitted into public logs; the generated expectation header exists only in runner scratch. Synthetic controls and original owner geometry/header compilation are queued. Full-image integration is not yet enabled.
