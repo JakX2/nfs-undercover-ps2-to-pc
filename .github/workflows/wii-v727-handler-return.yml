@@ -1,0 +1,24 @@
+name: Wii V727 Native SI Handler Return Integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v727*'
+      - '.github/workflows/wii-v727-handler-return.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile generated PPC indirect handler return
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw710"
+          git -C "$RUNNER_TEMP/nw710" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw710" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw710" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_handler_return_v727.sh "$RUNNER_TEMP/nw710"
