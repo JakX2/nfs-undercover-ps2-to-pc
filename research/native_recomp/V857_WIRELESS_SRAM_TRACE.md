@@ -1,0 +1,5 @@
+# V857: scoped live SRAM write trace
+
+V850 private full-image preflight passed (139073413943), including 21 suffix labels, seven restore labels, four tail labels and two handler resumes. V851/V853 original indirect-return fixture passed 16 changed/unchanged cases per mode and one ABI refusal per mode (139076063845). V856 wrapper preflight passed, execution queued.
+
+The full-image profile contains nonzero synthetic wireless IDs; the zero-ID setter is expected to take the changed lane. V857 adds a standalone read-only witness for the real controller and MX endpoint. It requires the pre-setter guest buffer to match the endpoint, exact two-byte change, idle select epoch, 12 actual four-byte completions with an existing lifetime token/count baseline, the exact 44-byte payload and deselection, and the final guest/endpoint identity. No resetting counters or modifying device/guest state. Tests drive the actual endpoint/scheduler, including prior ID traffic, not original PPC execution. The new witness is not yet installed into the full-image route.
