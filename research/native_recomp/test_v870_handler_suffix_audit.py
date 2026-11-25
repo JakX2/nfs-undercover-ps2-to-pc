@@ -37,6 +37,12 @@ class HandlerAudit(unittest.TestCase):
         self.assertTrue(self.check((*rows,j,STATUS,STORE,s))[1])
         for tail in ((j,STORE,s),(j,STORE,STATUS,s),(j,STATUS,STORE,STORE,s),(j,STATUS,s,STORE)):
             self.assertFalse(self.check((*rows,*tail))[1])
+    def test_index_branch(self):
+        rows=prefix(P,6);j,s=markers(6,7,1,20)
+        index=b'V911_HANDLER_INDEX_BRANCH original_load=1 compare=1 branch_taken=1 successor=1'
+        self.assertTrue(self.check((*rows,j,STATUS,STORE,index,s))[1])
+        for tail in ((j,STATUS,index,s),(j,STATUS,index,STORE,s),(j,STATUS,STORE,index,index,s),(j,STATUS,STORE,s,index)):
+            self.assertFalse(self.check((*rows,*tail))[1])
     def test_geometry(self):
         for slot,n,k,v,w in ((6,11,2,9,0),(11,7,1,9,0),(6,7,2,9,0),(6,7,1,129,0),(6,7,1,0,0),(6,7,1,2,2),(11,12,1,9,1)):
             self.assertFalse(self.check((*prefix(P,slot),*markers(slot,n,k,v,w)))[1])

@@ -21,6 +21,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v870_handler_suffix_audit.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_suffix_guard_v868.cpp -o "$RUNNER_TEMP/v868"
           "$RUNNER_TEMP/v868"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_index_branch_v911.cpp -o "$RUNNER_TEMP/v911"
+          "$RUNNER_TEMP/v911"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_callback_join_v865.cpp -o "$RUNNER_TEMP/v865"
           "$RUNNER_TEMP/v865"
           python3 -m unittest discover -s research/native_recomp -p test_v864_combined_callback.py -v

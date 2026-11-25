@@ -4,6 +4,7 @@
 #include "wii_callback_return_binding_v850.h"
 namespace undercover::wii::v868 {
 inline thread_local HandlerSuffixGuard guard;
+inline thread_local HandlerIndexBranchWitness index_branch(index_expected);
 inline thread_local unsigned lane=0,status_reg=32;
 inline thread_local bool status_write_armed=false;
 inline bool active(){return lane!=0u;}
@@ -19,6 +20,7 @@ template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsign
         if(lane!=6u&&lane!=11u)reject(1);
         if(!v726::witness.callback_returned(c,pc,v850::captured_tick,true,v850::held(c),lane)||
            !guard.start(c,lane==6u?std::span<const HandlerSuffixLabel>(after6):std::span<const HandlerSuffixLabel>(after11),pc))reject(1);
+        if(lane==6u&&!index_branch.start(c,pc))reject(3);
         std::cout<<"V868_HANDLER_SUFFIX_ENTRY ordinal="<<lane<<" callback_return=1 same_tick=1"<<std::endl;
     }else{
         if(!si_transfer_device.after_return_at(c.inst_count))reject(2);
@@ -38,7 +40,14 @@ template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsign
     const bool status=lane==6u&&pc==status_read_site;
     const bool status_write=lane==6u&&pc==status_write_site;
     if(!v850::held(c)||!guard.before(c,pc,w,ordinal,kind,status,status_write))reject(3);
+    if(lane==6u){
+        const unsigned old=index_branch.stage();
+        if(!index_branch.before(c,pc,w))reject(3);
+        if(old!=5u&&index_branch.stage()==5u)
+            std::cout<<"V911_HANDLER_INDEX_BRANCH original_load=1 compare=1 branch_taken="<<unsigned(index_branch.taken())<<" successor=1"<<std::endl;
+    }
     if(kind){
+        if(lane==6u&&index_branch.stage()!=5u)reject(3);
         if(!((lane==6u&&kind==1u&&(ordinal==7u||ordinal==8u||ordinal==12u))||
              (lane==11u&&((kind==2u&&ordinal==11u)||(kind==1u&&ordinal==12u))))||
            !v726::witness.stop_before_call(c,pc,w,true,ordinal,kind))reject(4);
