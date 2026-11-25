@@ -1,0 +1,22 @@
+name: Wii V750 Follow-On SI Transfer Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v750*'
+      - '.github/workflows/wii-v750-si-follow-on.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify real SI backend and follow-on transfer observer
+        run: |
+          set -euo pipefail
+          for src in test_wii_si_controller_v511 test_wii_si_type_scheduler_v514 test_si_completion_ack_v668 test_si_follow_on_v750; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
+            "$RUNNER_TEMP/$src"
+          done

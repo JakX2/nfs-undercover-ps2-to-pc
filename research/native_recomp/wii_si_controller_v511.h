@@ -59,6 +59,7 @@ public:
         throw std::out_of_range("SI register");
     }
     std::optional<Request> pending()const{return pending_;}
+    uint64_t issued_tokens()const noexcept{return sequence_;}
     // Exact-length response or explicit error; a no-response event never
     // overwrites the shared communication RAM with fabricated bytes.
     void complete(uint64_t token,std::span<const uint8_t> response,unsigned errors=0){
