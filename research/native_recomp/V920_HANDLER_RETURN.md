@@ -1,0 +1,3 @@
+# V920: original handler BLR and original dispatcher resume
+
+V919 remains independently opt-in. V920 authenticates the V879 four-word epilogue and exact original dispatcher resume. After the existing original-entry ABI proof, let the original BLR run. Require its same-tick poll, the actual outer dispatcher tick, and the exact following label, with SI and optional EXI witnesses advanced at each tick. No guest mutation, no new call admission. Stop before the first original dispatcher instruction. The full V919 run is still pending at commit time; V920 is not a verified continuous return until its owner execution succeeds.

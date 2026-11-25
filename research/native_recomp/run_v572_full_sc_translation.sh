@@ -246,6 +246,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_handler_suffix" == 1 ]]; then
         python3 "$here/prepare_v868_handler_suffix.py" "$dol" "$elf" "$work/generated"
         if [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]]; then python3 "$here/prepare_v919_handler_epilogue.py" "$dol" "$elf" "$work/generated";fi
+        if [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v920_handler_return.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
       fi
     fi
