@@ -1,0 +1,3 @@
+# V809: strict callback-prefix launch audit
+
+Adds a separate opt-in full-image launch mode and an allowlisted audit. A successful result requires the prior continuous alarm return, authenticated ordinal 6 or 11, completed SI device state, original prologue/save return with exactly eight stack writes and thirteen native prefix/save visits, and exit code zero. Any classification-only result, refusal, BLR boundary, duplicate, incorrect order, or full callback/boot claim is rejected. The original alarm-only and suffix modes remain unchanged. The V807 workflow is still preflight-only: the new launch mode is not scheduled until dynamic target and preflight are confirmed. Tests pending.
