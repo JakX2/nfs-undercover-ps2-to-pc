@@ -1,0 +1,3 @@
+# V938: focused second vector SPRG dependency
+
+Owner V935 run 45712672554 reached the second original vector's trampoline after 48 original loader visits and verified original RFI restoration. It refused the saved r3-r5 check at fixture line 181. V935 compiled the native low-memory vector but had omitted the original-free SPRG register-bank emitter patch; the full-image pipeline already installs SPRG through V5. Add the established SPRG patch to both focused pipelines, and report only register mismatch/stale/zero bitmasks if the second vector still refuses. Redacted compiler diagnostics for both focused runners. No changes to original game state or full-image behavior; focused regression pending.

@@ -178,7 +178,15 @@ void trace_call(uint32_t pc,CPUContext& c){
         need(vector_visits&&c.inst_count>=second_last&&c.inst_count-second_last<=1u&&
              !(c.msr&0x8000u)&&c.gpr[3]==4u&&c.gpr[4]==Context&&
              c.mmu.read32(Context+408u)==H&&c.mmu.read32(Context+412u)==Prior);
-        for(unsigned i=3;i<=5;++i)need(c.mmu.read32(Context+4u*i)==gp[i]);
+        unsigned missed=0,stale=0,zero=0;
+        for(unsigned i=3;i<=5;++i){
+            const uint32_t v=c.mmu.read32(Context+4u*i);
+            if(v!=gp[i])missed|=1u<<(i-3u);
+            if(v==(gp[i]^0x5a5a5a5au))stale|=1u<<(i-3u);
+            if(!v)zero|=1u<<(i-3u);
+        }
+        if(missed)std::cout<<"V938_SECOND_VECTOR_MISMATCH registers="<<missed<<" stale="<<stale<<" zero="<<zero<<std::endl;
+        need(!missed);
         second_last=c.inst_count;
     }else if(pc==DispatcherRoot){
         need(vector_visits&&trampoline_visits&&c.inst_count>=second_last&&c.inst_count-second_last<=1u&&
