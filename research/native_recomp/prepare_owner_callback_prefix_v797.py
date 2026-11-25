@@ -92,7 +92,7 @@ def header(p, out):
         f.write(s)
 
 
-def install(p, root):
+def install(p, root, extra_links=(), use_reachable=False):
     roots, C, S, site, _, _ = p
     paths = sorted(root.glob('*.cpp'))
     if not paths or any(x.is_symlink() or x.stat().st_size > 4 * 1024 * 1024 for x in paths):
@@ -100,10 +100,14 @@ def install(p, root):
     src = {x: x.read_text() for x in paths}
     main = root / ('main_output.cpp' if (root / 'main_output.cpp').is_file() else 'output.cpp')
     outer = src[main].split('extern "C" void run_game(', 1)[1]
-    expected = {a + 4 * i: (a, w) for a, ws in roots.items() for i, w in enumerate(ws)}
+    if use_reachable:
+        from prepare_owner_scheduler_v722 import reachable
+        expected = {pc: (a, ws[(pc-a)//4]) for a, ws in roots.items() for pc in reachable(a, ws)}
+    else:
+        expected = {a + 4 * i: (a, w) for a, ws in roots.items() for i, w in enumerate(ws)}
     if audit_native(src.values(), outer, expected) != len(expected):
         raise ValueError('native coverage')
-    for owner, pc, dst in ((H, H, C), (C, site, S)):
+    for owner, pc, dst in ((H, H, C), (C, site, S), *extra_links):
         owned = [exact_function(s, owner) for s in src.values() if owns_root(s, owner)]
         if len(owned) != 1:
             raise ValueError('native owner')
@@ -130,7 +134,10 @@ def install(p, root):
         raise ValueError('hook coverage')
     for path, s in changes.items():
         path.write_text(s)
-    print('V797_PREFIX_NATIVE_ROUTE original_prefix=1 original_save=1 direct_edges=2 fallback=0 execution=0')
+    if use_reachable:
+        print(f'V802_CALLBACK_NATIVE_ROUTE labels={len(expected)} direct_edges={2+len(extra_links)} fallback=0 execution=0')
+    else:
+        print('V797_PREFIX_NATIVE_ROUTE original_prefix=1 original_save=1 direct_edges=2 fallback=0 execution=0')
 
 
 def main():
