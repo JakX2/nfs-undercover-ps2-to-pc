@@ -1,0 +1,3 @@
+# V923: composed focused original handler epilogue through original RFI
+
+Combine previously verified original V879 handler restore/tail and V737/V762 dispatcher, scheduler and OSLoadContext in the same native image. A synthetic interrupted context and already-acknowledged device state are explicit fixture inputs; no claim of continuous startup. Require exact fifteen-GPR restoration, actual BLR/outer dispatcher tick, same saved context, original scheduler decrement/no-switch, original loader/RFI, then execution of a synthetic resumed instruction. Negative controls corrupt handler save, saved interrupt frame and scheduler-switch hint. Both split and nonsplit owner-private generated builds with sanitizer checks. Execution pending.
