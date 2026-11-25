@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture || "$4" == --prepare-si-combined || "$4" == --run-si-combined || "$4" == --prepare-si-captured || "$4" == --run-si-captured || "$4" == --prepare-si-epilogue || "$4" == --run-si-epilogue || "$4" == --prepare-si-transfer-prefix || "$4" == --run-si-transfer-prefix || "$4" == --prepare-si-transfer-return || "$4" == --run-si-transfer-return || "$4" == --prepare-si-transfer-suffix || "$4" == --run-si-transfer-suffix || "$4" == --prepare-si-alarm || "$4" == --run-si-alarm || "$4" == --prepare-si-alarm-suffix || "$4" == --run-si-alarm-suffix || "$4" == --prepare-si-callback-prefix || "$4" == --run-si-callback-prefix ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture || "$4" == --prepare-si-combined || "$4" == --run-si-combined || "$4" == --prepare-si-captured || "$4" == --run-si-captured || "$4" == --prepare-si-epilogue || "$4" == --run-si-epilogue || "$4" == --prepare-si-transfer-prefix || "$4" == --run-si-transfer-prefix || "$4" == --prepare-si-transfer-return || "$4" == --run-si-transfer-return || "$4" == --prepare-si-transfer-suffix || "$4" == --run-si-transfer-suffix || "$4" == --prepare-si-alarm || "$4" == --run-si-alarm || "$4" == --prepare-si-alarm-suffix || "$4" == --run-si-alarm-suffix || "$4" == --prepare-si-callback-prefix || "$4" == --run-si-callback-prefix || "$4" == --prepare-si-callback-time ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
 external_entry=0
@@ -25,6 +25,8 @@ si_transfer_suffix=0
 si_alarm=0
 si_alarm_suffix=0
 si_callback_prefix=0
+si_callback_time=0
+if [[ "$mode" == --prepare-si-callback-time ]]; then mode=--prepare-si-callback-prefix;si_callback_time=1;fi
 if [[ "$mode" == --run-si-callback-prefix ]]; then mode=--run-si-alarm-suffix;si_callback_prefix=1;fi
 if [[ "$mode" == --prepare-si-callback-prefix ]]; then mode=--prepare-si-alarm-suffix;si_callback_prefix=1;fi
 if [[ "$mode" == --prepare-si-alarm-suffix ]]; then mode=--prepare-si-alarm;si_alarm_suffix=1;fi
@@ -169,6 +171,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_alarm" == 1 ]]; then python3 "$here/prepare_v786_alarm_return.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_alarm_suffix" == 1 ]]; then python3 "$here/prepare_v789_alarm_suffix.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_callback_prefix" == 1 ]]; then python3 "$here/prepare_v807_callback_prefix.py" "$dol" "$elf" "$work/generated";fi
+      if [[ "$si_callback_time" == 1 ]]; then python3 "$here/prepare_v813_callback_time.py" "$dol" "$elf" "$work/generated";fi
     fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
@@ -183,6 +186,13 @@ CPP
     cat >> "$work/probe.cpp" <<'CPP'
 void instantiate_callback(nwii::runtime::CPUContext& cpu){
     undercover::wii::v807::before(cpu,cpu.pc,0u);
+}
+CPP
+  fi
+  if [[ "$si_callback_time" == 1 ]]; then
+    cat >> "$work/probe.cpp" <<'CPP'
+void instantiate_callback_time(nwii::runtime::CPUContext& cpu){
+    undercover::wii::v813::before(cpu,cpu.pc,0u);
 }
 CPP
   fi
