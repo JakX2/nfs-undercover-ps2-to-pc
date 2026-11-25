@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v802*'
+      - 'research/native_recomp/*v810*'
       - '.github/workflows/wii-v802-callback-time.yml'
 permissions:
   contents: read

@@ -1,6 +1,7 @@
 #include "runtime/cpu_context.h"
 #include "rfi_test_v708.h"
 #include "wii_postack_os_leaf_v703.h"
+#include "wii_callback_time_v810.h"
 #include "owner_callback_time.h"
 #include <array>
 #include <cstdlib>
@@ -23,9 +24,15 @@ static uint64_t tb_value=0;
 static std::array<uint32_t,32> time_gp{};
 static uint32_t time_cr=0;
 static std::array<PostAckOsLeaf,3> leaves{PostAckOsLeaf({leaf_sites[0],D,D+4u*uint32_t(disable_words.size()),leaf_branches[0],1}),PostAckOsLeaf({leaf_sites[1],U,U+4u*uint32_t(time_words.size()),leaf_branches[1],2}),PostAckOsLeaf({leaf_sites[2],R,R+4u*uint32_t(restore_words.size()),leaf_branches[2],3})};
+static CallbackTimeWitness reusable({C,C+688u,Resume,TimeCall,T,
+    std::span<const uint32_t>(prefix_words).subspan((Resume-C)/4u,(TimeResume-Resume)/4u+1u),
+    system_words,{{{leaf_sites[0],D,D+4u*uint32_t(disable_words.size()),leaf_branches[0],1},
+    {leaf_sites[1],U,U+4u*uint32_t(time_words.size()),leaf_branches[1],2},
+    {leaf_sites[2],R,R+4u*uint32_t(restore_words.size()),leaf_branches[2],3}}}});
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V802_CALLBACK_FAULT kind="<<kind<<" line="<<line
       <<" entries="<<entries<<" visits="<<visits<<" writes="<<writes<<std::endl;
+    std::cout<<"V810_TIME_WITNESS stage="<<reusable.stage()<<" reason="<<reusable.failure()<<" visits="<<reusable.visits()<<" cursor="<<reusable.cursor()<<std::endl;
     std::_Exit(126);
 }
 static void need(bool b,const std::source_location loc=std::source_location::current()){if(!b)fail(1,loc.line());}
@@ -167,12 +174,21 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(c.inst_count==++tick);
     need(c.mmu.read32(pc)==w);
     ++visits;need(visits<=160);
-    if(after_save){continuation(c,pc,w);return;}
+    if(after_save){
+        if(pc==TimeResume&&corrupt){
+            c.gpr[14]^=1u;
+            need(!reusable.before(c,pc,w,true)&&reusable.failure()==5);
+            std::cout<<"V802_CALLBACK_REFUSAL abi=1"<<std::endl;std::_Exit(126);
+        }
+        need(reusable.before(c,pc,w,true));
+        if(pc==TimeResume){need(reusable.stage()==5&&reusable.time_visits()==25&&reusable.cursor()==3&&reusable.timebase()==tb_value);std::cout<<"V810_OWNER_TIME_WITNESS verified=1 leaves=3 abi=1 timebase=1 callback_return=0"<<std::endl;}
+        continuation(c,pc,w);return;
+    }
     need(pc==next);
     state(c);
     if(pc==Resume){
         need(entries==3&&outer==1&&writes==8&&visits==(SaveCall-C)/4u+10u);
-        after_save=true;continuation(c,pc,w);return;
+        after_save=true;need(reusable.start(c,pc,w,true,true)&&reusable.before(c,pc,w,true));continuation(c,pc,w);return;
     }
     reference(pc,w);
 }
@@ -186,12 +202,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     // function entry. Subsequent direct calls do not re-enter the dispatcher.
     if(entries==0){need(outer==1&&c.inst_count==tick+1u);++tick;}
     else need(c.inst_count==tick);
+    if(entries>=3)need(reusable.entry(c,pc,true));
     if(entries==3)need(in_time&&c.lr==TimeResume);
     if(entries>=4)need(leaf_active&&cursor<3&&leaves[cursor].entry(pc,c));
     ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(leaf_active){need(cursor==1&&leaves[cursor].poll(c));++polls;return false;}
+    if(leaf_active){need(cursor==1&&leaves[cursor].poll(c)&&reusable.poll(c,true));++polls;return false;}
     need(!outer&&!visits&&c.pc==H&&c.inst_count==tick);++outer;return false;
 }
 bool handle_syscall(CPUContext&){fail(4);}

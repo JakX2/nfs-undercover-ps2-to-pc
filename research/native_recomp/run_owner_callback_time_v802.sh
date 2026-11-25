@@ -25,8 +25,10 @@ for mode in nonsplit split; do
   for trial in {0..7}; do
     timeout 20s "$work/probe" valid "$trial" > "$work/run.log" 2>&1 || {
       grep -Ex 'V802_CALLBACK_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-7] visits=[0-9]{1,3} writes=[0-9]{1,2}' "$work/run.log" || true
+      grep -Ex 'V810_TIME_WITNESS stage=[0-5] reason=[0-7] visits=[0-9]{1,3} cursor=[0-3]' "$work/run.log" || true
       echo "V802_NATIVE_EXECUTION failed=1";exit 1;
     }
+    grep -Fx 'V810_OWNER_TIME_WITNESS verified=1 leaves=3 abi=1 timebase=1 callback_return=0' "$work/run.log"
     grep -Fx 'V802_OWNER_CALLBACK_TIME original_prologue=1 original_time_return=1 leaves=3 timebase=1 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log"
   done
   rc=0
