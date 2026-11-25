@@ -29,13 +29,14 @@ class Tests(unittest.TestCase):
         out=patch_si(device)
         self.assertIn('arm_completion_ack',out)
         self.assertIn('si_completion_ack_trace.write',out)
+        self.assertIn('V677_SI_ACK_WRITE_INVALID',out)
         for fn,raw in ((patch_si,device),(patch_dispatch,s)):
             with self.assertRaises(ValueError):fn(raw+raw)
     def test_audit(self):
         with patch('audit_v672_si_ack_route.inspect_dispatch',return_value=('ok',True)):
             rows=EVENTS+[RESULT]
             self.assertTrue(inspect(b'\n'.join(rows),0)[1])
-            for x in (rows[:-1],rows+rows,rows[::-1],rows+[b'V673_SI_ACK_CALL ordinal=1 kind=1']):
+            for x in (rows[:-1],rows+rows,rows[::-1],rows+[b'V673_SI_ACK_CALL ordinal=1 kind=1'],rows+[b'V677_SI_ACK_WRITE_INVALID trace=5']):
                 self.assertFalse(inspect(b'\n'.join(x),0)[1])
             self.assertFalse(inspect(b'\n'.join(rows),126)[1])
 if __name__=='__main__':unittest.main()

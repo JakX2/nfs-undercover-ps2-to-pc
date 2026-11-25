@@ -265,7 +265,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         if scope in EXTERNAL_SCOPES:
             import re
             for line in raw.splitlines():
-                if re.fullmatch(rb'V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V672_SI_ACK_INVALID reason=[1-6] trace=[0-7]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]',line):
+                if re.fullmatch(rb'V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V672_SI_ACK_INVALID reason=[1-6] trace=[0-7]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]|V677_SI_ACK_WRITE_INVALID trace=[1-7]',line):
                     print(line.decode(),flush=True)
         print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)

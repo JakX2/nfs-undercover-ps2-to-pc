@@ -44,15 +44,10 @@ int main(int argc,char** argv){
         throw std::runtime_error("helper escaped call gate");
     }
     if(mode=="tamper")c.mmu.words[First]=Nop;
+    if(mode=="pre-gap")++c.inst_count;
     v672::before(c,First,Store,0,0);
     if(mode=="stale"){++c.inst_count;}
-    try{
-        need(SiBinding::write32(mode=="mirror"?0xcd806434u:0xcd006434u,0xe0010300u));
-    }catch(const std::runtime_error&){
-        if(mode!="stale")throw;
-        need(pi_intsr==(Other|SiController::PI_SI)&&si_completion_ack_trace.failure()==5);
-        std::cout<<"V675_STALE passed=1"<<std::endl;return 0;
-    }
+    need(SiBinding::write32(mode=="mirror"?0xcd806434u:0xcd006434u,mode=="unsupported"?0x80010300u:0xe0010300u));
     need(pi_intsr==Other&&pi_intmr==SiController::PI_SI&&ctl.read(SiController::Status)==0x08000000u);
     c.inst_count+=mode=="gap"?2:1;
     const uint32_t next=mode=="wrong-next"?First+8:First+4;

@@ -22,6 +22,15 @@ def patch_dispatch(s):
     return s
 def patch_si(s):
     s=patch_device(s)
+    # Inactive writes retain the existing exception behaviour. An armed
+    # write rejection has a bounded public diagnostic and must stop.
+    s=replace_exact(s,'#include "wii_si_completion_ack_v668.h"','#include "wii_si_completion_ack_v668.h"\n#include <cstdlib>\n#include <iostream>')
+    s=replace_exact(s,'si_completion_ack_trace.write(active_->controller_,*off,value);','''try{si_completion_ack_trace.write(active_->controller_,*off,value);}
+        catch(const std::exception&){
+            if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Idle)throw;
+            std::cout<<"V677_SI_ACK_WRITE_INVALID trace="<<si_completion_ack_trace.failure()<<std::endl;
+            std::_Exit(126);
+        }''')
     return replace_exact(s,BIND,BIND+'''
     static bool arm_completion_ack(const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
                                    const uint64_t& tick,uint32_t first,uint32_t end){

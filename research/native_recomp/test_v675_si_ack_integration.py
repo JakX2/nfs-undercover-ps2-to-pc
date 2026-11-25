@@ -32,7 +32,9 @@ class Tests(unittest.TestCase):
             expected={mode:(0,EVENTS+[RESULT]) for mode in ('native','mirror')}
             expected.update({
                 'idle':(0,[b'V675_IDLE passed=1']),
-                'stale':(0,EVENTS[:1]+[b'V675_STALE passed=1']),
+                'stale':(126,EVENTS[:1]+[b'V677_SI_ACK_WRITE_INVALID trace=5']),
+                'unsupported':(126,EVENTS[:1]+[b'V677_SI_ACK_WRITE_INVALID trace=6']),
+                'pre-gap':(126,EVENTS[:1]+[b'V672_SI_ACK_INVALID reason=3 trace=2']),
                 'masked':(126,[b'V672_SI_ACK_INVALID reason=1 trace=0']),
                 'tamper':(126,EVENTS[:1]+[b'V672_SI_ACK_INVALID reason=2 trace=0']),
                 'gap':(126,EVENTS[:1]+[b'V672_SI_ACK_INVALID reason=3 trace=3']),
@@ -46,5 +48,5 @@ class Tests(unittest.TestCase):
                     self.assertEqual(got.returncode,rc,got.stderr.decode(errors='replace'))
                     self.assertEqual(got.stdout.splitlines(),rows)
                     self.assertEqual(got.stderr,b'')
-            print('V675_SI_ACK_BINDING synthetic=1 cases=11 actual_mmio=1 original_execution=0')
+            print('V675_SI_ACK_BINDING synthetic=1 cases=13 actual_mmio=1 original_execution=0')
 if __name__=='__main__':unittest.main()

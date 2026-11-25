@@ -13,7 +13,7 @@ int main(){
     need(Trace::word_store(Store)&&Trace::word_store(0x94030004u)&&
          Trace::word_store((31u<<26)|(151u<<1))&&!Trace::word_store(Nop)&&
          !Trace::word_store(0x80030000u));
-    for(unsigned trial=0;trial<14;++trial){
+    for(unsigned trial=0;trial<15;++trial){
         std::atomic<uint32_t> cause{Other},mask{SI};
         SiController ctl(cause);SiTypeScheduler sched(ctl,{Port::absent(),Port::absent(),Port::absent(),Port::absent()},8);
         ctl.write(SiController::Control,0xc0010301u);sched.advance(1);sched.advance(9);
@@ -25,6 +25,7 @@ int main(){
         bool armed=w.arm(ctl,cause,mask,tick,First,First+32u);
         if(trial>=2&&trial<=4){need(!armed&&w.failure()==1);continue;}need(armed);
         ++tick;
+        if(trial==14){++tick;need(!w.before(First,Store)&&w.failure()==2);continue;}
         if(trial==5){need(!w.before(First+32u,Store)&&w.failure()==2);continue;}
         if(trial==6)cause.fetch_or(0x200u);
         if(trial==6){need(!w.before(First,Store)&&w.failure()==4);continue;}
@@ -58,5 +59,5 @@ int main(){
     std::atomic<uint32_t> cause{Other};SiController ctl(cause);Trace idle;
     idle.write(ctl,SiController::Buffer,0x12345678u);
     need(ctl.read(SiController::Buffer)==0x12345678u&&idle.phase()==Trace::Phase::Idle);
-    std::cout<<"V668_SI_ACK synthetic=1 valid=2 rejects=12 actual_device=1 original_execution=0\n";
+    std::cout<<"V668_SI_ACK synthetic=1 valid=2 rejects=13 actual_device=1 original_execution=0\n";
 }

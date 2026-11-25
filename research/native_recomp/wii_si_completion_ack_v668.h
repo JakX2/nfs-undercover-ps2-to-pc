@@ -45,6 +45,9 @@ public:
                ctl_->read(SiController::Status)!=ack_status_||ctl_->pending())return fail(3);
             phase_=Phase::Complete;return true;
         }
+        // In the handler-only lane every native instruction is instrumented.
+        // A gap before acknowledgement is just as invalid as a gap after it.
+        if(*tick_-last_tick_!=1u)return fail(2);
         if(!source_held())return fail(4);
         pc_=pc;last_tick_=*tick_;store_=word_store(word);return true;
     }
