@@ -1,0 +1,3 @@
+# V735: focused original GPR restore suffix
+
+V728 owner census identified a potential original handler dependency at call ordinal 12: an interior alias containing exactly 15 consecutive nonvolatile GPR loads followed by BLR. V735 extracts only that private DOL/ELF-authenticated suffix, requires verified symbol/containing-function evidence and translates it alongside a separately authored direct caller. Eight varying synthetic register frames in each compilation mode check every restored register, untouched integer state, stack memory and guard words; one corrupted saved value must be rejected in each mode. No original handler path is assumed from static geometry. No original code or private addresses are published. Owner tests pending.
