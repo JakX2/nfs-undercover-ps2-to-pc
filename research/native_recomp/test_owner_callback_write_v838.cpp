@@ -297,9 +297,12 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){if(joined::active){joined::HW_Reg_Wri
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==3||argc==4);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="rollover"||mode=="frontier-corrupt"||mode=="wireless-changed"||mode=="wireless-corrupt"||mode=="changed-corrupt");
+    need(argc==3||argc==4);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="rollover"||mode=="frontier-corrupt"||mode=="wireless-changed"||mode=="wireless-corrupt"||mode=="changed-corrupt"||mode=="return-corrupt");
+#ifndef UNDERCOVER_TEST_CALLBACK_RETURN
+    need(mode!="return-corrupt");
+#endif
     rollover=mode=="rollover";need(argc==(rollover?4:3));
-    frontier_corrupt=mode=="frontier-corrupt";changed_seed=mode=="wireless-changed"||mode=="changed-corrupt";wireless_corrupt=mode=="wireless-corrupt"||mode=="changed-corrupt";corrupt=mode!="valid"&&!rollover&&!frontier_corrupt&&!changed_seed&&!wireless_corrupt;corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
+    frontier_corrupt=mode=="frontier-corrupt";changed_seed=mode=="wireless-changed"||mode=="changed-corrupt";wireless_corrupt=mode=="wireless-corrupt"||mode=="changed-corrupt";corrupt=mode!="valid"&&mode!="return-corrupt"&&!rollover&&!frontier_corrupt&&!changed_seed&&!wireless_corrupt;corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
     unsigned trial=unsigned(std::stoul(argv[2]));need(trial<8);
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
@@ -327,8 +330,16 @@ int main(int argc,char** argv)try{
     for(unsigned i=0;i<32;++i)c.gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
     c.gpr[1]=Stack;c.gpr[2]=0x80025000u;c.gpr[13]=0x8070e8e0u;c.gpr[3]=trial%4;c.gpr[4]=trial&1u;c.gpr[5]=0x80030000u;
     gp=c.gpr;
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    joined::callback_original_gp=c.gpr;
+    joined::callback_return_corrupt=mode=="return-corrupt";
+#endif
     for(unsigned i=0;i<8;++i){c.cr[i].lt=bool((i+trial)&1);c.cr[i].gt=bool((i+trial)&2);c.cr[i].eq=bool((i+trial)&4);c.cr[i].so=bool((i+trial)&8);}
-    cr=pack(c);ctr=c.ctr=0x12345678u+trial;xer=c.xer=0x80000000u|trial;
+    cr=pack(c);
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    joined::callback_original_cr=cr;
+#endif
+    ctr=c.ctr=0x12345678u+trial;xer=c.xer=0x80000000u|trial;
     c.pc=H;lr=c.lr=0x80007000u;c.msr=MSR;c.srr0=0x80030000u;c.srr1=0x8032u;c.inst_count=tick;
     c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;
     run_game(c);fail(8);

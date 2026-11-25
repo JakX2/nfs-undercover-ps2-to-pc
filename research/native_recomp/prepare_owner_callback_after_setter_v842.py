@@ -13,7 +13,7 @@ from make_private_elf_symbol_map import parse_functions
 from prepare_owner_scheduler_v722 import reachable
 BLR=0x4e800020
 
-def plan(dol,elf):
+def plan(dol,elf,full=False):
     q,merged=joined_plan(dol,elf)
     base,restore,aliases,revision,immex,unlock,shared=merged
     roots,A,B,W,L,guards=base
@@ -55,13 +55,30 @@ def plan(dol,elf):
         i=(pc-C)//4
         if old[i] not in (BLR,original[i]):raise ValueError('postsetter identity')
         old[i]=original[i]
+    if full:
+        if continuations(C,original)[13][1:]!=(4,0,0,(),(0,1,0,0)):
+            raise ValueError('callback return census')
+        ret=sites[12][0]+4
+        tail=original[(ret-C)//4:(ret-C)//4+4]
+        if len(tail)!=4 or tail[-1]!=BLR or ret+16>C+688:
+            raise ValueError('callback return extent')
+        if sorted(w>>26 for w in tail[:3])!=[14,31,32]:
+            raise ValueError('callback return shape')
+        for w in tail[:3]:
+            op=w>>26;rd=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31
+            if (op==32 and (ra!=1 or rd!=0)) or (op==14 and (rd!=1 or ra!=1 or not 0<(w&0xffff)<0x8000)) or (op==31 and (((w>>1)&1023)!=467 or (ra|(rb<<5))!=8 or rd!=0 or w&1)):
+                raise ValueError('callback return shape')
+        old.extend([BLR]*max(0,(ret+16-C)//4-len(old)))
+        for i,w in enumerate(tail,(ret-C)//4):
+            if old[i] not in (BLR,w):raise ValueError('callback return identity')
+            old[i]=w
     roots[C]=old
     if not seen.issubset(reachable(C,old)):raise ValueError('postsetter coverage')
     shared=validate_overlaps(roots,aliases)
     merged=(base,restore,aliases,revision,immex,unlock,shared)
     return (q,merged),C,resume,sorted(seen),stops
 
-def header(p,out):
+def header(p,out,full=False):
     joined,C,resume,seen,stops=p
     joined_header(joined,out)
     roots=joined[1][0][0]
@@ -72,20 +89,28 @@ def header(p,out):
         f.write('inline constexpr std::array<std::array<uint32_t,3>,2> postsetter_edges{{'+
             ','.join(f'{{0x{pc:08x}u,0x{(dst or 0):08x}u,{i}u}}' for pc,(i,k,dst) in sorted(stops.items()))+'}};\n')
 
+        if full:
+            ret=next(pc+4 for pc,(i,k,dst) in stops.items() if i==13)
+            r=next(dst for i,k,dst in stops.values() if i==13)
+            fmt=lambda ws:','.join(f'0x{w:08x}u' for w in ws)
+            f.write(f'inline constexpr uint32_t CallbackRestore=0x{r:08x}u,CallbackRestoreCall=0x{ret-4:08x}u;\n')
+            f.write(f'inline constexpr std::array<uint32_t,7> callback_restore_words{{'+fmt(roots[r])+'};\n')
+            f.write('inline constexpr std::array<uint32_t,4> callback_return_words{'+fmt(roots[C][(ret-C)//4:(ret-C)//4+4])+'};\n')
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('output',type=Path)
-    m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');a=p.parse_args()
+    m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');p.add_argument('--callback-return',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        q=plan(a.dol.read_bytes(),a.elf.read_bytes());joined,C,resume,seen,stops=q
+        q=plan(a.dol.read_bytes(),a.elf.read_bytes(),a.callback_return);joined,C,resume,seen,stops=q
         if a.install:
             install(joined[1],a.output,[(C,pc) for pc,(_,k,_) in stops.items() if k==2])
             print('V842_POST_SETTER_NATIVE_ROUTE verified=1 labels=21 indirect=1 restore=1 execution=0')
         elif a.patch_analyzer:patch_analyzer(joined[1],a.output)
         else:
-            header(q,a.output);print('V842_POST_SETTER_GEOMETRY verified=1 labels=21 backward=1 store=1 indirect=1 restore=1')
+            header(q,a.output,a.callback_return);print('V842_POST_SETTER_GEOMETRY verified=1 labels=21 backward=1 store=1 indirect=1 restore=1')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
+        safe=('callback return census','callback return extent','callback return shape','callback return identity','postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
         print('V842_POST_SETTER_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

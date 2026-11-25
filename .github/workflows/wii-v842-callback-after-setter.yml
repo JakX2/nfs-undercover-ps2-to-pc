@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v842*'
+      - 'research/native_recomp/*v846*'
+      - 'research/native_recomp/test_owner_callback_write_v838.cpp'
       - 'research/native_recomp/wii_callback_suffix_v841.h'
       - 'research/native_recomp/test_callback_suffix_v841.cpp'
       - 'research/native_recomp/callback_write_fixture_v838.h'
@@ -48,7 +50,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Execute original callback through next authenticated call after setter
+      - name: Execute original callback through compiler restore and caller return
         run: |
           set -euo pipefail
           umask 077
@@ -56,7 +58,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw842" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw842" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw842" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_owner_callback_after_setter_v842.sh "$RUNNER_TEMP/nw842" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          UNDERCOVER_TEST_CALLBACK_RETURN=1 bash research/native_recomp/run_owner_callback_after_setter_v842.sh "$RUNNER_TEMP/nw842" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw842"

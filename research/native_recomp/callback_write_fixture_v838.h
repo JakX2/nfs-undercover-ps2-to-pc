@@ -4,6 +4,9 @@
 #include "wii_wireless_wrapper_v844.h"
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
 #include "wii_callback_suffix_v841.h"
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+#include "wii_callback_return_v846.h"
+#endif
 #endif
 namespace joined {
 using nwii::runtime::CPUContext;
@@ -48,6 +51,12 @@ static CallbackSuffixWitness suffix({C,C+688u,PostSetterResume,suffix_words,{{
     {postsetter_edges[0][0],postsetter_edges[0][1],postsetter_edges[0][2]},
     {postsetter_edges[1][0],postsetter_edges[1][1],postsetter_edges[1][2]}}}});
 #endif
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+static CallbackReturnWitness callback_return({CallbackRestoreCall,CallbackRestore,H+4u,callback_restore_words,callback_return_words,caller_words[1]});
+static std::array<uint32_t,32> callback_original_gp{};
+static uint32_t callback_original_cr=0;
+static bool callback_return_corrupt=false;
+#endif
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V816_WIRELESS_FAULT kind="<<kind<<" line="<<line<<" lane="<<lane<<" depth="<<depth
         <<" visits="<<visits<<" entries="<<entries<<" unlocks="<<unlocks<<" disables="<<disables<<" restores="<<restores<<std::endl;
@@ -58,6 +67,9 @@ static CallbackSuffixWitness suffix({C,C+688u,PostSetterResume,suffix_words,{{
     std::cout<<"V837_RETURN_DIAG exi_unlock="<<exi_unlocks<<" exi_return="<<exi_unlock_returns<<" sram_return="<<sram_returns<<std::endl;
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
     std::cout<<"V842_SUFFIX_DIAG stage="<<suffix.stage()<<" reason="<<suffix.failure()<<" visits="<<suffix.visits()<<" polls="<<suffix.polls()<<std::endl;
+#endif
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    std::cout<<"V846_RETURN_DIAG stage="<<callback_return.stage()<<" reason="<<callback_return.failure()<<" visits="<<callback_return.visits()<<std::endl;
 #endif
     std::_Exit(126);
 }
@@ -136,7 +148,12 @@ static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
     if(suffix.stage()==2u){
         std::cout<<"V842_OWNER_CALLBACK_SUFFIX ordinal="<<suffix.ordinal()<<" target_class="<<suffix.target_class()
             <<" visits="<<suffix.visits()<<" writes="<<suffix.writes()<<" polls="<<suffix.polls()
-            <<" setter_return=1 changed="<<unsigned(lane==2u)<<" target_executed=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+            <<" setter_return=1 changed="<<unsigned(lane==2u)<<" target_executed=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+        need(suffix.ordinal()==13u&&callback_return.start(c,pc,w,callback_original_gp,callback_original_cr,device_held()));
+#else
+        std::_Exit(0);
+#endif
     }
 }
 static void suffix_start(CPUContext& c,uint32_t pc,uint32_t w){
@@ -148,6 +165,22 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(c.inst_count==++tick&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&c.msr==MSR&&c.srr0==0x80030000u&&c.srr1==0x8032u);
     need(!entry_due&&c.mmu.read32(pc)==w&&++visits<=12000u);backward=false;advance();
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    if(callback_return.stage()>=2u){
+        if(callback_return_corrupt&&pc==H+4u){
+            c.gpr[26]^=1u;
+            need(!callback_return.before(c,pc,w,device_held())&&callback_return.failure()==3u);
+            std::cout<<"V846_RETURN_REFUSAL abi=1"<<std::endl;std::_Exit(126);
+        }
+        need(callback_return.before(c,pc,w,device_held()));
+        if(callback_return.stage()==5u){
+            payload(c,lane==2u);
+            std::cout<<"V846_OWNER_CALLBACK_RETURN original_restore=1 callback_return=1 abi=1 visits="<<callback_return.visits()
+                <<" changed="<<unsigned(lane==2u)<<" fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+        }
+        return;
+    }
+#endif
     if(suffix.stage()==1u){suffix_step(c,pc,w);return;}
 #endif
     need(pc==next);
@@ -223,6 +256,10 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(op!=17u&&!(op==19u&&(xo==16u||xo==50u||xo==528u))&&(!(op==31u&&xo==146u)||r.address==D||r.address==R));
 }
 void trace_call(uint32_t pc,CPUContext& c){
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    if(callback_return.stage()==1u){need(callback_return.entry(c,pc,device_held()));return;}
+    need(!callback_return.stage());
+#endif
     need(c.pc==pc);
     need(active&&entry_due==pc&&c.inst_count==tick&&depth>=2&&c.lr==frames[depth-1].ret);
     entry_due=0;
@@ -280,6 +317,9 @@ bool process_pending_callbacks(CPUContext& c){
     need(active&&entries);
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
     if(suffix.stage()==1u){need(suffix.poll(c,device_held()));return false;}
+#ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+    need(!callback_return.stage());
+#endif
 #endif
     need(backward&&c.inst_count==tick&&++polls<=4096u);backward=false;return false;
 }
