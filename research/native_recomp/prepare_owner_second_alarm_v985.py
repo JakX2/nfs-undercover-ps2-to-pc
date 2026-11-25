@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Extend the authenticated second-handler fixture through original SITransfer."""
+import argparse,re,struct
+from pathlib import Path
+from prepare_v419_full_start import MAX_DOL,replace_exact
+from prepare_v667_si_dispatch import HANDLER,DISABLE,RESTORE,TIME,exact
+from prepare_v668_si_ack import geometry
+from prepare_owner_second_time_v966 import plan as time_plan,header as time_header
+from prepare_owner_second_ack_v955 import bounded
+from prepare_owner_transfer_v765 import plan as transfer_plan
+from prepare_owner_second_dispatch_v946 import reachable
+from prepare_owner_scheduler_v722 import ROOT,READ,rewrite
+from audit_handler_third_v740 import edge
+from prepare_v786_alarm_return import render as alarm_plan
+from prepare_v672_si_ack_route import call_census
+from audit_handler_suffix_v728 import suffix,target as branch_target
+from audit_si_deep_v695 import call_kind
+from make_private_elf_symbol_map import parse_functions
+from prepare_v625_ipc_client import audit_native
+from prepare_v680_si_helper import exact_function,verify_direct
+from prepare_v709_os_leaves import owns_root
+
+def plan(dol,elf):
+    q,site,msr,frontier=time_plan(dol,elf)
+    roots,edges,indirect,iw,hw,dw,guard,extra=q
+    tr,C,D,Q,S,R,links=transfer_plan(dol,elf)
+    n,*_=geometry(dol,elf);call,target,w=edge(HANDLER,exact(dol,elf,HANDLER,n),4)
+    if target!=C or (D,Q)!=(DISABLE,RESTORE) or len(links)!=5 or len(tr[R])!=7:raise ValueError('transfer geometry')
+    old_save=extra[0][1]
+    for a in (C,S,R):
+        if a in roots:
+            if list(roots[a])!=list(tr[a]) or a!=old_save:raise ValueError('transfer overlap')
+        else:roots[a]=list(tr[a])
+    new=(*extra,(call,C,4*len(tr[C]),w,tr[C]),*((p,t,4*len(tr[t]),tr[C][(p-C)//4],tr[t]) for p,t in links))
+    allow={(p,t) for p,t,_,_,_ in new}
+    guard.difference_update(range(HANDLER,HANDLER+4*n,4))
+    roots[HANDLER],g=bounded(HANDLER,exact(dol,elf,HANDLER,n),allow);guard.update(g)
+    roots[C],g=bounded(C,tr[C],allow);guard.update(g)
+    overlaps=0
+    for a,ws in roots.items():
+        for b,other in roots.items():
+            if a>=b or b>=a+4*len(ws):continue
+            if {a,b}!={old_save,S} or a+4*len(ws)!=b+4*len(other) or list(ws[(b-a)//4:])!=list(other):raise ValueError('transfer overlap')
+            overlaps+=1
+    if len(allow)!=13 or not 11<=len(roots)<=12:raise ValueError('transfer geometry')
+    # Classify every actual original guard in the handler and its selected
+    # helpers. The generated private table never leaves the owner job.
+    guard_rows=[]
+    for lane,root in enumerate((HANDLER,*[dst for _,dst,_,_,_ in extra[:3]],C),1):
+        original=exact(dol,elf,root,len(roots[root]));census=call_census(root,original)
+        for pc in sorted(guard):
+            if not root<=pc<root+4*len(original):continue
+            w=original[(pc-root)//4];op=w>>26;xo=(w>>1)&1023
+            ordinal,kind=census.get(pc,(0,0))
+            category=kind if kind else 3 if op in (16,18) else 4 if op==19 and xo in (16,528) else 5 if op==31 and xo==146 else 6
+            guard_rows.append((pc,lane,ordinal,category))
+    if not guard_rows or len(guard_rows)>64:raise ValueError('guard census')
+    original=exact(dol,elf,HANDLER,n)
+    count,backs,stores,stops=suffix(HANDLER,original,call+4)
+    print(f'V982_SUFFIX_GEOMETRY labels={count} backward={backs} stores={stores} boundaries={len(stops)} other={sum(k not in (1,3,5) for _,k,_,_ in stops)} execution=0')
+    if not 1<=count<=256 or not stops:raise ValueError('transfer suffix geometry')
+    stops_by_pc={pc:(ordinal,1 if kind==1 else 2 if kind==5 else 0) for pc,kind,ordinal,_ in stops}
+    rows={};todo=[call+4]
+    while todo:
+        pc=todo.pop()
+        if pc in rows:continue
+        if not HANDLER<=pc<HANDLER+4*n:raise ValueError('transfer suffix extent')
+        w=original[(pc-HANDLER)//4];ordinal,kind=stops_by_pc.get(pc,(0,0))
+        translated=roots[HANDLER][(pc-HANDLER)//4]
+        rows[pc]=(translated,ordinal,kind)
+        if pc in stops_by_pc:continue
+        if translated!=w:raise ValueError('transfer suffix guard')
+        if w>>26 in (16,18):
+            todo.append(branch_target(pc,w))
+            if w>>26==18:continue
+        todo.append(pc+4)
+    if not 1<=len(rows)<=count:raise ValueError('transfer suffix extent')
+    other_stops=tuple(pc for pc,k,_,_ in stops if k not in (1,3,5) and pc in rows)
+    # Classify the success-only completion helper's second direct call.
+    completion=extra[1][1];original_completion=exact(dol,elf,completion,len(roots[completion]))
+    direct=[(completion+4*i,branch_target(completion+4*i,w)) for i,w in enumerate(original_completion) if call_kind(w)==1]
+    if len(direct)!=2:raise ValueError('completion second call')
+    dep=direct[1][1];size=parse_functions(elf).get(dep,0)
+    code=exact(dol,elf,dep,size//4) if 4<=size<=4096 and not size&3 else ()
+    print(f'V980_COMPLETION_DEPENDENCY exact_root={int(bool(code))} words={len(code)} calls={sum(bool(call_kind(w)) for w in code)} returns={code.count(0x4e800020)} execution=0')
+    print(f'V985_COMPLETION_SHARED_TIME same_root={int(dep==extra[2][1])} execution=0')
+    alarm,A,AD,AR,AT,AU,AK,alarm_site,alarm_edges,alarm_leaves,alarm_header=alarm_plan(dol,elf)
+    if (AD,AR,AT,AU)!=(DISABLE,RESTORE,extra[2][1],TIME) or A in roots or AK in roots:raise ValueError('alarm geometry')
+    for a in (AD,AR,AT,AU):
+        if list(roots[a])!=list(alarm[a]):raise ValueError('alarm shared words')
+    if alarm_site not in guard or alarm_site not in rows or rows[alarm_site][1:]!=(5,1):raise ValueError('alarm site')
+    # Restore only the original fifth call and add the authenticated
+    # cancellation/timer bodies. Other refusal guards remain untouched.
+    roots[HANDLER][(alarm_site-HANDLER)//4]=original[(alarm_site-HANDLER)//4]
+    guard.remove(alarm_site)
+    rows[alarm_site]=(original[(alarm_site-HANDLER)//4],5,1)
+    for a in (A,AK):roots[a]=list(alarm[a])
+    new=(*new,(alarm_site,A,4*len(roots[A]),original[(alarm_site-HANDLER)//4],roots[A]),
+         *((pc,dst,4*len(roots[dst]),roots[A][(pc-A)//4],roots[dst]) for pc,dst in alarm_edges))
+    print(f'V985_ALARM_GEOMETRY roots={len(roots)} direct_edges={len(edges)+len(new)} new_roots=2 execution=0')
+    return (roots,edges,indirect,iw,hw,dw,guard,new),site,msr,frontier,call,C,S,R,overlaps,guard_rows,rows,other_stops,A,AK,alarm_header
+
+def header(p,out):
+    q,site,msr,frontier,call,C,S,R,overlaps,guard_rows,rows,other_stops,A,AK,alarm_header=p
+    roots,edges,indirect,iw,hw,dw,guard,extra=q
+    # Keep the proven nine-root header layout, then replace its edge census.
+    base=(*q[:7],extra[:7]);time_header(base,out,site,msr,frontier)
+    s=out.read_text()
+    old=next(l for l in s.splitlines() if ' AckEdges' in l)
+    fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
+    s=replace_exact(s,old,'inline constexpr std::array<std::array<uint32_t,2>,13> AckEdges{{'+','.join('std::array<uint32_t,2>{'+fmt((a,b))+'}' for a,b,_,_,_ in extra[:13])+'}};')
+    s+=f'inline constexpr uint32_t TransferCall=0x{call:08x}u,Transfer=0x{C:08x}u,TransferSave=0x{S:08x}u,TransferRestore=0x{R:08x}u;\n'
+    for name,a in (('transfer_words',C),('transfer_save_words',S),('transfer_restore_words',R)):
+        ws=roots[a];s+=f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+fmt(ws)+'};\n'
+    s+=f'inline constexpr unsigned TransferRootCount={len(roots)};\n'
+    s+=f'inline constexpr std::array<std::array<uint32_t,4>,{len(guard_rows)}> GuardCensus{{{{'+','.join('std::array<uint32_t,4>{'+fmt(row)+'}' for row in guard_rows)+'}};\n'
+    s+='#include "wii_handler_suffix_guard_v868.h"\n'
+    s+=f'inline constexpr std::array<undercover::wii::HandlerSuffixLabel,{len(rows)}> TransferSuffix{{{{'+','.join('undercover::wii::HandlerSuffixLabel{'+fmt((pc,w))+f',{o}u,{k}u'+'}' for pc,(w,o,k) in sorted(rows.items()))+'}};\n'
+    s+=f'inline constexpr std::array<uint32_t,{len(other_stops)}> TransferOtherStops{{'+fmt(other_stops)+'};\n'
+    s+=f'inline constexpr uint32_t Alarm=0x{A:08x}u,AlarmTimer=0x{AK:08x}u;\n'
+    for name,a in (('alarm_words',A),('alarm_timer_words',AK)):
+        ws=roots[a];s+=f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+fmt(ws)+'};\n'
+    s+='\n'+alarm_header.replace('#pragma once\n','',1)
+    out.write_text(s)
+
+def patch_analyzer(p,root):
+    spans=sorted((a,a+4*len(ws)) for a,ws in p[0][0].items())
+    a=ROOT+'\n    const auto fixture_span=[&](uint32_t pc)->bool {\n'+''.join(f'      if(func_start==0x{x:08x}u)return pc>=0x{x:08x}u&&pc<0x{y:08x}u;\n' for x,y in spans)+'      return false;\n    };\n    if(!fixture_span(func_start))continue;'
+    b='        if(!fixture_span(current_pc))break;\n'+READ
+    f=root/'nWiiAnalyzer/src/analyzer.cpp'
+    if f.is_symlink():raise ValueError('ownership')
+    f.write_text(rewrite(f.read_text(),((ROOT,a),(READ,b))))
+
+def install(p,root):
+    q,*_=p;roots,edges,indirect,_,_,_,guard,extra=q
+    paths=sorted(root.glob('*.cpp'));src={p:p.read_text() for p in paths}
+    main=root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')
+    outer=src[main].split('extern "C" void run_game(',1)[1]
+    total=0;changes={}
+    for a,ws in roots.items():
+        owners=[p for p,s in src.items() if owns_root(s,a)]
+        if len(owners)!=1:raise ValueError('native owner')
+        path=owners[0];body=exact_function(src[path],a);out=body
+        expected={pc:(a,ws[(pc-a)//4]) for pc in reachable(a,ws,guard,indirect)}
+        if audit_native([body],outer,expected)!=len(expected):raise ValueError('native coverage')
+        for site,dst in [(lr-4,t) for t,lr,_,_ in edges]+[(s,t) for s,t,_,_,_ in extra]:
+            if a<=site<a+4*len(ws):verify_direct(body,site,dst)
+        for pc,(_,w) in expected.items():
+            pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
+            if len(pat.findall(out))!=1:raise ValueError('hook identity')
+            out=pat.sub(lambda m:m[0]+f'    rfi_test::before_owned(ctx,0x{a:08x}u,0x{pc:08x}u,0x{w:08x}u);\n',out,count=1)
+        s=changes.get(path,src[path]);s=replace_exact(s,body,out)
+        changes[path]=s;total+=len(expected)
+    inc='#include "runtime/cpu_context.h"'
+    for path,s in changes.items():
+        s=replace_exact(s,inc,inc+'\nnamespace rfi_test {void before_owned(nwii::runtime::CPUContext&,uint32_t,uint32_t,uint32_t);}')
+        path.write_text(s)
+    print(f'V971_TRANSFER_NATIVE labels={total} roots={len(roots)} direct_edges={len(edges)+len(extra)} shared_suffixes={p[8]} execution=0')
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('output',type=Path)
+    m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');a=p.parse_args()
+    try:
+        if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
+        q=plan(a.dol.read_bytes(),a.elf.read_bytes())
+        if a.install:install(q,a.output)
+        elif a.patch_analyzer:patch_analyzer(q,a.output)
+        else:header(q,a.output);print(f'V971_TRANSFER_GEOMETRY roots={len(q[0][0])} edges=25 shared_suffixes={q[8]} execution=0')
+    except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
+        allowed=('transfer geometry','transfer overlap','guard census','transfer suffix geometry','transfer suffix extent','transfer suffix guard','completion second call','alarm geometry','alarm shared words','alarm site','native owner','native coverage','hook identity','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        print('V971_TRANSFER_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
+    return 0
+if __name__=='__main__':raise SystemExit(main())
