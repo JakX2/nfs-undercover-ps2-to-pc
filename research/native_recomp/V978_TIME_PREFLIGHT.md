@@ -1,0 +1,3 @@
+# V978: private full-image time-helper preflight
+
+The earlier V975 installer source checks passed. V977 adds compiled composed-binding controls. Fix a preflight-only seam: unchanged already-instrumented function bodies must not be passed to replace_exact, which rejects an identical replacement. V978 authenticates all original native time-route labels and call edges against private DOL/ELF and syntax-compiles the complete-image observer before linking, gated on compiled V977 tests. It is distinct from V974's ongoing complete-image helper-return execution. No claim of continuous time-helper execution until an actual run passes.

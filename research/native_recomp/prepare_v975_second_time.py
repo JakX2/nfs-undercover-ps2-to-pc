@@ -75,7 +75,8 @@ def install(dol,elf,root):
             if not legacy:out=shared_label(out,pc,w,a,pc in guard)
             elif pc in old_pcs:out=patch_existing(out,pc,w,pc in old_guard,pc in guard)
             else:out=patch_label(out,pc,w,legacy,pc in guard)
-        s=replace_exact(s,body,out);inc='#include "undercover/wii_second_ack_live_v958.h"'
+        if out!=body:s=replace_exact(s,body,out)
+        inc='#include "undercover/wii_second_ack_live_v958.h"'
         if inc not in s:s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
         changes[p]=s;count+=len(expected)
     private=root/'nWiiRuntime/include/undercover/v958_private_second_ack.h'
