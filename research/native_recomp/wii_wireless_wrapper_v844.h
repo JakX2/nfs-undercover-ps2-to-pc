@@ -34,6 +34,7 @@ public:
     const std::array<uint8_t,64>& initial_payload()const{return initial_;}
     const std::array<uint8_t,64>& desired_payload()const{return desired_;}
     unsigned channel()const{return channel_;}
+    uint32_t returning_root()const{return returned_&&depth_?frames_[depth_-1].root:0u;}
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,bool frontier,bool held){
         if(stage_||error_||!frontier||!held||!safe(c)||c.gpr[3]>3u||c.gpr[1]<0x80000400u||
            c.gpr[1]>0x817fff00u||(c.gpr[1]&3u)||c.inst_count>UINT64_MAX-320u||
