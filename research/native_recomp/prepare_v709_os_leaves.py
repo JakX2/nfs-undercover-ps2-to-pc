@@ -21,7 +21,26 @@ def patch_nested(s):
     return s
 def patch_poll(s):
     a='template<class C>bool poll(C& c){'
-    return replace_exact(s,a,a+'\n    if(v709::active)return v709::poll(c);')
+    diagnostic=r'''template<class C>void postack_refusal(C& c,uint32_t pc,unsigned kind){
+    if(si_completion_ack_trace.phase()!=Phase::PostAck||!v709::enabled())return;
+    const auto& b=v688::expected_second;const auto& n=v693::expected_nested;
+    const unsigned region=pc>=handler_first&&pc<handler_end?1u:
+        pc>=b.root&&pc<b.end?2u:pc>=n.root&&pc<n.end?3u:0u;
+    unsigned back=0;
+    if(kind==1&&region&&!(pc&3u)&&c.mmu.get_ptr(pc)&&c.mmu.get_ptr(pc+3u)){
+        const uint32_t w=c.mmu.read32(pc),op=w>>26;
+        if(op==16u&&!(w&3u)&&(w&0x8000u))back=1;
+        if(op==18u&&!(w&3u)&&(w&0x02000000u))back=2;
+    }
+    std::cout<<"V718_POSTACK_REFUSAL kind="<<kind<<" region="<<region
+             <<" backward="<<back<<" masked="<<unsigned(!(c.msr&0x8000u))
+             <<" second="<<v688::second.stage()<<" nested="<<v693::nested.stage()
+             <<" leaves="<<v709::cursor<<std::endl;
+}
+'''
+    s=replace_exact(s,a,diagnostic+a+'\n    if(v709::active)return v709::poll(c);\n    postack_refusal(c,c.pc,1);')
+    return replace_exact(s,'if(v680::observe(a,c)||v688::observe(a,c))return;reject(5);',
+                         'if(v680::observe(a,c)||v688::observe(a,c))return;postack_refusal(c,a,2);reject(5);')
 def patch_leaf(s,root,words,kind):
     fs=list(DEF.finditer(s));hits=[i for i,f in enumerate(fs) if int(f[1].split('_')[1],16)==root]
     if not hits:return s,{}

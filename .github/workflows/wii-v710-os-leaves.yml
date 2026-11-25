@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v710*'
       - 'research/native_recomp/*v713*'
       - 'research/native_recomp/*v717*'
+      - 'research/native_recomp/*v718*'
       - '.github/workflows/wii-v710-os-leaves.yml'
 permissions:
   contents: read
