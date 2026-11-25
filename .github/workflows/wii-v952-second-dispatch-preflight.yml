@@ -93,11 +93,7 @@ jobs:
           grep -E '^V922_IRQ_RETURN_ROUTE installed=1 native_labels=[0-9]+ same_thread=1 exact_resume=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
           grep -Fx 'V574_FULL_SC_PREP owner=1 full_image=1 observer=1 syntax=1 link=0 execution=0 boot_verified=0' "$RUNNER_TEMP/v876-public.log"
           grep -Fx 'V939_SECOND_ROUTE installed=1 vector_labels=38 trampoline_labels=20 dispatcher_entry=1 execution=0' "$RUNNER_TEMP/v876-public.log"
-          grep -E '^V951_DISPATCH_ROUTE installed=1 native_labels=[1-9][0-9]* original_edges=4 indirect=1 execution=0
-      - name: Clean private files
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v876-public.log"
- "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V951_DISPATCH_ROUTE installed=1 native_labels=[1-9][0-9]* original_edges=4 indirect=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
           echo 'V952_DISPATCH_PREFLIGHT verified=1 execution=0 boot_verified=0'
       - name: Clean private files
         if: always()
