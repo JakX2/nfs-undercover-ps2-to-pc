@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v727*'
+      - 'research/native_recomp/*v726*'
+      - 'research/native_recomp/*v725*'
       - '.github/workflows/wii-v727-handler-return.yml'
 permissions:
   contents: read
