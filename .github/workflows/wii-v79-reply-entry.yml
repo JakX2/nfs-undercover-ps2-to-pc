@@ -3,7 +3,10 @@ on:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
-      - 'research/native_recomp/*v79*'
+      # Match this milestone, not later three-digit milestone names.
+      - 'research/native_recomp/*v79_*'
+      - 'research/native_recomp/*v79.*'
+      - 'research/native_recomp/*v79-*'
       - '.github/workflows/wii-v79-reply-entry.yml'
   workflow_dispatch:
 permissions:

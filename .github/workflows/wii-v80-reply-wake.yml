@@ -4,7 +4,10 @@ on:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
-      - 'research/native_recomp/*v80*'
+      # Match this milestone, not later three-digit milestone names.
+      - 'research/native_recomp/*v80_*'
+      - 'research/native_recomp/*v80.*'
+      - 'research/native_recomp/*v80-*'
       - '.github/workflows/wii-v80-reply-wake.yml'
 permissions:
   contents: read
