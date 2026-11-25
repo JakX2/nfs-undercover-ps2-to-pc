@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v813*'
+      - 'research/native_recomp/*v822*'
       - '.github/workflows/wii-v813-callback-time.yml'
 permissions:
   contents: read
@@ -45,6 +46,7 @@ jobs:
           "$RUNNER_TEMP/v808"
           python3 -m unittest discover -s research/native_recomp -p test_v809_callback_prefix.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v813_callback_time.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v822_callback_time.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_completion_ack_v668.cpp -o "$RUNNER_TEMP/v672"

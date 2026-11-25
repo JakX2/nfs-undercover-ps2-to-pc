@@ -1,0 +1,3 @@
+# V822: explicit continuous callback time launch and strict audit
+
+V821 enabled the live callback prefix after V805 authenticated the actual ordinal-6 GetTypeCallback target. V822 exposes a separate `--run-si-callback-time` mode, composing the already preflight-verified V813 time route and enabling the exact time flag only for that mode. The auditor requires the complete earlier prefix audit, the exact new entry and result sequence, original system-time return, three OS leaves, matching timebase retry counts, preserved ABI/offset, completed SI state and zero exit status. The callback itself and the full boot remain unverified. The V813 workflow still runs preflight only; live time execution must wait for successful V821 prefix execution. Synthetic audit cases pending.
