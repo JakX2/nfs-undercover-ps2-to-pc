@@ -18,11 +18,11 @@ class Tests(unittest.TestCase):
         for bad,sizes in ((words,{}),(words,{B:3}),(words,{B:8192}),([words[0],0x4e800421,*words[1:]],{B:16})):
             with self.assertRaises(ValueError):second_edge(H,bad,sizes)
     def test_labels_and_audit(self):
-        words=[0x90030000,bl(B+4,A),0x4e800020]
+        words=[0x90030000,bl(B+4,A),0x60000000,0x4e800020]
         s='#include "runtime/cpu_context.h"\n'+f'void func_{B:X}(CPUContext& ctx) {{\n'+''.join(
             f'loc_{B+4*i:X}: ;\n    // 0x{B+4*i:08X}: {w:08X}\n    ++ctx.inst_count;\n    body();\n' for i,w in enumerate(words))+'}\n'
         out,seen=patch_helper(s,B,words,True)
-        self.assertEqual(len(seen),3);self.assertEqual(out.count('v688::before('),3)
+        self.assertEqual(len(seen),4);self.assertEqual(out.count('v688::before('),4)
         self.assertIn(f'0x{words[1]:08x}u,1u,1u);',out)
         with patch('audit_v672_si_ack_route.inspect_dispatch',return_value=('ok',True)):
             for hs in (SECOND,SECOND[:2]+[b'V688_SI_SECOND_ACK n=1']):

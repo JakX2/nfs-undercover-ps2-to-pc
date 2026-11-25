@@ -9,6 +9,7 @@ on:
       - 'research/native_recomp/*v683*'
       - 'research/native_recomp/*v686*'
       - 'research/native_recomp/*v690*'
+      - 'research/native_recomp/*v691*'
       - '.github/workflows/wii-v668-si-ack.yml'
 permissions:
   contents: read

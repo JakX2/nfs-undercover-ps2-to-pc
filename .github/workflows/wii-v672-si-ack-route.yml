@@ -10,6 +10,7 @@ on:
       - 'research/native_recomp/*v681*'
       - 'research/native_recomp/*v688*'
       - 'research/native_recomp/*v689*'
+      - 'research/native_recomp/*v691*'
       - '.github/workflows/wii-v672-si-ack-route.yml'
 permissions:
   contents: read

@@ -1,0 +1,3 @@
+# V691: correct synthetic geometry fixture and generic CFG census
+
+V689 original-free process cases all passed under sanitizers (10/10 actual MMIO binding cases) but the separate Python label fixture used a three-instruction input rejected by the existing handler-specific shape minimum. Correct it to a four-instruction fixture. The V690 generic CFG likewise must accept short no-store leaves; enumerate direct/indirect call sites independently before traversing. Owner classification still uses the strict authenticated second_plan and exact call census. No original execution guard relaxed. New CI pending.

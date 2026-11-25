@@ -18,7 +18,11 @@ def target(pc,w):
 def prefix(root,words):
     """Overapproximate reachable labels until a call, return or exception."""
     if root&3 or not 1<=len(words)<=1024:raise ValueError('extent')
-    end=root+4*len(words);calls=call_census(root,words)
+    end=root+4*len(words)
+    # The generic CFG accepts small leaf programs with no stores. The
+    # handler-specific shape() routine deliberately requires store candidates.
+    sites=[root+4*i for i,w in enumerate(words) if w>>26==18 and w&3==1 or w==0x4e800421]
+    calls={pc:(i+1,1) for i,pc in enumerate(sites)}
     todo=[root];seen=set();first=set();stores=returns=edges_out=unknown=0
     while todo:
         pc=todo.pop()
