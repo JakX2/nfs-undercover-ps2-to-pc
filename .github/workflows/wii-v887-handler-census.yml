@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v887*'
+      - 'research/native_recomp/*v888*'
       - '.github/workflows/wii-v887-handler-census.yml'
 permissions:
   contents: read
@@ -35,6 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          python3 -m unittest discover -s research/native_recomp -p test_v888_handler_address.py -v
           python3 research/native_recomp/audit_handler_path_v887.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove private files
         if: always()

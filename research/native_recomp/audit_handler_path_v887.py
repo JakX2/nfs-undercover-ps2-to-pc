@@ -29,15 +29,49 @@ def classify(w,regs):
         region='si' if 0x0d006400<=phys<0x0d006500 else 'mem1' if 0x80000000<=addr<0x81800000 else 'other'
     return kind,region,ra in (1,2,13),op
 
+def rotate(value,sh,mb,me):
+    mask=sum(1<<(31-i) for i in range(32) if (mb<=i<=me if mb<=me else i>=mb or i<=me))
+    return ((value<<sh)|(value>>(32-sh)))&mask&0xffffffff
+
 def step(w,regs):
     op=w>>26;rd=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31;xo=(w>>1)&1023
     r=list(regs);base=regs[ra] if ra else 0
     if op in (14,15):r[rd]=None if base is None else (base+(signed(w)<<(16 if op==15 else 0)))&0xffffffff
     elif op in (24,25):r[ra]=None if regs[rd] is None else regs[rd]|((w&0xffff)<<(16 if op==25 else 0))
-    elif op==31 and xo==444:r[ra]=None if regs[rd] is None or regs[rb] is None else regs[rd]|regs[rb]
+    elif op==21:r[ra]=None if regs[rd] is None else rotate(regs[rd],rb,(w>>6)&31,(w>>1)&31)
+    elif op==31 and xo in (444,28,316):
+        x,y=regs[rd],regs[rb];r[ra]=None if x is None or y is None else x|y if xo==444 else x&y if xo==28 else x^y
+    elif op==31 and xo in (266,40):
+        x,y=regs[ra],regs[rb];r[rd]=None if x is None or y is None else (x+y if xo==266 else y-x)&0xffffffff
+    elif op==31 and xo==24:
+        x,y=regs[rd],regs[rb];r[ra]=None if x is None or y is None else 0 if y&32 else (x<<(y&31))&0xffffffff
     elif op in (10,11,16,18,36,38,44):pass
+    elif op in (32,34,40,42):r[rd]=None
     else:r=[None]*32
     return tuple(r)
+
+def unique_prefix(rows,start):
+    # The owner census shows a straight-line six-label sequence.
+    words=[rows[start+4*i][0] for i in range(6)]
+    if any(rows[start+4*i][1:]!=(0,0) or w>>26 in (16,18,19) for i,w in enumerate(words)) or words[-1]>>26!=32:
+        raise ValueError('prefix shape')
+    regs=(None,)*32
+    for w in words[:-1]:regs=step(w,regs)
+    base=(words[-1]>>16)&31
+    # Only export classes, not the original register number or guest address.
+    producers=[]
+    for i,w in enumerate(words[:-1],1):
+        op=w>>26;xo=(w>>1)&1023;rd=(w>>21)&31;ra=(w>>16)&31
+        dst=ra if op in (21,24,25) or op==31 and xo in (444,28,316,24) else rd
+        if dst==base:producers.append(i)
+    # Try a range of bounded low-valued initial-state inputs to classify
+    # a channel-indexed effective address, without asserting it was live.
+    classes=set()
+    for value in range(4):
+        r=(value,)*32
+        for w in words[:-1]:r=step(w,r)
+        classes.add(classify(words[-1],r)[1])
+    return classify(words[-1],regs)[1],','.join(map(str,producers)) or 'none',','.join(sorted(classes)),(words[4]>>1)&1023
 
 def paths(rows,start,depth=6):
     work=[(start,0,(None,)*32)];out=set()
@@ -65,6 +99,8 @@ def inspect(dol,elf):
     for depth in range(1,9):
         for k,region,base,op in paths(rows,start,depth):
             print(f'V887_HANDLER_PATH visit={depth} class={k} region={region} special_base={int(base)} opcode_class={op}')
+    known,producers,trial,arithmetic=unique_prefix(rows,start)
+    print(f'V888_HANDLER_LOAD static_region={known} base_producers={producers} bounded_input_regions={trial} arithmetic_class={arithmetic} execution=0')
     print('V887_HANDLER_CENSUS verified=1 execution=0')
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);a=p.parse_args()

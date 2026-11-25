@@ -1,0 +1,3 @@
+# V888: classify effective address of the refused original load
+
+V887 confirmed the sixth resumed original instruction is a plain integer word load, with a straight-line preceding sequence. V888 extends conservative static constant propagation to rotate/mask and integer arithmetic, preserving independent known registers, and reports only effective-address region and base-producer positions. Also explores four synthetic low-valued initial inputs for classification (not live evidence). Original-free unit tests cover rotation, independent register preservation and a synthetic SI aperture access. No guard changes or original execution claims.
