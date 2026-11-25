@@ -1,0 +1,3 @@
+# V874: original SITransfer through first interrupt-disable return
+
+V873 owner job 139115240863 passed all 32 callback cases, including four genuine prior endpoint completions, prior 64-byte DMA, 8-tick latency and original callback dispatch return. V874 extends the verified V872 focused direct prologue through its next original call, OSDisableInterrupts. Private geometry must show a linear intervening prefix and exact original direct target. The existing prologue witness, memory guard and V703 leaf witness separately check original state, native ticks and unchanged EE. Stop before the first unexecuted post-disable instruction; no SI transaction is started. Pending source and owner tests.
