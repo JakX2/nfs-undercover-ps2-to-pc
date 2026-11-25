@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v783*'
+      - 'research/native_recomp/*v785*'
+      - 'research/native_recomp/wii_alarm_cancel_queue_v780.h'
       - '.github/workflows/wii-v783-alarm-return.yml'
 permissions:
   contents: read
@@ -17,6 +19,8 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v759_alarm_queue.py -v
           python3 -m py_compile research/native_recomp/prepare_owner_head_v782.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_alarm_cancel_queue_v780.cpp -o "$RUNNER_TEMP/v785"
+          "$RUNNER_TEMP/v785"
           bash -n research/native_recomp/run_owner_cancel_return_v783.sh
   owner-context:
     needs: original-free

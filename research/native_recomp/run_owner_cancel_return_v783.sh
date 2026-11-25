@@ -24,9 +24,10 @@ for mode in nonsplit split; do
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -fno-pie -no-pie \
     -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_cancel_return_v783.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V764_NATIVE_BUILD failed=1";exit 1; }
   timeout 20s "$work/probe" valid > "$work/run.log" 2>&1 || {
-    grep -Ex 'V783_FAULT kind=[1-8] line=[0-9]{1,4} lane=[0-4] visits=[0-9]{1,3} stage=[0-4] route=[0-8] queue=[0-5]' "$work/run.log" || true
+    grep -Ex 'V783_FAULT kind=[1-8] line=[0-9]{1,4} lane=[0-4] visits=[0-9]{1,3} stage=[0-4] route=[0-8] queue=[0-5] mismatch=[0-6]' "$work/run.log" || true
     echo "V764_NATIVE_EXECUTION failed=1";exit 1;
   }
+  grep -Ex 'V785_CLEAR_ORDER deferred=[0-6] head=6' "$work/run.log"
   grep -Fx 'V783_OWNER_CANCEL_RETURN valid=14 inactive=2 middle=2 tail=2 singleton=2 head=6 fallback=0 continuous_boot=0' "$work/run.log"
   for fault in gpr link tick; do
     rc=0

@@ -22,6 +22,8 @@ public:
     unsigned visits()const{return visits_;}unsigned total()const{return total_;}
     unsigned polls()const{return polls_;}unsigned calls()const{return calls_;}
     unsigned queue_failure()const{return queue_.failure();}
+    unsigned queue_mismatch()const{return queue_.mismatch();}
+    bool deferred_clear()const{return queue_.deferred_clear();}
     unsigned lane()const{return unsigned(queue_.lane());}
     bool timer_required()const{return queue_.timer_required();}
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,bool device){

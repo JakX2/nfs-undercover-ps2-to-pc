@@ -20,12 +20,12 @@ static AlarmCancelExpectation expectation(){
     return e;
 }
 static AlarmCancelReturnWitness route(expectation());
-static unsigned trial=0,lane=0,visits=0,entries=0,outer=0,stops=0;
+static unsigned trial=0,lane=0,visits=0,entries=0,outer=0,stops=0,deferred=0;
 static std::string mode;
 static std::array<unsigned,5> passed{};
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V783_FAULT kind="<<kind<<" line="<<line<<" lane="<<lane<<" visits="<<visits
-      <<" stage="<<route.stage()<<" route="<<route.failure()<<" queue="<<route.queue_failure()<<std::endl;std::_Exit(126);
+      <<" stage="<<route.stage()<<" route="<<route.failure()<<" queue="<<route.queue_failure()<<" mismatch="<<route.queue_mismatch()<<std::endl;std::_Exit(126);
 }
 static void need(bool b,const std::source_location loc=std::source_location::current()){if(!b)fail(1,loc.line());}
 namespace rfi_test{
@@ -48,6 +48,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         need((calls&1u)&&((calls&66u)==2u||(calls&66u)==64u));
         if(lane==4)need((calls&4u)&&((calls&56u)==8u||(calls&56u)==16u||(calls&56u)==32u)&&entries==9);
         else need(!(calls&60u)&&entries==4);
+        if(route.deferred_clear())++deferred;
         ++passed[lane];++stops;c.is_running=false;return;
     }
     need(route.native_before(c,pc,w,true));
@@ -102,5 +103,6 @@ int main(int argc,char** argv)try{
         for(auto a:{A,B,N})need(c.mmu.read32(a-4)==0xabcdef01u&&c.mmu.read32(a+40)==0x10fedcbau);
     }
     need(passed==std::array<unsigned,5>{2,2,2,2,6});
+    std::cout<<"V785_CLEAR_ORDER deferred="<<deferred<<" head=6\n";
     std::cout<<"V783_OWNER_CANCEL_RETURN valid=14 inactive=2 middle=2 tail=2 singleton=2 head=6 fallback=0 continuous_boot=0\n";
 }catch(...){fail(8);}
