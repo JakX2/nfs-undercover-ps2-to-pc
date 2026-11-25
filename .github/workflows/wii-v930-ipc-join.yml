@@ -1,0 +1,108 @@
+name: Wii V930 Original Post-IRQ IPC Entry Preflight
+on:
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: Link and execute complete owner-private image after preflight
+        type: boolean
+        default: false
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v930*'
+      - '.github/workflows/wii-v930-ipc-join.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate witness and installer
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v868_handler_suffix.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v870_handler_suffix_audit.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_suffix_guard_v868.cpp -o "$RUNNER_TEMP/v868"
+          "$RUNNER_TEMP/v868"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_callback_join_v865.cpp -o "$RUNNER_TEMP/v865"
+          "$RUNNER_TEMP/v865"
+          python3 -m unittest discover -s research/native_recomp -p test_v864_combined_callback.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wireless_profile_trace_v859.cpp -o "$RUNNER_TEMP/v859"
+          "$RUNNER_TEMP/v859"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_return_dispatch_v849.cpp -o "$RUNNER_TEMP/v849"
+          "$RUNNER_TEMP/v849"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_postack_transfer_device_v771.cpp -o "$RUNNER_TEMP/v890"
+          "$RUNNER_TEMP/v890"
+          python3 -m unittest discover -s research/native_recomp -p test_v919_handler_epilogue.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v920_handler_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v921_capture_join.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v922_irq_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v928_leaf_finish.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v930_ipc_join.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ipc_entry_join_v930.cpp -o "$RUNNER_TEMP/v930"
+          "$RUNNER_TEMP/v930"
+          python3 -m unittest discover -s research/native_recomp -p test_v924_irq_launch.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v767_live_epilogue.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_saved_context_join_v921.cpp -o "$RUNNER_TEMP/v921"
+          "$RUNNER_TEMP/v921"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_handler_return_v725.cpp -o "$RUNNER_TEMP/v725"
+          "$RUNNER_TEMP/v725"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_gpr_restore_v736.cpp -o "$RUNNER_TEMP/v736"
+          "$RUNNER_TEMP/v736"
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v875_launch_contract.py -v
+  owner-execution:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Preflight, link and execute original startup through handler epilogue
+        env:
+          UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
+          UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V921_CAPTURE_JOIN: "1"
+          UNDERCOVER_RUN_V922_IRQ_RETURN: "1"
+          UNDERCOVER_RUN_V928_LEAF_FINISH: "1"
+          UNDERCOVER_RUN_V930_IPC_JOIN: "1"
+          EXECUTE: ${{ inputs.execute || false }}
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw876"
+          git -C "$RUNNER_TEMP/nw876" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw876" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw876" checkout -q --detach FETCH_HEAD
+          mode=--prepare-si-handler-suffix
+          [[ "$EXECUTE" != true ]] || mode=--run-si-handler-suffix
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" "$mode" | tee "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V921_CAPTURE_JOIN_ROUTE installed=1 pre_exception=1 saved_frame=1 handler_return=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V922_IRQ_RETURN_ROUTE installed=1 native_labels=[0-9]+ same_thread=1 exact_resume=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V928_LEAF_ROUTE installed=1 original_resume_labels=2 osinit_resume=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V930_IPC_ROUTE installed=1 original_call=1 root_labels=45 cold_witness=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V574_FULL_SC_PREP owner=1 full_image=1 observer=1 syntax=1 link=0 execution=0 boot_verified=0' "$RUNNER_TEMP/v876-public.log"
+          if [[ "$EXECUTE" == true ]]; then
+            grep -Fx 'V930_IPC_CENSUS rc=0 verified=1 original_entry=1 cold_prerequisites=1 boot_verified=0' "$RUNNER_TEMP/v876-public.log"
+          fi
+      - name: Clean private files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v876-public.log"
