@@ -1,0 +1,3 @@
+# V895: selected SITransfer callees
+
+V893 owner job 139144793595 established 12 immediate and four alarm boundaries, split/non-split. This candidate replaces both selected synthetic callee guards with authenticated original linear prefixes. Original caller BL and entry ABI are checked, then generated original instructions execute up to an explicitly synthetic unexecuted BLR before the first original control instruction. No callee return, MMIO, alarm installation, or full startup is claimed. Retains closed-packet and time corruption regressions; adds link corruption refusal. Private execution pending.
