@@ -1,0 +1,25 @@
+name: Wii V755 Distinct Authenticated Handler Calls
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v755*'
+      - '.github/workflows/wii-v755-handler-call-slots.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify legacy and multi-call witness invariants
+        run: |
+          set -euo pipefail
+          for src in test_si_handler_return_v725 test_handler_call_slots_v755; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$src.cpp" -o "$RUNNER_TEMP/$src"
+            "$RUNNER_TEMP/$src"
+          done
+          for v in 738 742 747; do
+            python3 -m unittest discover -s research/native_recomp -p "test_v${v}_*.py" -v
+          done

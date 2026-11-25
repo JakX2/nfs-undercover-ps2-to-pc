@@ -32,12 +32,12 @@ template<class C>void restore_before(C& c,uint32_t pc,uint32_t w){
     s=replace_exact(s,a,b+a)
     a='    if(!witness.before(c,pc,w,held())){'
     b=r'''    if(restore.stage()>=1&&restore.stage()<=3){
-        if(!held()||!restore.returned(c,pc)||!witness.restore_returned(c,pc,restore.visits(),held()))restore_reject(4);
+        if(!held()||!restore.returned(c,pc)||!witness.restore_returned(c,pc,restore.visits(),held(),restore_ordinal))restore_reject(4);
         restore_event(3);
     }
     const bool allow=restore_enabled()&&pc==restore_expected.site&&w==restore_expected.branch&&
         ordinal==restore_ordinal&&kind==1&&restore.stage()==0;
-    if(!witness.before(c,pc,w,held(),allow)){'''
+    if(!(allow?witness.before_authenticated(c,pc,w,held(),restore_ordinal):witness.before(c,pc,w,held()))){'''
     s=replace_exact(s,a,b)
     a='    if(witness.stage()==3)std::cout<<"V726_HANDLER_STAGE n=3"<<std::endl;'
     s=replace_exact(s,a,'    if(allow){if(!restore.start(c,pc,w,witness.entry_gprs()))restore_reject(1);restore_event(1);return;}\n'+a)
