@@ -48,6 +48,9 @@ def main():
     try:
         if a.dol.stat().st_size>32*1024*1024 or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         ranges=spans(a.dol.read_bytes(),a.elf.read_bytes(),a.first_ack_helper);apply(a.root,ranges)
-    except (OSError,ValueError,UnicodeError):print('V669_SI_ANALYZER installed=0');return 1
+    except (OSError,ValueError,UnicodeError) as exc:
+        reasons={'first SI dependency not direct':1,'first SI dependency extent':2,'first SI dependency return':3,'word identity':4,'SI root overlap':5,'SI roots':6,'SI root extent':7}
+        print(f'V682_SI_ANALYZER_REFUSAL category={reasons.get(str(exc),0)}')
+        print('V669_SI_ANALYZER installed=0');return 1
     print(f'V669_SI_ANALYZER installed=1 roots={len(ranges)} exact_dol_elf=1 scoped=1');return 0
 if __name__=='__main__':raise SystemExit(main())
