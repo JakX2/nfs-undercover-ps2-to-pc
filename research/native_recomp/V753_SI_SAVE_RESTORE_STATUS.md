@@ -1,0 +1,3 @@
+# V753: original SI transfer save/restore pairs
+
+V749 identifies compiler-save aliases before any other call in __SITransfer and SITransfer, and six/eleven-register restore aliases at their final direct callsites. V753 privately authenticates both pairs from their original DOL/ELF call edges, verifies matching GPR frame offsets and symbol/containing-function evidence, then executes actual translated save and restore routines around independently authored native register clobbers. Eight trials per lane and compilation mode, plus a corrupted saved value control. This proves only the paired compiler helpers, not full original SI transfers. Owner CI pending.
