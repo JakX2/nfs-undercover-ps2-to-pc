@@ -1,0 +1,3 @@
+# V901: compose original selected callee save returns
+
+V899 private jobs passed 32 separate original callee save returns and four corruption controls. V901 composes them with the V895 original SITransfer time-dependent branches. Admit overlapping original compiler aliases only if authenticated GPR suffixes have identical overlapping words and identical ends. Audit generated code per root rather than per global PC; no fallback or stubbed save. Keep the original return from the save alias, then stop at the original callee resume before further execution. No full callee return or full boot claim. Private test pending.
