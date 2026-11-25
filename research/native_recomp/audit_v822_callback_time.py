@@ -26,10 +26,13 @@ def inspect(raw,rc):
             m=re.fullmatch(TIME_RETURN,tail[1])
             if m:
                 lv,p,r=map(int,m.groups())
-                # Original OS leaves are 5,6,9 words. The timebase
-                # retry executes four additional instructions per poll,
-                # and three additional timebase reads.
-                if 1<=p<=32 and lv==20+4*(p-1) and r==3*p:
+                # V823 owner-context job 139038705601 authenticated
+                # the actual masked path: 18 leaf visits / 1 poll /
+                # 3 reads; forced rollover: 23 / 2 / 6. Two words
+                # of the restore leaf are skipped in this masked lane.
+                # The timebase leaf's five-word loop repeats; its
+                # independent observer caps native visits at 64.
+                if 1<=p<=12 and lv==18+5*(p-1) and r==3*p:
                     entries=[re.fullmatch(BEGIN,l) for l in rows[:i] if re.fullmatch(BEGIN,l)]
                     if len(entries)==1:
                         ok=True;ordinal=int(entries[0][1]);leaves=3;polls=p;reads=r
