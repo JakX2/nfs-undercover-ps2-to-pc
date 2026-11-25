@@ -6,7 +6,7 @@ p=Path(sys.argv[1])
 if p.stat().st_size>8*1024*1024:raise SystemExit(1)
 rows=p.read_text(errors='replace').splitlines()
 for l in rows:
-    m=re.search(r'(test_owner_transfer_v765\.cpp|output(?:_[0-9]+)?\.cpp|owner_transfer_input\.h):([0-9]+):[0-9]+: (?:(?:fatal )?error|warning): (.*)',l)
+    m=re.search(r'(test_owner_transfer_(?:v765|device_v773|return_v775)\.cpp|output(?:_[0-9]+)?\.cpp|owner_transfer_input\.h):([0-9]+):[0-9]+: (?:(?:fatal )?error|warning): (.*)',l)
     if not m:continue
     msg=m[3];kind=next((i for i,k in enumerate(('expected','not declared','no member','ambiguous','no matching','undefined','invalid','unused','comparison','cannot convert'),1) if k in msg),0)
     flag=re.search(r'\[-W(?:error=)?([a-z-]+)\]',msg)

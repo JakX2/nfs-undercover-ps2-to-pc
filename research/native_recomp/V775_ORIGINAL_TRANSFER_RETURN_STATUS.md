@@ -1,0 +1,3 @@
+# V775: exercise complete transfer return observer on original code
+
+The V774 read-only CPU witness now runs alongside the verified original V765 native translation, not merely a hand-simulated instruction sequence. The original save and disable leaves are observed through the preceding ACK witness, the exact current scheduler profile is acquired at disable BLR, and subsequent accesses use V772. Require one authenticated IRQ restore lane, original compiler restore, original LR and ABI, guest SI data, exact total tick count and all 16 native synthetic continuation labels. Includes eight valid cases per compilation mode and mask corruption refusal. Original caller continuation is synthetic; no full-image execution yet. Private CI pending.

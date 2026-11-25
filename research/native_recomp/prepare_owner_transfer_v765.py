@@ -29,11 +29,16 @@ def plan(dol,elf):
     if len(roots)!=6 or any(b>c for (_,b),(c,_) in zip(spans,spans[1:])):raise ValueError('transfer ownership')
     return roots,C,D,Q,S,R,edges
 def header(p,out):
-    roots,C,D,Q,S,R,_=p
+    roots,C,D,Q,S,R,edges=p
     s='#pragma once\n#include <array>\n#include <cstdint>\n'
     s+='inline constexpr uint32_t '+','.join(f'{k}=0x{a:08x}u' for k,a in zip('HCDQSR',(H,C,D,Q,S,R)))+';\n'
     for name,a in (('caller',H),('transfer_words',C),('disable_words',D),('irq_restore_words',Q),('save_words',S),('restore_words',R)):
         ws=roots[a];s+=f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+','.join(f'0x{w:08x}u' for w in ws)+'};\n'
+    s+='inline constexpr std::array<uint32_t,5> transfer_sites{'+','.join(f'0x{a:08x}u' for a,_ in edges)+'};\n'
+    s+='inline constexpr std::array<uint32_t,5> transfer_branches{'+','.join(f'0x{roots[C][(a-C)//4]:08x}u' for a,_ in edges)+'};\n'
+    disp=lambda w:((w&0xffff)^0x8000)-0x8000
+    s+=f'inline constexpr unsigned transfer_save_base={(roots[S][0]>>16)&31}u,transfer_restore_base={(roots[R][0]>>16)&31}u;\n'
+    s+=f'inline constexpr int32_t transfer_disp={disp(roots[S][0])};\n'
     with out.open('x') as f:f.write(s)
 def install(p,root):
     roots,C,D,Q,S,R,edges=p
