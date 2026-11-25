@@ -1,0 +1,3 @@
+# V728: original handler suffix control-flow census
+
+Owner-only DOL/ELF-authenticated census from the verified second-helper return label to the first potentially external or terminal control transfers. Traverses both conditional outcomes, reports only counts, boundary classes and call ordinal. Includes a conservative compiler nonvolatile-GPR restore suffix recognizer. No dynamic path, branch outcome, callback, restore helper or original execution is inferred from static geometry. Private owner CI runs independently of the complete-image build to make additional handler dependencies diagnosable faster.
