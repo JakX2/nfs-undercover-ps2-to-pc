@@ -11,7 +11,7 @@ def inspect(raw,rc):
     ok=False;v=t=0
     if rc==0 and len(hits)==1:
         i=hits[0];_,valid=old.inspect(b'\n'.join(rows[:i+1]),0)
-        tags=old.old.old.old.old.TAGS+(b'V919_',b'V920_',b'V921_',b'V922_',b'V932_',b'V939_',old.old.old.capture.PREFIX)
+        tags=old.old.old.old.old.old.TAGS+(b'V919_',b'V920_',b'V921_',b'V922_',b'V932_',b'V939_',old.old.old.capture.PREFIX)
         tail=[l for l in rows[i+1:] if l.startswith(tags)]
         m=re.fullmatch(RESULT,tail[-1]) if tail else None
         ok=bool(valid and m and tail[:-1]==[TRAMP] and 1<=int(m[1])<=128 and 1<=int(m[2])<=128 and not any(l.startswith(b'V939_') for l in rows[:i+1]))
