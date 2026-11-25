@@ -94,7 +94,7 @@ def patch_label(s,pc,w,role='before'):
         prefix=prefix[:-len(a)]+f'    undercover::wii::v850::dispatch_resume(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+a
     return prefix+block+s[end:]
 
-def install(dol,elf,root,host):
+def install(dol,elf,root,host,*,label_patch=patch_label,wrapper_patch=patch_wrapper,ack_patch=patch_ack,binding_patch=lambda s:s):
     joined,C,resume,seen,stops=plan(dol,elf,True)
     roots=joined[1][0][0]
     code=exact(dol,elf,C,172)
@@ -136,7 +136,7 @@ def install(dol,elf,root,host):
         out=body
         for pc,(_,w) in sorted(expected.items()):
             if pc==resume:continue
-            out=patch_label(out,pc,w)
+            out=label_patch(out,pc,w)
             verify_order(out,pc,w,'v850')
         return out
     def alias(body):
@@ -144,7 +144,7 @@ def install(dol,elf,root,host):
         audit_native([body],outer,rows)
         out=body
         for pc,(_,w) in rows.items():
-            out=patch_label(out,pc,w,'restore')
+            out=label_patch(out,pc,w,'restore')
             verify_order(out,pc,w,'v850')
         return out
     def handler_resume(body):
@@ -156,14 +156,15 @@ def install(dol,elf,root,host):
             verify_indirect(body,pc)
             verify_resume_dispatch(outer,HANDLER,pc+4)
             verify_order(body,pc+4,nxt,'v672')
-            out=patch_label(out,pc+4,nxt,'handler_resume')
+            out=label_patch(out,pc+4,nxt,'handler_resume')
         return out
     edit(C,callback);edit(R,alias);edit(HANDLER,handler_resume)
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text() for n in ('wii_callback_suffix_v841.h','wii_callback_return_v846.h','wii_callback_return_binding_v850.h')}
+    files[dest/'wii_callback_return_binding_v850.h']=binding_patch(files[dest/'wii_callback_return_binding_v850.h'])
     files[dest/'v850_private_callback_return.h']=render(C,resume,suffix_words,stops,R,restore,tail,callers)
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('return destination')
-    for n,fn in {'wii_callback_prefix_binding_v807.h':patch_prefix,'wii_wireless_wrapper_binding_v847.h':patch_wrapper,'wii_si_ack_binding_v672.h':patch_ack}.items():
+    for n,fn in {'wii_callback_prefix_binding_v807.h':patch_prefix,'wii_wireless_wrapper_binding_v847.h':wrapper_patch,'wii_si_ack_binding_v672.h':ack_patch}.items():
         p=dest/n
         if p.is_symlink() or not p.is_file():raise ValueError('return destination')
         files[p]=fn(p.read_text())

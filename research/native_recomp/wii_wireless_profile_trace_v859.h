@@ -48,6 +48,12 @@ public:
         }
         return stage()!=5u||held()?true:fail(5);
     }
+    // Outer dispatcher tick: no guest instruction or endpoint service.
+    // Only an already completed and still-held transaction can cross it.
+    bool observe_dispatch(uint64_t tick){
+        if(stage()!=5u||!held())return fail(2);
+        return observe(tick);
+    }
     bool preselect(const Bytes& guest,uint64_t tick){
         if(!common()||tick!=last_||!trace_.preselect(session_->controller(),session_->endpoint(),session_->completed(),guest))return fail(5);
         return true;

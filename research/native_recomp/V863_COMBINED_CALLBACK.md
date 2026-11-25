@@ -1,0 +1,5 @@
+# V863: combined changed wireless and original callback return preflight
+
+V861 source-only checks passed. V860 corrected the scheduler install seam and the native EXI controller and broad source-only regressions passed. Private V861 preflight and V856 live execution are pending.
+
+V863 composes V861 and V850 rather than skipping the changed lane. Only the explicit callback-return flag permits continuation after the original setter, and the complete V857/V859 transaction remains held throughout the suffix, the compiler restore, and the real outer-dispatch resume. The latter is observed only while the device is idle; it does not create an endpoint tick or completion. Shared restore labels retain both predecessor guards. Unknown indirect targets remain bounded stops. This is a preflight, not a claim of continuous original execution.
