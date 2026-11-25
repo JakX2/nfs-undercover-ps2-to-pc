@@ -339,8 +339,23 @@ int main(int argc,char** argv)try{
     c.mmu.write8(Sram-1u,0xa7);c.mmu.write8(Sram+80u,0xa7);
     std::atomic<uint32_t> cause{0x100u};WiiIrqBanks banks(cause);ExiController exi(banks);joined::controller=&exi;
     exi.write(0,0,0x2000u);
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+    ExiHostProfile profile{};profile.sram=sram_seed;profile.id=0;profile.di_config=1;profile.latency=32u+24u*channel;
+    ExiProfileSession session(exi,profile);
+    joined::mx_device=&session.endpoint();joined::scheduler=&session.scheduler();
+    uint64_t prior=0;
+    exi.write(0,0,0x2200u);exi.write(0,16,0);exi.write(0,12,0x15u);
+    for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
+    exi.write(0,12,0x31u);
+    for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
+    exi.write(0,0,0x2008u);ExiTickBinding::advance(++prior);
+    joined::completion_baseline=session.completed();joined::selection_baseline=exi.selection_epoch(0);
+    need(joined::completion_baseline==2u&&joined::selection_baseline==2u&&prior<512u);
+    tick=512u;
+#else
     ExiMxDevice mx(sram_seed,[]{return 0u;});ExiIdEndpoint id(0u);joined::mx_device=&mx;
-    ExiEndpointScheduler sched(exi,mx,id,32u+24u*channel);joined::scheduler=&sched;ExiDiConfigBinding di(1u);
+    ExiEndpointScheduler sched(exi,mx,id,32u+24u*channel);joined::scheduler=&sched;joined::manual_scheduler=&sched;ExiDiConfigBinding di(1u);
+#endif
     for(uint32_t a=joined::ExiState;a<joined::ExiState+0x100u;a+=4u)c.mmu.write32(a,0);
     c.mmu.write32(0x800000c4u,0xfffffff0u);c.mmu.write32(0x800000c8u,0);
     c.mmu.write32(Sram+64u,64u);c.mmu.write32(Sram+68u,0);c.mmu.write32(Sram+72u,0);c.mmu.write32(Sram+76u,1);

@@ -1,5 +1,8 @@
 #pragma once
 #include "wii_exi_profile_v501.h"
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+#include "wii_wireless_profile_trace_v859.h"
+#endif
 #include "wii_sram_write_witness_v818.h"
 #include "wii_wireless_wrapper_v844.h"
 #ifdef UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS
@@ -18,8 +21,14 @@ using namespace undercover::wii;
 using namespace write_roots;
 constexpr uint32_t ExiState=0x806f1560u;
 static ExiController* controller=nullptr;
-static ExiMxDevice* mx_device=nullptr;
-static ExiEndpointScheduler* scheduler=nullptr;
+static const ExiMxDevice* mx_device=nullptr;
+static const ExiEndpointScheduler* scheduler=nullptr;
+static uint64_t completion_baseline=0,selection_baseline=0;
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+static WirelessProfileTrace profile_trace;
+#else
+static ExiEndpointScheduler* manual_scheduler=nullptr;
+#endif
 static SramWriteWitness witness;
 static ExiMxDevice::Sram desired{};
 static unsigned imm_calls=0,imm_returns=0,sync_calls=0,sync_returns=0,immex_calls=0,immex_returns=0,deselects=0,deselect_returns=0,complete_count=0,revision_reads=0;
@@ -91,11 +100,16 @@ static bool callback_dispatch_corrupt=false;
     std::_Exit(126);
 }
 static void need(bool b,const std::source_location l=std::source_location::current()){if(!b)fail(1,l.line());}
-static void advance(){
+static void advance(bool dispatcher=false){
     const auto q=controller->pending(0);const auto old=scheduler->completed();
-    scheduler->advance(tick);
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+    if(!dispatcher)ExiTickBinding::advance(tick);
+    if(profile_trace.stage())need(dispatcher?profile_trace.observe_dispatch(tick):profile_trace.observe(tick));
+#else
+    (void)dispatcher;manual_scheduler->advance(tick);
+#endif
     if(scheduler->completed()!=old){
-        need(q.has_value()&&scheduler->completed()==old+1u&&++complete_count==scheduler->completed());
+        need(q.has_value()&&scheduler->completed()==old+1u&&++complete_count==scheduler->completed()-completion_baseline);
         need(witness.record(*q,*controller,*mx_device));
 #ifdef UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS
         need(extended_device.record(*q,*controller,*mx_device,scheduler->completed()));
@@ -166,7 +180,11 @@ static const Root& root_at(uint32_t a){
 static bool device_held(){
     return !controller->pending(0)&&!(controller->read(0,0)&0x380u)&&
         mx_device->sram()==desired&&mx_device->dirty()==(lane==2u)&&
-        complete_count==(lane==2u?12u:0u)&&witness.stage()==(lane==2u?4u:0u);
+        complete_count==(lane==2u?12u:0u)&&witness.stage()==(lane==2u?4u:0u)
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+        &&scheduler->completed()==completion_baseline+complete_count&&(lane!=2u||profile_trace.held())
+#endif
+        ;
 }
 static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
     need(suffix.before(c,pc,w,device_held()));
@@ -195,7 +213,7 @@ static void suffix_start(CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
 void dispatch_resume(CPUContext& c,uint32_t pc,uint32_t w){
     need(callback_return.stage()==4u&&c.inst_count==++tick&&pc==H+4u);
-    advance();
+    advance(true);
     need(callback_return.dispatch_resume(c,pc,w,device_held()));
 }
 #endif
@@ -213,6 +231,12 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         need(callback_return.before(c,pc,w,device_held()));
         if(callback_return.stage()==5u){
             payload(c,lane==2u);
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+            need(completion_baseline==2u&&selection_baseline==2u&&device_held());
+            std::cout<<"V866_OWNER_PROFILE_CALLBACK original_return=1 changed="<<unsigned(lane==2u)
+                <<" prior_tokens=2 tokens="<<complete_count<<" bytes="<<(lane==2u?44u:0u)
+                <<" dispatcher=1 fallback=0 continuous_boot=0"<<std::endl;
+#endif
 #ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
             std::cout<<"V851_OWNER_CALLBACK_DISPATCH outer_poll=1 outer_tick=1 callback_return=1 changed="<<unsigned(lane==2u)<<" fallback=0 continuous_boot=0"<<std::endl;
 #endif
@@ -234,13 +258,16 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         if(corrupt&&depth==2){c.gpr[14]^=1u;need(!abi(c,frames[depth-1]));std::cout<<"V826_JOIN_REFUSAL abi=1"<<std::endl;std::_Exit(126);}
         const auto& f=frames[depth-1];need(abi(c,f));
         if(f.root==L){need(c.gpr[3]==1u&&c.mmu.read32(ExiState+12u)==0x10u&&!controller->pending(0));++lock_returns;}
-        if(f.root==Select){need(c.gpr[3]==1u&&c.mmu.read32(ExiState+12u)==0x14u&&!controller->pending(0)&&(controller->read(0,0)&0x3f0u)==0x130u&&controller->selection_epoch(0)==1);++select_returns;}
+        if(f.root==Select){need(c.gpr[3]==1u&&c.mmu.read32(ExiState+12u)==0x14u&&!controller->pending(0)&&(controller->read(0,0)&0x3f0u)==0x130u&&controller->selection_epoch(0)==selection_baseline+1u);++select_returns;}
         if(f.root==Imm){need(c.gpr[3]==1u&&c.mmu.read32(ExiState+12u)==0x16u&&++imm_returns==imm_calls);}
         if(f.root==Sync){need(c.gpr[3]==1u&&c.mmu.read32(ExiState+12u)==0x14u&&!controller->pending(0)&&++sync_returns==sync_calls&&complete_count==sync_returns);}
         if(f.root==ImmEx){need(c.gpr[3]==1u&&++immex_returns==1u&&complete_count==12u&&witness.stage()==3u&&witness.bytes()==44u);}
         if(f.root==Deselect){need(c.gpr[3]==1u&&++deselect_returns==1u&&c.mmu.read32(ExiState+12u)==0x10u&&witness.finish(*controller,*mx_device));
 #ifdef UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS
             need(extended_device.deselected(*controller,*mx_device,scheduler->completed(),guest_payload(c)));
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+            need(profile_trace.deselected(guest_payload(c),tick));
+#endif
 #endif
         }
         if(f.root==ExiUnlock){need(c.gpr[3]==1u&&++exi_unlock_returns==1u&&c.mmu.read32(ExiState+12u)==0u&&mask_calls==2u&&!controller->pending(0)&&witness.stage()==4u);}
@@ -258,6 +285,9 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             payload(c,true);
             #ifdef UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS
             need(extended_wrapper.stage()==2u&&extended_wrapper.extended()&&extended_device.returned(*controller,*mx_device,scheduler->completed(),guest_payload(c)));
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+            need(profile_trace.returned(guest_payload(c),tick)&&profile_trace.held()&&profile_trace.completed()==12u&&profile_trace.bytes()==44u);
+#endif
             std::cout<<"V858_OWNER_EXTENDED_WRITE visits="<<extended_wrapper.visits()<<" polls="<<extended_wrapper.polls()<<" mmio="<<extended_wrapper.mmio()<<" bytes="<<extended_device.bytes()<<" transfers="<<extended_device.completed()<<" original_return=1 fallback=0"<<std::endl;
             #endif
             std::cout<<"V838_OWNER_CALLBACK_WRITE original_time_return=1 original_setter_return=1 original_unlock=1 bytes=44 payload=1 abi=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
@@ -346,6 +376,9 @@ void trace_call(uint32_t pc,CPUContext& c){
         payload(c,true);need(!controller->pending(0)&&!(controller->read(0,0)&0x380u)&&witness.begin(*controller,*mx_device,20u,desired));
 #ifdef UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS
         need(extended_device.preselect(*controller,*mx_device,scheduler->completed(),guest_payload(c)));
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+        need(profile_trace.preselect(guest_payload(c),tick));
+#endif
 #endif
     }
     if(pc==Imm){
@@ -452,6 +485,9 @@ void start(CPUContext& c,uint32_t pc,uint32_t target,unsigned ch,bool changed,bo
         for(auto rule:restore_rules)extended_rules.push_back({rule.root,rule.count,rule.base,rule.disp});
         extension={extended_code,extended_rules,Revision,RevisionRead,ExiState};
         need(extended_device.begin(*controller,*mx_device,scheduler->completed(),guest_payload(c),ch,0u));
+#ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
+        need(profile_trace.begin(guest_payload(c),ch,0u,tick));
+#endif
     }
 #endif
 }

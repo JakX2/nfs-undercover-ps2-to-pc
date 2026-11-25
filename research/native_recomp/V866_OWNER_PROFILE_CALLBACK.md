@@ -1,0 +1,3 @@
+# V866: original callback with production EXI profile
+
+V864 source tests passed (five installer, four audit, 12 valid and 16 rejected profile cases); V865 predecessor handler test passed and new census is queued. V866 adds an opt-in focused original callback regression using the actual ExiProfileSession and real CPU-thread tick binding, with two genuine prior ID completions and selection epoch baseline. The V859 profile witness follows each original native boundary, including the quiescent dispatcher tick, through the V858 original setter and V851 original indirect callback return. Default fixture remains unchanged. No full-image execution claim. Private owner CI pending.
