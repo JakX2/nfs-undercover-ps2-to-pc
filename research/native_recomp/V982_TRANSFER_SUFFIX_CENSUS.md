@@ -1,0 +1,3 @@
+# V982: bounded post-transfer suffix geometry census
+
+V980 owner run 45723001656 refused before translation at transfer_suffix_geometry. This revision reports the private static aggregate (label count, backward edges, stores, boundary count and non-call/return boundaries), permits a separately opted-in maximum 256 labels while retaining the default V868 limit of 64, and stops at unsupported original control forms without executing them. The dynamic guard still limits native visits and memory writes. A non-call boundary is explicitly labeled as such, not a successful original handler return. Existing V976 transfer execution remains verified independently. New private run pending.

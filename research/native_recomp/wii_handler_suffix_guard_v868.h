@@ -9,8 +9,8 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned writes()const{return writes_;}
-    template<class C>bool start(C& c,std::span<const HandlerSuffixLabel> rows,uint32_t resume){
-        if(ctx_||error_||rows.empty()||rows.size()>64u||c.pc!=resume||
+    template<class C>bool start(C& c,std::span<const HandlerSuffixLabel> rows,uint32_t resume,unsigned label_limit=64u){
+        if(ctx_||error_||rows.empty()||(label_limit!=64u&&label_limit!=256u)||rows.size()>label_limit||c.pc!=resume||
            c.gpr[1]<0x80000400u||c.gpr[1]>0x817fff00u||(c.gpr[1]&3u))return fail(1);
         rows_=rows;uint32_t previous=0;
         for(const auto& x:rows){

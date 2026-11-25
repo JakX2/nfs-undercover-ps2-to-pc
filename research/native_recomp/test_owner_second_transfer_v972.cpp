@@ -104,6 +104,15 @@ static void suffix_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(suffix_write){need(third.suffix_status_writes()==1u);suffix_write=false;}
     const auto row=std::find_if(TransferSuffix.begin(),TransferSuffix.end(),[pc](const auto& v){return v.pc==pc;});
     need(row!=TransferSuffix.end());
+    if(std::find(TransferOtherStops.begin(),TransferOtherStops.end(),pc)!=TransferOtherStops.end()){
+        // Unsupported control forms remain refusal boundaries, not executed
+        // instructions. The private geometry supplied the exact location.
+        need(c.mmu.read32(pc)==w&&row->word==w&&third.held_now()&&third.token()==3u&&
+             !ctl->pending()&&cause==(Other|SiController::PI_SI));
+        std::cout<<std::dec<<"V982_TRANSFER_OTHER_STOP seed="<<seed_kind<<" profile="<<trial<<" visits="
+                 <<ack_visits-suffix_tick<<" token_held=1 saved_fields=38 boundary_executed=0"<<std::endl;
+        std::_Exit(0);
+    }
     const auto a=PostAckTransferDevice::word_access(c,w);
     const auto off=PostAckTransferDevice::offset(a.address);
     const bool rd=off&&*off==SiController::Status&&a.kind==PostAckTransferDevice::Access::Read;
@@ -161,7 +170,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                          <<" pending="<<third.pending()<<" visits="<<ack_visits-transfer_tick<<" reads="<<third.reads()<<" writes="<<third.writes()
                          <<" saved_fields=38 handler_instruction_executed=0"<<std::endl;
                 if(!suffix_route)std::_Exit(0);
-                need(third.token()==3u&&third.follow_stage()==3u&&suffix_guard.start(c,TransferSuffix,pc));
+                need(third.token()==3u&&third.follow_stage()==3u&&suffix_guard.start(c,TransferSuffix,pc,256u));
                 suffix_tick=ack_visits;suffix_before(c,owner,pc,w);
             }
             return;
