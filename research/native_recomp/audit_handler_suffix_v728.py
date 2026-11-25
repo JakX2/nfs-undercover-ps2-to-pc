@@ -17,8 +17,8 @@ def target(pc,w):
 def suffix(root,words,start):
     end=root+4*len(words)
     if root&3 or not 1<=len(words)<=1024 or start&3 or not root<=start<end:raise ValueError('extent')
-    _,direct,indirect=shape(root,words)
-    ordinals={pc:i+1 for i,pc in enumerate(sorted([p for p,_ in direct]+list(indirect)))}
+    calls=[root+4*i for i,w in enumerate(words) if w>>26==18 and w&3==1 or w==0x4e800421]
+    ordinals={pc:i+1 for i,pc in enumerate(calls)}
     seen=set();work=[start];stops=[];backs=set();stores=0
     while work:
         pc=work.pop()

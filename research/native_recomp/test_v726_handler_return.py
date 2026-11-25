@@ -1,6 +1,6 @@
 import unittest
 from audit_v726_handler_return import inspect,STAGES,diagnostic
-from prepare_v726_handler_return import patch_ack,patch_second,verify_resume_dispatch,render
+from prepare_v726_handler_return import patch_ack,patch_second,patch_resume,verify_resume_dispatch,render
 from prepare_v709_os_leaves import patch_poll,patch_second_poll
 from prepare_v680_si_helper import patch_binding as first
 from prepare_v688_si_second import patch_binding as second
@@ -21,6 +21,11 @@ class HandlerReturn(unittest.TestCase):
         verify_resume_dispatch(' case 0x80004004: func_80004000(ctx); break;',0x80004000,0x80004004)
         with self.assertRaises(ValueError):verify_resume_dispatch(' case 0x80004004: func_80004004(ctx); break;',0x80004000,0x80004004)
         self.assertIn('0x80004000u',render(0x80004000,0x80004020,0x80004008,0x80005000,0x60000000))
+    def test_resume_patch(self):
+        source='#include "runtime/cpu_context.h"\nvoid func_80003000(CPUContext& ctx) {\nloc_80003004: ;\n    // 0x80003004: 60000000\n    ++ctx.inst_count;\n}\n'
+        out=patch_resume(source,0x80003000,0x80003004,0x60000000)
+        self.assertIn('v726::resume(ctx,0x80003004u,0x60000000u)',out)
+        with self.assertRaises(ValueError):patch_resume(source,0x80003000,0x80003004,0x12345678)
     def test_order(self):
         first=[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]
         second=[f'V688_SI_SECOND_STAGE n={i}'.encode() for i in range(1,3)]

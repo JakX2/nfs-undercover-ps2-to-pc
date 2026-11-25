@@ -27,7 +27,10 @@ def install(root,inc):
     for p,s in original.items():
         changed=s
         if owns_root(s,X):
-            changed=patch_resume(changed,X,X+4,0x60000000)
+            try:changed=patch_resume(changed,X,X+4,0x60000000)
+            except ValueError:
+                # Original-free fixture only: show exact generated function.
+                print(exact_function(s,X));raise
             assert audit_native([exact_function(s,X)],outer,{X+4:(X,0x60000000)})==1
             seen_roots.add(X)
         if f'void func_{H:X}(CPUContext& ctx) {{' in s:
