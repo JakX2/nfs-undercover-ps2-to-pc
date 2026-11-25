@@ -20,7 +20,7 @@ for mode in nonsplit split; do
   mkdir "$work/$mode"
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V908_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_status_w1c_v908.py" "$dol" "$elf" "$work/$mode" --install
-  g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -fno-pie -no-pie \
+  g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -Wno-error=type-limits -fno-pie -no-pie \
     -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_status_w1c_v908.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { python3 "$here/diagnose_build_v910.py" "$work/build.log" test_owner_status_w1c_v908.cpp; echo "V908_NATIVE_BUILD failed=1";exit 1; }
   for trial in {0..7}; do
     timeout 20s "$work/probe" "$trial" 0 > "$work/run.log" 2>&1 || {

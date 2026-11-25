@@ -31,7 +31,7 @@ def inspect(raw,rc):
             if valid and len(tail) in (2,3,4,5) and not any(l.startswith((b'V868_',b'V890_',b'V897_',b'V911_')) for l in before):
                 h=int(re.fullmatch(CALLBACK_RETURN,rows[i])[1])
                 j=re.fullmatch(JOIN,tail[0]);s=re.fullmatch(STOP,tail[-1])
-                status_ok=len(tail)==2 or (h==6 and (tail[1:-1]==[STATUS] or tail[1:-1]==[STATUS,STORE] or (len(tail)==5 and tail[1:3]==[STATUS,STORE] and re.fullmatch(INDEX,tail[3]))))
+                status_ok=len(tail)==2 or (h==6 and (tail[1:-1]==[STATUS] or tail[1:-1]==[STATUS,STORE] or (len(tail)==5 and tail[1:3]==[STATUS,STORE] and bool(re.fullmatch(INDEX,tail[3])))))
                 if j and s:
                     handler,next_slot,kind,visits,writes=map(int,s.groups())
                     allowed={(7,1),(8,1),(12,1)} if h==6 else {(11,2),(12,1)}

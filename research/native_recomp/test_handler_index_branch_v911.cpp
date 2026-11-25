@@ -7,7 +7,7 @@ using namespace undercover::wii;
 constexpr uint32_t H=0x80004000u,Table=0x80009000u,Nop=0x60000000u;
 constexpr uint32_t Load=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
 constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
-constexpr HandlerIndexBranchExpectation exp{H,Load,Compare,Branch,H+64u,{Table,Table+4u,Table+8u,Table+12u},20u};
+constexpr HandlerIndexBranchExpectation Expected{H,Load,Compare,Branch,H+64u,{Table,Table+4u,Table+8u,Table+12u},20u};
 struct CPU{
     struct MMU{
         std::map<uint32_t,uint8_t> data;
@@ -33,7 +33,7 @@ int main(){
         c.mmu.put(H+56,Nop);c.mmu.put(H+64,Nop);
         for(unsigned j=0;j<4;++j)c.mmu.put(Table+4*j,j==ch?value:0x12345678u+j);
         c.gpr[20]=ch;c.gpr[3]=Table;c.gpr[4]=4u*ch;
-        HandlerIndexBranchWitness w(exp);
+        HandlerIndexBranchWitness w(Expected);
         if(i==8)c.gpr[20]=4;
         if(i==9)c.mmu.put(H+44,Load^1u);
         bool ok=w.start(c,H);

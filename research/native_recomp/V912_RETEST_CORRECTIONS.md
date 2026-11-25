@@ -1,0 +1,3 @@
+# V912: correct compiler warning handling and audit boolean
+
+V909 private job 139161468078 passed 16 original continuation trials, including the second system-time return on four alarm trials; the initial shell quoting defect was fixed. V908 private job 139161517525 reported a generated-code type-limits diagnostic (not a fixture source error). Match the established V905/V909 compiler policy: keep the warning visible but nonfatal, retain all other warning errors and both sanitizers. V911 original-free job 139161858930 exposed an invalid audit tail returning None instead of False; explicitly coerce the regex result to bool. Retest both jobs. No guest execution changes or relaxed device checks.
