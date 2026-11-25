@@ -29,9 +29,13 @@ class Tests(unittest.TestCase):
             hw.write_text('#pragma once\n#include <atomic>\n#include <cstdint>\nnamespace nwii::runtime::hw {inline std::atomic<uint32_t> pi_intsr{0},pi_intmr{0};}\n')
             exe=root/'probe'
             subprocess.run([cc,'-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'test_si_ack_integration_v675.cpp'),'-o',str(exe)],check=True,capture_output=True)
-            expected={mode:(0,EVENTS+[RESULT]) for mode in ('native','mirror')}
+            expected={mode:(0,EVENTS+[RESULT]) for mode in ('native','mirror','read')}
             expected.update({
                 'idle':(0,[b'V675_IDLE passed=1']),
+                'read-gap':(126,EVENTS[:1]+[b'V697_SI_READ_INVALID trace=8']),
+                'read-wrong-op':(126,EVENTS[:1]+[b'V697_SI_READ_INVALID trace=8']),
+                'bad-width':(126,EVENTS[:1]+[b'V697_SI_ACCESS_INVALID width=2 integer=1']),
+                'bad-offset':(126,EVENTS[:1]+[b'V697_SI_ACCESS_INVALID width=4 integer=1']),
                 'stale':(126,EVENTS[:1]+[b'V677_SI_ACK_WRITE_INVALID trace=5']),
                 'unsupported':(126,EVENTS[:1]+[b'V677_SI_ACK_WRITE_INVALID trace=6']),
                 'pre-gap':(126,EVENTS[:1]+[b'V672_SI_ACK_INVALID reason=3 trace=2']),
@@ -48,5 +52,5 @@ class Tests(unittest.TestCase):
                     self.assertEqual(got.returncode,rc,got.stderr.decode(errors='replace'))
                     self.assertEqual(got.stdout.splitlines(),rows)
                     self.assertEqual(got.stderr,b'')
-            print('V675_SI_ACK_BINDING synthetic=1 cases=13 actual_mmio=1 original_execution=0')
+            print('V675_SI_ACK_BINDING synthetic=1 cases=18 actual_mmio=1 original_execution=0')
 if __name__=='__main__':unittest.main()

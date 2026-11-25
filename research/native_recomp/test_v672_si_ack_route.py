@@ -25,11 +25,13 @@ class Tests(unittest.TestCase):
         s='\n'.join((INCLUDE,POLL,OBSERVE,END))
         self.assertIn('v672::begin(c)',patch_dispatch(s))
         self.assertIn('v672::poll(c)',patch_dispatch(s))
-        device='\n'.join((SI_INCLUDE,BIND,WRITE))
+        device='\n'.join((SI_INCLUDE,BIND,WRITE,'return active_->controller_.read(*off);','            throw std::runtime_error("SI unsupported access");'))
         out=patch_si(device)
         self.assertIn('arm_completion_ack',out)
         self.assertIn('si_completion_ack_trace.write',out)
         self.assertIn('V677_SI_ACK_WRITE_INVALID',out)
+        self.assertIn('V697_SI_READ_INVALID',out)
+        self.assertIn('V697_SI_ACCESS_INVALID',out)
         for fn,raw in ((patch_si,device),(patch_dispatch,s)):
             with self.assertRaises(ValueError):fn(raw+raw)
     def test_audit(self):

@@ -31,6 +31,29 @@ def patch_si(s):
             std::cout<<"V677_SI_ACK_WRITE_INVALID trace="<<si_completion_ack_trace.failure()<<std::endl;
             std::_Exit(126);
         }''')
+    # The pre-existing sampling/discovery composition may already use a
+    # local readback variable. Preserve it and both earlier observers.
+    raw='return active_->controller_.read(*off);'
+    observed='const auto value=active_->controller_.read(*off);'
+    if s.count(raw)+s.count(observed)!=1:raise ValueError('SI ACK read seam')
+    s=replace_exact(s,raw if raw in s else observed,'''return checked_read(*off);''' if raw in s else '''const auto value=checked_read(*off);''')
+    check='            throw std::runtime_error("SI unsupported access");'
+    s=replace_exact(s,check,'''        {
+            if(si_completion_ack_trace.phase()!=SiCompletionAckTrace::Phase::Idle){
+                std::cout<<"V697_SI_ACCESS_INVALID width="<<width<<" integer="<<unsigned(integer)<<std::endl;
+                std::_Exit(126);
+            }
+            throw std::runtime_error("SI unsupported access");
+        }''')
+    s=replace_exact(s,BIND,BIND+'''
+    static uint32_t checked_read(unsigned off){
+        try{return si_completion_ack_trace.read(active_->controller_,off);}
+        catch(const std::exception&){
+            if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Idle)throw;
+            std::cout<<"V697_SI_READ_INVALID trace="<<si_completion_ack_trace.failure()<<std::endl;
+            std::_Exit(126);
+        }
+    }''')
     return replace_exact(s,BIND,BIND+'''
     static bool arm_completion_ack(const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
                                    const uint64_t& tick,uint32_t first,uint32_t end){

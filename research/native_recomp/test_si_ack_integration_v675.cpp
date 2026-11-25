@@ -37,6 +37,19 @@ int main(int argc,char** argv){
     }
     if(mode=="masked")c.msr|=0x8000u;
     v672::begin(c);need(v672::active());need(!v672::poll(c));++c.inst_count;
+    if(mode=="read"||mode=="read-gap"||mode=="read-wrong-op"||mode=="bad-width"||mode=="bad-offset"){
+        const uint32_t op=mode=="read-wrong-op"?Nop:0x80030000u;
+        c.mmu.words[First]=op;v672::before(c,First,op,0,0);
+        if(mode=="read-gap")++c.inst_count;
+        if(mode=="bad-width")SiBinding::check(0xcd006434u,2u,true);
+        need(SiBinding::read32(mode=="bad-offset"?0xcd006400u:0xcd006434u)==0xe0010300u);
+        need(si_completion_ack_trace.reads()==1&&pi_intsr==(Other|SiController::PI_SI));
+        ++c.inst_count;c.mmu.words[First+4]=Store;
+        v672::before(c,First+4,Store,0,0);
+        need(SiBinding::write32(0xcd006434u,0xe0010300u));++c.inst_count;
+        v672::before(c,First+8,Nop,0,0);
+        throw std::runtime_error("read route escaped ACK guard");
+    }
     if(mode=="direct"||mode=="indirect"||mode=="unknown"){
         const uint32_t w=mode=="direct"?0x48000009u:mode=="indirect"?0x4e800421u:0x4e800021u;
         c.mmu.words[First]=w;

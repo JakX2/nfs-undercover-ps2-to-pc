@@ -15,7 +15,12 @@ public:
         const auto op=w>>26,xo=(w>>1)&1023u;
         return op==36u||op==37u||(op==31u&&(xo==151u||xo==183u||xo==662u));
     }
+    static constexpr bool word_load(uint32_t w)noexcept{
+        const auto op=w>>26,xo=(w>>1)&1023u;
+        return op==32u||op==33u||(op==31u&&(xo==23u||xo==55u||xo==534u));
+    }
     Phase phase()const noexcept{return phase_;}
+    unsigned reads()const noexcept{return reads_;}
     unsigned failure()const noexcept{return error_;}
     unsigned writes()const noexcept{return writes_;}
     uint32_t store_pc()const noexcept{return store_pc_;}
@@ -62,7 +67,7 @@ public:
         // A gap before acknowledgement is just as invalid as a gap after it.
         if(*tick_-last_tick_!=1u)return fail(2);
         if(!source_held())return fail(4);
-        pc_=pc;last_tick_=*tick_;store_=word_store(word);return true;
+        pc_=pc;last_tick_=*tick_;store_=word_store(word);load_=word_load(word);return true;
     }
     // An authenticated auxiliary helper may execute, but it cannot issue an
     // SI write in the handler-only store witness. Every visit is contiguous.
@@ -70,7 +75,18 @@ public:
         if(phase_!=Phase::Armed||!tick_||*tick_<=last_tick_||
            *tick_-last_tick_!=1u||*tick_-start_tick_>8192u)return fail(2);
         if(!source_held())return fail(4);
-        last_tick_=*tick_;store_=false;pc_=0;return true;
+        last_tick_=*tick_;store_=load_=false;pc_=0;return true;
+    }
+    // Only a completed actual MMIO read associated with an authenticated
+    // native word-load visit is accepted while this route is armed.
+    uint32_t read(SiController& ctl,unsigned off){
+        if(phase_==Phase::Idle)return ctl.read(off);
+        if(phase_!=Phase::Armed||&ctl!=ctl_||!load_||!tick_||*tick_!=last_tick_||
+           !allowed(pc_)||reads_>=128u||!source_held())reject(8);
+        load_=false;
+        const auto value=ctl.read(off);
+        if(!source_held())reject(8);
+        ++reads_;return value;
     }
     // This wrapper makes exactly one real backend write with the unchanged
     // guest arguments. It never writes PI, manufactures an IOS result or
@@ -103,7 +119,7 @@ public:
            (off==SiController::Control&&status!=old_status))reject(7);
     }
 private:
-    Phase phase_=Phase::Idle;unsigned error_=0,writes_=0;bool store_=false;
+    Phase phase_=Phase::Idle;unsigned error_=0,writes_=0,reads_=0;bool store_=false,load_=false;
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr;
     const std::atomic<uint32_t>* mask_=nullptr;const uint64_t* tick_=nullptr;
     uint32_t first_=0,end_=0,pc_=0,store_pc_=0,cause_before_=0,mask_before_=0,ack_control_=0,ack_status_=0;
