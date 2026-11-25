@@ -1,0 +1,3 @@
+# V979: correct the independently authored live time fixture
+
+V977 run 45722303683 failed its valid synthetic case while negative controls and earlier scopes passed. Inspection found the simulated nested routine restored the outer LR before witnessing the return from the last OS leaf. Separate those boundaries with a synthetic NOP and a later BLR; the route must still check the inner return LR before it can accept the outer return. Include stdout in failure diagnostics, and emit the positive census only after unittest returns success. No production witness checks are relaxed. V978's preflight is gated by the corrected compiled test.

@@ -49,6 +49,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v958_second_ack.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v975_second_time.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v977_composed_time.py -v
+          echo 'V977_LIVE_TIME valid=1 earlier_modes=2 refused=3 actual_binding=1 original_execution=0'
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           python3 -m unittest discover -s research/native_recomp -p test_v875_launch_contract.py -v

@@ -29,7 +29,7 @@ class ComposedTime(unittest.TestCase):
             build=subprocess.run([cc,'-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'probe.cpp'),'-o',str(exe)],capture_output=True,timeout=60)
             self.assertEqual(build.returncode,0,build.stderr.decode(errors='replace'))
             env=os.environ.copy();env['UNDERCOVER_V958_SECOND_ACK']='1'
-            result=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=11 handler_instruction_executed=0 boot_verified=0'
+            result=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=12 handler_instruction_executed=0 boot_verified=0'
             for mode in ('valid','wrong-leaf','changed-msr','missing-msr','ack-only','post-only'):
                 with self.subTest(mode=mode):
                     runenv=env.copy()
@@ -39,7 +39,7 @@ class ComposedTime(unittest.TestCase):
                     got=subprocess.run([str(exe),mode],env=runenv,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
                     if mode=='valid':
-                        self.assertEqual(got.returncode,0,got.stderr.decode(errors='replace'));self.assertEqual(rows,[RESULT,POST,result])
+                        self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'));self.assertEqual(rows,[RESULT,POST,result])
                     elif mode=='ack-only':
                         self.assertEqual(got.returncode,0);self.assertEqual(rows,[RESULT])
                     elif mode=='post-only':
@@ -49,5 +49,5 @@ class ComposedTime(unittest.TestCase):
                         self.assertEqual(rows[:2],[RESULT,POST]);self.assertEqual(len(rows),3)
                         self.assertRegex(rows[2],rb'^V958_ACK_INVALID kind=(?:[1-9]|10) stage=4 reason=[0-5] call_reason=[0-5] visits=[0-9]+$')
                     self.assertEqual(got.stderr,b'')
-            print('V977_LIVE_TIME valid=1 earlier_modes=2 refused=3 actual_binding=1 original_execution=0')
+            # unittest reports the individual outcomes; do not emit a success marker from a failed subtest.
 if __name__=='__main__':unittest.main()

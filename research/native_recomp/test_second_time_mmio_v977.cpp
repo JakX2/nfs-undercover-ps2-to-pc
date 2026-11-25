@@ -14,7 +14,7 @@ constexpr uint32_t bl(uint32_t from,uint32_t to){return 0x48000001u|((to-from)&0
 struct Cr{bool lt=false,gt=false,eq=false,so=false;};
 struct Mmu{
     std::map<uint32_t,uint32_t> words{{H,bl(H,Save)},{H+4,bl(H+4,Completion)},{Save,Blr},{Completion,Load},{Completion+4,Store},{Completion+8,Nop},{Completion+12,Blr},{H+8,Nop},{H+12,bl(H+12,Nested)},{H+16,Nop},
-        {Nested,bl(Nested,Disable)},{Nested+4,bl(Nested+4,Time)},{Nested+8,bl(Nested+8,Restore)},{Nested+12,Blr},
+        {Nested,bl(Nested,Disable)},{Nested+4,bl(Nested+4,Time)},{Nested+8,bl(Nested+8,Restore)},{Nested+12,Nop},{Nested+16,Blr},
         {Disable,Mtmsr},{Disable+4,Blr},{Time,Nop},{Time+4,Blr},{Restore,Mtmsr},{Restore+4,Blr}};
     uint8_t byte=0;
     uint8_t* get_ptr(uint32_t a){return words.count(a&~3u)?&byte:nullptr;}
@@ -93,7 +93,7 @@ int main(int argc,char** argv){
     visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
     c.gpr[3]=c.msr;
     if(mode=="missing-msr"){c.mmu.words[Restore]=Nop;visit(Restore,Nop);}else visit(Restore,Mtmsr);
-    visit(Restore+4,Blr);c.lr=H+16;
-    visit(Nested+12,Blr);visit(H+16,Nop);
+    visit(Restore+4,Blr);visit(Nested+12,Nop);
+    c.lr=H+16;visit(Nested+16,Blr);visit(H+16,Nop);
     need(false);
 }

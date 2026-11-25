@@ -3,7 +3,7 @@
 #include "wii_bounded_ack_call_route_v956.h"
 namespace undercover::wii::v958 {
 inline constexpr uint32_t context=0x80009000u;
-inline constexpr std::array<AckCallSpan,4> spans{{{0x80004000u,0x80004018u},{0x80004100u,0x80004104u},{0x80004200u,0x80004218u},{0x80004300u,0x80004310u}}};
+inline constexpr std::array<AckCallSpan,4> spans{{{0x80004000u,0x80004018u},{0x80004100u,0x80004104u},{0x80004200u,0x80004218u},{0x80004300u,0x80004314u}}};
 inline constexpr std::array<AckCallEdge,3> edges{{{0x80004000u,0x80004100u},{0x80004004u,0x80004200u},{0x80004210u,0x80004300u}}};
 inline constexpr uint32_t time_call=0x8000400cu;
 inline constexpr std::array<AckCallSpan,7> time_spans{{spans[0],spans[1],spans[2],spans[3],
