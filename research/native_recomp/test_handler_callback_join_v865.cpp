@@ -24,7 +24,7 @@ static void need(bool ok,const std::source_location l=std::source_location::curr
     if(!ok){std::cerr<<"V865_ASSERT line="<<l.line()<<'\n';throw std::runtime_error("callback join");}
 }
 int main(){
-    unsigned valid=0,refused=0;
+    unsigned valid=0,refused=0,boundary_valid=0,boundary_refused=0;
     for(unsigned trial=0;trial<20;++trial){
         Cpu c;for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u+7u;
         SiHandlerReturnWitness w({H,H+20u,Start,R,Nop});
@@ -73,6 +73,37 @@ int main(){
         c.inst_count+=2;need(w.resumed(c,R,Nop,true)&&w.stage()==5u);
         ++valid;
     }
+    // An unadmitted next linked call can be observed, but must never
+    // create a completed-call bit, active helper, or successful BLR.
+    for(unsigned t=0;t<10;++t){
+        Cpu c;
+        SiHandlerReturnWitness w({H,H+20u,Start,R,Nop});
+        need(w.capture(c));c.pc=c.lr=Start;c.inst_count+=50;
+        need(w.start(c,Start,true)&&w.before_authenticated(c,Start,Call,true,5u));
+        c.pc=c.lr=Site;c.inst_count+=11;
+        need(w.alarm_returned(c,Site,10,true));
+        need(w.before_authenticated_indirect(c,Site,Indirect,true,11u));
+        const uint64_t at=c.inst_count;c.pc=c.lr=Back;c.inst_count+=200u;
+        need(w.callback_returned(c,Back,at,true,true,11u));
+        const bool indirect=t==1||t==7;
+        const uint32_t word=indirect?Indirect:Call;
+        c.mmu.words[Back]=word;
+        if(t==2)c.inst_count++;
+        if(t==3)c.msr|=0x8000u;
+        if(t==4)c.mmu.words[Back]=Nop;
+        if(t==5)c.srr1^=1u;
+        const unsigned slot=indirect?11u:7u,kind=indirect?2u:1u;
+        const bool ok=w.stop_before_call(c,t==6?Back+4u:Back,word,t!=9,t==8?13u:slot,t==7?1u:kind);
+        need(w.completed_calls()==(16u|(1u<<10))&&!w.active_call());
+        if(t<2){
+            need(ok&&w.stage()==6u);
+            need(!w.before(c,Back,word,true));++boundary_valid;
+        }else{
+            need(!ok&&w.stage()==2u&&w.failure()==8u);++boundary_refused;
+        }
+    }
+    need(boundary_valid==2&&boundary_refused==8);
+    std::cout<<"V869_HANDLER_BOUNDARY valid="<<boundary_valid<<" refused="<<boundary_refused<<" call_executed=0 original_execution=0\n";
     need(valid==4&&refused==16);
     std::cout<<"V865_HANDLER_CALLBACK_JOIN valid="<<valid<<" refused="<<refused<<" both_slots=1 same_tick=1 original_execution=0\n";
 }

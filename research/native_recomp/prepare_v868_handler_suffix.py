@@ -57,6 +57,7 @@ inline bool continue_handler(){
     return replace_exact(s,a,a.replace('std::_Exit(0);','if(!continue_handler())std::_Exit(0);'))
 
 def patch_ack(s):
+    if 'wii_handler_suffix_binding_v868.h' in s or 'v868::' in s:raise ValueError('handler suffix duplicate')
     a='#include "wii_si_handler_return_binding_v726.h"'
     s=replace_exact(s,a,a+'\n#include "wii_handler_suffix_binding_v868.h"')
     a='template<class C>void before(C& c,uint32_t pc,uint32_t word,unsigned ordinal,unsigned kind){'
@@ -110,7 +111,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
+        safe=('handler suffix duplicate','handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
         print('V868_HANDLER_SUFFIX_ROUTE installed=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
