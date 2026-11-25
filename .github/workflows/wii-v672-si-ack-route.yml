@@ -13,6 +13,8 @@ on:
       - 'research/native_recomp/*v691*'
       - 'research/native_recomp/*v699*'
       - 'research/native_recomp/*v700*'
+      - 'research/native_recomp/*v709*'
+      - 'research/native_recomp/*v710*'
       - '.github/workflows/wii-v672-si-ack-route.yml'
 permissions:
   contents: read
@@ -66,7 +68,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw672" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw672" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw672" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-si-ack
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-si-os-leaves
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw672"
@@ -101,7 +103,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw672" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw672" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw672" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-postack
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-os-leaves
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw672"

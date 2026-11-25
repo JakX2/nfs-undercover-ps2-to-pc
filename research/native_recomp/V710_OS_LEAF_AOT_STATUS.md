@@ -1,0 +1,3 @@
+# V710: generated post-ACK ordered three-leaf control and private preflight
+
+Build independent PPC caller that ACKs SI, clears status, performs nested call, then calls three native OS leaves with separate LR save slot and genuine disabled mtmsr/timebase operations. Applies production V709 hooks, verifies ordered 9-stage leaf trace and nested/second helper returns, preserves stop-at-ACK regression and refuses disabled/out-of-order leaf cases. Both split and non-split under ASan/UBSan. New --prepare-si-os-leaves composes full original-image labels without executing. The existing owner workflow is promoted to the new opt-in lane; V700's in-flight run still tests the old route. Original execution and all new CI pending.
