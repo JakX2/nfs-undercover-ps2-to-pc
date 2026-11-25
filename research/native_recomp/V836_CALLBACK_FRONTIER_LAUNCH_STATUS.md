@@ -1,0 +1,3 @@
+# V836: guarded live callback wireless frontier launch
+
+V831 private preflight job 139048355971 authenticated 27 original native labels and two exact linked call edges, then passed full observer syntax checks. V836 introduces the separate explicit `--run-si-callback-frontier` mode and strict log audit, requiring successful earlier original system-time return, unique same-tick frontier entry, exact store-byte witness, completed SI device state, and original wireless call ordinal 3 or 5. The live branch is not inferred from synthetic fixtures. Both actual wireless callee execution and complete callback return remain unclaimed. No owner-execution job is enabled until the V833 original full-image time run passes. Original-free audit tests and private preflight pending.

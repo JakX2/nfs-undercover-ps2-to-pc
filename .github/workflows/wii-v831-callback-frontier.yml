@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v831*'
+      - 'research/native_recomp/*v836*'
       - 'research/native_recomp/*v829*'
       - '.github/workflows/wii-v831-callback-frontier.yml'
 permissions:
@@ -18,9 +19,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v831_callback_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v836_callback_frontier.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
   owner-preflight:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
