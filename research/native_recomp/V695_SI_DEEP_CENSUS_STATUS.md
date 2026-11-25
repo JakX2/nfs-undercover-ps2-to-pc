@@ -1,0 +1,3 @@
+# V695: conservative nested MMIO and direct-edge census
+
+Use a finite constant-propagation lattice on original second/nested helper prefixes, merging differing register constants to unknown, stopping at calls and privileged/indirect transfers. Only a small whitelist of PPC instructions is interpreted statically; all unrecognized effects forget constants. Report aggregate proven address classes and exact DOL/ELF direct-root counts plus known OS function flags, never addresses or original instructions. This is a static diagnostic, not authorization or proof of runtime MMIO reachability. Independent positive, unknown, join and call-boundary tests. CI pending.
