@@ -18,7 +18,7 @@ struct Cpu{
 static void need(bool b){if(!b)throw std::runtime_error("pending IRQ witness");}
 int main(){
     unsigned valid=0,refused=0;
-    for(unsigned i=0;i<18;++i){
+    for(unsigned i=0;i<22;++i){
         Cpu c;ExternalReturnWitness first;PendingExternalReentry next;
         c.mmu.words={{H,0x60000000u},{R,0x4c000064u},{ExternalVector,0x60000000u}};
         const std::array<uint8_t,4> vector{0x60,0,0,0};
@@ -39,14 +39,18 @@ int main(){
         if(i==10)c.srr0^=4;
         if(i==11)++c.inst_count;
         if(i==12)c.gqr[1]^=1;
+        if(i==18)c.mmu.words[ExternalVector]^=1u;
+        if(i==19)c.mmu.words.erase(ExternalVector);
         const bool poll=next.outer_poll(c,Other|Mask,Mask,i!=13);
-        if(i>=10&&i<=13){need(!poll&&next.failure()==2);++refused;continue;}need(poll);
+        if((i>=10&&i<=13)||i==18||i==19){need(!poll&&next.failure()==2);++refused;continue;}need(poll);
         if(i!=14)++c.inst_count;
         if(i==15)c.srr1^=1;
+        if(i==20)c.mmu.words[ExternalVector]^=1u;
+        if(i==21)c.mmu.words.erase(ExternalVector);
         const bool entry=next.vector_entry(c,ExternalVector,i==16?Other:Other|Mask,Mask,true);
-        if(i>=14&&i<=16){need(!entry&&next.failure()==3);++refused;continue;}need(entry&&next.stage()==3&&next.captured().stage()==1&&c.pc==ExternalVector);
+        if((i>=14&&i<=16)||i==20||i==21){need(!entry&&next.failure()==3);++refused;continue;}need(entry&&next.stage()==3&&next.captured().stage()==1&&c.pc==ExternalVector);
         if(i==17){need(!next.vector_entry(c,ExternalVector,Other|Mask,Mask,true));++refused;continue;}++valid;
     }
-    need(valid==1&&refused==17);
-    std::cout<<"V932_PENDING_REENTRY synthetic=1 valid=1 refused=17 original_execution=0\n";
+    need(valid==1&&refused==21);
+    std::cout<<"V936_PENDING_REENTRY synthetic=1 valid=1 refused=21 original_execution=0\n";
 }

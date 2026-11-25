@@ -44,6 +44,9 @@ public:
     }
     // A second, already completed SI token can remain asserted across RFI.
     // The caller must separately authenticate that token and the device.
+    template<class C>bool pending_source(C& c,uint32_t cause,uint32_t mask)const{
+        return stage_==1u&&pending_common(c,cause,mask);
+    }
     template<class C>bool before_pending_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         return before_rfi_impl(c,pc,word,cause,mask,true);
     }

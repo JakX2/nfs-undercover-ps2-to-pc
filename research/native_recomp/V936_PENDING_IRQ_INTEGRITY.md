@@ -1,0 +1,3 @@
+# V936: preserve exact vector image and restored GQR across pending RFI
+
+Validate the original captured PI cause/mask identity at scheduler admission, not merely at RFI. Verify GQR values again after the original RFI and at ordinary resume. Capture the complete authenticated vector image before entering the second exception and reject changed/unmapped bytes at either outer poll or vector trace. Four additional corruption controls; original-free dedicated regression workflow. Do not cancel the in-progress V932 continuous owner execution; it is a separate earlier commit. No new guest mutations or IRQ permission broadening.

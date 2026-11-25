@@ -24,7 +24,7 @@ public:
         return begin_impl(c,captured,cause,mask,true);
     }
     template<class C>bool pending_rfi_return(C& c,uint32_t cause,uint32_t mask){
-        if(stage_!=2u||!pending_return_||!captured_||!captured_->pending_rfi_return(c,cause,mask))return fail(8);
+        if(stage_!=2u||!pending_return_||!captured_||c.gqr!=gqr_||!captured_->pending_rfi_return(c,cause,mask))return fail(8);
         stage_=3;return true;
     }
 private:
@@ -34,7 +34,7 @@ private:
         if(!safe(c)||!c.inst_count||c.pc!=e_.dispatcher)refusal_|=2u;
         if(e_.context_reg<14||e_.context_reg>31||c.gpr[e_.context_reg]!=e_.context)refusal_|=4u;
         if(!captured.saved_integer(c,e_.context).ok())refusal_|=8u;
-        if((cause&mask)!=(pending?8u:0u))refusal_|=16u;
+        if((cause&mask)!=(pending?8u:0u)||(pending&&!captured.pending_source(c,cause,mask)))refusal_|=16u;
         if(!e_.gqr_mask||e_.gqr_mask>255u)refusal_|=32u;
         if(refusal_)return fail(1);
         const int64_t counter=int64_t(c.gpr[13])+e_.counter_disp,hint=int64_t(c.gpr[13])+e_.hint_disp;
@@ -122,7 +122,7 @@ public:
         pending_=false;return true;
     }
     template<class C>bool resume(C& c,uint32_t pc,uint32_t w,uint32_t cause,uint32_t mask){
-        if(stage_!=4||!captured_->resume(c,pc,w,cause,mask))return fail(9);
+        if(stage_!=4||c.gqr!=gqr_||!captured_->resume(c,pc,w,cause,mask))return fail(9);
         stage_=5;return true;
     }
 private:
