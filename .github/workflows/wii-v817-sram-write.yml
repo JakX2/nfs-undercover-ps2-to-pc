@@ -1,0 +1,81 @@
+name: Wii V817 Native Guest SRAM Writes
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v817*'
+      - 'research/native_recomp/wii_exi_mx_device_v494.h'
+      - '.github/workflows/wii-v817-sram-write.yml'
+permissions:
+  contents: read
+jobs:
+  pinned:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact pinned NWiiRecomp
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v817"
+          git init -q "$root"
+          git -C "$root" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$root" fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$root" checkout -q --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+      - name: Exercise real MMU wrappers with and without EXI controller
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v817"
+          rt="$root/nWiiRuntime"
+          mkdir -p "$rt/include/undercover"
+          cp research/native_recomp/wii_exception_vector_witness_v457.h "$rt/include/undercover/"
+          python3 research/native_recomp/apply_irq_bootstrap_v475.py "$root"
+          python3 research/native_recomp/apply_irq_banks_v481.py "$root"
+          python3 research/native_recomp/apply_exi_controller_v490.py "$root"
+          python3 research/native_recomp/apply_exi_controller_v490.py "$root"
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_exi_controller_v490.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v490-pinned"
+          "$RUNNER_TEMP/v490-pinned"
+      - name: Exercise native instruction-boundary SRAM device against actual MMU and PI
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v817"
+          rt="$root/nWiiRuntime"
+          python3 research/native_recomp/apply_native_tick_v438.py "$root"
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" emitter
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" emitter
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" runtime
+          python3 research/native_recomp/apply_exi_tick_v497.py "$root" runtime
+          g++ -std=c++20 -O1 -ffunction-sections -fdata-sections -fsanitize=address,undefined -fno-pie -no-pie \
+            -I"$rt/include" research/native_recomp/test_nwii_exi_tick_v497.cpp \
+            "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" \
+            "$rt/src/hw/mmio_dispatcher.cpp" -Wl,--gc-sections -o "$RUNNER_TEMP/v497-pinned"
+          "$RUNNER_TEMP/v497-pinned"
+      - name: Translate guest SRAM immediate writes and execute actual MMIO
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/nwii-v817"
+          rt="$root/nWiiRuntime"
+          python3 research/native_recomp/apply_nonsplit_dispatch_v15.py "$root"
+          inc=(-I"$rt/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
+          g++ -std=c++20 -O2 -Wno-unused-variable -Wno-sign-compare "${inc[@]}" \
+            research/native_recomp/generate_native_sram_write_v817.cpp "$rt/src/core/loader.cpp" \
+            "$root/nWiiAnalyzer/src/analyzer.cpp" "$root/nWiiAnalyzer/src/dolphin_sigdb.cpp" \
+            "$root/nWiiAnalyzer/src/signature_scanner.cpp" "$root/nWiiRecomp/src/recompiler.cpp" \
+            "$root/nWiiRecomp/src/symbols.cpp" -o "$RUNNER_TEMP/v817-generator"
+          for mode in nonsplit split; do
+            dir="$RUNNER_TEMP/v817-$mode"
+            mkdir "$dir"
+            "$RUNNER_TEMP/v817-generator" "$dir" "$mode"
+            flags=()
+            if [[ "$mode" == split ]]; then flags=(-DV438_SPLIT -I"$dir"); fi
+            g++ -std=c++20 -O1 -pthread -fsanitize=address,undefined -fno-pie -no-pie "${inc[@]}" "${flags[@]}" \
+              research/native_recomp/test_native_sram_write_v817.cpp "$dir"/*.cpp \
+              "$rt/src/core/os_hle_stubs.cpp" "$rt/src/hw/mmio_dispatcher.cpp" \
+              "$rt/src/hw/hw_pi.cpp" "$rt/src/hw/hw_ipc.cpp" -o "$dir/native"
+            timeout 20s "$dir/native"
+          done

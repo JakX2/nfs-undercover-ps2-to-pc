@@ -1,0 +1,3 @@
+# V817: native guest EXI SRAM write integration
+
+V815 passed all 64 offsets and eight refusals through the real C++ scheduler. V817 adds independently authored synthetic PPC code, translated by the pinned NWiiRecomp in both modes, to load command/data words from guest memory, issue actual EXI DATA/CR writes and poll the TSTART bit under native instruction-boundary timing. Four changed-ID extended SRAM payloads exercise offset 20 and 44 bytes, plus full immediate readback. Unbound and delayed scheduler cases must time out without changing SRAM or inventing completion. Host code selects/deselects the device and seeds the fixture; no original game wrapper execution is claimed. Tests pending.
