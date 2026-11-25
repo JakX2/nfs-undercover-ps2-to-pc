@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
+describe=0
+if [[ $# == 2 && "$1" == --describe-mode ]]; then
+  describe=1
+  set -- unused unused unused "$2"
+fi
 [[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture || "$4" == --prepare-si-combined || "$4" == --run-si-combined || "$4" == --prepare-si-captured || "$4" == --run-si-captured || "$4" == --prepare-si-epilogue || "$4" == --run-si-epilogue || "$4" == --prepare-si-transfer-prefix || "$4" == --run-si-transfer-prefix || "$4" == --prepare-si-transfer-return || "$4" == --run-si-transfer-return || "$4" == --prepare-si-transfer-suffix || "$4" == --run-si-transfer-suffix || "$4" == --prepare-si-alarm || "$4" == --run-si-alarm || "$4" == --prepare-si-alarm-suffix || "$4" == --run-si-alarm-suffix || "$4" == --prepare-si-callback-prefix || "$4" == --run-si-callback-prefix || "$4" == --prepare-si-callback-time || "$4" == --run-si-callback-time || "$4" == --prepare-si-callback-frontier || "$4" == --run-si-callback-frontier || "$4" == --prepare-si-wireless-wrapper || "$4" == --prepare-si-callback-return || "$4" == --run-si-wireless-wrapper || "$4" == --run-si-callback-return || "$4" == --prepare-si-wireless-write || "$4" == --run-si-wireless-write || "$4" == --prepare-si-combined-callback || "$4" == --run-si-combined-callback || "$4" == --prepare-si-handler-suffix || "$4" == --run-si-handler-suffix ) ) ]] || exit 2
 mode="${4:-translation-only}"
+requested_mode="$mode"
 external_args=()
 external_entry=0
 external_capture=0
@@ -90,6 +96,48 @@ fi
 open_request=0
 if [[ "$mode" == --prepare-open-request ]]; then mode=--prepare-stm-open;open_request=1;fi
 if [[ "$mode" == --run-open-request ]]; then mode=--run-stm-open;open_request=1;fi
+target=none
+if [[ "$mode" == --run-dsp-sc ]]; then
+  target=dsp-sc
+elif [[ "$mode" == --run-* ]]; then
+    target=dsp-return; [[ "$mode" != --run-mi ]] || target=mi-return
+    [[ "$mode" != --run-report ]] || target=report-return
+    [[ "$mode" != --run-arena ]] || target=arena-return
+    [[ "$mode" != --run-irq-enable ]] || target=irq-enable-return
+    [[ "$mode" != --run-ipc-client ]] || target=ipc-client-return
+    [[ "$mode" != --run-stm-open ]] || target=stm-open
+    [[ "$open_request" != 1 ]] || target=open-request
+    [[ "$external_entry" != 1 ]] || target=irq-pending-entry
+    [[ "$external_capture" != 1 ]] || target=irq-pending-capture
+    [[ "$si_dispatch" != 1 ]] || target=irq-si-dispatch
+    [[ "$si_ack" != 1 ]] || target=irq-si-ack
+    [[ "$si_postack" != 1 ]] || target=irq-si-postack
+    [[ "$si_os_leaves" != 1 ]] || target=irq-si-os-leaves
+    [[ "$si_handler_return" != 1 ]] || target=irq-si-handler-return
+    [[ "$si_handler_restore" != 1 ]] || target=irq-si-handler-restore
+    [[ "$si_handler_time" != 1 ]] || target=irq-si-handler-time
+    [[ "$si_time_suffix" != 1 ]] || target=irq-si-time-suffix
+    [[ "$si_combined" != 1 ]] || target=irq-si-combined
+    [[ "$si_captured" != 1 ]] || target=irq-si-captured
+    [[ "$si_epilogue" != 1 ]] || target=irq-si-epilogue
+    [[ "$si_transfer_prefix" != 1 ]] || target=irq-si-transfer-prefix
+    [[ "$si_transfer_return" != 1 ]] || target=irq-si-transfer-return
+    [[ "$si_transfer_suffix" != 1 ]] || target=irq-si-transfer-suffix
+    [[ "$si_alarm" != 1 ]] || target=irq-si-alarm
+    [[ "$si_alarm_suffix" != 1 ]] || target=irq-si-alarm-suffix
+    [[ "$si_callback_prefix" != 1 ]] || target=irq-si-callback-prefix
+    [[ "$si_callback_time" != 1 ]] || target=irq-si-callback-time
+    [[ "$si_callback_frontier" != 1 ]] || target=irq-si-callback-frontier
+    [[ "$si_wireless_wrapper" != 1 ]] || target=irq-si-wireless-wrapper
+    [[ "$si_wireless_write" != 1 ]] || target=irq-si-wireless-write
+    [[ "$si_callback_return" != 1 ]] || target=irq-si-callback-return
+    [[ "$si_combined_callback" != 1 ]] || target=irq-si-combined-callback
+    [[ "$si_handler_suffix" != 1 ]] || target=irq-si-handler-suffix
+fi
+# Derive the actual target before touching private inputs; use it unchanged
+# after the native build. Public plan contains flags only, never source paths.
+echo "V875_TRANSLATION_PLAN requested=$requested_mode base=$mode target=$target wrapper=$si_wireless_wrapper write=$si_wireless_write callback=$si_callback_return combined=$si_combined_callback handler=$si_handler_suffix"
+if [[ "$describe" == 1 ]]; then exit 0;fi
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"; trap 'rm -rf -- "$work"' EXIT; umask 077
@@ -276,39 +324,6 @@ fi
 if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --run-report || "$mode" == --run-arena || "$mode" == --run-irq-enable || "$mode" == --run-ipc-client || "$mode" == --run-stm-open ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
-    target=dsp-return; [[ "$mode" != --run-mi ]] || target=mi-return
-    [[ "$mode" != --run-report ]] || target=report-return
-    [[ "$mode" != --run-arena ]] || target=arena-return
-    [[ "$mode" != --run-irq-enable ]] || target=irq-enable-return
-    [[ "$mode" != --run-ipc-client ]] || target=ipc-client-return
-    [[ "$mode" != --run-stm-open ]] || target=stm-open
-    [[ "$open_request" != 1 ]] || target=open-request
-    [[ "$external_entry" != 1 ]] || target=irq-pending-entry
-    [[ "$external_capture" != 1 ]] || target=irq-pending-capture
-    [[ "$si_dispatch" != 1 ]] || target=irq-si-dispatch
-    [[ "$si_ack" != 1 ]] || target=irq-si-ack
-    [[ "$si_postack" != 1 ]] || target=irq-si-postack
-    [[ "$si_os_leaves" != 1 ]] || target=irq-si-os-leaves
-    [[ "$si_handler_return" != 1 ]] || target=irq-si-handler-return
-    [[ "$si_handler_restore" != 1 ]] || target=irq-si-handler-restore
-    [[ "$si_handler_time" != 1 ]] || target=irq-si-handler-time
-    [[ "$si_time_suffix" != 1 ]] || target=irq-si-time-suffix
-    [[ "$si_combined" != 1 ]] || target=irq-si-combined
-    [[ "$si_captured" != 1 ]] || target=irq-si-captured
-    [[ "$si_epilogue" != 1 ]] || target=irq-si-epilogue
-    [[ "$si_transfer_prefix" != 1 ]] || target=irq-si-transfer-prefix
-    [[ "$si_transfer_return" != 1 ]] || target=irq-si-transfer-return
-    [[ "$si_transfer_suffix" != 1 ]] || target=irq-si-transfer-suffix
-    [[ "$si_alarm" != 1 ]] || target=irq-si-alarm
-    [[ "$si_alarm_suffix" != 1 ]] || target=irq-si-alarm-suffix
-    [[ "$si_callback_prefix" != 1 ]] || target=irq-si-callback-prefix
-    [[ "$si_callback_time" != 1 ]] || target=irq-si-callback-time
-    [[ "$si_callback_frontier" != 1 ]] || target=irq-si-callback-frontier
-    [[ "$si_wireless_wrapper" != 1 ]] || target=irq-si-wireless-wrapper
-    [[ "$si_wireless_write" != 1 ]] || target=irq-si-wireless-write
-    [[ "$si_callback_return" != 1 ]] || target=irq-si-callback-return
-    [[ "$si_combined_callback" != 1 ]] || target=irq-si-combined-callback
-    [[ "$si_handler_suffix" != 1 ]] || target=irq-si-handler-suffix
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"

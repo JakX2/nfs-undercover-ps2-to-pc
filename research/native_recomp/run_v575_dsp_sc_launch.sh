@@ -2,8 +2,14 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
+describe=0
+if [[ $# == 2 && "$1" == --describe-mode ]]; then
+  describe=1
+  set -- unused unused unused "$2"
+fi
 [[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix || "$4" == irq-pending-capture || "$4" == irq-si-combined || "$4" == irq-si-captured || "$4" == irq-si-epilogue || "$4" == irq-si-transfer-prefix || "$4" == irq-si-transfer-return || "$4" == irq-si-transfer-suffix || "$4" == irq-si-alarm || "$4" == irq-si-alarm-suffix || "$4" == irq-si-callback-prefix || "$4" == irq-si-callback-time || "$4" == irq-si-callback-frontier || "$4" == irq-si-wireless-wrapper || "$4" == irq-si-callback-return || "$4" == irq-si-wireless-write || "$4" == irq-si-combined-callback || "$4" == irq-si-handler-suffix ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
+requested_mode="$mode"
 open_request=0
 external_entry=0
 external_capture=0
@@ -93,6 +99,8 @@ if [[ "$si_wireless_write" == 1 ]]; then extra+=(UNDERCOVER_V861_WIRELESS_WRITE=
 if [[ "$si_callback_return" == 1 ]]; then extra+=(UNDERCOVER_V850_CALLBACK_RETURN=1);audit=audit_v852_callback_return.py;fi
 if [[ "$si_combined_callback" == 1 ]]; then audit=audit_v864_combined_callback.py;fi
 if [[ "$si_handler_suffix" == 1 ]]; then extra+=(UNDERCOVER_V868_HANDLER_SUFFIX=1);audit=audit_v870_handler_suffix.py;fi
+echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
+if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }

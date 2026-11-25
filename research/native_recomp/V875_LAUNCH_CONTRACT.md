@@ -1,0 +1,3 @@
+# V875 native launch contract
+
+V856 selected an older route despite a successful job; V867 explicit execution is still building. V875 adds original-free --describe-mode to the actual translation and launcher scripts. The original requested mode, normalized base, actual selected target, relevant gates and chosen audit are printed before private input access. The target is resolved once and reused at launch, not separately reconstructed after the build. Test matrix exercises six recent run/prepare modes and their actual launcher flag sets, plus legacy and invalid modes. No game source, paths or private data are printed. Pending CI.

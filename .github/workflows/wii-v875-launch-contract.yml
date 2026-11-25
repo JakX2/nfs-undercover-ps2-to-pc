@@ -1,0 +1,22 @@
+name: Wii V875 Native Launch Mode Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v875*'
+      - 'research/native_recomp/run_v572_full_sc_translation.sh'
+      - 'research/native_recomp/run_v575_dsp_sc_launch.sh'
+      - '.github/workflows/wii-v875-launch-contract.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v875_launch_contract.py -v
