@@ -1,0 +1,3 @@
+# V959: compile and exercise the actual live second ACK observer
+
+V958 now has a standalone compiled source-only integration fixture that includes its real live binding with explicitly synthetic expectations, a real SiController, real SiTypeScheduler and the V957 ownership handoff. Simulated native label events exercise original-independent call/return, captured frame checks and actual load/store dispatch to the new witness. Default-disabled path, one valid route and six process refusals (frame, guard, entry, ABI return, MMIO read/write) are checked with ASan/UBSan. The fixture does not execute translated PPC or original game code; it is a binding regression test, not continuous boot. CI pending.

@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v958*'
       - 'research/native_recomp/*v957*'
+      - 'research/native_recomp/*v959*'
       - 'research/native_recomp/wii_second_si_dispatch_v944.h'
       - '.github/workflows/wii-v958-second-ack-integration.yml'
 permissions:
@@ -24,3 +25,15 @@ jobs:
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_second_si_dispatch_v944.cpp -o "$RUNNER_TEMP/v944"
           "$RUNNER_TEMP/v944"
+          mkdir -p "$RUNNER_TEMP/v959"
+          cp research/native_recomp/synthetic_second_ack_expectations_v959.h "$RUNNER_TEMP/v959/v958_private_second_ack.h"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$RUNNER_TEMP/v959" -Iresearch/native_recomp research/native_recomp/test_second_ack_live_v959.cpp -o "$RUNNER_TEMP/v959/probe"
+          env -u UNDERCOVER_V958_SECOND_ACK "$RUNNER_TEMP/v959/probe" default
+          UNDERCOVER_V958_SECOND_ACK=1 "$RUNNER_TEMP/v959/probe" valid | grep -Ex 'V958_ACK_RESULT original_w1c=1 next_label=1 saved_fields=38 token_preserved=1 visits=6 reads=1 writes=1 boot_verified=0'
+          for mode in frame guard entry return read write; do
+            rc=0
+            UNDERCOVER_V958_SECOND_ACK=1 "$RUNNER_TEMP/v959/probe" "$mode" > "$RUNNER_TEMP/v959/log" 2>&1 || rc=$?
+            [[ "$rc" == 126 ]]
+            grep -Ex 'V958_ACK_INVALID kind=[1-7] stage=[0-3] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}' "$RUNNER_TEMP/v959/log"
+          done
+          echo 'V959_LIVE_ACK synthetic=1 valid=1 disabled=1 refused=6 original_execution=0'
