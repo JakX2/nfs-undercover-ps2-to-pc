@@ -7,7 +7,7 @@ constexpr uint32_t H=0x80004000u,Root=0x80005000u,Site=H+4,Branch=0x48000ffdu,Ot
 constexpr uint32_t Nop=0x60000000u,Blr=0x4e800020u,Store=0x90030000u;
 struct Mmu{
     std::map<uint32_t,uint32_t> words;uint8_t byte=0;
-    uint8_t* get_ptr(uint32_t a){return a>=Root&&a<Root+16?&byte:nullptr;}
+    uint8_t* get_ptr(uint32_t a){return (a>=Root&&a<Root+16)||(a>=0x80006ff0u&&a<0x80007000u)?&byte:nullptr;}
     uint32_t read32(uint32_t a){return words.at(a);}
 };
 struct Cpu{
@@ -62,5 +62,27 @@ int main(){
         ++c.inst_count;need(ack.before(Site+8,Nop)&&ack.phase()==SiCompletionAckTrace::Phase::Complete);
         need(cause==Other&&mask==SiController::PI_SI);
     }
-    std::cout<<"V681_SI_HELPER synthetic=1 cases=15 valid=1 rejects=14 real_device=1 original_execution=0\n";
+    // Independent shared compiler GPR-save entry: verify real saved words
+    // at the authenticated ABI return, not merely unchanged live registers.
+    for(unsigned trial=0;trial<3;++trial){
+        std::atomic<uint32_t> cause{Other},mask{SiController::PI_SI};
+        SiController ctl(cause);ctl.write(SiController::Control,0xc0010301u);
+        ctl.complete(ctl.pending()->token,{},SiController::ERR_NOREP);
+        Cpu c;for(unsigned i=0;i<32;++i)c.gpr[i]=i*23u+1u;
+        c.gpr[11]=trial==2?0xcd006440u:0x80007000u;
+        SiCompletionAckTrace ack;SiFirstHelper helper({Site,Root,Root+16,Branch,29,11,-12});
+        need(ack.arm(ctl,cause,mask,c.inst_count,H,H+32));++c.inst_count;need(ack.before(Site,Branch));
+        if(trial==2){need(!helper.start(c,Site,Branch)&&helper.failure()==1);continue;}
+        need(helper.start(c,Site,Branch));c.pc=Root;c.lr=Site+4;need(helper.entry(Root,c));
+        for(unsigned i=0;i<3;++i){
+            const auto pc=Root+4*i,w=0x900b0000u|((29u+i)<<21)|((uint32_t(-12+int(i)*4))&0xffffu);
+            c.mmu.words[pc]=w;++c.inst_count;need(helper.instruction(c,pc,w,ack));
+            c.mmu.words[0x80006ff4u+4*i]=c.gpr[29+i];
+        }
+        c.mmu.words[Root+12]=Blr;++c.inst_count;need(helper.instruction(c,Root+12,Blr,ack));
+        c.pc=Site+4;if(trial==1)c.mmu.words[0x80006ffcu]^=1u;
+        const auto ok=helper.returned(c,c.pc);need(ok==(trial==0));
+        if(!ok)need(helper.failure()==5);
+    }
+    std::cout<<"V681_SI_HELPER synthetic=1 cases=18 valid=2 rejects=16 real_device=1 original_execution=0\n";
 }

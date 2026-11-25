@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import patch
 from pathlib import Path
-from si_helper_geometry_v680 import first_edge
-from prepare_v680_si_helper import patch_helper,verify_direct,patch_binding
+from si_helper_geometry_v680 import first_edge,alias_owner
+from prepare_v680_si_helper import patch_helper,verify_direct,patch_binding,exact_function
+from apply_si_roots_v669 import pairs,TEST_SPANS
 from audit_v672_si_ack_route import inspect,EVENTS,RESULT
 HOST=Path(__file__).resolve().parent
 H=0x80004000;T=0x80005000
@@ -16,6 +17,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(first_edge(H,words,{T:8}),(H+4,T,8,words[1]))
         for bad,sizes in ((words,{}),(words,{T:3}),(words,{T:4100}),([words[0],0x4e800421,*words[1:]],{T:8})):
             with self.assertRaises(ValueError):first_edge(H,bad,sizes)
+    def test_shared_alias(self):
+        self.assertEqual(alias_owner(T,12,{T-16:32}),(T-16,32))
+        for bad in ({},{T-16:20},{T-16:32,T-8:32}):
+            with self.assertRaises(ValueError):alias_owner(T,12,bad)
+        ps=pairs(TEST_SPANS,T)
+        self.assertNotIn(f'return 0x{T:08x}u',ps[0][1])
+        self.assertIn(f'func.start_address==0x{T:08x}u',ps[2][1])
+        src=helper([0x60000000,0x4e800020])
+        self.assertTrue(exact_function(src,T).startswith(f'void func_{T:X}'))
+        with self.assertRaises(ValueError):exact_function(src+src,T)
     def test_helper_source(self):
         words=[0x60000000,0x4e800020];s=helper(words);out,seen=patch_helper(s,T,words)
         self.assertEqual(len(seen),2);self.assertEqual(out.count('v680::before('),2)
