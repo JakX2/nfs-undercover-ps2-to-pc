@@ -36,7 +36,10 @@ matches=[s for s in sources if f'void func_{t:X}(CPUContext& ctx) {{' in s]
 assert len(matches)==1
 _,seen=patch_helper(matches[0],t,words)
 main=(root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')).read_text()
-assert audit_native([exact_function(matches[0],t)],main,seen)==16
+# Non-split output contains function-local resume switches as well.
+# The outer dispatcher audit must not confuse an interior goto with a root.
+outer=main[main.index('extern "C" void run_game('):]
+assert audit_native([exact_function(matches[0],t)],outer,seen)==16
 calls=[s for s in sources if 'loc_80004008: ;' in s]
 assert len(calls)==1
 verify_direct(calls[0],0x80004008,t)

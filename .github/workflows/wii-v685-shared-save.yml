@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v685*'
+      - 'research/native_recomp/*v686*'
       - '.github/workflows/wii-v685-shared-save.yml'
 permissions:
   contents: read

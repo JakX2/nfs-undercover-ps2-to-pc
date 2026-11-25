@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v668*'
       - 'research/native_recomp/*v682*'
       - 'research/native_recomp/*v683*'
+      - 'research/native_recomp/*v686*'
       - '.github/workflows/wii-v668-si-ack.yml'
 permissions:
   contents: read
@@ -49,6 +50,8 @@ jobs:
         run: python3 research/native_recomp/prepare_v668_si_ack.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Classify the first authenticated direct SI dependency
         run: python3 research/native_recomp/audit_si_first_helper_v682.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Classify the newly observed second direct dependency
+        run: python3 research/native_recomp/audit_si_first_helper_v682.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --ordinal 2
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
