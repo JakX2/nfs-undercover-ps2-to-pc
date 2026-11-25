@@ -1,0 +1,3 @@
+# V690: private nested dependency CFG census
+
+V686 original-free shared alias execution passed 64/64 generated native cases. Original second helper is 189 words with 21 store candidates and two direct nested calls. This independent classifier walks a conservative CFG from the second root, stops at any linked call or return, records reachable first dependency ordinals and counts possible pre-call stores, and authenticates each nested target's sized extent or compiler-save suffix against private DOL/ELF. Results are redacted counts and known previously verified OS-root flags only. It does not authorize nested execution or claim MMIO reachability. V688/V689 owner execution and sanitizer checks pending.
