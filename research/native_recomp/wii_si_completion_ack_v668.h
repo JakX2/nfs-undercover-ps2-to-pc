@@ -96,6 +96,12 @@ public:
         if(phase_==Phase::PostAck?!post_held():!source_held())return fail(4);
         last_tick_=*tick_;store_=load_=false;pc_=0;return true;
     }
+    // A normal native branch has a recorded label, unlike an auxiliary
+    // OS leaf. This is a read-only witness, not device advancement.
+    bool native_branch_poll(uint32_t pc)const{
+        return phase_==Phase::PostAck&&tick_&&*tick_==last_tick_&&pc_==pc&&
+               allowed(pc)&&!store_&&!load_&&post_held();
+    }
     bool auxiliary_poll(){
         if(phase_!=Phase::PostAck||!tick_||*tick_!=last_tick_||pc_||store_||load_||!post_held())return fail(11);
         return true;

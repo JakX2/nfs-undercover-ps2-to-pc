@@ -19,14 +19,14 @@ int main(int argc,char**argv){
     std::vector<uint32_t> saves;
     for(unsigned r=28;r<32;++r)saves.push_back(0x900b0000u|(r<<21)|(uint32_t(-4*int(32-r))&0xffffu));
     saves.push_back(0x4e800020u);add(A,saves);
-    add(B,{0x81070000u,0x91070000u,0x90c50000u,0x7c0802a6u,0x90010004u,bl(B+20,N),0x80010004u,0x7c0803a6u,0x4e800020u});
+    add(B,{0x81070000u,0x91070000u,0x90c50000u,0x7c0802a6u,0x90010004u,bl(B+20,N),0x39800002u,0x398cffffu,0x2c0c0000u,0x4082fff8u,0x80010004u,0x7c0803a6u,0x4e800020u});
     add(N,{0x80850000u,0x910a0000u,0x7c0802a6u,0x90010008u,0x2c090000u,0x40820008u,bl(N+24,D),bl(N+28,T),0x38600000u,bl(N+36,R),0x80010008u,0x7c0803a6u,0x4e800020u});
     add(D,{0x7c0000a6u,0x7c000124u,0x38600000u,0x4e800020u});
     add(T,{0x7c6d42e6u,0x7c8c42e6u,0x7cad42e6u,0x7c032800u,0x4082fff0u,0x4e800020u});add(R,{0x7c0000a6u,0x7c000124u,0x4e800020u});
-    nwii::analyzer::Analyzer a(exe);a.set_trusted_code_spans({{H,H+20},{A,A+20},{B,B+36},{N,N+52},{D,D+16},{T,T+24},{R,R+12}});
+    nwii::analyzer::Analyzer a(exe);a.set_trusted_code_spans({{H,H+20},{A,A+20},{B,B+52},{N,N+52},{D,D+16},{T,T+24},{R,R+12}});
     a.analyze({A,B,N,D,T,R});
     const auto& f=a.get_functions();
-    assert(f.at(H).instructions.size()==5&&f.at(A).instructions.size()==5&&f.at(A+4).instructions.size()==4&&f.at(B).instructions.size()==9&&f.at(N).instructions.size()==13&&f.at(D).instructions.size()==4&&f.at(T).instructions.size()==6&&f.at(R).instructions.size()==3);
+    assert(f.at(H).instructions.size()==5&&f.at(A).instructions.size()==5&&f.at(A+4).instructions.size()==4&&f.at(B).instructions.size()==13&&f.at(N).instructions.size()==13&&f.at(D).instructions.size()==4&&f.at(T).instructions.size()==6&&f.at(R).instructions.size()==3);
     for(const auto& [pc,fn]:f){(void)pc;assert(fn.hle_hook_name.empty());}
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=argv[1];cfg.split_output=std::string(argv[2])=="split";
     nwii::recomp::Recompiler recomp(a,nullptr,cfg);assert(!recomp.generate_cpp(H).empty());

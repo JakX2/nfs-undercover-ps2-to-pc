@@ -38,9 +38,13 @@ def patch_poll(s):
              <<" leaves="<<v709::cursor<<std::endl;
 }
 '''
-    s=replace_exact(s,a,diagnostic+a+'\n    if(v709::active)return v709::poll(c);\n    postack_refusal(c,c.pc,1);')
+    s=replace_exact(s,a,diagnostic+a+'\n    if(v709::active)return v709::poll(c);\n    if(v688::second.poll_pending()){\n        if(!v688::second.postack_poll(c,si_completion_ack_trace))v688::reject();\n        std::cout<<"V719_POSTACK_LOOP_POLL n="<<v688::second.polls()<<std::endl;return false;\n    }\n    postack_refusal(c,c.pc,1);')
     return replace_exact(s,'if(v680::observe(a,c)||v688::observe(a,c))return;reject(5);',
                          'if(v680::observe(a,c)||v688::observe(a,c))return;postack_refusal(c,a,2);reject(5);')
+def patch_second_poll(s):
+    a='    if(allow&&(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Armed||si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::PostAck)){v693::start(c,pc,word);return;}'
+    b=a+'\n    if(v709::enabled()&&v693::nested.stage()==4&&v709::cursor==3&&si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::PostAck&&\n       !second.arm_postack_poll(c,pc,word,si_completion_ack_trace))reject();'
+    return replace_exact(s,a,b)
 def patch_leaf(s,root,words,kind):
     fs=list(DEF.finditer(s));hits=[i for i,f in enumerate(fs) if int(f[1].split('_')[1],16)==root]
     if not hits:return s,{}
@@ -98,10 +102,11 @@ def install(dol,elf,root,host):
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text(encoding='utf-8') for n in ('wii_postack_os_leaf_v703.h','wii_si_os_leaf_binding_v709.h')}
     files[dest/'v709_private_os_leaf_expectations.h']=render(rows)
-    bind=dest/'wii_si_nested_binding_v693.h';ack=dest/'wii_si_ack_binding_v672.h'
-    if dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('leaf destination')
+    bind=dest/'wii_si_nested_binding_v693.h';ack=dest/'wii_si_ack_binding_v672.h';second=dest/'wii_si_second_binding_v688.h'
+    if dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or second.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('leaf destination')
     files[bind]=patch_nested(bind.read_text(encoding='utf-8'))
     files[ack]=patch_poll(ack.read_text(encoding='utf-8'))
+    files[second]=patch_second_poll(second.read_text(encoding='utf-8'))
     for p,s in {**changes,**files}.items():p.write_text(s,encoding='utf-8')
     return n
 def main():

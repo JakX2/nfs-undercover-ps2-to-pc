@@ -9,6 +9,8 @@ public:
     explicit SiFirstHelper(SiHelperExpectation e):e_(e){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    unsigned polls()const{return polls_;}
+    bool poll_pending()const{return poll_pending_;}
     template<class C>bool start(C& c,uint32_t pc,uint32_t w){
         if(stage_||error_||pc!=e_.site||w!=e_.branch||e_.root>=e_.end||
            e_.end-e_.root>4096u||((e_.root|e_.end|e_.site)&3u))return fail(1);
@@ -33,9 +35,11 @@ public:
         stage_=2;return true;
     }
     template<class C>bool instruction(C& c,uint32_t pc,uint32_t w,SiCompletionAckTrace& ack,bool native_mmio=false,bool authenticated_direct=false){
-        if(!same(c)||stage_!=2||pc<e_.root||pc>=e_.end||(pc&3u)||
+        if(!same(c)||stage_!=2||poll_pending_||
+           (successor_&&pc!=successor_&&pc!=alternate_)||pc<e_.root||pc>=e_.end||(pc&3u)||
            !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w||
            !(native_mmio?ack.before(pc,w):ack.auxiliary_before()))return fail(3);
+        successor_=alternate_=0;
         if(native_mmio&&ack.phase()==SiCompletionAckTrace::Phase::Complete)return true;
         const auto op=w>>26,xo=(w>>1)&1023u;
         // The first dependency may have internal control flow, not another
@@ -56,8 +60,34 @@ public:
         }
         return true;
     }
+    // Opt-in only after the authenticated nested helper has returned.
+    // The emitter calls its pending-interrupt hook before evaluating a
+    // local backwards branch, including a conditional branch not taken.
+    template<class C>bool arm_postack_poll(C& c,uint32_t pc,uint32_t word,SiCompletionAckTrace& ack){
+        const auto op=word>>26;
+        if((op!=16u&&op!=18u)||(word&3u))return true;
+        const uint32_t bits=op==16u?0x0000fffcu:0x03fffffcu,sign=op==16u?0x8000u:0x02000000u;
+        const uint32_t dst=pc+(((word&bits)^sign)-sign);
+        if(dst>pc)return true;
+        if(!same(c)||stage_!=2||poll_pending_||successor_||dst<e_.root||dst>=e_.end||
+           pc<e_.root||pc>=e_.end||c.inst_count==poll_tick_||
+           !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=word||
+           !ack.native_branch_poll(pc))return fail(6);
+        poll_pending_=true;poll_pc_=pc;poll_tick_=c.inst_count;
+        poll_lr_=c.lr;poll_ctr_=c.ctr;poll_srr0_=c.srr0;poll_srr1_=c.srr1;
+        poll_xer_=c.xer;poll_cr_=pack_cr(c);poll_gp_=c.gpr;
+        successor_=dst;alternate_=op==16u?pc+4u:0;
+        return true;
+    }
+    template<class C>bool postack_poll(C& c,SiCompletionAckTrace& ack){
+        if(!same(c)||stage_!=2||!poll_pending_||c.pc!=poll_pc_||c.inst_count!=poll_tick_||
+           c.lr!=poll_lr_||c.ctr!=poll_ctr_||c.srr0!=poll_srr0_||c.srr1!=poll_srr1_||
+           c.xer!=poll_xer_||pack_cr(c)!=poll_cr_||c.gpr!=poll_gp_||
+           !ack.native_branch_poll(poll_pc_)||polls_>=8192u)return fail(6);
+        poll_pending_=false;++polls_;return true;
+    }
     template<class C>bool returned(C& c,uint32_t pc){
-        if(!same(c)||stage_!=3||pc!=e_.site+4u||c.pc!=pc||c.lr!=pc||
+        if(!same(c)||stage_!=3||poll_pending_||successor_||pc!=e_.site+4u||c.pc!=pc||c.lr!=pc||
            c.gpr[1]!=gp_[1]||c.gpr[2]!=gp_[2]||c.gpr[13]!=gp_[13])return fail(5);
         for(unsigned i=14;i<32;++i)if(c.gpr[i]!=gp_[i])return fail(5);
         if(e_.save_first)for(unsigned i=e_.save_first;i<32;++i){
@@ -68,7 +98,14 @@ public:
     }
 private:
     SiHelperExpectation e_;unsigned stage_=0,error_=0;const void* ctx_=nullptr;
-    std::array<uint32_t,32> gp_{};uint32_t msr_=0,save_address_=0;
+    std::array<uint32_t,32> gp_{},poll_gp_{};uint32_t msr_=0,save_address_=0;
+    bool poll_pending_=false;unsigned polls_=0;
+    uint32_t poll_pc_=0,poll_lr_=0,poll_ctr_=0,poll_srr0_=0,poll_srr1_=0,poll_xer_=0,poll_cr_=0,successor_=0,alternate_=0;
+    uint64_t poll_tick_=0;
+    template<class C>static uint32_t pack_cr(C& c){
+        uint32_t v=0;for(const auto& f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+        return v;
+    }
     bool fail(unsigned r){if(!error_)error_=r;return false;}
     template<class C>bool same(C& c)const{return !error_&&ctx_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&c.msr==msr_&&!(c.msr&0x8000u);}
 };

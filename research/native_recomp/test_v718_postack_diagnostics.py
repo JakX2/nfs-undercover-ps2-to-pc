@@ -27,6 +27,7 @@ class Diagnostics(unittest.TestCase):
         self.assertIn('postack_refusal(c,c.pc,1);\n    reject(4);',result)
         self.assertIn('postack_refusal(c,a,2);reject(5);',result)
         self.assertIn('if(v709::active)return v709::poll(c);',result)
+        self.assertIn('v688::second.postack_poll(c,si_completion_ack_trace)',result)
         with self.assertRaises(ValueError):patch_poll(result)
 
 if __name__=='__main__':unittest.main()

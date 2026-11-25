@@ -30,7 +30,7 @@ second=[f'V688_SI_SECOND_STAGE n={i}'.encode() for i in range(1,4)]
 nested=[f'V693_SI_NESTED_STAGE n={i}'.encode() for i in range(1,4)]
 base=EVENTS[:1]+first+second[:2]+[b'V688_SI_SECOND_ACK n=1']+EVENTS[1:]+[RESULT]
 expected={'stop':(0,base),
-          'continue':(0,base+[STAGE]+nested[:2]+LEAVES+nested[2:]+second[2:]+[END]),
+          'continue':(0,base+[STAGE]+nested[:2]+LEAVES+nested[2:]+[b'V719_POSTACK_LOOP_POLL n=1',b'V719_POSTACK_LOOP_POLL n=2']+second[2:]+[END]),
           'disabled':(126,base+[STAGE]+nested[:2]+[b'V693_SI_NESTED_CALL ordinal=1 kind=1',b'V693_SI_NESTED_INVALID reason=4 stage=2 trace=0']),
           'wrong-order':(126,base+[STAGE]+nested[:2]+[b'V693_SI_NESTED_CALL ordinal=2 kind=1',b'V693_SI_NESTED_INVALID reason=4 stage=2 trace=0'])}
 for mode,(rc,lines) in expected.items():
