@@ -99,6 +99,7 @@ if [[ "$si_wireless_write" == 1 ]]; then extra+=(UNDERCOVER_V861_WIRELESS_WRITE=
 if [[ "$si_callback_return" == 1 ]]; then extra+=(UNDERCOVER_V850_CALLBACK_RETURN=1);audit=audit_v852_callback_return.py;fi
 if [[ "$si_combined_callback" == 1 ]]; then audit=audit_v864_combined_callback.py;fi
 if [[ "$si_handler_suffix" == 1 ]]; then extra+=(UNDERCOVER_V868_HANDLER_SUFFIX=1);audit=audit_v870_handler_suffix.py;fi
+if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]]; then extra+=(UNDERCOVER_V919_HANDLER_EPILOGUE=1);audit=audit_v919_handler_epilogue.py;fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
 if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"

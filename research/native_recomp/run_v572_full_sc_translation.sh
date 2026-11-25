@@ -245,6 +245,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_combined_callback" == 1 ]]; then python3 "$here/prepare_v863_combined_callback.py" "$dol" "$elf" "$work/generated";elif [[ "$si_callback_return" == 1 ]]; then python3 "$here/prepare_v850_callback_return.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_handler_suffix" == 1 ]]; then
         python3 "$here/prepare_v868_handler_suffix.py" "$dol" "$elf" "$work/generated"
+        if [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]]; then python3 "$here/prepare_v919_handler_epilogue.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
       fi
     fi
