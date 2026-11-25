@@ -21,7 +21,7 @@ for mode in nonsplit split; do
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V908_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_status_w1c_v908.py" "$dol" "$elf" "$work/$mode" --install
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -fno-pie -no-pie \
-    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_status_w1c_v908.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V908_NATIVE_BUILD failed=1";exit 1; }
+    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_status_w1c_v908.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { python3 "$here/diagnose_build_v910.py" "$work/build.log" test_owner_status_w1c_v908.cpp; echo "V908_NATIVE_BUILD failed=1";exit 1; }
   for trial in {0..7}; do
     timeout 20s "$work/probe" "$trial" 0 > "$work/run.log" 2>&1 || {
       grep -Ex 'V908_STATUS_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-2] visits=[0-9]{1,2} reads=[01] writes=[01] guard=[0-5] device=[0-9]' "$work/run.log" || true
