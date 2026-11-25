@@ -1,0 +1,65 @@
+#pragma once
+#include "native_external_irq.h"
+#include <array>
+#include <cstdint>
+namespace undercover::wii {
+// Read-only same-thread integer context witness. Does not claim FPU
+// ownership or a scheduler context switch, and never performs RFI itself.
+class ExternalReturnWitness {
+public:
+    unsigned stage()const{return stage_;}
+    unsigned failure()const{return error_;}
+    template<class C>bool capture(C& c,uint32_t cause,uint32_t mask){
+        if(stage_||error_||!safe(c)||!c.pc||(c.pc&3u)||!(c.msr&0x8000u)||
+           (cause&mask)!=8u||c.inst_count>UINT64_MAX-32768u)return fail(1);
+        ctx_=&c;gp_=c.gpr;cr_=pack_cr(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
+        resume_=c.pc;restored_msr_=c.msr&ExternalSrr1Mask;
+        cause_=cause&~8u;mask_=mask;start_tick_=c.inst_count;stage_=1;return true;
+    }
+    template<class C>bool before_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
+        // Only a private authenticated native RFI label may invoke this.
+        if(stage_!=1||!common(c,cause,mask)||c.msr&0x8000u||
+           !pc||(pc&3u)||word!=0x4c000064u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+           c.mmu.read32(pc)!=word||c.inst_count<=start_tick_||c.inst_count-start_tick_>32768u||
+           c.srr0!=resume_||c.srr1!=restored_msr_||!integer_state(c))return fail(2);
+        rfi_tick_=c.inst_count;stage_=2;return true;
+    }
+    template<class C>bool poll(C& c,uint32_t cause,uint32_t mask){
+        // First is generated RFI's rising EE callback, second is the
+        // subsequent outer dispatcher poll. No native guest instruction
+        // or HLE context restore may execute between them.
+        if((stage_!=2&&stage_!=3)||!common(c,cause,mask)||!restored(c)||
+           c.inst_count!=rfi_tick_)return fail(3);
+        ++stage_;return true;
+    }
+    template<class C>bool resume(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
+        // Hook after ++inst_count at the original resume label. The
+        // authenticated split dispatcher increments once before dispatch.
+        if(stage_!=4||!common(c,cause,mask)||!restored(c)||pc!=resume_||
+           c.inst_count-rfi_tick_!=2u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+           c.mmu.read32(pc)!=word)return fail(4);
+        stage_=5;return true;
+    }
+private:
+    const void* ctx_=nullptr;unsigned stage_=0,error_=0;
+    std::array<uint32_t,32> gp_{};
+    uint32_t cr_=0,lr_=0,ctr_=0,xer_=0,resume_=0,restored_msr_=0,cause_=0,mask_=0;
+    uint64_t start_tick_=0,rfi_tick_=0;
+    bool fail(unsigned n){if(!error_)error_=n;return false;}
+    template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
+    template<class C>static uint32_t pack_cr(C& c){
+        uint32_t value=0;
+        for(const auto& f:c.cr)value=(value<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+        return value;
+    }
+    template<class C>bool integer_state(C& c)const{
+        return c.gpr==gp_&&pack_cr(c)==cr_&&c.lr==lr_&&c.ctr==ctr_&&c.xer==xer_;
+    }
+    template<class C>bool restored(C& c)const{
+        return c.pc==resume_&&c.msr==restored_msr_&&c.srr0==resume_&&c.srr1==restored_msr_&&integer_state(c);
+    }
+    template<class C>bool common(C& c,uint32_t cause,uint32_t mask)const{
+        return !error_&&ctx_==&c&&safe(c)&&cause==cause_&&mask==mask_&&!(cause&mask);
+    }
+};
+}
