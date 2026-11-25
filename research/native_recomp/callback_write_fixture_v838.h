@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_exi_profile_v501.h"
 #include "wii_sram_write_witness_v818.h"
+#include "wii_wireless_wrapper_v844.h"
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
 #include "wii_callback_suffix_v841.h"
 #endif
@@ -30,6 +31,13 @@ static uint32_t next=0,entry_due=0,outer_pc=0;
 static uint64_t tick=100;
 static bool returned=false,corrupt=false,active=false;
 static uint32_t caller_sp=0;
+static const WirelessExpectation wrapper_expectation=[] {
+    WirelessExpectation e{};
+    for(unsigned i=0;i<5;++i){const auto& f=all_roots[wireless_root_indices[i]];e.code[i]={f.address,f.words};}
+    for(unsigned i=0;i<2;++i){const auto pc=wireless_sites[i];e.edges[i]={pc,prefix_words[(pc-C)/4u],prefix_words[(pc-C)/4u+1u],wireless_ordinals[i]};}
+    e.lock=WirelessLockRoot;e.lock_word=WirelessLockWord;e.sram=Sram;return e;
+}();
+static WirelessWrapperWitness wrapper(wrapper_expectation);
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
 static constexpr auto suffix_words=[] {
     std::array<CallbackSuffixWord,postsetter_words.size()> a{};
@@ -46,6 +54,7 @@ static CallbackSuffixWitness suffix({C,C+688u,PostSetterResume,suffix_words,{{
     std::cout<<"V819_LOCK_DIAG lock="<<locks<<" returned="<<lock_returns<<" masks="<<mask_calls<<" reads="<<reads<<" writes="<<writes<<" polls="<<polls<<std::endl;
     std::cout<<"V825_SELECT_DIAG selected="<<selects<<" returned="<<select_returns<<std::endl;
     std::cout<<"V835_WRITE_DIAG imm="<<imm_calls<<" imm_return="<<imm_returns<<" sync="<<sync_calls<<" sync_return="<<sync_returns<<" extended="<<immex_calls<<" deselect="<<deselects<<" completed="<<complete_count<<" witness="<<witness.failure()<<std::endl;
+    std::cout<<"V844_WRAPPER_DIAG stage="<<wrapper.stage()<<" reason="<<wrapper.failure()<<" visits="<<wrapper.visits()<<" writes="<<wrapper.writes()<<std::endl;
     std::cout<<"V837_RETURN_DIAG exi_unlock="<<exi_unlocks<<" exi_return="<<exi_unlock_returns<<" sram_return="<<sram_returns<<std::endl;
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
     std::cout<<"V842_SUFFIX_DIAG stage="<<suffix.stage()<<" reason="<<suffix.failure()<<" visits="<<suffix.visits()<<" polls="<<suffix.polls()<<std::endl;
@@ -142,6 +151,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(suffix.stage()==1u){suffix_step(c,pc,w);return;}
 #endif
     need(pc==next);
+    if(wrapper.stage()==1u)need(wrapper.before(c,pc,w,true));
     if(returned){
         need(depth>1&&c.pc==pc&&c.lr==pc);
         if(corrupt&&depth==2){c.gpr[14]^=1u;need(!abi(c,frames[depth-1]));std::cout<<"V826_JOIN_REFUSAL abi=1"<<std::endl;std::_Exit(126);}
@@ -160,6 +170,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         need(depth==1&&unlocks==1&&sram_returns==1u&&disables==restores&&c.gpr[1]==caller_sp);
         need(c.mmu.read32(Sram+64u)==64u&&c.mmu.read32(Sram+68u)==0&&c.mmu.read32(Sram+72u)==0&&c.mmu.read32(Sram+76u)==1);
         if(lane==2){
+            need(wrapper.stage()==3u&&wrapper.changed());
             need(exi_unlocks==1u&&exi_unlock_returns==1u&&locks==1u&&lock_returns==1u&&select_returns==1u&&deselect_returns==1u&&mask_calls==2u);
             need(imm_returns==12u&&sync_returns==12u&&revision_reads==12u&&witness.stage()==4u&&witness.completed()==12u&&witness.bytes()==44u);
             need(!controller->pending(0)&&!(controller->read(0,0)&0x380u)&&mx_device->sram()==desired&&mx_device->dirty()&&c.mmu.read32(ExiState+12u)==0u);
@@ -171,6 +182,8 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             std::_Exit(0);
 #endif
         }
+        need(wrapper.stage()==2u&&!wrapper.changed());
+        std::cout<<"V844_OWNER_WRAPPER verified=1 changed=0 lock_entry=0 original_return=1"<<std::endl;
         need(disables==1u&&!exi_unlocks&&!exi_unlock_returns);
         payload(c,false);need(!complete_count&&!mx_device->dirty()&&mx_device->sram()==initial&&!witness.stage());
         need(lane==1u&&initial_id==new_id);
@@ -214,6 +227,10 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(active&&entry_due==pc&&c.inst_count==tick&&depth>=2&&c.lr==frames[depth-1].ret);
     entry_due=0;
     ++entries;
+    if(wrapper.stage()==1u){
+        need(wrapper.entry(c,pc,true));
+        if(wrapper.stage()==3u)std::cout<<"V844_OWNER_WRAPPER verified=1 changed=1 lock_entry=1 original_return=0"<<std::endl;
+    }
     if(pc==D)++disables;
     if(pc==R)++restores;
     if(pc==write_roots::U){
@@ -308,6 +325,7 @@ void start(CPUContext& c,uint32_t pc,uint32_t target,unsigned ch,bool changed,bo
     frames[1]={target,pc+4u,c.gpr,pack(c)&0x00fff000u,c.msr};depth=2;
     entry_due=next=target;
     payload(c,false);
+    need(wrapper.start(c,pc,c.mmu.read32(pc),true,true));
 }
 
 }

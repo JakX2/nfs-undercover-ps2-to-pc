@@ -71,6 +71,9 @@ def header(p,out):
         for i,(a,ws) in enumerate(roots.items()):
             f.write(f'inline constexpr std::array<uint32_t,{len(ws)}> all_words_{i}{{'+fmt(ws)+'};\n')
         f.write('struct Root{uint32_t address;std::span<const uint32_t> words;};\n')
+        from prepare_v667_si_dispatch import DISABLE,RESTORE
+        f.write('inline constexpr std::array<unsigned,5> wireless_root_indices{'+','.join(str(list(roots).index(a))+'u' for a in (A,B,W,DISABLE,RESTORE))+'};\n')
+        f.write(f'inline constexpr uint32_t WirelessLockRoot=0x{L:08x}u,WirelessLockWord=0x{roots[L][0]:08x}u;\n')
         f.write(f'inline constexpr std::array<Root,{len(roots)}> all_roots{{{{'+','.join(
             f'Root{{0x{a:08x}u,all_words_{i}}}' for i,a in enumerate(roots))+'}};\n')
 
