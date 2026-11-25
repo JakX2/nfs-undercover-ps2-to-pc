@@ -5,6 +5,10 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v762*'
+      - 'research/native_recomp/*v923*'
+      - 'research/native_recomp/*v921*'
+      - 'research/native_recomp/prepare_owner_handler_tail_v879.py'
+      - 'research/native_recomp/prepare_owner_epilogue_v737.py'
       - '.github/workflows/wii-v923-irq-join.yml'
 permissions:
   contents: read
