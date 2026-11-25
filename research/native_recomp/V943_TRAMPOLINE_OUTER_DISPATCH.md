@@ -1,0 +1,3 @@
+# V943: second trampoline's native outer-dispatch tail
+
+V941 focused owner run 45713708650 reached 34 original vector labels and all 20 original trampoline labels, then refused the legitimate outer poll before the second dispatcher (kind=5, reason=4, stage=2). The original trampoline's non-link unconditional cross-root branch is emitted by pinned NWiiRecomp as `ctx.pc=target; return;`, not a direct C++ function call. Require the exact same-tick outer poll and subsequent one-tick dispatch for that branch, as for RFI. Conditional mapped cross-root branches retain their direct-call rule. Update synthetic test to model this boundary; no relaxed branch destination or context checks. Focused and full preflight retests triggered.

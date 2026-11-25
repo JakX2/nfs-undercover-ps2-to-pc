@@ -59,9 +59,10 @@ int main(){
         ++c.inst_count;need(w.before(c,T+4,Tramp[1],Other|Mask,Mask,true));
         for(unsigned k=0;k<32;++k)c.mmu.words[C+4*k]=gp[k];
         c.pc=D;
+        need(w.poll(c,Other|Mask,Mask,true));
+        if(i!=14)++c.inst_count;
         if(i==12)c.mmu.words[C+124]^=1u;
         if(i==13)c.mmu.words[C+128]^=1u;
-        if(i==14)++c.inst_count;
         ok=w.entry(c,D,Other|Mask,Mask,i!=15);
         if(i>=12){need(!ok&&w.failure()==(i<=13?6u:5u));++refused;continue;}
         need(ok&&w.stage()==3&&w.vector_visits()==2&&w.trampoline_visits()==2&&!w.gpr_mask()&&!w.special_mask());++valid;

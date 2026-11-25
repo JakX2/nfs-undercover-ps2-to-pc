@@ -55,7 +55,10 @@ public:
             if(op==18u||taken(c,w))next_=dst;
             if(!in_span(next_,stage_)){
                 if(next_!=(stage_==1u?e_.trampoline:e_.dispatcher))return fail(3);
-                edge_=1;
+                // Pinned emitter returns to the outer dispatcher for a
+                // non-link unconditional cross-root branch. A conditional
+                // mapped branch can instead call the native root directly.
+                edge_=op==18u?2u:1u;
             }
         }
         return true;
