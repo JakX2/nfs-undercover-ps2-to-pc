@@ -15,10 +15,11 @@ constexpr uint32_t Stack=0x80022000u,Low=Stack-0x400u,High=Stack+0x100u,MSR=0x32
 static std::array<uint32_t,32> gp{};
 static std::array<uint32_t,(High-Low)/4> stack{};
 static uint32_t lr=0,ctr=0,xer=0,cr=0,next=H;
-static uint64_t tick=100;
+static uint64_t tick=100,initial_tick=100,first_upper_delta=0;
 static unsigned entries=0,visits=0,outer=0,writes=0;
 static bool corrupt=false,after_save=false,in_time=false,leaf_active=false,time_done=false;
 static unsigned corrupt_kind=0;
+static bool rollover=false;
 static constexpr uint32_t Offset=0x800030d8u; // previously verified by V435 cold OS time
 static uint64_t offset=0;
 static unsigned offset_reads=0;
@@ -131,6 +132,7 @@ static void continuation(CPUContext& c,uint32_t pc,uint32_t w){
             const unsigned xo=(w>>1)&1023u,spr=((w>>11)&31u)*32u+((w>>16)&31u);
             if(cursor==1&&w>>26==31u&&(xo==371u||xo==339u)&&(spr==268u||spr==269u)){
                 const auto sample=c.read_timebase();++time_reads;
+                if(spr==269u&&!first_upper_delta){need(c.inst_count>initial_tick);first_upper_delta=c.inst_count-initial_tick;}
                 pending_reg=(w>>21)&31u;expected_word=uint32_t(spr==269u?sample>>32:sample);
                 if(spr==268u)tb_value=sample;
             }
@@ -145,6 +147,10 @@ static void continuation(CPUContext& c,uint32_t pc,uint32_t w){
         if(corrupt){need(!abi);std::cout<<"V802_CALLBACK_REFUSAL abi=1"<<std::endl;std::_Exit(126);}
         need(abi&&offset_reads==2u&&((uint64_t(c.gpr[3])<<32)|c.gpr[4])==tb_value+offset);
         std::cout<<"V811_OWNER_TIME_OFFSET verified=1 nonzero="<<unsigned(offset!=0)<<" wrap="<<unsigned(tb_value+offset<tb_value)<<" retry="<<unsigned(time_reads>3u)<<std::endl;
+        need(first_upper_delta>0&&first_upper_delta<=160u);
+        std::cout<<"V814_TIMEBASE_GEOMETRY first_upper_delta="<<first_upper_delta<<std::endl;
+        if(rollover){need(initial_tick+first_upper_delta==0xffffffffull&&time_reads>=6u&&polls>=2u&&reusable.polls()==polls);
+            std::cout<<"V814_TIMEBASE_RETRY verified=1 original_retry=1 original_time_return=1 offset=1 fallback=0"<<std::endl;}
         std::cout<<"V802_OWNER_CALLBACK_TIME original_prologue=1 original_time_return=1 leaves=3 timebase=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
     }
     need(pc==next);
@@ -231,8 +237,9 @@ void HW_Reg_Write16(uint32_t,uint16_t){fail(7);}void HW_Reg_Write32(uint32_t,uin
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==3);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset");
-    corrupt=mode!="valid";corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
+    need(argc==3||argc==4);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="rollover");
+    rollover=mode=="rollover";need(argc==(rollover?4:3));
+    corrupt=mode!="valid"&&!rollover;corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
     unsigned trial=unsigned(std::stoul(argv[2]));need(trial<8);
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
@@ -241,6 +248,8 @@ int main(int argc,char** argv)try{
     constexpr std::array<uint64_t,8> offsets{0,1,0xffffffffull,0x12345678ffffffffull,UINT64_MAX,0xffffffff00000000ull,0x8000000000000000ull,0x1234ull};
     offset=offsets[trial];c.mmu.write32(Offset,uint32_t(offset>>32));c.mmu.write32(Offset+4u,uint32_t(offset));
     if(trial>=4)tick=0xffffffffull-(35u+trial*2u);
+    if(rollover){need(trial==0);tick=std::stoull(argv[3],nullptr,0);need(tick>=0xffffffffull-160u&&tick<0xffffffffull);}
+    initial_tick=tick;
     for(unsigned i=0;i<stack.size();++i){stack[i]=0xdeadbeefu^(trial*0x9e3779b9u+i);c.mmu.write32(Low+4*i,stack[i]);}
     for(unsigned i=0;i<32;++i)c.gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
     c.gpr[1]=Stack;c.gpr[2]=0x80025000u;c.gpr[13]=0x8070e8e0u;c.gpr[3]=trial%4;c.gpr[4]=trial&1u;c.gpr[5]=0x80030000u;

@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v802*'
       - 'research/native_recomp/*v810*'
       - 'research/native_recomp/*v811*'
+      - 'research/native_recomp/*v814*'
       - '.github/workflows/wii-v802-callback-time.yml'
 permissions:
   contents: read
