@@ -12,29 +12,36 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
 from prepare_owner_scheduler_v722 import reachable
+from audit_callback_deps_v787 import CALLBACK,callback_sites
 def render(dol,elf):
     roots,C,D,R,T,U,K,edges,leaves=plan(dol,elf)
     n,*_=geometry(dol,elf);site,target,w=edge(HANDLER,exact(dol,elf,HANDLER,n),5)
     if target!=C:raise ValueError('alarm edge')
+    sites=callback_sites(HANDLER,exact(dol,elf,HANDLER,n))
+    if [i for i,_ in sites]!=[6,11]:raise ValueError('callback sites')
     fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
     h='#pragma once\n#include "wii_alarm_cancel_return_v782.h"\nnamespace undercover::wii::v786 {\n'
     h+='inline constexpr AlarmCancelExpectation expected{'+fmt((site,w,C,C+280,T,K,*QUEUE))+',{{'
     h+=','.join('AlarmCallEdge{'+fmt((a,b,b+4*len(roots[b]),roots[C][(a-C)//4]))+'}' for a,b in edges)+'}},{{'
     h+=','.join('PostAckLeafExpectation{'+fmt((v[0],v[1],v[1]+4*len(v[5]),v[3]))+f',{i}u'+'}' for i,v in enumerate(leaves,1))+'}}};\n}\n'
+    h=h.removesuffix('}\n')+'inline constexpr uint32_t callback_candidate='+fmt((CALLBACK,))+';\ninline constexpr std::array<uint32_t,2> callback_sites{'+fmt(tuple(pc for _,pc in sites))+'};\n}\n'
     return roots,C,D,R,T,U,K,site,edges,leaves,h
 def patch_handler(s):
     a='#include "wii_transfer_prefix_binding_v768.h"'
     s=replace_exact(s,a,a+'\n#include "wii_alarm_return_binding_v786.h"')
     a='    const bool allow=v742::eligible(pc,w,ordinal,kind);'
-    return replace_exact(s,a,r'''    if(v786::active()){
+    s=replace_exact(s,a,r'''    if(v786::active()){
         v786::returned(c,pc,w);
-        return;
+        if(!witness.alarm_returned(c,pc,v786::route.total(),held()))reject(3);
+        if(!v786::continue_suffix())std::_Exit(0);
     }
     if(v768::returned_active()&&v786::eligible(pc,w,ordinal,kind)){
         if(!witness.before_authenticated(c,pc,w,held(),5))reject(3);
         v786::start(c,pc,w);return;
     }
 '''+a)
+    a='            std::cout<<std::dec<<"V778_NEXT_BOUNDARY ordinal="'
+    return replace_exact(s,a,'            if(v786::continue_suffix()&&v786::route.stage()==4)v786::classify(c,pc,w,ordinal,kind);\n'+a)
 def patch_ack(s):
     a='    if(v768::active()&&!v768::returned_active())return v768::poll(c);'
     s=replace_exact(s,a,'    if(v786::active())return v786::poll(c);\n'+a)
