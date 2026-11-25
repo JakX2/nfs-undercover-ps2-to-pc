@@ -50,23 +50,33 @@ for mode in nonsplit split; do
     }
     grep -Ex 'V968_HANDLER_FRONTIER ordinal=([4-9]|[1-2][0-9]|3[0-2]) kind=[12] visits=[1-9][0-9]* token_preserved=1 saved_fields=38 call_executed=0' "$work/run.log"
   done
-  for fixture in args seeded-args; do
+  admitted=0;returned=0;guards=0;incomplete=0
+  for fixture in args queue-args active-args seeded-args; do
     for trial in {0..7}; do
       timeout 20s "$work/probe" "$trial" "$fixture" "$dol" > "$work/run.log" 2>&1 || {
         grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
-        echo "V973_ARGUMENT_PROBE failed=1";exit 1;
+        echo "V976_PROFILE_EXECUTION failed=1";exit 1;
       }
+      if grep -Ex 'V976_GUARD_PROFILE seed=[0-3] profile=[0-7] lane=[1-5] ordinal=[0-9]{1,2} category=[1-6] stage=[14] depth=[0-8] time_return=[01] visits=[1-9][0-9]* original_guard_executed=0' "$work/run.log";then
+        guards=$((guards+1));continue
+      fi
       grep -Ex 'V973_TRANSFER_ARGS seeded=[01] profile=[0-7] out_one=[01] in_three=[01] out_mapped=[01] in_mapped=[01] callback=[01] command_zero=[01] idle=[01] type=[01]' "$work/run.log"
+      grep -Ex 'V976_ARG_PROFILE seed=[0-3] profile=[0-7] admissible=[01] original_transfer_executed=0' "$work/run.log"
+      if ! grep -qE '^V976_ARG_PROFILE seed=[1-3] profile=[0-7] admissible=1 original_transfer_executed=0$' "$work/run.log";then
+        incomplete=$((incomplete+1));continue
+      fi
+      admitted=$((admitted+1))
+      case "$fixture" in queue-args) lane=queue-transfer;; active-args) lane=active-transfer;; seeded-args) lane=transfer;; *) exit 1;; esac
+      timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
+        grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+        echo "V972_TRANSFER_EXECUTION failed=1";exit 1;
+      }
+      grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=[01] token=[23] pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
+      returned=$((returned+1))
     done
   done
-  for trial in {0..7}; do
-    timeout 20s "$work/probe" "$trial" transfer "$dol" > "$work/run.log" 2>&1 || {
-      grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
-      echo "V972_TRANSFER_EXECUTION failed=1";exit 1;
-    }
-    grep -Ex 'V973_TRANSFER_ARGS seeded=1 profile=[0-7] out_one=1 in_three=1 out_mapped=1 in_mapped=1 callback=1 command_zero=1 idle=[01] type=1' "$work/run.log"
-    grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=[01] token=[23] pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
-  done
+  [[ $((admitted+guards+incomplete)) == 32 && "$returned" == "$admitted" ]]
+  echo "V976_PROFILE_CENSUS mode=$mode classified=32 guarded=$guards incomplete=$incomplete admitted=$admitted returned=$returned fallback=0 continuous_boot=0"
   for bad in bad-frame bad-pi; do
     rc=0;timeout 20s "$work/probe" 0 "$bad" "$dol" > "$work/run.log" 2>&1 || rc=$?
     [[ "$rc" == 126 ]]
@@ -76,5 +86,5 @@ for mode in nonsplit split; do
   echo "V962_OWNER_POST_ACK mode=$mode valid=8 original_helper_return=8 fallback=0 continuous_boot=0"
   echo "V966_OWNER_TIME mode=$mode valid=8 original_time_return=8 fallback=0 continuous_boot=0"
   echo "V968_OWNER_FRONTIER mode=$mode valid=8 guarded_dependency=8 fallback=0 continuous_boot=0"
-  echo "V972_OWNER_TRANSFER mode=$mode valid=8 original_transfer_return=8 fallback=0 continuous_boot=0"
+  # A profile may reach a different guarded dependency; never label it a transfer return.
 done

@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v972*'
       - 'research/native_recomp/*v973*'
+      - 'research/native_recomp/*v976*'
       - '.github/workflows/wii-v972-third-si-transfer.yml'
 permissions:
   contents: read
