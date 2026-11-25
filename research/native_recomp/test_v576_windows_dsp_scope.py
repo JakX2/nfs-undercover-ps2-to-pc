@@ -23,7 +23,7 @@ class Tests(unittest.TestCase):
         self.assertIn("*(['--native-sc-overlay'] if sc_overlay else [])",build)
     def test_default(self):
         wf=(HOST.parent.parent/'.github/workflows/wii-native-windows-full.yml').read_text()
-        self.assertIn('default: os-si-dispatch',wf)
-        self.assertIn("inputs.owner_scope || 'os-si-dispatch'",wf)
+        self.assertIn('default: os-si-ack',wf)
+        self.assertIn("inputs.owner_scope || 'os-si-ack'",wf)
         self.assertIn('os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack]',wf)
 if __name__=='__main__':unittest.main()
