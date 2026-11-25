@@ -1,0 +1,19 @@
+name: Wii V780 Live Alarm Queue Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v780*'
+      - '.github/workflows/wii-v780-alarm-queue.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_alarm_cancel_queue_v780.cpp -o "$RUNNER_TEMP/v780"
+          "$RUNNER_TEMP/v780"
