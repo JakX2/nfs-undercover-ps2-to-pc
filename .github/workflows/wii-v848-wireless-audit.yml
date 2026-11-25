@@ -1,0 +1,16 @@
+name: Wii V848 Wireless Wrapper Result Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v848*'
+      - '.github/workflows/wii-v848-wireless-audit.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s research/native_recomp -p test_v848_wireless_wrapper.py -v
