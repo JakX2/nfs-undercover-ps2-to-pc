@@ -36,15 +36,21 @@ public:
         if(!slot||slot>12u)return fail(8);
         return before_slot(c,pc,w,device,slot);
     }
+    // Admission is separate from direct-call slots. The installer must
+    // authenticate the precise original bctrl and full target identity.
+    template<class C>bool before_authenticated_indirect(C& c,uint32_t pc,uint32_t w,bool device,unsigned slot){
+        if((slot!=6u&&slot!=11u)||!(completed_calls_&16u)||w!=0x4e800421u)return fail(8);
+        return before_slot(c,pc,w,device,slot,true);
+    }
     unsigned completed_calls()const{return completed_calls_;}
 private:
-    template<class C>bool before_slot(C& c,uint32_t pc,uint32_t w,bool device,unsigned slot){
+    template<class C>bool before_slot(C& c,uint32_t pc,uint32_t w,bool device,unsigned slot,bool indirect=false){
         if(stage_!=2||!common(c)||!device||pending_||active_call_||pc!=next_||!span(pc)||!word(c,pc,w)||
            c.inst_count-last_!=(visits_?1u:0u)||++visits_>1024u)return fail(3);
         last_=c.inst_count;
         const auto op=w>>26,xo=(w>>1)&1023u;
         if(slot){
-            if((completed_calls_&(1u<<(slot-1u)))||op!=18u||(w&3u)!=1u||!span(pc+4u))return fail(8);
+            if((completed_calls_&(1u<<(slot-1u)))||(!indirect&&(op!=18u||(w&3u)!=1u))||(indirect&&w!=0x4e800421u)||!span(pc+4u))return fail(8);
             active_call_=slot;next_=pc+4u;return true;
         }
         if(w==0x4e800020u){
