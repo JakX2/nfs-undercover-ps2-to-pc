@@ -13,7 +13,7 @@
 using nwii::runtime::CPUContext;
 using namespace undercover::wii;
 constexpr uint32_t Sda=0x8070e8e0u,Data=0x80619a60u,TypeData=Data+24u,Command=Sda-3144u,Callback=0x805327f8u;
-constexpr uint32_t MSR=0x32u,Mask=8u,Other=0x100u;
+constexpr uint32_t MSR=0x32u,Mask=8u,Other=0x100u,Call=H+8u,Return=Call+4u;
 static std::atomic<uint32_t> cause{Other},mask{Mask};
 static std::unique_ptr<SiController> si;
 static std::unique_ptr<SiTypeScheduler> scheduler;
@@ -49,8 +49,10 @@ static void mmio(bool write){
 }
 static void advance(CPUContext& c,uint32_t pc,uint32_t w){
     scheduler->advance(c.inst_count);
-    if(pc==H){
-        need(ack.auxiliary_before()&&device.begin(*si,cause,mask,ack,c.inst_count,channel,!busy,std::nullopt,8));return;
+    if(pc==H){need(ack.before(pc,w));return;}
+    if(pc==H+4u){need(ack.before(pc,w)&&ack.resume_after_ack(pc,w)&&cause==Other);return;}
+    if(pc==Call){
+        need(ack.before(pc,w)&&device.begin(*si,cause,mask,ack,c.inst_count,channel,!busy,std::nullopt,8));return;
     }
     if(device.stage()==2){need(device.after_return(c.inst_count));return;}
     const auto a=PostAckTransferDevice::word_access(c,w);
@@ -62,13 +64,13 @@ static void advance(CPUContext& c,uint32_t pc,uint32_t w){
 }
 namespace rfi_test{
 void before(CPUContext& c,uint32_t pc,uint32_t w){
-    if(!c.is_running){need(pc==H+4u*17u);return;}
+    if(!c.is_running){need(pc==Return+4u*16u);return;}
     need(c.msr==MSR&&!c.in_callback&&!c.dispatch_saved_ctx&&c.mmu.read32(pc)==w&&!pending_poll);
     if(visits)need(c.inst_count-last==1);
     last=c.inst_count;last_pc=pc;last_word=w;mmio_accessed=false;need(++visits<=256);
     advance(c,pc,w);
-    if(pc==H){need(entries==1&&abi(c));return;}
-    if(pc==H+4u){
+    if(pc==H||pc==H+4u||pc==Call){need(entries==1&&abi(c));return;}
+    if(pc==Return){
         need(entries==6&&c.lr==pc&&abi(c)&&c.gpr[3]==(busy?0u:1u));
         if(busy){need(!reads&&!writes&&device.follow_stage()==0&&si->issued_tokens()==1&&c.mmu.read32(Data)==0);}
         else{
@@ -78,8 +80,8 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         need(device.finish(c.inst_count,c.gpr[3])&&device.reads()==reads&&device.writes()==writes);
         returned=true;
     }
-    if(pc>H&&pc<=H+4u*16u){
-        need(returned&&pc==H+4u*(++resume_visits)&&w==0x60000000u&&abi(c)&&c.gpr[3]==(busy?0u:1u));
+    if(pc>=Return&&pc<Return+4u*16u){
+        need(returned&&pc==Return+4u*((++resume_visits)-1u)&&w==0x60000000u&&abi(c)&&c.gpr[3]==(busy?0u:1u));
         if(resume_visits==16){
             if(busy)need(device.follow_stage()==0&&scheduler->completed()==1&&cause==Other&&!si->pending());
             else need(device.follow_stage()==3&&scheduler->completed()==2&&cause==(Other|Mask)&&!si->pending()&&(si->read(SiController::Status)&(8u<<((3u-channel)*8u))));
@@ -99,7 +101,9 @@ namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     constexpr std::array<uint32_t,6> order{H,C,S,D,Q,R};
-    need(entries<order.size()&&pc==order[entries]&&c.pc==pc);++entries;
+    need(entries<order.size()&&pc==order[entries]&&c.pc==pc);
+    if(!entries)need(ack.arm(*si,cause,mask,c.inst_count,H,Return+4u*16u));
+    ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
     if(!visits){need(!outer&&c.pc==H);++outer;return false;}
@@ -113,7 +117,10 @@ void GX_WGPIPE_Write8(uint8_t){fail(6);}void GX_WGPIPE_Write16(uint16_t){fail(6)
 void GX_WGPIPE_WriteF32(float){fail(6);}void GX_WGPIPE_WriteF64(double){fail(6);}
 uint16_t HW_Reg_Read16(uint32_t){fail(7);}void HW_Reg_Write16(uint32_t,uint16_t){fail(7);}
 uint32_t HW_Reg_Read32(uint32_t a){mmio(false);uint32_t result=0;need(device.read(*si,offset(a),result));++reads;return result;}
-void HW_Reg_Write32(uint32_t a,uint32_t v){mmio(true);need(device.write(*si,offset(a),v));++writes;}
+void HW_Reg_Write32(uint32_t a,uint32_t v){
+    if(last_pc==H){need(!device.stage()&&cpu&&cpu->inst_count==last&&offset(a)==SiController::Control&&v==0xe0010300u);ack.write(*si,SiController::Control,v);return;}
+    mmio(true);need(device.write(*si,offset(a),v));++writes;
+}
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
@@ -128,16 +135,13 @@ int main(int argc,char** argv)try{
         si=std::make_unique<SiController>(cause);
         scheduler=std::make_unique<SiTypeScheduler>(*si,SiTypeScheduler::Profile{Port::absent(),Port::absent(),Port::absent(),Port::absent()},8);
         si->write(SiController::Control,0xc0010301u);scheduler->advance(1);scheduler->advance(9);
-        need(cause==(Other|Mask));c.inst_count=98;
-        need(ack.arm(*si,cause,mask,c.inst_count,H,H+16));++c.inst_count;
-        need(ack.before(H,0x90030000u));ack.write(*si,SiController::Control,0xe0010300u);
-        ++c.inst_count;need(ack.before(H+4,0x60000000u)&&ack.resume_after_ack(H+4,0x60000000u)&&cause==Other);
+        need(cause==(Other|Mask));
         for(unsigned i=0;i<8;++i)c.mmu.write32(Data+4*i,0);
         c.mmu.write32(Data,busy?0u:0xffffffffu);c.mmu.write32(Command,0);
         c.mmu.write32(TypeData+4*channel,128);
         for(unsigned i=0;i<32;++i)c.gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
         c.gpr[1]=0x80040000u+trial*0x100u;c.gpr[2]=0x80025000u;c.gpr[13]=Sda;
-        c.gpr[3]=channel;c.gpr[4]=Command;c.gpr[5]=1;c.gpr[6]=TypeData+4*channel;c.gpr[7]=3;c.gpr[8]=Callback;gp=c.gpr;
+        c.gpr[3]=channel;c.gpr[4]=Command;c.gpr[5]=1;c.gpr[6]=TypeData+4*channel;c.gpr[7]=3;c.gpr[8]=Callback;c.gpr[9]=0xcd006434u;c.gpr[10]=0xe0010300u;gp=c.gpr;
         c.pc=H;c.lr=0x80006000u;c.msr=MSR;c.srr0=0x80009000u;c.srr1=0x8032u;
         c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;c.inst_count=100;
         run_game(c);need(!corrupt&&!c.is_running&&entries==6&&outer==1&&stops==trial+1&&abi(c)&&resume_visits==16);

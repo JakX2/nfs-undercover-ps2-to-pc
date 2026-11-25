@@ -16,7 +16,7 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root
 BLR=0x4e800020
-def plan(dol,elf):
+def plan(dol,elf,with_ack=False):
     n,*_=geometry(dol,elf);handler=exact(dol,elf,HANDLER,n)
     C=edge(HANDLER,handler,4)[1]
     if parse_functions(elf).get(C)!=432:raise ValueError('transfer extent')
@@ -24,7 +24,10 @@ def plan(dol,elf):
     d,_,r=leaf_plan(dol,elf);D,Q=d[1],r[1]
     edges=[(C+4*i,direct_bl(w,C+4*i)) for i,w in enumerate(code) if w>>26==18 and w&3==1]
     if [v for _,v in edges]!=[S,D,Q,Q,R] or count!=6:raise ValueError('transfer edges')
-    roots={H:[bl(H,C)]+[0x60000000]*16+[BLR],C:code,D:d[5],Q:r[5],S:pair[S],R:pair[R]}
+    # Synthetic caller optionally executes the actual W1C via stw r10,0(r9),
+    # then one NOP before the linked transfer. Only focused fixtures opt in.
+    prefix=[0x91490000,0x60000000] if with_ack else []
+    roots={H:prefix+[bl(H+4*len(prefix),C)]+[0x60000000]*16+[BLR],C:code,D:d[5],Q:r[5],S:pair[S],R:pair[R]}
     spans=sorted((a,a+4*len(ws)) for a,ws in roots.items())
     if len(roots)!=6 or any(b>c for (_,b),(c,_) in zip(spans,spans[1:])):raise ValueError('transfer ownership')
     return roots,C,D,Q,S,R,edges
@@ -47,7 +50,9 @@ def install(p,root):
     outer=sources[main].split('extern "C" void run_game(',1)[1]
     expected={pc:(a,ws[(pc-a)//4]) for a,ws in roots.items() for pc in reachable(a,ws)}
     if audit_native(sources.values(),outer,expected)!=len(expected):raise ValueError('native labels')
-    for owner,links in ((H,[(H,C)]),(C,edges)):
+    call=H+4*(len(roots[H])-18)
+    if call not in (H,H+8):raise ValueError('caller geometry')
+    for owner,links in ((H,[(call,C)]),(C,edges)):
         owned=[exact_function(s,owner) for s in sources.values() if owns_root(s,owner)]
         if len(owned)!=1:raise ValueError('native call owner')
         for site,dst in links:verify_direct(owned[0],site,dst)
@@ -68,10 +73,10 @@ def install(p,root):
     for p,s in changes.items():p.write_text(s)
     print(f'V765_NATIVE_ROUTE original_labels={len(expected)-len(roots[H])} direct_edges=6 fallback=0 execution=0')
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');x=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');a.add_argument('--with-ack',action='store_true');x=a.parse_args()
     try:
         if x.dol.stat().st_size>MAX_DOL or x.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        p=plan(x.dol.read_bytes(),x.elf.read_bytes())
+        p=plan(x.dol.read_bytes(),x.elf.read_bytes(),x.with_ack)
         if x.install:install(p,x.output)
         elif x.patch_analyzer:patch_analyzer(p,x.output)
         else:header(p,x.output);print('V765_TRANSFER_GEOMETRY verified=1 roots=5 original_words=108 aliases=2')
