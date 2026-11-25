@@ -1,0 +1,3 @@
+# V887: investigate real continuous handler refusal
+
+V876 job 139119246578 linked the full original image and reached V868_HANDLER_SUFFIX_ENTRY at slot 6. It rejected before the sixth handler instruction (guard=5, writes=0); the earlier five original instructions executed. V886 owner preflight passed with 16 restore labels, 4 tail labels and native dispatcher resume; dual witness source test 1 valid/11 refusals. V887 adds owner-only static branch-path classification through the actual failing depth, without printing addresses/words/register values, and fixes a likely -Werror parentheses diagnostic in V885. The packet build now emits allowlisted compiler diagnostic categories. No live guard has been relaxed; wait for the exact failure class before changing it.

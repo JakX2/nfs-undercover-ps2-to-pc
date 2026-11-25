@@ -21,7 +21,7 @@ for mode in nonsplit split; do
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V881_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_packet_choice_v881.py" "$dol" "$elf" "$work/$mode" --install
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -Wno-error=type-limits -fno-pie -no-pie \
-    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_packet_choice_v881.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V881_NATIVE_BUILD failed=1";exit 1; }
+    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_packet_choice_v881.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { python3 "$here/diagnose_packet_build_v887.py" "$work/build.log";echo "V881_NATIVE_BUILD failed=1";exit 1; }
   mkdir "$work/seeds"
   for trial in {0..7}; do
     timeout 20s "$work/probe" discover "$trial" "$work/seeds/$trial.txt" > "$work/run.log" 2>&1 || {

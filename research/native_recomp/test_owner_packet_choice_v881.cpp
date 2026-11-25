@@ -87,7 +87,7 @@ static void reference(uint32_t pc,uint32_t w){
     else fail(3);
 }
 static unsigned packet_section(uint32_t a){
-    if((a&3u)||a==0x80619a60u||a>=Low&&a<High)return 0;
+    if((a&3u)||a==0x80619a60u||(a>=Low&&a<High))return 0;
     unsigned index=0,found=0;
     for(auto s:PacketDataSpans){
         ++index;
