@@ -1,0 +1,5 @@
+# V726: complete-image native SI handler return
+
+V719 owner run 45542291720 confirmed the three masked local loop polls and second helper ABI return in the complete original Linux image, rc=0. V724 owner run 45543602401 confirmed 12 original scheduler-enable/no-switch trials and two switch refusals; V720's 16 original context-loader/RFI trials also passed again.
+
+V726 composes the tested V725 handler-return witness into the existing original SI ACK route. Capture original handler entry ABI, continue only after the verified second-helper return, preserve the ACK trace's per-instruction device checks, accept only witnessed masked polls, validate the original indirect-call resume label/dispatch ownership, and stop before executing the next dispatcher instruction. The new --run-si-handler-return scope is independent; prior ACK and OS-leaf scopes are preserved. Public logs reveal bounded result counts, not original bytes. Any additional handler call remains a refusal, not an assumed implementation. Full-image return is pending owner CI; no original scheduler integration or RFI continuation is claimed.

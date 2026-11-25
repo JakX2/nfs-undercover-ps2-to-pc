@@ -102,6 +102,7 @@ public:
         return phase_==Phase::PostAck&&tick_&&*tick_==last_tick_&&pc_==pc&&
                allowed(pc)&&!store_&&!load_&&post_held();
     }
+    bool postack_held()const{return phase_==Phase::PostAck&&post_held();}
     bool auxiliary_poll(){
         if(phase_!=Phase::PostAck||!tick_||*tick_!=last_tick_||pc_||store_||load_||!post_held())return fail(11);
         return true;
