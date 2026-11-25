@@ -2,7 +2,7 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix || "$4" == irq-pending-capture || "$4" == irq-si-combined || "$4" == irq-si-captured || "$4" == irq-si-epilogue || "$4" == irq-si-transfer-prefix || "$4" == irq-si-transfer-return || "$4" == irq-si-transfer-suffix || "$4" == irq-si-alarm || "$4" == irq-si-alarm-suffix || "$4" == irq-si-callback-prefix || "$4" == irq-si-callback-time || "$4" == irq-si-callback-frontier ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix || "$4" == irq-pending-capture || "$4" == irq-si-combined || "$4" == irq-si-captured || "$4" == irq-si-epilogue || "$4" == irq-si-transfer-prefix || "$4" == irq-si-transfer-return || "$4" == irq-si-transfer-suffix || "$4" == irq-si-alarm || "$4" == irq-si-alarm-suffix || "$4" == irq-si-callback-prefix || "$4" == irq-si-callback-time || "$4" == irq-si-callback-frontier || "$4" == irq-si-wireless-wrapper || "$4" == irq-si-callback-return ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 open_request=0
 external_entry=0
@@ -27,6 +27,10 @@ si_alarm_suffix=0
 si_callback_prefix=0
 si_callback_time=0
 si_callback_frontier=0
+si_wireless_wrapper=0
+si_callback_return=0
+if [[ "$mode" == irq-si-callback-return ]]; then mode=irq-si-wireless-wrapper;si_callback_return=1;fi
+if [[ "$mode" == irq-si-wireless-wrapper ]]; then mode=irq-si-callback-frontier;si_wireless_wrapper=1;fi
 if [[ "$mode" == irq-si-callback-frontier ]]; then mode=irq-si-callback-time;si_callback_frontier=1;fi
 if [[ "$mode" == irq-si-callback-time ]]; then mode=irq-si-callback-prefix;si_callback_time=1;fi
 if [[ "$mode" == irq-si-callback-prefix ]]; then mode=irq-si-alarm-suffix;si_callback_prefix=1;fi
@@ -78,6 +82,8 @@ if [[ "$si_alarm_suffix" == 1 ]]; then extra+=(UNDERCOVER_V789_ALARM_SUFFIX=1);a
 if [[ "$si_callback_prefix" == 1 ]]; then extra+=(UNDERCOVER_V807_CALLBACK_PREFIX=1);audit=audit_v809_callback_prefix.py;fi
 if [[ "$si_callback_time" == 1 ]]; then extra+=(UNDERCOVER_V813_CALLBACK_TIME=1);audit=audit_v822_callback_time.py;fi
 if [[ "$si_callback_frontier" == 1 ]]; then extra+=(UNDERCOVER_V831_CALLBACK_FRONTIER=1);audit=audit_v836_callback_frontier.py;fi
+if [[ "$si_wireless_wrapper" == 1 ]]; then extra+=(UNDERCOVER_V847_WIRELESS=1);audit=audit_v848_wireless_wrapper.py;fi
+if [[ "$si_callback_return" == 1 ]]; then extra+=(UNDERCOVER_V850_CALLBACK_RETURN=1);audit=audit_v852_callback_return.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }

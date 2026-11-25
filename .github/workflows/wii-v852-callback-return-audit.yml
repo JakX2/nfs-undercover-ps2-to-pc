@@ -1,0 +1,20 @@
+name: Wii V852 Callback Return Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v852*'
+      - '.github/workflows/wii-v852-callback-return-audit.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v852_callback_return.py -v
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
