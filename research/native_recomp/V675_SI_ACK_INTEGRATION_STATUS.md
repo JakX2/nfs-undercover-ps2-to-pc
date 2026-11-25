@@ -1,0 +1,3 @@
+# V675: compiled SI ACK binding integration control
+
+Original-free regression harness composes the real V672 MMIO binding with the actual native SI controller and scheduler and executes its native/mirror write path through the exact witness entry/boundary functions. Eleven isolated process cases cover both valid ACK apertures, idle pass-through, stale-write refusal with source held, invalid EE, opcode mismatch, missing/extra successor tick, and direct/indirect/unclassified helper refusals. The pre-existing SI sampling and discovery instrumentation is checked for preservation by actual patch composition. Synthetic fixture is independent of game code. GCC ASan/UBSan execution pending; original runtime still pending. No owner game material is stored.
