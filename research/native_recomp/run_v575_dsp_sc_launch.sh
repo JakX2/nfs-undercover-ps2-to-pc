@@ -125,6 +125,10 @@ if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]];
   [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 ]] || exit 2
   extra+=(UNDERCOVER_V967_POST_ACK=1);audit=audit_v967_post_ack.py
 fi
+if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 ]]; then
+  [[ "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]] || exit 2
+  extra+=(UNDERCOVER_V975_SECOND_TIME=1);audit=audit_v975_second_time.py
+fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
 if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
