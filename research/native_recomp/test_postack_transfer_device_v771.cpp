@@ -10,7 +10,7 @@ static void need(bool ok,unsigned line){if(!ok){std::cerr<<"V771_ASSERT line="<<
 #define CHECK(x) need((x),__LINE__)
 int main(){
     unsigned valid=0,refused=0;
-    for(unsigned trial=0;trial<25;++trial){
+    for(unsigned trial=0;trial<30;++trial){
         std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);
         using Port=SiTypeScheduler::Port;
         const SiTypeScheduler::Profile ports{Port::absent(),Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
@@ -22,6 +22,12 @@ int main(){
         const unsigned ch=trial%4;
         PostAckTransferDevice w;
         const bool idle=trial!=4&&trial!=5;
+        std::atomic<uint32_t> unrelated_cause{Other},unrelated_mask{SI};SiController unrelated(unrelated_cause);
+        uint64_t fake_tick=tick;
+        if(trial==25){CHECK(!w.begin(unrelated,cause,mask,ack,tick,ch,idle,ports[ch].type,8));++refused;continue;}
+        if(trial==26){CHECK(!w.begin(ctl,unrelated_cause,mask,ack,tick,ch,idle,ports[ch].type,8));++refused;continue;}
+        if(trial==27){CHECK(!w.begin(ctl,cause,unrelated_mask,ack,tick,ch,idle,ports[ch].type,8));++refused;continue;}
+        if(trial==28){CHECK(!w.begin(ctl,cause,mask,ack,fake_tick,ch,idle,ports[ch].type,8));++refused;continue;}
         bool ok=w.begin(ctl,cause,mask,ack,tick,trial==6?4u:ch,idle,ports[ch].type,8);
         if(trial==6){CHECK(!ok&&w.failure()==1);++refused;continue;}CHECK(ok);
         auto before=[&](Access a=Access::None,uint32_t addr=0){scheduler.advance(++tick);return w.before(tick,a,addr);};
@@ -41,6 +47,7 @@ int main(){
         if(trial==13){CHECK(!before());++refused;continue;}
         CHECK(w.read(ctl,C,value)&&value==0x60010300u);
         if(trial==14){CHECK(!w.read(ctl,C,value));++refused;continue;}
+        if(trial==29){scheduler.advance(++tick);CHECK(w.before(tick,Access::Write,Base+B,0x12345678u));CHECK(!w.write(ctl,B,0)&&ctl.read(B)==0);++refused;continue;}
         CHECK(before(Access::Write,Base+B));
         CHECK(w.write(ctl,B,trial==15?0x01000000u:0x00abcdefu));
         CHECK(before(Access::Write,Base+S)&&w.write(ctl,S,0x08000000u));
@@ -68,6 +75,13 @@ int main(){
         if(trial>=21){CHECK(!ok);++refused;continue;}
         CHECK(ok&&ctl.issued_tokens()==2&&w.reads()==1&&w.writes()==3);++valid;
     }
-    CHECK(valid==5&&refused==20);
-    std::cout<<"V771_POSTACK_TRANSFER_DEVICE synthetic=1 valid=5 refused=20 real_device=1 real_scheduler=1 original_execution=0\n";
+    CHECK(valid==5&&refused==25);
+    struct Cpu{std::array<uint32_t,32> gpr{};} cpu;
+    cpu.gpr[3]=Base;cpu.gpr[4]=0x12345678u;cpu.gpr[5]=C;
+    auto a=PostAckTransferDevice::word_access(cpu,0x90830034u);CHECK(a.kind==Access::Write&&a.address==Base+C&&a.store==0x12345678u);
+    a=PostAckTransferDevice::word_access(cpu,0x80830034u);CHECK(a.kind==Access::Read&&a.address==Base+C&&!a.store);
+    a=PostAckTransferDevice::word_access(cpu,(31u<<26)|(4u<<21)|(3u<<16)|(5u<<11)|(662u<<1));CHECK(a.kind==Access::Write&&a.address==Base+C&&a.store==0x78563412u);
+    a=PostAckTransferDevice::word_access(cpu,0x8083fffcu);CHECK(a.kind==Access::Read&&a.address==Base-4u);
+    a=PostAckTransferDevice::word_access(cpu,0x60000000u);CHECK(a.kind==Access::None);
+    std::cout<<"V771_POSTACK_TRANSFER_DEVICE synthetic=1 valid=5 refused=25 real_device=1 real_scheduler=1 original_execution=0\n";
 }

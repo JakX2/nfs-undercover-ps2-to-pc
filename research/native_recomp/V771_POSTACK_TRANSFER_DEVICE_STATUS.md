@@ -1,3 +1,7 @@
 # V771: post-ACK SI transfer device contract
 
 The actual handler hit __SITransfer at call 4. V768 guards entry through its original save/disable prefix. V771 independently implements the next device seam: one explicitly authenticated SI MMIO operation per native instruction tick, physical/mirrored address validation, no busy-lane hardware access, prior W1C proof, legal buffer/status stores, one exact type transaction, and the existing V750 completion witness. Keeps a reasserted TC source latched, validates pending or completed return, and continues observing it at native ticks without a second write. Tests use actual controller/scheduler with synthetic accesses, include both absent/present profiles and early/late return plus 20 refusal controls. No live integration or original transfer execution claimed. Pending CI.
+
+## V772 exact predecessor identity and store operands
+
+Require the identical SI controller, PI cause/mask objects and native tick reference from the V668 post-ACK witness, at its last verified boundary. Add an integer word-access decoder with signed D-form displacement, indexed addressing, and byte-reversed store values. An optional decoded store operand is checked before invoking the real device. Five added refusals cover an unrelated device/cause/mask/tick and mismatched store operand. No prior scope changes its ACK behavior; the new seam remains opt-in. CI pending.

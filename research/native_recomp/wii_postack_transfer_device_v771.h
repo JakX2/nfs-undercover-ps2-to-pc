@@ -24,10 +24,26 @@ public:
         const auto off=p-0x0d006400u;
         return SiController::supported(off)?std::optional<unsigned>{off}:std::nullopt;
     }
+    struct WordAccess{
+        Access kind=Access::None;uint32_t address=0;std::optional<uint32_t> store;
+    };
+    // Exact integer word memory instructions emitted by the pinned PPC
+    // translator. Reversed stores use the original big-endian bus value.
+    template<class C>static WordAccess word_access(const C& c,uint32_t w){
+        const auto op=w>>26,xo=(w>>1)&1023u,ra=(w>>16)&31u,rb=(w>>11)&31u,rs=(w>>21)&31u;
+        const auto base=ra?c.gpr[ra]:0u;
+        const bool read=SiCompletionAckTrace::word_load(w),write=SiCompletionAckTrace::word_store(w);
+        if(!read&&!write)return {};
+        const uint32_t a=op==31u?base+c.gpr[rb]:base+((w&0xffffu)^0x8000u)-0x8000u;
+        if(read)return {Access::Read,a,std::nullopt};
+        uint32_t v=c.gpr[rs];
+        if(op==31u&&xo==662u)v=(v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24);
+        return {Access::Write,a,v};
+    }
     bool begin(SiController& ctl,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
-               const SiCompletionAckTrace& ack,uint64_t tick,unsigned ch,bool idle,
+               const SiCompletionAckTrace& ack,const uint64_t& tick,unsigned ch,bool idle,
                std::optional<std::array<uint8_t,3>> response,uint64_t latency){
-        if(stage_||error_||!ack.postack_held()||ch>3||!latency||latency>8190u||
+        if(stage_||error_||!ack.owns_postack(ctl,cause,mask,tick)||ch>3||!latency||latency>8190u||
            tick>UINT64_MAX-8192u||ctl.pending()||!(mask.load()&SiController::PI_SI)||
            (cause.load()&SiController::PI_SI)||ctl.issued_tokens()==UINT64_MAX)return fail(1);
         ctl_=&ctl;cause_=&cause;mask_=&mask;other_=cause.load();mask_before_=mask.load();
@@ -36,22 +52,23 @@ public:
         for(unsigned i=0;i<32;++i)buffer_[i]=ctl.read(SiController::Buffer+4*i);
         ch_=ch;idle_=idle;response_=response;latency_=latency;start_=last_=tick;stage_=1;return true;
     }
-    bool before(uint64_t tick,Access access=Access::None,uint32_t address=0){
+    bool before(uint64_t tick,Access access=Access::None,uint32_t address=0,std::optional<uint32_t> store_value=std::nullopt){
         if(stage_!=1||error_||armed_||tick-last_!=1u||tick-start_>8192u||!common())return fail(2);
         last_=tick;
         if(!device(tick))return fail(3);
-        if(access==Access::None)return address==0?true:fail(2);
+        if(access==Access::None)return address==0&&!store_value?true:fail(2);
+        if(access==Access::Read&&store_value)return fail(2);
         if(!idle_||access>Access::Write||reads_+writes_>=64u)return fail(2);
         const auto off=offset(address);
         if(!off||*off==SiController::Poll)return fail(2);
-        armed_=true;access_=access;off_=*off;return true;
+        armed_=true;access_=access;off_=*off;store_value_=store_value;return true;
     }
     bool read(SiController& ctl,unsigned off,uint32_t& result){
         if(!consume(ctl,off,Access::Read))return false;
         result=ctl.read(off);++reads_;return true;
     }
     bool write(SiController& ctl,unsigned off,uint32_t value){
-        if(!consume(ctl,off,Access::Write)||follow_.stage())return fail(4);
+        if((store_value_&&value!=*store_value_)||!consume(ctl,off,Access::Write)||follow_.stage())return fail(4);
         if(off==SiController::Control){
             // The only accepted COMCSR modification is an exact new type
             // transaction on the authenticated channel, with TC mask held.
@@ -89,6 +106,7 @@ private:
     SiFollowOnWitness follow_;
     std::array<uint32_t,32> buffer_{};
     std::optional<std::array<uint8_t,3>> response_;
+    std::optional<uint32_t> store_value_;
     unsigned stage_=0,error_=0,reads_=0,writes_=0,ch_=0,off_=0;
     uint64_t seq_=0,start_=0,last_=0,latency_=0;
     uint32_t other_=0,mask_before_=0,initial_control_=0,status_=0,poll_=0;
@@ -108,7 +126,7 @@ private:
     }
     bool consume(SiController& ctl,unsigned off,Access access){
         if(stage_!=1||error_||!armed_||&ctl!=ctl_||off_!=off||access_!=access||!common())return fail(4);
-        armed_=false;access_=Access::None;return true;
+        armed_=false;access_=Access::None;store_value_.reset();return true;
     }
 };
 }

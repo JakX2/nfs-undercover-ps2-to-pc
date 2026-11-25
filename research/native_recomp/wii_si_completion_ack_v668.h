@@ -103,6 +103,12 @@ public:
                allowed(pc)&&!store_&&!load_&&post_held();
     }
     bool postack_held()const{return phase_==Phase::PostAck&&post_held();}
+    // A later opt-in observer may inherit only this same device, PI bank
+    // and exact native instruction boundary. This does not change phase.
+    bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
+                      const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
+        return ctl_==&ctl&&cause_==&cause&&mask_==&mask&&tick_==&tick&&tick==last_tick_&&postack_held();
+    }
     bool auxiliary_poll(){
         if(phase_!=Phase::PostAck||!tick_||*tick_!=last_tick_||pc_||store_||load_||!post_held())return fail(11);
         return true;
