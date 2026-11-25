@@ -1,4 +1,6 @@
 import unittest
+from unittest.mock import patch
+from audit_v663_external_entry import inspect,EVENTS,RESULT
 from prepare_v663_external_entry import patch_probe,patch_ios,verify_dispatch_tick,HEADER,PROBE,START,CALLBACK,IOS_INCLUDE
 class Tests(unittest.TestCase):
     def test_dispatch_tick(self):
@@ -8,6 +10,11 @@ class Tests(unittest.TestCase):
         verify_dispatch_tick('          process_pending_callbacks(ctx);\n'+s)
         for x in (s+s,s.replace('++ctx.inst_count','ctx.inst_count'),s.replace('uint32_t target','++ctx.inst_count;\n        uint32_t target')):
             with self.assertRaises(ValueError):verify_dispatch_tick(x)
+    def test_failure_marker(self):
+        with patch('audit_v663_external_entry.inspect_arena',return_value=('ok',True)):
+            rows=EVENTS+[RESULT]
+            self.assertTrue(inspect(b'\n'.join(rows),0)[1])
+            self.assertFalse(inspect(b'\n'.join(rows+[b'V670_VECTOR_REFUSAL mask=2']),0)[1])
     def test_patch(self):
         s='\n'.join((HEADER,PROBE,START))
         out=patch_probe(s)

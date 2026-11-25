@@ -3,12 +3,14 @@ import argparse,re
 from pathlib import Path
 from audit_v667_si_dispatch import MARKERS as PRIOR,MAX_LOG,inspect as inspect_dispatch
 PREFIX=b'V672_SI_ACK_'
+FAILURE=b'V673_SI_ACK_CALL '
+MARKERS=PRIOR+(PREFIX,FAILURE)
 EVENTS=[b'V672_SI_ACK_STAGE n=1',b'V672_SI_ACK_STAGE n=2']
 RESULT=b'V672_SI_ACK_RESULT guest_store=1 tc_w1c=1 pi_deasserted=1 mask_preserved=1 next_label=1 rfi_return=0 fallback=0 boot_verified=0'
 def inspect(raw,rc):
     if len(raw)>MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
-    rows=[l for l in raw.splitlines() if l.startswith(PRIOR+(PREFIX,))]
-    i=next((i for i,l in enumerate(rows) if l.startswith(PREFIX)),len(rows))
+    rows=[l for l in raw.splitlines() if l.startswith(MARKERS)]
+    i=next((i for i,l in enumerate(rows) if l.startswith((PREFIX,FAILURE))),len(rows))
     _,prior=inspect_dispatch(b'\n'.join(rows[:i]),0)
     tail=rows[i:];n=0
     for a,b in zip(tail,EVENTS):

@@ -25,6 +25,8 @@ int main(int argc,char** argv){
     // Native binding is pass-through when the bounded witness is inactive.
     need(SiBinding::write32(0xcd006480u,0x12345678u));
     need(SiBinding::read32(0xcd806480u)==0x12345678u);
+    // The type-discovery command is byte zero, not the RAM control pattern.
+    need(SiBinding::write32(0xcd006480u,0u));
     Cpu c;c.mmu.words={{First,Store},{First+4,Nop},{First+8,Nop}};
     v672::before(c,First,Store,0,0);need(!v672::active());
     need(SiBinding::write32(0xcd006434u,0xc0010301u));sched.advance(1);sched.advance(9);

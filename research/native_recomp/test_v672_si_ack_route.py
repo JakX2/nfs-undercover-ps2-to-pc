@@ -35,7 +35,7 @@ class Tests(unittest.TestCase):
         with patch('audit_v672_si_ack_route.inspect_dispatch',return_value=('ok',True)):
             rows=EVENTS+[RESULT]
             self.assertTrue(inspect(b'\n'.join(rows),0)[1])
-            for x in (rows[:-1],rows+rows,rows[::-1]):
+            for x in (rows[:-1],rows+rows,rows[::-1],rows+[b'V673_SI_ACK_CALL ordinal=1 kind=1']):
                 self.assertFalse(inspect(b'\n'.join(x),0)[1])
             self.assertFalse(inspect(b'\n'.join(rows),126)[1])
 if __name__=='__main__':unittest.main()

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 import argparse,re
 from pathlib import Path
-from audit_v609_arena_clear import MARKERS as PRIOR,MAX_LOG
-from audit_v663_external_entry import inspect as inspect_external
+from audit_v663_external_entry import MARKERS as PRIOR,MAX_LOG,inspect as inspect_external
 PREFIX=b'V667_SI_DISPATCH_'
-MARKERS=PRIOR+(b'V616_IRQ_',b'V663_EXTERNAL_',PREFIX)
+MARKERS=PRIOR+(PREFIX,)
 EVENTS=[f'V667_SI_DISPATCH_STAGE n={i}'.encode() for i in range(1,7)]
 RESULT=b'V667_SI_DISPATCH_RESULT pi_reads=1 timebase=1 scheduler_disable=1 handler=1 index=20 si_pending=1 ack=0 rfi_return=0 fallback=0 boot_verified=0'
 def inspect(raw,rc):

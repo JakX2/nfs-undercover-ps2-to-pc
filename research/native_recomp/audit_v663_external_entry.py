@@ -3,12 +3,14 @@ import argparse,re
 from pathlib import Path
 from audit_v609_arena_clear import MARKERS as PRIOR,MAX_LOG,inspect as inspect_arena
 PREFIX=b'V663_EXTERNAL_'
+FAILURE=b'V670_VECTOR_REFUSAL '
+MARKERS=PRIOR+(PREFIX,b'V616_IRQ_',FAILURE)
 EVENTS=[f'V663_EXTERNAL_STAGE n={i}'.encode() for i in range(1,7)]
 RESULT=b'V663_EXTERNAL_RESULT vector=1 saved_context=1 dispatcher=1 si_pending=1 ack=0 rfi_return=0 fallback=0 boot_verified=0'
 def inspect(raw,rc):
     if len(raw)>MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
-    rows=[l for l in raw.splitlines() if l.startswith(PRIOR+(PREFIX,b'V616_IRQ_'))]
-    i=next((i for i,l in enumerate(rows) if l.startswith((PREFIX,b'V616_IRQ_'))),len(rows))
+    rows=[l for l in raw.splitlines() if l.startswith(MARKERS)]
+    i=next((i for i,l in enumerate(rows) if l.startswith((PREFIX,b'V616_IRQ_',FAILURE))),len(rows))
     _,prior=inspect_arena(b'\n'.join(rows[:i]),0)
     tail=rows[i:];n=0
     for a,b in zip(tail,EVENTS):
