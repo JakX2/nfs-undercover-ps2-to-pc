@@ -1,0 +1,3 @@
+# V891: original SITransfer available-packet system time return
+
+Reuse the independently verified original time helper and its three original OS leaves in the V887 closed/free packet fixture. The prior original interrupt-disable return, actual packet predicate, authenticated direct call, exact native instruction ticks, system offset and ABI are checked. The V810 witness accepts the direct call entry only when the earlier verified caller resume is still present in PC and LR; its default entry contract remains unchanged. Eight offsets per translation mode, near-rollover starts and deliberate result/offset corruptions; stop before the first instruction after time return. No alarm or low-level transfer is admitted. Pending private execution.

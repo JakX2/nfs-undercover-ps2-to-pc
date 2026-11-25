@@ -27,8 +27,9 @@ public:
     unsigned cursor()const{return cursor_;}
     uint64_t timebase()const{return sample_;}
     uint64_t system_offset()const{return offset_;}
-    template<class C>bool start(C& c,uint32_t pc,uint32_t w,bool device,bool prefix_verified){
-        if(stage_||error_||!device||!prefix_verified||!safe(c)||pc!=e_.resume||c.pc!=pc||c.lr!=pc||
+    template<class C>bool start(C& c,uint32_t pc,uint32_t w,bool device,bool prefix_verified,uint32_t prior_resume=0){
+        const bool caller_ok=prior_resume?e_.resume==e_.time_site&&prior_resume>=e_.callback&&prior_resume<pc&&!(prior_resume&3u)&&c.pc==prior_resume&&c.lr==prior_resume:c.pc==pc&&c.lr==pc;
+        if(stage_||error_||!device||!prefix_verified||!safe(c)||pc!=e_.resume||!caller_ok||
            !valid_range(e_.callback,e_.callback_end)||e_.callback_end-e_.callback>4096u||
            e_.resume<e_.callback||e_.time_site<e_.resume||e_.time_site>=e_.callback_end-4u||
            e_.continuation.size()!=(e_.time_site-e_.resume)/4u+2u||e_.continuation.size()>64u||
