@@ -4,6 +4,8 @@ import argparse,re,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL,replace_exact
 from prepare_v667_si_dispatch import HANDLER,DISABLE,TIME,RESTORE,exact
+from audit_handler_third_v740 import edge
+from prepare_v789_alarm_suffix import expectations as callback_expectations
 from prepare_owner_second_time_v966 import plan as time_plan
 from prepare_owner_second_ack_v955 import plan as ack_plan
 from prepare_owner_second_dispatch_v946 import reachable
@@ -54,7 +56,7 @@ def render_time(old,roots,extra,site,msr):
         'inline constexpr std::array<AckCallEdge,7> time_edges{{'+','.join('{'+fmt((p,t))+'}' for p,t,_,_,_ in extra)+'}};\n'+ \
         'inline constexpr std::array<AckMsrSite,2> msr_sites{{'+','.join('{'+fmt(m)+'}' for m in msr)+'}};\n}\n'
 
-def install(dol,elf,root):
+def install(dol,elf,root,frontier=False):
     previous=ack_plan(dol,elf);old_roots,_,indirect,_,_,_,old_guard,old_extra=previous
     q,site,msr,_=time_plan(dol,elf);roots,_,_,_,_,_,guard,extra=q
     order=[HANDLER,*[dst for _,dst,_,_,_ in extra[:3]],DISABLE,TIME,RESTORE]
@@ -83,17 +85,29 @@ def install(dol,elf,root):
     if private.is_symlink() or private.parent.is_symlink() or not private.is_file():raise ValueError('time destination')
     previous_header=private.read_text()
     if previous_header!=render(old_roots,old_extra):raise ValueError('time destination')
-    changes[private]=render_time(previous_header,roots,extra,site,msr)
+    private_time=render_time(previous_header,roots,extra,site,msr)
+    if frontier:
+        call,dst,w=edge(HANDLER,exact(dol,elf,HANDLER,len(roots[HANDLER])),4)
+        if call not in guard or call not in reachable(HANDLER,roots[HANDLER],guard,indirect):raise ValueError('transfer frontier geometry')
+        candidate,_,_=callback_expectations(dol,elf)
+        private_time=replace_exact(private_time,'#define UNDERCOVER_V975_PRIVATE_TIME 1\n','#define UNDERCOVER_V975_PRIVATE_TIME 1\n#define UNDERCOVER_V981_PRIVATE_FRONTIER 1\n')
+        private_time+='namespace undercover::wii::v958 {\n'+f'inline constexpr uint32_t transfer_call=0x{call:08x}u,transfer_branch=0x{w:08x}u,transfer_callback=0x{candidate:08x}u;\n'
+        private_time+='inline constexpr uint32_t transfer_data=0x80619a60u,transfer_slots=0x806fe340u;\n}\n'
+        header=private.parent/'wii_si_transfer_arguments_v981.h'
+        if header.exists() or header.is_symlink():raise ValueError('time destination')
+        changes[header]=(Path(__file__).parent/header.name).read_text()
+    changes[private]=private_time
     for p,s in changes.items():p.write_text(s)
     print(f'V975_TIME_ROUTE installed=1 native_labels={count} original_edges=7 unchanged_msr_sites=2 execution=0')
+    if frontier:print('V981_FRONTIER_ROUTE installed=1 original_call=4 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--frontier',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,a.frontier)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        allowed=('time shared label','time shared tick','time shared guard','time old hook','time tree','time owner','time destination','source seam','second ACK label','second ACK hook','second ACK tick','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        allowed=('time shared label','time shared tick','time shared guard','time old hook','time tree','time owner','time destination','transfer frontier geometry','source seam','second ACK label','second ACK hook','second ACK tick','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V975_TIME_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

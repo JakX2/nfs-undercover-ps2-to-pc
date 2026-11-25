@@ -1,0 +1,3 @@
+# V981: read-only live third-transfer argument frontier
+
+V976 verified 24 original third-transfer returns only after a focused queue reconstruction; the continuous path must not assume those seeded arguments. This opt-in extends the actual second-handler time route to the authenticated fourth direct call, stops before it executes, and classifies live type geometry, idle state, all eight original queued packet arguments and known callback identity. No RAM or device changes. A false admission is a valid census, never a successful transfer. Independent four valid and twelve refused argument cases; source and private integration verification pending. The installer flag is preparatory; no continuous frontier execution enabled yet.

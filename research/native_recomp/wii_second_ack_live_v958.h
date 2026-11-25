@@ -2,6 +2,9 @@
 #include "wii_second_completion_ack_v950.h"
 #include "wii_external_return_v706.h"
 #include "v958_private_second_ack.h"
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+#include "wii_si_transfer_arguments_v981.h"
+#endif
 #include <cstdlib>
 #include <iostream>
 namespace undercover::wii::v958 {
@@ -12,6 +15,11 @@ inline thread_local unsigned visits=0,post_visits=0,post_returns=0;
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
 inline thread_local unsigned time_tick=0,time_entries=0,time_returns=0,time_msr=0;
 inline thread_local bool post_seen=false;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+inline thread_local bool time_seen=false;
+inline thread_local unsigned time_return_visits=0;
+inline bool frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V981_SECOND_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
+#endif
 inline bool time_enabled(){const char* v=std::getenv("UNDERCOVER_V975_SECOND_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 inline bool post_enabled(){const char* v=std::getenv("UNDERCOVER_V967_POST_ACK");return v&&v[0]=='1'&&v[1]=='\0';}
@@ -33,6 +41,17 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+    if(frontier_enabled()&&time_seen&&pc==transfer_call){
+        if(!guard||w!=transfer_branch||!frame||!frame->saved_integer(c,context).ok()||
+           ++visits>8192u||!ack.before(c,pc,w,true)||!ack.postack_held()||calls.depth()!=0u)reject(11);
+        const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
+        std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
+            <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
+            <<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+        std::_Exit(0);
+    }
+#endif
     if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
        !ack.before(c,pc,w,true)||!calls.before(c,pc,w))reject(1);
     if(ack.stage()==3u){
@@ -50,10 +69,16 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         time_tick=visits;time_entries=calls.entries();time_returns=calls.returns();time_msr=calls.msr_writes();
     }
     if(time_enabled()&&time_tick&&pc==time_call+4u){
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+        if(time_seen)reject(11);
+#endif
         if(calls.depth()!=0u||calls.entries()-time_entries!=4u||calls.returns()-time_returns!=4u||
            calls.msr_writes()-time_msr!=2u||!ack.postack_held()||visits<=time_tick)reject(10);
         std::cout<<std::dec<<"V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits="
                  <<visits-time_tick<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+        if(frontier_enabled()){time_seen=true;time_return_visits=visits;return;}
+#endif
         std::_Exit(0);
     }
     if(post_seen)return;
