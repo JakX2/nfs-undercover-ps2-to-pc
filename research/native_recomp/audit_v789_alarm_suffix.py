@@ -27,7 +27,7 @@ def inspect(raw, rc):
     if len(hits) == 1:
         i = hits[0]
         _, valid = alarm(b'\n'.join(rows[:i + 1]), 0)
-        old = int(re.fullmatch(RESULT, rows[i])[8])
+        old = int(re.fullmatch(RESULT, rows[i])[7])
         tail = [l for l in rows[i + 1:] if l.startswith(PREFIXES)]
         def held(f):
             return old == f == 0 or old == 2 and f in (2, 3) or old == f == 3
