@@ -19,6 +19,8 @@ int main(int argc,char** argv){
     assert(a.get_functions().size()==11);
     for(const auto& [pc,fn]:a.get_functions()){(void)pc;assert(fn.hle_hook_name.empty());}
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=argv[1];cfg.split_output=std::string(argv[2])=="split";
+    // The ordinary emitter skips low MEM1 exception entries unless explicitly admitted.
+    cfg.native_low_mem_entries.insert(VectorRoot);
     nwii::recomp::Recompiler recomp(a,nullptr,cfg);assert(!recomp.generate_cpp(HandlerC).empty());
     std::cout<<"V933_TRANSLATION split="<<cfg.split_output<<" roots=11\n";
 }
