@@ -40,6 +40,14 @@ def main():
             with a.output.open('a') as f:
                 f.write(f'inline constexpr std::array<uint32_t,{len(loads)}> PacketProbes{{'+','.join(f'0x{pc:08x}u' for pc in loads)+'};\n')
             print(f'V882_PACKET_PREDICATE verified=1 loads={len(loads)} branches={branches} compares={compares} execution=0')
+            for i,(pc,(w,o,k)) in enumerate(sorted(q[1].items()),1):
+                op=w>>26;xo=(w>>1)&1023
+                if op in (10,11):
+                    imm=w&0xffff;cls=0 if imm==0 else 1 if imm==0xffff else 2 if imm<=3 else 3
+                    print(f'V883_PACKET_COMPARE index={i} mode=immediate value_class={cls}')
+                elif op==31 and xo in (0,32):print(f'V883_PACKET_COMPARE index={i} mode=register value_class=4')
+                elif op==16:print(f'V883_PACKET_CONTROL index={i} kind={(w>>16)&3}')
+                elif pc in loads:print(f'V883_PACKET_READ index={i} indexed={int(op==31)}')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
         safe=('packet predicate shape','packet boundary','transfer choice census','native coverage','native owner','hook identity','hook include','hook coverage','private output')
         print('V881_PACKET_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1

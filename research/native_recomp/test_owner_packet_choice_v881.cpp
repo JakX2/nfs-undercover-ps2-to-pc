@@ -41,7 +41,7 @@ static undercover::wii::SiTransferChoice choice;
 static unsigned trial=0;
 static bool open_lane=false;
 static uint32_t packet_addr=0,seed_addr=0;
-static unsigned packet_reads=0,branch_visits=0;
+static unsigned packet_reads=0,branch_visits=0,load_visits=0;
 static std::string seed_path;
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V881_PREFIX_FAULT kind="<<kind<<" line="<<line
@@ -90,15 +90,25 @@ static bool packet_address(uint32_t a){
     return !(a&3u)&&a!=0x80619a60u&&((a>=0x80619a60u&&a<=0x8061aa5cu)||(a>=0x8070d000u&&a<=0x8070e8fcu));
 }
 static void packet_observe(CPUContext& c,uint32_t pc,uint32_t w){
-    if(w>>26==16u)++branch_visits;
+    if(w>>26==16u){++branch_visits;const unsigned bi=(w>>16)&31u;
+        const auto f=c.cr[bi/4u];const bool bit=bi%4u==0?f.lt:bi%4u==1?f.gt:bi%4u==2?f.eq:f.so;
+        std::cout<<"V883_PACKET_BRANCH index="<<branch_visits<<" field_kind="<<bi%4u<<" bit="<<unsigned(bit)<<std::endl;
+    }
     bool load=false;for(auto a:PacketProbes)load|=a==pc;
     if(!load)return;
     const unsigned ra=(w>>16)&31u,rb=(w>>11)&31u;
     const uint32_t base=ra?c.gpr[ra]:0u;
     const uint32_t address=base+(w>>26==32u?((w&0xffffu)^0x8000u)-0x8000u:c.gpr[rb]);
-    if(!packet_address(address))return;
-    need(c.mmu.get_ptr(address)&&c.mmu.get_ptr(address+3u));
-    if(c.mmu.read32(address)!=(open_lane?0xffffffffu:0u))return;
+    const unsigned region=address==0x80619a60u?1u:
+        (address>=0x80619a60u&&address<=0x8061aa5cu)?2u:
+        (address>=0x8070d000u&&address<=0x8070e8fcu)?3u:
+        (address>=Low&&address<High)?4u:
+        (address>=0x80000000u&&address<=0x817ffffcu)?5u:0u;
+    need(!(address&3u)&&c.mmu.get_ptr(address)&&c.mmu.get_ptr(address+3u));
+    const uint32_t value=c.mmu.read32(address);
+    const unsigned value_class=value==0u?0u:value==0xffffffffu?1u:value<=3u?2u:3u;
+    std::cout<<"V883_PACKET_LOAD index="<<++load_visits<<" region="<<region<<" value_class="<<value_class<<std::endl;
+    if(!packet_address(address)||value!=(open_lane?0xffffffffu:0u))return;
     // A replay must observe the same privately discovered address. No
     // mid-execution CPU or RAM writes are permitted.
     if(open_lane&&address!=seed_addr)return;

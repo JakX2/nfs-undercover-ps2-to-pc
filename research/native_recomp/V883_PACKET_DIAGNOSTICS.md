@@ -1,0 +1,3 @@
+# V883: classify original packet branch failure without exporting private values
+
+V882 source tests and private census passed: 2 loads, 2 branches, 2 compares. The first owner trial reached the original slot-3 boundary with one branch visit but no qualifying RAM seed. The runtime still refuses to mutate a guessed word. V883 adds only bounded region/value classes for actual loads, condition-bit classes and static compare categories. No raw guest words, addresses, values or generated source leave private scratch. This is diagnostic, not execution advancement; the prior V880 original early return remains verified. Pending rerun.
