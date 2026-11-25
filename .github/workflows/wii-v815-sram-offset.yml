@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v815*'
+      - 'research/native_recomp/*v818*'
       - 'research/native_recomp/wii_exi_mx_device_v494.h'
       - '.github/workflows/wii-v815-sram-offset.yml'
 permissions:
@@ -17,7 +18,7 @@ jobs:
       - name: Build and execute actual controller and scheduler regressions
         run: |
           set -euo pipefail
-          for test in test_wii_exi_mx_device_v494 test_wii_exi_endpoint_scheduler_v495 test_sram_offset_v815; do
+          for test in test_wii_exi_mx_device_v494 test_wii_exi_endpoint_scheduler_v495 test_sram_offset_v815 test_sram_write_witness_v818; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/$test.cpp -o "$RUNNER_TEMP/$test"
             "$RUNNER_TEMP/$test"
           done
