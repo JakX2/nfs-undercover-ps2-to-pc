@@ -2,7 +2,7 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 open_request=0
 external_entry=0
@@ -13,6 +13,8 @@ si_os_leaves=0
 si_handler_return=0
 si_handler_restore=0
 si_handler_time=0
+si_time_suffix=0
+if [[ "$mode" == irq-si-time-suffix ]]; then mode=irq-si-handler-time;si_time_suffix=1;fi
 if [[ "$mode" == irq-si-handler-time ]]; then mode=irq-si-handler-return;si_handler_time=1;fi
 if [[ "$mode" == irq-si-handler-restore ]]; then mode=irq-si-handler-return;si_handler_restore=1;fi
 if [[ "$mode" == irq-si-handler-return ]]; then mode=irq-si-os-leaves;si_handler_return=1;fi
@@ -39,6 +41,7 @@ if [[ "$si_os_leaves" == 1 ]]; then extra+=(UNDERCOVER_V709_OS_LEAVES=1);audit=a
 if [[ "$si_handler_return" == 1 ]]; then extra+=(UNDERCOVER_V726_HANDLER_RETURN=1);audit=audit_v726_handler_return.py;fi
 if [[ "$si_handler_restore" == 1 ]]; then extra+=(UNDERCOVER_V738_RESTORE=1);audit=audit_v738_handler_restore.py;fi
 if [[ "$si_handler_time" == 1 ]]; then extra+=(UNDERCOVER_V742_HANDLER_TIME=1);audit=audit_v742_handler_time.py;fi
+if [[ "$si_time_suffix" == 1 ]]; then extra+=(UNDERCOVER_V747_TIME_SUFFIX=1);audit=audit_v747_time_suffix.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }

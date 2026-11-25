@@ -43,11 +43,20 @@ def patch_handler(s):
         v742::returned(c,pc);
         if(!witness.helper_returned(c,pc,v742::route.total(),held()))reject(3);
         std::cout<<"V742_TIME_RESULT returned=1 abi=1 leaves=3 visits="<<v742::route.visits()<<" total="<<v742::route.total()<<" handler_return=0 boot_verified=0"<<std::endl;
-        std::_Exit(0);
+        if(!v742::continue_suffix())std::_Exit(0);
     }
     const bool allow=v742::eligible(pc,w,ordinal,kind);
     if(!witness.before(c,pc,w,held(),allow)){'''
     s=replace_exact(s,a,b)
+    a='        reject(3);\n    }\n'
+    # A newly encountered linked call is a verified refusal, never an executed dependency.
+    s=replace_exact(s,a,r'''        if(v742::continue_suffix()&&v742::route.stage()==4&&witness.failure()==4&&
+           ordinal>=4&&ordinal<=12&&kind>=1&&kind<=2){
+            std::cout<<"V747_NEXT_BOUNDARY ordinal="<<ordinal<<" kind="<<kind<<" visits="<<witness.visits()<<" polls="<<witness.polls()<<" executed=0"<<std::endl;
+        }
+        reject(3);
+    }
+''')
     a='    if(witness.stage()==3)std::cout<<"V726_HANDLER_STAGE n=3"<<std::endl;'
     return replace_exact(s,a,'    if(allow){v742::start(c,pc,w);return;}\n'+a)
 def install(dol,elf,root,host):

@@ -7,6 +7,7 @@
 namespace undercover::wii::v742 {
 inline thread_local SiHandlerTime route(expected,v709::expected_leaves);
 inline bool enabled(){const char* v=std::getenv("UNDERCOVER_V742_HANDLER_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool continue_suffix(){const char* v=std::getenv("UNDERCOVER_V747_TIME_SUFFIX");return v&&v[0]=='1'&&v[1]=='\0';}
 [[noreturn]]inline void reject(){
     std::cout<<"V742_TIME_INVALID reason="<<route.failure()<<" stage="<<route.stage()
              <<" leaf="<<route.cursor()+1<<" witness="<<route.leaf_failure()<<" trace="<<si_completion_ack_trace.failure()<<std::endl;std::_Exit(126);
