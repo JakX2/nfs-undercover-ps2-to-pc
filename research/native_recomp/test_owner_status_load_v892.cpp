@@ -115,13 +115,15 @@ int main(int argc,char** argv)try{
     put(H,resume_words);put(L,loader_words);
     using Port=SiTypeScheduler::Port;
     const auto port=(trial&4u)?Port::present({1,2,3}):Port::absent();
-    const SiTypeScheduler::Profile ports{port,port,port,port};
+    // The inherited first ACK witness authenticates a channel-0 NOREP.
+    // Keep that first endpoint absent even in present follow-on trials.
+    const SiTypeScheduler::Profile ports{Port::absent(),port,port,port};
     scheduler=std::make_unique<SiTypeScheduler>(ctl,ports,8);
     ctl.write(C,0xc0010301u);scheduler->advance(1);scheduler->advance(9);
     auto& tick=c->inst_count;tick=100;
     need(ack.arm(ctl,cause,mask,tick,H,H+16));++tick;need(ack.before(H,0x90030000u));
     ack.write(ctl,C,0xe0010300u);++tick;need(ack.before(H+4,0x60000000u)&&ack.resume_after_ack(H+4,0x60000000u));
-    const unsigned ch=trial%4u;
+    const unsigned ch=trial<4u?trial:1u+(trial-4u)%3u;
     need(device.begin(ctl,cause,mask,ack,tick,ch,true,ports[ch].type,8));
     auto step=[&](Access a=Access::None,uint32_t address=0){scheduler->advance(++tick);return device.before(tick,a,address);};
     uint32_t result=0;
@@ -131,6 +133,8 @@ int main(int argc,char** argv)try{
     need(step(Access::Write,Bus+C)&&device.write(ctl,C,0xc0010301u|(ch<<1)));
     for(unsigned i=0;i<9;++i)need(step());
     need(device.finish(tick,1)&&device.follow_stage()==3u&&device.held_now());
+    need(bool(ports[ch].type)==bool(trial&4u));
+    need(bool(ctl.read(C)&SiController::COM_ERR)==!ports[ch].type);
     last=tick;tokens=ctl.issued_tokens();expected_status=ctl.read(S);expected_control=ctl.read(C);
     for(unsigned i=0;i<32;++i)c->gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
     c->gpr[1]=0x80022000u;c->gpr[2]=0x80025000u;c->gpr[13]=0x8070e8e0u;gp=c->gpr;

@@ -1,0 +1,3 @@
+# V894: focused SI status fixture profile correction
+
+V892 owner job 139144133076 passed four original translated load trials, then refused trial 4 before entering any original code: the inherited first ACK trace authenticates a channel-0 NOREP completion specifically. The fixture had configured channel 0 present in the second half. Keep the initial endpoint absent and use present follow-on channels 1–3 in those four trials, with explicit result/error checks. No production guard relaxed. The V890 private full-image preflight job 139140305615 passed with the exact status route and syntax gate; full execution still running. The V802 callback time regression also passed both targeted rollover retries and 16 normal original returns. Pending corrected V892 rerun.
