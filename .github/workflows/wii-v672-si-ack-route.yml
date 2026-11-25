@@ -17,6 +17,7 @@ on:
       - 'research/native_recomp/*v710*'
       - 'research/native_recomp/*v711*'
       - 'research/native_recomp/*v712*'
+      - 'research/native_recomp/*v713*'
       - '.github/workflows/wii-v672-si-ack-route.yml'
 permissions:
   contents: read
@@ -33,6 +34,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v675_si_ack_integration.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v681_si_helper.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v689_si_second.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v713_leaf_coverage.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_first_helper_v681.cpp -o "$RUNNER_TEMP/v681"
           "$RUNNER_TEMP/v681"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh

@@ -41,23 +41,37 @@ def patch_leaf(s,root,words,kind):
     return s,seen
 def render(rows):
     return '#pragma once\n#include "wii_postack_os_leaf_v703.h"\nnamespace undercover::wii::v709 {\ninline constexpr std::array<PostAckLeafExpectation,3> expected_leaves{{\n'+''.join('    {'+','.join(f'0x{x:08x}u' for x in row[:4])+f',{row[4]}u'+'},\n' for row in rows)+'}};\n}\n'
+def owns_root(s,root):
+    return any(int(m[1].split('_')[1],16)==root for m in DEF.finditer(s))
+def entry_count(s,root):
+    # The complete-image emitter can spell either fn_ or func_ and use
+    # either hexadecimal case. Match exact trace target twice.
+    x=f'{root:X}'
+    return len(re.findall(r'(?mi)^\s*if \(nwii::runtime::g_trace_calls && ctx\.pc == 0x'+x+r'\) nwii::runtime::trace_call\(0x'+x+r', ctx\);\s*$',s))
+def validate_coverage(calls,entries,seen,rows):
+    counts=[entries[row[1]] for row in rows]
+    wanted=sum(len(row[5]) for row in rows)
+    if calls!=3 or counts!=[1,1,1] or len(seen)!=wanted:
+        print(f'V713_LEAF_COVERAGE calls={calls} entry1={counts[0]} entry2={counts[1]} entry3={counts[2]} labels={len(seen)} expected={wanted}')
+        raise ValueError('leaf route coverage')
 def install(dol,elf,root,host):
     rows=plan(dol,elf);_,caller,_,_,_=nested_plan(dol,elf)
     shards=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(shards)<20 or any(p.is_symlink() or not p.is_file() or p.stat().st_size>64*1024*1024 for p in shards+[main]):raise ValueError('leaf tree')
-    changes={};seen={};calls=0;entries=0
+    changes={};seen={};calls=0;entries={row[1]:0 for row in rows}
     for p in shards:
         old=p.read_text(encoding='utf-8');s=old
-        if f'void func_{caller:X}(CPUContext& ctx) {{' in s:
+        if owns_root(s,caller):
             body=exact_function(s,caller)
             for site,target,*_ in rows:verify_direct(body,site,target);calls+=1
         for site,target,end,word,kind,code,mt in rows:
-            entries+=s.count(f'if (nwii::runtime::g_trace_calls && ctx.pc == 0x{target:X}) nwii::runtime::trace_call(0x{target:X}, ctx);')
+            entries[target]+=entry_count(s,target)
             s,found=patch_leaf(s,target,code,kind)
             if seen.keys()&found.keys():raise ValueError('leaf duplicate coverage')
             seen.update(found)
         if s!=old:changes[p]=s
-    if calls!=3 or entries!=3 or len(seen)!=20:raise ValueError('leaf route coverage')
+    validate_coverage(calls,entries,seen,rows)
+    if len(seen)!=20:raise ValueError('original leaf extent')
     n=audit_native((p.read_text(encoding='utf-8') for p in shards),main.read_text(encoding='utf-8'),seen)
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text(encoding='utf-8') for n in ('wii_postack_os_leaf_v703.h','wii_si_os_leaf_binding_v709.h')}

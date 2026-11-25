@@ -5,7 +5,7 @@ from prepare_v672_si_ack_route import patch_shard,patch_si
 from prepare_v680_si_helper import patch_helper,patch_binding as first_patch,exact_function,verify_direct
 from prepare_v688_si_second import patch_binding
 from prepare_v693_si_nested import patch_second
-from prepare_v709_os_leaves import patch_nested,patch_leaf,render
+from prepare_v709_os_leaves import patch_nested,patch_leaf,render,owns_root,entry_count,validate_coverage
 from prepare_v625_ipc_client import audit_native
 HOST=Path(__file__).resolve().parent
 H=0x80004000;A=0x80005004;B=0x80006000;N=0x80007000;D=0x80008000;T=0x80009000;R=0x8000a000
@@ -21,7 +21,7 @@ def install(root,inc):
     paths=list(root.glob('*.cpp'));original={p:p.read_text() for p in paths}
     main=(root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')).read_text()
     outer=main[main.index('extern "C" void run_game('):]
-    seen_roots=set()
+    seen_roots=set();leaf_seen={};calls=0;entries={row[1]:0 for row in leaves}
     for p,s in original.items():
         changed=s
         if f'void func_{H:X}(CPUContext& ctx) {{' in s:
@@ -35,15 +35,17 @@ def install(root,inc):
             if seen:
                 assert root_pc not in seen_roots and audit_native([exact_function(s,root_pc)],outer,seen)==len(words)
                 seen_roots.add(root_pc)
-        if f'void func_{N:X}(CPUContext& ctx) {{' in s:
-            for site,dst,*_ in leaves:verify_direct(exact_function(s,N),site,dst)
+        if owns_root(s,N):
+            for site,dst,*_ in leaves:verify_direct(exact_function(s,N),site,dst);calls+=1
         for site,dst,end,w,kind,code,mt in leaves:
+            entries[dst]+=entry_count(s,dst)
             changed,seen=patch_leaf(changed,dst,code,kind)
             if seen:
                 assert dst not in seen_roots and audit_native([exact_function(s,dst)],outer,seen)==len(code)
-                seen_roots.add(dst)
+                seen_roots.add(dst);leaf_seen.update(seen)
         if changed!=s:p.write_text(changed)
     assert seen_roots=={H,A,B,N,D,T,R}
+    validate_coverage(calls,entries,leaf_seen,leaves)
     dest=inc/'undercover';dest.mkdir(parents=True)
     for n in ('wii_si_controller_v511.h','wii_si_completion_ack_v668.h','wii_si_first_helper_v680.h','wii_si_helper_binding_v680.h','wii_si_second_binding_v688.h','wii_si_nested_binding_v693.h','wii_si_type_scheduler_v514.h','wii_postack_os_leaf_v703.h','wii_si_os_leaf_binding_v709.h'):
         shutil.copyfile(HOST/n,dest/n)

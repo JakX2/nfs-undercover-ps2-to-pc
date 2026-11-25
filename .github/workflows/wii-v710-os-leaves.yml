@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v710*'
+      - 'research/native_recomp/*v713*'
       - '.github/workflows/wii-v710-os-leaves.yml'
 permissions:
   contents: read
