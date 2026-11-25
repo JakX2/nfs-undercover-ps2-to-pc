@@ -1,0 +1,3 @@
+# V893: native original SITransfer after system-time return
+
+V891 owner job 139143266409 passed 16/16 original system-time returns, 16/16 closed-packet regressions, six deliberate corruption refusals, and offset arithmetic wraparound. V893 starts a new independent forward-only branch/memory witness at the same authenticated original return label, with no extra instruction tick and no new linked callee admitted. Private census must authenticate a bounded continuation and only slots 5–9. All prior fixture state and negative controls retained. The first original alarm/transfer/restore boundary is reported without executing it. Pending private execution; no continuous boot claim.
