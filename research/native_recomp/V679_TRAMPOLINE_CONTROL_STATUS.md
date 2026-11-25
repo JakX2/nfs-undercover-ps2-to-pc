@@ -1,0 +1,3 @@
+# V679: independent native register-save and backward-tail control
+
+The full original V671 run passed vector and trampoline entry but refused at dispatcher entry. V679 separately translates a synthetic PPC program with explicit distinct roots, three single-register stores, a multiple-register store (stmw), and a backward tail to a dispatcher. Both split/non-split code paths execute 32 varied register patterns and validate all 29 stored GPRs, untouched argument slots, canaries, live CPU state, native instruction visit counts and no fallback. This is not original game execution and will not replace the V678 owner audit. CI pending.
