@@ -23,7 +23,7 @@ static void need(bool b,const std::source_location loc=std::source_location::cur
 }
 int main(){
     unsigned valid=0,refused=0;
-    for(unsigned i=0;i<28;++i){
+    for(unsigned i=0;i<36;++i){
         const unsigned ch=i%4;const bool absent=(i&4u)!=0;
         std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SecondCompletionAck w;Cpu c;
         const uint32_t cfg=SiController::TC_MASK|0x00010300u|(ch<<1);
@@ -37,6 +37,23 @@ int main(){
         if(fault==3)mask=0;
         bool ok=w.arm(ctl,cause,mask,c.inst_count,fault==1?1u:2u,fault!=2);
         if(fault>=1&&fault<=3){need(!ok&&w.failure()==1);++refused;continue;}need(ok);
+        if(fault>=21){
+            uint32_t pc=A;
+            if(fault==21)pc=A+1;
+            if(fault==22)pc=0x7ffffffcu;
+            if(fault==23)pc=0x81800000u;
+            if(fault==24)pc=0xfffffffcu;
+            if(fault==25)c.gpr[3]=Base+1u; // unaligned word access
+            if(fault==26)c.gpr[3]=Base+8u; // unsupported register
+            if(fault==27)c.gpr[3]=0x4d006400u; // invalid virtual segment
+            if(fault==28)c.gpr[3]=Base-0x35u; // overlaps first aperture byte
+            if(fault>=22&&fault<=24)c.mmu.words[pc]=Load;
+            ++c.inst_count;
+            need(!w.before(c,pc,Load,true)&&w.failure()==2&&w.reads()==0&&w.writes()==0);
+            need(ctl.issued_tokens()==2&&cause==(Other|SI)&&mask==SI&&
+                 (ctl.read(SiController::Control)&SiController::TC_INT));
+            ++refused;continue;
+        }
         if(fault==4)ctl.write(SiController::Buffer,0x12345678u);
         if(fault!=5)++c.inst_count;
         ok=w.before(c,A,Load,fault!=6);
@@ -69,6 +86,6 @@ int main(){
         need(ok&&w.stage()==3&&w.token()==2&&w.reads()==1&&w.writes()==2&&mask==SI);
         ++valid;
     }
-    need(valid==8&&refused==20);
-    std::cout<<"V950_SECOND_ACK synthetic=1 valid=8 refused=20 real_device=1 token_preserved=1 original_execution=0\n";
+    need(valid==8&&refused==28);
+    std::cout<<"V950_SECOND_ACK synthetic=1 valid=8 refused=28 real_device=1 token_preserved=1 original_execution=0\n";
 }

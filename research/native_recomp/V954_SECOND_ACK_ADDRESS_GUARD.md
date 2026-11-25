@@ -1,0 +1,3 @@
+# V954: fail closed on malformed successor ACK access
+
+V950 treated a decoded word access with no supported SI offset as an ordinary non-SI instruction. V954 distinguishes invalid accesses overlapping either native SI aperture from genuine non-SI operations, rejecting unaligned/unsupported registers, invalid aliases and aperture-boundary overlap before any device operation. Original instruction addresses must be aligned MEM1 words; reject invalid or wrapping addresses before MMU reads. The existing 28 cases remain, with eight additional negative controls. Actual controller state must stay unchanged after each refusal. Sanitizer verification is pending; this is not an original handler execution or live ACK integration.

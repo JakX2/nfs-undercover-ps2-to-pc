@@ -24,7 +24,8 @@ public:
         start_=last_=tick;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool authenticated){
-        if(!authenticated||!safe(c)||!tick_||&c.inst_count!=tick_||armed_||c.inst_count-last_!=1u||
+        if(!authenticated||!safe(c)||!tick_||&c.inst_count!=tick_||armed_||
+           (pc&3u)||pc<0x80000000u||pc>0x817ffffcu||c.inst_count-last_!=1u||
            c.inst_count-start_>8192u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w)
             return fail(2);
         if(stage_==2u){
@@ -36,6 +37,15 @@ public:
         const auto a=PostAckTransferDevice::word_access(c,w);
         const auto off=PostAckTransferDevice::offset(a.address);
         if(!off){
+            // Reject decoded word operations that overlap either SI aperture
+            // but cannot be routed to a supported, aligned register.
+            if(a.kind!=PostAckTransferDevice::Access::None){
+                const uint32_t p=a.address&0x3fffffffu;
+                const auto overlap=[p](uint32_t base){
+                    return p<base+0x100u&&uint64_t(p)+4u>base;
+                };
+                if(overlap(0x0d006400u)||overlap(0x0d806400u))return fail(2);
+            }
             // Non-SI instructions are still accounted for; never allow an
             // unarmed SI MMIO operation via the read/write entry points.
             return true;
