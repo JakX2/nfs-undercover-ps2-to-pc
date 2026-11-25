@@ -28,7 +28,7 @@ for mode in nonsplit split; do
       grep -Ex 'V716_OWNER_LEAF_FAULT kind=([1-9]|1[0-3]) ordinal=[1-3] stage=[0-4] witness=[0-6] time_reads=[0-9]{1,2} outer_polls=[0-9]{1,2}' "$work/valid.log" || true
       echo "V714_NATIVE_EXECUTION failed=1";exit 1;
     }
-    grep -Fxq 'V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0' "$work/valid.log"
+    grep -Fxq 'V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 masked_loop_poll=1 native_return=3 fallback=0' "$work/valid.log"
     if grep -Fxq 'V715_OWNER_TIMEBASE rollover_retry=1' "$work/valid.log"; then retries=$((retries+1));fi
     valid=$((valid+1))
   done

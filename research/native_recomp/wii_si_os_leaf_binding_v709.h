@@ -40,6 +40,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t word,unsigned ordinal){
     if(cursor>=3||ordinal!=cursor+1||!si_completion_ack_trace.auxiliary_before()||
        !leaves[cursor].before(c,pc,word))reject(3);
 }
+template<class C>bool poll(C& c){
+    if(!active||cursor!=1||!si_completion_ack_trace.auxiliary_poll()||!leaves[cursor].poll(c))reject(6);
+    return false;
+}
 template<class C>void boundary(C& c,uint32_t pc){
     if(!active)return;
     if(cursor>=3||!leaves[cursor].returned(c,pc))reject(4);

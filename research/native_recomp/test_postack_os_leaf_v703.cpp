@@ -47,4 +47,28 @@ int main(){
         need(ok&&leaf.stage()==4&&leaf.visits()==3&&leaf.msr_writes()==(time?0u:1u));
     }
     std::cout<<"V703_OS_LEAF synthetic=1 cases=15 valid=3 rejects=12 original_execution=0\n";
+    constexpr uint32_t Back=0x4082fffcu;
+    for(unsigned trial=0;trial<8;++trial){
+        Cpu c;PostAckOsLeaf leaf({Site,Root,Root+12,Branch,trial==7?1u:2u});
+        need(leaf.start(c,Site,Branch));c.pc=Root;c.lr=Site+4;need(leaf.entry(Root,c));
+        c.mmu.words={{Root,Nop},{Root+4,Back},{Root+8,Blr}};
+        ++c.inst_count;need(leaf.before(c,Root,Nop));++c.inst_count;
+        const bool ok=leaf.before(c,Root+4,Back);
+        if(trial==7){need(!ok&&leaf.failure()==6);continue;}need(ok);
+        c.pc=Root+4;
+        if(trial==2){++c.inst_count;need(!leaf.before(c,Root+8,Blr)&&leaf.failure()==3);continue;}
+        if(trial==3)c.pc=Root;
+        if(trial==4)++c.inst_count;
+        if(trial==5)c.msr|=0x8000;
+        const bool polled=leaf.poll(c);
+        if(trial>=3&&trial<=5){need(!polled&&leaf.failure()==5);continue;}need(polled);
+        if(trial==6){need(!leaf.poll(c)&&leaf.failure()==5);continue;}
+        if(trial==1){
+            ++c.inst_count;need(leaf.before(c,Root,Nop));
+            ++c.inst_count;need(leaf.before(c,Root+4,Back));need(leaf.poll(c));
+        }
+        ++c.inst_count;need(leaf.before(c,Root+8,Blr));
+        c.pc=Site+4;++c.inst_count;need(leaf.returned(c,c.pc)&&leaf.polls()==trial+1);
+    }
+    std::cout<<"V717_LOOP_POLL synthetic=1 cases=8 valid=2 rejects=6 original_execution=0\n";
 }

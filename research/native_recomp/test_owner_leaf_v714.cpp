@@ -44,7 +44,7 @@ void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
             need(ok);
             if(leaf_index==1){
                 const uint64_t value=(uint64_t(c.gpr[3])<<32)|c.gpr[4];
-                need(time_reads>=3&&value>=time_first&&value<=time_last);
+                need(time_reads>=3&&value>=time_first&&value<=time_last&&leaves[leaf_index].polls()>=1);
             }
             ++leaf_index;started=false;
         }
@@ -53,7 +53,7 @@ void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
             need(leaf_index==3&&outer_polls==1&&c.msr==0x32u&&c.gpr[3]==0&&c.srr0==0x80009000u&&c.srr1==0x8032u);
             need(leaves[0].msr_writes()==1&&leaves[1].msr_writes()==0&&leaves[2].msr_writes()==1);
             std::cout<<"V715_OWNER_TIMEBASE rollover_retry="<<unsigned(time_reads>3)<<std::endl;
-            std::cout<<"V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0"<<std::endl;std::_Exit(0);
+            std::cout<<"V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 masked_loop_poll=1 native_return=3 fallback=0"<<std::endl;std::_Exit(0);
         }
         need(leaf_index<3&&leaves[leaf_index].start(c,pc,word));started=true;return;
     }
@@ -75,7 +75,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(started&&leaf_index<3&&leaves[leaf_index].entry(pc,c));
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(started){leaves[leaf_index].poll(c);fault(1);}
+    if(started){if(!leaves[leaf_index].poll(c))fault(1);return false;}
     ++outer_polls;return false;
 }
 bool handle_syscall(CPUContext&){fault(2);}

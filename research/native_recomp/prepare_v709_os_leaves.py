@@ -19,6 +19,9 @@ def patch_nested(s):
         ('        if(!nested.returned(c,pc))reject();','        if(!nested.returned(c,pc))reject();\n        v709::complete();')):
         s=replace_exact(s,a,b)
     return s
+def patch_poll(s):
+    a='template<class C>bool poll(C& c){'
+    return replace_exact(s,a,a+'\n    if(v709::active)return v709::poll(c);')
 def patch_leaf(s,root,words,kind):
     fs=list(DEF.finditer(s));hits=[i for i,f in enumerate(fs) if int(f[1].split('_')[1],16)==root]
     if not hits:return s,{}
@@ -76,9 +79,10 @@ def install(dol,elf,root,host):
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text(encoding='utf-8') for n in ('wii_postack_os_leaf_v703.h','wii_si_os_leaf_binding_v709.h')}
     files[dest/'v709_private_os_leaf_expectations.h']=render(rows)
-    bind=dest/'wii_si_nested_binding_v693.h'
-    if dest.is_symlink() or bind.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('leaf destination')
+    bind=dest/'wii_si_nested_binding_v693.h';ack=dest/'wii_si_ack_binding_v672.h'
+    if dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('leaf destination')
     files[bind]=patch_nested(bind.read_text(encoding='utf-8'))
+    files[ack]=patch_poll(ack.read_text(encoding='utf-8'))
     for p,s in {**changes,**files}.items():p.write_text(s,encoding='utf-8')
     return n
 def main():

@@ -15,6 +15,14 @@ def plan(dol,elf):
         if sizes.get(target)!=4*n:raise ValueError('leaf extent')
         code=exact(dol,elf,target,n);mt=[i for i,w in enumerate(code) if w>>26==31 and (w>>1)&1023==146]
         if code.count(0x4e800020)!=1 or len(mt)!=(0 if kind==2 else 1) or any(w&1 and (w>>26 in (16,18) or w>>26==19 and (w>>1)&1023 in (16,528)) for w in code):raise ValueError('leaf shape')
+        back=[]
+        for i,w in enumerate(code):
+            if w>>26!=16:continue
+            delta=((w&0xfffc)^0x8000)-0x8000
+            if delta<=0 and not w&3:
+                if not 0<=i+delta//4<i:raise ValueError('leaf loop extent')
+                back.append(i)
+        if len(back)!=(1 if kind==2 else 0):raise ValueError('leaf loop shape')
         out.append((site,target,target+4*n,words[(site-root)//4],kind,code,mt))
     return out
 def main():
