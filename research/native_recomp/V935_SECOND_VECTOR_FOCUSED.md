@@ -1,0 +1,3 @@
+# V935: execute the second original exception vector and trampoline after native RFI
+
+Extend the focused V933 route with the authenticated 38-word installed external vector and 20-word original trampoline, while the second dispatcher entry is a synthetic stop. Explicitly poison the prior saved integer frame only in the test after first RFI and before second exception so the original vector/trampoline must overwrite all 38 fields; verify GPRs, CR/LR/CTR/XER/SRRs and intact device completion. Same test controller as V933. Authentic DOL/ELF bytes staged privately, no extracted code in repository. Split/nonsplit owner test pending; no continuous startup or original second dispatcher execution claimed.
