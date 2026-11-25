@@ -23,7 +23,8 @@ static std::array<uint32_t,32> gp{};
 static unsigned entries=0,visits=0,outer=0,stops=0,trial=0,reads=0,writes=0,loops=0;
 static uint64_t last=0;
 static uint32_t last_pc=0,last_word=0,channel=0;
-static bool busy=false,corrupt=false,pending_poll=false,access=false;
+static bool busy=false,corrupt=false,pending_poll=false,access=false,returned=false;
+static unsigned resume_visits=0;
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V765_TRANSFER_FAULT kind="<<kind<<" line="<<line<<" entries="<<entries<<" visits="<<visits<<" busy="<<busy<<" reads="<<reads<<" writes="<<writes<<" follow="<<follow.stage()<<" reason="<<follow.failure()<<std::endl;std::_Exit(126);
 }
@@ -55,7 +56,7 @@ static void advance(uint64_t tick){
 }
 namespace rfi_test{
 void before(CPUContext& c,uint32_t pc,uint32_t w){
-    if(!c.is_running){need(pc==H+8u);return;}
+    if(!c.is_running){need(pc==H+4u*17u);return;}
     need(c.msr==MSR&&!c.in_callback&&!c.dispatch_saved_ctx&&c.mmu.read32(pc)==w&&!pending_poll);
     if(visits)need(c.inst_count-last==1);
     last=c.inst_count;last_pc=pc;last_word=w;access=false;need(++visits<=256);
@@ -68,7 +69,16 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             need(follow.stage()>=2&&si->issued_tokens()==2&&reads>=2&&writes>=3);
             need(c.mmu.read32(Data)==channel&&c.mmu.read32(Data+8)==3&&c.mmu.read32(Data+12)==TypeData+4*channel&&c.mmu.read32(Data+16)==Callback);
         }
-        ++stops;c.is_running=false;return;
+        returned=true;
+    }
+    if(pc>H&&pc<=H+4u*16u){
+        need(returned&&pc==H+4u*(++resume_visits)&&w==0x60000000u&&abi(c)&&c.gpr[3]==(busy?0u:1u));
+        if(resume_visits==16){
+            if(busy)need(follow.stage()==0&&scheduler->completed()==1&&cause==Other&&!si->pending());
+            else need(follow.stage()==3&&scheduler->completed()==2&&cause==(Other|Mask)&&!si->pending()&&(si->read(SiController::Status)&(8u<<((3u-channel)*8u))));
+            ++stops;c.is_running=false;
+        }
+        return;
     }
     need(span(pc,C,transfer_words.size())||span(pc,D,disable_words.size())||span(pc,Q,irq_restore_words.size())||span(pc,S,save_words.size())||span(pc,R,restore_words.size()));
     const auto op=w>>26;
@@ -112,7 +122,7 @@ int main(int argc,char** argv)try{
     put(H,caller);put(C,transfer_words);put(D,disable_words);put(Q,irq_restore_words);put(S,save_words);put(R,restore_words);
     using Port=SiTypeScheduler::Port;
     for(trial=0;trial<(corrupt?1u:8u);++trial){
-        entries=visits=outer=reads=writes=loops=0;pending_poll=false;busy=trial>=4;channel=trial%4;
+        entries=visits=outer=reads=writes=loops=resume_visits=0;returned=pending_poll=false;busy=trial>=4;channel=trial%4;
         scheduler.reset();si.reset();cause=Other;mask=Mask;follow=SiFollowOnWitness{};
         si=std::make_unique<SiController>(cause);
         scheduler=std::make_unique<SiTypeScheduler>(*si,SiTypeScheduler::Profile{Port::absent(),Port::absent(),Port::absent(),Port::absent()},8);
@@ -126,11 +136,7 @@ int main(int argc,char** argv)try{
         c.gpr[3]=channel;c.gpr[4]=Command;c.gpr[5]=1;c.gpr[6]=TypeData+4*channel;c.gpr[7]=3;c.gpr[8]=Callback;gp=c.gpr;
         c.pc=H;c.lr=0x80006000u;c.msr=MSR;c.srr0=0x80009000u;c.srr1=0x8032u;
         c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;c.inst_count=100;
-        run_game(c);need(!corrupt&&!c.is_running&&entries==6&&outer==1&&stops==trial+1&&abi(c));
-        if(!busy){
-            for(unsigned i=0;i<16&&follow.stage()==2;++i)advance(++c.inst_count);
-            need(follow.stage()==3&&scheduler->completed()==2&&cause==(Other|Mask)&&!si->pending()&&(si->read(SiController::Status)&(8u<<((3u-channel)*8u))));
-        }
+        run_game(c);need(!corrupt&&!c.is_running&&entries==6&&outer==1&&stops==trial+1&&abi(c)&&resume_visits==16);
     }
     std::cout<<"V765_OWNER_TRANSFER_AOT valid=8 idle=4 busy=4 native_requests=4 follow_on=4 fallback=0 continuous_boot=0\n";
 }catch(...){fail(8);}

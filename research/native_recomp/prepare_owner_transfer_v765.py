@@ -24,7 +24,7 @@ def plan(dol,elf):
     d,_,r=leaf_plan(dol,elf);D,Q=d[1],r[1]
     edges=[(C+4*i,direct_bl(w,C+4*i)) for i,w in enumerate(code) if w>>26==18 and w&3==1]
     if [v for _,v in edges]!=[S,D,Q,Q,R] or count!=6:raise ValueError('transfer edges')
-    roots={H:[bl(H,C),0x60000000,BLR],C:code,D:d[5],Q:r[5],S:pair[S],R:pair[R]}
+    roots={H:[bl(H,C)]+[0x60000000]*16+[BLR],C:code,D:d[5],Q:r[5],S:pair[S],R:pair[R]}
     spans=sorted((a,a+4*len(ws)) for a,ws in roots.items())
     if len(roots)!=6 or any(b>c for (_,b),(c,_) in zip(spans,spans[1:])):raise ValueError('transfer ownership')
     return roots,C,D,Q,S,R,edges
@@ -61,7 +61,7 @@ def install(p,root):
             changes[p]=s.replace(a,a+'\n#include "rfi_test_v708.h"')
     if seen!=set(expected):raise ValueError('hook coverage')
     for p,s in changes.items():p.write_text(s)
-    print(f'V765_NATIVE_ROUTE original_labels={len(expected)-3} direct_edges=6 fallback=0 execution=0')
+    print(f'V765_NATIVE_ROUTE original_labels={len(expected)-len(roots[H])} direct_edges=6 fallback=0 execution=0')
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');x=a.parse_args()
     try:
