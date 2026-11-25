@@ -21,7 +21,7 @@ for mode in nonsplit split; do
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V765_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_transfer_v765.py" "$dol" "$elf" "$work/$mode" --install
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -fno-pie -no-pie \
-    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_transfer_v765.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V765_NATIVE_BUILD failed=1";exit 1; }
+    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_transfer_v765.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { python3 "$here/diagnose_transfer_build_v768.py" "$work/build.log";echo "V765_NATIVE_BUILD failed=1";exit 1; }
   timeout 20s "$work/probe" valid > "$work/run.log" 2>&1 || {
     grep -Ex 'V765_TRANSFER_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-6] visits=[0-9]{1,3} busy=[01] reads=[0-9]{1,3} writes=[0-9]{1,3} follow=[0-3] reason=[0-5]' "$work/run.log" || true
     echo "V765_NATIVE_EXECUTION failed=1";exit 1;
