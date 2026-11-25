@@ -1,0 +1,3 @@
+# V927: execute resumed original IRQ-enable leaf after native RFI
+
+Extend the V720 original context loader fixture. Owner DOL and ELF must authenticate the original post-mtmsr two-word suffix (previous EE extraction, followed by BLR). Use the exact original interrupted address in SRR0 and original native code there; a synthetic caller stop remains explicit. Read-only witness checks all GPR, CR, CTR, XER, SRR0/1, MSR, GQR and real dispatch ticks. Both previous EE values exercised; saved context and extraction corruption controls. Both compilation modes. Pending owner test, not continuous startup.
