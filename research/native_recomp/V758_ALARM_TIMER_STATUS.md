@@ -1,0 +1,3 @@
+# V758: original tiny alarm timer primitives
+
+The private V749 OSCancelAlarm graph includes three two-word direct targets. V758 authenticates their distinct original DOL/ELF roots and admits only PPC DEC (SPR 22) read/write via r3 followed by BLR. Unknown shapes are refused with a bounded class, not translated as an assumed timer operation. If eligible, execute each unique original root from a separately authored caller, verifying exact native labels, CPU register preservation and the pinned runtime's modeled DEC value, write tick and pending flag for eight values in each compilation mode. A corrupted timer-state control must refuse. This does not establish cycle accuracy, architectural DEC sign-transition behavior or actual decrementer interrupt delivery. CI pending.
