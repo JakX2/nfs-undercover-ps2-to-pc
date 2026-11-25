@@ -24,25 +24,33 @@ public:
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
     uint32_t heap_size()const noexcept{return size_;}
+    uint32_t entry_refusal()const noexcept{return refusal_;}
     template<class Cpu>bool begin(Cpu& c){
         auto snap=NativeIosBinding::cold_snapshot();
-        if(stage_||error_||!c.is_running||c.pc!=Call||c.lr!=Call||c.gpr[3]!=0||
-           c.gpr[1]!=Stack||c.gpr[13]!=Sda||!(c.msr&0x8000u)||c.dispatch_saved_ctx||
-           !snap||!idle(*snap)||snap->control!=0||snap->steps!=0||
-           e_.edges[0].pc!=Root||e_.edges[0].lr!=Return||
-           !equal(c,Call,e_.edges[0].branch_word)||!equal(c,Root,e_.edges[0].entry_word)||
-           !equal(c,MaskA,0xf7fff7f0u)||!equal(c,MaskB,0)||
-           !mapped(c,Lo,8)||!mapped(c,Table,128)||!equal(c,IrqGlobal,Table)||
-           e_.handler<0x80519094u||e_.handler>=Root||(e_.handler&3u)||
-           !equal(c,e_.handler,e_.handler_word))return fail(1);
+        refusal_=0;
+        if(stage_||error_){refusal_|=1u;return fail(1);}
+        if(!c.is_running||c.pc!=Call||c.lr!=Call||!(c.msr&0x8000u)||c.dispatch_saved_ctx)refusal_|=2u;
+        if(c.gpr[3]!=0)refusal_|=4u;
+        if(c.gpr[1]!=Stack||c.gpr[13]!=Sda)refusal_|=8u;
+        if(!snap||!idle(*snap))refusal_|=16u;
+        if(!snap||snap->control!=0||snap->steps!=0)refusal_|=32u;
+        if(e_.edges[0].pc!=Root||e_.edges[0].lr!=Return||
+           !equal(c,Call,e_.edges[0].branch_word)||!equal(c,Root,e_.edges[0].entry_word))refusal_|=64u;
+        if(!equal(c,MaskA,0xf7fff7f0u)||!equal(c,MaskB,0))refusal_|=128u;
+        if(!mapped(c,Lo,8)||!mapped(c,Table,128))refusal_|=256u;
+        if(!equal(c,IrqGlobal,Table))refusal_|=512u;
+        if(e_.handler<0x80519094u||e_.handler>=Root||(e_.handler&3u)||
+           !equal(c,e_.handler,e_.handler_word))refusal_|=1024u;
+        if(refusal_)return fail(1);
         lo_=c.mmu.read32(Lo);hi_=c.mmu.read32(Hi);
-        if(lo_<0x90000020u||(lo_&31u)||hi_>0x94000000u||uint64_t(lo_)+HeapLimit>=hi_||
-           !equal(c,Sda-16336u,lo_)||!equal(c,Sda-3352u,hi_)||
-           !mapped(c,lo_-1u,HeapLimit+2u))return fail(2);
+        if(lo_<0x90000020u||(lo_&31u)||hi_>0x94000000u||uint64_t(lo_)+HeapLimit>=hi_)refusal_|=2048u;
+        if(!equal(c,Sda-16336u,lo_)||!equal(c,Sda-3352u,hi_))refusal_|=4096u;
+        if(lo_==0u||!mapped(c,lo_-1u,HeapLimit+2u))refusal_|=8192u;
+        if(refusal_)return fail(2);
         heap_.resize(HeapLimit+2u);
         for(unsigned i=0;i<heap_.size();++i)heap_[i]=c.mmu.read8(lo_-1u+i);
         for(unsigned i=0;i<32;++i)irqs_[i]=c.mmu.read32(Table+4*i);
-        if(irqs_[27])return fail(2);
+        if(irqs_[27]){refusal_|=16384u;return fail(2);}
         regs_=c.gpr;msr_=c.msr;start_=last_=c.inst_count;before_=*snap;ctx_=&c;
         stage_=1;return true;
     }
@@ -104,6 +112,7 @@ private:
     IpcClientExpectations e_;
     const void* ctx_=nullptr;
     unsigned stage_=0,error_=0;
+    uint32_t refusal_=0;
     uint32_t lo_=0,hi_=0,size_=0,msr_=0,control_=0;
     uint64_t start_=0,last_=0;
     std::array<uint32_t,32> regs_{},irqs_{};

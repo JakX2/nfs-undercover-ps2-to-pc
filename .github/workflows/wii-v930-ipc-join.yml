@@ -10,6 +10,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v930*'
+      - 'research/native_recomp/wii_ipc_client_witness_v623.h'
+      - 'research/native_recomp/test_wii_ipc_client_witness_v623.cpp'
       - '.github/workflows/wii-v930-ipc-join.yml'
 permissions:
   contents: read
@@ -42,6 +44,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v930_ipc_join.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ipc_entry_join_v930.cpp -o "$RUNNER_TEMP/v930"
           "$RUNNER_TEMP/v930"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wii_ipc_client_witness_v623.cpp -o "$RUNNER_TEMP/v623"
+          "$RUNNER_TEMP/v623"
           python3 -m unittest discover -s research/native_recomp -p test_v924_irq_launch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v767_live_epilogue.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_saved_context_join_v921.cpp -o "$RUNNER_TEMP/v921"

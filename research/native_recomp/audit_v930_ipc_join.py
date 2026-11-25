@@ -4,7 +4,7 @@ from pathlib import Path
 import audit_v928_leaf_finish as old
 BEGIN=b'V930_IPC_BEGIN cold_prerequisites=1 original_call=1'
 RETURN=b'V930_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 device_held=1 ipc_instruction_executed=0 boot_verified=0'
-FAULT=rb'V930_IPC_INVALID kind=[1-3] ipc=[0-7] join=[0-2] stage=[0-2]'
+FAULT=rb'V930_IPC_INVALID kind=[1-3] ipc=[0-7] join=[0-2] stage=[0-2] refusal=[0-9]{1,5}'
 def inspect(raw,rc):
     if len(raw)>old.old.old.capture.MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
     rows=raw.splitlines();hits=[i for i,l in enumerate(rows) if l==old.RETURN];ok=False

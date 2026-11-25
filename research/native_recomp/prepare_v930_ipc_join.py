@@ -19,7 +19,7 @@ inline thread_local IpcClientWitness ipc(v624::expected_client);
 inline thread_local IpcEntryJoinWitness ipc_join(ipc_join_expected);
 [[noreturn]]inline void reject_ipc(unsigned kind){
     std::cout<<std::dec<<"V930_IPC_INVALID kind="<<kind<<" ipc="<<ipc.failure()
-        <<" join="<<ipc_join.failure()<<" stage="<<ipc.stage()<<std::endl;std::_Exit(126);
+        <<" join="<<ipc_join.failure()<<" stage="<<ipc.stage()<<" refusal="<<ipc.entry_refusal()<<std::endl;std::_Exit(126);
 }
 ''')
     a='    if(finish.stage()){\n        if(!advance(c,true)||!finish.dispatch(c,pc,true))reject_finish(4);'

@@ -54,7 +54,13 @@ int main(){
         if(fault==4)need(B::write32(IosBus::IPC+M::PPCCTRL,0x31));
         if(fault==18)m.write32(W::IrqGlobal,0);
         const bool bad_begin=(fault>=1&&fault<=4)||fault==18;
-        need(w.begin(c)==!bad_begin);if(bad_begin)continue;
+        need(w.begin(c)==!bad_begin);
+        if(bad_begin){
+            const uint32_t expected=fault==1?2u:fault==2?(2048u|4096u):fault==3?16384u:
+                fault==4?(16u|32u):512u;
+            need(w.entry_refusal()==expected);continue;
+        }
+        need(!w.entry_refusal());
         bool stopped=false;
         for(unsigned i=0;i<17;++i){
             c.pc=pc[i];c.lr=lr[i];c.inst_count+=10;
