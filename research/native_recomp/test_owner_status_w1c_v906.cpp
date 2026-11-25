@@ -117,7 +117,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     }else if(visits==13u){
         const uint32_t cmp=loader_words[12],v=table[channel],imm=cmp&0xffffu;
         const unsigned field=(cmp>>23)&7u,bo=(w>>21)&31u,bi=(w>>16)&31u;
-        auto f=c.cr[field];
+        auto& f=c.cr[field];
         if(negative==6u){
             f.eq=!f.eq;
             need(f.eq!=(v==imm));
