@@ -1,0 +1,3 @@
+# V896: resumed handler memory frontier
+
+V890 live owner job 139139628575 verified original SI status read, then refused visit 10 (guard=5, writes=0). This is an actual advance beyond V876, not a complete handler return. V895 owner job 139149273913 passed 16 selected callee prefixes, 16 closed-packet regressions, and eight negative controls in split/non-split. Both selected roots executed four original instructions and two stack writes. V896 redacted private census extends handler path classes through visit 16 and independently classifies the next nested callee targets. No new device access admitted yet.
