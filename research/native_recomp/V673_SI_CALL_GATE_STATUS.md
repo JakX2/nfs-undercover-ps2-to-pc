@@ -1,0 +1,3 @@
+# V673: bounded original SI helper-call diagnostic
+
+V672 original-free validation passed five Python tests and the actual-device ASan/UBSan tests (2 valid, 12 rejects). The full-image owner preflight is running. V673 makes handler-only scope fail before any direct/indirect linked instruction executes if it has not acknowledged the transfer. Original call census is derived privately and only an ordinal and kind are reported. This prevents a signature-hooked or unobserved helper from executing before the bounded ACK route refuses; it does not emulate the helper or claim acknowledgement. If ACK is in a callee, this intentional stop must be resolved by authenticating and adding the actual dependency. Existing complete-image lanes remain unchanged.

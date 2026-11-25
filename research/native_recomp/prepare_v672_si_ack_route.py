@@ -27,6 +27,11 @@ def patch_si(s):
                                    const uint64_t& tick,uint32_t first,uint32_t end){
         return active_&&si_completion_ack_trace.arm(active_->controller_,cause,mask,tick,first,end);
     }''')
+def call_census(root,words):
+    _,direct,indirect=shape(root,words)
+    routes=sorted([(pc,1) for pc,_ in direct]+[(pc,2) for pc in indirect])
+    if len(routes)>32 or len({pc for pc,_ in routes})!=len(routes):raise ValueError('SI ACK call census')
+    return {pc:(i+1,kind) for i,(pc,kind) in enumerate(routes)}
 def patch_shard(s,words,root=HANDLER):
     # Match one exact original function. Every observed label is authenticated
     # against DOL/ELF before the private source is modified.
@@ -42,6 +47,7 @@ def patch_shard(s,words,root=HANDLER):
         seen[pc]=(root,int(l[3],16))
     if root not in seen:raise ValueError('SI ACK root coverage')
     stores,_,_=shape(root,words)
+    calls=call_census(root,words)
     if any(pc not in seen or pc+4 not in seen for pc in stores):raise ValueError('SI ACK store successor coverage')
     # All emitted handler labels must have real native instruction bodies.
     for pc in sorted(seen,reverse=True):
@@ -50,7 +56,8 @@ def patch_shard(s,words,root=HANDLER):
         m=list(pattern.finditer(body))
         if len(m)!=1:raise ValueError('SI ACK label tick')
         pos=m[0].end()
-        body=body[:pos]+f'    undercover::wii::v672::before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+body[pos:]
+        ordinal,kind=calls.get(pc,(0,0))
+        body=body[:pos]+f'    undercover::wii::v672::before(ctx,0x{pc:08x}u,0x{w:08x}u,{ordinal}u,{kind}u);\n'+body[pos:]
     out=replace_exact(s[:lo]+body+s[hi:],SHARD_INCLUDE,SHARD_INCLUDE+'\n#include "undercover/wii_si_ack_binding_v672.h"')
     return out,seen
 def install(dol,elf,root,host):

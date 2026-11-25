@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from prepare_v672_si_ack_route import patch_shard,patch_dispatch,patch_si,INCLUDE,POLL,OBSERVE,END,BIND,SHARD_INCLUDE,HANDLER
+from prepare_v672_si_ack_route import call_census,patch_shard,patch_dispatch,patch_si,INCLUDE,POLL,OBSERVE,END,BIND,SHARD_INCLUDE,HANDLER
 from prepare_v668_si_ack import INCLUDE as SI_INCLUDE,WRITE
 from audit_v672_si_ack_route import inspect,EVENTS,RESULT
 def source(words):
@@ -14,6 +14,13 @@ class Tests(unittest.TestCase):
         self.assertEqual(out.count('++ctx.inst_count;'),4)
         for bad in (out,s.replace('90040000','90050000'),s.replace('++ctx.inst_count;',''),source(w[:-1])):
             with self.assertRaises(ValueError):patch_shard(bad,w)
+    def test_call_gate(self):
+        w=[0x90030000,0x48000009,0x4e800421,0x4e800020]
+        self.assertEqual(call_census(HANDLER,w),{HANDLER+4:(1,1),HANDLER+8:(2,2)})
+        out,_=patch_shard(source(w),w)
+        self.assertIn('0x48000009u,1u,1u);',out)
+        self.assertIn('0x4e800421u,2u,2u);',out)
+        self.assertIn('0x90030000u,0u,0u);',out)
     def test_bindings(self):
         s='\n'.join((INCLUDE,POLL,OBSERVE,END))
         self.assertIn('v672::begin(c)',patch_dispatch(s))

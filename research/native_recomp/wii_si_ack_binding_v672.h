@@ -21,7 +21,7 @@ template<class C>void begin(C& c){
 }
 // Only authenticated handler labels may advance this witness. A call out
 // of this first bounded lane is a new dependency, not a successful ACK.
-template<class C>void before(C& c,uint32_t pc,uint32_t word){
+template<class C>void before(C& c,uint32_t pc,uint32_t word,unsigned ordinal,unsigned kind){
     if(!active())return;
     if(!safe(c)||pc<handler_first||pc>=handler_end||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
        c.mmu.read32(pc)!=word)reject(2);
@@ -30,6 +30,17 @@ template<class C>void before(C& c,uint32_t pc,uint32_t word){
         std::cout<<"V672_SI_ACK_STAGE n=2"<<std::endl;
         std::cout<<"V672_SI_ACK_RESULT guest_store=1 tc_w1c=1 pi_deasserted=1 mask_preserved=1 next_label=1 rfi_return=0 fallback=0 boot_verified=0"<<std::endl;
         std::_Exit(0);
+    }
+    // No unverified helper (including signature-hooked host code) can
+    // run before ACK. Report only the position within the authenticated
+    // call census, never private addresses, instructions or register data.
+    const auto op=word>>26,xo=(word>>1)&1023u;
+    const bool linked=(word&1u)&&(op==16u||op==18u||(op==19u&&(xo==16u||xo==528u)));
+    if(ordinal||kind||linked){
+        if(ordinal<=32u&&ordinal&&kind>=1u&&kind<=2u)
+            std::cout<<"V673_SI_ACK_CALL ordinal="<<ordinal<<" kind="<<kind<<std::endl;
+        else std::cout<<"V673_SI_ACK_CALL ordinal=0 kind=0"<<std::endl;
+        reject(6);
     }
 }
 template<class C>bool poll(C& c){
