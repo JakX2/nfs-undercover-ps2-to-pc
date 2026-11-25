@@ -7,6 +7,8 @@ from make_private_elf_symbol_map import ORIGINAL_SHA256,parse_functions
 from audit_v264_osinit_retry_elf import read_words
 from audit_v662_external_overlay import expected,audit
 from prepare_v616_irq_enable import DECL,CONT,expectations
+from prepare_v625_ipc_client import audit_native
+from prepare_v419_full_start import direct_bl
 TRAMP=0x80526ce0
 DISPATCH=0x80526a3c
 HEADER='#include "v616_private_irq_expectations.h"'
@@ -67,6 +69,19 @@ def install(dol,elf,root,host):
         if tuple(read_words(elf,pc,1))!=(w,):raise ValueError('identity')
         if len(re.findall(r'(?m)^\s*case 0x'+f'{pc:X}'+r': (?:fn|func)_'+f'{pc:X}'+r'\(ctx\); break;\s*$',main))!=1:raise ValueError('dispatch')
         target_words.append(w)
+    # The assembly trampoline is a distinct root, not the dispatcher's
+    # entry or an overlapping analyzer-owned interior label.
+    if sizes.get(TRAMP)!=0x50:raise ValueError('external trampoline extent')
+    tw=words_at(dol,TRAMP,20)
+    if tw!=tuple(read_words(elf,TRAMP,20)):raise ValueError('external trampoline identity')
+    tail=tw[-1]
+    displacement=((tail&0x03fffffc)^0x02000000)-0x02000000
+    if tail>>26!=18 or tail&3 or TRAMP+0x4c+displacement!=DISPATCH:raise ValueError('external trampoline tail')
+    expected_native={TRAMP+4*i:(TRAMP,w) for i,w in enumerate(tw)}
+    expected_native[DISPATCH]=(DISPATCH,target_words[1])
+    if audit_native((p.read_text(encoding='utf-8') for p in shards),main,expected_native)!=21:
+        raise ValueError('external trampoline native coverage')
+    print('V678_TRAMPOLINE_NATIVE verified=1 labels=20 dispatcher_root=1 backward_tail=1 execution=0')
     dest=root/'nWiiRuntime/include/undercover'
     private=dest/'v663_private_external_expectations.h'
     probe=dest/'wii_full_start_probe_v419.h'

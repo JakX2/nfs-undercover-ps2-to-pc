@@ -14,7 +14,8 @@ class Tests(unittest.TestCase):
         with patch('audit_v663_external_entry.inspect_arena',return_value=('ok',True)):
             rows=EVENTS+[RESULT]
             self.assertTrue(inspect(b'\n'.join(rows),0)[1])
-            self.assertFalse(inspect(b'\n'.join(rows+[b'V670_VECTOR_REFUSAL mask=2']),0)[1])
+            for bad in (b'V670_VECTOR_REFUSAL mask=2',b'V678_DISPATCH_REFUSAL mask=256 gpr_mask=2147483648'):
+                self.assertFalse(inspect(b'\n'.join(rows+[bad]),0)[1])
     def test_patch(self):
         s='\n'.join((HEADER,PROBE,START))
         out=patch_probe(s)
