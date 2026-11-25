@@ -15,7 +15,7 @@ def patch_binding(s):
         ('template<class C>void observe(uint32_t,C&){reject(5);}','template<class C>void observe(uint32_t a,C& c){if(v680::observe(a,c))return;reject(5);}')):
         s=replace_exact(s,a,b)
     return s
-def patch_helper(s,root,words):
+def patch_helper(s,root,words,second=False):
     fs=list(DEF.finditer(s));hits=[i for i,f in enumerate(fs) if int(f[1].split('_')[1],16)==root]
     if not hits:return s,{}
     if len(hits)!=1:raise ValueError('helper duplicate root')
@@ -31,9 +31,16 @@ def patch_helper(s,root,words):
         w=seen[pc][1];pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
         m=list(pat.finditer(body))
         if len(m)!=1:raise ValueError('helper label tick')
-        pos=m[0].end();body=body[:pos]+f'    undercover::wii::v680::before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+body[pos:]
+        pos=m[0].end()
+        if second:
+            from prepare_v672_si_ack_route import call_census
+            ordinal,kind=call_census(root,words).get(pc,(0,0))
+            line=f'    undercover::wii::v688::before(ctx,0x{pc:08x}u,0x{w:08x}u,{ordinal}u,{kind}u);\n'
+        else:line=f'    undercover::wii::v680::before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'
+        body=body[:pos]+line+body[pos:]
     s=s[:lo]+body+s[hi:]
-    return replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n#include "undercover/wii_si_helper_binding_v680.h"'),seen
+    header='wii_si_second_binding_v688.h' if second else 'wii_si_helper_binding_v680.h'
+    return replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n#include "undercover/'+header+'"'),seen
 def verify_direct(s,site,target):
     m=list(re.finditer(r'(?mi)^loc_'+f'{site:X}'+r': ;\n.*?(?=^loc_[0-9a-f]+: ;|\Z)',s,re.S|re.M))
     if len(m)!=1:raise ValueError('helper call label')

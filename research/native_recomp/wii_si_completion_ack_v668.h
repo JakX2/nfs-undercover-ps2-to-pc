@@ -32,11 +32,18 @@ public:
         first_=first;end_=end;start_tick_=last_tick_=tick;
         phase_=Phase::Armed;return true;
     }
+    // Exactly one privately authenticated second-helper span may be armed.
+    bool allow_helper(uint32_t first,uint32_t end){
+        if(phase_!=Phase::Armed||helper_first_||((first|end)&3u)||
+           first<0x80000000u||end>0x81800000u||end<=first||end-first>4096u||
+           (first<end_&&first_<end))return fail(2);
+        helper_first_=first;helper_end_=end;return true;
+    }
     // Called at a real native instruction label, after its visit counter
     // increments but BEFORE executing that instruction.
     bool before(uint32_t pc,uint32_t word){
         if(phase_!=Phase::Armed&&phase_!=Phase::Acknowledged)return fail(2);
-        if(!tick_||*tick_<=last_tick_||*tick_-start_tick_>8192u||pc<first_||pc>=end_||(pc&3u))
+        if(!tick_||*tick_<=last_tick_||*tick_-start_tick_>8192u||!allowed(pc)||(pc&3u))
             return fail(2);
         if(phase_==Phase::Acknowledged){
             if(pc!=store_pc_+4u||*tick_!=store_tick_+1u||mask_->load()!=mask_before_||
@@ -65,7 +72,7 @@ public:
     void write(SiController& ctl,unsigned off,uint32_t value){
         if(phase_==Phase::Idle){ctl.write(off,value);return;}
         if(phase_!=Phase::Armed||&ctl!=ctl_||!store_||*tick_!=last_tick_||
-           pc_<first_||pc_>=end_||writes_>=16u||!source_held())reject(5);
+           !allowed(pc_)||writes_>=16u||!source_held())reject(5);
         store_=false; // at most one device write per authenticated store
         const auto old_control=ctl.read(SiController::Control),old_status=ctl.read(SiController::Status);
         const bool ack=off==SiController::Control&&(value&SiController::TC_INT);
@@ -94,6 +101,8 @@ private:
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr;
     const std::atomic<uint32_t>* mask_=nullptr;const uint64_t* tick_=nullptr;
     uint32_t first_=0,end_=0,pc_=0,store_pc_=0,cause_before_=0,mask_before_=0,ack_control_=0,ack_status_=0;
+    uint32_t helper_first_=0,helper_end_=0;
+    bool allowed(uint32_t pc)const{return (pc>=first_&&pc<end_)||(helper_first_&&pc>=helper_first_&&pc<helper_end_);}
     uint64_t start_tick_=0,last_tick_=0,store_tick_=0;
     bool fail(unsigned reason)noexcept{if(!error_)error_=reason;phase_=Phase::Failed;return false;}
     [[noreturn]]void reject(unsigned reason){fail(reason);throw std::runtime_error("SI completion ACK trace rejected");}

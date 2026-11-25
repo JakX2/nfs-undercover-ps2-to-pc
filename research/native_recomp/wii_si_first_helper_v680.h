@@ -32,10 +32,11 @@ public:
         if(!same(c)||stage_!=1||a!=e_.root||c.pc!=a||c.lr!=e_.site+4u)return fail(2);
         stage_=2;return true;
     }
-    template<class C>bool instruction(C& c,uint32_t pc,uint32_t w,SiCompletionAckTrace& ack){
+    template<class C>bool instruction(C& c,uint32_t pc,uint32_t w,SiCompletionAckTrace& ack,bool native_mmio=false){
         if(!same(c)||stage_!=2||pc<e_.root||pc>=e_.end||(pc&3u)||
            !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w||
-           !ack.auxiliary_before())return fail(3);
+           !(native_mmio?ack.before(pc,w):ack.auxiliary_before()))return fail(3);
+        if(native_mmio&&ack.phase()==SiCompletionAckTrace::Phase::Complete)return true;
         const auto op=w>>26,xo=(w>>1)&1023u;
         // The first dependency may have internal control flow, not another
         // external call, RFI, SC or MSR transition.
