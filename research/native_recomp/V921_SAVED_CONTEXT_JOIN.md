@@ -1,0 +1,3 @@
+# V921: genuine pre-exception snapshot through original handler return
+
+Attach the actual V751 ExternalReturnWitness after all 38 saved integer fields are validated by original vector/trampoline/dispatcher entry. Preserve that same witness, CPU identity, context base and instruction timeline through V920's original handler BLR and dispatcher resume. Re-read the saved frame before the dispatcher executes its first instruction. This opt-in route neither fabricates context nor executes RFI; the result is prerequisite to V767 scheduler/context restoration. Unit corruption cases and ordered audit added; private verification pending.

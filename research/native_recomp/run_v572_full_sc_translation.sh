@@ -219,7 +219,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
   fi
   if [[ "$external_entry" == 1 ]]; then
     python3 "$here/prepare_v663_external_entry.py" "$dol" "$elf" "$work/generated"
-    if [[ "$external_capture" == 1 ]]; then python3 "$here/prepare_v751_cold_capture.py" "$work/generated";fi
+    if [[ "$external_capture" == 1 || ( "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ) ]]; then python3 "$here/prepare_v751_cold_capture.py" "$work/generated";fi
     if [[ "$si_dispatch" == 1 ]]; then python3 "$here/prepare_v667_si_dispatch.py" "$dol" "$elf" "$work/generated";fi
     if [[ "$si_ack" == 1 ]]; then
       python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated"
@@ -247,6 +247,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
         python3 "$here/prepare_v868_handler_suffix.py" "$dol" "$elf" "$work/generated"
         if [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]]; then python3 "$here/prepare_v919_handler_epilogue.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v920_handler_return.py" "$dol" "$elf" "$work/generated";fi
+        if [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v921_capture_join.py" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
       fi
     fi
