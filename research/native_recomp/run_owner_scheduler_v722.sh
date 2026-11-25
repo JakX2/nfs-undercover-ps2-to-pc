@@ -10,6 +10,7 @@ python3 "$here/prepare_owner_scheduler_v722.py" "$dol" "$elf" "$work/owner_sched
 for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_nonsplit_dispatch_v15 apply_exact_dispatch_v445 apply_native_tick_v438 apply_syscall_pc_v26; do
   python3 "$here/$patch.py" "$root" > "$work/patch.log" 2>&1 || { echo "V722_EMITTER_PATCH failed=1";exit 1; }
 done
+python3 "$here/prepare_owner_scheduler_v722.py" "$dol" "$elf" "$root" --patch-analyzer
 inc=(-I"$work" -I"$root/nWiiRuntime/include" -I"$root/nWiiAnalyzer/include" -I"$root/nWiiRecomp/include")
 g++ -std=c++20 -O2 "${inc[@]}" "$here/generate_owner_scheduler_v722.cpp" \
  "$root/nWiiRuntime/src/core/loader.cpp" "$root/nWiiAnalyzer/src/analyzer.cpp" \

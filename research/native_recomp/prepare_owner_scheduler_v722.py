@@ -7,6 +7,8 @@ from prepare_v667_si_dispatch import exact
 from make_private_elf_symbol_map import parse_functions
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
+from apply_irq_bootstrap_v475 import rewrite
+from apply_bat_roots_v586 import ROOT,READ
 from audit_os_leaf_v703 import plan as leaf_plan
 from prepare_owner_leaf_v714 import bl
 H=0x80004000
@@ -79,12 +81,48 @@ def header(p,out):
     for name,pc in zip(('caller','enable_words','resched_words','disable_words','restore_words','guard_words'),(H,E,S,D,R,G)):
         words=roots[pc];s+=f'inline constexpr std::array<uint32_t,{len(words)}> {name}{{'+','.join(f'0x{w:08x}u' for w in words)+'};\n'
     with out.open('x') as f:f.write(s)
+def reachable(root,words):
+    """All statically reachable words, including both conditional paths."""
+    end=root+4*len(words);seen=set();work=[root]
+    while work:
+        pc=work.pop()
+        if pc in seen:continue
+        if pc&3 or not root<=pc<end:raise ValueError('reachable fallthrough')
+        seen.add(pc);w=words[(pc-root)//4];op=w>>26;xo=(w>>1)&1023
+        if op==19 and xo==16 and ((w>>21)&20)==20 and not(w&1):continue
+        if op in (16,18) and not(w&1):
+            dst=target(pc,w)
+            if root<=dst<end:work.append(dst)
+            elif op!=18:raise ValueError('reachable external conditional')
+            if op==18:continue
+        work.append(pc+4)
+    return seen
+
+def ownership_pairs(roots):
+    spans=sorted((pc,pc+4*len(ws)) for pc,ws in roots.items())
+    if len(spans)!=6 or any(a&3 or b<=a or b-a>4096 for a,b in spans) or any(b>c for (_,b),(c,_) in zip(spans,spans[1:])):
+        raise ValueError('focused ownership')
+    root=ROOT+'\n    const auto fixture_owner=[](uint32_t a)->uint32_t {\n'+''.join(
+        f'      if(a>=0x{a:08x}u&&a<0x{b:08x}u)return 0x{a:08x}u;\n' for a,b in spans
+    )+'      return 0;\n    };\n    if(fixture_owner(func_start)!=func_start)continue;'
+    read='        if(fixture_owner(current_pc)!=func_start)break;\n'+READ
+    return ((ROOT,root),(READ,read))
+
+def patch_analyzer(p,root):
+    f=root/'nWiiAnalyzer/src/analyzer.cpp'
+    if f.is_symlink():raise ValueError('focused ownership')
+    old=f.read_text();new=rewrite(old,ownership_pairs(p[0]))
+    if new!=old:f.write_text(new)
+    print('V724_FOCUSED_OWNERSHIP roots=6 tail_isolated=1')
+
 def install(p,root):
     roots,_,_,D,R,G,calls=p
     paths=sorted(root.glob('*.cpp'));sources={p:p.read_text() for p in paths}
     main=root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')
     outer=sources[main][sources[main].index('extern "C" void run_game('):]
-    expected={a+4*i:(a,w) for a,ws in roots.items() for i,w in enumerate(ws)}
+    expected={pc:(a,ws[(pc-a)//4]) for a,ws in roots.items() for pc in reachable(a,ws)}
+    # The original ELF extent is authenticated in full. Only reachable
+    # labels are required; alignment/padding after a terminal is not code.
     if audit_native(sources.values(),outer,expected)!=len(expected):raise ValueError('native labels')
     for owner,edges in ((H,[(H,E),(H+4,S)]),(E,calls)):
         owned=[exact_function(s,owner) for s in sources.values() if re.search(r'(?mi)^void (?:fn|func)_'+f'{owner:X}'+r'\(CPUContext& ctx\) \{',s)]
@@ -108,18 +146,20 @@ def install(p,root):
             changes[p]=s.replace(a,a+'\n#include "rfi_test_v708.h"')
     if seen!=set(hooks):raise ValueError('hook coverage')
     for p,s in changes.items():p.write_text(s)
-    print(f'V722_NATIVE_ROUTE original_labels={sum(len(roots[a]) for a in (E,S,D,R))} direct_edges=4 guarded_tail=1 fallback=0 execution=0')
+    print(f'V722_NATIVE_ROUTE original_labels={sum(a in (E,S,D,R) for a,w in expected.values())} direct_edges=4 guarded_tail=1 fallback=0 execution=0')
+    print(f'V724_REACHABILITY labels={len(expected)} excluded={sum(map(len,roots.values()))-len(expected)}')
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path);a.add_argument('--install',action='store_true');x=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');x=a.parse_args()
     try:
         if x.dol.stat().st_size>MAX_DOL or x.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         p=plan(x.dol.read_bytes(),x.elf.read_bytes())
         if x.install:install(p,x.output)
+        elif x.patch_analyzer:patch_analyzer(p,x.output)
         else:
             header(p,x.output)
             print('V722_OWNER_SCHEDULER_GEOMETRY verified=1 enable=15 resched=6 leaves=14 sda_counter=1 sda_hint=1 guarded_tail=1')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError) as e:
-        allowed=('scheduler extent','absolute branch','unexpected call','external branch','unexpected loop','unexpected control','scheduler dependencies','scheduler sda geometry','guard extent','symbol extent','tail target','guard overlap','native labels','native call owner','hook identity','hook include','hook coverage')
+        allowed=('scheduler extent','absolute branch','unexpected call','external branch','unexpected loop','unexpected control','scheduler dependencies','scheduler sda geometry','guard extent','symbol extent','tail target','guard overlap','native labels','native call owner','hook identity','hook include','hook coverage','reachable fallthrough','reachable external conditional','focused ownership','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge','helper exact root','source shape','roundtrip','ambiguous patch')
         print('V722_SCHEDULER_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

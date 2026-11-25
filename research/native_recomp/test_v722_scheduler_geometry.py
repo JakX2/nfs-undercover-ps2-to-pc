@@ -1,5 +1,5 @@
 import unittest
-from prepare_owner_scheduler_v722 import shapes,E,S,BLR
+from prepare_owner_scheduler_v722 import shapes,reachable,ownership_pairs,E,S,BLR
 from prepare_owner_leaf_v714 import bl
 D=E-0x100
 R=E-0x200
@@ -21,6 +21,16 @@ class SchedulerGeometry(unittest.TestCase):
         for w in (0x4d820021,0x4c020020,0x4d821020,0x4e800420):
             e,s=self.samples();s[2]=w
             with self.assertRaises(ValueError):shapes(e,s,D,R)
+    def test_reachable_tail(self):
+        code=[mem(32,-8),NOP,0x4d820020,NOP,tail(S+16,G),BLR]
+        self.assertEqual(reachable(S,code),set(range(S,S+20,4)))
+        self.assertEqual(reachable(S,[0x41820008,NOP,BLR]),{S,S+4,S+8})
+        with self.assertRaises(ValueError):reachable(S,[NOP])
+    def test_ownership(self):
+        roots={i*0x100+0x80004000:[BLR] for i in range(6)}
+        self.assertEqual(len(ownership_pairs(roots)),2)
+        roots[0x80004000]=[NOP]*65
+        with self.assertRaises(ValueError):ownership_pairs(roots)
     def test_invalid(self):
         for k,i,w in ((0,2,mem(36,-8)),(0,3,bl(E+12,D)),(1,0,mem(32,-4)),(1,4,bl(S+16,G)),(1,3,0x4e800421)):
             e,s=self.samples();(e,s)[k][i]=w
