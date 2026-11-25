@@ -1,0 +1,3 @@
+# V743: generated repeated native time-root integration
+
+Independent synthetic 25-word nested root with three direct OS leaves is invoked first from the second helper, then from the SI handler's third direct call. The test uses the exact V742 production binding patches, preserves the first invocation's evidence, and rejects a modified instruction in the second invocation or disabled scope. Both split/non-split modes exercise native dispatch, with no interpreter fallback allowed. No original code in the fixture. Pending CI.
