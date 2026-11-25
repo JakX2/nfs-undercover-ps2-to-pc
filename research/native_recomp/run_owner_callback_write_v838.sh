@@ -21,7 +21,18 @@ for mode in nonsplit split; do
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V820_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_callback_write_v838.py" "$dol" "$elf" "$work/$mode" --install
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -Wno-error=type-limits -fno-pie -no-pie \
-    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_callback_write_v838.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V838_NATIVE_BUILD failed=1";exit 1; }
+    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_callback_write_v838.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || {
+    python3 - "$work/build.log" <<'PY'
+import re,sys
+from pathlib import Path
+raw=Path(sys.argv[1]).read_text(errors='replace')
+for l in raw.splitlines():
+    m=re.search(r'(test_owner_callback_write_v838\.cpp|callback_write_fixture_v838\.h):(\d{1,4}):\d+:\s*(?:fatal )?(error|warning):',l)
+    if m: print('V840_BUILD_DIAG source='+('harness' if m[1].endswith('.cpp') else 'observer')+' line='+m[2]+' class='+m[3])
+print('V840_BUILD_DIAG errors='+str(min(999,len(re.findall(r'\berror:',raw)))))
+PY
+    echo "V838_NATIVE_BUILD failed=1";exit 1;
+  }
   nonzero=0;wrap=0;retry=0;first_upper_delta=0
   for trial in {0..7}; do
     timeout 20s "$work/probe" valid "$trial" > "$work/run.log" 2>&1 || {

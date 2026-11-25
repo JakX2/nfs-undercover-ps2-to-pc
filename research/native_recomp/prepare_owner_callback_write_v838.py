@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Join the original callback frontier to the verified wireless wrappers.
 
-The synthetic initial SRAM ID is explicit. Complete original setter/getter
-and UnlockSram execute, while the unimplemented EXI lane is a refusal.
+The synthetic initial SRAM ID is explicit. The complete original setter
+and device write/unlock execute. Only unverified alternate branches refuse.
 """
 import argparse,struct
 from pathlib import Path

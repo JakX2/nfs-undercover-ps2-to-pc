@@ -2,6 +2,8 @@
 #include "wii_exi_profile_v501.h"
 #include "wii_sram_write_witness_v818.h"
 namespace joined {
+using nwii::runtime::CPUContext;
+using namespace undercover::wii;
 using namespace write_roots;
 constexpr uint32_t ExiState=0x806f1560u;
 static ExiController* controller=nullptr;
@@ -111,7 +113,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         if(f.root==ImmEx){need(c.gpr[3]==1u&&++immex_returns==1u&&complete_count==12u&&witness.stage()==3u&&witness.bytes()==44u);}
         if(f.root==Deselect){need(c.gpr[3]==1u&&++deselect_returns==1u&&c.mmu.read32(ExiState+12u)==0x10u&&witness.finish(*controller,*mx_device));}
         if(f.root==ExiUnlock){need(c.gpr[3]==1u&&++exi_unlock_returns==1u&&c.mmu.read32(ExiState+12u)==0u&&mask_calls==2u&&!controller->pending(0)&&witness.stage()==4u);}
-        if(f.root==U){need(++sram_returns==1u&&c.gpr[3]==1u&&c.mmu.read32(Sram+64u)==64u&&c.mmu.read32(Sram+72u)==0u&&c.mmu.read32(Sram+76u)==1u);}
+        if(f.root==write_roots::U){need(++sram_returns==1u&&c.gpr[3]==1u&&c.mmu.read32(Sram+64u)==64u&&c.mmu.read32(Sram+72u)==0u&&c.mmu.read32(Sram+76u)==1u);}
         --depth;returned=false;
     }
     if(pc==outer_pc+4u){
@@ -164,7 +166,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     ++entries;
     if(pc==D)++disables;
     if(pc==R)++restores;
-    if(pc==U){
+    if(pc==write_roots::U){
         need(++unlocks==1&&c.gpr[3]==unsigned(lane==2)&&c.gpr[4]==20u);
         need(c.mmu.read32(Sram+72u)==1u&&c.mmu.read32(Sram+64u)==64u);
         payload(c,lane==2);

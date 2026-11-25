@@ -1,0 +1,3 @@
+# V840: qualify joined fixture symbols and preserve safe diagnostics
+
+V838 initially staged its write observer before the outer harness's using declarations and reused the symbol U, which denotes the timebase leaf in the callback fixture but UnlockSram in the wireless fixture. Explicitly import the runtime type and device namespace within the observer and qualify the SRAM unlock identity. Add sanitized harness-only compilation diagnostics. No original words or generated source appear in logs. Retesting the complete joined callback fixture; V837 independently passed and V833 live callback time independently passed.
