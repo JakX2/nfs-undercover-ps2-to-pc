@@ -167,7 +167,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(pc==ConsoleGuard)fail(3);
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(!entries){need(!visits&&c.pc==outer_pc&&c.inst_count==tick);return false;}
+    if(!entries){need(!visits&&c.pc==H&&c.inst_count==tick);return false;}
     need(backward&&c.inst_count==tick&&++polls<=4096u);backward=false;return false;
 }
 bool handle_syscall(CPUContext&){fail(4);}

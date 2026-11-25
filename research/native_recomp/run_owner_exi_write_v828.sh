@@ -21,7 +21,18 @@ for mode in nonsplit split; do
   "$work/generator" "$work/$mode" "$mode" > "$work/generate.log" 2>&1 || { echo "V828_TRANSLATION failed=1";exit 1; }
   python3 "$here/prepare_owner_exi_write_v828.py" "$dol" "$elf" "$work/$mode" --install
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -Wno-error=type-limits -fno-pie -no-pie \
-    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_exi_write_v828.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { echo "V828_NATIVE_BUILD failed=1";exit 1; }
+    -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_exi_write_v828.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || {
+      python3 - "$work/build.log" <<'PY'
+import re,sys
+from pathlib import Path
+raw=Path(sys.argv[1]).read_text(errors='replace')
+for l in raw.splitlines():
+    m=re.search(r'test_owner_exi_write_v828\.cpp:(\d{1,4}):\d+:\s*(?:fatal )?(error|warning):',l)
+    if m: print('V830_BUILD_DIAG source=harness line='+m[1]+' class='+m[2])
+print('V830_BUILD_DIAG errors='+str(min(999,len(re.findall(r'\berror:',raw)))))
+PY
+      echo "V828_NATIVE_BUILD failed=1";exit 1;
+    }
   for trial in {0..3}; do
     timeout 30s "$work/probe" valid "$trial" > "$work/run.log" 2>&1 || {
       grep -Ex 'V828_EXI_FAULT kind=[1-8] line=[0-9]{1,4} depth=[0-9]{1,2} visits=[0-9]{1,5} entries=[0-9]{1,4} imm=[0-9]{1,2} imm_return=[0-9]{1,2} sync=[0-9]{1,2} sync_return=[0-9]{1,2} completed=[0-9]{1,2} reads=[0-9]{1,4} writes=[0-9]{1,3} polls=[0-9]{1,4} witness=[0-6]' "$work/run.log" || true
