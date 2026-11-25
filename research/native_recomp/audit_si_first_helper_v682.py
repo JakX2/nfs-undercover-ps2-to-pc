@@ -8,6 +8,7 @@ from prepare_v667_si_dispatch import exact
 from make_private_elf_symbol_map import parse_functions
 from apply_si_roots_v669 import ROOTS,spans,pairs
 from si_helper_geometry_v680 import helper_geometry
+from classify_save_leaf_v683 import symbol_evidence,inspect_suffix
 def classify(dol,elf):
     n,_,_,_,_=geometry(dol,elf)
     handler=words_at(dol,HANDLER,n);_,direct,indirect=shape(HANDLER,handler)
@@ -32,6 +33,12 @@ def classify(dol,elf):
                 dst=(disp if w&2 else target+4*i+disp)&0xffffffff
                 result['external_tails']+=not target<=dst<target+size
         result['overlap']=sum(a!=target and a<target+size and target<a+s for a,s in spans(dol,elf))
+    result.update(symbol_evidence(elf,target))
+    result.update(save_kind=0,save_registers=0)
+    try:
+        leaf=inspect_suffix(dol,elf,target)
+        result.update(save_kind=leaf['kind'],save_registers=leaf['registers'])
+    except ValueError:pass
     try:helper_geometry(dol,elf);pairs(spans(dol,elf,True));result['admissible']=1
     except ValueError:pass
     return result
