@@ -1,0 +1,3 @@
+# V762: reusable live epilogue witness
+
+Refactor the verified V737 original dispatcher/scheduler/loader/RFI fixture's observation contract into a runtime-neutral read-only class. Requires captured integer context, exact saved frame, scheduler counter decrement, ABI, no switch, one-use direct call stack, precise native tick/branch/poll continuity, exact GQR restore, cleared exception state and the existing V706 RFI and resume validation. Run it alongside the independent old V737 observer on original generated code with synthetic context, both compilation modes. A corrupt saved frame refuses before entry; a thread switch refuses before its tail. The class does not write guest state or execute RFI. It is not yet connected to the full-image handler; owner tests pending.
