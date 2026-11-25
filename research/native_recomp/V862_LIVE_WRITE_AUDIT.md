@@ -1,0 +1,3 @@
+# V862: live changed wireless route launch and evidence audit
+
+V858 passed 16 original changed setter trials in both native output modes (3187–3907 visits, 74–194 polls, 52–172 MMIO accesses, exact 12 transfers and 44 bytes). V859 profile trace passed 12 valid and 13 negative cases. V861 private full-image preflight remains pending. V862 adds a default-disabled launch mode and an audit that rejects a changed lane stopping at EXILock as successful completion; only the original setter return, original unlock, twelve completions and 44-byte payload are accepted. An unchanged setter/getter remains explicitly classified. Live execution is gated on a fresh successful preflight and an explicit launch trigger. No callback return or native boot is claimed.

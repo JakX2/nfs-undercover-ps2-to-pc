@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v861*'
+      - 'research/native_recomp/*v862*'
       - '.github/workflows/wii-v861-live-wireless-write.yml'
 permissions:
   contents: read
@@ -17,9 +18,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v861_wireless_write.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v862_wireless_write_audit.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wireless_profile_trace_v859.cpp -o "$RUNNER_TEMP/v859"
           "$RUNNER_TEMP/v859"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
   owner-preflight:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -55,3 +58,41 @@ jobs:
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw861"
+  owner-execution:
+    needs: owner-preflight
+    if: >-
+      github.ref == 'refs/heads/research/wii-native-recomp-preflight' &&
+      vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'launch V862 live EXI write'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original complete image through original EXI write
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw862"
+          git -C "$RUNNER_TEMP/nw862" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw862" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw862" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw862" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-wireless-write
+      - name: Clean private files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw862"
