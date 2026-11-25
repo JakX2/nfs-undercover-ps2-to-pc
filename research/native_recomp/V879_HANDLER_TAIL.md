@@ -1,0 +1,3 @@
+# V879 original SI handler tail fixture
+
+Generalize the V846 exact native return witness to the actual compiler restore count while retaining the existing six-register callback alias. New 15-register handler specialization checks the full original restore, LR reload, stack unwind, BLR and real indirect outer dispatcher return. Owner-only plan authenticates slot 12 using the already verified V735 alias, and requires the actual four-word original tail and matching frame geometry. Focused caller supplies synthetic stack and CPU state at the original tail entry; this is not continuous handler execution. Both old and new dispatch witness suites run before private original trials. Pending CI.
