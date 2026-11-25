@@ -23,21 +23,25 @@ def expectations(dol, elf):
     if not 4 <= size <= 4096 or size & 3:
         raise ValueError('callback extent')
     words = exact(dol, elf, CALLBACK, size // 4)
-    return CALLBACK, words[0], tuple(pc for _, pc in sites)
+    return CALLBACK, words, tuple(pc for _, pc in sites)
 
 
-def patch_private(s, candidate, first, sites):
-    if len(sites) != 2 or not s.endswith('\n}\n') or 'callback_candidate' in s:
+def patch_private(s, candidate, words, sites):
+    if (len(sites) != 2 or not 1 <= len(words) <= 1024 or
+            not s.endswith('\n}\n') or 'callback_candidate' in s):
         raise ValueError('private header')
     return s[:-2] + (
         f'inline constexpr uint32_t callback_candidate=0x{candidate:08x}u;\n'
-        f'inline constexpr uint32_t callback_first=0x{first:08x}u;\n'
+        f'inline constexpr std::array<uint32_t,{len(words)}> callback_words{{'
+        + ','.join(f'0x{w:08x}u' for w in words) + '};\n'
         'inline constexpr std::array<uint32_t,2> callback_sites{'
         + ','.join(f'0x{pc:08x}u' for pc in sites) + '};\n}\n'
     )
 
 
 def patch_alarm(s):
+    a = '#include "v786_private_alarm.h"'
+    s = replace_exact(s, a, a + '\n#include "wii_callback_identity_v796.h"')
     a = 'inline bool active(){return route.stage()>=1&&route.stage()<=3;}'
     s = replace_exact(s, a, a + r'''
 inline bool continue_suffix(){
@@ -46,15 +50,8 @@ inline bool continue_suffix(){
 }
 // Only called after the existing handler guard has refused the instruction.
 template<class C>void classify(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsigned kind){
-    unsigned category=0;
-    if(kind==2&&w==0x4e800421u&&
-       ((ordinal==6&&pc==callback_sites[0])||(ordinal==11&&pc==callback_sites[1]))){
-        const uint32_t target=uint32_t(c.ctr)&~3u;
-        const bool mapped=target>=0x80000000u&&target<=0x817ffffcu&&
-            c.mmu.get_ptr(target)&&c.mmu.get_ptr(target+3u);
-        category=!mapped?3u:target!=callback_candidate?1u:
-            c.mmu.read32(target)==callback_first?2u:4u;
-    }
+    const auto category=classify_callback_identity(c,pc,w,ordinal,kind,callback_candidate,
+        callback_words,callback_sites);
     std::cout<<std::dec<<"V789_ALARM_BOUNDARY ordinal="<<ordinal<<" kind="<<kind
         <<" target_class="<<category<<" executed=0"<<std::endl;
 }
@@ -75,10 +72,10 @@ def patch_handler(s):
 
 
 def install(dol, elf, generated):
-    candidate, first, sites = expectations(dol, elf)
+    candidate, words, sites = expectations(dol, elf)
     dest = generated / 'nWiiRuntime/include/undercover'
     edits = {
-        'v786_private_alarm.h': lambda s: patch_private(s, candidate, first, sites),
+        'v786_private_alarm.h': lambda s: patch_private(s, candidate, words, sites),
         'wii_alarm_return_binding_v786.h': patch_alarm,
         'wii_si_handler_return_binding_v726.h': patch_handler,
     }
@@ -90,6 +87,10 @@ def install(dol, elf, generated):
         if p.is_symlink() or not p.is_file() or p.stat().st_size > 1024 * 1024:
             raise ValueError('destination')
         pending[p] = patch(p.read_text())
+    header = dest / 'wii_callback_identity_v796.h'
+    if header.exists() or header.is_symlink():
+        raise ValueError('destination')
+    pending[header] = (Path(__file__).parent / header.name).read_text()
     for p, content in pending.items():
         p.write_text(content)
     print('V789_ALARM_SUFFIX installed=1 callback_sites=2 slot=5 dispatch=0 execution=0')

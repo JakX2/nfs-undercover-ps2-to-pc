@@ -21,20 +21,21 @@ BLR = b'V778_HANDLER_BLR abi=1 visits=45 polls=2 follow=3 executed=0 boot_verifi
 class AlarmSuffix(unittest.TestCase):
     def test_private(self):
         old = 'namespace sample {\n}\n'
-        new = patch_private(old, 0x80004000, 0x60000000, (0x80005000, 0x80005004))
-        self.assertIn('callback_first=0x60000000u', new)
+        new = patch_private(old, 0x80004000, (0x60000000, 0x4e800020), (0x80005000, 0x80005004))
+        self.assertIn('callback_words{0x60000000u,0x4e800020u}', new)
         self.assertIn('callback_sites{0x80005000u,0x80005004u}', new)
         for bad in (new, old.rstrip(), ''):
             with self.assertRaises(ValueError):
-                patch_private(bad, 0, 0, (0, 4))
+                patch_private(bad, 0, (0,), (0, 4))
 
     def test_alarm(self):
         old = (HERE / 'wii_alarm_return_binding_v786.h').read_text()
         s = patch_alarm(old)
         self.assertIn('if(!continue_suffix())std::_Exit(0);', s)
         self.assertIn("v[0]=='1'&&v[1]=='\\0'", s)
-        self.assertIn('uint32_t(c.ctr)&~3u', s)
-        self.assertIn('c.mmu.read32(target)==callback_first', s)
+        self.assertIn('#include "wii_callback_identity_v796.h"', s)
+        self.assertIn('classify_callback_identity(c,pc,w,ordinal,kind,callback_candidate,', s)
+        self.assertIn('callback_words,callback_sites', s)
         self.assertNotIn('c.ctr=', s)
         with self.assertRaises(ValueError):
             patch_alarm(s)
