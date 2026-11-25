@@ -2,11 +2,13 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 open_request=0
 external_entry=0
 si_dispatch=0
+si_ack=0
+if [[ "$mode" == irq-si-ack ]]; then mode=irq-si-dispatch;si_ack=1;fi
 if [[ "$mode" == irq-si-dispatch ]]; then mode=irq-pending-entry;si_dispatch=1;fi
 if [[ "$mode" == irq-pending-entry ]]; then mode=irq-enable-return;external_entry=1;fi
 if [[ "$mode" == open-request ]]; then mode=stm-open;open_request=1;fi
@@ -21,6 +23,7 @@ if [[ "$mode" == stm-open ]]; then extra+=(UNDERCOVER_V629_STM=1);audit=audit_v6
 if [[ "$open_request" == 1 ]]; then extra+=(UNDERCOVER_V641_OPEN=1);audit=audit_v641_open_request.py;fi
 if [[ "$external_entry" == 1 ]]; then extra+=(UNDERCOVER_V663_EXTERNAL=1);audit=audit_v663_external_entry.py;fi
 if [[ "$si_dispatch" == 1 ]]; then extra+=(UNDERCOVER_V667_SI_DISPATCH=1);audit=audit_v667_si_dispatch.py;fi
+if [[ "$si_ack" == 1 ]]; then extra+=(UNDERCOVER_V672_SI_ACK=1);audit=audit_v672_si_ack_route.py;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
 [[ -f "$exe" && -x "$exe" && -f "$dol" && ! -e "$work" && ! -L "$work" ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }

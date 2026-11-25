@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
 external_entry=0
 si_dispatch=0
+si_ack=0
+if [[ "$mode" == --prepare-si-ack || "$mode" == --run-si-ack ]]; then
+  si_ack=1;mode="${mode%-si-ack}-si-dispatch"
+fi
 if [[ "$mode" == --prepare-si-dispatch || "$mode" == --run-si-dispatch ]]; then
   si_dispatch=1;mode="${mode%-si-dispatch}-external-entry"
 fi
@@ -91,6 +95,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
   if [[ "$external_entry" == 1 ]]; then
     python3 "$here/prepare_v663_external_entry.py" "$dol" "$elf" "$work/generated"
     if [[ "$si_dispatch" == 1 ]]; then python3 "$here/prepare_v667_si_dispatch.py" "$dol" "$elf" "$work/generated";fi
+    if [[ "$si_ack" == 1 ]]; then python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated";fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
 #include "runtime/cpu_context.h"
@@ -128,6 +133,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$open_request" != 1 ]] || target=open-request
     [[ "$external_entry" != 1 ]] || target=irq-pending-entry
     [[ "$si_dispatch" != 1 ]] || target=irq-si-dispatch
+    [[ "$si_ack" != 1 ]] || target=irq-si-ack
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
