@@ -45,6 +45,13 @@ def step(w,regs):
         x,y=regs[ra],regs[rb];r[rd]=None if x is None or y is None else (x+y if xo==266 else y-x)&0xffffffff
     elif op==31 and xo==24:
         x,y=regs[rd],regs[rb];r[ra]=None if x is None or y is None else 0 if y&32 else (x<<(y&31))&0xffffffff
+    elif op==31 and xo==792:
+        x,y=regs[rd],regs[rb]
+        signed_x=None if x is None else (x^0x80000000)-0x80000000
+        r[ra]=None if x is None or y is None else (signed_x>>min(y&63,31))&0xffffffff
+    elif op==31 and xo==824:
+        x=regs[rd]
+        r[ra]=None if x is None else (((x^0x80000000)-0x80000000)>>rb)&0xffffffff
     elif op in (10,11,16,18,36,38,44):pass
     elif op in (32,34,40,42):r[rd]=None
     else:r=[None]*32
@@ -62,7 +69,7 @@ def unique_prefix(rows,start):
     producers=[]
     for i,w in enumerate(words[:-1],1):
         op=w>>26;xo=(w>>1)&1023;rd=(w>>21)&31;ra=(w>>16)&31
-        dst=ra if op in (21,24,25) or op==31 and xo in (444,28,316,24) else rd
+        dst=ra if op in (21,24,25) or op==31 and xo in (444,28,316,24,792,824) else rd
         if dst==base:producers.append(i)
     # Try a range of bounded low-valued initial-state inputs to classify
     # a channel-indexed effective address, without asserting it was live.
@@ -71,7 +78,16 @@ def unique_prefix(rows,start):
         r=(value,)*32
         for w in words[:-1]:r=step(w,r)
         classes.add(classify(words[-1],r)[1])
-    return classify(words[-1],regs)[1],','.join(map(str,producers)) or 'none',','.join(sorted(classes)),(words[4]>>1)&1023
+    region=classify(words[-1],regs)[1]
+    if regs[base] is not None:
+        addr=(regs[base]+signed(words[-1]))&0xffffffff
+        physical=(addr&0x3fffffff)&~0x00800000
+        if 0x0d006400<=physical<0x0d006500:
+            off=physical-0x0d006400
+            region='si_control' if off==0x34 else 'si_status' if off==0x38 else 'si_poll' if off==0x30 else 'si_buffer' if 0x80<=off<0x100 else 'si_other'
+        elif 0x80000000<=addr<0x81800000:region='mem1_cached'
+        elif 0xc0000000<=addr<0xc1800000:region='mem1_uncached'
+    return region,','.join(map(str,producers)) or 'none',','.join(sorted(classes)),(words[4]>>1)&1023
 
 def paths(rows,start,depth=6):
     work=[(start,0,(None,)*32)];out=set()

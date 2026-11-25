@@ -1,0 +1,3 @@
+# V889 static shift propagation and verified alternate packet path
+
+V888 private census classified instruction five as PPC sraw (extended opcode 792), which invalidated all known registers in the conservative analysis. V889 implements its exact arithmetic-shift value and preserves unrelated registers (plus srawi), and classifies an independently resolved load into known hardware register categories without printing its guest address. V887 owner job 139137408072 passed 32/32 packet-choice trials: closed=16, free=16, and two corrupted saves refused. No system-time call or continuous handler memory access admitted yet.
