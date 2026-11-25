@@ -76,6 +76,46 @@ int main(){
         CHECK(ok&&ctl.issued_tokens()==2&&w.reads()==1&&w.writes()==3);++valid;
     }
     CHECK(valid==5&&refused==25);
+    unsigned status_ok=0,status_bad=0;
+    for(unsigned t=0;t<12;++t){
+        std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);
+        using Port=SiTypeScheduler::Port;
+        const SiTypeScheduler::Profile ports{Port::absent(),Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
+        SiTypeScheduler scheduler(ctl,ports,8);
+        ctl.write(C,0xc0010301u);scheduler.advance(1);scheduler.advance(9);
+        uint64_t tick=100;SiCompletionAckTrace ack;
+        CHECK(ack.arm(ctl,cause,mask,tick,H,H+16));++tick;CHECK(ack.before(H,0x90030000u));
+        ack.write(ctl,C,0xe0010300u);++tick;CHECK(ack.before(H+4,0x60000000u)&&ack.resume_after_ack(H+4,0x60000000u));
+        PostAckTransferDevice w;const unsigned ch=t%4;
+        CHECK(w.begin(ctl,cause,mask,ack,tick,ch,true,ports[ch].type,8));
+        auto step=[&](Access a=Access::None,uint32_t addr=0){scheduler.advance(++tick);return w.before(tick,a,addr);};
+        uint32_t result=0;
+        CHECK(step(Access::Read,Base+C)&&w.read(ctl,C,result));
+        CHECK(step(Access::Write,Base+B)&&w.write(ctl,B,0x00abcdefu));
+        CHECK(step(Access::Write,Base+S)&&w.write(ctl,S,0x08000000u));
+        CHECK(step(Access::Write,Base+C)&&w.write(ctl,C,0xc0010301u|(ch<<1)));
+        for(unsigned i=0;i<(t==2?2u:9u);++i)CHECK(step());
+        CHECK(w.finish(tick,1));
+        if(t==2){CHECK(!w.arm_suffix_status_read(tick,Base+S));++status_bad;continue;}
+        CHECK(w.follow_stage()==3u&&w.held_now());
+        const auto original=ctl.read(S);const auto control=ctl.read(C);const auto tokens=ctl.issued_tokens();
+        if(t==3){CHECK(!w.arm_suffix_status_read(tick,Base+C));++status_bad;continue;}
+        if(t==4){const uint64_t copy=tick;CHECK(!w.arm_suffix_status_read(copy,Base+S));++status_bad;continue;}
+        if(t==5){CHECK(!w.read(ctl,S,result));++status_bad;continue;}
+        CHECK(w.arm_suffix_status_read(tick,t==1?Base+0x00800000u+S:Base+S)&&!w.held_now());
+        if(t==6){CHECK(!w.read(ctl,C,result));++status_bad;continue;}
+        if(t==7){++tick;CHECK(!w.after_return_at(tick));++status_bad;continue;}
+        if(t==8){CHECK(!w.write(ctl,S,0));++status_bad;continue;}
+        if(t==9){cause|=0x200u;CHECK(!w.read(ctl,S,result));++status_bad;continue;}
+        CHECK(w.read(ctl,S,result)&&result==original&&w.suffix_status_value()==original&&w.held_now());
+        if(t==10){CHECK(!w.read(ctl,S,result));++status_bad;continue;}
+        if(t==11){CHECK(!w.arm_suffix_status_read(tick,Base+S));++status_bad;continue;}
+        scheduler.advance(++tick);CHECK(w.after_return_at(tick)&&w.held_now()&&w.suffix_status_reads()==1u&&w.reads()==1u&&w.writes()==3u);
+        CHECK(ctl.read(S)==original&&ctl.read(C)==control&&ctl.issued_tokens()==tokens&&cause==(Other|SI));
+        ++status_ok;
+    }
+    CHECK(status_ok==2u&&status_bad==10u);
+    std::cout<<"V890_STATUS_DEVICE valid=2 refused=10 real_scheduler=1 original_execution=0\n";
     struct Cpu{std::array<uint32_t,32> gpr{};} cpu;
     cpu.gpr[3]=Base;cpu.gpr[4]=0x12345678u;cpu.gpr[5]=C;
     auto a=PostAckTransferDevice::word_access(cpu,0x90830034u);CHECK(a.kind==Access::Write&&a.address==Base+C&&a.store==0x12345678u);

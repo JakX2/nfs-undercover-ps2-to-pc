@@ -48,4 +48,16 @@ int main(){
     }
     need(valid==1&&refused==9);
     std::cout<<"V868_HANDLER_GUARD valid=1 refused=9 original_execution=0\n";
+    unsigned status_ok=0,status_bad=0;
+    for(unsigned t=0;t<8;++t){
+        CPU c;c.gpr[1]=SP;c.gpr[4]=t==2?0xcd006434u:t==3?0xcd006439u:t==4?0x4d006438u:t==5?SP:t==1?0xcd806438u:0xcd006438u;
+        const uint32_t w=t==6?0x90640000u:t==7?0x88640000u:0x80640000u;
+        c.mmu.put(H,w);c.mmu.put(SP,0);
+        std::array<HandlerSuffixLabel,1> rows{{{H,w,0,0}}};HandlerSuffixGuard guard;
+        need(guard.start(c,rows,H));
+        if(t<2){need(guard.before(c,H,w,0,0,true));++status_ok;}
+        else{need(!guard.before(c,H,w,0,0,true));++status_bad;}
+    }
+    need(status_ok==2&&status_bad==6);
+    std::cout<<"V890_STATUS_GUARD valid=2 refused=6 original_execution=0\n";
 }

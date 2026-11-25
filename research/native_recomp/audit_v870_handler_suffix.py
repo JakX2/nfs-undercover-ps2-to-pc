@@ -7,7 +7,8 @@ from audit_v864_combined_callback import (
     ENTRY,TRANSFER,START,RESULT,BEGIN,DONE,FAULT,ALARM_FAULT,CLASS,BLR,BOUNDARY,CONTROL,INVALID,
     TIME_RETURN,TIME_FAULT,FRONTIER_RETURN,FRONTIER_FAULT,WRAPPER_ENTRY,WRAPPER_RETURN,WRAPPER_FAULT,
     FAULT_EXT,WRITE_RETURN,FAULT_WRITE,SUFFIX_ENTRY,SUFFIX_RETURN,CALLBACK_RETURN,CALLBACK_FAULT)
-TAGS=PREVIOUS+(b'V868_',)
+TAGS=PREVIOUS+(b'V868_',b'V890_')
+STATUS=b'V890_HANDLER_STATUS_READ original_load=1 device_value=1 follow_held=1 reads=1 writes=0'
 JOIN=rb'V868_HANDLER_SUFFIX_ENTRY ordinal=(6|11) callback_return=1 same_tick=1'
 STOP=rb'V868_HANDLER_SUFFIX_RESULT after=(6|11) next=(7|8|11|12) kind=([12]) visits=([0-9]{1,3}) writes=([0-8]) executed=0 handler_return=0 boot_verified=0'
 BAD=rb'V868_HANDLER_SUFFIX_INVALID reason=[1-6] guard=[0-5] handler=[0-8] visits=[0-9]{1,3} writes=[0-9]{1,2}'
@@ -20,18 +21,19 @@ def inspect(raw,rc):
     if rc==0 and len(hits)<=1:
         if not hits:
             previous,ok=callback_audit(raw,rc)
-            ok=ok and not any(l.startswith(b'V868_') for l in rows)
+            ok=ok and not any(l.startswith((b'V868_',b'V890_')) for l in rows)
         else:
             i=hits[0];before=rows[:i+1]
             previous,valid=callback_audit(b'\n'.join(before),0)
             tail=[l for l in rows[i+1:] if l.startswith(TAGS)]
-            if valid and len(tail)==2 and not any(l.startswith(b'V868_') for l in before):
+            if valid and len(tail) in (2,3) and not any(l.startswith((b'V868_',b'V890_')) for l in before):
                 h=int(re.fullmatch(CALLBACK_RETURN,rows[i])[1])
-                j=re.fullmatch(JOIN,tail[0]);s=re.fullmatch(STOP,tail[1])
+                j=re.fullmatch(JOIN,tail[0]);s=re.fullmatch(STOP,tail[-1])
+                status_ok=len(tail)==2 or (h==6 and tail[1]==STATUS)
                 if j and s:
                     handler,next_slot,kind,visits,writes=map(int,s.groups())
                     allowed={(7,1),(8,1),(12,1)} if h==6 else {(11,2),(12,1)}
-                    ok=h==handler==int(j[1]) and (next_slot,kind) in allowed and 1<=visits<=128 and writes<visits and writes<=(1 if h==6 else 0)
+                    ok=status_ok and h==handler==int(j[1]) and (next_slot,kind) in allowed and 1<=visits<=128 and writes<visits and writes<=(1 if h==6 else 0)
                     returned=int(ok)
     if not ok:previous='';returned=handler=next_slot=kind=visits=writes=0
     row=(f'V870_HANDLER_SUFFIX_CENSUS rc={rc} verified={int(ok)} callback_return={returned} '
@@ -45,7 +47,7 @@ def main():
         raw=a.log.read_bytes();row,ok,previous=inspect(raw,a.rc)
     except (OSError,ValueError):print('V870_HANDLER_SUFFIX_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if prior(l) or l in (HANDOFF,TIME_ENTRY,FRONTIER_ENTRY) or any(re.fullmatch(p,l) for p in
+        if prior(l) or l in (HANDOFF,TIME_ENTRY,FRONTIER_ENTRY,STATUS) or any(re.fullmatch(p,l) for p in
             (ENTRY,TRANSFER,START,RESULT,BEGIN,DONE,FAULT,ALARM_FAULT,CLASS,BLR,BOUNDARY,CONTROL,INVALID,
              TIME_RETURN,TIME_FAULT,FRONTIER_RETURN,FRONTIER_FAULT,WRAPPER_ENTRY,WRAPPER_RETURN,WRAPPER_FAULT,
              FAULT_EXT,WRITE_RETURN,FAULT_WRITE,SUFFIX_ENTRY,SUFFIX_RETURN,CALLBACK_RETURN,CALLBACK_FAULT,JOIN,STOP,BAD)):

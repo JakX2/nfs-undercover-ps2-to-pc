@@ -17,9 +17,11 @@ public:
     unsigned follow_failure()const noexcept{return follow_.failure();}
     uint64_t token()const noexcept{return follow_.token();}
     bool pending()const{return ctl_&&ctl_->pending().has_value();}
+    unsigned suffix_status_reads()const noexcept{return status_reads_;}
+    std::optional<uint32_t> suffix_status_value()const{return status_reads_==1u&&!status_pending_&&!error_?std::optional<uint32_t>{status_value_}:std::nullopt;}
     bool held_now()const{return tick_&&held(*tick_);}
     bool held(uint64_t tick)const{
-        return (stage_==1||stage_==2)&&!error_&&!armed_&&tick==last_&&common()&&
+        return (stage_==1||stage_==2)&&!error_&&!armed_&&!status_pending_&&tick==last_&&common()&&
             (follow_.stage()?follow_.held(tick):quiescent());
     }
     static std::optional<unsigned> offset(uint32_t a)noexcept{
@@ -68,7 +70,20 @@ public:
         if(!off||*off==SiController::Poll)return fail(2);
         armed_=true;access_=access;off_=*off;store_value_=store_value;return true;
     }
+    // One explicitly authenticated resumed-handler status read. Neither
+    // the completed response nor the interrupt source may be changed.
+    bool arm_suffix_status_read(const uint64_t& tick,uint32_t address){
+        if(stage_!=2u||&tick!=tick_||status_pending_||status_reads_||!held(tick)||
+           follow_.stage()!=3u||pending()||offset(address)!=SiController::Status)return fail(8);
+        status_value_=ctl_->read(SiController::Status);status_pending_=true;return true;
+    }
     bool read(SiController& ctl,unsigned off,uint32_t& result){
+        if(stage_==2u){
+            if(error_||!status_pending_||status_reads_||&ctl!=ctl_||off!=SiController::Status||
+               !tick_||*tick_!=last_||!common()||follow_.stage()!=3u||!follow_.held(last_)||
+               ctl.read(off)!=status_value_)return fail(8);
+            result=ctl.read(off);status_pending_=false;++status_reads_;return true;
+        }
         if(!consume(ctl,off,Access::Read))return false;
         result=ctl.read(off);++reads_;return true;
     }
@@ -107,7 +122,7 @@ public:
         return after_return(tick);
     }
     bool after_return(uint64_t tick){
-        if(stage_!=2||error_||tick-last_!=1u||tick-start_>8192u||!common())return fail(7);
+        if(stage_!=2||error_||status_pending_||tick-last_!=1u||tick-start_>8192u||!common())return fail(7);
         last_=tick;return device(tick)?true:fail(7);
     }
 private:
@@ -120,6 +135,7 @@ private:
     unsigned stage_=0,error_=0,reads_=0,writes_=0,ch_=0,off_=0;
     uint64_t seq_=0,start_=0,last_=0,latency_=0;
     uint32_t other_=0,mask_before_=0,initial_control_=0,status_=0,poll_=0;
+    unsigned status_reads_=0;uint32_t status_value_=0;bool status_pending_=false;
     bool idle_=false,armed_=false;Access access_=Access::None;
     bool fail(unsigned n)noexcept{if(!error_)error_=n;return false;}
     bool common()const{return ctl_&&mask_->load()==mask_before_&&(cause_->load()&~SiController::PI_SI)==other_&&ctl_->read(SiController::Poll)==poll_;}
