@@ -33,7 +33,7 @@ int main(){
         for(unsigned i=0;i<leaf.size();++i)c.mmu.words[S+4*i]=leaf[i];
         for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
         CallbackPrefixWitness<6,3> w(C,S,prefix,leaf);
-        if(t==1)c.ctr|=3u;
+        if(t==1){c.ctr|=3u;c.pc=H-4u;}
         if(t==2)c.ctr=S;
         if(t==3)c.mmu.words[C+4]^=1u;
         if(t==4)c.mmu.words.erase(Stack-4u);
@@ -46,7 +46,10 @@ int main(){
         if(t==9)c.gpr[3]^=1u;
         if(t==8||t==9){need(!w.entry(c,C,true)&&w.failure()==2);++refused;continue;}
         need(w.entry(c,C,true));
-        auto step=[&](uint32_t pc,uint32_t word){c.pc=pc;++c.inst_count;return w.before(c,pc,word,true);};
+        auto step=[&](uint32_t pc,uint32_t word){
+            if(t!=1||pc==Resume)c.pc=pc; // pinned linear code may retain entry PC
+            ++c.inst_count;return w.before(c,pc,word,true);
+        };
         need(step(C,prefix[0]));
         c.mmu.words[Stack-64u]=Stack;c.gpr[1]=Stack-64u;
         if(t==10)c.mmu.words[Stack-64u]^=1u;

@@ -6,6 +6,8 @@ namespace undercover::wii {
 // Read-only witness for an authenticated bctrl, callback prologue,
 // compiler save leaf and the first unexecuted post-save instruction.
 // Original code and direct edges must be authenticated by the installer.
+// Linear labels do not necessarily update ctx.pc in the pinned emitter;
+// the exact emitted label is checked at every visit, ctx.pc at entries/return.
 template<std::size_t P,std::size_t S>
 class CallbackPrefixWitness {
     static_assert(P>=3&&P<=18&&S>=2&&S<=19);
@@ -19,7 +21,7 @@ public:
     unsigned writes()const{return writes_;}
     uint32_t resume()const{return root_+4u*uint32_t(P-1u);}
     template<class C>bool start(C& c,uint32_t pc,uint32_t word,bool identity,bool device){
-        if(stage_||error_||!identity||!device||!safe(c)||c.pc!=pc||
+        if(stage_||error_||!identity||!device||!safe(c)||
            word!=0x4e800421u||!match(c,pc,word)||
            (uint32_t(c.ctr)&~3u)!=root_||
            !range(root_,4u*P)||!range(save_,4u*S)||
@@ -47,11 +49,11 @@ public:
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t word,bool device){
         if((stage_!=2&&stage_!=4&&stage_!=5)||!common(c,device)||
-           pc!=next_||c.pc!=pc||c.inst_count-last_!=1u||
+           pc!=next_||c.inst_count-last_!=1u||
            !match(c,pc,word)||!state(c)||++visits_>P+S)return fail(3);
         last_=c.inst_count;
         if(stage_==5){
-            if(pc!=resume()||word!=prefix_.back()||writes_!=S+1u||
+            if(pc!=resume()||c.pc!=pc||word!=prefix_.back()||writes_!=S+1u||
                visits_!=P+S)return fail(4);
             stage_=6;return true;
         }
