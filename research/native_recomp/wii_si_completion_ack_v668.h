@@ -39,6 +39,12 @@ public:
            (first<end_&&first_<end))return fail(2);
         helper_first_=first;helper_end_=end;return true;
     }
+    bool allow_nested(uint32_t first,uint32_t end){
+        if(phase_!=Phase::Armed||!helper_first_||nested_first_||((first|end)&3u)||
+           first<0x80000000u||end>0x81800000u||end<=first||end-first>4096u||
+           (first<end_&&first_<end)||(first<helper_end_&&helper_first_<end))return fail(2);
+        nested_first_=first;nested_end_=end;return true;
+    }
     // Called at a real native instruction label, after its visit counter
     // increments but BEFORE executing that instruction.
     bool before(uint32_t pc,uint32_t word){
@@ -101,8 +107,8 @@ private:
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr;
     const std::atomic<uint32_t>* mask_=nullptr;const uint64_t* tick_=nullptr;
     uint32_t first_=0,end_=0,pc_=0,store_pc_=0,cause_before_=0,mask_before_=0,ack_control_=0,ack_status_=0;
-    uint32_t helper_first_=0,helper_end_=0;
-    bool allowed(uint32_t pc)const{return (pc>=first_&&pc<end_)||(helper_first_&&pc>=helper_first_&&pc<helper_end_);}
+    uint32_t helper_first_=0,helper_end_=0,nested_first_=0,nested_end_=0;
+    bool allowed(uint32_t pc)const{return (pc>=first_&&pc<end_)||(helper_first_&&pc>=helper_first_&&pc<helper_end_)||(nested_first_&&pc>=nested_first_&&pc<nested_end_);}
     uint64_t start_tick_=0,last_tick_=0,store_tick_=0;
     bool fail(unsigned reason)noexcept{if(!error_)error_=reason;phase_=Phase::Failed;return false;}
     [[noreturn]]void reject(unsigned reason){fail(reason);throw std::runtime_error("SI completion ACK trace rejected");}

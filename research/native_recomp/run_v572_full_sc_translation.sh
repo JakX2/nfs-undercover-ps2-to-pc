@@ -103,6 +103,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated"
       python3 "$here/prepare_v680_si_helper.py" "$dol" "$elf" "$work/generated"
       python3 "$here/prepare_v688_si_second.py" "$dol" "$elf" "$work/generated"
+      python3 "$here/prepare_v693_si_nested.py" "$dol" "$elf" "$work/generated"
     fi
   fi
   cat > "$work/probe.cpp" <<'CPP'

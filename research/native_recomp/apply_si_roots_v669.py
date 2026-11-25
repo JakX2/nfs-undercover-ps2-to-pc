@@ -25,9 +25,12 @@ def spans(dol,elf,first_helper=False):
         from si_second_geometry_v688 import second_plan
         _,target,size,_,_=second_plan(dol,elf)
         if target not in {a for a,_ in out}:out.append((target,size))
+        from si_nested_geometry_v693 import nested_plan
+        _,target,size,_,_=nested_plan(dol,elf)
+        if target not in {a for a,_ in out}:out.append((target,size))
     return tuple(sorted(out))
 def pairs(ranges=TEST_SPANS,alias=0):
-    if not set(ROOTS).issubset(pc for pc,_ in ranges) or len(ranges) not in (7,8,9) or tuple(sorted(set(pc for pc,_ in ranges)))!=tuple(pc for pc,_ in ranges) or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
+    if not set(ROOTS).issubset(pc for pc,_ in ranges) or len(ranges) not in (7,8,9,10) or tuple(sorted(set(pc for pc,_ in ranges)))!=tuple(pc for pc,_ in ranges) or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
         raise ValueError('SI roots')
     if any(a+n>b for (a,n),(b,_) in zip(ranges,ranges[1:])):raise ValueError('SI root overlap')
     if alias and (alias&3 or not 0x80000000<=alias<0x81800000 or any(a<=alias<a+n for a,n in ranges)):raise ValueError('first SI alias overlap')
@@ -59,7 +62,7 @@ def main():
             if is_alias:alias=target
         apply(a.root,ranges,alias)
     except (OSError,ValueError,UnicodeError) as exc:
-        reasons={'first SI dependency not direct':1,'first SI dependency extent':2,'first SI dependency return':3,'word identity':4,'SI root overlap':5,'SI roots':6,'SI root extent':7,'save leaf terminator':8,'save leaf shape':9,'save leaf extent':10,'save leaf sequence':11,'first SI alias containment':12,'first SI alias unsupported kind':13,'first SI alias overlap':14,'second SI call kind':15,'second SI extent':16,'second SI verified shape':17,'second SI verified dependencies':18}
+        reasons={'first SI dependency not direct':1,'first SI dependency extent':2,'first SI dependency return':3,'word identity':4,'SI root overlap':5,'SI roots':6,'SI root extent':7,'save leaf terminator':8,'save leaf shape':9,'save leaf extent':10,'save leaf sequence':11,'first SI alias containment':12,'first SI alias unsupported kind':13,'first SI alias overlap':14,'second SI call kind':15,'second SI extent':16,'second SI verified shape':17,'second SI verified dependencies':18,'nested first route':19,'nested extent':20,'nested verified shape':21}
         print(f'V682_SI_ANALYZER_REFUSAL category={reasons.get(str(exc),0)}')
         print('V669_SI_ANALYZER installed=0');return 1
     print(f'V669_SI_ANALYZER installed=1 roots={len(ranges)} exact_dol_elf=1 scoped=1 shared_alias={int(bool(alias))}');return 0
