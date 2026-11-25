@@ -1,0 +1,3 @@
+# V782: original alarm cancellation native control witness
+
+Create a bounded read-only call observer using exact private cancellation edges, three nested time leaves, one DEC primitive and the V780 queue snapshot. Authenticate entry LR, each native word and tick, nested leaf return, original branch successor, selected DEC callsite and caller return. Refuse unverified branch, call, interrupt state or queue changes. The original head fixture exercises the observer alongside the independently successful V764 semantics (six valid cases and a corrupted DEC control per generated mode). No full-image alarm call yet. Other cancellation lanes require their own original witness coverage. Private CI pending.
