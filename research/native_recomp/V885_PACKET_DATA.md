@@ -1,0 +1,3 @@
+# V885: authenticate the actual packet predicate in original writable data
+
+V883 private diagnostics show first load at choice index 1, signed -1 comparison at index 3 and equality branch at index 4. The actual closed-lane load was zero in MEM1 outside our guessed ranges. V885 requires that exact load/compare register relationship and verifies it dynamically. The candidate must belong to one unique non-executable writable ELF section intersecting original DOL data/BSS, not the synthetic stack or known SI active-channel word. All four channel addresses must have a repeated consistent stride in the same private section; only then is the original sentinel seeded into a fresh independent fixture. This is a focused alternate-path test, never a live patch. Private CI pending.

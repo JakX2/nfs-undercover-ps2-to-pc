@@ -54,7 +54,7 @@ static uint32_t pack(CPUContext& c){
     return v;
 }
 static void store(uint32_t a,uint32_t v){
-    need(a>=Low&&a<High&&!(a&3u));
+    need((a>=Low&&a<High)&&!(a&3u));
     stack[(a-Low)/4]=v;++writes;
 }
 static void state(CPUContext& c){
@@ -86,34 +86,33 @@ static void reference(uint32_t pc,uint32_t w){
     }else if(w==0x4e800020u){need(pc==S+4u*(save_words.size()-1u)&&lr==Resume);next=lr;}
     else fail(3);
 }
-static bool packet_address(uint32_t a){
-    return !(a&3u)&&a!=0x80619a60u&&((a>=0x80619a60u&&a<=0x8061aa5cu)||(a>=0x8070d000u&&a<=0x8070e8fcu));
-}
-static void packet_observe(CPUContext& c,uint32_t pc,uint32_t w){
-    if(w>>26==16u){++branch_visits;const unsigned bi=(w>>16)&31u;
-        const auto f=c.cr[bi/4u];const bool bit=bi%4u==0?f.lt:bi%4u==1?f.gt:bi%4u==2?f.eq:f.so;
-        std::cout<<"V883_PACKET_BRANCH index="<<branch_visits<<" field_kind="<<bi%4u<<" bit="<<unsigned(bit)<<std::endl;
+static unsigned packet_section(uint32_t a){
+    if((a&3u)||a==0x80619a60u||a>=Low&&a<High)return 0;
+    unsigned index=0,found=0;
+    for(auto s:PacketDataSpans){
+        ++index;
+        if(a>=s.lo&&uint64_t(a)+4u<=s.hi){if(found)return 0;found=index;}
     }
-    bool load=false;for(auto a:PacketProbes)load|=a==pc;
-    if(!load)return;
-    const unsigned ra=(w>>16)&31u,rb=(w>>11)&31u;
-    const uint32_t base=ra?c.gpr[ra]:0u;
-    const uint32_t address=base+(w>>26==32u?((w&0xffffu)^0x8000u)-0x8000u:c.gpr[rb]);
-    const unsigned region=address==0x80619a60u?1u:
-        (address>=0x80619a60u&&address<=0x8061aa5cu)?2u:
-        (address>=0x8070d000u&&address<=0x8070e8fcu)?3u:
-        (address>=Low&&address<High)?4u:
-        (address>=0x80000000u&&address<=0x817ffffcu)?5u:0u;
-    need(!(address&3u)&&c.mmu.get_ptr(address)&&c.mmu.get_ptr(address+3u));
-    const uint32_t value=c.mmu.read32(address);
-    const unsigned value_class=value==0u?0u:value==0xffffffffu?1u:value<=3u?2u:3u;
-    std::cout<<"V883_PACKET_LOAD index="<<++load_visits<<" region="<<region<<" value_class="<<value_class<<std::endl;
-    if(!packet_address(address)||value!=(open_lane?0xffffffffu:0u))return;
-    // A replay must observe the same privately discovered address. No
-    // mid-execution CPU or RAM writes are permitted.
-    if(open_lane&&address!=seed_addr)return;
-    need(!packet_addr||packet_addr==address);
-    packet_addr=address;++packet_reads;
+    return found;
+}
+static bool packet_address(uint32_t a){return packet_section(a)!=0u;}
+static unsigned seed_section=0;
+static bool compared=false;
+static void packet_observe(CPUContext& c,uint32_t pc,uint32_t w){
+    if(w>>26==16u)++branch_visits;
+    if(pc==PacketCompare){
+        need(packet_reads==1u&&!compared&&c.gpr[(w>>16)&31u]==(open_lane?0xffffffffu:0u));
+        compared=true;return;
+    }
+    if(pc!=PacketProbe)return;
+    need(!packet_reads&&!packet_addr&&!compared&&w>>26==32u);
+    const unsigned ra=(w>>16)&31u;
+    packet_addr=(ra?c.gpr[ra]:0u)+((w&0xffffu)^0x8000u)-0x8000u;
+    const unsigned section=packet_section(packet_addr);
+    need(section&&c.mmu.get_ptr(packet_addr)&&c.mmu.get_ptr(packet_addr+3u));
+    need(c.mmu.read32(packet_addr)==(open_lane?0xffffffffu:0u));
+    if(open_lane)need(packet_addr==seed_addr&&section==seed_section);
+    ++packet_reads;++load_visits;
 }
 
 namespace rfi_test{
@@ -124,10 +123,10 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(disabled){
         packet_observe(c,pc,w);need(choice.before(c,pc,w));
         if(choice.boundary()){
-            need(packet_reads&&packet_addr&&branch_visits&&choice.boundary()==(open_lane?4u:3u));
+            need(packet_reads==1u&&packet_addr&&compared&&branch_visits&&choice.boundary()==(open_lane?4u:3u));
             if(!open_lane){
                 std::ofstream f(seed_path,std::ios::out|std::ios::trunc);
-                need(bool(f));f<<packet_addr<<'\n';f.close();need(bool(f));
+                need(bool(f));f<<packet_addr<<' '<<packet_section(packet_addr)<<'\n';f.close();need(bool(f));
             }
             std::cout<<"V881_OWNER_PACKET_CHOICE trial="<<trial<<" free="<<unsigned(open_lane)
                 <<" next="<<choice.boundary()<<" visits="<<choice.visits()<<" original_disable_return=1 call_executed=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
@@ -198,8 +197,8 @@ int main(int argc,char** argv)try{
     c.mmu.write8(Stack+0x80u,0u);stack[(Stack+0x80u-Low)/4u]&=0x00ffffffu;
     c.mmu.write32(0x80619a60u,0xffffffffu);
     if(open_lane){
-        std::ifstream f(seed_path);uint64_t a=0;need(bool(f>>a)&&a<=UINT32_MAX);f>>std::ws;need(f.eof());
-        seed_addr=uint32_t(a);need(packet_address(seed_addr)&&c.mmu.read32(seed_addr)==0u);c.mmu.write32(seed_addr,0xffffffffu);
+        std::ifstream f(seed_path);uint64_t a=0;need(bool(f>>a>>seed_section)&&a<=UINT32_MAX&&seed_section);f>>std::ws;need(f.eof());
+        seed_addr=uint32_t(a);need(packet_address(seed_addr)&&packet_section(seed_addr)==seed_section&&c.mmu.read32(seed_addr)==0u);c.mmu.write32(seed_addr,0xffffffffu);
     }
     gp=c.gpr;
     for(unsigned i=0;i<8;++i){c.cr[i].lt=bool((i+trial)&1);c.cr[i].gt=bool((i+trial)&2);c.cr[i].eq=bool((i+trial)&4);c.cr[i].so=bool((i+trial)&8);}
