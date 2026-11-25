@@ -6,7 +6,7 @@ from prepare_v419_full_start import MAX_DOL,replace_exact
 from prepare_owner_pair_v753 import H
 from prepare_v680_si_helper import exact_function
 from prepare_v709_os_leaves import owns_root
-from prepare_v726_handler_return import verify_resume_dispatch
+from verify_callback_resume_v853 import verify_callback_resume
 from prepare_v667_si_dispatch import exact
 from prepare_owner_callback_write_v838 import plan as joined_plan,header as joined_header
 from prepare_owner_wireless_return_v837 import install,patch_analyzer,validate_overlaps
@@ -108,10 +108,10 @@ def header(p,out,full=False):
 def install_resume(root):
     paths=sorted(root.glob('*.cpp'));main=root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')
     src={p:p.read_text() for p in paths}
-    verify_resume_dispatch(src[main],H,H+4)
     owners=[p for p,s in src.items() if owns_root(s,H)]
     if len(owners)!=1:raise ValueError('dispatch caller owner')
     p=owners[0];body=exact_function(src[p],H)
+    verify_callback_resume(src[main],body,H,H+4)
     pat=re.compile(r'(?mi)^loc_'+f'{H+4:X}'+r': ;\n    // 0x'+f'{H+4:08X}'+r': 60000000\n(?=    \+\+ctx\.inst_count;\n    rfi_test::before\(ctx,)')
     if len(pat.findall(body))!=1:raise ValueError('dispatch resume label')
     out=pat.sub(lambda m:m[0]+f'    rfi_test::dispatch_resume(ctx,0x{H+4:08x}u,0x60000000u);\n',body,count=1)
@@ -134,7 +134,7 @@ def main():
         else:
             header(q,a.output,a.callback_return);print('V842_POST_SETTER_GEOMETRY verified=1 labels=21 backward=1 store=1 indirect=1 restore=1')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('dispatch requires callback return','dispatch caller shape','dispatch caller owner','dispatch resume label','resume dispatcher identity','callback return census','callback return extent','callback return shape','callback return identity','postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
+        safe=('dispatch requires callback return','dispatch caller shape','dispatch caller owner','dispatch resume label','resume dispatcher identity','outer dispatcher extent','local resume dispatcher identity','callback return census','callback return extent','callback return shape','callback return identity','postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
         print('V842_POST_SETTER_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

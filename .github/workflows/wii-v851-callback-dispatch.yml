@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v851*'
+      - 'research/native_recomp/*v853*'
       - '.github/workflows/wii-v851-callback-dispatch.yml'
 permissions:
   contents: read
@@ -15,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v853_resume_dispatch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v802_callback_time.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
