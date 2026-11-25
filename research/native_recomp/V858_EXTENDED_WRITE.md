@@ -1,0 +1,3 @@
+# V858: reuse the wireless wrapper witness through original EXI write
+
+V857 actual controller/endpoint scheduler trace passed its independent original-free tests. Extend V844 only via explicit continue_write at the authenticated EXILock entry; retain original caller frames and tick, verify extra private roots and restore aliases, require each backward branch poll, restrict RAM/MMIO accesses and check pending RAM-store bytes. Independent V857 transaction trace must observe the real 12 completions, 44-byte payload and deselect before the setter return is accepted. V858 owner CI exercises the same original callback fixture in both native translation modes and both changed/unchanged lanes. Live integration is not installed yet. Existing V844 default still stops at EXILock.
