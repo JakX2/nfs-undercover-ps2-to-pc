@@ -1,0 +1,25 @@
+name: Wii V708 Native Same-thread RFI Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v708*'
+      - 'research/native_recomp/*v707*'
+      - '.github/workflows/wii-v708-rfi.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile independent native SI exception and integer context return
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw708"
+          git -C "$RUNNER_TEMP/nw708" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw708" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw708" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_rfi_v708.sh "$RUNNER_TEMP/nw708"
