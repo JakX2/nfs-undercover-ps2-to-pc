@@ -24,12 +24,11 @@ def plan(dol,elf):
     if len(sites)!=8 or any(k!=1 for _,k,_ in sites):
         raise ValueError('select edges')
     s,f=sites[0][2],sites[-1][2]
-    if [a for _,_,a in sites[1:-1]]!=[DISABLE,PROBE,RESTORE,MASK,UNMASK,RESTORE]:
-        # MASK/UNMASK order may differ, but only these exact targets
-        # are legal in the two alternate interrupt-mask branches.
-        ds=[a for _,_,a in sites[1:-1]]
-        if ds[:3]!=[DISABLE,PROBE,RESTORE] or set(ds[3:5])!={MASK,UNMASK} or ds[-1]!=RESTORE:
-            raise ValueError('select edges')
+    # V812 authenticated identical targets at ordinals 5 and 6.
+    # Both are alternative calls to the same mask wrapper.
+    ds=[a for _,_,a in sites[1:-1]]
+    if ds[:3]!=[DISABLE,PROBE,RESTORE] or ds[3]!=ds[4] or ds[3] not in (MASK,UNMASK) or ds[-1]!=RESTORE:
+        raise ValueError('select edges')
     k=32-((exact(dol,elf,s,1)[0]>>21)&31)
     if not 1<=k<=18:raise ValueError('alias count')
     save=alias(dol,elf,s,sizes,k);restore=alias(dol,elf,f,sizes,k)
