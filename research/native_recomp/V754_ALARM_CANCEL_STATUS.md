@@ -1,0 +1,3 @@
+# V754: original OSCancelAlarm native queue operations
+
+V749 authenticated the 70-word original cancellation root, with existing disable/restore dependencies and a possible timer reprogramming route via system time and three two-word calls. V754 focuses on original inactive, middle, tail and singleton cancellation paths with synthetic alarm nodes, verified queue SDA identity, full native instruction audit, exact direct edges, queue link/handler checks and canaries. The head-with-successor case intentionally refuses at the system-time dependency before it executes. No timer reprogramming, original SI handler path or continuous boot is claimed. Owner CI pending.
