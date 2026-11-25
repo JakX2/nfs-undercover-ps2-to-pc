@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v720*'
+      - 'research/native_recomp/*v722*'
       - '.github/workflows/wii-v720-context-loader.yml'
 permissions:
   contents: read
@@ -17,6 +18,8 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v720_context_loader.py -v
           bash -n research/native_recomp/run_owner_context_v720.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v722_scheduler_geometry.py -v
+          bash -n research/native_recomp/run_owner_scheduler_v722.sh
   owner-context:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -49,6 +52,13 @@ jobs:
           git -C "$RUNNER_TEMP/nw720" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw720" checkout -q --detach FETCH_HEAD
           bash research/native_recomp/run_owner_context_v720.sh "$RUNNER_TEMP/nw720" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Execute original scheduler-enable and no-switch reschedule lane
+        run: |
+          set -euo pipefail
+          umask 077
+          git -C "$RUNNER_TEMP/nw720" reset -q --hard 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw720" clean -q -fdx
+          bash research/native_recomp/run_owner_scheduler_v722.sh "$RUNNER_TEMP/nw720" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw720"
