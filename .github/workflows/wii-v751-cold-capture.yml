@@ -23,7 +23,7 @@ jobs:
           "$RUNNER_TEMP/v663"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_saved_context_v751.cpp -o "$RUNNER_TEMP/v751"
           "$RUNNER_TEMP/v751"
-          python3 -m py_compile research/native_recomp/prepare_v751_cold_capture.py research/native_recomp/audit_v751_cold_capture.py
+          python3 -m unittest discover -s research/native_recomp -p test_v751_cold_capture.py -v
   owner-preflight:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
