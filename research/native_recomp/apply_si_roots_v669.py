@@ -10,7 +10,7 @@ from make_private_elf_symbol_map import parse_functions
 TRAMP=0x80526ce0
 ROOTS=tuple(sorted({DISPATCH,HANDLER,SCHED,TIME,DISABLE,RESTORE,TRAMP}))
 TEST_SPANS=tuple((r,4) for r in ROOTS)
-def spans(dol,elf,first_helper=False):
+def spans(dol,elf,first_helper=False,epilogue=False):
     geometry(dol,elf)
     sizes=parse_functions(elf);out=[]
     for pc in ROOTS:
@@ -28,9 +28,16 @@ def spans(dol,elf,first_helper=False):
         from si_nested_geometry_v693 import nested_plan
         _,target,size,_,_=nested_plan(dol,elf)
         if target not in {a for a,_ in out}:out.append((target,size))
+    if epilogue:
+        from prepare_owner_scheduler_v722 import plan,E,S
+        from prepare_owner_context_v720 import plan as loader,L
+        q=plan(dol,elf)[0];code,_=loader(dol,elf)
+        for a,words in ((E,q[E]),(S,q[S]),(L,code)):
+            if a in {x for x,_ in out}:raise ValueError('epilogue root overlap')
+            out.append((a,4*len(words)))
     return tuple(sorted(out))
 def pairs(ranges=TEST_SPANS,alias=0,restore_alias=0):
-    if not set(ROOTS).issubset(pc for pc,_ in ranges) or len(ranges) not in (7,8,9,10) or tuple(sorted(set(pc for pc,_ in ranges)))!=tuple(pc for pc,_ in ranges) or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
+    if not set(ROOTS).issubset(pc for pc,_ in ranges) or len(ranges) not in (7,8,9,10,11,12,13) or tuple(sorted(set(pc for pc,_ in ranges)))!=tuple(pc for pc,_ in ranges) or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
         raise ValueError('SI roots')
     if any(a+n>b for (a,n),(b,_) in zip(ranges,ranges[1:])):raise ValueError('SI root overlap')
     aliases=tuple(x for x in (alias,restore_alias) if x)
@@ -52,11 +59,11 @@ def apply(root,ranges,alias=0,restore_alias=0):
     old=p.read_text(encoding='utf-8');new=rewrite(old,pairs(ranges,alias,restore_alias))
     if new!=old:p.write_text(new,encoding='utf-8')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('--first-ack-helper',action='store_true');p.add_argument('--restore-alias',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('--first-ack-helper',action='store_true');p.add_argument('--restore-alias',action='store_true');p.add_argument('--epilogue',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>32*1024*1024 or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         dol,elf=a.dol.read_bytes(),a.elf.read_bytes()
-        ranges=spans(dol,elf,a.first_ack_helper);alias=0
+        ranges=spans(dol,elf,a.first_ack_helper,a.epilogue);alias=0
         if a.first_ack_helper:
             from si_helper_geometry_v680 import helper_plan
             (_,target,_,_,_),is_alias,_=helper_plan(dol,elf)

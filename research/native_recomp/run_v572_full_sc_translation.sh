@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture || "$4" == --prepare-si-combined || "$4" == --run-si-combined || "$4" == --prepare-si-captured || "$4" == --run-si-captured ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture || "$4" == --prepare-si-combined || "$4" == --run-si-combined || "$4" == --prepare-si-captured || "$4" == --run-si-captured || "$4" == --prepare-si-epilogue || "$4" == --run-si-epilogue ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
 external_entry=0
@@ -18,6 +18,9 @@ si_handler_time=0
 si_time_suffix=0
 si_combined=0
 si_captured=0
+si_epilogue=0
+if [[ "$mode" == --prepare-si-epilogue ]]; then mode=--prepare-si-captured;si_epilogue=1;fi
+if [[ "$mode" == --run-si-epilogue ]]; then mode=--run-si-captured;si_epilogue=1;fi
 if [[ "$mode" == --prepare-si-captured ]]; then mode=--prepare-si-combined;si_captured=1;external_capture=1;fi
 if [[ "$mode" == --run-si-captured ]]; then mode=--run-si-combined;si_captured=1;external_capture=1;fi
 if [[ "$mode" == --prepare-si-combined ]]; then mode=--prepare-si-handler-return;si_combined=1;fi
@@ -90,6 +93,7 @@ if [[ "$external_entry" == 1 ]]; then
   helper_args=()
   [[ "$si_ack" != 1 ]] || helper_args+=(--first-ack-helper)
   if [[ "$si_handler_restore" == 1 || "$si_combined" == 1 ]]; then helper_args+=(--restore-alias);fi
+  [[ "$si_epilogue" != 1 ]] || helper_args+=(--epilogue)
   python3 "$here/apply_si_roots_v669.py" "$nw" "$dol" "$elf" "${helper_args[@]}"
 fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
@@ -136,6 +140,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_handler_restore" == 1 ]]; then python3 "$here/prepare_v738_handler_restore.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_handler_time" == 1 ]]; then python3 "$here/prepare_v742_handler_time.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_combined" == 1 ]]; then python3 "$here/prepare_v760_combined_handler.py" "$dol" "$elf" "$work/generated";fi
+      if [[ "$si_epilogue" == 1 ]]; then python3 "$here/prepare_v767_live_epilogue.py" "$dol" "$elf" "$work/generated";fi
     fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
@@ -184,6 +189,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$si_time_suffix" != 1 ]] || target=irq-si-time-suffix
     [[ "$si_combined" != 1 ]] || target=irq-si-combined
     [[ "$si_captured" != 1 ]] || target=irq-si-captured
+    [[ "$si_epilogue" != 1 ]] || target=irq-si-epilogue
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
