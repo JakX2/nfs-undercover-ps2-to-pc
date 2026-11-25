@@ -92,7 +92,7 @@ def header(p, out):
         f.write(s)
 
 
-def install(p, root, extra_links=(), use_reachable=False):
+def install(p, root, extra_links=(), use_reachable=False, indirect_caller=False):
     roots, C, S, site, _, _ = p
     paths = sorted(root.glob('*.cpp'))
     if not paths or any(x.is_symlink() or x.stat().st_size > 4 * 1024 * 1024 for x in paths):
@@ -107,7 +107,13 @@ def install(p, root, extra_links=(), use_reachable=False):
         expected = {a + 4 * i: (a, w) for a, ws in roots.items() for i, w in enumerate(ws)}
     if audit_native(src.values(), outer, expected) != len(expected):
         raise ValueError('native coverage')
-    for owner, pc, dst in ((H, H, C), (C, site, S), *extra_links):
+    if indirect_caller:
+        from prepare_owner_indirect_callback_v806 import verify_indirect
+        owners = [exact_function(s, H) for s in src.values() if owns_root(s, H)]
+        if len(owners) != 1:
+            raise ValueError('native owner')
+        verify_indirect(owners[0], H)
+    for owner, pc, dst in ((() if indirect_caller else ((H, H, C),)) + ((C, site, S),) + tuple(extra_links)):
         owned = [exact_function(s, owner) for s in src.values() if owns_root(s, owner)]
         if len(owned) != 1:
             raise ValueError('native owner')
@@ -134,7 +140,9 @@ def install(p, root, extra_links=(), use_reachable=False):
         raise ValueError('hook coverage')
     for path, s in changes.items():
         path.write_text(s)
-    if use_reachable:
+    if indirect_caller:
+        print(f'V806_CALLBACK_NATIVE_ROUTE labels={len(expected)} indirect=1 direct=1 fallback=0 execution=0')
+    elif use_reachable:
         print(f'V802_CALLBACK_NATIVE_ROUTE labels={len(expected)} direct_edges={2+len(extra_links)} fallback=0 execution=0')
     else:
         print('V797_PREFIX_NATIVE_ROUTE original_prefix=1 original_save=1 direct_edges=2 fallback=0 execution=0')
