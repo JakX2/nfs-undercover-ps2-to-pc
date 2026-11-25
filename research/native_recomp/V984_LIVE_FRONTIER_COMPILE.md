@@ -1,0 +1,3 @@
+# V984: compiled live transfer-frontier route
+
+V981 source-only CI 45723129224 passed four valid and twelve refused read-only argument cases and the existing V977 time cases. V984 adds a bounded call-route stop witness: exact handler owner, zero depth, no pending entry/return, unchanged full MSR, original direct-call form, and no already-authorized edge. It does not execute the call. The production composed SI binding is tested with synthetic label events and independent packet RAM for one valid admission, two nonadmitted classifications, three refused corrupted routes, and the unchanged time-only mode. Tests pending; no continuous transfer execution claim.

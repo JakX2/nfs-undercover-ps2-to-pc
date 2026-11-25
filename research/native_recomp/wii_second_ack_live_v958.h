@@ -31,6 +31,9 @@ inline bool active(){return ack.stage()!=0u;}
 }
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+    if(frontier_enabled()&&(!time_enabled()||!post_enabled()))return false;
+#endif
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
     if(time_enabled()){
         if(!post_enabled()||!calls.begin(c,time_spans,time_edges,msr_sites))return false;
@@ -44,7 +47,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(frontier_enabled()&&time_seen&&pc==transfer_call){
         if(!guard||w!=transfer_branch||!frame||!frame->saved_integer(c,context).ok()||
-           ++visits>8192u||!ack.before(c,pc,w,true)||!ack.postack_held()||calls.depth()!=0u)reject(11);
+           ++visits>8192u||!ack.before(c,pc,w,true)||!ack.postack_held()||!calls.stop_before_direct(c,pc,w))reject(11);
         const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits

@@ -83,6 +83,17 @@ public:
         active_=owner(spans_,pc);if(active_>=spans_.size())return fail(5);
         next_=pc;pending_entry_=0;++entries_;return true;
     }
+    // Verify an authenticated but deliberately unexecuted direct call at
+    // the handler root. No call stack is created and no guest state changes.
+    template<class C>bool stop_before_direct(C& c,uint32_t pc,uint32_t w){
+        const uint32_t d=((w&0x03fffffcu)^0x02000000u)-0x02000000u;
+        const uint32_t dst=pc+d;
+        if(!same(c)||!can_poll()||depth_||active_||next_||pc<spans_[0].root||
+           pc>=spans_[0].end||(pc&3u)||(w>>26)!=18u||(w&3u)!=1u||
+           dst<0x80000000u||dst>=0x81800000u||dst==pc)return fail(4);
+        for(const auto e:edges_)if(e.site==pc)return fail(4);
+        return true;
+    }
     bool can_poll()const{return cpu_&&!error_&&!pending_entry_&&!pending_return_&&!msr_pending_;}
 private:
     struct Frame{uint32_t ret=0;unsigned caller=0;std::array<uint32_t,32> gp{};};
