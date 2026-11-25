@@ -1,0 +1,3 @@
+# V947: private dispatcher data and verified cold mask
+
+Seed authenticated initialized DOL data ranges in the focused process, preserving original static priority tables rather than fabricating their contents. The original DOL is already authenticated by V946 geometry; data are copied only into private native RAM, not uploaded. Use the prior V623 verified pre-IPC software mask (SI unmasked), original SDA bases, original startup stack and independently classified scheduler counter displacement. Reset only the fixture's scheduler counter to zero after loading static data. Detect malformed overlapping/unmapped sections. Handle negative PI observation at either a trace or poll boundary. Focused test remains synthetic at entry, original at the dispatcher.

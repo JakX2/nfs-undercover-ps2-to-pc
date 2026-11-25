@@ -7,6 +7,8 @@
 #include <array>
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
+#include <vector>
 #include <memory>
 #include <source_location>
 #include <string>
@@ -34,6 +36,24 @@ static bool held(){
     std::_Exit(126);
 }
 static void need(bool ok,const std::source_location loc=std::source_location::current()){if(!ok)fail(1,loc.line());}
+// The runner authenticates this same DOL against the owner hash before
+// invoking the fixture. Copy only initialized data sections, not code.
+static void load_private_data(CPUContext& c,const char* path){
+    std::ifstream f(path,std::ios::binary|std::ios::ate);need(bool(f));
+    const auto n=f.tellg();need(n>=256&&n<=32*1024*1024);
+    std::vector<uint8_t> raw(static_cast<size_t>(n));f.seekg(0);f.read(reinterpret_cast<char*>(raw.data()),n);need(bool(f));
+    auto be=[&](unsigned off){return (uint32_t(raw[off])<<24)|(uint32_t(raw[off+1])<<16)|(uint32_t(raw[off+2])<<8)|raw[off+3];};
+    std::vector<std::pair<uint32_t,uint32_t>> ranges;
+    for(unsigned i=7;i<18;++i){
+        const uint32_t off=be(4*i),base=be(0x48+4*i),size=be(0x90+4*i);
+        if(!size)continue;
+        need(off>=256u&&uint64_t(off)+size<=raw.size()&&base>=0x80000000u&&uint64_t(base)+size<=0x81800000u);
+        for(auto [a,b]:ranges)need(base>=b||uint64_t(base)+size<=a);
+        auto* p=c.mmu.get_ptr(base);need(p&&c.mmu.get_ptr(base+size-1u)==p+size-1u);
+        std::copy_n(raw.data()+off,size,p);ranges.emplace_back(base,base+size);
+    }
+    need(!ranges.empty());
+}
 namespace rfi_test {
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(held()&&!(c.msr&0x8000u)&&c.mmu.read32(pc)==w&&
@@ -60,7 +80,9 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
     if(!entries){need(c.pc==Dispatcher&&held());return false;}
-    need(witness.poll(c,cause.load(),Mask,held()));
+    const bool ok=witness.poll(c,cause.load(),Mask,held());
+    if(bad_pi&&!ok){need(witness.failure()==2u);std::cout<<"V946_PI_REFUSAL wrong_value=1"<<std::endl;std::_Exit(126);}
+    need(ok);
     if(c.inst_count==last+1u)last=c.inst_count;
     else need(c.inst_count==last);
     ++polls;return false;
@@ -83,9 +105,10 @@ void HW_Reg_Write16(uint32_t,uint16_t){fail(8);}void HW_Reg_Write32(uint32_t,uin
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==3);trial=unsigned(std::stoul(argv[1]));need(trial<8);
+    need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
+    load_private_data(c,argv[3]);
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
     put(Dispatcher,dispatcher_words);put(Scheduler,scheduler_words);put(Time,time_words);put(Disable,disable_words);put(Restore,restore_words);put(Handler,handler_words);
     SiController dev(cause);ctl=&dev;
@@ -98,7 +121,7 @@ int main(int argc,char** argv)try{
     held_control=dev.read(SiController::Control);held_status=dev.read(SiController::Status);
     for(unsigned i=0;i<32;++i)held_buffer[i]=dev.read(SiController::Buffer+4*i);
     need(held());
-    c.gpr.fill(0);c.gpr[1]=0x80040000u;c.gpr[2]=0x80025000u;c.gpr[13]=Sda;
+    c.gpr.fill(0);c.gpr[1]=0x80751cb8u-88u;c.gpr[2]=0x80715ee0u;c.gpr[13]=Sda;
     for(unsigned i=14;i<32;++i)c.gpr[i]=i*0x1234567u+trial;
     c.cr.fill({});c.pc=Resume;c.lr=0x80006000u;c.ctr=17;c.xer=0x80000000u;
     c.msr=0x8032u;c.srr0=c.srr1=0;c.inst_count=100;c.is_running=true;
@@ -106,8 +129,9 @@ int main(int argc,char** argv)try{
     for(unsigned i=0;i<32;++i)c.mmu.write32(Context+4*i,c.gpr[i]);
     c.mmu.write32(Context+128,0);c.mmu.write32(Context+132,c.lr);c.mmu.write32(Context+136,c.ctr);c.mmu.write32(Context+140,c.xer);
     c.mmu.write32(Context+408,Resume);c.mmu.write32(Context+412,c.msr);
-    c.mmu.write32(0x800000c0u,Context&0x3fffffffu);c.mmu.write32(0x800000c4u,0xfffffff0u);c.mmu.write32(0x800000c8u,0);
+    c.mmu.write32(0x800000c0u,Context&0x3fffffffu);c.mmu.write32(0x800000c4u,0xf7fff7f0u);c.mmu.write32(0x800000c8u,0);
     c.mmu.write32(0x800000d4u,Context);c.mmu.write32(0x800000e4u,Context);
+    c.mmu.write32(Sda+SchedulerCounterDisp,0u);
     c.mmu.write32(Sda-3408u,0x80003040u);c.mmu.write32(0x80003090u,Handler);
     c.pc=Dispatcher;c.gpr[3]=4;c.gpr[4]=Context;c.msr=0x32u;c.srr0=Resume;c.srr1=0x8032u;c.inst_count=150u;
     run_game(c);fail(9);

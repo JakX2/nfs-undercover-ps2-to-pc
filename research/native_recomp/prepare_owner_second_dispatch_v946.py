@@ -5,7 +5,7 @@ from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from prepare_v667_si_dispatch import geometry,exact,DISPATCH,HANDLER,SCHED,TIME,DISABLE,RESTORE
 from make_private_elf_symbol_map import parse_functions
-from prepare_owner_scheduler_v722 import ROOT,READ,rewrite
+from prepare_owner_scheduler_v722 import ROOT,READ,rewrite,sda_accesses
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import verify_direct,exact_function
 from prepare_v709_os_leaves import owns_root
@@ -63,6 +63,9 @@ def header(p,out):
     fmt=lambda vs:','.join(f'0x{v:08x}u' for v in vs)
     s+='inline constexpr undercover::wii::SiDispatchExpectations DispatchExpected{{'+','.join('undercover::wii::SiDispatchEdge{'+fmt(x)+'}' for x in edges)+'},'+fmt((indirect,iw,hw,dw))+'};\n'
     s+=f'inline constexpr std::array<uint32_t,{len(guard)}> Guard{{'+fmt(sorted(guard))+'};\n'
+    reads=sda_accesses(roots[SCHED],32);writes=sda_accesses(roots[SCHED],36)
+    if len(reads)!=1 or reads!=writes:raise ValueError('scheduler counter')
+    s+=f'inline constexpr int32_t SchedulerCounterDisp={reads[0]};\n'
     with out.open('x') as f:f.write(s)
 def patch_analyzer(p,root):
     spans=sorted((a,a+4*len(ws)) for a,ws in p[0].items())
@@ -110,7 +113,7 @@ def main():
         else:
             header(q,a.output);print(f'V946_DISPATCH_GEOMETRY roots=6 original_edges=4 guarded_labels={len(q[-1])} execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        allowed=('ownership','reachability','native coverage','native owner','hook identity','hook include','hook coverage','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        allowed=('scheduler counter','ownership','reachability','native coverage','native owner','hook identity','hook include','hook coverage','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V946_DISPATCH_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
