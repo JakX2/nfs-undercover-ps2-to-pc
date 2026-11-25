@@ -42,9 +42,25 @@ public:
         msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;
         next_=root_;stage_=1;return true;
     }
+    // The pinned bctrl emitter returns to the outer dispatcher. Its
+    // pending callback poll happens before the one outer dispatch tick.
+    // Do not use this lane for a direct native call. Raw unaligned CTR
+    // is refused because the pinned emitter does not mask it itself.
+    template<class C>bool start_dispatch(C& c,uint32_t pc,uint32_t word,bool identity,bool device){
+        if(uint32_t(c.ctr)!=root_)return fail(1);
+        if(!start(c,pc,word,identity,device))return false;
+        dispatch_=true;return true;
+    }
+    template<class C>bool dispatch_poll(C& c,bool device){
+        if(!dispatch_||polled_||stage_!=1||!common(c,device)||
+           c.pc!=root_||c.inst_count!=last_||!state(c))return fail(2);
+        polled_=true;return true;
+    }
     template<class C>bool entry(C& c,uint32_t pc,bool device){
+        const bool outer=stage_==1&&dispatch_;
         if((stage_!=1&&stage_!=3)||!common(c,device)||c.pc!=pc||
-           pc!=next_||c.inst_count!=last_||!state(c))return fail(2);
+           pc!=next_||(outer&&!polled_)||c.inst_count-last_!=unsigned(outer)||!state(c))return fail(2);
+        if(outer)last_=c.inst_count;
         stage_=stage_==1?2u:4u;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t word,bool device){
@@ -83,6 +99,7 @@ private:
     std::array<uint32_t,32> gp_{};
     std::array<uint32_t,0x500u/4u> stack_{};
     const void* cpu_=nullptr;
+    bool dispatch_=false,polled_=false;
     unsigned stage_=0,error_=0,visits_=0,writes_=0,index_=0,leaf_index_=0;
     uint32_t low_=0,next_=0,lr_=0,ctr_=0,xer_=0,cr_=0,msr_=0,srr0_=0,srr1_=0;
     uint64_t last_=0;

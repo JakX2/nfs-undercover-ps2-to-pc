@@ -25,7 +25,7 @@ struct Cpu{
 void need(bool v){if(!v)throw std::runtime_error("V800 synthetic invariant");}
 int main(){
     unsigned pass=0,refused=0;
-    for(unsigned t=0;t<16;++t){
+    for(unsigned t=0;t<24;++t){
         Cpu c;
         for(unsigned i=0;i<32;++i)c.gpr[i]=0x1234567u*(i+1u);
         c.gpr[1]=Stack;c.mmu.words[H]=Bctrl;
@@ -38,10 +38,24 @@ int main(){
         if(t==3)c.mmu.words[C+4]^=1u;
         if(t==4)c.mmu.words.erase(Stack-4u);
         if(t==5)c.gpr[1]|=1u;
-        const bool start=w.start(c,H,Bctrl,t!=6,t!=7);
-        if(t>=2&&t<=7){need(!start&&w.failure()==1);++refused;continue;}
+        const bool dispatcher=t>=16;
+        if(t==17)c.ctr|=3u;
+        const bool start=dispatcher?w.start_dispatch(c,H,Bctrl,true,true):w.start(c,H,Bctrl,t!=6,t!=7);
+        if((t>=2&&t<=7)||t==17){need(!start&&w.failure()==1);++refused;continue;}
         need(start);
         c.pc=C;c.lr=H+4u;
+        if(dispatcher){
+            if(t==18)c.lr^=4u;
+            if(t==19)++c.inst_count;
+            if(t!=20){
+                const bool polled=w.dispatch_poll(c,t!=21);
+                if(t==18||t==19||t==21){need(!polled&&w.failure()==2);++refused;continue;}
+                need(polled);
+                if(t==22){need(!w.dispatch_poll(c,true)&&w.failure()==2);++refused;continue;}
+            }
+            if(t!=23)++c.inst_count;
+            if(t==20||t==23){need(!w.entry(c,C,true)&&w.failure()==2);++refused;continue;}
+        }
         if(t==8)++c.inst_count;
         if(t==9)c.gpr[3]^=1u;
         if(t==8||t==9){need(!w.entry(c,C,true)&&w.failure()==2);++refused;continue;}
@@ -72,6 +86,6 @@ int main(){
         need(step(Resume,Nop)&&w.stage()==6&&w.visits()==9&&w.writes()==4);
         ++pass;
     }
-    need(pass==2&&refused==14);
-    std::cout<<"V800_CALLBACK_PREFIX synthetic=1 valid=2 refused=14 original_execution=0\n";
+    need(pass==3&&refused==21);
+    std::cout<<"V804_CALLBACK_PREFIX synthetic=1 valid=3 refused=21 dispatcher=1 original_execution=0\n";
 }
