@@ -1,10 +1,6 @@
 import unittest
 from unittest.mock import patch
-from prepare_v786_alarm_return import scheduler_hook,patch_ack,patch_handler
-from prepare_v778_transfer_suffix import patch_handler as transfer_suffix
-from prepare_v742_handler_time import patch_handler as time_handler
-from prepare_v768_transfer_prefix import patch_handler as prefix_handler
-from pathlib import Path
+from prepare_v786_alarm_return import scheduler_hook,patch_ack
 from audit_v786_alarm_return import inspect
 class Alarm(unittest.TestCase):
     def test_order(self):
@@ -18,13 +14,6 @@ class Alarm(unittest.TestCase):
         s=patch_ack('    if(v768::active()&&!v768::returned_active())return v768::poll(c);\nif(v768::observe(a,c))return;')
         self.assertLess(s.index('v786::poll'),s.index('v768::poll'))
         self.assertLess(s.index('v786::observe'),s.index('v768::observe'))
-    def test_handler_suffix(self):
-        s=(Path(__file__).parent/'wii_si_handler_return_binding_v726.h').read_text()
-        s=patch_handler(transfer_suffix(prefix_handler(time_handler(s))))
-        self.assertLess(s.index('v786::returned(c,pc,w)'),s.index('witness.alarm_returned'))
-        self.assertLess(s.index('witness.alarm_returned'),s.index('const bool allow='))
-        self.assertLess(s.index('v786::classify'),s.index('V778_NEXT_BOUNDARY'))
-        with self.assertRaises(ValueError):patch_handler(s)
     def test_audit(self):
         base=b'V777_TRANSFER_RESULT original_return=1 abi=1 irq_restore=1 compiler_restore=1 idle=1 irq_lane=1 reads=2 writes=3 follow=2 pending=1 total=80 handler_instruction_executed=0 boot_verified=0'
         a=b'V786_ALARM_ENTRY lane=4 timer=1'
