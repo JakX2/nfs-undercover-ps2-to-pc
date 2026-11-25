@@ -25,7 +25,7 @@ for mode in nonsplit split; do
   mkdir "$work/seeds"
   for trial in {0..7}; do
     timeout 20s "$work/probe" discover "$trial" "$work/seeds/$trial.txt" > "$work/run.log" 2>&1 || {
-      grep -Ex 'V881_PREFIX_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-4] visits=[0-9]{1,3} writes=[0-9]{1,2} choice=[0-4] memory=[0-5]' "$work/run.log" || true
+      grep -Ex 'V881_PREFIX_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-4] visits=[0-9]{1,3} writes=[0-9]{1,2} choice=[0-4] memory=[0-5] packet_reads=[0-9]+ branches=[0-9]+ boundary=[0-9]' "$work/run.log" || true
       echo 'V881_DISCOVERY failed=1';exit 1;
     }
     grep -Ex "V881_OWNER_PACKET_CHOICE trial=$trial free=0 next=3 visits=[0-9]{1,3} original_disable_return=1 call_executed=0 fallback=0 continuous_boot=0" "$work/run.log"
@@ -33,7 +33,7 @@ for mode in nonsplit split; do
   python3 "$here/validate_packet_seed_v881.py" "$work/seeds"
   for trial in {0..7}; do
     timeout 20s "$work/probe" open "$trial" "$work/seeds/$trial.txt" > "$work/run.log" 2>&1 || {
-      grep -Ex 'V881_PREFIX_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-4] visits=[0-9]{1,3} writes=[0-9]{1,2} choice=[0-4] memory=[0-5]' "$work/run.log" || true
+      grep -Ex 'V881_PREFIX_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-4] visits=[0-9]{1,3} writes=[0-9]{1,2} choice=[0-4] memory=[0-5] packet_reads=[0-9]+ branches=[0-9]+ boundary=[0-9]' "$work/run.log" || true
       echo 'V881_FREE_LANE failed=1';exit 1;
     }
     grep -Ex "V881_OWNER_PACKET_CHOICE trial=$trial free=1 next=4 visits=[0-9]{1,3} original_disable_return=1 call_executed=0 fallback=0 continuous_boot=0" "$work/run.log"
