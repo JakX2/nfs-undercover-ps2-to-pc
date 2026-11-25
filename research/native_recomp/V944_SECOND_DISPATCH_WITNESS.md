@@ -1,0 +1,3 @@
+# V944: independent second SI dispatcher witness
+
+Prepare the next frontier after the second original vector/trampoline. The first cold dispatcher uses a single-use PI access census and fixed cold COMCSR/status. A later dispatcher must instead preserve the actual captured successor context and held SI token without artificially reading or acknowledging the device. V944 introduces a separate PI census and uses the already-authenticated V667 native call edges, exact handler index and intact saved context. It is deliberately not wired into continuous execution until the preceding V939 route is verified. Original-free 17-case test plus first-dispatch and RFI regressions pending.
