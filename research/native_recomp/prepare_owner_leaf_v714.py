@@ -21,6 +21,9 @@ def fixture(dol,elf):
 def header(dol,elf,out):
     roots,rows=fixture(dol,elf)
     D,T,R=[r[1] for r in rows]
+    code=roots[T]
+    tb=lambda w,xo:w>>26==31 and (w>>1)&1023==xo and (((w>>11)&31)*32+((w>>16)&31)) in (268,269)
+    print(f'V715_OWNER_LEAF_SHAPE mftb={sum(tb(w,371) for w in code)} mfspr_tb={sum(tb(w,339) for w in code)}')
     s='#pragma once\n#include <array>\n#include <cstdint>\n'
     s+=f'inline constexpr uint32_t H=0x{H:08x}u,D=0x{D:08x}u,T=0x{T:08x}u,R=0x{R:08x}u;\n'
     for name,pc in zip(('caller','disable_words','time_words','restore_words'),(H,D,T,R)):

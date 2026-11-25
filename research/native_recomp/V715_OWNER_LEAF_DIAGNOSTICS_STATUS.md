@@ -1,0 +1,3 @@
+# V715: focused owner leaf refusal diagnostics and timebase rollover verification
+
+V714 owner job 138945769550 authenticated all 20 actual original leaf labels and six independent caller labels, compiled successfully, then aborted on the first runtime assertion. It did not identify which witness failed. V715 replaces generic fixture assertions with safe public source line, ordinal, stage, reason and read-count diagnostics; core dumps disabled. Report static timebase encoding counts (mftb vs mfspr aliases), verify each actual native register write against its virtual read sample, and sweep seeds near rollover, requiring at least one retry. No original opcode/PC/register values printed. Full-image original return still unverified. New owner test pending.

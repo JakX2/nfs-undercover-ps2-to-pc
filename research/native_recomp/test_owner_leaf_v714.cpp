@@ -6,9 +6,9 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <source_location>
 using namespace undercover::wii;
 #include "owner_leaf_input.h"
-static void need(bool ok){if(!ok)throw std::runtime_error("V714 native leaf assertion");}
 static PostAckOsLeaf leaves[]={PostAckOsLeaf({H,D,D+4u*uint32_t(disable_words.size()),caller[0],1}),
     PostAckOsLeaf({H+4,T,T+4u*uint32_t(time_words.size()),caller[1],2}),
     PostAckOsLeaf({H+12,R,R+4u*uint32_t(restore_words.size()),caller[3],3})};
@@ -16,8 +16,19 @@ static unsigned leaf_index=0;static bool started=false;static unsigned outer_pol
 static uint64_t time_first=0,time_last=0;
 static unsigned time_reads=0;
 static std::string mode;
+static unsigned pending_reg=32;
+static uint32_t expected_word=0;
+static void need(bool ok,const std::source_location loc=std::source_location::current()){
+    if(ok)return;
+    const auto i=leaf_index<3?leaf_index:2u;
+    std::cout<<"V715_OWNER_LEAF_ASSERT line="<<loc.line()<<" ordinal="<<i+1
+        <<" stage="<<leaves[i].stage()<<" witness="<<leaves[i].failure()
+        <<" time_reads="<<time_reads<<std::endl;
+    std::_Exit(126);
+}
 namespace leaf_test{
 void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
+    if(pending_reg<32){need(c.gpr[pending_reg]==expected_word);pending_reg=32;}
     if(pc>=H&&pc<H+24){
         if(started){
             if(mode=="corrupt"&&leaf_index==0)c.gpr[14]^=1u;
@@ -34,15 +45,20 @@ void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
         if(pc==H+16){
             need(leaf_index==3&&outer_polls==1&&c.msr==0x32u&&c.gpr[3]==0&&c.srr0==0x80009000u&&c.srr1==0x8032u);
             need(leaves[0].msr_writes()==1&&leaves[1].msr_writes()==0&&leaves[2].msr_writes()==1);
+            std::cout<<"V715_OWNER_TIMEBASE rollover_retry="<<unsigned(time_reads>3)<<std::endl;
             std::cout<<"V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0"<<std::endl;std::_Exit(0);
         }
         need(leaf_index<3&&leaves[leaf_index].start(c,pc,word));started=true;return;
     }
     need(started&&leaf_index<3);
     need(leaves[leaf_index].before(c,pc,word));
-    if(leaf_index==1&&(word>>26)==31u&&((word>>1)&1023u)==371u){
-        if(!time_reads)time_first=c.inst_count;
-        time_last=c.inst_count;++time_reads;
+    const unsigned xo=(word>>1)&1023u,spr=((word>>11)&31u)*32u+((word>>16)&31u);
+    if(leaf_index==1&&(word>>26)==31u&&(xo==371u||xo==339u)&&(spr==268u||spr==269u)){
+        const uint64_t sample=c.read_timebase();
+        if(!time_reads)time_first=sample;
+        time_last=sample;++time_reads;
+        pending_reg=(word>>21)&31u;
+        expected_word=uint32_t(spr==269u?sample>>32:sample);
     }
 }}
 namespace nwii::runtime{
