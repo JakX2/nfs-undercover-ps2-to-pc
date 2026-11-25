@@ -1,0 +1,24 @@
+name: Wii V705 Native EE-disabled OS Leaf Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v705*'
+      - '.github/workflows/wii-v705-leaf.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile independent EE-disabled native OS leaves
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw705"
+          git -C "$RUNNER_TEMP/nw705" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw705" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw705" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_leaf_v705.sh "$RUNNER_TEMP/nw705"
