@@ -1,0 +1,3 @@
+# V740: actual third SI handler dependency
+
+V726 full-image Linux execution run 45545205245 reached the first new linked call, handler ordinal 3, after 20 suffix visits; rc=126, second_return=1. V739 passed 16 generated native restore integration controls. The ordinal-12 restore is not the first observed dependency and must not be forced. V740 privately authenticates ordinal 3 and classifies its extent, branches, memory/interrupt behavior and direct dependencies. Only a fixed allowlist of SDK names and bounded counts are emitted; no original words, addresses, or arbitrary ELF strings. The next route should use this owner evidence, not guessed semantics.
