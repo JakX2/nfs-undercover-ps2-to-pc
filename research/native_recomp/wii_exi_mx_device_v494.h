@@ -25,10 +25,15 @@ public:
             if(addr==0x20000000u&&!write){
                 const auto now=rtc_();latched_=now;cursor_=0;mode_=Mode::RtcRead;return 0;
             }
-            // Only the base SRAM window is supported. Reject unrelated
-            // boot ROM, UART and extended Wii register protocols explicitly.
-            if(addr!=0x20000100u)throw std::runtime_error("MX unsupported address");
-            cursor_=0;mode_=write?Mode::SramWrite:Mode::SramRead;return 0;
+            // SRAM byte addresses occupy a 64-byte window; the EXI
+            // command encodes the byte offset in units of 64.
+            // Reference: devkitPro/libogc, system.c, __sram_write;
+            // https://github.com/devkitPro/libogc/blob/master/libogc/system.c
+            constexpr uint32_t base=0x20000100u, stride=64u;
+            if(addr<base||addr-base>=stride*sram_.size()||(addr-base)%stride)
+                throw std::runtime_error("MX unsupported address");
+            cursor_=(addr-base)/stride;
+            mode_=write?Mode::SramWrite:Mode::SramRead;return 0;
         }
         const unsigned n=req.length;
         if(mode_==Mode::RtcRead&&req.direction==0){
