@@ -22,6 +22,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v831_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v836_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v847_wireless_wrapper.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v848_wireless_audit.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
@@ -66,7 +67,8 @@ jobs:
     if: >-
       github.ref == 'refs/heads/research/wii-native-recomp-preflight' &&
       vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' &&
-      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'V839 launch live wireless frontier'))
+      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'V839 launch live wireless frontier') ||
+      contains(github.event.head_commit.message, 'V854 launch live wireless wrapper'))
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -87,7 +89,9 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Execute original complete image through first original wireless call
+      - name: Execute original complete image through selected wireless boundary
+        env:
+          LIVE_WRAPPER: ${{ contains(github.event.head_commit.message, 'V854 launch live wireless wrapper') }}
         run: |
           set -euo pipefail
           umask 077
@@ -95,7 +99,9 @@ jobs:
           git -C "$RUNNER_TEMP/nw839" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw839" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw839" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw839" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-callback-frontier
+          mode=--run-si-callback-frontier
+          if [ "$LIVE_WRAPPER" = true ]; then mode=--run-si-wireless-wrapper; fi
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw839" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" "$mode"
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw839"
