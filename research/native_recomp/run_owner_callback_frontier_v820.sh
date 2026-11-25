@@ -33,6 +33,7 @@ for mode in nonsplit split; do
     grep -Fx 'V810_OWNER_TIME_WITNESS verified=1 leaves=3 abi=1 timebase=1 callback_return=0' "$work/run.log"
     f=$(grep -Ex 'V820_OWNER_CALLBACK_FRONTIER ordinal=(3|5) visits=[0-9]{1,2} writes=[0-3] original_time_return=1 wireless_executed=0 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log")
     echo "$f"
+    grep -Ex 'V823_TIME_COUNTS leaf_visits=[0-9]{1,3} polls=[0-9]{1,2} reads=[0-9]{1,3}' "$work/run.log"
     if [[ "$f" == *'ordinal=3 '* ]]; then set=$((set+1));else get=$((get+1));fi
     row=$(grep -Ex 'V811_OWNER_TIME_OFFSET verified=1 nonzero=[01] wrap=[01] retry=[01]' "$work/run.log")
     echo "$row"
@@ -65,6 +66,7 @@ for mode in nonsplit split; do
     echo 'V814_RETRY_EXECUTION failed=1';exit 1;
   }
   grep -Fx 'V814_TIMEBASE_RETRY verified=1 original_retry=1 original_time_return=1 offset=1 fallback=0' "$work/run.log"
+  grep -Ex 'V823_TIME_COUNTS leaf_visits=[0-9]{1,3} polls=[0-9]{1,2} reads=[0-9]{1,3}' "$work/run.log"
   echo "V814_TIMEBASE_MODE mode=$mode targeted_retry=1"
   echo "V811_OFFSET_MODE mode=$mode valid=8 nonzero=$nonzero wrap=$wrap retry=$retry refused=3"
   rc=0

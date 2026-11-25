@@ -88,7 +88,10 @@ jobs:
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw672"
   owner-execution:
     needs: owner-preflight
-    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'V821: launch verified live callback prefix'))
+    if: >-
+      github.ref == 'refs/heads/research/wii-native-recomp-preflight' &&
+      vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'V823 launch live callback prefix'))
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:

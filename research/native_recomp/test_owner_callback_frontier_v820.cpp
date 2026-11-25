@@ -186,6 +186,7 @@ static void continuation(CPUContext& c,uint32_t pc,uint32_t w){
         if(rollover){need(initial_tick+first_upper_delta==0xffffffffull&&time_reads>=6u&&polls>=2u&&reusable.polls()==polls);
             std::cout<<"V814_TIMEBASE_RETRY verified=1 original_retry=1 original_time_return=1 offset=1 fallback=0"<<std::endl;}
         std::cout<<"V802_OWNER_CALLBACK_TIME original_prologue=1 original_time_return=1 leaves=3 timebase=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
+        std::cout<<"V823_TIME_COUNTS leaf_visits="<<reusable.leaf_visits()<<" polls="<<reusable.polls()<<" reads="<<reusable.reads()<<std::endl;
         posttime=true;in_time=false;next=pc;frontier_step(c,pc,w);return;
     }
     need(pc==next);

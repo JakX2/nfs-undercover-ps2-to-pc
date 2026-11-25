@@ -47,7 +47,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw819" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw819" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw819" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_owner_wireless_v819.sh "$RUNNER_TEMP/nw819" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          bash research/native_recomp/run_owner_wireless_lock_v819.sh "$RUNNER_TEMP/nw819" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw819"
