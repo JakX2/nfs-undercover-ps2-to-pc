@@ -3,17 +3,19 @@
 import argparse,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
-from prepare_v668_si_ack import geometry,HANDLER,shape
+from prepare_v668_si_ack import geometry,HANDLER
 from prepare_v667_si_dispatch import exact
 from make_private_elf_symbol_map import parse_functions
 from audit_handler_third_v740 import edge,names,summarize
 from audit_handler_suffix_v728 import target,restore_suffix
 from si_nested_geometry_v693 import nested_plan
-from classify_save_leaf_v683 import symbol_evidence
 def walk(root,words,start):
     end=root+4*len(words)
     if root&3 or start&3 or not root<=start<end or not 1<=len(words)<=1024:raise ValueError('extent')
-    _,direct,indirect=shape(root,words)
+    # Generic CFG fixtures do not require a full handler or a store.
+    # The owner path separately authenticates geometry(dol,elf).
+    direct=[(root+4*i,target(root+4*i,w)) for i,w in enumerate(words) if w>>26==18 and w&3==1]
+    indirect=[root+4*i for i,w in enumerate(words) if w==0x4e800421]
     calls={pc:(i+1,dst) for i,(pc,dst) in enumerate(sorted([*direct,*[(p,None) for p in indirect]]))}
     seen=set();todo=[start];edges={};returns=set();other=set()
     while todo:
