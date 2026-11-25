@@ -1,0 +1,3 @@
+# V868 original handler suffix preflight
+
+V865 owner census: post-slot-6 continuation 52 labels, one store, next direct slots 7, 8 or 12; post-slot-11 13 labels, one backward branch, next repeat slot 11 or restore slot 12. V868 uses actual V850 return evidence and pre-call tick to close V725 indirect ownership, observes the resumed original label at the same tick, then verifies the original handler control path and bounded RAM accesses. It stops before the next linked instruction; no new helper or indirect target is admitted. Preserves completed SI and EXI state. Source-only and private preflight pending. V867 continuous execution is separate and not affected by this opt-in preflight.

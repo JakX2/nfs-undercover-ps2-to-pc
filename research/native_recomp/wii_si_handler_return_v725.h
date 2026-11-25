@@ -42,6 +42,15 @@ public:
         if((slot!=6u&&slot!=11u)||!(completed_calls_&16u)||w!=0x4e800421u)return fail(8);
         return before_slot(c,pc,w,device,slot,true);
     }
+    // Authenticate a new linked boundary without executing or admitting it.
+    // Repeated indirect sites are classified rather than called.
+    template<class C>bool stop_before_call(C& c,uint32_t pc,uint32_t w,bool device,unsigned slot,unsigned kind){
+        if(stage_!=2||!common(c)||!device||pending_||active_call_||pc!=next_||
+           !span(pc)||!word(c,pc,w)||c.inst_count-last_!=(visits_?1u:0u)||
+           visits_>=1024u||!slot||slot>12u||
+           !((kind==1u&&w>>26==18u&&(w&3u)==1u)||(kind==2u&&w==0x4e800421u)))return fail(8);
+        last_=c.inst_count;++visits_;stage_=6;return true;
+    }
     unsigned completed_calls()const{return completed_calls_;}
     unsigned active_call()const{return active_call_;}
     bool callback_pending()const{return active_indirect_;}
