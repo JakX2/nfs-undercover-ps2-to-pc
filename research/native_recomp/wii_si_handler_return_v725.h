@@ -14,6 +14,7 @@ public:
     unsigned polls()const{return polls_;}
     bool pending()const{return pending_;}
     const std::array<uint32_t,32>& entry_gprs()const{return gpr_;}
+    uint32_t entry_cr()const{return cr_nonvolatile_;}
     template<class C>bool capture(C& c){
         if(stage_||error_||!safe(c)||c.pc!=e_.root||c.lr!=e_.resume||
            !span(e_.root)||e_.end<=e_.root||e_.end-e_.root>4096u||

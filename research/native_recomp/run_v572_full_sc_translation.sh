@@ -243,7 +243,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_wireless_wrapper" == 1 ]]; then python3 "$here/prepare_v847_wireless_wrapper.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_wireless_write" == 1 ]]; then python3 "$here/prepare_v861_wireless_write.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_combined_callback" == 1 ]]; then python3 "$here/prepare_v863_combined_callback.py" "$dol" "$elf" "$work/generated";elif [[ "$si_callback_return" == 1 ]]; then python3 "$here/prepare_v850_callback_return.py" "$dol" "$elf" "$work/generated";fi
-      if [[ "$si_handler_suffix" == 1 ]]; then python3 "$here/prepare_v868_handler_suffix.py" "$dol" "$elf" "$work/generated";fi
+      if [[ "$si_handler_suffix" == 1 ]]; then
+        python3 "$here/prepare_v868_handler_suffix.py" "$dol" "$elf" "$work/generated"
+        if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
+      fi
     fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
@@ -302,6 +305,15 @@ CPP
 void instantiate_handler_suffix(nwii::runtime::CPUContext& cpu){
     undercover::wii::v868::before(cpu,cpu.pc,0u,0u,0u);
     undercover::wii::v868::poll(cpu);
+}
+CPP
+  fi
+  if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then
+    cat >> "$work/probe.cpp" <<'CPP'
+void instantiate_handler_tail(nwii::runtime::CPUContext& cpu){
+    undercover::wii::v884::before_alias(cpu,cpu.pc,0u);
+    undercover::wii::v884::dispatch_resume(cpu,cpu.pc,0u);
+    undercover::wii::v884::resume(cpu,cpu.pc,0u);
 }
 CPP
   fi

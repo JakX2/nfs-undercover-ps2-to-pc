@@ -1,0 +1,3 @@
+# V884 opt-in native handler return composition
+
+V879 focused original restore and tail passed 16/16. This prepares the exact slot-12 continuation within the full V868 private image, without admitting slot 7/8 or unknown callbacks. The original handler witness and native return witness both authenticate call, register restore, original tail, BLR, dispatcher poll and the two native resume ticks. The existing SI completion and changed EXI profile must remain held at every boundary. Stop at the dispatcher resume before executing its instruction, not at RFI. Separate opt-in private preflight only; normal V868 execution unchanged. No live launch until V876 reveals the actual next dependency and this preflight validates. Pending CI.
