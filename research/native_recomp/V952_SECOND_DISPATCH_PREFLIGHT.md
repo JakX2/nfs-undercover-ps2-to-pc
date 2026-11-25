@@ -1,0 +1,3 @@
+# V952: authenticated full-image second-dispatch preflight
+
+V951 source-only checks (45715354010) passed. V949 owner execution (45715016390) was still in progress when this preflight was prepared. This separate private job authenticates the full-image V951 installer and compiles its observer without linking or executing the original game. It may run concurrently with the older full-image job; it does not advance the continuous milestone. The original-free job rechecks the V944 witness under ASan/UBSan and the V951 seams, plus all inherited V939 prerequisites. Owner originals and generated code remain in temporary storage; only bounded public result markers are emitted. Do not enable live second ACK until actual continuous handler entry is verified.
