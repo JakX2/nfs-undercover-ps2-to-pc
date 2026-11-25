@@ -1,0 +1,3 @@
+# V914: authenticate inherited pointer in focused branch fixture
+
+V913 private census 139163577254 established the fallthrough indexed load depends on one inherited nonvolatile register, not the channel-table value. V914 derives that register independently from original instruction semantics, authenticates a four-channel aligned synthetic allocation, checks that it cannot overlap fixture code or the original channel table, and seeds distinct per-channel values. Native execution must read the exact expected allocation, then independently check the destination GPR. No production memory permission added; this is a focused synthetic register/data fixture, not proof of live pointer provenance. Pending private retest.

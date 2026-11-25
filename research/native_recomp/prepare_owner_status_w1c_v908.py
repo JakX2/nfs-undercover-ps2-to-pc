@@ -135,6 +135,22 @@ def main():
         if len(candidates)!=1 or candidates[0][0] is not None or candidates[0][2]!=4:raise ValueError('indexed table provenance')
         addresses=candidates[0][1];spans=writable_spans(a.dol.read_bytes(),a.elf.read_bytes())
         if any(a&3 or sum(lo<=a and a+4<=hi for lo,hi in spans)!=1 for a in addresses):raise ValueError('indexed table extent')
+        from audit_handler_arm_v913 import arm_address
+        # Private geometry independently identifies a single inherited
+        # nonvolatile pointer. The address is a synthetic fixture allocation,
+        # not a claim that original startup initializes this register here.
+        candidates2=[]
+        for reg in range(14,32):
+            if reg==channel:continue
+            x=arm_address(code,0,seeds[0],0x13579bdf,(reg,0x80090000))[2]
+            y=arm_address(code,0,seeds[0],0x13579bdf,(reg,0x800a0000))[2]
+            if x is not None and y is not None and (y-x)&0xffffffff==0x10000:candidates2.append(reg)
+        if len(candidates2)!=1:raise ValueError('arm input identity')
+        arm_reg=candidates2[0];arm_base=0x80090000
+        arm_results=[arm_address(code,ch,seeds[0],seed,(arm_reg,arm_base)) for seed in (0,0x13579bdf) for ch in range(4)]
+        if arm_results[:4]!=arm_results[4:] or any(i!=16 or w>>26!=31 or (w>>1)&1023!=23 or a is None or a&3 or not 0x80080000<=a<=0x800afffc for i,w,a in arm_results):raise ValueError('arm input extent')
+        arm_addresses=[a for _,_,a in arm_results[:4]]
+        if len(set(arm_addresses))!=4 or any(a in addresses or H<=a<H+4*len(caller(root)) or root<=a<root+4*len(code) for a in arm_addresses):raise ValueError('arm input overlap')
         if a.install:install(q,a.output)
         elif a.patch_analyzer:patch_analyzer(({H:caller(root),root:code},),a.output)
         else:
@@ -146,9 +162,11 @@ def main():
                 pcs=sorted(reachable(root,code))
                 f.write(f'inline constexpr std::array<uint32_t,{len(pcs)}> ArmLabels{{'+','.join(f'0x{a:08x}u' for a in pcs)+'};\n')
                 f.write(f'inline constexpr uint32_t BranchDestination=0x{target(root+52,code[13]):08x}u;\n')
+                f.write(f'inline constexpr unsigned ArmInputRegister={arm_reg}u;\ninline constexpr uint32_t ArmInputBase=0x{arm_base:08x}u;\n')
+                f.write('inline constexpr std::array<uint32_t,4> ArmInputAddresses{'+','.join(f'0x{a:08x}u' for a in arm_addresses)+'};\n')
             print('V908_STATUS_GEOMETRY verified=1 prefix=5 original_load=1 original_store=1 synthetic_stop=1 execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('arm shape','arm overlap','arm word','channel compare shape','channel branch extent','channel branch reachability','channel branch seeds','indexed table provenance','indexed table extent','indexed load identity','channel selector identity','load identity','status store identity','status identity','status prefix shape','native coverage','caller owner','hook identity','include','hook coverage','private output')
+        safe=('arm input identity','arm input extent','arm input overlap','arm shape','arm overlap','arm word','channel compare shape','channel branch extent','channel branch reachability','channel branch seeds','indexed table provenance','indexed table extent','indexed load identity','channel selector identity','load identity','status store identity','status identity','status prefix shape','native coverage','caller owner','hook identity','include','hook coverage','private output')
         print('V908_STATUS_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

@@ -33,6 +33,7 @@ static unsigned channel=0;static bool present=false;
 static std::array<uint32_t,4> table{};static bool index_read=false;
 static bool taken=false;static uint32_t next_pc=0;
 static constexpr uint32_t BranchTarget=BranchDestination;
+static std::array<uint32_t,4> arm_data{};
 static bool arm_pending=false;static unsigned arm_reads=0,arm_words=0,arm_reg=0;static uint32_t arm_value=0;
 static constexpr auto labels=[]{
     std::array<HandlerSuffixLabel,ArmLabels.size()> r{};
@@ -97,11 +98,11 @@ static void observe_arm(CPUContext& c,uint32_t w){
     if(width){
         const uint32_t base=ra?c.gpr[ra]:0u;
         const uint32_t a=op==31u?base+c.gpr[rb]:base+((w&0xffffu)^0x8000u)-0x8000u;
-        need(a>=0x80000000u&&uint64_t(a)+width<=0x81800000u);
+        need(width==4u&&!sign&&!reverse&&a==ArmInputAddresses[channel]&&a>=0x80000000u&&uint64_t(a)+width<=0x81800000u);
         uint32_t v=0;
         for(unsigned i=0;i<width;++i){const uint32_t p=a+(reverse?width-1u-i:i);need(c.mmu.get_ptr(p));v=(v<<8)|c.mmu.read8(p);}
         if(sign&&(v&0x8000u))v|=0xffff0000u;
-        arm_pending=true;arm_reg=(w>>21)&31u;arm_value=v;
+        need(v==arm_data[channel]);arm_pending=true;arm_reg=(w>>21)&31u;arm_value=v;
     }else need(op!=46u);
 }
 namespace rfi_test{
@@ -240,7 +241,10 @@ int main(int argc,char** argv)try{
     last=tick;tokens=ctl.issued_tokens();expected_status=ctl.read(S);expected_control=ctl.read(C);expected_buffer=ctl.read(B);
     for(unsigned i=0;i<32;++i)c->gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
     c->gpr[1]=0x80022000u;c->gpr[2]=0x80025000u;c->gpr[13]=0x8070e8e0u;
-    need(StatusChannelRegister>=14u&&StatusChannelRegister<32u);c->gpr[StatusChannelRegister]=ch;gp=c->gpr;
+    need(StatusChannelRegister>=14u&&StatusChannelRegister<32u&&ArmInputRegister>=14u&&ArmInputRegister<32u&&ArmInputRegister!=StatusChannelRegister);
+    c->gpr[StatusChannelRegister]=ch;c->gpr[ArmInputRegister]=ArmInputBase;
+    for(unsigned i=0;i<4;++i){arm_data[i]=0x11223344u^(i*0x01010101u)^(trial*0x9e3779b9u);c->mmu.write32(ArmInputAddresses[i],arm_data[i]);}
+    gp=c->gpr;
     c->pc=H;c->lr=0x80007000u;c->msr=MSR;c->srr0=0x80030000u;c->srr1=0x8032u;
     c->is_running=true;c->in_callback=false;c->dispatch_saved_ctx=0;
     run_game(*c);fail(8);
