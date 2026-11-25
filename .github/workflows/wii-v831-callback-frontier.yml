@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v831*'
       - 'research/native_recomp/*v836*'
+      - 'research/native_recomp/*v847*'
       - 'research/native_recomp/*v829*'
       - '.github/workflows/wii-v831-callback-frontier.yml'
 permissions:
@@ -20,6 +21,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v831_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v836_callback_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v847_wireless_wrapper.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
@@ -47,7 +49,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Compose private complete image through first wireless call frontier
+      - name: Compose private complete image through wireless wrapper boundary
         run: |
           set -euo pipefail
           umask 077
@@ -55,7 +57,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw831" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw831" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw831" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw831" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-si-callback-frontier
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw831" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-si-wireless-wrapper
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw831"

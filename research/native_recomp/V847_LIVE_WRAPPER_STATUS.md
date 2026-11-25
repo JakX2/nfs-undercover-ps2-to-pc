@@ -1,0 +1,3 @@
+# V847: continuous wireless wrapper preflight
+
+Adds a disabled-by-default same-tick V831-to-V844 handoff. Authenticates both original setter/getter call edges and their return labels, five complete wrapper roots and the real EXILock entry. Reuses the previously ordered OS interrupt leaf hooks, rather than ticking the same device twice. The owner-only complete-image preflight checks original native labels, edges and syntax; no live execution switch is exposed by the runner yet. The unchanged setter and getter may reach their genuine return; the changed setter lane may only reach EXILock before any EXI instruction. Existing V839 execution remains unchanged. Pending preflight.
