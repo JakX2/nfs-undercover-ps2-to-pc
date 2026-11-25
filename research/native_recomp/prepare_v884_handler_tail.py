@@ -43,13 +43,20 @@ def patch_label(body,pc,w,role):
     start=hits[0].end();m=BLOCK_END.search(body,start);end=m.start() if m else len(body)
     block=body[start:end];prefix=body[:start]
     if block.count(SI)!=1 or 'v884::' in block:raise ValueError('handler tail scheduler')
+    prefix_hooks=block[:block.index(SI)]
+    # Only existing observer hooks may precede the real SI instruction
+    # service. Do not move it across an emitted guest state mutation.
+    allowed=re.compile(r'(?:    (?:ctx\.[a-z_]+_instruction_boundary\(\)|undercover::wii::[a-zA-Z0-9_:]+\(ctx,[^\n;]+\)|if\((?:!undercover::wii::v[0-9]+::active\(\)(?:&&)?)+\) (?:\{ )?undercover::wii::[a-zA-Z0-9_:]+\(ctx,[^\n;]+\));(?: \})?\n)*')
+    if not allowed.fullmatch(prefix_hooks):raise ValueError('handler tail scheduler')
     if role=='alias':
         old=re.compile(r'(?m)^    (?:if\([^\n]+\) )?(?:\{ )?undercover::wii::v726::restore_before\(ctx,[^\n]+\);(?: \})?\n')
         hooks=list(old.finditer(block))
         if len(hooks)>1:raise ValueError('handler tail legacy')
         if hooks:
-            a=hooks[0][0];call=re.search(r'undercover::wii::v726::restore_before\(ctx,[^\n;]+\);',a)[0]
-            block=replace_exact(block,a,'    if(!undercover::wii::v884::active()) '+call+'\n')
+            a=hooks[0][0]
+            if a.lstrip().startswith('if('):
+                block=replace_exact(block,a,'    if(!undercover::wii::v884::active()) { '+a.strip()+' }\n')
+            else:block=replace_exact(block,a,'    if(!undercover::wii::v884::active()) '+a.lstrip())
         call=f'    undercover::wii::v884::before_alias(ctx,0x{pc:08x}u,0x{w:08x}u);\n'
     elif role=='resume':
         a=f'    undercover::wii::v726::resume(ctx,0x{pc:08x}u,0x{w:08x}u);\n'

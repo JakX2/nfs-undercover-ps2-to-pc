@@ -1,0 +1,3 @@
+# V886 dual-witness tail join and source-order regression
+
+V884 original-free installer tests passed. V886 preserves an older shared restore guard instead of replacing its condition; it also refuses any original guest-state mutation before the real SI scheduler boundary. The new synthetic joined witness test exercises the exact callback return -> slot 12 -> 16 native alias visits -> same-tick restore completion -> four handler-tail visits -> BLR -> dispatcher poll, tick and resume sequence. Eleven negative cases verify missing device evidence, incorrect visit count or tick, duplicate restore, missing dispatcher tick and register corruption. Original-free evidence only; private full-image preflight pending. No extra live execution launched.

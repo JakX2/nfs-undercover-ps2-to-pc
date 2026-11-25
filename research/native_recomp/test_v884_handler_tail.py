@@ -11,7 +11,7 @@ class TailPatch(unittest.TestCase):
         self.assertLess(s.index('v884::dispatch_resume'),s.index('++ctx.inst_count'))
         self.assertLess(s.index(SI),s.index('v884::resume'))
         self.assertIn('if(!undercover::wii::v884::active()) '+old.lstrip(),s)
-        for bad in (label()+SI,label()+old, label()+old+old+SI):
+        for bad in (label()+SI,label()+old, label()+old+old+SI,label()+old+'    ctx.gpr[0] = 1;\n'+SI):
             with self.assertRaises(ValueError):patch_label(bad,H,W,'resume')
     def test_alias(self):
         old=f'    undercover::wii::v726::restore_before(ctx,0x{H:08x}u,0x{W:08x}u);\n'
@@ -20,6 +20,10 @@ class TailPatch(unittest.TestCase):
             self.assertLess(s.index(SI),s.index('v884::before_alias'))
             if old in body:self.assertIn('if(!undercover::wii::v884::active()) '+old.lstrip(),s)
             with self.assertRaises(ValueError):patch_label(s,H,W,'alias')
+        gated='    if(!undercover::wii::v847::active()&&!undercover::wii::v850::active()) '+old.lstrip()
+        out=patch_label(label()+gated+SI,H,W,'alias')
+        self.assertIn('if(!undercover::wii::v884::active()) { '+gated.strip()+' }',out)
+        with self.assertRaises(ValueError):patch_label(label()+'    ctx.gpr[1] = 0;\n'+SI,H,W,'alias')
     def test_binding(self):
         s='#include "wii_callback_return_binding_v850.h"\n    if(!v850::continue_handler()||x)return false;\n    if(kind){\n}\ntemplate<class C>bool poll(C& c){\n}'
         out=patch_suffix(s)
