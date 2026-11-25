@@ -28,10 +28,19 @@ for mode in nonsplit split; do
     }
     grep -Fx 'V955_ACK_TRIAL verified=1 original_w1c=1 next_label=1 saved_fields=38 token=2' "$work/run.log"
   done
+  for trial in {0..7}; do
+    timeout 20s "$work/probe" "$trial" postack "$dol" > "$work/run.log" 2>&1 || {
+      grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-4] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+      echo "V962_POST_EXECUTION failed=1";exit 1;
+    }
+    grep -Fx 'V955_ACK_TRIAL verified=1 original_w1c=1 next_label=1 saved_fields=38 token=2' "$work/run.log"
+    grep -Ex 'V962_POST_ACK_RETURN original_helper_return=1 saved_fields=38 token_preserved=1 visits=[1-9][0-9]* handler_instruction_executed=0' "$work/run.log"
+  done
   for bad in bad-frame bad-pi; do
     rc=0;timeout 20s "$work/probe" 0 "$bad" "$dol" > "$work/run.log" 2>&1 || rc=$?
     [[ "$rc" == 126 ]]
     if [[ "$bad" == bad-frame ]];then grep -Fx 'V946_FRAME_REFUSAL saved_gpr=1' "$work/run.log";else grep -Fx 'V946_PI_REFUSAL wrong_value=1' "$work/run.log";fi
   done
   echo "V955_OWNER_ACK mode=$mode valid=8 original_dispatcher=8 original_w1c=8 token_preserved=8 negative=2 fallback=0 continuous_boot=0"
+  echo "V962_OWNER_POST_ACK mode=$mode valid=8 original_helper_return=8 fallback=0 continuous_boot=0"
 done

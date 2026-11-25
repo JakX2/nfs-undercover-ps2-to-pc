@@ -39,7 +39,8 @@ static std::array<uint32_t,32> held_buffer{};
 static uint32_t held_control=0,held_status=0;
 static unsigned trial=0,visits=0,entries=0,polls=0,reads=0;
 static uint64_t last=0;
-static bool bad_frame=false,bad_pi=false;
+static bool bad_frame=false,bad_pi=false,postack=false;
+static unsigned ack_returns=0,ack_boundary_visits=0;
 static bool held(){
     if(!ctl||ctl->pending()||ctl->issued_tokens()!=2u||cause.load()!=(Other|8u)||
        ctl->read(SiController::Control)!=held_control||ctl->read(SiController::Status)!=held_status)return false;
@@ -80,9 +81,16 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             need(call_route.before(c,pc,w));
             need(call_route.returns()>=1u&&ack.token()==2u&&ack.reads()>0u&&ack.writes()>0u&&cause==Other&&bank_mask==Mask&&ack_entries>=2u);
             std::cout<<"V955_ACK_TRIAL verified=1 original_w1c=1 next_label=1 saved_fields=38 token=2"<<std::endl;
-            std::_Exit(0);
+            if(!postack)std::_Exit(0);
+            ack_returns=call_route.returns();ack_boundary_visits=ack_visits;
+            need(ack.resume_after_ack(c,pc,w));return;
         }
         need(call_route.before(c,pc,w));
+        if(ack.stage()==4u&&pc>=Handler&&pc<Handler+4u*handler_words.size()&&call_route.depth()==0u){
+            need(call_route.returns()>ack_returns&&ack_visits>ack_boundary_visits&&ack.token()==2u&&cause==Other&&bank_mask==Mask);
+            std::cout<<std::dec<<"V962_POST_ACK_RETURN original_helper_return=1 saved_fields=38 token_preserved=1 visits="<<ack_visits-ack_boundary_visits<<" handler_instruction_executed=0"<<std::endl;
+            std::_Exit(0);
+        }
         return;
     }
     need(held()&&!(c.msr&0x8000u)&&c.mmu.read32(pc)==w&&
@@ -143,13 +151,13 @@ uint32_t HW_Reg_Read32(uint32_t a){
 void HW_Reg_Write16(uint32_t,uint16_t){fail(8);}
 void HW_Reg_Write32(uint32_t a,uint32_t v){
     const auto off=PostAckTransferDevice::offset(a);
-    need(ack.stage()==1u&&off&&ack.write(*ctl,*off,v));
+    need((ack.stage()==1u||ack.stage()==4u)&&off&&ack.write(*ctl,*off,v));
 }
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
+    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";postack=mode=="postack";
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     load_private_data(c,argv[3]);
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
