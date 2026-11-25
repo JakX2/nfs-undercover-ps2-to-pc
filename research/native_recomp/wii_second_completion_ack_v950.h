@@ -30,7 +30,7 @@ public:
             return fail(2);
         if(stage_==2u){
             if(pc!=ack_pc_+4u||!state(false))return fail(5);
-            last_=c.inst_count;stage_=3;return true;
+            last_=c.inst_count;successor_word_=w;stage_=3;return true;
         }
         if((stage_!=1u&&stage_!=4u)||!state(stage_==1u))return fail(2);
         last_=c.inst_count;return arm_access(c,pc,w);
@@ -39,7 +39,7 @@ public:
     // instruction once, without adding a tick or replaying the W1C.
     template<class C>bool resume_after_ack(C& c,uint32_t pc,uint32_t w){
         if(stage_!=3u||error_||armed_||!safe(c)||!tick_||&c.inst_count!=tick_||
-           c.inst_count!=last_||pc!=ack_pc_+4u||!state(false)||
+           c.inst_count!=last_||pc!=ack_pc_+4u||w!=successor_word_||!state(false)||
            !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w)return fail(5);
         stage_=4u;return arm_access(c,pc,w);
     }
@@ -111,12 +111,12 @@ public:
         stage_=2;return true;
     }
     bool poll(uint64_t tick)const{
-        return (stage_==1u||stage_==4u)&&!error_&&!armed_&&tick==last_&&state(stage_==1u);
+        return (stage_==1u||stage_==4u)&&!error_&&!armed_&&tick_&&*tick_==tick&&tick==last_&&state(stage_==1u);
     }
 private:
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
     const uint64_t* tick_=nullptr;uint64_t token_=0,start_=0,last_=0;
-    uint32_t cause_before_=0,mask_before_=0,control_=0,status_=0,poll_=0,pc_=0,ack_pc_=0;
+    uint32_t cause_before_=0,mask_before_=0,control_=0,status_=0,poll_=0,pc_=0,ack_pc_=0,successor_word_=0;
     std::array<uint32_t,32> buffer_{};std::optional<uint32_t> value_;
     PostAckTransferDevice::Access access_=PostAckTransferDevice::Access::None;
     unsigned stage_=0,error_=0,reads_=0,writes_=0,off_=0;bool armed_=false;

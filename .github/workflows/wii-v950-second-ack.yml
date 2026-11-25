@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/*v957*'
       - 'research/native_recomp/*v961*'
       - 'research/native_recomp/*v969*'
+      - 'research/native_recomp/*v993*'
       - 'research/native_recomp/wii_postack_transfer_device_v771.h'
       - '.github/workflows/wii-v950-second-ack.yml'
 permissions:

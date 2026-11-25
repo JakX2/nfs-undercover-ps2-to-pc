@@ -1,0 +1,3 @@
+# V993: bind ACK resume to the already authenticated instruction word
+
+The prior second-ACK witness rechecked the supplied successor word against guest RAM, but did not retain the exact word witnessed before the stop. A caller presenting a replacement guest word at the same tick and address could therefore pass the second check. Store the authenticated successor word at stage three and require it unchanged on resume. Also require poll's caller tick equal the actual bound CPU tick, not just its previous witnessed value. Two extra negative controls retain all prior valid/refused test markers. No original game state is modified by these checks. V990's actual compiled SI binding passed nine cases independently; V991 complete-image retry active. New V993 regression pending.

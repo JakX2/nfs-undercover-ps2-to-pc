@@ -21,8 +21,8 @@ static void need(bool b,const std::source_location loc=std::source_location::cur
     if(!b){std::cerr<<"V961_ASSERT trial="<<trial<<" line="<<loc.line()<<std::endl;throw std::runtime_error("post ACK");}
 }
 int main(){
-    unsigned valid=0,refused=0;
-    for(trial=0;trial<20;++trial){
+    unsigned valid=0,refused=0,additional=0;
+    for(trial=0;trial<22;++trial){
         const unsigned fault=trial<8?0:trial-7,ch=trial%4;
         std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SecondCompletionAck w;Cpu c;
         const uint32_t cfg=SiController::TC_MASK|0x00010300u|(ch<<1);
@@ -42,7 +42,9 @@ int main(){
         if(fault==2)c.msr|=0x8000u;
         if(fault==3)mask=0;
         if(fault==4)ctl.write(B,0x12345678u);
-        bool ok=w.resume_after_ack(c,fault==5?A+12:A+8,fault==6?Nop:Status);
+        if(fault==13)c.mmu.words[A+8]=Nop;
+        bool ok=w.resume_after_ack(c,fault==5?A+12:A+8,(fault==6||fault==13)?Nop:Status);
+        if(fault==13){need(!ok&&w.failure()==5&&w.stage()==3&&ctl.issued_tokens()==2&&cause==Other);++additional;continue;}
         if(fault>=1&&fault<=6){need(!ok&&w.failure()==5);++refused;continue;}
         need(ok&&w.stage()==4&&!w.postack_held());
         if(fault==7){need(!w.resume_after_ack(c,A+8,Status));++refused;continue;}
@@ -65,8 +67,10 @@ int main(){
             ++refused;continue;
         }
         need(w.reads()==2u&&w.writes()==3u&&w.token()==2u&&cause==Other&&mask==SI&&w.poll(c.inst_count));
+        if(fault==14){const auto tick=c.inst_count;++c.inst_count;need(!w.poll(tick)&&!w.postack_held());++additional;continue;}
         ++valid;
     }
-    need(valid==8&&refused==12);
+    need(valid==8&&refused==12&&additional==2);
     std::cout<<"V961_POST_SECOND_ACK valid=8 refused=12 real_device=1 original_execution=0\n";
+    std::cout<<"V993_SUCCESSOR_BINDING changed_word_refused=1 stale_poll_refused=1 original_execution=0\n";
 }
