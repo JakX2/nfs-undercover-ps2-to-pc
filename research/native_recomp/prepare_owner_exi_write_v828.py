@@ -15,6 +15,7 @@ from make_start_to_exi_transaction_v56 import IMM,SYNC,HWREV,UNMASK,GETIRQ
 from make_start_to_eximask_v53 import MASK
 from audit_handler_third_v740 import names
 from audit_callback_posttime_v812 import SDK
+from audit_si_deep_v695 import step as constant_step,signed
 BLR=0x4e800020
 SETMASK=0x805266e0
 
@@ -28,6 +29,26 @@ def caller():
         words.append(0x38600000)
         words.append(bl(H+4*len(words),SYNC))
     return words+[0x60000000,BLR]
+
+def revision_read(words):
+    # The earlier original EXISync fixture uses the zero-revision path.
+    # Resolve the exact source address from the authenticated leaf, not
+    # from a runtime fault address or a broad permission grant.
+    regs=[None]*32;regs[13]=0x8070e8e0;regs[2]=0x80026000
+    reads=[]
+    for w in words:
+        op=w>>26;ra=(w>>16)&31;rd=(w>>21)&31
+        if op==32:
+            base=regs[ra] if ra else 0
+            if base is None:raise ValueError('revision address')
+            a=(base+signed(w&0xffff))&0xffffffff
+            if a&3 or not 0x80000000<=a<=0x817ffffc:raise ValueError('revision address')
+            reads.append(a)
+        elif op in range(33,56) or (op==31 and (w>>1)&1023 in (23,55,87,119,279,311,343,375,151,183,215,247,407,439,534,662,790,918)):
+            raise ValueError('revision access')
+        regs=list(constant_step(w,regs)[0])
+    if len(reads)!=1:raise ValueError('revision access')
+    return reads[0]
 
 def plan(dol,elf):
     q,*_=lock_plan(dol,elf);old=q[0];sizes=parse_functions(elf)
@@ -56,14 +77,14 @@ def plan(dol,elf):
     if call_sites(HWREV,hw):raise ValueError('revision leaf')
     spans=sorted((a,a+4*len(ws)) for a,ws in roots.items())
     if any(y>x for (_,y),(x,_) in zip(spans,spans[1:])):raise ValueError('root overlap')
-    return roots,S,F,n,base,disp,guard
+    return roots,S,F,n,base,disp,guard,revision_read(hw)
 
 def header(p,out):
-    roots,S,F,n,base,disp,g=p
+    roots,S,F,n,base,disp,g,revision=p
     fmt=lambda xs:','.join(f'0x{v:08x}u' for v in xs)
     with out.open('x') as f:
         f.write('#pragma once\n#include <array>\n#include <cstdint>\n#include <span>\n')
-        vals={'H':H,'Imm':IMM,'Sync':SYNC,'Revision':HWREV,'D':DISABLE,'R':RESTORE,'SaveAlias':S,'RestoreAlias':F,'ConsoleGuard':g,'Stop':H+4*(len(roots[H])-2)}
+        vals={'H':H,'Imm':IMM,'Sync':SYNC,'Revision':HWREV,'D':DISABLE,'R':RESTORE,'SaveAlias':S,'RestoreAlias':F,'ConsoleGuard':g,'Stop':H+4*(len(roots[H])-2),'RevisionRead':revision}
         f.write('inline constexpr uint32_t '+','.join(f'{k}=0x{v:08x}u' for k,v in vals.items())+';\n')
         f.write(f'inline constexpr unsigned AliasCount={n},RestoreBase={base};\ninline constexpr int32_t AliasDisp={disp};\n')
         for i,(a,ws) in enumerate(roots.items()):
@@ -77,7 +98,7 @@ def main():
     m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        q=plan(a.dol.read_bytes(),a.elf.read_bytes());roots,S,F,n,base,disp,g=q
+        q=plan(a.dol.read_bytes(),a.elf.read_bytes());roots,S,F,n,base,disp,g,revision=q
         if a.install:
             old_install((roots,0,0,0,0,(g,)),a.output)
             print('V828_EXI_NATIVE_ROUTE verified=1 original_imm=1 original_sync=1 console_guard=1 execution=0')
@@ -85,7 +106,7 @@ def main():
         else:
             header(q,a.output);print(f'V828_EXI_GEOMETRY verified=1 imm_words=159 sync_words=159 aliases={n} transfers=12')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('transfer extent','transfer calls','immediate dependencies','sync dependencies','alias count','root overlap','revision leaf','native coverage','native owner','native edge','hook identity','hook include','hook coverage')
+        safe=('revision address','revision access','transfer extent','transfer calls','immediate dependencies','sync dependencies','alias count','root overlap','revision leaf','native coverage','native owner','native edge','hook identity','hook include','hook coverage')
         print('V828_EXI_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

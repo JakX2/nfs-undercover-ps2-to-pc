@@ -75,7 +75,9 @@ static void memory(CPUContext& c,uint32_t w){
     if(n){
         const uint32_t p=a&0x3fffffffu;
         if(n==4u&&(p==0x0c003004u||(p>=0x0d006800u&&p<0x0d00683cu&&!(p&3u))))return;
-        need(contains(a,n,Low,High)||contains(a,n,Buffer,Buffer+48u)||contains(a,n,ExiState,ExiState+0x100u)||contains(a,n,0x800000c0u,0x800000d0u)||contains(a,n,0x80003000u,0x80003200u));
+        const bool revision=depth>0&&frames[depth-1].root==Revision&&op==32u&&n==4u&&a==RevisionRead;
+        if(revision)need(c.mmu.read32(a)==0u);
+        need(revision||contains(a,n,Low,High)||contains(a,n,Buffer,Buffer+48u)||contains(a,n,ExiState,ExiState+0x100u)||contains(a,n,0x800000c0u,0x800000d0u)||contains(a,n,0x80003000u,0x80003200u));
         for(unsigned i=0;i<n;++i)need(c.mmu.get_ptr(a+i));
     }
 }
@@ -211,6 +213,9 @@ int main(int argc,char** argv)try{
     for(uint32_t a=Low;a<High;a+=4u)c.mmu.write32(a,a^0xdeadbeefu);
     for(uint32_t a=ExiState;a<ExiState+0x100u;a+=4u)c.mmu.write32(a,0);
     c.mmu.write32(ExiState+12u,0x14u);
+    need(!contains(RevisionRead,4,Low,High)&&!contains(RevisionRead,4,Buffer,Buffer+48u)&&!contains(RevisionRead,4,ExiState,ExiState+0x100u));
+    for(const auto& r:roots)need(!contains(RevisionRead,4,r.address,r.address+4u*uint32_t(r.words.size())));
+    c.mmu.write32(RevisionRead,0u); // explicit fixture revision, not live hardware state
     c.mmu.write32(0x800000c4u,0xfffffff0u);c.mmu.write32(0x800000c8u,0);
     c.mmu.write32(Buffer,0xa0000600u);
     for(unsigned i=0;i<44;++i)c.mmu.write8(Buffer+4u+i,desired[20u+i]);
