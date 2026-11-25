@@ -35,6 +35,6 @@ for mode,(rc,lines) in expected.items():
     r=subprocess.run([sys.argv[1],mode],capture_output=True,timeout=15)
     if r.returncode!=rc or r.stdout.splitlines()!=lines or r.stderr:
         print(r.stdout.decode(),r.stderr.decode());raise SystemExit(1)
-print(f'V694_NESTED_AOT mode={sys.argv[2]} cases=4 actual_guest_store=1 nested_refused=1 fallback=0 original_execution=0')
+print(f'V698_NESTED_AOT mode={sys.argv[2]} cases=4 actual_guest_read=1 actual_guest_store=1 nested_refused=1 fallback=0 original_execution=0')
 PY
 done

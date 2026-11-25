@@ -25,13 +25,19 @@ void watch_hit(uint32_t,uint32_t,int){}
 void GX_WGPIPE_Write8(uint8_t){}void GX_WGPIPE_Write16(uint16_t){}void GX_WGPIPE_Write32(uint32_t){}
 void GX_WGPIPE_WriteF32(float){}void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V694 unexpected MMIO16");}
-uint32_t HW_Reg_Read32(uint32_t a){auto v=SiBinding::read32(a);need(v.has_value());return *v;}
+uint32_t HW_Reg_Read32(uint32_t a){
+    need(a==0x0d006434u&&si_completion_ack_trace.reads()==0);
+    auto v=SiBinding::read32(a);
+    need(v==0xe0010300u&&si_completion_ack_trace.reads()==1);
+    return *v;
+}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V694 unexpected MMIO16");}
 void HW_Reg_Write32(uint32_t a,uint32_t value){
     using namespace hw;
     need(active&&controller&&a==0x0d006434u&&value==0xe0010300u&&pi_intsr==(Other|SiController::PI_SI));
     for(unsigned r=29;r<32;++r)need(active->mmu.read32(Frame-4*(32-r))==active->gpr[r]);
     need(active->mmu.read32(Frame-16)==0xdeadbeefu);
+    need(si_completion_ack_trace.reads()==1);
     need(SiBinding::write32(a,value));
     need(pi_intsr==Other&&pi_intmr==SiController::PI_SI);
 }
@@ -51,11 +57,11 @@ int main(int argc,char**argv){
     put(H,{bl(H,A+4),bl(H+4,B),0x91070000u,0x60000000u,0x4e800020u});
     for(unsigned r=28;r<32;++r)c.mmu.write32(A+4*(r-28),0x900b0000u|(r<<21)|(uint32_t(-4*int(32-r))&0xffffu));
     c.mmu.write32(A+16,0x4e800020u);
-    put(B,{0x7c0802a6u,0x90010004u,bl(B+8,N),0x80010004u,0x7c0803a6u,0x910c0000u,0x4e800020u});
+    put(B,{0x81070000u,0x7c0802a6u,0x90010004u,bl(B+12,N),0x80010004u,0x7c0803a6u,0x910c0000u,0x4e800020u});
     put(N,{0x910a0000u,0x2c090000u,0x41820008u,bl(N+12,D),0x4e800020u});
     put(D,{0x3860002au,0x4e800020u});
     for(unsigned r=0;r<32;++r)c.gpr[r]=0x12340000u+r;
-    c.gpr[1]=Frame+0x1000u;c.gpr[11]=Frame;c.gpr[7]=0xcd006434u;c.gpr[8]=0xe0010300u;
+    c.gpr[1]=Frame+0x1000u;c.gpr[11]=Frame;c.gpr[7]=0xcd006434u;c.gpr[8]=0xdeadbeefu;
     c.gpr[9]=mode=="deeper"?1u:0u;c.gpr[10]=mode=="nested"?c.gpr[7]:Frame+0x200u;
     c.gpr[12]=mode=="second"?c.gpr[7]:Frame+0x100u;
     c.pc=H;c.lr=0x80008000u;c.msr=0x32u;c.is_running=true;c.dispatch_saved_ctx=0;

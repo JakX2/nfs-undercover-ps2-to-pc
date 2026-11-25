@@ -1,0 +1,3 @@
+# V698: generated guest COMCSR read-to-W1C control
+
+Extend the V694 verified independent native nested test with a translated PPC lwz from the actual SI Control MMIO address before the nested call. The guest store value is now the real backend read result, not a preloaded register. The fixture asserts exactly one authenticated read and that it feeds the actual W1C store at each of the three ACK locations. The deeper-call refusal case remains guarded. Both split and non-split tests use production V697 read/write binding. V694's prior eight-case result remains valid for the earlier write-only test; updated CI pending.

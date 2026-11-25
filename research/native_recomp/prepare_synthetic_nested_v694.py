@@ -11,7 +11,7 @@ H=0x80004000;A=0x80005004;B=0x80006000;N=0x80007000;D=0x80008000
 def bl(a,b):return 0x48000001|((b-a)&0x03fffffc)
 handler=[bl(H,A),bl(H+4,B),0x91070000,0x60000000,0x4e800020]
 first=[0x900b0000|(r<<21)|((-4*(32-r))&0xffff) for r in range(29,32)]+[0x4e800020]
-second=[0x7c0802a6,0x90010004,bl(B+8,N),0x80010004,0x7c0803a6,0x910c0000,0x4e800020]
+second=[0x81070000,0x7c0802a6,0x90010004,bl(B+12,N),0x80010004,0x7c0803a6,0x910c0000,0x4e800020]
 nested=[0x910a0000,0x2c090000,0x41820008,bl(N+12,D),0x4e800020]
 def install(root,inc):
     paths=list(root.glob('*.cpp'));original={p:p.read_text() for p in paths}
@@ -25,7 +25,7 @@ def install(root,inc):
             changed,seen=patch_shard(changed,handler,H)
             assert audit_native([exact_function(s,H)],outer,seen)==5
             seen_roots.add(H)
-        if f'void func_{B:X}(CPUContext& ctx) {{' in s:verify_direct(exact_function(s,B),B+8,N)
+        if f'void func_{B:X}(CPUContext& ctx) {{' in s:verify_direct(exact_function(s,B),B+12,N)
         for root_pc,words,is_second,is_nested in ((A,first,False,False),(B,second,True,False),(N,nested,False,True)):
             changed,seen=patch_helper(changed,root_pc,words,is_second,is_nested)
             if seen:
@@ -40,10 +40,10 @@ def install(root,inc):
     (dest/'wii_si_ack_binding_v672.h').write_text(patch_binding(first_patch((HOST/'wii_si_ack_binding_v672.h').read_text())))
     (dest/'v672_private_si_ack_expectations.h').write_text('#pragma once\n#include <cstdint>\nnamespace undercover::wii::v672 {inline constexpr uint32_t handler_first=0x80004000u,handler_end=0x80004014u;}\n')
     (dest/'v680_private_si_helper_expectations.h').write_text(f'#pragma once\nnamespace undercover::wii::v680 {{inline constexpr SiHelperExpectation expected{{0x{H:08x}u,0x{A:08x}u,0x{A+16:08x}u,0x{handler[0]:08x}u,29,11,-12}};}}\n')
-    (dest/'v688_private_si_second_expectations.h').write_text(f'#pragma once\nnamespace undercover::wii::v688 {{inline constexpr SiHelperExpectation expected_second{{0x{H+4:08x}u,0x{B:08x}u,0x{B+28:08x}u,0x{handler[1]:08x}u}};}}\n')
+    (dest/'v688_private_si_second_expectations.h').write_text(f'#pragma once\nnamespace undercover::wii::v688 {{inline constexpr SiHelperExpectation expected_second{{0x{H+4:08x}u,0x{B:08x}u,0x{B+32:08x}u,0x{handler[1]:08x}u}};}}\n')
     (dest/'wii_si_second_binding_v688.h').write_text(patch_second((HOST/'wii_si_second_binding_v688.h').read_text()))
-    (dest/'v693_private_si_nested_expectations.h').write_text(f'#pragma once\nnamespace undercover::wii::v693 {{inline constexpr SiHelperExpectation expected_nested{{0x{B+8:08x}u,0x{N:08x}u,0x{N+20:08x}u,0x{second[2]:08x}u}};}}\n')
+    (dest/'v693_private_si_nested_expectations.h').write_text(f'#pragma once\nnamespace undercover::wii::v693 {{inline constexpr SiHelperExpectation expected_nested{{0x{B+12:08x}u,0x{N:08x}u,0x{N+20:08x}u,0x{second[3]:08x}u}};}}\n')
     hw=inc/'runtime/hw/hw.h';hw.parent.mkdir(parents=True)
     hw.write_text('#pragma once\n#include <atomic>\n#include <cstdint>\nnamespace nwii::runtime::hw {inline std::atomic<uint32_t> pi_intsr{0},pi_intmr{0};}\n')
-    print('V694_PATCH native_labels=21 direct_edges=3')
+    print('V694_PATCH native_labels=22 direct_edges=3')
 if __name__=='__main__':install(Path(sys.argv[1]),Path(sys.argv[2]))

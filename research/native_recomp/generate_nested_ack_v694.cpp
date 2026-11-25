@@ -19,13 +19,13 @@ int main(int argc,char**argv){
     std::vector<uint32_t> saves;
     for(unsigned r=28;r<32;++r)saves.push_back(0x900b0000u|(r<<21)|(uint32_t(-4*int(32-r))&0xffffu));
     saves.push_back(0x4e800020u);add(A,saves);
-    add(B,{0x7c0802a6u,0x90010004u,bl(B+8,N),0x80010004u,0x7c0803a6u,0x910c0000u,0x4e800020u});
+    add(B,{0x81070000u,0x7c0802a6u,0x90010004u,bl(B+12,N),0x80010004u,0x7c0803a6u,0x910c0000u,0x4e800020u});
     add(N,{0x910a0000u,0x2c090000u,0x41820008u,bl(N+12,D),0x4e800020u});
     add(D,{0x3860002au,0x4e800020u});
-    nwii::analyzer::Analyzer a(exe);a.set_trusted_code_spans({{H,H+20},{A,A+20},{B,B+28},{N,N+20},{D,D+8}});
+    nwii::analyzer::Analyzer a(exe);a.set_trusted_code_spans({{H,H+20},{A,A+20},{B,B+32},{N,N+20},{D,D+8}});
     a.analyze({A,B,N,D});
     const auto& f=a.get_functions();
-    assert(f.at(H).instructions.size()==5&&f.at(A).instructions.size()==5&&f.at(A+4).instructions.size()==4&&f.at(B).instructions.size()==7&&f.at(N).instructions.size()==5);
+    assert(f.at(H).instructions.size()==5&&f.at(A).instructions.size()==5&&f.at(A+4).instructions.size()==4&&f.at(B).instructions.size()==8&&f.at(N).instructions.size()==5);
     for(const auto& [pc,fn]:f){(void)pc;assert(fn.hle_hook_name.empty());}
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=argv[1];cfg.split_output=std::string(argv[2])=="split";
     nwii::recomp::Recompiler recomp(a,nullptr,cfg);assert(!recomp.generate_cpp(H).empty());
