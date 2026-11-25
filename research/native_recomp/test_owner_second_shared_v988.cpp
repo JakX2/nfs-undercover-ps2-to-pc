@@ -49,7 +49,7 @@ static SiTypeScheduler* scheduler=nullptr;
 static PostAckTransferDevice third;
 static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned seed_kind=0;
-static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false;
+static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static AlarmCancelReturnWitness alarm_witness(v786::expected);
 static HandlerSuffixGuard suffix_guard;
@@ -196,6 +196,13 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             if(argument_probe&&(ack.stage()==1u||ack.stage()==4u)&&w==0x4e800020u){
                 for(const auto& row:GuardCensus)if(pc==row[0]){
                     need(ack.before(c,pc,w,true)&&ack.poll(c.inst_count)&&bank_mask==Mask&&ctl->issued_tokens()==2u);
+                    if(shared_continue){
+                        need(shared_seen&&post_seen&&ack.stage()==4u&&ack.postack_held());
+                        std::cout<<std::dec<<"V992_SUCCESS_FRONTIER seed="<<seed_kind<<" profile="<<trial
+                            <<" lane="<<row[1]<<" ordinal="<<row[2]<<" kind="<<row[3]<<" time_return="<<time_seen
+                            <<" callback_candidate="<<(row[3]==2u&&c.ctr==0x805327f8u)
+                            <<" visits="<<ack_visits-ack_boundary_visits<<" token_preserved=1 saved_fields=38 call_executed=0"<<std::endl;
+                    }
                     std::cout<<std::dec<<"V976_GUARD_PROFILE seed="<<seed_kind<<" profile="<<trial<<" lane="<<row[1]
                              <<" ordinal="<<row[2]<<" category="<<row[3]<<" stage="<<ack.stage()<<" depth="<<call_route.depth()
                              <<" time_return="<<time_seen<<" visits="<<ack_visits<<" original_guard_executed=0"<<std::endl;
@@ -251,7 +258,16 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 <<" out_one="<<(c.gpr[5]==1u)<<" in_three="<<(c.gpr[7]==3u)<<" out_mapped="<<out_mapped
                 <<" in_mapped="<<in_mapped<<" callback="<<callback<<" command_zero="<<command_zero
                 <<" idle="<<(c.mmu.read32(TransferData)==0xffffffffu)<<" type="<<type<<std::endl;
-            if(argument_probe){std::cout<<"V976_ARG_PROFILE seed="<<seed_kind<<" profile="<<trial<<" admissible="<<type<<" original_transfer_executed=0"<<std::endl;std::_Exit(0);}
+            if(argument_probe){
+                if(shared_continue){
+                    need(shared_seen&&post_seen&&time_seen&&ack.postack_held());
+                    std::cout<<std::dec<<"V992_SUCCESS_FRONTIER seed="<<seed_kind<<" profile="<<trial
+                        <<" lane=1 ordinal=4 kind=1 time_return=1 callback_candidate=0 visits="<<ack_visits-ack_boundary_visits
+                        <<" token_preserved=1 saved_fields=38 call_executed=0"<<std::endl;
+                }
+                std::cout<<"V976_ARG_PROFILE seed="<<seed_kind<<" profile="<<trial<<" admissible="<<type<<" original_transfer_executed=0"<<std::endl;
+                std::_Exit(0);
+            }
             need(type);
             transfer_channel=c.gpr[3];transfer_args=c.gpr;
             transfer_idle=c.mmu.read32(TransferData)==0xffffffffu;
@@ -268,7 +284,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 need(shared_seen&&ack.postack_held());
                 std::cout<<std::dec<<"V988_SUCCESS_HELPER_RETURN seed="<<seed_kind<<" profile="<<trial<<" original_helper_return=1 shared_time=1 visits="
                     <<ack_visits-ack_boundary_visits<<" token_preserved=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
-                std::_Exit(0);
+                if(!shared_continue)std::_Exit(0);
             }
             if(!time_route)std::_Exit(0);
             post_seen=true;
@@ -353,13 +369,14 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success");
+    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
-    shared_route=mode=="active-success"||mode=="seeded-success";
+    shared_continue=mode=="active-frontier"||mode=="seeded-frontier";
+    shared_route=mode=="active-success"||mode=="seeded-success"||shared_continue;
     alarm_route=mode=="queue-alarm"||mode=="seeded-alarm";
     suffix_route=mode=="queue-suffix"||mode=="seeded-suffix"||alarm_route;
-    seed_kind=mode=="seeded-args"||mode=="transfer"||mode=="seeded-suffix"||mode=="seeded-alarm"||mode=="seeded-success"?3u:mode=="queue-args"||mode=="queue-transfer"||mode=="queue-suffix"||mode=="queue-alarm"?1u:mode=="active-args"||mode=="active-transfer"||mode=="active-success"?2u:0u;
-    seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args";
+    seed_kind=mode=="seeded-args"||mode=="transfer"||mode=="seeded-suffix"||mode=="seeded-alarm"||mode=="seeded-success"||mode=="seeded-frontier"?3u:mode=="queue-args"||mode=="queue-transfer"||mode=="queue-suffix"||mode=="queue-alarm"?1u:mode=="active-args"||mode=="active-transfer"||mode=="active-success"||mode=="active-frontier"?2u:0u;
+    seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||shared_continue;
     transfer_route=seeded_route||argument_probe;frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     load_private_data(c,argv[3]);
