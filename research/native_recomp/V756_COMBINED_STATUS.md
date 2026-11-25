@@ -1,0 +1,3 @@
+# V756: composed native system-time and restore handler regression
+
+V755 permits independently authenticated call slots. V756 combines the V742 time and V738 restore production hooks in an independent generated PPC handler. The same actual native time root runs twice, followed by a 15-GPR restore alias and native indirect dispatcher return. The fixture clobbers a nonvolatile register; corrupted time instruction, saved GPR and LR controls and disabled call lanes refuse. No original executable changes or new device operations are authorized. This proves the composition seam only if CI passes.
