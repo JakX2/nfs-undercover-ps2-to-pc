@@ -32,7 +32,11 @@ def patch_resume(s,owner,pc,w):
     body=exact_function(s,owner)
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
     if len(pat.findall(body))!=1:
-        label=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;
+        label=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;$',body)
+        comments=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}'+r': ([0-9a-f]+)\n',body)
+        same=sum(int(x,16)==w for x in comments)
+        print(f'V729_RESUME_GEOMETRY label={len(label)} comment={len(comments)} word_match={same} exact_tick={len(pat.findall(body))}')
+        raise ValueError('resume label identity')
     out=pat.sub(lambda m:m[0]+f'    undercover::wii::v726::resume(ctx,0x{pc:08x}u,0x{w:08x}u);\n',body,count=1)
     s=replace_exact(s,body,out)
     return replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n#include "undercover/wii_si_handler_return_binding_v726.h"')
