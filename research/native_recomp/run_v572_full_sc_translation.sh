@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
 external_entry=0
@@ -11,6 +11,9 @@ si_postack=0
 si_os_leaves=0
 si_handler_return=0
 si_handler_restore=0
+si_handler_time=0
+if [[ "$mode" == --run-si-handler-time ]]; then mode=--run-si-handler-return;si_handler_time=1;fi
+if [[ "$mode" == --prepare-si-handler-time ]]; then mode=--prepare-si-handler-return;si_handler_time=1;fi
 if [[ "$mode" == --run-si-handler-restore ]]; then mode=--run-si-handler-return;si_handler_restore=1;fi
 if [[ "$mode" == --prepare-si-handler-restore ]]; then mode=--prepare-si-handler-return;si_handler_restore=1;fi
 if [[ "$mode" == --run-si-handler-return ]]; then mode=--run-si-os-leaves;si_handler_return=1;fi
@@ -119,6 +122,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
       if [[ "$si_os_leaves" == 1 ]]; then python3 "$here/prepare_v709_os_leaves.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_handler_return" == 1 ]]; then python3 "$here/prepare_v726_handler_return.py" "$dol" "$elf" "$work/generated";fi
       if [[ "$si_handler_restore" == 1 ]]; then python3 "$here/prepare_v738_handler_restore.py" "$dol" "$elf" "$work/generated";fi
+      if [[ "$si_handler_time" == 1 ]]; then python3 "$here/prepare_v742_handler_time.py" "$dol" "$elf" "$work/generated";fi
     fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
@@ -162,6 +166,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$si_os_leaves" != 1 ]] || target=irq-si-os-leaves
     [[ "$si_handler_return" != 1 ]] || target=irq-si-handler-return
     [[ "$si_handler_restore" != 1 ]] || target=irq-si-handler-restore
+    [[ "$si_handler_time" != 1 ]] || target=irq-si-handler-time
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"

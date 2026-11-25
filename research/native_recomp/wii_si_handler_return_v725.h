@@ -60,8 +60,12 @@ public:
         return true;
     }
     template<class C>bool restore_returned(C& c,uint32_t pc,unsigned visits,bool device){
+        if(visits>19u)return fail(8);
+        return helper_returned(c,pc,visits,device);
+    }
+    template<class C>bool helper_returned(C& c,uint32_t pc,unsigned visits,bool device){
         if(stage_!=2||!common(c)||!device||!restore_inflight_||restore_done_||pending_||
-           pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>19u||c.inst_count-last_!=visits+1u)return fail(8);
+           pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>128u||c.inst_count-last_!=visits+1u)return fail(8);
         restore_inflight_=false;restore_done_=true;last_=c.inst_count-1u;return true;
     }
     template<class C>bool poll(C& c,bool device){
