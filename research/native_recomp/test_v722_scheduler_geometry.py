@@ -14,6 +14,13 @@ class SchedulerGeometry(unittest.TestCase):
         return e,s
     def test_shape(self):
         e,s=self.samples();self.assertEqual(shapes(e,s,D,R),(-4,-8,[(E,D),(E+12,R)],(S+16,G)))
+    def test_cr_return(self):
+        for w in (0x4d820020,0x4c820020,0x4da20020):
+            e,s=self.samples();s[2]=w
+            self.assertEqual(shapes(e,s,D,R)[1],-8)
+        for w in (0x4d820021,0x4c020020,0x4d821020,0x4e800420):
+            e,s=self.samples();s[2]=w
+            with self.assertRaises(ValueError):shapes(e,s,D,R)
     def test_invalid(self):
         for k,i,w in ((0,2,mem(36,-8)),(0,3,bl(E+12,D)),(1,0,mem(32,-4)),(1,4,bl(S+16,G)),(1,3,0x4e800421)):
             e,s=self.samples();(e,s)[k][i]=w

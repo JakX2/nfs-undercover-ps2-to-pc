@@ -39,7 +39,13 @@ def shapes(enable,resched,d,r):
                     if root!=S or op!=18 or dst&3:raise ValueError('external branch')
                     tails.append((pc,dst))
                 elif dst<=pc:raise ValueError('unexpected loop')
-            if op==17 or (op==19 and (xo==528 or xo==50 or (xo==16 and w!=BLR))):
+            # Accept CR-tested non-linking LR returns in the reschedule leaf.
+            # CTR-tested, linked, or nonzero reserved/BH forms remain refused.
+            cr_return=(root==S and op==19 and xo==16 and not(w&1)
+                       and ((w>>21)&30) in (4,12) and not(w&0xf800))
+            if op==17 or (op==19 and (xo==528 or xo==50 or (xo==16 and w!=BLR and not cr_return))):
+                if op==19:
+                    print(f'V723_CONTROL_CLASS root={int(root==S)} xo={xo} bo={(w>>21)&31} link={w&1}')
                 raise ValueError('unexpected control')
     if [dst for _,dst in calls]!=[d,r] or len(tails)!=1:
         raise ValueError('scheduler dependencies')
