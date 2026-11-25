@@ -14,13 +14,14 @@ def inspect(raw,rc):
     i=next((i for i,l in enumerate(rows) if l.startswith((PREFIX,)+FAILURES)),len(rows))
     _,prior=inspect_dispatch(b'\n'.join(rows[:i]),0)
     tail=rows[i:];n=0
-    for a,b in zip(tail,EVENTS):
+    for a,b in zip((r for r in tail if r.startswith(PREFIX)),EVENTS):
         if a!=b:break
         n+=1
     helper_events=[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]
     extended=EVENTS[:1]+helper_events+EVENTS[1:]+[RESULT]
     ok=bool(rc==0 and prior and tail in (EVENTS+[RESULT],extended))
-    return f'V672_SI_ACK_CENSUS rc={rc} dispatch={int(prior)} stages={n} verified={int(ok)} boot_verified=0',ok
+    helper_count=sum(r in tail for r in helper_events)
+    return f'V672_SI_ACK_CENSUS rc={rc} dispatch={int(prior)} stages={n} helper_stages={helper_count} verified={int(ok)} boot_verified=0',ok
 def main():
     p=argparse.ArgumentParser();p.add_argument('log',type=Path);p.add_argument('rc',type=int);a=p.parse_args()
     try:

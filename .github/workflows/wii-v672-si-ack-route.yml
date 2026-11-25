@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/*v672*'
       - 'research/native_recomp/*v675*'
+      - 'research/native_recomp/*v680*'
+      - 'research/native_recomp/*v681*'
       - '.github/workflows/wii-v672-si-ack-route.yml'
 permissions:
   contents: read
@@ -20,6 +22,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v672_si_ack_route.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v668_si_ack.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v675_si_ack_integration.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v681_si_helper.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_first_helper_v681.cpp -o "$RUNNER_TEMP/v681"
+          "$RUNNER_TEMP/v681"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_completion_ack_v668.cpp -o "$RUNNER_TEMP/v672"
