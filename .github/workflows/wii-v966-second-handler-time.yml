@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v966*'
+      - 'research/native_recomp/*v968*'
       - '.github/workflows/wii-v966-second-handler-time.yml'
 permissions:
   contents: read

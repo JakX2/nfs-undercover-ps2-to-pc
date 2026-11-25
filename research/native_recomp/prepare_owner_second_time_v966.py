@@ -8,6 +8,7 @@ from prepare_owner_second_ack_v955 import plan as old_plan,bounded,install
 from prepare_owner_second_dispatch_v946 import patch_analyzer,header as dispatch_header
 from prepare_v742_handler_time import plan as time_plan
 from audit_os_leaf_v703 import plan as leaf_plan
+from prepare_v672_si_ack_route import call_census
 
 def plan(dol,elf):
     roots,edges,indirect,iw,hw,dw,guard,extra=old_plan(dol,elf)
@@ -28,9 +29,12 @@ def plan(dol,elf):
         if list(code)!=roots[root]:raise ValueError('leaf words')
         for i in mt:msr.append((root+4*i,code[i]))
     if len(msr)!=2 or len(allowed)!=7:raise ValueError('leaf geometry')
-    return (roots,edges,indirect,iw,hw,dw,guard,new_extra),site,msr
+    census=call_census(HANDLER,exact(dol,elf,HANDLER,len(roots[HANDLER])))
+    frontier=[(pc,ordinal,kind) for pc,(ordinal,kind) in sorted(census.items()) if pc in guard and ordinal>=4]
+    if not frontier or any(kind not in (1,2) or ordinal>32 for _,ordinal,kind in frontier):raise ValueError('frontier census')
+    return (roots,edges,indirect,iw,hw,dw,guard,new_extra),site,msr,frontier
 
-def header(q,out,site,msr):
+def header(q,out,site,msr,frontier):
     roots,edges,indirect,iw,hw,dw,guard,extra=q
     dispatch_header(q[:7],out)
     fmt=lambda v:','.join(f'0x{x:08x}u' for x in v)
@@ -41,6 +45,7 @@ def header(q,out,site,msr):
             f.write(f'inline constexpr std::array<uint32_t,{len(ws)}> {name.lower()}_words{{'+fmt(ws)+'};\n')
         f.write('inline constexpr std::array<std::array<uint32_t,2>,7> AckEdges{{'+','.join('std::array<uint32_t,2>{'+fmt((s,d))+'}' for s,d,_,_,_ in extra)+'}};\n')
         f.write(f'inline constexpr uint32_t TimeCall=0x{site:08x}u;\n')
+        f.write(f'inline constexpr std::array<std::array<uint32_t,3>,{len(frontier)}> HandlerFrontier{{{{'+','.join('std::array<uint32_t,3>{'+fmt(r)+'}' for r in frontier)+'}};\n')
         f.write('inline constexpr std::array<undercover::wii::AckMsrSite,2> AckMsr{{'+','.join('{'+fmt(r)+'}' for r in msr)+'}};\n')
     s=out.read_text();out.write_text(s.replace('#include "wii_si_dispatch_v667.h"','#include "wii_si_dispatch_v667.h"\n#include "wii_bounded_ack_call_route_v956.h"'))
 
@@ -49,12 +54,12 @@ def main():
     m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        q,site,msr=plan(a.dol.read_bytes(),a.elf.read_bytes())
+        q,site,msr,frontier=plan(a.dol.read_bytes(),a.elf.read_bytes())
         if a.install:install(q,a.output)
         elif a.patch_analyzer:patch_analyzer(q[:7],a.output)
-        else:header(q,a.output,site,msr);print('V966_TIME_GEOMETRY roots=9 handler_edges=7 msr_sites=2 execution=0')
+        else:header(q,a.output,site,msr,frontier);print('V966_TIME_GEOMETRY roots=9 handler_edges=7 msr_sites=2 execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        allowed=('time root','leaf order','leaf words','leaf geometry','native coverage','native owner','hook identity','hook include','hook coverage','reachability','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        allowed=('time root','leaf order','leaf words','leaf geometry','frontier census','native coverage','native owner','hook identity','hook include','hook coverage','reachability','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V966_TIME_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

@@ -42,8 +42,8 @@ static std::array<uint32_t,32> held_buffer{};
 static uint32_t held_control=0,held_status=0;
 static unsigned trial=0,visits=0,entries=0,polls=0,reads=0;
 static uint64_t last=0;
-static bool bad_frame=false,bad_pi=false,postack=false,time_route=false,post_seen=false;
-static unsigned time_entries=0,time_returns=0,time_msr=0,time_tick=0;
+static bool bad_frame=false,bad_pi=false,postack=false,time_route=false,post_seen=false,frontier_route=false,time_seen=false;
+static unsigned time_entries=0,time_returns=0,time_msr=0,time_tick=0,time_return_visit=0;
 static unsigned ack_returns=0,ack_boundary_visits=0;
 static bool held(){
     if(!ctl||ctl->pending()||ctl->issued_tokens()!=2u||cause.load()!=(Other|8u)||
@@ -79,7 +79,19 @@ namespace rfi_test {
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(ack.stage()){
         need(captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
-        need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+        if(std::find(Guard.begin(),Guard.end(),pc)!=Guard.end()){
+            // A synthetic refusal guard is never executed. Its original
+            // call identity was authenticated privately before translation.
+            if(frontier_route&&time_seen&&ack.stage()==4u&&call_route.depth()==0u&&w==0x4e800020u){
+                for(const auto& f:HandlerFrontier)if(pc==f[0]){
+                    need(ack.before(c,pc,w,true)&&ack.postack_held()&&cause==Other&&bank_mask==Mask&&ack_visits>time_return_visit);
+                    std::cout<<std::dec<<"V968_HANDLER_FRONTIER ordinal="<<f[1]<<" kind="<<f[2]
+                        <<" visits="<<ack_visits-time_return_visit<<" token_preserved=1 saved_fields=38 call_executed=0"<<std::endl;
+                    std::_Exit(0);
+                }
+            }
+            fail(11);
+        }
         need(ack.before(c,pc,w,true));
         if(ack.stage()==3u){
             need(call_route.before(c,pc,w));
@@ -100,11 +112,12 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             need(!time_tick&&call_route.depth()==1u);
             time_entries=call_route.entries();time_returns=call_route.returns();time_msr=call_route.msr_writes();time_tick=ack_visits;
         }
-        if(time_route&&time_tick&&pc==TimeCall+4u){
+        if(time_route&&!time_seen&&time_tick&&pc==TimeCall+4u){
             need(call_route.depth()==0u&&call_route.entries()-time_entries==4u&&call_route.returns()-time_returns==4u&&
                  call_route.msr_writes()-time_msr==2u&&ack.postack_held()&&cause==Other&&bank_mask==Mask);
             std::cout<<std::dec<<"V966_TIME_RETURN original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 visits="<<ack_visits-time_tick<<" handler_instruction_executed=0"<<std::endl;
-            std::_Exit(0);
+            if(!frontier_route)std::_Exit(0);
+            time_seen=true;time_return_visit=ack_visits;
         }
         return;
     }
@@ -172,7 +185,7 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";time_route=mode=="time";postack=mode=="postack"||time_route;
+    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";frontier_route=mode=="frontier";time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     load_private_data(c,argv[3]);
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};

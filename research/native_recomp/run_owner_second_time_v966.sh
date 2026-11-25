@@ -43,6 +43,13 @@ for mode in nonsplit split; do
     }
     grep -Ex 'V966_TIME_RETURN original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 visits=[1-9][0-9]* handler_instruction_executed=0' "$work/run.log"
   done
+  for trial in {0..7}; do
+    timeout 20s "$work/probe" "$trial" frontier "$dol" > "$work/run.log" 2>&1 || {
+      grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-4] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+      echo "V968_FRONTIER_EXECUTION failed=1";exit 1;
+    }
+    grep -Ex 'V968_HANDLER_FRONTIER ordinal=([4-9]|[1-2][0-9]|3[0-2]) kind=[12] visits=[1-9][0-9]* token_preserved=1 saved_fields=38 call_executed=0' "$work/run.log"
+  done
   for bad in bad-frame bad-pi; do
     rc=0;timeout 20s "$work/probe" 0 "$bad" "$dol" > "$work/run.log" 2>&1 || rc=$?
     [[ "$rc" == 126 ]]
@@ -51,4 +58,5 @@ for mode in nonsplit split; do
   echo "V955_OWNER_ACK mode=$mode valid=8 original_dispatcher=8 original_w1c=8 token_preserved=8 negative=2 fallback=0 continuous_boot=0"
   echo "V962_OWNER_POST_ACK mode=$mode valid=8 original_helper_return=8 fallback=0 continuous_boot=0"
   echo "V966_OWNER_TIME mode=$mode valid=8 original_time_return=8 fallback=0 continuous_boot=0"
+  echo "V968_OWNER_FRONTIER mode=$mode valid=8 guarded_dependency=8 fallback=0 continuous_boot=0"
 done
