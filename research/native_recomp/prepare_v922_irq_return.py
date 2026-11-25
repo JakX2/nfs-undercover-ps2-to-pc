@@ -80,7 +80,7 @@ def install(dol,elf,root,host):
         if inc not in s:s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
         changes[p]=s
     dest=root/'nWiiRuntime/include/undercover'
-    files={dest/n:(host/n).read_text() for n in ('wii_live_epilogue_v762.h','wii_live_irq_return_binding_v922.h')}
+    files={dest/n:(host/n).read_text() for n in ('wii_live_epilogue_v762.h','wii_live_irq_return_binding_v922.h','wii_pending_external_reentry_v932.h')}
     files[dest/'v922_private_irq_return.h']=header.replace('::v767','::v922')
     a=dest/'wii_external_entry_binding_v663.h';b=dest/'wii_handler_suffix_binding_v868.h'
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files) or any(p.is_symlink() or not p.is_file() for p in (a,b)):

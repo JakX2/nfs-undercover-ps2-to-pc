@@ -16,19 +16,37 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
+    unsigned entry_refusal()const{return refusal_;}
     template<class C>bool begin(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
-        if(stage_||error_||captured.stage()!=1||!safe(c)||!c.inst_count||
-           c.pc!=e_.dispatcher||e_.context_reg<14||e_.context_reg>31||c.gpr[e_.context_reg]!=e_.context||
-           !captured.saved_integer(c,e_.context).ok()||(cause&mask)||!e_.gqr_mask||e_.gqr_mask>255u)return fail(1);
+        return begin_impl(c,captured,cause,mask,false);
+    }
+    template<class C>bool begin_pending(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
+        return begin_impl(c,captured,cause,mask,true);
+    }
+    template<class C>bool pending_rfi_return(C& c,uint32_t cause,uint32_t mask){
+        if(stage_!=2u||!pending_return_||!captured_||!captured_->pending_rfi_return(c,cause,mask))return fail(8);
+        stage_=3;return true;
+    }
+private:
+    template<class C>bool begin_impl(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask,bool pending){
+        refusal_=0;
+        if(stage_||error_||captured.stage()!=1)refusal_|=1u;
+        if(!safe(c)||!c.inst_count||c.pc!=e_.dispatcher)refusal_|=2u;
+        if(e_.context_reg<14||e_.context_reg>31||c.gpr[e_.context_reg]!=e_.context)refusal_|=4u;
+        if(!captured.saved_integer(c,e_.context).ok())refusal_|=8u;
+        if((cause&mask)!=(pending?8u:0u))refusal_|=16u;
+        if(!e_.gqr_mask||e_.gqr_mask>255u)refusal_|=32u;
+        if(refusal_)return fail(1);
         const int64_t counter=int64_t(c.gpr[13])+e_.counter_disp,hint=int64_t(c.gpr[13])+e_.hint_disp;
         if(counter<0x80000000ll||counter>0x817ffffcll||hint<0x80000000ll||hint>0x817ffffcll||
-           (counter&3)||(hint&3)||counter==hint)return fail(1);
+           (counter&3)||(hint&3)||counter==hint){refusal_|=64u;return fail(1);}
         counter_=uint32_t(counter);hint_=uint32_t(hint);
-        if(!mapped(c,counter_)||!mapped(c,hint_))return fail(1);
-        initial_=c.mmu.read32(counter_);if(!initial_||initial_>1024u)return fail(1);
-        cpu_=&c;captured_=&captured;cause_=cause;mask_=mask;msr_=c.msr;
+        if(!mapped(c,counter_)||!mapped(c,hint_)){refusal_|=128u;return fail(1);}
+        initial_=c.mmu.read32(counter_);if(!initial_||initial_>1024u){refusal_|=256u;return fail(1);}
+        pending_return_=pending;cpu_=&c;captured_=&captured;cause_=cause;mask_=mask;msr_=c.msr;
         gp_=c.gpr;cr_=pack(c)&0x00fff000u;next_=e_.dispatcher;last_=c.inst_count-1u;stage_=1;return true;
     }
+public:
     template<class C>bool entry(C& c,uint32_t pc,uint32_t cause,uint32_t mask){
         if(stage_!=1||!common(c,cause,mask)||pending_||pc!=next_||c.pc!=pc||
            c.inst_count!=last_||!entry_due_||!depth_||c.lr!=stack_[depth_-1])return fail(2);
@@ -53,7 +71,7 @@ public:
         }
         if(w==0x4c000064u){
             if(depth_!=1||calls_!=31u||c.mmu.read16(e_.context+0x1a2u)!=0||c.gqr!=gqr_||
-               !captured_->before_rfi(c,pc,w,cause,mask))return fail(5);
+               !(pending_return_?captured_->before_pending_rfi(c,pc,w,cause,mask):captured_->before_rfi(c,pc,w,cause,mask)))return fail(5);
             stage_=2;return true;
         }
         const unsigned op=w>>26,xo=(w>>1)&1023u;
@@ -95,7 +113,7 @@ public:
     }
     template<class C>bool poll(C& c,uint32_t cause,uint32_t mask){
         if(stage_==2||stage_==3){
-            if(!captured_->poll(c,cause,mask))return fail(8);
+            if(pending_return_||!captured_->poll(c,cause,mask))return fail(8);
             ++stage_;return true;
         }
         if(stage_!=1||!common(c,cause,mask)||!pending_||c.pc!=poll_pc_||c.inst_count!=last_||
@@ -109,7 +127,8 @@ public:
     }
 private:
     LiveEpilogueExpectation e_;ExternalReturnWitness* captured_=nullptr;const void* cpu_=nullptr;
-    unsigned stage_=0,error_=0,visits_=0,depth_=0,calls_=0;
+    unsigned stage_=0,error_=0,visits_=0,depth_=0,calls_=0,refusal_=0;
+    bool pending_return_=false;
     uint32_t cause_=0,mask_=0,msr_=0,cr_=0,counter_=0,hint_=0,initial_=0,next_=0,poll_pc_=0,poll_cr_=0,poll_lr_=0,poll_ctr_=0,poll_xer_=0,poll_msr_=0,poll_srr0_=0,poll_srr1_=0;
     uint64_t last_=0;bool entry_due_=false,pending_=false;
     std::array<uint32_t,2> stack_{};
@@ -118,7 +137,7 @@ private:
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool common(C& c,uint32_t cause,uint32_t mask)const{
-        return !error_&&cpu_==&c&&safe(c)&&cause==cause_&&mask==mask_&&!(cause&mask);
+        return !error_&&cpu_==&c&&safe(c)&&cause==cause_&&mask==mask_&&(cause&mask)==(pending_return_?8u:0u);
     }
     template<class C>static bool mapped(C& c,uint32_t pc){return !(pc&3u)&&pc>=0x80000000u&&pc<=0x817ffffcu&&c.mmu.get_ptr(pc)&&c.mmu.get_ptr(pc+3u);}
     template<class C>static uint32_t pack(C& c){

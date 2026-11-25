@@ -40,25 +40,39 @@ public:
         out.valid=true;return out;
     }
     template<class C>bool before_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
-        // Only a private authenticated native RFI label may invoke this.
-        if(stage_!=1||!common(c,cause,mask)||c.msr&0x8000u||
+        return before_rfi_impl(c,pc,word,cause,mask,false);
+    }
+    // A second, already completed SI token can remain asserted across RFI.
+    // The caller must separately authenticate that token and the device.
+    template<class C>bool before_pending_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
+        return before_rfi_impl(c,pc,word,cause,mask,true);
+    }
+    template<class C>bool pending_rfi_return(C& c,uint32_t cause,uint32_t mask){
+        if(stage_!=2u||!pending_return_||!pending_common(c,cause,mask)||!restored(c)||
+           !(c.msr&0x8000u)||c.inst_count!=rfi_tick_)return fail(3);
+        stage_=3;return true;
+    }
+private:
+    template<class C>bool before_rfi_impl(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask,bool pending){
+        if(stage_!=1||!(pending?pending_common(c,cause,mask):common(c,cause,mask))||c.msr&0x8000u||
            !pc||(pc&3u)||word!=0x4c000064u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
            c.mmu.read32(pc)!=word||c.inst_count<=start_tick_||c.inst_count-start_tick_>32768u||
            c.srr0!=resume_||c.srr1!=restored_msr_||!integer_state(c))return fail(2);
-        rfi_tick_=c.inst_count;stage_=2;return true;
+        pending_return_=pending;rfi_tick_=c.inst_count;stage_=2;return true;
     }
+public:
     template<class C>bool poll(C& c,uint32_t cause,uint32_t mask){
         // First is generated RFI's rising EE callback, second is the
         // subsequent outer dispatcher poll. No native guest instruction
         // or HLE context restore may execute between them.
-        if((stage_!=2&&stage_!=3)||!common(c,cause,mask)||!restored(c)||
+        if(pending_return_||(stage_!=2&&stage_!=3)||!common(c,cause,mask)||!restored(c)||
            c.inst_count!=rfi_tick_)return fail(3);
         ++stage_;return true;
     }
     template<class C>bool resume(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         // Hook after ++inst_count at the original resume label. The
         // authenticated split dispatcher increments once before dispatch.
-        if(stage_!=4||!common(c,cause,mask)||!restored(c)||pc!=resume_||
+        if(pending_return_||stage_!=4||!common(c,cause,mask)||!restored(c)||pc!=resume_||
            c.inst_count-rfi_tick_!=2u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
            c.mmu.read32(pc)!=word)return fail(4);
         stage_=5;return true;
@@ -68,6 +82,7 @@ private:
     std::array<uint32_t,32> gp_{};
     uint32_t cr_=0,lr_=0,ctr_=0,xer_=0,resume_=0,restored_msr_=0,cause_=0,mask_=0;
     uint64_t start_tick_=0,rfi_tick_=0;
+    bool pending_return_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>static uint32_t pack_cr(C& c){
@@ -80,6 +95,9 @@ private:
     }
     template<class C>bool restored(C& c)const{
         return c.pc==resume_&&c.msr==restored_msr_&&c.srr0==resume_&&c.srr1==restored_msr_&&integer_state(c);
+    }
+    template<class C>bool pending_common(C& c,uint32_t cause,uint32_t mask)const{
+        return !error_&&ctx_==&c&&safe(c)&&cause==(cause_|8u)&&mask==mask_&&(cause&mask)==8u;
     }
     template<class C>bool common(C& c,uint32_t cause,uint32_t mask)const{
         return !error_&&ctx_==&c&&safe(c)&&cause==cause_&&mask==mask_&&!(cause&mask);
