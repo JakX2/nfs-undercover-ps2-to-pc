@@ -41,6 +41,25 @@ int main(int argc,char** argv){
     uint32_t word=mode=="nested"?0x48000101u:Store;
     c.mmu.words[B]=word;++c.inst_count;
     v688::before(c,B,word,mode=="nested"?1u:0u,mode=="nested"?1u:0u);
+    if(mode.rfind("post-",0)==0){
+        need(SiBinding::write32(0xcd006434u,0xe0010300u));
+        c.mmu.words[B+4]=mode=="post-branch"?Blr:Store;
+        ++c.inst_count;v688::before(c,B+4,c.mmu.words[B+4],0,0);
+        need(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::PostAck);
+        if(mode=="post-start")SiBinding::write32(0xcd006434u,0xc0010301u);
+        if(mode=="post-stale")++c.inst_count;
+        need(SiBinding::write32(0xcd006438u,0x08000000u));
+        need(ctl.read(SiController::Status)==0&&pi_intsr==Other&&!ctl.pending());
+        c.mmu.words[B+8]=Store;++c.inst_count;v688::before(c,B+8,Store,0,0);
+        need(SiBinding::write32(0xcd006480u,0x12345678u));
+        need(ctl.read(SiController::Buffer)==0x12345678u);
+        c.mmu.words[B+12]=Blr;
+        if(mode=="post-cause")pi_intsr.fetch_or(SiController::PI_SI);
+        ++c.inst_count;v688::before(c,B+12,Blr,0,0);
+        c.pc=H+8;if(mode=="post-abi")c.gpr[14]^=1u;
+        ++c.inst_count;v672::before(c,H+8,Store,0,0);
+        throw std::runtime_error("post-ACK return escaped");
+    }
     if(mode=="inside"||mode=="wrong-next"||mode=="stale"||mode=="unsupported"){
         if(mode=="stale")++c.inst_count;
         need(SiBinding::write32(0xcd006434u,mode=="unsupported"?0x80010300u:0xe0010300u));

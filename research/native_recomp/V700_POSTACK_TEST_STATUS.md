@@ -1,0 +1,3 @@
+# V700: post-ACK native state and ABI regression
+
+Extend compiled production bindings with six post-ACK process cases: actual status W1C and communication-buffer writes followed by ABI return; refusal of branch successor, new transfer, stale store, changed PI cause and corrupted nonvolatile register. The former ten cases retain their stop-at-ACK behavior. New audit tests require an exact prior ACK plus ordered continuation/result and refuse duplicates, missing result, failure marker or wrong exit. The owner workflow now exercises the opt-in post-ACK route instead of repeating the already three-times verified stop-at-ACK; previous explicit --run-si-ack remains. No original post-ACK execution claimed yet.

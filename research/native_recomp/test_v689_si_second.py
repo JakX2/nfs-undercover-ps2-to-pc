@@ -6,6 +6,7 @@ from prepare_v680_si_helper import patch_binding as first_patch,patch_helper
 from prepare_v688_si_second import patch_binding
 from si_second_geometry_v688 import second_edge
 from audit_v672_si_ack_route import inspect,EVENTS,RESULT
+from audit_v699_si_postack import inspect as inspect_post,STAGE,END,NESTED,RETURN
 HOST=Path(__file__).resolve().parent
 H=0x80004000;A=0x80005000;B=0x80006000
 FIRST=[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]
@@ -30,6 +31,14 @@ class Tests(unittest.TestCase):
                 self.assertTrue(inspect(b'\n'.join(good),0)[1])
                 for bad in (good[:2]+good[3:],good+[b'V688_SI_SECOND_CALL ordinal=1 kind=1'],good+[b'V688_SI_SECOND_INVALID reason=4 stage=2 trace=0']):
                     self.assertFalse(inspect(b'\n'.join(bad),0)[1])
+    def test_post_audit(self):
+        prefix=EVENTS[:1]+FIRST+SECOND[:2]+[b'V688_SI_SECOND_ACK n=1']+EVENTS[1:]+[RESULT]
+        with patch('audit_v672_si_ack_route.inspect_dispatch',return_value=('ok',True)):
+            for suffix in ([STAGE,RETURN,END],[STAGE,*NESTED,RETURN,END]):
+                self.assertTrue(inspect_post(b'\n'.join(prefix+suffix),0)[1])
+                for bad in (suffix[:-1],suffix+[END],suffix+[b'V699_POSTACK_INVALID reason=1 trace=0'],suffix[::-1]):
+                    self.assertFalse(inspect_post(b'\n'.join(prefix+bad),0)[1])
+                self.assertFalse(inspect_post(b'\n'.join(prefix+suffix),126)[1])
     @unittest.skipIf(os.name=='nt','GCC sanitizer integration control')
     def test_compiled_binding(self):
         cc=shutil.which('g++')
@@ -59,11 +68,21 @@ class Tests(unittest.TestCase):
                 'stale':(126,entered+[b'V677_SI_ACK_WRITE_INVALID trace=5']),
                 'unsupported':(126,entered+[b'V677_SI_ACK_WRITE_INVALID trace=6']),
                 'abi':(126,entered+[b'V688_SI_SECOND_INVALID reason=5 stage=3 trace=0'])}
+            post=entered+[b'V688_SI_SECOND_ACK n=1']+EVENTS[1:]+[RESULT]
+            expected.update({
+                'post-return':(0,post+[STAGE,RETURN,END]),
+                'post-branch':(126,post+[b'V699_POSTACK_INVALID reason=1 trace=0']),
+                'post-start':(126,post+[STAGE,b'V677_SI_ACK_WRITE_INVALID trace=10']),
+                'post-stale':(126,post+[STAGE,b'V677_SI_ACK_WRITE_INVALID trace=9']),
+                'post-cause':(126,post+[STAGE,b'V688_SI_SECOND_INVALID reason=3 stage=2 trace=4']),
+                'post-abi':(126,post+[STAGE,b'V688_SI_SECOND_INVALID reason=5 stage=3 trace=0'])})
             for mode,(rc,rows) in expected.items():
                 with self.subTest(mode=mode):
-                    got=subprocess.run([str(exe),mode],capture_output=True,timeout=10)
+                    env=dict(os.environ);env.pop('UNDERCOVER_V699_SI_POSTACK',None)
+                    if mode.startswith('post-'):env['UNDERCOVER_V699_SI_POSTACK']='1'
+                    got=subprocess.run([str(exe),mode],capture_output=True,timeout=10,env=env)
                     self.assertEqual(got.returncode,rc,got.stderr.decode(errors='replace'))
                     self.assertEqual(got.stdout.splitlines(),rows)
                     self.assertEqual(got.stderr,b'')
-            print('V689_SECOND_BINDING synthetic=1 cases=10 actual_mmio=1 original_execution=0')
+            print('V689_SECOND_BINDING synthetic=1 cases=16 actual_mmio=1 original_execution=0')
 if __name__=='__main__':unittest.main()

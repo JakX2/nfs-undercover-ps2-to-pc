@@ -11,6 +11,8 @@ on:
       - 'research/native_recomp/*v688*'
       - 'research/native_recomp/*v689*'
       - 'research/native_recomp/*v691*'
+      - 'research/native_recomp/*v699*'
+      - 'research/native_recomp/*v700*'
       - '.github/workflows/wii-v672-si-ack-route.yml'
 permissions:
   contents: read
@@ -91,7 +93,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Execute original complete image to original SI acknowledgement
+      - name: Execute original complete image beyond original SI acknowledgement
         run: |
           set -euo pipefail
           umask 077
@@ -99,7 +101,7 @@ jobs:
           git -C "$RUNNER_TEMP/nw672" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
           git -C "$RUNNER_TEMP/nw672" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nw672" checkout -q --detach FETCH_HEAD
-          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-ack
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw672" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-postack
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw672"
