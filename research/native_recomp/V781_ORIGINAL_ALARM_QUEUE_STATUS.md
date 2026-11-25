@@ -1,0 +1,3 @@
+# V781: verify live queue witness against original alarm code
+
+Reuse the previously successful V754 and V764 private translation routes without modifying their prior tests. The new focused harness observes all five original cancellation cases and three deadline geometries, and verifies the V780 live snapshot, queue link repair, preserved unrelated fields and exact DEC state. Its head path requires actual original system-time return before authenticating the native decrementer write, and corrupt DEC must be refused. Separate matrix lanes for head and non-head cases; both generated modes. Pending owner CI. These are original-code fixtures with synthetic initial RAM, not a live SI-handler alarm call.
