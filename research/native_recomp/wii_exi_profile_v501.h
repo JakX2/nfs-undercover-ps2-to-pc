@@ -80,14 +80,24 @@ public:
     // Fixed RTC base for deterministic startup. A production clock may be
     // injected by the caller later. No file writes from device execution.
     ExiProfileSession(ExiController& ctl,const ExiHostProfile& p)
-        :mx_(p.sram,[seconds=p.rtc_seconds]{return seconds;}),id_(p.id),
-         scheduler_(ctl,mx_,id_,p.latency),di_(p.di_config),tick_(scheduler_){}
+        :ctl_(ctl),mx_(p.sram,[seconds=p.rtc_seconds]{return seconds;}),id_(p.id),
+         scheduler_(ctl,mx_,id_,p.latency),di_(p.di_config),tick_(scheduler_){
+        if(active_)throw std::logic_error("EXI profile already bound");
+        active_=this;
+    }
+    ~ExiProfileSession(){active_=nullptr;}
     ExiProfileSession(const ExiProfileSession&)=delete;
     ExiProfileSession& operator=(const ExiProfileSession&)=delete;
     uint64_t completed()const{return scheduler_.completed();}
     const ExiMxDevice::Sram& sram()const{return mx_.sram();}
     bool sram_dirty()const{return mx_.dirty();}
+    static const ExiProfileSession* current()noexcept{return active_;}
+    const ExiController& controller()const noexcept{return ctl_;}
+    const ExiMxDevice& endpoint()const noexcept{return mx_;}
+    const ExiEndpointScheduler& scheduler()const noexcept{return scheduler_;}
 private:
+    inline static thread_local const ExiProfileSession* active_=nullptr;
+    ExiController& ctl_;
     ExiMxDevice mx_;ExiIdEndpoint id_;ExiEndpointScheduler scheduler_;
     ExiDiConfigBinding di_;ExiTickBinding tick_;
 };

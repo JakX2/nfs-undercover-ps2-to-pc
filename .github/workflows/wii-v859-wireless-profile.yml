@@ -1,0 +1,23 @@
+name: Wii V859 Wireless Profile Trace
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v859*'
+      - 'research/native_recomp/wii_exi_endpoint_scheduler_v495.h'
+      - 'research/native_recomp/wii_exi_profile_v501.h'
+      - '.github/workflows/wii-v859-wireless-profile.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for test in test_wireless_profile_trace_v859 test_wii_exi_profile_v501 test_wireless_sram_write_v857 test_sram_write_witness_v818; do
+            g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done

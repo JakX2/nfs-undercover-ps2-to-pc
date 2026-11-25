@@ -30,11 +30,14 @@ public:
         }
         if(tick<due_)return;
         if(req->device==1)mx_.service(ctl_,*req);else id_.service(ctl_,*req);
-        ++completed_;token_=0;
+        last_completion_=*req;++completed_;token_=0;
     }
     uint64_t completed()const noexcept{return completed_;}
+    // The last successfully serviced real request; count detects gaps.
+    const std::optional<ExiController::Request>& last_completion()const noexcept{return last_completion_;}
 private:
     ExiController& ctl_;ExiMxDevice& mx_;ExiIdEndpoint& id_;
     uint64_t latency_,epoch_,last_=0,due_=0,token_=0,completed_=0;
+    std::optional<ExiController::Request> last_completion_;
 };
 }
