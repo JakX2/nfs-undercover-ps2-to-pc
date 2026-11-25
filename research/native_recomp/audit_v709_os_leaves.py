@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 import argparse,re
 from pathlib import Path
-from audit_v672_si_ack_route import inspect as inspect_ack,RESULT,MARKERS,MAX_LOG
+from audit_v672_si_ack_route import inspect as inspect_ack,RESULT,MARKERS as ACK_MARKERS,MAX_LOG
 from audit_v699_si_postack import STAGE,END,NESTED,RETURN
+MARKERS=ACK_MARKERS+(b'V718_POSTACK_REFUSAL ',b'V719_POSTACK_LOOP_POLL ')
 LEAVES=[f'V709_OS_LEAF_STAGE ordinal={i} n={j}'.encode() for i in range(1,4) for j in range(1,4)]
 def inspect(raw,rc):
     if len(raw)>MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
-    rows=[r for r in raw.splitlines() if r.startswith(MARKERS+(b'V718_POSTACK_REFUSAL ',b'V719_POSTACK_LOOP_POLL '))]
+    rows=[r for r in raw.splitlines() if r.startswith(MARKERS)]
     i=rows.index(RESULT) if rows.count(RESULT)==1 else -1
     ack=False
     if i>=2 and rows[i-2]==b'V688_SI_SECOND_ACK n=1':_,ack=inspect_ack(b'\n'.join(rows[:i+1]),0)

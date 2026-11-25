@@ -47,6 +47,7 @@ on:
       - 'research/native_recomp/*v674*'
       - 'research/native_recomp/*v687*'
       - 'research/native_recomp/*v701*'
+      - 'research/native_recomp/*v721*'
       - 'research/native_recomp/*v609*'
       - 'research/native_recomp/*v596*'
       - 'research/native_recomp/*v606*'
@@ -66,9 +67,9 @@ on:
       owner_scope:
         description: 'Bounded original startup through OS hardware, IPC or exception vectors'
         type: choice
-        default: os-si-ack
+        default: os-si-os-leaves
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -189,7 +190,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-si-ack' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-si-os-leaves' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh

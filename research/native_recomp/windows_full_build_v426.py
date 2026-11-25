@@ -182,7 +182,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage('bat_roots',[sys.executable,HOST/'apply_bat_roots_v586.py',root],work,60)
         run_stage('report_table',[sys.executable,HOST/'apply_report_table_v594.py',root,dol,elf],work,60)
     if scope in EXTERNAL_SCOPES:
-        run_stage('si_roots',[sys.executable,HOST/'apply_si_roots_v669.py',root,dol,elf,*(['--first-ack-helper'] if scope=='os-si-ack' else [])],work,120)
+        run_stage('si_roots',[sys.executable,HOST/'apply_si_roots_v669.py',root,dol,elf,*(['--first-ack-helper'] if scope in EXTERNAL_SCOPES[2:] else [])],work,120)
     portable_patch(root)
     sc_overlay=requires_sc_overlay(scope)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root,sc_overlay),encoding='utf-8')
@@ -209,11 +209,13 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             run_stage('external_observer',[sys.executable,HOST/'prepare_v663_external_entry.py',dol,elf,generated],work,300)
             if scope in EXTERNAL_SCOPES[1:]:
                 run_stage('si_dispatch_observer',[sys.executable,HOST/'prepare_v667_si_dispatch.py',dol,elf,generated],work,300)
-            if scope=='os-si-ack':
+            if scope in EXTERNAL_SCOPES[2:]:
                 run_stage('si_ack_observer',[sys.executable,HOST/'prepare_v672_si_ack_route.py',dol,elf,generated],work,300)
                 run_stage('si_helper_observer',[sys.executable,HOST/'prepare_v680_si_helper.py',dol,elf,generated],work,300)
                 run_stage('si_second_observer',[sys.executable,HOST/'prepare_v688_si_second.py',dol,elf,generated],work,300)
                 run_stage('si_nested_observer',[sys.executable,HOST/'prepare_v693_si_nested.py',dol,elf,generated],work,300)
+                if scope=='os-si-os-leaves':
+                    run_stage('si_os_leaf_observer',[sys.executable,HOST/'prepare_v709_os_leaves.py',dol,elf,generated],work,300)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
         if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
@@ -265,7 +267,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
-        if scope in EXTERNAL_SCOPES:
+        if scope=='os-si-os-leaves':
+            from audit_v709_os_leaves import public_diagnostic
+            for line in raw.splitlines():
+                if public_diagnostic(line):print(line.decode(),flush=True)
+        elif scope in EXTERNAL_SCOPES:
             import re
             for line in raw.splitlines():
                 if re.fullmatch(rb'V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V678_DISPATCH_REFUSAL mask=[0-9]{1,3} gpr_mask=[0-9]{1,10}|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V672_SI_ACK_INVALID reason=[1-6] trace=[0-8]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]|V677_SI_ACK_WRITE_INVALID trace=[1-7]|V680_SI_HELPER_INVALID reason=[0-5] stage=[0-4]|V680_SI_HELPER_STAGE n=[1-3]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V688_SI_SECOND_STAGE n=[1-3]|V688_SI_SECOND_ACK n=1|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_ACK n=1|V697_SI_READ_INVALID trace=[0-8]|V697_SI_ACCESS_INVALID width=[1248] integer=[01]|V711_POST_CONTROL kind=[1-3] channel=[0-3] geometry=[01] type=[01] mask=[01] reserved=[01]',line):
