@@ -1,0 +1,3 @@
+# V689: composed second-helper integration control
+
+Compiles the actual first/second generated binding patches against the native SI controller and scheduler, with independent synthetic guest labels. Ten isolated cases exercise ACK within the second helper and after its ABI return, and reject out-of-order entry, wrong LR, nested call, tick gap, bad ACK successor, stale and unsupported stores, and nonvolatile corruption. Exact expected diagnostics and exit codes required. Also validates second-call geometry, label hook emission, and audit sequencing. ASan/UBSan CI pending; no original execution claimed.
