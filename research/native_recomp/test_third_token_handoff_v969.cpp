@@ -33,7 +33,7 @@ int main(){
         SiTypeScheduler scheduler(ctl,ports,8);
         const uint32_t cfg=0x40010300u|(ch<<1);
         ctl.write(C,cfg|1u);scheduler.advance(1);scheduler.advance(9);
-        ctl.write(C,cfg|SiController::TC_INT);ctl.write(C,cfg|1u);scheduler.advance(10);scheduler.advance(18);
+        ctl.write(C,cfg|SiController::TC_INT);ctl.write(B,0u);ctl.write(C,cfg|1u);scheduler.advance(10);scheduler.advance(18);
         Cpu c;auto& tick=c.inst_count;SecondCompletionAck ack;PostAckTransferDevice third;
         c.gpr[3]=Base;need(ack.arm(ctl,cause,mask,tick,2,true));
         scheduler.advance(++tick);need(ack.before(c,H,Load,true));uint32_t v=0;
