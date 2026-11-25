@@ -16,6 +16,8 @@ public:
         COM_ERR=1u<<29,RDST_INT=1u<<28,RDST_MASK=1u<<27,TSTART=1u;
     static constexpr uint32_t ERR_NOREP=8u,ERR_COLL=4u,ERR_OVRUN=2u,ERR_UNRUN=1u;
     static constexpr unsigned Poll=0x30,Control=0x34,Status=0x38,Buffer=0x80;
+    static constexpr uint32_t ControlParams=0x007f7f06u,ControlMasks=TC_MASK|RDST_MASK,
+        ControlWriteBits=ControlParams|ControlMasks|TC_INT|COM_ERR|RDST_INT|TSTART;
     struct Request{
         uint64_t token;unsigned channel,out_length,in_length;
         std::array<uint8_t,128> tx;
@@ -73,16 +75,15 @@ public:
         while(!pi_.compare_exchange_weak(current,(current&~PI_SI)|desired,std::memory_order_relaxed,std::memory_order_relaxed)){}
     }
 private:
-    static constexpr uint32_t PARAMS=0x007f7f06u,MASKS=TC_MASK|RDST_MASK;
     static constexpr unsigned length(unsigned encoded){return encoded?encoded:128u;}
     void write_control(uint32_t v){
-        if(v&~(PARAMS|MASKS|TC_INT|COM_ERR|RDST_INT|TSTART))
+        if(v&~ControlWriteBits)
             throw std::runtime_error("SI reserved control");
-        const auto params=v&PARAMS;
-        if(pending_&&((v&TSTART)||params!=(config_&PARAMS)))throw std::runtime_error("SI transfer in progress");
+        const auto params=v&ControlParams;
+        if(pending_&&((v&TSTART)||params!=(config_&ControlParams)))throw std::runtime_error("SI transfer in progress");
         if((v&TSTART)&&sequence_==std::numeric_limits<uint64_t>::max())throw std::overflow_error("SI token overflow");
         if(v&TC_INT)tc_=false;
-        config_=v&(PARAMS|MASKS);
+        config_=v&(ControlParams|ControlMasks);
         if(v&TSTART){
             pending_=Request{++sequence_,(v>>1)&3u,length((v>>16)&127u),length((v>>8)&127u),ram_};
             error_=false;

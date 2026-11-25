@@ -27,7 +27,7 @@ public:
         const unsigned geometry=((v>>16)&127u)==1u&&((v>>8)&127u)==3u;
         const unsigned type=(buffer>>24)==0u;
         const unsigned mask=(v&SiController::TC_MASK)!=0;
-        const unsigned reserved=(v&~0xfb7f7f07u)!=0;
+        const unsigned reserved=(v&~SiController::ControlWriteBits)!=0;
         return {start?(geometry&&type&&mask&&!reserved&&!(v&SiController::RDST_MASK)?1u:2u):3u,
                 (v>>1)&3u,geometry,type,mask,reserved};
     }

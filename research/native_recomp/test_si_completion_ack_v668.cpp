@@ -20,6 +20,12 @@ int main(){
     need(Trace::classify_post_control(0xc0020301u,0u).kind==2);
     need(Trace::classify_post_control(0xc0010301u,0x12000000u).kind==2);
     need(Trace::classify_post_control(0xc0010309u,0u).reserved);
+    for(unsigned bit=0;bit<32;++bit){
+        const uint32_t v=uint32_t(1u)<<bit;
+        std::atomic<uint32_t> cause{Other};SiController device(cause);
+        bool threw=false;try{device.write(SiController::Control,v);}catch(const std::runtime_error&){threw=true;}
+        need(threw==bool(Trace::classify_post_control(v,0u).reserved));
+    }
     need(Trace::classify_post_control(0x80010301u,0u).kind==2);
     need(Trace::classify_post_control(0xc8010301u,0u).kind==2);
     need(Trace::classify_post_control(0x40010300u,0u).kind==3);
