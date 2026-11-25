@@ -9,6 +9,12 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     uint64_t token()const{return token_;}
+    // Recheck without advancing the observer; the completed source must
+    // remain latched and its response immutable until another explicit ACK.
+    bool held(uint64_t tick)const{
+        if(!common(tick)||tick<last_)return false;
+        return stage_==2?tick==last_&&pending_held():stage_==3&&completed_held();
+    }
     bool arm(SiController& ctl,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
              uint64_t tick,uint32_t value,unsigned expected_channel,
              std::optional<std::array<uint8_t,3>> response,uint64_t latency){
