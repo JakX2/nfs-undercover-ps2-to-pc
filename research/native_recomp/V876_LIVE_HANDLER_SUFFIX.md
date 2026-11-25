@@ -1,0 +1,7 @@
+# V876 continuous original SI handler continuation
+
+V867 owner job 139103695913 completed successfully: actual uninterrupted full original startup reached the original wireless setter, EXI unlock (12 transfers, 44 bytes, 3187 native instruction visits, 74 polls, 52 MMIO accesses), original callback restore/return and outer dispatcher resume at handler slot 6. The V864 census is verified=1, callback_return=1, boot_verified=0. This is the first verified continuous callback return, not merely focused execution.
+
+V871 owner-preflight job 139111982162 passed: V868 installed 63 authenticated handler labels (52 after slot 6, 13 after slot 11) and the complete private image passed the syntax gate. V875 source contract passed all four test groups, exercising actual shell selection of all recent run and prepare modes.
+
+V876 launches --run-si-handler-suffix explicitly with a single owner job. The full-image script performs its own fresh private preflight before link and execution; no duplicate separate translation is needed. A successful earlier bounded callback stop is not sufficient for this specific run: require the real V870 audited handler continuation and one of the known slot-6 direct boundaries, and confirm the actual launch mode and audit. All generated original code and binaries remain in private scratch. Pending owner execution; original handler return and complete native boot not yet verified.
