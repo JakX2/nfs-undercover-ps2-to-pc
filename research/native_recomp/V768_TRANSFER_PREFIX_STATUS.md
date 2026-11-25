@@ -1,3 +1,7 @@
 # V768: original fourth handler dependency prefix
 
 V747 full-image run 45548341511 reached original call 4 (__SITransfer), after the real 43-visit repeated system-time return, and refused before execution. V768 authenticates the exact fourth call, transfer root and compiler save alias and already verified interrupt-disable root. Executes only the bounded native prefix, checks actual channel/type arguments, ABI save result, masked interrupt leaf and contiguous ticks; stops before the first SI MMIO word operation or next direct call. No subsequent MMIO, new transfer or handler return is claimed. A separate full-image scope is automatic after private preflight. Existing V668 device guards remain in place. V765 diagnostic now reports sanitized compiler error categories, never private generated lines. Pending CI.
+
+## Verified continuous original execution
+
+Owner run 45551655586, execution job 138998595989, passed on 2026-11-25. The prior original system-time helper returned with 43 total visits. The actual fourth handler call entered __SITransfer with channel=1, type=1, idle=1, then completed the original compiler save and interrupt-disable leaves. The observer reached boundary=1 (first SI word read) at 20 transfer-root visits and exited before the MMIO instruction executed. Native prefix verified, complete transfer return and boot not verified. The observed channel is runtime evidence, not a new hard-coded input.
