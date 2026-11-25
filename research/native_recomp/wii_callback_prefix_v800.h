@@ -21,9 +21,19 @@ public:
     unsigned writes()const{return writes_;}
     uint32_t resume()const{return root_+4u*uint32_t(P-1u);}
     template<class C>bool start(C& c,uint32_t pc,uint32_t word,bool identity,bool device){
-        if(stage_||error_||!identity||!device||!safe(c)||
-           word!=0x4e800421u||!match(c,pc,word)||
-           (uint32_t(c.ctr)&~3u)!=root_||
+        return begin(c,pc,word,identity,device,false);
+    }
+    // Direct linked call uses the same prologue/stack proof but retains
+    // CTR and has no outer dispatcher poll or entry tick.
+    template<class C>bool start_direct(C& c,uint32_t pc,uint32_t word,bool identity,bool device){
+        return begin(c,pc,word,identity,device,true);
+    }
+private:
+    template<class C>bool begin(C& c,uint32_t pc,uint32_t word,bool identity,bool device,bool direct){
+        const bool edge=direct?
+            (word>>26==18u&&(word&3u)==1u&&pc+(((word&0x03fffffcu)^0x02000000u)-0x02000000u)==root_):
+            (word==0x4e800421u&&(uint32_t(c.ctr)&~3u)==root_);
+        if(stage_||error_||!identity||!device||!safe(c)||!edge||!match(c,pc,word)||
            !range(root_,4u*P)||!range(save_,4u*S)||
            overlap(root_,4u*P,save_,4u*S)||
            c.inst_count>UINT64_MAX-128u||
@@ -42,6 +52,7 @@ public:
         msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;
         next_=root_;stage_=1;return true;
     }
+public:
     // The pinned bctrl emitter returns to the outer dispatcher. Its
     // pending callback poll happens before the one outer dispatch tick.
     // Do not use this lane for a direct native call. Raw unaligned CTR

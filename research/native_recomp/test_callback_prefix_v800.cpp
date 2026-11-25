@@ -87,5 +87,36 @@ int main(){
         ++pass;
     }
     need(pass==3&&refused==21);
+    unsigned direct_pass=0,direct_refused=0;
+    constexpr uint32_t Direct=0x48000001u|((C-H)&0x03fffffcu);
+    for(unsigned t=0;t<8;++t){
+        Cpu c;
+        for(unsigned i=0;i<32;++i)c.gpr[i]=0x1234567u*(i+1u);
+        c.gpr[1]=Stack;c.ctr=0x12345678u;c.mmu.words[H]=Direct;
+        for(unsigned i=0;i<prefix.size();++i)c.mmu.words[C+4*i]=prefix[i];
+        for(unsigned i=0;i<leaf.size();++i)c.mmu.words[S+4*i]=leaf[i];
+        for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
+        CallbackPrefixWitness<6,3> w(C,S,prefix,leaf);
+        const uint32_t word=t==1?Direct+4u:t==2?Bctrl:t==3?Direct&~1u:Direct;
+        c.mmu.words[H]=word;
+        const bool started=w.start_direct(c,H,word,t!=4,t!=5);
+        if(t>=1&&t<=5){need(!started&&w.failure()==1);++direct_refused;continue;}
+        need(started);c.lr=H+4u;c.pc=C;
+        if(t==6){++c.inst_count;need(!w.entry(c,C,true)&&w.failure()==2);++direct_refused;continue;}
+        if(t==7){need(!w.dispatch_poll(c,true)&&w.failure()==2);++direct_refused;continue;}
+        need(w.entry(c,C,true));
+        auto step=[&](uint32_t pc,uint32_t word){c.pc=pc;++c.inst_count;need(w.before(c,pc,word,true));};
+        step(C,prefix[0]);c.mmu.words[Stack-64u]=Stack;c.gpr[1]=Stack-64u;
+        step(C+4,prefix[1]);c.gpr[0]=c.lr;
+        step(C+8,prefix[2]);c.mmu.words[Stack+4u]=c.gpr[0];
+        step(C+12,prefix[3]);c.gpr[11]=Stack;
+        step(SaveCall,Branch);c.lr=Resume;c.pc=S;need(w.entry(c,S,true));
+        step(S,leaf[0]);c.mmu.words[Stack-8u]=c.gpr[30];
+        step(S+4,leaf[1]);c.mmu.words[Stack-4u]=c.gpr[31];
+        step(S+8,Blr);step(Resume,Nop);
+        need(w.stage()==6&&w.visits()==9&&w.writes()==4&&c.ctr==0x12345678u);++direct_pass;
+    }
+    need(direct_pass==1&&direct_refused==7);
+    std::cout<<"V872_DIRECT_PREFIX valid=1 refused=7 original_execution=0\n";
     std::cout<<"V804_CALLBACK_PREFIX synthetic=1 valid=3 refused=21 dispatcher=1 original_execution=0\n";
 }

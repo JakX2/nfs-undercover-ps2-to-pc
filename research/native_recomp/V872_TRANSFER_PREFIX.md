@@ -1,0 +1,3 @@
+# V872 original SITransfer prologue
+
+Earlier V749 private census authenticated slot 7 as SITransfer (91 words, nine direct calls, last compiler restore alias 11 GPRs). This adds direct-linked start to the reusable V800 prologue witness without changing the older bctrl semantics or permitting dispatcher ticks on a direct call. Private fixture authenticates matching 11-register save/restore aliases and executes original prologue and save with both native translation modes, stopping before original continuation. The independent reference stack model and the shared witness both check all register/stack state. No SITransfer device action is admitted; focused tests pending. V867 continuous callback execution and V871 preflight remain separate.
