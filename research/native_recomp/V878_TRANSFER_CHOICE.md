@@ -1,0 +1,3 @@
+# V878 original SITransfer choice frontier
+
+V874 verified the original 14-word continuation to OSDisableInterrupts and its five-word return, 16 focused trials. V878 follows the actual original forward branches after that leaf and stops at the next linked call, authenticating its target ordinal, exact CPU ticks, original words and bounded RAM accesses. Original private SITransfer body is translated in both modes; other authenticated roots have unreachable fixture guards, never admitted to execution. Eight synthetic caller argument/state combinations per mode, plus the predecessor corruption refusal. This is an isolated native execution test, not the V876 continuous handler route. Pending source and owner CI.
