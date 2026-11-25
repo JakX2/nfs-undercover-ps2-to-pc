@@ -16,7 +16,10 @@ def inspect(raw,rc):
     if i>=0:_,ok_prior=prior(b'\n'.join(rows[:i+1]),0)
     tail=rows[i+1:] if i>=0 else rows
     match=re.fullmatch(RESULT,tail[-1]) if tail else None
-    ok=bool(rc==0 and ok_prior and match and tail[:-1]==STAGES and 45<=int(match[1])<=128 and not any(l.startswith((PREFIX,b'V726_HANDLER_')) for l in rows[:i+1]))
+    # 43 is the observed shorter original path: static function extents
+    # include instructions skipped by a conditional leaf. Keep legacy
+    # bounds for other already-supported paths; runtime checks actual visits.
+    ok=bool(rc==0 and ok_prior and match and tail[:-1]==STAGES and (int(match[1])==43 or 45<=int(match[1])<=128) and not any(l.startswith((PREFIX,b'V726_HANDLER_')) for l in rows[:i+1]))
     return f'V742_TIME_CENSUS rc={rc} second_return={int(ok_prior)} stages={sum(l in tail for l in STAGES)} verified={int(ok)} boot_verified=0',ok
 def diagnostic(l):
     return old(l) or re.fullmatch(rb'V742_TIME_STAGE n=[1-3]|V742_TIME_LEAF ordinal=[1-3] n=[1-3]|V742_TIME_INVALID reason=[1-8] stage=[0-4] leaf=[1-4] witness=[0-6] trace=[0-9]{1,2}|V726_HANDLER_INVALID kind=[1-5] witness=8 stage=[0-5] visits=[0-9]{1,4} polls=[0-9]{1,4}|'+RESULT,l) is not None

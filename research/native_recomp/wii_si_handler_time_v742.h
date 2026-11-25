@@ -68,7 +68,9 @@ public:
     template<class C>bool returned(C& c,uint32_t pc,SiCompletionAckTrace& ack){
         if(stage_!=3||leaf_active_||cursor_!=3||!ack.postack_held()||
            c.inst_count-last_!=1u||c.inst_count-tick_>129u||!helper_.returned(c,pc))return fail(8);
-        total_=unsigned(c.inst_count-tick_-1u);stage_=4;return true;
+        total_=unsigned(c.inst_count-tick_-1u);
+        if(total_!=visits_+leaves_[0].visits()+leaves_[1].visits()+leaves_[2].visits())return fail(8);
+        stage_=4;return true;
     }
 private:
     SiHelperExpectation e_;std::array<PostAckLeafExpectation,3> expected_;

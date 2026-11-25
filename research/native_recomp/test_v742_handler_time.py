@@ -25,6 +25,8 @@ class TimeRoute(unittest.TestCase):
         base=OS_SI_DISPATCH+EVENTS[:1]+first+second+[b'V688_SI_SECOND_ACK n=1']+EVENTS[1:]+[RESULT,STAGE,*NESTED[:2],*LEAVES,NESTED[2],b'V719_POSTACK_LOOP_POLL n=1',RETURN,END]
         end=b'V742_TIME_RESULT returned=1 abi=1 leaves=3 visits=25 total=45 handler_return=0 boot_verified=0'
         self.assertTrue(inspect(b'\n'.join(base+STAGES+[end]),0)[1])
+        self.assertTrue(inspect(b'\n'.join(base+STAGES+[end.replace(b'total=45',b'total=43')]),0)[1])
+        self.assertFalse(inspect(b'\n'.join(base+STAGES+[end.replace(b'total=45',b'total=42')]),0)[1])
         for tail in (STAGES[:-1]+[end],STAGES[::-1]+[end],STAGES+[end,end],STAGES+[end.replace(b'total=45',b'total=44')]):
             self.assertFalse(inspect(b'\n'.join(base+tail),0)[1])
         self.assertFalse(inspect(b'\n'.join(base+STAGES+[end]),126)[1])
