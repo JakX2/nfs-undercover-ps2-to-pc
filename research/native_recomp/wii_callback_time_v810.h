@@ -8,6 +8,7 @@ struct CallbackTimeExpectation {
     uint32_t callback,callback_end,resume,time_site,time_root;
     std::span<const uint32_t> continuation,system;
     std::array<PostAckLeafExpectation,3> leaves;
+    uint32_t offset_address;
 };
 // Read-only continuation following a separately verified callback save.
 // The private installer must authenticate every word and native edge.
@@ -25,13 +26,14 @@ public:
     unsigned reads()const{return reads_;}
     unsigned cursor()const{return cursor_;}
     uint64_t timebase()const{return sample_;}
+    uint64_t system_offset()const{return offset_;}
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,bool device,bool prefix_verified){
         if(stage_||error_||!device||!prefix_verified||!safe(c)||pc!=e_.resume||c.pc!=pc||c.lr!=pc||
            !valid_range(e_.callback,e_.callback_end)||e_.callback_end-e_.callback>4096u||
            e_.resume<e_.callback||e_.time_site<e_.resume||e_.time_site>=e_.callback_end-4u||
            e_.continuation.size()!=(e_.time_site-e_.resume)/4u+2u||e_.continuation.size()>64u||
            e_.system.size()!=25u||!valid_range(e_.time_root,e_.time_root+100u)||
-           !match(c,pc,w)||w!=e_.continuation.front()||c.inst_count>UINT64_MAX-256u)return fail(1);
+           !match(c,pc,w)||w!=e_.continuation.front()||!mapped_pair(c,e_.offset_address)||c.inst_count>UINT64_MAX-256u)return fail(1);
         if(!direct(e_.time_site,e_.continuation[e_.continuation.size()-2u],e_.time_root))return fail(1);
         for(unsigned i=0;i<3;++i){
             const auto& l=e_.leaves[i];
@@ -86,7 +88,9 @@ public:
         if(pc!=next_)return fail(3);
         if(stage_==4){
             if(pc!=e_.time_site+4u||c.pc!=pc||c.lr!=pc||w!=e_.continuation.back()||
-               cursor_!=3u||time_visits_!=25u||!abi(c)||visits_!=callback_visits_+time_visits_+leaf_visits_+1u)
+               cursor_!=3u||time_visits_!=25u||!abi(c)||visits_!=callback_visits_+time_visits_+leaf_visits_+1u||
+               !mapped_pair(c,e_.offset_address)||pair(c,e_.offset_address)!=offset_||
+               ((uint64_t(c.gpr[3])<<32)|c.gpr[4])!=sample_+offset_)
                 return fail(5);
             stage_=5;return true;
         }
@@ -96,6 +100,8 @@ public:
             if(pc<e_.resume||pc>e_.time_site||w!=e_.continuation[(pc-e_.resume)/4u])return fail(3);
             ++callback_visits_;
             if(pc==e_.time_site){
+                if(!mapped_pair(c,e_.offset_address))return fail(6);
+                offset_=pair(c,e_.offset_address);
                 gp_=c.gpr;cr_=pack(c)&0x00fff000u;
                 stage_=2;entry_due_=true;next_=e_.time_root;return true;
             }
@@ -131,12 +137,14 @@ private:
     const void* cpu_=nullptr;
     unsigned stage_=0,error_=0,cursor_=0,visits_=0,callback_visits_=0,time_visits_=0,leaf_visits_=0,polls_=0,reads_=0,pending_reg_=32;
     uint32_t pending_value_=0,msr_=0,srr0_=0,srr1_=0,next_=0,cr_=0;
-    uint64_t start_=0,last_=0,sample_=0;
+    uint64_t start_=0,last_=0,sample_=0,offset_=0;
     std::array<uint32_t,32> gp_{};
     bool entry_due_=false,leaf_active_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool valid_range(uint32_t a,uint32_t b){return !(a&3u)&&!(b&3u)&&a>=0x80000000u&&b>a&&b<=0x81800000u;}
     template<class C>static bool match(C& c,uint32_t a,uint32_t w){return a<=0x817ffffcu&&valid_range(a,a+4u)&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+3u)&&c.mmu.read32(a)==w;}
+    template<class C>static bool mapped_pair(C& c,uint32_t a){return a<=0x817ffff8u&&valid_range(a,a+8u)&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+3u)&&c.mmu.get_ptr(a+4u)&&c.mmu.get_ptr(a+7u);}
+    template<class C>static uint64_t pair(C& c,uint32_t a){return (uint64_t(c.mmu.read32(a))<<32)|c.mmu.read32(a+4u);}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool common(C& c,bool device)const{return !error_&&device&&cpu_==&c&&safe(c)&&c.msr==msr_&&c.srr0==srr0_&&c.srr1==srr1_&&c.inst_count>=start_&&c.inst_count-start_<=256u;}
     template<class C>static uint32_t pack(C& c){uint32_t v=0;for(const auto& f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);return v;}
@@ -181,7 +189,7 @@ private:
         for(unsigned i=0;i<width;++i)if(!c.mmu.get_ptr(addr+i))return false;
         if(write){
             auto hit=[&](uint32_t a,uint32_t b){return uint64_t(addr)<b&&uint64_t(a)<uint64_t(addr)+width;};
-            if(hit(e_.callback,e_.callback_end)||hit(e_.time_root,e_.time_root+100u))return false;
+            if(hit(e_.callback,e_.callback_end)||hit(e_.time_root,e_.time_root+100u)||hit(e_.offset_address,e_.offset_address+8u))return false;
             for(const auto& l:e_.leaves)if(hit(l.root,l.end))return false;
         }
         return true;
