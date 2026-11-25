@@ -33,13 +33,18 @@ def patch_ios(s):
   if (undercover::wii::v663::route.stage())
     return undercover::wii::v663::poll(ctx);''')
 def verify_dispatch_tick(s):
-    a='        process_pending_callbacks(ctx);'
-    b='        uint32_t target = ctx.pc;'
-    pattern=r'(?m)^        if \(\(\+\+ctx\.inst_count % 100000\) == 0\) std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;$'
-    hits=list(re.finditer(pattern,s))
-    if s.count(a)!=1 or s.count(b)!=1 or len(hits)!=1 or not s.index(a)<s.index(b)<hits[0].start():raise ValueError('external dispatch tick geometry')
-    end=s.index('        switch (target) {',hits[0].end())
-    if '++ctx.inst_count' in s[s.index(a):hits[0].start()] or '++ctx.inst_count' in s[hits[0].end():end]:raise ValueError('external dispatch tick geometry')
+    # The idle branch has its own callback, indented further than the
+    # dispatch-loop callback. Anchor complete lines, not substrings.
+    def unique(pattern):
+        hits=list(re.finditer(pattern,s,re.M))
+        if len(hits)!=1:raise ValueError('external dispatch tick geometry')
+        return hits[0]
+    callback=unique(r'^        process_pending_callbacks\(ctx\);[ \t]*$')
+    target=unique(r'^        uint32_t target = ctx\.pc;[ \t]*$')
+    tick=unique(r'^        if \(\(\+\+ctx\.inst_count % 100000\) == 0\) std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;[ \t]*$')
+    switch=unique(r'^        switch \(target\) \{[ \t]*$')
+    if not callback.end()<target.start()<tick.start()<switch.start():raise ValueError('external dispatch tick geometry')
+    if '++ctx.inst_count' in s[callback.end():tick.start()] or '++ctx.inst_count' in s[tick.end():switch.start()]:raise ValueError('external dispatch tick geometry')
 def install(dol,elf,root,host):
     if hashlib.sha256(dol).hexdigest()!=OWNER_SHA or hashlib.sha256(elf).hexdigest()!=ORIGINAL_SHA256:raise ValueError('identity')
     expectations(dol,elf)

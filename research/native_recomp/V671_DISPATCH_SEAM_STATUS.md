@@ -1,0 +1,3 @@
+# V671: discriminate idle callback from outer dispatch callback
+
+V669 original owner preflight passed: seven scoped analyzer roots, 11 native labels, four dependency edges, one indirect call. V670 original-free tests passed but owner preflight rejected the generated dispatcher source before linking. The prior substring count also matched the more deeply indented idle callback. V671 uses anchored full-line matches for the actual outer callback, target, tick and switch; it retains exactly one host counter increment and tests the idle callback case. No runtime state change. Windows V665 owner execution passed through both arena clears (24 events, zero fallback, original complete native Windows x64 image). Owner revalidation pending.

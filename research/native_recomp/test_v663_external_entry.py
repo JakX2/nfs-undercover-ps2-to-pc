@@ -4,6 +4,8 @@ class Tests(unittest.TestCase):
     def test_dispatch_tick(self):
         s='        process_pending_callbacks(ctx);\n        uint32_t target = ctx.pc;\n        if ((++ctx.inst_count % 100000) == 0) std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;\n        switch (target) {'
         verify_dispatch_tick(s)
+        # Real split dispatcher also calls the callback inside its idle path.
+        verify_dispatch_tick('          process_pending_callbacks(ctx);\n'+s)
         for x in (s+s,s.replace('++ctx.inst_count','ctx.inst_count'),s.replace('uint32_t target','++ctx.inst_count;\n        uint32_t target')):
             with self.assertRaises(ValueError):verify_dispatch_tick(x)
     def test_patch(self):
