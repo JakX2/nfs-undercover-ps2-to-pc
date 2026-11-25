@@ -254,9 +254,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
         if [[ "${UNDERCOVER_RUN_V951_SECOND_DISPATCH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v951_second_dispatch.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V951_SECOND_DISPATCH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v958_second_ack.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" != 1 ]]; then exit 2;fi
-        if [[ "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 ]]; then
+        if [[ "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 || "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then
             [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]] || exit 2
             time_args=()
+            if [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then time_args+=(--shared-completion);fi
             if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]]; then time_args+=(--frontier);fi
             python3 "$here/prepare_v975_second_time.py" "$dol" "$elf" "$work/generated" "${time_args[@]}"
         fi

@@ -14,6 +14,7 @@ on:
       - 'research/native_recomp/*v981*'
       - 'research/native_recomp/*v984*'
       - 'research/native_recomp/*v986*'
+      - 'research/native_recomp/*v989*'
       - 'research/native_recomp/wii_second_si_dispatch_v944.h'
       - '.github/workflows/wii-v958-second-ack-integration.yml'
 permissions:
@@ -36,6 +37,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v984_composed_frontier.py -v
           echo "V984_LIVE_FRONTIER valid=1 classified_not_admitted=2 refused=3 earlier_mode=1 original_execution=0"
           python3 -m unittest discover -s research/native_recomp -p test_v986_transfer_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v989_shared_time.py -v
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           python3 -m py_compile research/native_recomp/audit_v975_second_time.py
           python3 -m unittest discover -s research/native_recomp -p test_v951_second_dispatch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v939_second_vector.py -v

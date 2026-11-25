@@ -15,6 +15,11 @@ inline thread_local unsigned visits=0,post_visits=0,post_returns=0;
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
 inline thread_local unsigned time_tick=0,time_entries=0,time_returns=0,time_msr=0;
 inline thread_local bool post_seen=false;
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+inline thread_local unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
+inline thread_local bool shared_seen=false;
+inline bool shared_enabled(){const char* v=std::getenv("UNDERCOVER_V989_SHARED_COMPLETION");return v&&v[0]=='1'&&v[1]=='\0';}
+#endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 inline thread_local bool time_seen=false;
 inline thread_local unsigned time_return_visits=0;
@@ -33,6 +38,11 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(frontier_enabled()&&(!time_enabled()||!post_enabled()))return false;
+#endif
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+    if(shared_enabled()){
+        if(!post_enabled()||!calls.begin(c,time_spans,shared_edges,msr_sites))return false;
+    }else
 #endif
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
     if(time_enabled()){
@@ -55,7 +65,13 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         std::_Exit(0);
     }
 #endif
-    if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
+    if(guard||!frame||!frame->saved_integer(c,context).ok()){
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+        if(shared_enabled())std::cout<<std::dec<<"V989_SHARED_REFUSAL guard="<<guard<<" frame="<<bool(frame&&frame->saved_integer(c,context).ok())<<" depth="<<calls.depth()<<" visits="<<visits<<std::endl;
+#endif
+        reject(1);
+    }
+    if(++visits>8192u||
        !ack.before(c,pc,w,true)||!calls.before(c,pc,w))reject(1);
     if(ack.stage()==3u){
         if(ack.token()<2u||!ack.reads()||!ack.writes()||calls.entries()<2u||!calls.returns())reject(2);
@@ -66,6 +82,19 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         if(!ack.resume_after_ack(c,pc,w))reject(9);
         return;
     }
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+    if(shared_enabled()&&pc==completion_time_call){
+        if(shared_tick||post_seen||ack.stage()!=4u||calls.depth()!=2u||!ack.postack_held())reject(12);
+        shared_tick=visits;shared_entries=calls.entries();shared_returns=calls.returns();shared_msr=calls.msr_writes();
+    }
+    if(shared_enabled()&&shared_tick&&pc==completion_time_call+4u){
+        if(shared_seen||calls.depth()!=1u||calls.entries()-shared_entries!=4u||calls.returns()-shared_returns!=4u||
+           calls.msr_writes()-shared_msr!=2u||!ack.postack_held()||visits<=shared_tick)reject(12);
+        shared_seen=true;
+        std::cout<<std::dec<<"V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits="<<visits-shared_tick
+                 <<" token_preserved=1 saved_fields=38 boot_verified=0"<<std::endl;
+    }
+#endif
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
     if(time_enabled()&&post_seen&&pc==time_call){
         if(time_tick||calls.depth()!=1u||!ack.postack_held())reject(10);
@@ -88,6 +117,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #endif
     if(ack.stage()==4u&&pc>=spans[0].root&&pc<spans[0].end&&calls.depth()==0u){
         if(!post_visits||visits<=post_visits||calls.returns()<=post_returns||!ack.postack_held())reject(9);
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+        if(shared_enabled()&&!shared_seen)reject(12);
+#endif
         std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                  <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
