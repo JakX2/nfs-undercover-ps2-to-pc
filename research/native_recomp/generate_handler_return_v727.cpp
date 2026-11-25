@@ -16,7 +16,7 @@ int main(int argc,char**argv){
     nwii::loader::Executable exe;exe.entry_point=X;
     auto add=[&](uint32_t a,const std::vector<uint32_t>& w){auto v=be(w);exe.sections.push_back({a,uint32_t(v.size()),std::move(v),true,false});};
     add(X,{0x4e800421u,0x60000000u,0x4e800020u});
-    add(H,{0x7c0802a6u,0x9001000cu,bl(H+8,A+4),bl(H+12,B),0x90c50000u,0x8001000cu,0x7c0803a6u,0x4e800020u});
+    add(H,{0x7c0802a6u,0x9001000cu,bl(H+8,A+4),bl(H+12,B),0x93fe0000u,0x8001000cu,0x7c0803a6u,0x4e800020u});
     std::vector<uint32_t> saves;
     for(unsigned r=28;r<32;++r)saves.push_back(0x900b0000u|(r<<21)|(uint32_t(-4*int(32-r))&0xffffu));
     saves.push_back(0x4e800020u);add(A,saves);
