@@ -1,0 +1,3 @@
+# V704: correct unchanged-EE mtmsr witness semantics
+
+V702 passed six generated native post-ACK cases, and V700 owner complete-image preflight passed. Source inspection of pinned NWiiRecomp's xo=146 emitter shows process_pending_callbacks is only invoked on a rising EE edge. V703 incorrectly required a callback even for an unchanged disabled MSR. V704 instead verifies the immediate next contiguous native label and unchanged MSR, counts the actual authenticated mtmsr visit, and rejects any callback while inside the direct leaf. Negative tests now cover unexpected callback, skipped successor and changed MSR. This remains isolated until original post-ACK execution identifies the dependency. No original data or runtime hook changes.

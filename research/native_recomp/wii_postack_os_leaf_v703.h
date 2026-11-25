@@ -14,7 +14,7 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
-    unsigned polls()const{return polls_;}
+    unsigned msr_writes()const{return msr_writes_;}
     template<class C>bool start(C& c,uint32_t pc,uint32_t word){
         if(stage_||error_||!valid(c)||pc!=e_.site||word!=e_.branch||
            (word>>26)!=18u||(word&3u)!=1u||
@@ -30,10 +30,13 @@ public:
         stage_=2;next_=e_.root;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t word){
-        if(stage_!=2||!common(c)||pending_||pc<e_.root||pc>=e_.end||(pc&3u)||
+        if(stage_!=2||!common(c)||pc<e_.root||pc>=e_.end||(pc&3u)||
            (pc!=next_&&pc!=alternate_)||c.inst_count-last_!=1u||
            !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=word||
            ++visits_>64)return fail(3);
+        // An unchanged-EE mtmsr has no callback in the pinned emitter.
+        // The next contiguous native visit must observe its unchanged MSR.
+        if(pending_){if(pc!=next_)return fail(5);pending_=false;}
         last_=c.inst_count;next_=pc+4u;alternate_=0;
         const auto op=word>>26,xo=(word>>1)&1023u;
         if(word==0x4e800020u){
@@ -41,8 +44,8 @@ public:
             stage_=3;return true;
         }
         if(op==31u&&xo==146u){
-            if(e_.kind==2||c.gpr[(word>>21)&31u]!=msr_||polls_!=0)return fail(5);
-            pending_=true;return true;
+            if(e_.kind==2||c.gpr[(word>>21)&31u]!=msr_||msr_writes_!=0||next_>=e_.end)return fail(5);
+            ++msr_writes_;pending_=true;return true;
         }
         if(op==17u||op==19u||((op==16u||op==18u)&&(word&1u)))return fail(6);
         if(op==16u||op==18u){
@@ -54,21 +57,20 @@ public:
         if(next_>=e_.end)return fail(6);
         return true;
     }
-    template<class C>bool poll(C& c){
-        if(stage_!=2||!pending_||!common(c)||c.pc!=next_||
-           c.inst_count!=last_||++polls_!=1)return fail(5);
-        pending_=false;return true;
+    template<class C>bool poll(C&){
+        // No callback is legal inside this direct, EE-disabled leaf.
+        return fail(5);
     }
     template<class C>bool returned(C& c,uint32_t pc){
         if(stage_!=3||!common(c)||pending_||pc!=e_.site+4u||c.pc!=pc||c.lr!=pc||
            c.inst_count-last_!=1u||c.gpr[1]!=gp_[1]||c.gpr[2]!=gp_[2]||
-           c.gpr[13]!=gp_[13]||(e_.kind!=2&&polls_!=1)||(e_.kind==2&&polls_))return fail(4);
+           c.gpr[13]!=gp_[13]||(e_.kind!=2&&msr_writes_!=1)||(e_.kind==2&&msr_writes_))return fail(4);
         for(unsigned i=14;i<32;++i)if(c.gpr[i]!=gp_[i])return fail(4);
         stage_=4;return true;
     }
 private:
     PostAckLeafExpectation e_;const void* ctx_=nullptr;
-    unsigned stage_=0,error_=0,visits_=0,polls_=0;
+    unsigned stage_=0,error_=0,visits_=0,msr_writes_=0;
     bool pending_=false;uint32_t next_=0,alternate_=0,msr_=0,ctr_=0,srr0_=0,srr1_=0;
     uint64_t last_=0;std::array<uint32_t,32> gp_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
