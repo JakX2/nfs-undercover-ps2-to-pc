@@ -2,6 +2,7 @@
 #include "wii_external_return_v706.h"
 #include "wii_live_epilogue_v762.h"
 #include "wii_pending_external_reentry_v932.h"
+#include "wii_second_vector_v939.h"
 #include "wii_si_controller_v511.h"
 #include "wii_saved_context_join_v921.h"
 #include "wii_callback_return_v846.h"
@@ -18,6 +19,8 @@ using nwii::runtime::CPUContext;
 constexpr uint32_t Context=0x80010000u,Other=0x100u,Mask=8u,Prior=0x8032u;
 static ExternalReturnWitness witness,live_capture;
 static PendingExternalReentry reentry;
+static constexpr SecondVectorExpectation SecondExpected{TrampolineRoot,DispatcherRoot,Context,dispatcher_stop[0],vector_words,trampoline_words};
+static SecondVectorWitness second(SecondExpected);
 static constexpr auto VectorBytes=[]{
     std::array<uint8_t,4*vector_words.size()> out{};
     for(unsigned i=0;i<vector_words.size();++i)for(unsigned k=0;k<4;++k)out[4*i+k]=uint8_t(vector_words[i]>>(24-8*k));
@@ -64,6 +67,13 @@ static bool scheduler_abi(CPUContext& c){
 static void need(bool ok,const std::source_location loc=std::source_location::current()){
     if(!ok)fault(1,loc.line());
 }
+static void second_need(bool ok,unsigned kind){
+    if(ok)return;
+    std::cout<<std::dec<<"V941_SECOND_FAULT kind="<<kind<<" reason="<<second.failure()<<" stage="<<second.stage()
+        <<" vector="<<second.vector_visits()<<" trampoline="<<second.trampoline_visits()
+        <<" gpr_mask="<<second.gpr_mask()<<" special_mask="<<second.special_mask()<<std::endl;
+    fault(1);
+}
 static uint32_t pack_cr(const CPUContext& c){
     uint32_t v=0;
     for(const auto& f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
@@ -76,6 +86,7 @@ namespace rfi_test{
 void before(CPUContext& c,uint32_t pc,uint32_t word){
     need(held());
     if(reentry.stage()==3u){
+        second_need(second.before(c,pc,word,pi.load(),Mask,held()),1u);
         const bool vector=pc>=VectorRoot&&pc<VectorRoot+4u*vector_words.size();
         const bool trampoline=pc>=TrampolineRoot&&pc<TrampolineRoot+4u*trampoline_words.size();
         need(vector||trampoline);
@@ -173,8 +184,10 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(pc==VectorRoot){
         need(reentry.vector_entry(c,pc,pi.load(),Mask,held())&&reentry.stage()==3u&&
              sched_stage==4&&c.mmu.read32(Counter)==initial-1u&&!pending&&gqr_diff(c)==0&&c.mmu.read16(Context+0x1a2u)==0);
+        second_need(second.begin(c,reentry,pi.load(),Mask,held()),2u);
         second_last=c.inst_count;
     }else if(pc==TrampolineRoot){
+        second_need(second.entry(c,pc,pi.load(),Mask,held()),3u);
         need(vector_visits&&c.inst_count>=second_last&&c.inst_count-second_last<=1u&&
              !(c.msr&0x8000u)&&c.gpr[3]==4u&&c.gpr[4]==Context&&
              c.mmu.read32(Context+408u)==H&&c.mmu.read32(Context+412u)==Prior);
@@ -193,8 +206,10 @@ void trace_call(uint32_t pc,CPUContext& c){
              !(c.msr&0x8000u)&&c.gpr[3]==4u&&c.gpr[4]==Context&&gqr_diff(c)==0);
         if(second_corrupt)c.mmu.write32(Context+4u*31u,c.mmu.read32(Context+4u*31u)^1u);
         const auto saved=reentry.captured().saved_integer(c,Context);
-        if(second_corrupt){need(saved.valid&&saved.gpr_mismatches==1u&&!saved.special_mask);
+        const bool accepted=second.entry(c,pc,pi.load(),Mask,held());
+        if(second_corrupt){need(saved.valid&&saved.gpr_mismatches==1u&&!saved.special_mask&&!accepted&&second.failure()==6u&&second.gpr_mask()==(1u<<31));
             std::cout<<"V935_SECOND_FRAME_REFUSAL saved_gpr=1"<<std::endl;std::_Exit(126);}
+        second_need(accepted&&second.stage()==3u,4u);
         need(saved.ok()&&c.mmu.read32(Context-4u)==0x12345678u&&c.mmu.read32(Context+0x2c8u)==0x87654321u);
         second_last=c.inst_count;
     }
@@ -218,6 +233,7 @@ bool process_pending_callbacks(CPUContext& c){
     }
     if(witness.stage()==3u){
         if(reentry.stage()==1u){need(reentry.outer_poll(c,pi.load(),Mask,held()));return false;}
+        second_need(second.poll(c,pi.load(),Mask,held()),5u);
         need(reentry.stage()==3u&&held()&&!(c.msr&0x8000u)&&++second_polls<=8u&&
              ((c.pc>=VectorRoot&&c.pc<VectorRoot+4u*vector_words.size())||
               (c.pc>=TrampolineRoot&&c.pc<TrampolineRoot+4u*trampoline_words.size())||c.pc==DispatcherRoot));
@@ -253,7 +269,7 @@ int main(int argc,char** argv)try{
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
     put(H,resume_words);put(L,loader_words);put(J,epilogue_words);put(E,enable_words);put(S,resched_words);put(D,disable_words);put(R,restore_words);put(G,guard_words);put(HandlerC,HandlerWords);put(HandlerRestore,HandlerRestoreWords);put(VectorRoot,vector_words);put(TrampolineRoot,trampoline_words);put(DispatcherRoot,dispatcher_stop);
     for(unsigned trial=0;trial<(corrupt||request_switch||tail_corrupt||vector_corrupt||second_corrupt?1u:8u);++trial){
-        vector_visits=trampoline_visits=second_polls=0;second_last=0;
+        vector_visits=trampoline_visits=second_polls=0;second_last=0;second=SecondVectorWitness(SecondExpected);
         reentry=PendingExternalReentry{};pi.store(Other);SiController device(pi);controller=&device;
         const uint32_t cfg=SiController::TC_MASK|(1u<<16)|(3u<<8)|((trial%4u)<<1);
         const std::array<uint8_t,3> response{0x09,0,0};
@@ -307,8 +323,9 @@ int main(int argc,char** argv)try{
         for(unsigned i=17;i<32;++i){c.gpr[i]^=0xdeadbeefu;c.mmu.write32(frame+HandlerDisp+4u*(i-17u),scheduler_gp[i]^(tail_corrupt&&i==17u?1u:0u));}
         c.mmu.write32(c.gpr[1]+HandlerLink,J);
         run_game(c);
-        need(!corrupt&&!request_switch&&!tail_corrupt&&!vector_corrupt&&!second_corrupt&&tail.stage()==5u&&joined.stage()==2u&&!c.is_running&&witness.stage()==3u&&live.stage()==3u&&reentry.stage()==3u&&entries==11&&outer==2&&stops==trial+1&&gqr_diff(c)==0&&held());
+        need(!corrupt&&!request_switch&&!tail_corrupt&&!vector_corrupt&&!second_corrupt&&tail.stage()==5u&&joined.stage()==2u&&!c.is_running&&witness.stage()==3u&&live.stage()==3u&&reentry.stage()==3u&&second.stage()==3u&&second.vector_visits()==vector_visits&&second.trampoline_visits()==trampoline_visits&&entries==11&&outer==2&&stops==trial+1&&gqr_diff(c)==0&&held());
         need(c.mmu.read32(Context-4u)==0x12345678u&&c.mmu.read32(Context+0x2c8u)==0x87654321u);
     }
+    std::cout<<"V941_OWNER_SECOND_PATH valid=8 original_control_flow=1 saved_fields=38 witness=1\n";
     std::cout<<"V935_OWNER_SECOND_VECTOR valid=8 original_handler_return=8 native_rfi=8 original_second_vector=8 trampoline=8 saved_fields=38 synthetic_dispatcher_stop=8 held_token=8 fallback=0 continuous_boot=0\n";
 }catch(...){fault(9);}

@@ -23,9 +23,10 @@ for mode in nonsplit split; do
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label -Wno-error=type-limits -fno-pie -no-pie \
     -I"$work" -I"$here" -I"$root/nWiiRuntime/include" "$here/test_owner_second_vector_v935.cpp" "$work/$mode"/*.cpp -o "$work/probe" > "$work/build.log" 2>&1 || { python3 "$here/diagnose_build_v910.py" "$work/build.log" "test_owner_second_vector_v935.cpp"; echo "V737_NATIVE_BUILD failed=1";exit 1; }
   timeout 20s "$work/probe" valid > "$work/run.log" 2>&1 || {
-    grep -Ex 'V938_SECOND_VECTOR_MISMATCH registers=[1-7] stale=[0-7] zero=[0-7]|V737_CONTEXT_FAULT kind=[1-9] line=[0-9]{1,4} stage=[0-5] witness=[0-4] visits=[0-9]{1,3} outer=[0-9]{1,2} back_polls=[0-9]{1,3}|V762_EPILOGUE_INVALID reason=[1-9] stage=[0-5] visits=[0-9]{1,3}|V737_CONTEXT_MISMATCH gpr=[0-9]{1,2} cr=[01] lr=[01] ctr=[01] xer=[01] srr0=[01] srr1=[01] gqr=[0-8] exception_state=[01]' "$work/run.log" || true
+    grep -Ex 'V941_SECOND_FAULT kind=[1-5] reason=[0-6] stage=[0-3] vector=[0-9]{1,3} trampoline=[0-9]{1,3} gpr_mask=[0-9]{1,10} special_mask=[0-9]{1,2}|V938_SECOND_VECTOR_MISMATCH registers=[1-7] stale=[0-7] zero=[0-7]|V737_CONTEXT_FAULT kind=[1-9] line=[0-9]{1,4} stage=[0-5] witness=[0-4] visits=[0-9]{1,3} outer=[0-9]{1,2} back_polls=[0-9]{1,3}|V762_EPILOGUE_INVALID reason=[1-9] stage=[0-5] visits=[0-9]{1,3}|V737_CONTEXT_MISMATCH gpr=[0-9]{1,2} cr=[01] lr=[01] ctr=[01] xer=[01] srr0=[01] srr1=[01] gqr=[0-8] exception_state=[01]' "$work/run.log" || true
     echo "V737_NATIVE_EXECUTION failed=1";exit 1;
   }
+  grep -Fx 'V941_OWNER_SECOND_PATH valid=8 original_control_flow=1 saved_fields=38 witness=1' "$work/run.log"
   grep -Fx 'V935_OWNER_SECOND_VECTOR valid=8 original_handler_return=8 native_rfi=8 original_second_vector=8 trampoline=8 saved_fields=38 synthetic_dispatcher_stop=8 held_token=8 fallback=0 continuous_boot=0' "$work/run.log"
   rc=0
   timeout 20s "$work/probe" switch > "$work/run.log" 2>&1 || rc=$?

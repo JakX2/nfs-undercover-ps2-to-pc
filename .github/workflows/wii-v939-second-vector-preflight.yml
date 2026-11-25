@@ -5,6 +5,9 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - '.github/workflows/wii-v939-second-vector-preflight.yml'
+      - 'research/native_recomp/prepare_v939_second_vector.py'
+      - 'research/native_recomp/wii_second_vector_v939.h'
+      - 'research/native_recomp/audit_v939_second_vector.py'
 permissions:
   contents: read
 jobs:
