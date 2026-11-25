@@ -19,6 +19,18 @@ class IrqReturn(unittest.TestCase):
         for bad in (label+tick, label+tick+'    ctx.gpr[0]=0;\n'+si, label+tick+si+si):
             with self.assertRaises(ValueError):patch_label(bad,h,w)
         with self.assertRaises(ValueError):patch_label(label+tick+si,h,w,True)
+    def test_shared_leaf(self):
+        h=0x80004000;w=0x60000000
+        label=f'loc_{h:X}: ;\n    // 0x{h:08X}: {w:08X}\n    ++ctx.inst_count;\n'
+        si='    ctx.si_instruction_boundary();\n'
+        for ordinal in (1,3):
+            old=f'    undercover::wii::v709::before(ctx,0x{h:08x}u,0x{w:08x}u,{ordinal}u);\n'
+            out=patch_label(label+si+old,h,w,shared=ordinal)
+            self.assertIn('if(!undercover::wii::v922::active()) '+old.lstrip(),out)
+            self.assertLess(out.index(si),out.index('v922::before'))
+            for bad in (label+si,label+old+si,label+si+old+old):
+                with self.assertRaises(ValueError):patch_label(bad,h,w,shared=ordinal)
+            with self.assertRaises(ValueError):patch_label(label+si+old,h,w)
     def test_bindings(self):
         s=patch_entry(patch_capture(patch_binding(capture((HERE/'wii_external_entry_binding_v663.h').read_text()))))
         self.assertLess(s.index('v922::poll'),s.index('v667::poll'))

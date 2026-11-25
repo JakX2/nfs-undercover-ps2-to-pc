@@ -5,6 +5,7 @@ from pathlib import Path
 from prepare_v419_full_start import MAX_DOL,replace_exact
 from prepare_v767_live_epilogue import geometry
 from prepare_v616_irq_enable import ENTRY
+from prepare_v667_si_dispatch import DISABLE,RESTORE
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
@@ -12,7 +13,7 @@ from prepare_v726_handler_return import verify_resume_dispatch
 from prepare_v850_callback_return import BLOCK_END,INSTR_PREFIX
 from prepare_v807_callback_prefix import SI
 
-def patch_label(body,pc,w,resume=False):
+def patch_label(body,pc,w,resume=False,shared=0):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
     hits=list(pat.finditer(body))
     if len(hits)!=1:raise ValueError('IRQ return label')
@@ -27,6 +28,14 @@ def patch_label(body,pc,w,resume=False):
     end=end_match.start() if end_match else len(body);block=body[start:end]
     if block.count(SI)!=1 or 'v922::' in block or not INSTR_PREFIX.fullmatch(block[:block.index(SI)]):
         raise ValueError('IRQ return scheduler')
+    if shared:
+        if shared not in (1,3) or resume:raise ValueError('IRQ return shared leaf')
+        old=f'    undercover::wii::v709::before(ctx,0x{pc:08x}u,0x{w:08x}u,{shared}u);\n'
+        if block.count(old)!=1 or block.index(old)<block.index(SI):
+            raise ValueError('IRQ return shared leaf')
+        block=replace_exact(block,old,'    if(!undercover::wii::v922::active()) '+old.lstrip())
+    elif 'undercover::wii::v709::before(' in block:
+        raise ValueError('IRQ return shared leaf')
     pos=block.index(SI)+len(SI);name='resume' if resume else 'before'
     block=block[:pos]+f'    undercover::wii::v922::{name}(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+block[pos:]
     return body[:start]+block+body[end:]
@@ -64,7 +73,7 @@ def install(dol,elf,root,host):
     for a in sorted({a for a,_ in expected.values()}):
         p=owner(a);s=changes.get(p,src[p]);body=exact_function(s,a);out=body
         for pc,(rootpc,w) in sorted(expected.items()):
-            if a==rootpc and pc!=j:out=patch_label(out,pc,w,pc==resume)
+            if a==rootpc and pc!=j:out=patch_label(out,pc,w,pc==resume,1 if a==DISABLE else 3 if a==RESTORE else 0)
         if out==body:raise ValueError('IRQ return coverage')
         s=replace_exact(s,body,out)
         inc='#include "undercover/wii_live_irq_return_binding_v922.h"'
@@ -86,7 +95,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('IRQ return label','IRQ return tick','IRQ return scheduler','IRQ return tree','IRQ return owner','IRQ return entries','IRQ return coverage','IRQ return destination','source seam','native IPC label identity','native IPC coverage','native IPC dispatch','native IPC duplicate root','resume dispatcher identity','helper call label','helper direct native call','helper native return edge')
+        safe=('IRQ return shared leaf','IRQ return label','IRQ return tick','IRQ return scheduler','IRQ return tree','IRQ return owner','IRQ return entries','IRQ return coverage','IRQ return destination','source seam','native IPC label identity','native IPC coverage','native IPC dispatch','native IPC duplicate root','resume dispatcher identity','helper call label','helper direct native call','helper native return edge')
         print('V922_IRQ_RETURN_ROUTE installed=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

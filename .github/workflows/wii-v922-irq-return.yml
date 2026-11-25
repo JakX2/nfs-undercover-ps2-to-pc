@@ -10,6 +10,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - '.github/workflows/wii-v922-irq-return.yml'
+      - 'research/native_recomp/prepare_v922_irq_return.py'
+      - 'research/native_recomp/test_v924_irq_launch.py'
 permissions:
   contents: read
 jobs:
@@ -37,6 +39,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v920_handler_return.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v921_capture_join.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v922_irq_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v924_irq_launch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v767_live_epilogue.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_saved_context_join_v921.cpp -o "$RUNNER_TEMP/v921"
           "$RUNNER_TEMP/v921"

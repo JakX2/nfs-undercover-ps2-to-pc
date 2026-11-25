@@ -1,0 +1,3 @@
+# V924: exclusive shared IRQ leaf observation after handler return
+
+The V778 transfer route deliberately retains its completed active state while guarding the handler suffix. Reusing OSDisableInterrupts/OSRestoreInterrupts in the original scheduler without an explicit handoff would re-enter its old leaf observer. V924 authenticates the exact V709 hook at every shared leaf label and gates only that observer during V922's active original RFI path. The new observer still checks the actual scheduler tick and all native labels. No guest instruction or runtime device service is removed. Added independent opt-in launch prefix tests and exact hook ordering/refusal tests. Private preflight pending.
