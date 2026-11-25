@@ -18,6 +18,7 @@ public:
     }
     struct SavedIntegerCheck{
         unsigned gpr_mismatches=0,special_mask=0;
+        uint32_t gpr_mask=0;
         bool valid=false;
         bool ok()const{return valid&&!gpr_mismatches&&!special_mask;}
     };
@@ -33,7 +34,7 @@ public:
             const auto a=base+off;
             return c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+3u)&&c.mmu.read32(a)==v;
         };
-        for(unsigned i=0;i<32;++i)if(!same(i*4u,gp_[i]))++out.gpr_mismatches;
+        for(unsigned i=0;i<32;++i)if(!same(i*4u,gp_[i])){++out.gpr_mismatches;out.gpr_mask|=1u<<i;}
         const std::array<uint32_t,6> offsets{128u,132u,136u,140u,408u,412u};
         const std::array<uint32_t,6> values{cr_,lr_,ctr_,xer_,resume_,restored_msr_};
         for(unsigned i=0;i<offsets.size();++i)if(!same(offsets[i],values[i]))out.special_mask|=1u<<i;

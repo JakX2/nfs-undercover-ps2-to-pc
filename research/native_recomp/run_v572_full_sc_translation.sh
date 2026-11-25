@@ -250,6 +250,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
         if [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v921_capture_join.py" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v922_irq_return.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V932_PENDING_RFI:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 && "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" != 1 && "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" != 1 ]] || exit 2;fi
+        if [[ "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V932_PENDING_RFI:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v939_second_vector.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v928_leaf_finish.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v930_ipc_join.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
@@ -341,6 +342,11 @@ void instantiate_handler_tail(nwii::runtime::CPUContext& cpu){
     undercover::wii::v884::dispatch_resume(cpu,cpu.pc,0u);
     undercover::wii::v884::resume(cpu,cpu.pc,0u);
 }
+CPP
+  fi
+  if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]]; then
+    cat >> "$work/probe.cpp" <<'CPP'
+void instantiate_second_vector(nwii::runtime::CPUContext& cpu){undercover::wii::v922::second_before(cpu,cpu.pc,0u);}
 CPP
   fi
   g++ -std=c++20 -fsyntax-only -I"$work/generated/nWiiRuntime/include" "$work/probe.cpp" > "$work/probe.log" 2>&1 || { if [[ "$si_transfer_return" == 1 ]]; then python3 "$here/diagnose_transfer_syntax_v779.py" "$work/probe.log";fi;echo "V574 full observer syntax failed";exit 1; }

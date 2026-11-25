@@ -109,6 +109,10 @@ if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V932_PENDING_RFI:-0}" == 1 
   [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 && "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" != 1 && "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" != 1 ]] || exit 2
   extra+=(UNDERCOVER_V932_PENDING_RFI=1);audit=audit_v932_pending_rfi.py
 fi
+if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]]; then
+  [[ "${UNDERCOVER_RUN_V932_PENDING_RFI:-0}" == 1 ]] || exit 2
+  extra+=(UNDERCOVER_V939_SECOND_VECTOR=1);audit=audit_v939_second_vector.py
+fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
 if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
