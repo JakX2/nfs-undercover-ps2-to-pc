@@ -1,0 +1,28 @@
+name: Wii V971 Shared Native Alias Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v971*'
+      - '.github/workflows/wii-v971-shared-alias.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/prepare_owner_second_time_v966.py
+          bash -n research/native_recomp/run_owner_second_time_v966.sh
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_bounded_ack_call_route_v956.cpp -o "$RUNNER_TEMP/v956"
+          "$RUNNER_TEMP/v956"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ack_msr_route_v966.cpp -o "$RUNNER_TEMP/v966"
+          "$RUNNER_TEMP/v966"
+          python3 -m py_compile research/native_recomp/prepare_owner_second_transfer_v971.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ack_alias_route_v971.cpp -o "$RUNNER_TEMP/v971"
+          "$RUNNER_TEMP/v971"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_post_second_ack_v961.cpp -o "$RUNNER_TEMP/v961"
+          "$RUNNER_TEMP/v961"

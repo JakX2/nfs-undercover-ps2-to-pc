@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 namespace undercover::wii {
-struct AckCallSpan{uint32_t root,end;};
+struct AckCallSpan{uint32_t root,end;unsigned save_suffix=0,restore_first=0;};
 struct AckCallEdge{uint32_t site,target;};
 struct AckMsrSite{uint32_t pc,word;};
 // Read-only native entry/return witness. It does not emulate any branch,
@@ -17,17 +17,24 @@ public:
     unsigned depth()const{return depth_;}
     unsigned msr_writes()const{return msr_writes_;}
     template<class C>bool begin(C& c,std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr_sites={}){
-        if(cpu_||error_||spans.empty()||spans.size()>8||edges.empty()||edges.size()>8||msr_sites.size()>4||
+        if(cpu_||error_||spans.empty()||spans.size()>12||edges.empty()||edges.size()>16||msr_sites.size()>4||
            c.pc!=spans[0].root||!safe(c))return fail(1);
         for(unsigned i=0;i<spans.size();++i){
             const auto s=spans[i];
             if((s.root|s.end)&3u||s.root<0x80000000u||s.end>0x81800000u||s.end<=s.root||
-               s.end-s.root>4096u)return fail(1);
-            for(unsigned j=0;j<i;++j)if(s.root<spans[j].end&&spans[j].root<s.end)return fail(1);
+               s.end-s.root>4096u||s.save_suffix>1u||
+               (s.restore_first&&(s.restore_first<14u||s.restore_first>31u||s.save_suffix||
+                s.end-s.root!=4u*(33u-s.restore_first))))return fail(1);
+            if(s.save_suffix&&(s.end-s.root<8u||s.end-s.root>76u))return fail(1);
+            for(unsigned j=0;j<i;++j)if(s.root<spans[j].end&&spans[j].root<s.end){
+                // An explicitly authenticated compiler save suffix may
+                // share an ending with another independently emitted root.
+                if(!s.save_suffix||!spans[j].save_suffix||s.end!=spans[j].end||s.root==spans[j].root)return fail(1);
+            }
         }
         for(unsigned i=0;i<edges.size();++i){
             const auto e=edges[i];const auto s=owner(spans,e.site),d=owner(spans,e.target);
-            if(s>=spans.size()||d>=spans.size()||s==d||e.target!=spans[d].root||
+            if(s>=spans.size()||d>=spans.size()||s==d||e.target!=spans[d].root||spans[s].save_suffix||spans[s].restore_first||
                e.site+4u>=spans[s].end)return fail(1);
             for(unsigned j=0;j<i;++j)if(edges[j].site==e.site)return fail(1);
         }
@@ -38,16 +45,18 @@ public:
         }
         cpu_=&c;spans_=spans;edges_=edges;msr_sites_=msr_sites;msr_=c.msr;active_=0;next_=spans[0].root;return true;
     }
-    template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w,uint32_t native_owner=0){
         if(!same(c)||pending_entry_||(pc&3u))return fail(2);
         if(pending_return_){
             if(!depth_)return fail(3);
             const auto& f=stack_[depth_-1];
             if(pc!=f.ret||c.gpr[1]!=f.gp[1]||c.gpr[2]!=f.gp[2]||c.gpr[13]!=f.gp[13]||c.lr!=f.ret)return fail(3);
-            for(unsigned i=14;i<32;++i)if(c.gpr[i]!=f.gp[i])return fail(3);
+            const unsigned first=spans_[active_].restore_first?spans_[active_].restore_first:32u;
+            for(unsigned i=14;i<first;++i)if(c.gpr[i]!=f.gp[i])return fail(3);
             active_=f.caller;--depth_;++returns_;pending_return_=false;
         }
-        if(owner(spans_,pc)!=active_||(next_&&pc!=next_))return fail(2);
+        if(active_>=spans_.size()||pc<spans_[active_].root||pc>=spans_[active_].end||
+           (native_owner&&native_owner!=spans_[active_].root)||(next_&&pc!=next_))return fail(2);
         next_=0;msr_pending_=false;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         const bool link=(w&1u)&&(op==16u||op==18u||(op==19u&&(xo==16u||xo==528u)));
@@ -83,6 +92,7 @@ private:
     uint32_t pending_entry_=0,next_=0,msr_=0;bool pending_return_=false,msr_pending_=false;unsigned msr_writes_=0;
     bool fail(unsigned e){if(!error_)error_=e;return false;}
     static unsigned owner(std::span<const AckCallSpan> ss,uint32_t pc){
+        for(unsigned i=0;i<ss.size();++i)if(pc==ss[i].root)return i;
         for(unsigned i=0;i<ss.size();++i)if(pc>=ss[i].root&&pc<ss[i].end&&!(pc&3u))return i;
         return unsigned(ss.size());
     }
