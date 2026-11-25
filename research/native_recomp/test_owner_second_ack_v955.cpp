@@ -1,6 +1,7 @@
 #include "runtime/cpu_context.h"
 #include "wii_second_si_dispatch_v944.h"
 #include "wii_second_completion_ack_v950.h"
+#include "wii_bounded_ack_call_route_v956.h"
 #include "owner_second_dispatch.h"
 #include "rfi_test_v708.h"
 #include <algorithm>
@@ -19,7 +20,18 @@ static SecondSiDispatchWitness witness(DispatchExpected);
 static ExternalReturnWitness captured;
 static SecondCompletionAck ack;
 static std::atomic<uint32_t> bank_mask{Mask};
-static uint32_t expected_entry=0,expected_lr=0;
+static BoundedAckCallRoute call_route;
+static constexpr std::array<AckCallSpan,4> ack_spans{{
+    {Handler,Handler+4u*uint32_t(handler_words.size())},
+    {Save,Save+4u*uint32_t(save_words.size())},
+    {Completion,Completion+4u*uint32_t(completion_words.size())},
+    {Nested,Nested+4u*uint32_t(nested_words.size())}
+}};
+static constexpr auto ack_edges=[]{
+    std::array<AckCallEdge,AckEdges.size()> result{};
+    for(unsigned i=0;i<result.size();++i)result[i]={AckEdges[i][0],AckEdges[i][1]};
+    return result;
+}();
 static unsigned ack_visits=0,ack_entries=0;
 static std::atomic<uint32_t> cause{Other};
 static SiController* ctl=nullptr;
@@ -61,15 +73,16 @@ static void load_private_data(CPUContext& c,const char* path){
 namespace rfi_test {
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(ack.stage()){
-        need(!expected_entry&&captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
+        need(captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
         need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
         need(ack.before(c,pc,w,true));
         if(ack.stage()==3u){
-            need(ack.token()==2u&&ack.reads()>0u&&ack.writes()>0u&&cause==Other&&bank_mask==Mask&&ack_entries>=2u);
+            need(call_route.before(c,pc,w));
+            need(call_route.returns()>=1u&&ack.token()==2u&&ack.reads()>0u&&ack.writes()>0u&&cause==Other&&bank_mask==Mask&&ack_entries>=2u);
             std::cout<<"V955_ACK_TRIAL verified=1 original_w1c=1 next_label=1 saved_fields=38 token=2"<<std::endl;
             std::_Exit(0);
         }
-        for(const auto& e:AckEdges)if(pc==e[0]){expected_entry=e[1];expected_lr=pc+4u;}
+        need(call_route.before(c,pc,w));
         return;
     }
     need(held()&&!(c.msr&0x8000u)&&c.mmu.read32(pc)==w&&
@@ -82,8 +95,8 @@ namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(ack.stage()){
-        need(expected_entry&&pc==expected_entry&&c.pc==pc&&c.lr==expected_lr&&ack.poll(c.inst_count));
-        expected_entry=expected_lr=0;++ack_entries;return;
+        need(call_route.entry(c,pc)&&ack.poll(c.inst_count));
+        ++ack_entries;return;
     }
     if(!entries){need(pc==Dispatcher&&witness.begin(c,captured,cause.load(),Mask,held()));last=c.inst_count;++entries;return;}
     if(pc==Handler&&bad_frame)c.mmu.write32(Context+4u*31,c.mmu.read32(Context+4u*31)^1u);
@@ -93,13 +106,14 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(ok);
     if(pc==Handler){
         need(witness.stage()==6u&&entries==5u&&reads>=2u&&captured.saved_integer(c,Context).ok());
+        need(call_route.begin(c,ack_spans,ack_edges));
         need(ack.arm(*ctl,cause,bank_mask,c.inst_count,ctl->issued_tokens(),held()));
         ++entries;return;
     }
     ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(ack.stage()){need(!expected_entry&&ack.poll(c.inst_count));++polls;return false;}
+    if(ack.stage()){need(call_route.can_poll()&&ack.poll(c.inst_count));++polls;return false;}
     if(!entries){need(c.pc==Dispatcher&&held());return false;}
     const bool ok=witness.poll(c,cause.load(),Mask,held());
     if(bad_pi&&!ok){need(witness.failure()==2u);std::cout<<"V946_PI_REFUSAL wrong_value=1"<<std::endl;std::_Exit(126);}

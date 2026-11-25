@@ -1,0 +1,3 @@
+# V956: original ACK helper ABI witness
+
+The focused V955 fixture now requires a separate bounded call/return witness: unique authenticated spans and direct call edges, exact native entry/LR, nested call stack, and nonvolatile GPR/SP/SDA preservation on each actual helper return. It refuses unexpected indirect calls, RFI, SC, MSR changes and cross-span visits. ACK success remains an actual device W1C plus the immediate successor boundary, with at least the first save helper returned; no successor instruction execution claim. Original-free test covers a valid nested sequence plus fourteen invalid states. CI pending. This is not a continuous execution claim.
