@@ -90,6 +90,9 @@ static void reference(uint32_t pc,uint32_t w){
     else if(op==31&&xo==339){need((ra|(rb<<5))==8u);gp[rd]=lr;}
     else if(op==31&&xo==444)gp[ra]=gp[rd]|gp[rb];
     else if(w==0x60000000u){}
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    else if(w==0x4e800421u){need(pc==H&&ctr==C);lr=pc+4;next=ctr;}
+#endif
     else if(op==18&&(w&3u)==1u){
         lr=pc+4;next=pc+(((w&0x03fffffcu)^0x02000000u)-0x02000000u);
         need((pc==H&&next==C)||(pc==SaveCall&&next==S));
@@ -236,6 +239,12 @@ static void continuation(CPUContext& c,uint32_t pc,uint32_t w){
     need(op!=17u&&!(op==19u&&(xo==16u||xo==50u||xo==528u))&&!(op==31u&&xo==146u));
 }
 namespace rfi_test{
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+void dispatch_resume(CPUContext& c,uint32_t pc,uint32_t w){
+    need(joined::active&&pc==H+4u);
+    joined::dispatch_resume(c,pc,w);
+}
+#endif
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(joined::active){joined::before(c,pc,w);return;}
     need(c.inst_count==++tick);
@@ -259,7 +268,13 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(pc==next);
     state(c);
     if(pc==Resume){
-        need(entries==3&&outer==1&&writes==8&&visits==(SaveCall-C)/4u+10u);
+        need(entries==3&&outer==
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+            2u
+#else
+            1u
+#endif
+            &&writes==8&&visits==(SaveCall-C)/4u+10u);
         after_save=true;need(reusable.start(c,pc,w,true,true)&&reusable.before(c,pc,w,true));continuation(c,pc,w);return;
     }
     reference(pc,w);
@@ -274,6 +289,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     // The pinned dispatcher increments inst_count once before the first
     // function entry. Subsequent direct calls do not re-enter the dispatcher.
     if(entries==0){need(outer==1&&c.inst_count==tick+1u);++tick;}
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    else if(entries==1){need(outer==2u&&c.inst_count==tick+1u&&c.lr==H+4u);++tick;}
+#endif
     else need(c.inst_count==tick);
     if(entries>=3)need(reusable.entry(c,pc,true));
     if(entries==3)need(in_time&&c.lr==TimeResume);
@@ -283,6 +301,9 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
     if(joined::active)return joined::process_pending_callbacks(c);
     if(leaf_active){need(cursor==1&&leaves[cursor].poll(c)&&reusable.poll(c,true));++polls;return false;}
+    #ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    if(outer==1u){need(entries==1u&&visits==1u&&next==C&&c.pc==C&&c.lr==H+4u&&c.inst_count==tick);++outer;return false;}
+    #endif
     need(!outer&&!visits&&c.pc==H&&c.inst_count==tick);++outer;return false;
 }
 bool handle_syscall(CPUContext&){fail(4);}
@@ -297,12 +318,15 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){if(joined::active){joined::HW_Reg_Wri
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==3||argc==4);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="rollover"||mode=="frontier-corrupt"||mode=="wireless-changed"||mode=="wireless-corrupt"||mode=="changed-corrupt"||mode=="return-corrupt");
+    need(argc==3||argc==4);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="rollover"||mode=="frontier-corrupt"||mode=="wireless-changed"||mode=="wireless-corrupt"||mode=="changed-corrupt"||mode=="return-corrupt"||mode=="dispatch-corrupt");
+#ifndef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    need(mode!="dispatch-corrupt");
+#endif
 #ifndef UNDERCOVER_TEST_CALLBACK_RETURN
     need(mode!="return-corrupt");
 #endif
     rollover=mode=="rollover";need(argc==(rollover?4:3));
-    frontier_corrupt=mode=="frontier-corrupt";changed_seed=mode=="wireless-changed"||mode=="changed-corrupt";wireless_corrupt=mode=="wireless-corrupt"||mode=="changed-corrupt";corrupt=mode!="valid"&&mode!="return-corrupt"&&!rollover&&!frontier_corrupt&&!changed_seed&&!wireless_corrupt;corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
+    frontier_corrupt=mode=="frontier-corrupt";changed_seed=mode=="wireless-changed"||mode=="changed-corrupt";wireless_corrupt=mode=="wireless-corrupt"||mode=="changed-corrupt";corrupt=mode!="valid"&&mode!="dispatch-corrupt"&&mode!="return-corrupt"&&!rollover&&!frontier_corrupt&&!changed_seed&&!wireless_corrupt;corrupt_kind=mode=="corrupt"?1u:mode=="result"?2u:mode=="offset"?3u:0u;
     unsigned trial=unsigned(std::stoul(argv[2]));need(trial<8);
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
@@ -333,13 +357,21 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_TEST_CALLBACK_RETURN
     joined::callback_original_gp=c.gpr;
     joined::callback_return_corrupt=mode=="return-corrupt";
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    joined::callback_dispatch_corrupt=mode=="dispatch-corrupt";
+#endif
 #endif
     for(unsigned i=0;i<8;++i){c.cr[i].lt=bool((i+trial)&1);c.cr[i].gt=bool((i+trial)&2);c.cr[i].eq=bool((i+trial)&4);c.cr[i].so=bool((i+trial)&8);}
     cr=pack(c);
 #ifdef UNDERCOVER_TEST_CALLBACK_RETURN
     joined::callback_original_cr=cr;
 #endif
-    ctr=c.ctr=0x12345678u+trial;xer=c.xer=0x80000000u|trial;
+    #ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    ctr=c.ctr=C;
+    #else
+    ctr=c.ctr=0x12345678u+trial;
+    #endif
+    xer=c.xer=0x80000000u|trial;
     c.pc=H;lr=c.lr=0x80007000u;c.msr=MSR;c.srr0=0x80030000u;c.srr1=0x8032u;c.inst_count=tick;
     c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;
     run_game(c);fail(8);

@@ -1,0 +1,3 @@
+# V851: original callback return via emitted indirect dispatch
+
+V849 original-free job 139072590021 passed two valid and eleven negative cases under ASan/UBSan. V850 full-image preflight is pending. V851 adds an optional bctrl caller to the V846 private fixture, retaining the same original callback, original wireless setter/EXI paths and synthetic controlled input states. The fixture authenticates the native resume case, performs the actual outer dispatcher poll and tick on entry and return, and independently checks the restored caller ABI. It has an additional poll-time ABI corruption control. Original direct V846 mode remains unchanged. Private owner CI pending. This is focused native execution, not uninterrupted startup.

@@ -56,6 +56,9 @@ static CallbackReturnWitness callback_return({CallbackRestoreCall,CallbackRestor
 static std::array<uint32_t,32> callback_original_gp{};
 static uint32_t callback_original_cr=0;
 static bool callback_return_corrupt=false;
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+static bool callback_dispatch_corrupt=false;
+#endif
 #endif
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V816_WIRELESS_FAULT kind="<<kind<<" line="<<line<<" lane="<<lane<<" depth="<<depth
@@ -150,7 +153,13 @@ static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
             <<" visits="<<suffix.visits()<<" writes="<<suffix.writes()<<" polls="<<suffix.polls()
             <<" setter_return=1 changed="<<unsigned(lane==2u)<<" target_executed=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
 #ifdef UNDERCOVER_TEST_CALLBACK_RETURN
-        need(suffix.ordinal()==13u&&callback_return.start(c,pc,w,callback_original_gp,callback_original_cr,device_held()));
+        need(suffix.ordinal()==13u&&
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+            callback_return.start_dispatch(c,pc,w,callback_original_gp,callback_original_cr,device_held())
+#else
+            callback_return.start(c,pc,w,callback_original_gp,callback_original_cr,device_held())
+#endif
+        );
 #else
         std::_Exit(0);
 #endif
@@ -159,6 +168,13 @@ static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
 static void suffix_start(CPUContext& c,uint32_t pc,uint32_t w){
     need(pc==PostSetterResume&&suffix.start(c,pc,w,true,device_held()));
     suffix_step(c,pc,w);
+}
+#endif
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+void dispatch_resume(CPUContext& c,uint32_t pc,uint32_t w){
+    need(callback_return.stage()==4u&&c.inst_count==++tick&&pc==H+4u);
+    advance();
+    need(callback_return.dispatch_resume(c,pc,w,device_held()));
 }
 #endif
 void before(CPUContext& c,uint32_t pc,uint32_t w){
@@ -175,6 +191,9 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         need(callback_return.before(c,pc,w,device_held()));
         if(callback_return.stage()==5u){
             payload(c,lane==2u);
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+            std::cout<<"V851_OWNER_CALLBACK_DISPATCH outer_poll=1 outer_tick=1 callback_return=1 changed="<<unsigned(lane==2u)<<" fallback=0 continuous_boot=0"<<std::endl;
+#endif
             std::cout<<"V846_OWNER_CALLBACK_RETURN original_restore=1 callback_return=1 abi=1 visits="<<callback_return.visits()
                 <<" changed="<<unsigned(lane==2u)<<" fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
         }
@@ -318,6 +337,16 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_TEST_AFTER_SETTER
     if(suffix.stage()==1u){need(suffix.poll(c,device_held()));return false;}
 #ifdef UNDERCOVER_TEST_CALLBACK_RETURN
+#ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
+    if(callback_return.stage()==4u){
+        if(callback_dispatch_corrupt){
+            c.gpr[26]^=1u;
+            need(!callback_return.dispatch_poll(c,device_held())&&callback_return.failure()==6u);
+            std::cout<<"V851_DISPATCH_REFUSAL abi=1"<<std::endl;std::_Exit(126);
+        }
+        need(callback_return.dispatch_poll(c,device_held()));return false;
+    }
+#endif
     need(!callback_return.stage());
 #endif
 #endif

@@ -1,3 +1,3 @@
 #pragma once
 #include "runtime/cpu_context.h"
-namespace rfi_test {void before(nwii::runtime::CPUContext&,uint32_t,uint32_t);}
+namespace rfi_test {void before(nwii::runtime::CPUContext&,uint32_t,uint32_t);void dispatch_resume(nwii::runtime::CPUContext&,uint32_t,uint32_t);}

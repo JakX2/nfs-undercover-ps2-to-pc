@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Stage original post-setter callback control without executing either callee."""
-import argparse,struct
+import argparse,re,struct
 from pathlib import Path
-from prepare_v419_full_start import MAX_DOL
+from prepare_v419_full_start import MAX_DOL,replace_exact
+from prepare_owner_pair_v753 import H
+from prepare_v680_si_helper import exact_function
+from prepare_v709_os_leaves import owns_root
+from prepare_v726_handler_return import verify_resume_dispatch
 from prepare_v667_si_dispatch import exact
 from prepare_owner_callback_write_v838 import plan as joined_plan,header as joined_header
 from prepare_owner_wireless_return_v837 import install,patch_analyzer,validate_overlaps
@@ -13,7 +17,8 @@ from make_private_elf_symbol_map import parse_functions
 from prepare_owner_scheduler_v722 import reachable
 BLR=0x4e800020
 
-def plan(dol,elf,full=False):
+def plan(dol,elf,full=False,indirect=False):
+    if indirect and not full:raise ValueError('dispatch requires callback return')
     q,merged=joined_plan(dol,elf)
     base,restore,aliases,revision,immex,unlock,shared=merged
     roots,A,B,W,L,guards=base
@@ -74,6 +79,9 @@ def plan(dol,elf,full=False):
             old[i]=w
     roots[C]=old
     if not seen.issubset(reachable(C,old)):raise ValueError('postsetter coverage')
+    if indirect:
+        if len(roots[H])!=3 or roots[H][1:]!=[0x60000000,BLR]:raise ValueError('dispatch caller shape')
+        roots[H]=[0x4e800421,0x60000000,BLR]
     shared=validate_overlaps(roots,aliases)
     merged=(base,restore,aliases,revision,immex,unlock,shared)
     return (q,merged),C,resume,sorted(seen),stops
@@ -97,20 +105,36 @@ def header(p,out,full=False):
             f.write(f'inline constexpr std::array<uint32_t,7> callback_restore_words{{'+fmt(roots[r])+'};\n')
             f.write('inline constexpr std::array<uint32_t,4> callback_return_words{'+fmt(roots[C][(ret-C)//4:(ret-C)//4+4])+'};\n')
 
+def install_resume(root):
+    paths=sorted(root.glob('*.cpp'));main=root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')
+    src={p:p.read_text() for p in paths}
+    verify_resume_dispatch(src[main],H,H+4)
+    owners=[p for p,s in src.items() if owns_root(s,H)]
+    if len(owners)!=1:raise ValueError('dispatch caller owner')
+    p=owners[0];body=exact_function(src[p],H)
+    pat=re.compile(r'(?mi)^loc_'+f'{H+4:X}'+r': ;\n    // 0x'+f'{H+4:08X}'+r': 60000000\n(?=    \+\+ctx\.inst_count;\n    rfi_test::before\(ctx,)')
+    if len(pat.findall(body))!=1:raise ValueError('dispatch resume label')
+    out=pat.sub(lambda m:m[0]+f'    rfi_test::dispatch_resume(ctx,0x{H+4:08x}u,0x60000000u);\n',body,count=1)
+    p.write_text(replace_exact(src[p],body,out))
+    print('V851_NATIVE_DISPATCH_ROUTE indirect_entry=1 native_resume=1 pre_tick_hook=1 execution=0')
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('output',type=Path)
-    m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');p.add_argument('--callback-return',action='store_true');a=p.parse_args()
+    m=p.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');p.add_argument('--callback-return',action='store_true');p.add_argument('--callback-dispatch',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        q=plan(a.dol.read_bytes(),a.elf.read_bytes(),a.callback_return);joined,C,resume,seen,stops=q
+        q=plan(a.dol.read_bytes(),a.elf.read_bytes(),a.callback_return,a.callback_dispatch);joined,C,resume,seen,stops=q
         if a.install:
-            install(joined[1],a.output,[(C,pc) for pc,(_,k,_) in stops.items() if k==2])
+            indirect=[(C,pc) for pc,(_,k,_) in stops.items() if k==2]
+            if a.callback_dispatch:indirect.append((H,H))
+            install(joined[1],a.output,indirect)
+            if a.callback_dispatch:install_resume(a.output)
             print('V842_POST_SETTER_NATIVE_ROUTE verified=1 labels=21 indirect=1 restore=1 execution=0')
         elif a.patch_analyzer:patch_analyzer(joined[1],a.output)
         else:
             header(q,a.output,a.callback_return);print('V842_POST_SETTER_GEOMETRY verified=1 labels=21 backward=1 store=1 indirect=1 restore=1')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('callback return census','callback return extent','callback return shape','callback return identity','postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
+        safe=('dispatch requires callback return','dispatch caller shape','dispatch caller owner','dispatch resume label','resume dispatcher identity','callback return census','callback return extent','callback return shape','callback return identity','postsetter census','postsetter extent','postsetter call','postsetter control','postsetter shape','postsetter restore','postsetter identity','postsetter coverage','shared suffix identity','indirect coverage','native edge','native owner','native coverage','hook identity','indirect label','indirect LR','indirect dispatch','indirect fallback','alias root','alias symbol','pair shape','frame offset')
         print('V842_POST_SETTER_PREP verified=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
