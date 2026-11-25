@@ -23,7 +23,7 @@ static std::array<uint32_t,32> gp{};
 static unsigned entries=0,visits=0,outer=0,stops=0,trial=0,reads=0,writes=0,loops=0;
 static uint64_t last=0;
 static uint32_t last_pc=0,last_word=0,channel=0;
-static bool busy=false,corrupt=false,pending_poll=false,access=false,returned=false;
+static bool busy=false,corrupt=false,pending_poll=false,mmio_accessed=false,returned=false;
 static unsigned resume_visits=0;
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V765_TRANSFER_FAULT kind="<<kind<<" line="<<line<<" entries="<<entries<<" visits="<<visits<<" busy="<<busy<<" reads="<<reads<<" writes="<<writes<<" follow="<<follow.stage()<<" reason="<<follow.failure()<<std::endl;std::_Exit(126);
@@ -39,11 +39,11 @@ static unsigned offset(uint32_t a){
     need(a>=0x0d006400u&&a<0x0d006500u&&!(a&3u));return a-0x0d006400u;
 }
 static void mmio(bool write){
-    need(cpu&&cpu->inst_count==last&&!access&&span(last_pc,C,transfer_words.size()));
+    need(cpu&&cpu->inst_count==last&&!mmio_accessed&&span(last_pc,C,transfer_words.size()));
     const auto op=last_word>>26,xo=(last_word>>1)&1023u;
     need(write?(op==36u||op==37u||(op==31u&&(xo==151u||xo==183u||xo==662u))):
                (op==32u||op==33u||(op==31u&&(xo==23u||xo==55u||xo==534u))));
-    access=true;
+    mmio_accessed=true;
 }
 static void advance(uint64_t tick){
     scheduler->advance(tick);
@@ -59,7 +59,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(!c.is_running){need(pc==H+4u*17u);return;}
     need(c.msr==MSR&&!c.in_callback&&!c.dispatch_saved_ctx&&c.mmu.read32(pc)==w&&!pending_poll);
     if(visits)need(c.inst_count-last==1);
-    last=c.inst_count;last_pc=pc;last_word=w;access=false;need(++visits<=256);
+    last=c.inst_count;last_pc=pc;last_word=w;mmio_accessed=false;need(++visits<=256);
     advance(c.inst_count);
     if(pc==H){need(entries==1&&abi(c));return;}
     if(pc==H+4u){
