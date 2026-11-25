@@ -52,7 +52,8 @@ static constexpr auto immediate_prefix=observed<(ImmediateResume-ImmediateRoot)/
 static undercover::wii::HandlerSuffixGuard continuation_guard;
 static std::array<undercover::wii::HandlerSuffixLabel,33> continuation_rows{};
 static unsigned continuation_size=0,continuation_reads=0;
-static bool disable_pending=false,tail_active=false,second_time=false,busy_mode=false,busy_corrupt=false,busy_active=false;
+static bool disable_pending=false,tail_active=false,second_time=false,busy_mode=false,busy_corrupt=false,busy_active=false,same_busy=false;
+static uint32_t busy_channel=0;
 static unsigned busy_stage=0,busy_alias_index=0,busy_reads=0;static uint32_t busy_next=0,busy_ctr=0;
 static constexpr uint32_t busy_irq_word=ImmediateFull[(BusyIrqSite-ImmediateRoot)/4u];
 static undercover::wii::PostAckOsLeaf busy_irq({BusyIrqSite,R,R+4u*uint32_t(irq_restore_words.size()),busy_irq_word,3u});
@@ -239,7 +240,7 @@ static void tail_before(CPUContext& c,uint32_t pc,uint32_t w){
             if(!busy_mode)std::_Exit(0);
             const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
             const bool taken=((bo&4u)||(((c.ctr-1u)!=0u)^bool(bo&2u)))&&((bo&16u)||bool((pack(c)>>(31u-bi))&1u)==bool(bo&8u));
-            need(!taken&&c.mmu.read32(0x80619a60u)==0u&&BusyIrqSite==pc+4u);
+            need(!taken&&c.mmu.read32(0x80619a60u)==busy_channel&&BusyIrqSite==pc+4u);
             busy_ctr=c.ctr-unsigned(!(bo&4u));busy_next=pc+4u;busy_active=true;busy_stage=1;return;
         }
         need(w==AlarmTailControl&&alarm_time.start(c,pc,w,true,true,AlarmNextStop+4u)&&alarm_time.before(c,pc,w,true));
@@ -280,7 +281,7 @@ static void busy_before(CPUContext& c,uint32_t pc,uint32_t w){
         }
     }
     if(busy_stage==6u){
-        need(pc==callee_site+4u&&c.pc==pc&&c.lr==pc&&busy_abi(c)&&entries==13u&&outer==1u&&busy_alias_index==BusyAliasWords.size()&&c.mmu.read32(0x80619a60u)==0u);
+        need(pc==callee_site+4u&&c.pc==pc&&c.lr==pc&&busy_abi(c)&&entries==13u&&outer==1u&&busy_alias_index==BusyAliasWords.size()&&c.mmu.read32(0x80619a60u)==busy_channel);
         std::cout<<"V916_OWNER_BUSY_RETURN trial="<<trial<<" original_return=1 irq_restore=1 gprs=6 abi=1 result=0 mmio=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
     }
     need((busy_stage==3u||busy_stage==5u)&&pc==busy_next&&pc>=ImmediateRoot&&pc<=BusyReturn&&w==ImmediateFull[(pc-ImmediateRoot)/4u]);
@@ -363,6 +364,10 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     if(disabled){
         packet_observe(c,pc,w);need(choice.before(c,pc,w));
         if(choice.boundary()){
+            if(same_busy){
+                need(packet_reads==1u&&packet_addr&&compared&&branch_visits&&choice.boundary()==3u&&c.mmu.read32(0x80619a60u)==trial%4u);
+                std::cout<<"V918_OWNER_SAME_CHANNEL_BUSY trial="<<trial<<" original_rejection=1 next=3 call_executed=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+            }
             need(packet_reads==1u&&packet_addr&&compared&&branch_visits&&choice.boundary()==(open_lane?4u:3u));
             if(open_lane){
                 need(pc==TimeCall&&choice.boundary()==4u&&time_witness.start(c,pc,w,true,true,DisableResume)&&time_witness.before(c,pc,w,true));
@@ -452,7 +457,7 @@ void HW_Reg_Write16(uint32_t,uint16_t){fail(7);}void HW_Reg_Write32(uint32_t,uin
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==4);const std::string mode=argv[1];need(mode=="discover"||mode=="open"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="entry"||mode=="save"||mode=="busy"||mode=="busy_corrupt");busy_mode=mode=="busy"||mode=="busy_corrupt";busy_corrupt=mode=="busy_corrupt";bad_entry=mode=="entry";bad_save=mode=="save";corrupt=mode=="corrupt";bad_time=mode=="result"?1u:mode=="offset"?2u:0u;open_lane=mode=="open"||bad_time||bad_entry||bad_save||busy_mode;seed_path=argv[3];
+    need(argc==4);const std::string mode=argv[1];need(mode=="discover"||mode=="open"||mode=="corrupt"||mode=="result"||mode=="offset"||mode=="entry"||mode=="save"||mode=="busy"||mode=="busy_corrupt"||mode=="same_busy");same_busy=mode=="same_busy";busy_mode=mode=="busy"||mode=="busy_corrupt"||same_busy;busy_corrupt=mode=="busy_corrupt";bad_entry=mode=="entry";bad_save=mode=="save";corrupt=mode=="corrupt";bad_time=mode=="result"?1u:mode=="offset"?2u:0u;open_lane=mode=="open"||bad_time||bad_entry||bad_save||busy_mode;seed_path=argv[3];
     trial=unsigned(std::stoul(argv[2]));need(trial<8);
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
@@ -463,7 +468,8 @@ int main(int argc,char** argv)try{
     // Synthetic caller data, not a forced original branch or fabricated device result.
     c.gpr[4]=Stack+0x80u;c.gpr[5]=1u;c.gpr[6]=Stack+0x90u;c.gpr[7]=3u;c.gpr[8]=H;c.gpr[9]=0;c.gpr[10]=(trial&4u)?100u:0u;
     c.mmu.write8(Stack+0x80u,0u);stack[(Stack+0x80u-Low)/4u]&=0x00ffffffu;
-    c.mmu.write32(0x80619a60u,busy_mode?0u:0xffffffffu);
+    busy_channel=same_busy?trial%4u:(trial+1u)%4u;
+    c.mmu.write32(0x80619a60u,busy_mode?busy_channel:0xffffffffu);
     if(open_lane){
         std::ifstream f(seed_path);uint64_t a=0;need(bool(f>>a>>seed_section)&&a<=UINT32_MAX&&seed_section);f>>std::ws;need(f.eof());
         seed_addr=uint32_t(a);need(packet_address(seed_addr)&&packet_section(seed_addr)==seed_section&&c.mmu.read32(seed_addr)==0u);c.mmu.write32(seed_addr,0xffffffffu);

@@ -1,0 +1,3 @@
+# V918: distinguish same-channel rejection from other-channel occupancy
+
+V916 private job 139165612111 passed native generation and the original eight non-split regression lanes, but trial zero's busy state selected the original outer caller rejection boundary (ordinal 3) before the nested time call. Do not bypass that original logic. Preserve same-channel occupancy as an explicit original rejection case, and initialize a different occupied channel for the nested busy-return test. Neither the branch nor the device state is modified during execution. The different-channel hypothesis requires the private rerun; no complete nested return claimed yet.

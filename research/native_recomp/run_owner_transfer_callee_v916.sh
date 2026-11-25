@@ -59,6 +59,10 @@ for mode in nonsplit split; do
     }
     grep -Fx "V916_OWNER_BUSY_RETURN trial=$trial original_return=1 irq_restore=1 gprs=6 abi=1 result=0 mmio=0 fallback=0 continuous_boot=0" "$work/run.log"
   done
+  for trial in 0 1 2 3; do
+    timeout 20s "$work/probe" same_busy "$trial" "$work/seeds/$trial.txt" > "$work/run.log" 2>&1
+    grep -Fx "V918_OWNER_SAME_CHANNEL_BUSY trial=$trial original_rejection=1 next=3 call_executed=0 fallback=0 continuous_boot=0" "$work/run.log"
+  done
   rc=0
   timeout 20s "$work/probe" busy_corrupt 0 "$work/seeds/0.txt" > "$work/run.log" 2>&1 || rc=$?
   [[ "$rc" == 126 ]]
@@ -84,5 +88,5 @@ for mode in nonsplit split; do
   timeout 20s "$work/probe" corrupt 0 "$work/unused.txt" > "$work/run.log" 2>&1 || rc=$?
   [[ "$rc" == 126 ]]
   grep -Fx 'V881_PREFIX_REFUSAL saved_word_corruption=1' "$work/run.log"
-  echo "V881_PREFIX_MODE mode=$mode closed=8 time_returns=8 busy_returns=6 refused=7"
+  echo "V881_PREFIX_MODE mode=$mode closed=8 time_returns=8 busy_returns=6 same_channel_rejections=4 refused=7"
 done
