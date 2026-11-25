@@ -41,6 +41,14 @@ def step(w,regs):
         if op in (32,33,34,35,40,41,42,43):q[rd]=None
         if op==46:
             for i in range(rd,32):q[i]=None
+    elif op==31 and (w>>1)&1023 in (23,55,87,119,279,311,343,375,151,183,215,247,407,439,534,662,790,918):
+        xo=(w>>1)&1023
+        base=regs[ra] if ra else 0;index=regs[rb]
+        addr=None if base is None or index is None else (base+index)&MASK
+        write=xo in (151,183,215,247,407,439,662,918)
+        access=('write' if write else 'read',region(addr))
+        if xo in (55,119,311,375,183,247,439):q[ra]=addr
+        if not write:q[rd]=None
     elif op==31 and (w>>1)&1023==444:
         a,b=regs[rd],regs[rb];q[ra]=None if a is None or b is None else a|b
     elif op in (10,11,16,18) or w==0x60000000:pass

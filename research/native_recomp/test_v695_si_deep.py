@@ -7,7 +7,7 @@ class Tests(unittest.TestCase):
         out,first=census(H,[0x3c60cd00,0x60636400,0x80830034,0x90830038,0x4e800020])
         self.assertEqual((out['read_si_control'],out['write_si_status'],first),(1,1,()))
         self.assertEqual(region(0xcd806434),'si_control')
-        self.assertEqual(region(0x4d006434),'memory')
+        self.assertEqual(region(0x4d006434),'other_mmio')
     def test_unknown_and_join(self):
         # Unknown instruction invalidates constants, so no false MMIO identity.
         out,_=census(H,[0x3c60cd00,0x60636400,0x7c000000,0x90830034,0x4e800020])
@@ -15,6 +15,12 @@ class Tests(unittest.TestCase):
         # A conditional branch skips the address initialization.
         out,_=census(H,[0x4182000c,0x3c60cd00,0x60636400,0x90830034,0x4e800020])
         self.assertEqual((out['write_si_control'],out['write_unknown']),(0,1))
+    def test_indexed(self):
+        # lis r3,0xcd00; ori r3,r3,0x6400; li r5,0x34; stwx r4,r3,r5; blr
+        out,_=census(H,[0x3c60cd00,0x60636400,0x38a00034,0x7c83292e,0x4e800020])
+        self.assertEqual(out['write_si_control'],1)
+        out,_=census(H,[0x3c60cd00,0x60636400,0x7c83292e,0x4e800020])
+        self.assertEqual(out['write_unknown'],1)
     def test_call_boundary(self):
         out,first=census(H,[0x3c60cd00,0x60636400,0x48000009,0x90830034,0x4e800020])
         self.assertEqual((out['write_si_control'],first),(0,(1,)))

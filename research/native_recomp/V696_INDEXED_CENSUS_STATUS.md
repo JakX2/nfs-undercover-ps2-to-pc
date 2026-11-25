@@ -1,0 +1,3 @@
+# V696: extend conservative static SI address census to indexed memory operations
+
+V694 verified eight native three-helper generated-code scenarios (four split, four non-split), including real guest W1C at three levels and refusal of deeper call. Extend V695 constant propagation to PPC indexed integer load/store forms, including byte-reversed word/halfword forms, retaining unknown address when either operand is unproven. Correct the independent test expectation for a non-SI segment alias that is classified as other MMIO, not RAM. No runtime change or original execution claim. Owner builds continue independently.
