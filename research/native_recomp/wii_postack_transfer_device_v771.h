@@ -62,8 +62,8 @@ public:
         if(op==31u&&xo==662u)v=(v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24);
         return {Access::Write,a,v};
     }
-    bool begin(SiController& ctl,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
-               const SiCompletionAckTrace& ack,const uint64_t& tick,unsigned ch,bool idle,
+    template<class Ack>bool begin(SiController& ctl,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
+               const Ack& ack,const uint64_t& tick,unsigned ch,bool idle,
                std::optional<std::array<uint8_t,3>> response,uint64_t latency){
         if(stage_||error_||!ack.owns_postack(ctl,cause,mask,tick)||ch>3||!latency||latency>8190u||
            tick>UINT64_MAX-8192u||ctl.pending()||!(mask.load()&SiController::PI_SI)||
@@ -75,7 +75,7 @@ public:
         ch_=ch;idle_=idle;response_=response;latency_=latency;start_=last_=tick;stage_=1;return true;
     }
     bool before(uint64_t tick,Access access=Access::None,uint32_t address=0,std::optional<uint32_t> store_value=std::nullopt){
-        if(stage_!=1||error_||armed_||tick-last_!=1u||tick-start_>8192u||!common())return fail(2);
+        if(stage_!=1||error_||armed_||!tick_||*tick_!=tick||tick-last_!=1u||tick-start_>8192u||!common())return fail(2);
         last_=tick;
         if(!device(tick))return fail(3);
         if(access==Access::None)return address==0&&!store_value?true:fail(2);
@@ -138,7 +138,7 @@ public:
     // Returns at the next authenticated caller boundary, AFTER before().
     // A legitimate new TC may already be pending in PI. Never clear it here.
     bool finish(uint64_t tick,uint32_t result){
-        if(stage_!=1||error_||armed_||tick!=last_||!common()||result!=unsigned(idle_))return fail(6);
+        if(stage_!=1||error_||armed_||!tick_||*tick_!=tick||tick!=last_||!common()||result!=unsigned(idle_))return fail(6);
         if(idle_){
             if(follow_.stage()<2||!reads_||!writes_||ctl_->issued_tokens()!=seq_+1u)return fail(6);
             if(!follow_.held(tick))return fail(6);
@@ -152,7 +152,7 @@ public:
         return after_return(tick);
     }
     bool after_return(uint64_t tick){
-        if(stage_!=2||error_||status_pending_||status_write_pending_||tick-last_!=1u||tick-start_>8192u||!common())return fail(7);
+        if(stage_!=2||error_||!tick_||*tick_!=tick||status_pending_||status_write_pending_||tick-last_!=1u||tick-start_>8192u||!common())return fail(7);
         last_=tick;return device(tick)?true:fail(7);
     }
 private:
@@ -182,7 +182,7 @@ private:
         return follow_.held(tick);
     }
     bool consume(SiController& ctl,unsigned off,Access access){
-        if(stage_!=1||error_||!armed_||&ctl!=ctl_||off_!=off||access_!=access||!common())return fail(4);
+        if(stage_!=1||error_||!armed_||!tick_||*tick_!=last_||&ctl!=ctl_||off_!=off||access_!=access||!common())return fail(4);
         armed_=false;access_=Access::None;store_value_.reset();return true;
     }
 };

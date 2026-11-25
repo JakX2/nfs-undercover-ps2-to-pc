@@ -44,6 +44,19 @@ public:
         stage_=4u;return arm_access(c,pc,w);
     }
     bool postack_held()const{return stage_==4u&&!armed_&&tick_&&*tick_==last_&&state(false);}
+    bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
+                      const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
+        return &ctl==ctl_&&&cause==cause_&&&mask==mask_&&&tick==tick_&&postack_held();
+    }
+    // Retire this completed token's witness only after the next device
+    // owner has admitted the exact same controller, PI bank and tick.
+    bool handoff_follow_on(PostAckTransferDevice& next,SiController& ctl,
+                          const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
+                          const uint64_t& tick,unsigned ch,bool idle,
+                          std::optional<std::array<uint8_t,3>> response,uint64_t latency){
+        if(!owns_postack(ctl,cause,mask,tick)||!next.begin(ctl,cause,mask,*this,tick,ch,idle,response,latency))return false;
+        stage_=5u;return true;
+    }
 private:
     template<class C>bool arm_access(C& c,uint32_t pc,uint32_t w){
         pc_=pc;
