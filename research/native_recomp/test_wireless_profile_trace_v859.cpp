@@ -8,7 +8,7 @@ static void need(bool b,const std::source_location l=std::source_location::curre
 int main(){
     unsigned valid=0,refused=0;
     WirelessProfileTrace absent;need(!absent.begin({},0,0,1)&&absent.failure()==1);++refused;
-    for(unsigned trial=0;trial<24;++trial){
+    for(unsigned trial=0;trial<27;++trial){
         std::atomic<uint32_t> cause{0};WiiIrqBanks banks(cause);ExiController ctl(banks);
         ExiHostProfile p{};p.latency=1+trial%4;p.di_config=1;
         for(unsigned i=0;i<64;++i)p.sram[i]=uint8_t(17*i+7);
@@ -29,6 +29,7 @@ int main(){
         bool ok=w.begin(guest,trial==13?4u:ch,0,tick);
         if(trial==12||trial==13){need(!ok&&w.failure()==1);++refused;continue;}
         need(ok);
+        if(trial==24){need(!w.observe_dispatch(tick+1)&&w.failure()==2);++refused;continue;}
         auto visit=[&](){ExiTickBinding::advance(++tick);return w.observe(tick);};
         if(trial==14){need(!w.observe(tick)&&w.failure()==2);++refused;continue;}
         if(trial==15){ctl.write(1,16,1);need(!visit()&&w.failure()==2);++refused;continue;}
@@ -57,8 +58,11 @@ int main(){
         ctl.write(0,0,8u);need(visit());need(w.deselected(guest,tick));need(visit());
         need(w.returned(guest,tick)&&w.held()&&s.sram()==guest);
         if(trial==23){ctl.write(0,0,0x130u);need(!w.held());++refused;continue;}
+        if(trial==25){need(!w.observe_dispatch(tick+2)&&w.failure()==2);++refused;continue;}
+        need(w.observe_dispatch(++tick)&&w.held());
+        if(trial==26){need(!w.observe_dispatch(tick)&&w.failure()==2);++refused;continue;}
         need(visit()&&w.held());++valid;
     }
-    need(valid==12&&refused==13&&!ExiProfileSession::current());
+    need(valid==12&&refused==16&&!ExiProfileSession::current());
     std::cout<<"V859_WIRELESS_PROFILE valid="<<valid<<" refused="<<refused<<" bytes=44 tokens=12 prior_tokens=2 scheduler=1 original_execution=0\n";
 }
