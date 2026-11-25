@@ -13,6 +13,7 @@ public:
     unsigned visits()const{return visits_;}
     unsigned polls()const{return polls_;}
     bool pending()const{return pending_;}
+    const std::array<uint32_t,32>& entry_gprs()const{return gpr_;}
     template<class C>bool capture(C& c){
         if(stage_||error_||!safe(c)||c.pc!=e_.root||c.lr!=e_.resume||
            !span(e_.root)||e_.end<=e_.root||e_.end-e_.root>4096u||
@@ -27,11 +28,15 @@ public:
            c.inst_count<=start_tick_||c.inst_count-start_tick_>32768u)return fail(2);
         next_=pc;last_=c.inst_count;stage_=2;return true;
     }
-    template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool device){
-        if(stage_!=2||!common(c)||!device||pending_||pc!=next_||!span(pc)||!word(c,pc,w)||
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool device,bool authenticated_restore=false){
+        if(stage_!=2||!common(c)||!device||pending_||restore_inflight_||pc!=next_||!span(pc)||!word(c,pc,w)||
            c.inst_count-last_!=(visits_?1u:0u)||++visits_>1024u)return fail(3);
         last_=c.inst_count;
         const auto op=w>>26,xo=(w>>1)&1023u;
+        if(authenticated_restore){
+            if(restore_done_||op!=18u||(w&3u)!=1u||!span(pc+4u))return fail(8);
+            restore_inflight_=true;next_=pc+4u;return true;
+        }
         if(w==0x4e800020u){
             if(!abi(c)||c.lr!=e_.resume)return fail(5);
             stage_=3;return true;
@@ -54,8 +59,13 @@ public:
         if(!span(next_))return fail(4);
         return true;
     }
+    template<class C>bool restore_returned(C& c,uint32_t pc,unsigned visits,bool device){
+        if(stage_!=2||!common(c)||!device||!restore_inflight_||restore_done_||pending_||
+           pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>19u||c.inst_count-last_!=visits+1u)return fail(8);
+        restore_inflight_=false;restore_done_=true;last_=c.inst_count-1u;return true;
+    }
     template<class C>bool poll(C& c,bool device){
-        if(!common(c)||!device||c.inst_count!=last_)return fail(6);
+        if(!common(c)||!device||restore_inflight_||c.inst_count!=last_)return fail(6);
         if(stage_==2){
             if(!pending_||c.pc!=poll_pc_||c.gpr!=poll_gpr_||pack_cr(c)!=poll_cr_||
                c.lr!=poll_lr_||c.ctr!=poll_ctr_||c.xer!=poll_xer_||++polls_>1024u)return fail(6);
@@ -73,7 +83,7 @@ public:
 private:
     SiHandlerReturnExpectation e_;
     const void* cpu_=nullptr;unsigned stage_=0,error_=0,visits_=0,polls_=0;
-    bool pending_=false;
+    bool pending_=false,restore_inflight_=false,restore_done_=false;
     std::array<uint32_t,32> gpr_{},poll_gpr_{};
     uint32_t msr_=0,srr0_=0,srr1_=0,cr_nonvolatile_=0,next_=0,poll_pc_=0,
              poll_cr_=0,poll_lr_=0,poll_ctr_=0,poll_xer_=0;
