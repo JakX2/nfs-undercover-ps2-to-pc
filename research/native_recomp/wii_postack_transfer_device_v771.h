@@ -17,6 +17,7 @@ public:
     unsigned follow_failure()const noexcept{return follow_.failure();}
     uint64_t token()const noexcept{return follow_.token();}
     bool pending()const{return ctl_&&ctl_->pending().has_value();}
+    bool held_now()const{return tick_&&held(*tick_);}
     bool held(uint64_t tick)const{
         return (stage_==1||stage_==2)&&!error_&&!armed_&&tick==last_&&common()&&
             (follow_.stage()?follow_.held(tick):quiescent());
@@ -50,7 +51,7 @@ public:
         if(stage_||error_||!ack.owns_postack(ctl,cause,mask,tick)||ch>3||!latency||latency>8190u||
            tick>UINT64_MAX-8192u||ctl.pending()||!(mask.load()&SiController::PI_SI)||
            (cause.load()&SiController::PI_SI)||ctl.issued_tokens()==UINT64_MAX)return fail(1);
-        ctl_=&ctl;cause_=&cause;mask_=&mask;other_=cause.load();mask_before_=mask.load();
+        ctl_=&ctl;cause_=&cause;mask_=&mask;tick_=&tick;other_=cause.load();mask_before_=mask.load();
         seq_=ctl.issued_tokens();initial_control_=ctl.read(SiController::Control);
         status_=ctl.read(SiController::Status);poll_=ctl.read(SiController::Poll);
         for(unsigned i=0;i<32;++i)buffer_[i]=ctl.read(SiController::Buffer+4*i);
@@ -101,12 +102,17 @@ public:
     }
     // A later authenticated masked native visit may continue observing the
     // same request until completion. No new MMIO accepted after return.
+    bool after_return_at(const uint64_t& tick){
+        if(&tick!=tick_)return fail(7);
+        return after_return(tick);
+    }
     bool after_return(uint64_t tick){
         if(stage_!=2||error_||tick-last_!=1u||tick-start_>8192u||!common())return fail(7);
         last_=tick;return device(tick)?true:fail(7);
     }
 private:
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
+    const uint64_t* tick_=nullptr;
     SiFollowOnWitness follow_;
     std::array<uint32_t,32> buffer_{};
     std::optional<std::array<uint8_t,3>> response_;

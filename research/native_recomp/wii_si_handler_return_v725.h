@@ -75,10 +75,20 @@ public:
         return helper_returned(c,pc,visits,device,slot);
     }
     template<class C>bool helper_returned(C& c,uint32_t pc,unsigned visits,bool device,unsigned slot=1){
+        return complete_call(c,pc,visits,device,slot,128u);
+    }
+    // Only the independently authenticated fourth SI transfer call can
+    // use the larger 256-visit limit (108 original words plus four leaves).
+    template<class C>bool transfer_returned(C& c,uint32_t pc,unsigned visits,bool device){
+        return complete_call(c,pc,visits,device,4u,256u);
+    }
+private:
+    template<class C>bool complete_call(C& c,uint32_t pc,unsigned visits,bool device,unsigned slot,unsigned limit){
         if(stage_!=2||!common(c)||!device||!active_call_||active_call_!=slot||pending_||
-           pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>128u||c.inst_count-last_!=visits+1u)return fail(8);
+           pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>limit||c.inst_count-last_!=visits+1u)return fail(8);
         completed_calls_|=1u<<(active_call_-1u);active_call_=0;last_=c.inst_count-1u;return true;
     }
+public:
     template<class C>bool poll(C& c,bool device){
         if(!common(c)||!device||active_call_||c.inst_count!=last_)return fail(6);
         if(stage_==2){
