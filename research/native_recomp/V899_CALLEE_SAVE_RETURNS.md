@@ -1,0 +1,3 @@
+# V899: selected callee original nested save return
+
+V896 authenticated both V895 next linked targets as compiler GPR-save suffix aliases (five and six registers respectively). Use separate focused fixtures for the two original callees to avoid overlapping shared compiler alias root ownership in a single generator image. Verify original four-word prologue, original BL, every original register-save store, original BLR and exact first original resume label. Independent stack and CPU-state oracle; corruption refusal. No alarm installation, transfer initiation or return to SITransfer claimed. Composition with V895 still requires shared-root ownership handling. Pending private matrix tests.
