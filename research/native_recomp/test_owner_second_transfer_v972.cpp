@@ -47,7 +47,7 @@ static std::atomic<uint32_t> cause{Other};
 static SiController* ctl=nullptr;
 static SiTypeScheduler* scheduler=nullptr;
 static PostAckTransferDevice third;
-static bool transfer_route=false,transfer_idle=false;
+static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned transfer_channel=0,transfer_tick=0,transfer_entries=0,transfer_returns=0;
 static std::array<uint32_t,32> transfer_args{};
 constexpr uint32_t TransferData=0x80619a60u;
@@ -152,8 +152,15 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         if(transfer_route&&pc==TransferCall){
             need(time_seen&&ack.stage()==4u&&ack.postack_held()&&owner==Handler&&call_route.depth()==1u&&c.gpr[3]<4u);
             auto mapped=[&](uint32_t a,unsigned n){return a>=0x80000000u&&uint64_t(a)+n<=0x81800000u&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+n-1u);};
-            need(c.gpr[5]==1u&&c.gpr[7]==3u&&mapped(c.gpr[4],1)&&mapped(c.gpr[6],3)&&
-                 mapped(c.gpr[8],4)&&!(c.gpr[8]&3u)&&c.mmu.read8(c.gpr[4])==0u);
+            const bool out_mapped=mapped(c.gpr[4],1),in_mapped=mapped(c.gpr[6],3),callback=mapped(c.gpr[8],4)&&!(c.gpr[8]&3u);
+            const bool command_zero=out_mapped&&c.mmu.read8(c.gpr[4])==0u;
+            const bool type=c.gpr[5]==1u&&c.gpr[7]==3u&&out_mapped&&in_mapped&&callback&&command_zero;
+            std::cout<<std::dec<<"V973_TRANSFER_ARGS seeded="<<seeded_route<<" profile="<<trial
+                <<" out_one="<<(c.gpr[5]==1u)<<" in_three="<<(c.gpr[7]==3u)<<" out_mapped="<<out_mapped
+                <<" in_mapped="<<in_mapped<<" callback="<<callback<<" command_zero="<<command_zero
+                <<" idle="<<(c.mmu.read32(TransferData)==0xffffffffu)<<" type="<<type<<std::endl;
+            if(argument_probe)std::_Exit(0);
+            need(type);
             transfer_channel=c.gpr[3];transfer_args=c.gpr;
             transfer_idle=c.mmu.read32(TransferData)==0xffffffffu;
             transfer_entries=call_route.entries();transfer_returns=call_route.returns();transfer_tick=ack_visits;
@@ -245,7 +252,7 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";transfer_route=mode=="transfer";frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
+    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args");bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";seeded_route=mode=="transfer"||mode=="seeded-args";argument_probe=mode=="args"||mode=="seeded-args";transfer_route=seeded_route||argument_probe;frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     load_private_data(c,argv[3]);
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
@@ -276,6 +283,25 @@ int main(int argc,char** argv)try{
     c.mmu.write32(0x800000d4u,Context);c.mmu.write32(0x800000e4u,Context);
     c.mmu.write32(Sda+SchedulerCounterDisp,0u);
     c.mmu.write32(Sda-3408u,0x80003040u);c.mmu.write32(0x80003090u,Handler);
+    if(seeded_route){
+        // Explicit focused fixture: reconstruct the queued SI type packets
+        // from the previously verified V529 cold-discovery guest layout.
+        // No changes to guest RAM after native execution has begun.
+        constexpr uint32_t Slot=0x806fe340u,TypeData=TransferData+24u,Command=Sda-3144u,Callback=0x805327f8u;
+        const unsigned completed=trial%4u,next=(completed+1u)%4u;
+        c.mmu.write32(Command,0u);
+        c.mmu.write32(TransferData,completed);
+        c.mmu.write32(TransferData+8u,3u);c.mmu.write32(TransferData+12u,TypeData+4u*completed);
+        c.mmu.write32(TransferData+16u,Callback);
+        for(unsigned ch=0;ch<4;++ch){
+            c.mmu.write32(TypeData+4u*ch,128u);
+            for(unsigned i=0;i<8;++i)c.mmu.write32(Slot+32u*ch+4u*i,0u);
+            c.mmu.write32(Slot+32u*ch,0xffffffffu);
+            c.mmu.write32(Slot+160u+8u*ch,0u);c.mmu.write32(Slot+164u+8u*ch,0u);
+        }
+        const std::array<uint32_t,8> packet{next,Command,1u,TypeData+4u*next,3u,Callback,0u,0u};
+        for(unsigned i=0;i<packet.size();++i)c.mmu.write32(Slot+32u*next+4u*i,packet[i]);
+    }
     c.pc=Dispatcher;c.gpr[3]=4;c.gpr[4]=Context;c.msr=0x32u;c.srr0=Resume;c.srr1=0x8032u;c.inst_count=150u;
     run_game(c);fail(9);
 }catch(...){fail(10);}
