@@ -1,0 +1,3 @@
+# V685: original-free native shared save entry control
+
+V683 private owner classifier confirmed exact_root=0, containing=1, executable NOTYPE=1, save_kind=1 and save_registers=15. This independently validates V684's specific GPR-save suffix hypothesis. V685 constructs a wholly synthetic 18-register parent and 15-register interior alias, only trusts the parent ELF-like span, applies the actual V684 scoped analyzer patch, audits the independently emitted alias and call edge, and executes both native entries with separate frame buffers and untouched-slot/canary checks across 32 split and 32 non-split cases. No game bytes are included. CI pending; original helper execution still unverified.

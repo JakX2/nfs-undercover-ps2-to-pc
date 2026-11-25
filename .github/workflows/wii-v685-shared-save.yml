@@ -1,0 +1,24 @@
+name: Wii V685 Native Shared Save Entry Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v685*'
+      - '.github/workflows/wii-v685-shared-save.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recompile and execute overlapping native save entries
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw685"
+          git -C "$RUNNER_TEMP/nw685" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw685" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw685" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_shared_save_v685.sh "$RUNNER_TEMP/nw685"
