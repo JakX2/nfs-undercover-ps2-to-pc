@@ -1,0 +1,3 @@
+# V783: all original alarm cancellation control-flow lanes
+
+Run the exact V782 observer across all five queue cases in both generated modes. The fixture uses actual original cancellation, interrupt-control, system-time and decrementer functions; 14 valid cases per mode (two each inactive/middle/tail/singleton and six head with deadline variation). Require original return, queue snapshot, exact selected call mask, unchanged canaries and no fallback. Three independently injected corruption controls (nonvolatile GPR, neighbor link, tick) must refuse at the original caller label. No claim of live handler execution. Pending owner CI.
