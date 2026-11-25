@@ -43,6 +43,8 @@ public:
         return before_slot(c,pc,w,device,slot,true);
     }
     unsigned completed_calls()const{return completed_calls_;}
+    unsigned active_call()const{return active_call_;}
+    bool callback_pending()const{return active_indirect_;}
 private:
     template<class C>bool before_slot(C& c,uint32_t pc,uint32_t w,bool device,unsigned slot,bool indirect=false){
         if(stage_!=2||!common(c)||!device||pending_||active_call_||pc!=next_||!span(pc)||!word(c,pc,w)||
@@ -51,7 +53,7 @@ private:
         const auto op=w>>26,xo=(w>>1)&1023u;
         if(slot){
             if((completed_calls_&(1u<<(slot-1u)))||(!indirect&&(op!=18u||(w&3u)!=1u))||(indirect&&w!=0x4e800421u)||!span(pc+4u))return fail(8);
-            active_call_=slot;next_=pc+4u;return true;
+            active_call_=slot;active_indirect_=indirect;next_=pc+4u;return true;
         }
         if(w==0x4e800020u){
             if(!abi(c)||c.lr!=e_.resume)return fail(5);
@@ -91,11 +93,21 @@ public:
     template<class C>bool alarm_returned(C& c,uint32_t pc,unsigned visits,bool device){
         return complete_call(c,pc,visits,device,5u,256u);
     }
+    // The full callback witness must prove its original BLR, outer
+    // dispatch poll/tick and matching caller label before this handoff.
+    // Count the real elapsed ticks, including both dispatcher ticks, not
+    // just the last epilogue's instruction visits.
+    template<class C>bool callback_returned(C& c,uint32_t pc,uint64_t call_tick,bool verified,bool device,unsigned slot){
+        if(!verified||(slot!=6u&&slot!=11u)||!active_indirect_||call_tick!=last_||
+           c.inst_count<=call_tick||c.inst_count-call_tick<14u||
+           c.inst_count-call_tick>16385u)return fail(8);
+        return complete_call(c,pc,unsigned(c.inst_count-call_tick-1u),device,slot,16384u,true);
+    }
 private:
-    template<class C>bool complete_call(C& c,uint32_t pc,unsigned visits,bool device,unsigned slot,unsigned limit){
-        if(stage_!=2||!common(c)||!device||!active_call_||active_call_!=slot||pending_||
+    template<class C>bool complete_call(C& c,uint32_t pc,unsigned visits,bool device,unsigned slot,unsigned limit,bool indirect=false){
+        if(stage_!=2||!common(c)||!device||!active_call_||active_call_!=slot||active_indirect_!=indirect||pending_||
            pc!=next_||c.pc!=pc||c.lr!=pc||visits<2u||visits>limit||c.inst_count-last_!=visits+1u)return fail(8);
-        completed_calls_|=1u<<(active_call_-1u);active_call_=0;last_=c.inst_count-1u;return true;
+        completed_calls_|=1u<<(active_call_-1u);active_call_=0;active_indirect_=false;last_=c.inst_count-1u;return true;
     }
 public:
     template<class C>bool poll(C& c,bool device){
@@ -117,7 +129,7 @@ public:
 private:
     SiHandlerReturnExpectation e_;
     const void* cpu_=nullptr;unsigned stage_=0,error_=0,visits_=0,polls_=0;
-    bool pending_=false;
+    bool pending_=false,active_indirect_=false;
     unsigned active_call_=0,completed_calls_=0;
     std::array<uint32_t,32> gpr_{},poll_gpr_{};
     uint32_t msr_=0,srr0_=0,srr1_=0,cr_nonvolatile_=0,next_=0,poll_pc_=0,
