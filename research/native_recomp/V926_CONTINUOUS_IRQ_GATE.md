@@ -1,0 +1,3 @@
+# V926: full continuous original IRQ return gate
+
+V922 owner preflight (run 45605768277, job 139176237720) succeeded: 93 authenticated native labels, full-image observer syntax passed. V924 supplies exclusive ownership of the shared interrupt leaves. Start one dedicated owner-private link and execution run on the integrated branch; require the exact V922 ordered census for native RFI and original interrupted PC. This is not a boot claim; the test stops before executing that resumed original instruction. The older V920 and V921 independent runs and V924 preflight remain untouched. The GitHub connector exposes no workflow-dispatch write action, so this narrowly push-triggered workflow provides the explicit execution gate. No original game data is published.
