@@ -1,0 +1,24 @@
+name: Wii V951 Second Dispatcher Integration Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v951*'
+      - 'research/native_recomp/wii_second_si_dispatch_v944.h'
+      - '.github/workflows/wii-v951-dispatch-integration.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v951_second_dispatch.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v939_second_vector.py -v
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_second_si_dispatch_v944.cpp -o "$RUNNER_TEMP/v944"
+          "$RUNNER_TEMP/v944"

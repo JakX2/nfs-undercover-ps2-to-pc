@@ -53,4 +53,8 @@ private:
                captured_&&captured_->pending_source(c,cause,mask)&&captured_->saved_integer(c,SiDispatchWitness::Thread).ok()&&tables(c)&&pi_.good();
     }
 };
+inline thread_local SecondSiDispatchWitness* second_dispatch_mmio=nullptr;
+inline void record_second_dispatch_pi(bool write,uint32_t address,unsigned width,uint32_t value,bool native){
+    if(second_dispatch_mmio)second_dispatch_mmio->record(write,address,width,value,native);
+}
 }
