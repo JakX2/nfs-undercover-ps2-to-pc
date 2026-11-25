@@ -1,0 +1,33 @@
+name: Wii V769 Transfer Prefix and Harness Compilation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v769*'
+      - 'research/native_recomp/*v768*'
+      - 'research/native_recomp/test_owner_transfer_v765.cpp'
+      - '.github/workflows/wii-v769-transfer-prefix.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test transfer prefix observer with real SI device
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_transfer_prefix_v769.cpp -o "$RUNNER_TEMP/v769"
+          "$RUNNER_TEMP/v769"
+      - name: Compile focused harness using pinned public runtime and independent geometry
+        if: always()
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw769"
+          git -C "$RUNNER_TEMP/nw769" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw769" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw769" checkout -q --detach FETCH_HEAD
+          cp research/native_recomp/synthetic_transfer_input_v769.h "$RUNNER_TEMP/owner_transfer_input.h"
+          g++ -std=c++20 -Wall -Wextra -Werror -Wno-unused-label -I"$RUNNER_TEMP" -Iresearch/native_recomp -I"$RUNNER_TEMP/nw769/nWiiRuntime/include" -fsyntax-only research/native_recomp/test_owner_transfer_v765.cpp
+          echo "V769_TRANSFER_HARNESS compiled=1 original_free=1"

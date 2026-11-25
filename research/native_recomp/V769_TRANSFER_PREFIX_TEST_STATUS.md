@@ -1,0 +1,3 @@
+# V769: independent transfer prefix controls and public harness compile
+
+V768's original-free control drives the real SI device through its previous completion and W1C, then independently simulates the authenticated native visits for transfer entry, six-register compiler save and masked interrupt disable. It verifies three stop classes (MMIO read/write, subsequent direct call) without executing those operations, and ten negative controls for argument geometry, return LR, saved frame, MSR, wrong device aperture, tick gap and PI source. Separate original-free compilation uses the pinned public runtime CPUContext and a synthetic geometry header to isolate focused V765 harness compilation from private translation. Neither test runs original instructions. Pending CI.
