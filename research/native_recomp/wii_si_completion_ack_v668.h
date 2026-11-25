@@ -19,6 +19,19 @@ public:
         const auto op=w>>26,xo=(w>>1)&1023u;
         return op==32u||op==33u||(op==31u&&(xo==23u||xo==55u||xo==534u));
     }
+    // Classify a refused post-ACK COMCSR write without changing hardware.
+    // Never expose the raw guest register value or command bytes.
+    struct PostControl {unsigned kind=0,channel=0,geometry=0,type=0,mask=0,reserved=0;};
+    static constexpr PostControl classify_post_control(uint32_t v,uint32_t buffer)noexcept{
+        const bool start=(v&SiController::TSTART)!=0;
+        const unsigned geometry=((v>>16)&127u)==1u&&((v>>8)&127u)==3u;
+        const unsigned type=(buffer>>24)==0u;
+        const unsigned mask=(v&SiController::TC_MASK)!=0;
+        const unsigned reserved=(v&~0xfb7f7f07u)!=0;
+        return {start?(geometry&&type&&mask&&!reserved&&!(v&SiController::RDST_MASK)?1u:2u):3u,
+                (v>>1)&3u,geometry,type,mask,reserved};
+    }
+    PostControl post_control()const noexcept{return post_control_;}
     Phase phase()const noexcept{return phase_;}
     unsigned reads()const noexcept{return reads_;}
     unsigned failure()const noexcept{return error_;}
@@ -126,6 +139,7 @@ public:
            (off==SiController::Control&&status!=old_status))reject(7);
     }
 private:
+    PostControl post_control_{};
     Phase phase_=Phase::Idle;unsigned error_=0,writes_=0,reads_=0;bool store_=false,load_=false;
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr;
     const std::atomic<uint32_t>* mask_=nullptr;const uint64_t* tick_=nullptr;
@@ -146,6 +160,7 @@ private:
         store_=false;
         // No new transfer or configuration changes in this first continuation.
         const bool buffer=off>=SiController::Buffer&&off<0x100u&&!(off&3u);
+        if(off==SiController::Control){post_control_=classify_post_control(value,ctl.read(SiController::Buffer));reject(10);}
         if(off!=SiController::Status&&!buffer)reject(10);
         try{ctl.write(off,value);}catch(...){fail(10);throw;}
         ++writes_;

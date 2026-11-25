@@ -7,6 +7,7 @@ from prepare_v688_si_second import patch_binding
 from si_second_geometry_v688 import second_edge
 from audit_v672_si_ack_route import inspect,EVENTS,RESULT
 from audit_v699_si_postack import inspect as inspect_post,STAGE,END,NESTED,RETURN
+from audit_v709_os_leaves import inspect as inspect_leaves,LEAVES
 HOST=Path(__file__).resolve().parent
 H=0x80004000;A=0x80005000;B=0x80006000
 FIRST=[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]
@@ -39,6 +40,14 @@ class Tests(unittest.TestCase):
                 for bad in (suffix[:-1],suffix+[END],suffix+[b'V699_POSTACK_INVALID reason=1 trace=0'],suffix[::-1]):
                     self.assertFalse(inspect_post(b'\n'.join(prefix+bad),0)[1])
                 self.assertFalse(inspect_post(b'\n'.join(prefix+suffix),126)[1])
+    def test_leaf_audit(self):
+        prefix=EVENTS[:1]+FIRST+SECOND[:2]+[b'V688_SI_SECOND_ACK n=1']+EVENTS[1:]+[RESULT]
+        suffix=[STAGE,*NESTED[:2],*LEAVES,NESTED[2],RETURN,END]
+        with patch('audit_v672_si_ack_route.inspect_dispatch',return_value=('ok',True)):
+            self.assertTrue(inspect_leaves(b'\n'.join(prefix+suffix),0)[1])
+            for bad in (suffix[:3]+suffix[4:],suffix+[LEAVES[0]],suffix+[b'V709_OS_LEAF_INVALID reason=1 ordinal=1 witness=0 trace=0'],suffix+[b'V711_POST_CONTROL kind=1 channel=0 geometry=1 type=1 mask=1 reserved=0'],suffix[::-1]):
+                self.assertFalse(inspect_leaves(b'\n'.join(prefix+bad),0)[1])
+            self.assertFalse(inspect_leaves(b'\n'.join(prefix+suffix),126)[1])
     @unittest.skipIf(os.name=='nt','GCC sanitizer integration control')
     def test_compiled_binding(self):
         cc=shutil.which('g++')
@@ -72,7 +81,9 @@ class Tests(unittest.TestCase):
             expected.update({
                 'post-return':(0,post+[STAGE,RETURN,END]),
                 'post-branch':(126,post+[b'V699_POSTACK_INVALID reason=1 trace=0']),
-                'post-start':(126,post+[STAGE,b'V677_SI_ACK_WRITE_INVALID trace=10']),
+                'post-start':(126,post+[STAGE,b'V711_POST_CONTROL kind=1 channel=1 geometry=1 type=1 mask=1 reserved=0',b'V677_SI_ACK_WRITE_INVALID trace=10']),
+                'post-bad-length':(126,post+[STAGE,b'V711_POST_CONTROL kind=2 channel=2 geometry=0 type=1 mask=1 reserved=0',b'V677_SI_ACK_WRITE_INVALID trace=10']),
+                'post-config':(126,post+[STAGE,b'V711_POST_CONTROL kind=3 channel=0 geometry=1 type=1 mask=1 reserved=0',b'V677_SI_ACK_WRITE_INVALID trace=10']),
                 'post-stale':(126,post+[STAGE,b'V677_SI_ACK_WRITE_INVALID trace=9']),
                 'post-cause':(126,post+[STAGE,b'V688_SI_SECOND_INVALID reason=3 stage=2 trace=4']),
                 'post-abi':(126,post+[STAGE,b'V688_SI_SECOND_INVALID reason=5 stage=3 trace=0'])})
@@ -84,5 +95,5 @@ class Tests(unittest.TestCase):
                     self.assertEqual(got.returncode,rc,got.stderr.decode(errors='replace'))
                     self.assertEqual(got.stdout.splitlines(),rows)
                     self.assertEqual(got.stderr,b'')
-            print('V689_SECOND_BINDING synthetic=1 cases=16 actual_mmio=1 original_execution=0')
+            print('V689_SECOND_BINDING synthetic=1 cases=18 actual_mmio=1 original_execution=0')
 if __name__=='__main__':unittest.main()

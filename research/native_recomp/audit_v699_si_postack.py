@@ -25,6 +25,6 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V699_POSTACK_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if re.fullmatch(rb'V699_POSTACK_STAGE n=1|V699_POSTACK_INVALID reason=[1-2] trace=[0-9]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-9]{1,2}|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-9]{1,2}|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V677_SI_ACK_WRITE_INVALID trace=[0-9]{1,2}|V697_SI_READ_INVALID trace=[0-9]{1,2}|V697_SI_ACCESS_INVALID width=[1248] integer=[01]',l):print(l.decode())
+        if re.fullmatch(rb'V699_POSTACK_STAGE n=1|V699_POSTACK_INVALID reason=[1-2] trace=[0-9]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-9]{1,2}|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-9]{1,2}|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V677_SI_ACK_WRITE_INVALID trace=[0-9]{1,2}|V711_POST_CONTROL kind=[1-3] channel=[0-3] geometry=[01] type=[01] mask=[01] reserved=[01]|V697_SI_READ_INVALID trace=[0-9]{1,2}|V697_SI_ACCESS_INVALID width=[1248] integer=[01]',l):print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

@@ -46,7 +46,9 @@ int main(int argc,char** argv){
         c.mmu.words[B+4]=mode=="post-branch"?Blr:Store;
         ++c.inst_count;v688::before(c,B+4,c.mmu.words[B+4],0,0);
         need(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::PostAck);
-        if(mode=="post-start")SiBinding::write32(0xcd006434u,0xc0010301u);
+        if(mode=="post-start")SiBinding::write32(0xcd006434u,0xc0010303u);
+        if(mode=="post-bad-length")SiBinding::write32(0xcd006434u,0xc0020305u);
+        if(mode=="post-config")SiBinding::write32(0xcd006434u,0x40010300u);
         if(mode=="post-stale")++c.inst_count;
         need(SiBinding::write32(0xcd006438u,0x08000000u));
         need(ctl.read(SiController::Status)==0&&pi_intsr==Other&&!ctl.pending());

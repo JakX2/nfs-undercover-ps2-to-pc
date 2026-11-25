@@ -3,7 +3,7 @@ import argparse,re
 from pathlib import Path
 from audit_v667_si_dispatch import MARKERS as PRIOR,MAX_LOG,inspect as inspect_dispatch
 PREFIX=b'V672_SI_ACK_'
-FAILURES=(b'V673_SI_ACK_CALL ',b'V677_SI_ACK_WRITE_INVALID ',b'V680_SI_HELPER_INVALID ',b'V688_SI_SECOND_INVALID ',b'V688_SI_SECOND_CALL ',b'V693_SI_NESTED_INVALID ',b'V693_SI_NESTED_CALL ',b'V697_SI_READ_INVALID ',b'V697_SI_ACCESS_INVALID ',b'V699_POSTACK_',b'V709_OS_LEAF_')
+FAILURES=(b'V673_SI_ACK_CALL ',b'V677_SI_ACK_WRITE_INVALID ',b'V680_SI_HELPER_INVALID ',b'V688_SI_SECOND_INVALID ',b'V688_SI_SECOND_CALL ',b'V693_SI_NESTED_INVALID ',b'V693_SI_NESTED_CALL ',b'V697_SI_READ_INVALID ',b'V697_SI_ACCESS_INVALID ',b'V699_POSTACK_',b'V709_OS_LEAF_',b'V711_POST_CONTROL ')
 HELPER=b'V680_SI_HELPER_STAGE '
 SECOND=b'V688_SI_SECOND_STAGE '
 SECOND_ACK=b'V688_SI_SECOND_ACK '
@@ -42,6 +42,6 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V672_SI_ACK_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if re.fullmatch(rb'V672_SI_ACK_INVALID reason=[1-6] trace=[0-8]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]|V677_SI_ACK_WRITE_INVALID trace=[1-7]|V680_SI_HELPER_INVALID reason=[0-5] stage=[0-4]|V680_SI_HELPER_STAGE n=[1-3]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V688_SI_SECOND_STAGE n=[1-3]|V688_SI_SECOND_ACK n=1|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_ACK n=1|V697_SI_READ_INVALID trace=[0-8]|V697_SI_ACCESS_INVALID width=[1248] integer=[01]|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V678_DISPATCH_REFUSAL mask=[0-9]{1,3} gpr_mask=[0-9]{1,10}',l):print(l.decode())
+        if re.fullmatch(rb'V672_SI_ACK_INVALID reason=[1-6] trace=[0-8]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]|V677_SI_ACK_WRITE_INVALID trace=[1-7]|V711_POST_CONTROL kind=[1-3] channel=[0-3] geometry=[01] type=[01] mask=[01] reserved=[01]|V680_SI_HELPER_INVALID reason=[0-5] stage=[0-4]|V680_SI_HELPER_STAGE n=[1-3]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V688_SI_SECOND_STAGE n=[1-3]|V688_SI_SECOND_ACK n=1|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_ACK n=1|V697_SI_READ_INVALID trace=[0-8]|V697_SI_ACCESS_INVALID width=[1248] integer=[01]|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V678_DISPATCH_REFUSAL mask=[0-9]{1,3} gpr_mask=[0-9]{1,10}',l):print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

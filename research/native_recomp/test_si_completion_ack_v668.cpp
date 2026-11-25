@@ -13,6 +13,16 @@ int main(){
     need(Trace::word_store(Store)&&Trace::word_store(0x94030004u)&&
          Trace::word_store((31u<<26)|(151u<<1))&&!Trace::word_store(Nop)&&
          !Trace::word_store(0x80030000u));
+    for(unsigned ch=0;ch<4;++ch){
+        const auto q=Trace::classify_post_control(0xc0010301u|(ch<<1),0u);
+        need(q.kind==1&&q.channel==ch&&q.geometry&&q.type&&q.mask&&!q.reserved);
+    }
+    need(Trace::classify_post_control(0xc0020301u,0u).kind==2);
+    need(Trace::classify_post_control(0xc0010301u,0x12000000u).kind==2);
+    need(Trace::classify_post_control(0xc0010309u,0u).reserved);
+    need(Trace::classify_post_control(0x80010301u,0u).kind==2);
+    need(Trace::classify_post_control(0xc8010301u,0u).kind==2);
+    need(Trace::classify_post_control(0x40010300u,0u).kind==3);
     for(unsigned trial=0;trial<15;++trial){
         std::atomic<uint32_t> cause{Other},mask{SI};
         SiController ctl(cause);SiTypeScheduler sched(ctl,{Port::absent(),Port::absent(),Port::absent(),Port::absent()},8);

@@ -28,6 +28,9 @@ def patch_si(s):
     s=replace_exact(s,'si_completion_ack_trace.write(active_->controller_,*off,value);','''try{si_completion_ack_trace.write(active_->controller_,*off,value);}
         catch(const std::exception&){
             if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Idle)throw;
+            const auto pc=si_completion_ack_trace.post_control();
+            if(pc.kind)std::cout<<"V711_POST_CONTROL kind="<<pc.kind<<" channel="<<pc.channel
+                <<" geometry="<<pc.geometry<<" type="<<pc.type<<" mask="<<pc.mask<<" reserved="<<pc.reserved<<std::endl;
             std::cout<<"V677_SI_ACK_WRITE_INVALID trace="<<si_completion_ack_trace.failure()<<std::endl;
             std::_Exit(126);
         }''')
