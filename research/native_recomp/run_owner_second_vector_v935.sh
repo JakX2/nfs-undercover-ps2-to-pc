@@ -7,7 +7,7 @@ trap 'rm -rf -- "$work"' EXIT
 umask 077
 ulimit -c 0
 python3 "$here/prepare_owner_second_vector_v935.py" "$dol" "$elf" "$work/owner_epilogue_input.h"
-for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_nonsplit_dispatch_v15 apply_exact_dispatch_v445 apply_native_tick_v438 apply_syscall_pc_v26; do
+for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_nonsplit_dispatch_v15 apply_exact_dispatch_v445 apply_native_tick_v438 apply_syscall_pc_v26 apply_native_lowmem_v63; do
   python3 "$here/$patch.py" "$root" > "$work/patch.log" 2>&1 || { echo "V737_EMITTER_PATCH failed=1";exit 1; }
 done
 python3 "$here/prepare_owner_second_vector_v935.py" "$dol" "$elf" "$root" --patch-analyzer
