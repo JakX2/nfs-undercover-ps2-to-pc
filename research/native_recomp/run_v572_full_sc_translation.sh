@@ -165,7 +165,7 @@ void instantiate(nwii::runtime::CPUContext& cpu){
     undercover::wii::v574::try_sc(cpu);
 }
 CPP
-  g++ -std=c++20 -fsyntax-only -I"$work/generated/nWiiRuntime/include" "$work/probe.cpp" > "$work/probe.log" 2>&1 || { echo "V574 full observer syntax failed";exit 1; }
+  g++ -std=c++20 -fsyntax-only -I"$work/generated/nWiiRuntime/include" "$work/probe.cpp" > "$work/probe.log" 2>&1 || { if [[ "$si_transfer_return" == 1 ]]; then python3 "$here/diagnose_transfer_syntax_v779.py" "$work/probe.log";fi;echo "V574 full observer syntax failed";exit 1; }
   echo "V574_FULL_SC_PREP owner=1 full_image=1 observer=1 syntax=1 link=0 execution=0 boot_verified=0"
 else
   python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --owner "$dol"

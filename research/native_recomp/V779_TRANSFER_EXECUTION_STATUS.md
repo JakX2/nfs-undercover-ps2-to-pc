@@ -1,0 +1,3 @@
+# V779: enable continuous full-image SI transfer execution
+
+V773 and V775 both passed their corrected owner tests on V776 (18 cases per workflow, both generated modes). V779 enables the V777 full-image execution job only after its original-free and owner-private preflight pass. Adds a bounded sanitized compiler syntax census for the new scope, with numeric allowlisted header ID, line and error category, not private source or addresses. V778 remains preflight-only to avoid conflating the next dependency with the transfer. V768 complete-image prefix job is still outstanding. No new continuous result until private CI returns.

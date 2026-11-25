@@ -12,10 +12,7 @@ def patch_transfer(s):
     s=replace_exact(s,a,a+r'''
 inline bool returned_active(){return route.stage()==4;}
 inline bool continue_suffix(){const char* v=std::getenv("UNDERCOVER_V778_TRANSFER_SUFFIX");return v&&v[0]=='1'&&v[1]=='\0';}
-template<class C>void suffix_before(C& c){
-    if(!returned_active()||!si_transfer_device.after_return_at(c.inst_count))reject(7);
-}
-'''.replace('template<class C>void suffix_before(C& c){\n    if(!returned_active()||!si_transfer_device.after_return_at(c.inst_count))reject(7);\n}\n',''))
+''')
     a='template<class C>void handler_return(C& c,uint32_t pc,uint32_t w){'
     s=replace_exact(s,a,r'''template<class C>void suffix_before(C& c){
     if(!returned_active()||!si_transfer_device.after_return_at(c.inst_count))reject(7);
