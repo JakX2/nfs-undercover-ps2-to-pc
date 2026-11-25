@@ -2,7 +2,7 @@
 #include "v807_private_callback_prefix.h"
 #include "v786_private_alarm.h"
 #include "wii_callback_identity_v796.h"
-#include "wii_postack_transfer_device_v771.h"
+#include "wii_callback_dispatch_device_v808.h"
 #include <cstdlib>
 #include <iostream>
 namespace undercover::wii::v807 {
@@ -35,8 +35,7 @@ template<class C>bool observe(uint32_t pc,C& c){
     // This is the existing outer dispatcher tick, not a new guest
     // instruction. The follow-on request must already be completed;
     // observing it cannot advance the SI scheduler or complete a token.
-    if(route.stage()==1&&(si_transfer_device.follow_stage()!=3||
-       !si_transfer_device.after_return_at(c.inst_count)))reject(3);
+    if(route.stage()==1&&!observe_completed_callback_dispatch(si_transfer_device,c.inst_count))reject(3);
     if(!route.entry(c,pc,si_transfer_device.held_now()))reject(3);
     return true;
 }

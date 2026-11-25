@@ -94,7 +94,7 @@ def install(dol,elf,root,host):
         if inc not in s:s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
         changes[p]=s
     dest=root/'nWiiRuntime/include/undercover'
-    files={dest/n:(host/n).read_text() for n in ('wii_callback_prefix_v800.h','wii_callback_prefix_binding_v807.h')}
+    files={dest/n:(host/n).read_text() for n in ('wii_callback_prefix_v800.h','wii_callback_prefix_binding_v807.h','wii_callback_dispatch_device_v808.h')}
     files[dest/'v807_private_callback_prefix.h']=render(C,S,prefix,save)
     edits={'wii_si_handler_return_binding_v726.h':patch_handler,'wii_si_ack_binding_v672.h':patch_ack}
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('callback destination')
