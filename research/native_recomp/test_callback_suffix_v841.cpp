@@ -62,7 +62,7 @@ int main(){
     constexpr uint32_t Bc=0x4182fffcu;
     const std::array<CallbackSuffixWord,4> loop{{{C,0x60000000u},{C+4u,Bc},{C+8u,Bctrl},{C+12u,bl(C+12u,A)}}};
     auto e=expected;e.words=loop;
-    for(unsigned bad=0;bad<3;++bad){
+    for(unsigned bad=0;bad<7;++bad){
         Cpu c=seed();for(auto row:loop)c.mmu.put(row.pc,row.word);c.cr[0].eq=true;
         CallbackSuffixWitness w(e);need(w.start(c,C,loop[0].word,true,true));
         need(w.before(c,C,loop[0].word,true));++c.inst_count;
@@ -73,9 +73,16 @@ int main(){
         need(ok);
         if(bad==2){need(!w.poll(c,true)&&w.failure()==2);++refused;continue;}
         ++c.inst_count;c.cr[0].eq=false;need(w.before(c,C,loop[0].word,true));++c.inst_count;
-        need(w.before(c,C+4u,Bc,true));++c.inst_count;
-        need(w.before(c,C+8u,Bctrl,true)&&w.stage()==2&&w.polls()==1&&w.visits()==5);++valid;
+        need(w.before(c,C+4u,Bc,true));
+        // Native emission polls even on the final not-taken backward branch.
+        if(bad==3){++c.inst_count;need(!w.poll(c,true)&&w.failure()==2);++refused;continue;}
+        if(bad==5){++c.inst_count;need(!w.before(c,C+8u,Bctrl,true)&&w.failure()==2);++refused;continue;}
+        need(w.poll(c,true));
+        if(bad==4){need(!w.poll(c,true)&&w.failure()==2);++refused;continue;}
+        ++c.inst_count;
+        if(bad==6){need(!w.before(c,C,loop[0].word,true)&&w.failure()==2);++refused;continue;}
+        need(w.before(c,C+8u,Bctrl,true)&&w.stage()==2&&w.polls()==2&&w.visits()==5);++valid;
     }
-    need(valid==6&&refused==15);
-    std::cout<<"V841_CALLBACK_SUFFIX synthetic=1 valid=6 refused=15 original_execution=0\n";
+    need(valid==6&&refused==19);
+    std::cout<<"V841_CALLBACK_SUFFIX synthetic=1 valid=6 refused=19 original_execution=0\n";
 }

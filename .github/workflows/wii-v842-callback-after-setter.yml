@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/*v842*'
       - 'research/native_recomp/wii_callback_suffix_v841.h'
+      - 'research/native_recomp/test_callback_suffix_v841.cpp'
       - 'research/native_recomp/callback_write_fixture_v838.h'
       - 'research/native_recomp/*v829*'
       - '.github/workflows/wii-v842-callback-after-setter.yml'
@@ -21,6 +22,8 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v802_callback_time.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_suffix_v841.cpp -o "$RUNNER_TEMP/v841"
+          "$RUNNER_TEMP/v841"
           bash -n research/native_recomp/run_owner_callback_after_setter_v842.sh
   owner-context:
     needs: original-free

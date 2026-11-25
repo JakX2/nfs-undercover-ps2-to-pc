@@ -54,7 +54,7 @@ public:
         next_=pc;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool device){
-        if(stage_!=1||error_||!device||ctx_!=&c||!safe(c)||c.msr!=msr_||c.srr0!=srr0_||c.srr1!=srr1_||
+        if(stage_!=1||error_||backward_||!device||ctx_!=&c||!safe(c)||c.msr!=msr_||c.srr0!=srr0_||c.srr1!=srr1_||
            c.gpr[1]!=sp_||c.gpr[2]!=r2_||c.gpr[13]!=r13_||pc!=next_||
            c.inst_count-last_!=unsigned(visits_!=0)||++visits_>128u)return fail(2);
         const auto* row=find(pc);if(!row||row->word!=w||!match(c,pc,w))return fail(3);
@@ -82,7 +82,10 @@ public:
             if(w&3u)return fail(6);
             const auto dst=target(pc,w);
             if(!find(dst))return fail(6);
-            if(op==18u||taken(c,w)){next_=dst;backward_=dst<=pc;}
+            // The pinned emitter polls before evaluating a local backward branch.
+            // This includes its final, not-taken iteration; next_ remains conditional.
+            backward_=dst<=pc;
+            if(op==18u||taken(c,w))next_=dst;
         }
         return find(next_)?true:fail(6);
     }
