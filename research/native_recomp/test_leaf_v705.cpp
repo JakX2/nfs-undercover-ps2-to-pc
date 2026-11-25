@@ -13,36 +13,41 @@ static void need(bool ok){if(!ok)throw std::runtime_error("V705 native leaf asse
 static PostAckOsLeaf leaves[]={PostAckOsLeaf({H,D,D+16,bl(H,D),1}),
     PostAckOsLeaf({H+4,T,T+12,bl(H+4,T),2}),
     PostAckOsLeaf({H+12,R,R+12,bl(H+12,R),3})};
-static unsigned index=0;static bool started=false;static unsigned outer_polls=0;
+static unsigned leaf_index=0;static bool started=false;static unsigned outer_polls=0;
+static uint32_t expected_low=0,expected_high=0;
 static std::string mode;
 namespace leaf_test{
 void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
     if(pc>=H&&pc<H+24){
         if(started){
-            if(mode=="corrupt"&&index==0)c.gpr[14]^=1u;
-            const bool ok=leaves[index].returned(c,pc);
-            if(mode=="corrupt"&&index==0){need(!ok&&leaves[index].failure()==4);std::cout<<"V705_REFUSAL reason=4\n";std::_Exit(126);}
-            need(ok);++index;started=false;
+            if(mode=="corrupt"&&leaf_index==0)c.gpr[14]^=1u;
+            const bool ok=leaves[leaf_index].returned(c,pc);
+            if(mode=="corrupt"&&leaf_index==0){need(!ok&&leaves[leaf_index].failure()==4);std::cout<<"V705_REFUSAL reason=4"<<std::endl;std::_Exit(126);}
+            need(ok);
+            if(leaf_index==1)need(c.gpr[4]==expected_low&&c.gpr[3]==expected_high);
+            ++leaf_index;started=false;
         }
-        if(pc==H+8){need(index==2);return;}
+        if(pc==H+8){need(leaf_index==2);return;}
         if(pc==H+16){
-            need(index==3&&outer_polls==1&&c.msr==0x32u&&c.gpr[3]==0&&c.srr0==0x80009000u&&c.srr1==0x8032u);
+            need(leaf_index==3&&outer_polls==1&&c.msr==0x32u&&c.gpr[3]==0&&c.srr0==0x80009000u&&c.srr1==0x8032u);
             need(leaves[0].msr_writes()==1&&leaves[1].msr_writes()==0&&leaves[2].msr_writes()==1);
-            std::cout<<"V705_LEAF_AOT roots=3 mtmsr=2 inner_callbacks=0 native_return=3 fallback=0\n";std::_Exit(0);
+            std::cout<<"V705_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0"<<std::endl;std::_Exit(0);
         }
-        need(index<3&&leaves[index].start(c,pc,word));started=true;return;
+        need(leaf_index<3&&leaves[leaf_index].start(c,pc,word));started=true;return;
     }
-    need(started&&index<3);
-    need(leaves[index].before(c,pc,word));
+    need(started&&leaf_index<3);
+    need(leaves[leaf_index].before(c,pc,word));
+    if(pc==T)expected_low=uint32_t(c.inst_count);
+    if(pc==T+4)expected_high=uint32_t(c.inst_count>>32);
 }}
 namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(pc==H)return;
-    need(started&&index<3&&leaves[index].entry(pc,c));
+    need(started&&leaf_index<3&&leaves[leaf_index].entry(pc,c));
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(started){need(!leaves[index].poll(c));throw std::runtime_error("unexpected inner callback");}
+    if(started){need(!leaves[leaf_index].poll(c));throw std::runtime_error("unexpected inner callback");}
     ++outer_polls;return false;
 }
 bool handle_syscall(CPUContext&){throw std::runtime_error("unexpected syscall");}
@@ -67,5 +72,5 @@ int main(int argc,char**argv){
     put(R,{0x7c0000a6u,0x7c000124u,0x4e800020u});
     for(unsigned r=0;r<32;++r)c.gpr[r]=0x12340000u+r;
     c.gpr[1]=0x80011000u;c.pc=H;c.lr=0x80008000u;c.msr=0x32u;c.srr0=0x80009000u;c.srr1=0x8032u;
-    c.is_running=true;c.dispatch_saved_ctx=0;run_game(c);throw std::runtime_error("leaf fixture escaped");
+    c.is_running=true;c.dispatch_saved_ctx=0;c.inst_count=0x100000064ull;run_game(c);throw std::runtime_error("leaf fixture escaped");
 }

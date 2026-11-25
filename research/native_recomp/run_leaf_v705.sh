@@ -20,8 +20,10 @@ for mode in nonsplit split; do
   python3 "$here/prepare_synthetic_leaf_v705.py" "$work/$mode" "$work/$mode/include"
   g++ -std=c++20 -O1 -fsanitize=address,undefined -Wall -Wextra -Werror -Wno-unused-label \
     -fno-pie -no-pie -I"$work/$mode/include" -I"$root/nWiiRuntime/include" "$here/test_leaf_v705.cpp" "$work/$mode"/*.cpp -o "$work/probe"
-  "$work/probe" valid
+  env -u NWII_WALLTB "$work/probe" valid > "$work/valid.log"
+  grep -Fx 'V705_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0' "$work/valid.log"
   rc=0
-  "$work/probe" corrupt || rc=$?
+  env -u NWII_WALLTB "$work/probe" corrupt > "$work/corrupt.log" || rc=$?
   [[ "$rc" == 126 ]]
+  grep -Fx 'V705_REFUSAL reason=4' "$work/corrupt.log"
 done
