@@ -9,6 +9,7 @@ on:
       - 'research/native_recomp/*v976*'
       - 'research/native_recomp/*v980*'
       - 'research/native_recomp/*v982*'
+      - 'research/native_recomp/*v983*'
       - '.github/workflows/wii-v972-third-si-transfer.yml'
 permissions:
   contents: read
@@ -25,7 +26,7 @@ jobs:
           "$RUNNER_TEMP/v956"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ack_msr_route_v966.cpp -o "$RUNNER_TEMP/v966"
           "$RUNNER_TEMP/v966"
-          for n in ack_alias_route_v971 third_token_handoff_v969; do
+          for n in ack_alias_route_v971 third_token_handoff_v969 handler_suffix_guard_v868; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/test_$n.cpp" -o "$RUNNER_TEMP/$n"
             "$RUNNER_TEMP/$n"
           done

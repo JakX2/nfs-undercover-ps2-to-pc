@@ -67,4 +67,25 @@ int main(){
         need(guard.start(c,rows,H));need(guard.before(c,H,w,0,0,false,true)==(t<2));
     }
     std::cout<<"V897_STATUS_W1C_GUARD valid=2 refused=4 original_execution=0\n";
+    unsigned wide_good=0,wide_bad=0;
+    for(unsigned i=0;i<7;++i){
+        CPU c;c.gpr[1]=SP;c.gpr[3]=0x12345678u;c.mmu.put(SP,0);
+        std::array<HandlerSuffixLabel,257> rows{};
+        for(unsigned j=0;j<rows.size();++j){rows[j]={H+4*j,Nop,0,0};c.mmu.put(H+4*j,Nop);}
+        rows[0].word=Store;c.mmu.put(H,Store);
+        rows[1].word=0x4e800020u;c.mmu.put(H+4,rows[1].word);
+        const unsigned size=i==2?257:65;
+        const unsigned limit=i==1?64:i==3?128:256;
+        if(i==4)rows[64].word^=1;
+        HandlerSuffixGuard g;
+        const bool ok=g.start(c,std::span(rows).first(size),H,limit);
+        if(i>=1&&i<=4){need(!ok);++wide_bad;continue;}
+        need(ok&&g.before(c,H,Store,0,0));
+        c.mmu.put(SP,c.gpr[3]^(i==5));c.inst_count+=i==6?2:1;
+        const bool result=g.before(c,H+4,rows[1].word,0,0);
+        if(i>=5){need(!result);++wide_bad;continue;}
+        need(result&&g.writes()==1&&g.visits()==2);++wide_good;
+    }
+    need(wide_good==1&&wide_bad==6);
+    std::cout<<"V983_WIDE_SUFFIX valid=1 refused=6 prior_store_verified=1 original_execution=0\n";
 }

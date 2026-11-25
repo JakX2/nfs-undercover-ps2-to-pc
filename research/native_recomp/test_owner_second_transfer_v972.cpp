@@ -107,7 +107,7 @@ static void suffix_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(std::find(TransferOtherStops.begin(),TransferOtherStops.end(),pc)!=TransferOtherStops.end()){
         // Unsupported control forms remain refusal boundaries, not executed
         // instructions. The private geometry supplied the exact location.
-        need(c.mmu.read32(pc)==w&&row->word==w&&third.held_now()&&third.token()==3u&&
+        need(w==0x4e800020u&&row->word==w&&suffix_guard.before(c,pc,w,0,0)&&third.held_now()&&third.token()==3u&&
              !ctl->pending()&&cause==(Other|SiController::PI_SI));
         std::cout<<std::dec<<"V982_TRANSFER_OTHER_STOP seed="<<seed_kind<<" profile="<<trial<<" visits="
                  <<ack_visits-suffix_tick<<" token_held=1 saved_fields=38 boundary_executed=0"<<std::endl;
