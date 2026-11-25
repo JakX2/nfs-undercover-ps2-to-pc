@@ -1,7 +1,7 @@
 #include "runtime/cpu_context.h"
 #include "rfi_test_v708.h"
 #include "owner_exi_write.h"
-#include "wii_exi_endpoint_scheduler_v495.h"
+#include "wii_exi_profile_v501.h"
 #include "wii_sram_write_witness_v818.h"
 #include <algorithm>
 #include <array>
@@ -20,7 +20,7 @@ static ExiEndpointScheduler* scheduler=nullptr;
 static SramWriteWitness witness;
 static ExiMxDevice::Sram seed{},desired{};
 static uint32_t pi_mask=0xf8u;
-static unsigned reads=0,writes=0,polls=0,imm_calls=0,imm_returns=0,sync_calls=0,sync_returns=0,complete_count=0;
+static unsigned reads=0,writes=0,polls=0,imm_calls=0,imm_returns=0,sync_calls=0,sync_returns=0,complete_count=0,revision_reads=0;
 static bool backward=false,delayed=false,bad_payload=false;
 struct Frame{uint32_t root,ret;std::array<uint32_t,32> gpr;uint32_t cr,msr;};
 static std::array<Frame,16> frames{};
@@ -76,8 +76,8 @@ static void memory(CPUContext& c,uint32_t w){
         const uint32_t p=a&0x3fffffffu;
         if(n==4u&&(p==0x0c003004u||(p>=0x0d006800u&&p<0x0d00683cu&&!(p&3u))))return;
         const bool revision=depth>0&&frames[depth-1].root==Revision&&op==32u&&n==4u&&a==RevisionRead;
-        if(revision)need(c.mmu.read32(a)==0u);
-        need(revision||contains(a,n,Low,High)||contains(a,n,Buffer,Buffer+48u)||contains(a,n,ExiState,ExiState+0x100u)||contains(a,n,0x800000c0u,0x800000d0u)||contains(a,n,0x80003000u,0x80003200u));
+        if(revision){need(ExiDiConfigBinding::active());return;}
+        need(contains(a,n,Low,High)||contains(a,n,Buffer,Buffer+48u)||contains(a,n,ExiState,ExiState+0x100u)||contains(a,n,0x800000c0u,0x800000d0u)||contains(a,n,0x80003000u,0x80003200u));
         for(unsigned i=0;i<n;++i)need(c.mmu.get_ptr(a+i));
     }
 }
@@ -115,7 +115,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         --depth;returned=false;
     }
     if(pc==Stop){
-        need(depth==1&&imm_calls==12&&imm_returns==12&&sync_calls==12&&sync_returns==12&&complete_count==12&&witness.stage()==3&&witness.bytes()==44u&&witness.completed()==12u);
+        need(depth==1&&imm_calls==12&&imm_returns==12&&sync_calls==12&&sync_returns==12&&complete_count==12&&witness.stage()==3&&witness.bytes()==44u&&witness.completed()==12u&&revision_reads==12u);
         need(!controller->pending(0)&&mx_device->sram()==desired&&mx_device->dirty());
         // Fixture-owned chip deselection, after all original transfers.
         controller->write(0,0,8u);need(witness.finish(*controller,*mx_device));
@@ -181,6 +181,10 @@ uint16_t HW_Reg_Read16(uint32_t){fail(7);}
 uint32_t HW_Reg_Read32(uint32_t a){
     ++reads;need(reads<=4096&&controller);
     if(a==0x0c003004u)return pi_mask;
+    if(a==(RevisionRead&0x3fffffffu)){
+        need(depth>0&&frames[depth-1].root==Revision&&++revision_reads<=12u);
+        const auto v=ExiDiConfigBinding::read32(a);need(v.has_value()&&*v==1u);return *v;
+    }
     if(a>=0x0d006800u&&a<0x0d00683cu&&!(a&3u)){const unsigned off=a-0x0d006800u;return controller->read(off/20u,off%20u);}
     fail(7);
 }
@@ -213,9 +217,7 @@ int main(int argc,char** argv)try{
     for(uint32_t a=Low;a<High;a+=4u)c.mmu.write32(a,a^0xdeadbeefu);
     for(uint32_t a=ExiState;a<ExiState+0x100u;a+=4u)c.mmu.write32(a,0);
     c.mmu.write32(ExiState+12u,0x14u);
-    need(!contains(RevisionRead,4,Low,High)&&!contains(RevisionRead,4,Buffer,Buffer+48u)&&!contains(RevisionRead,4,ExiState,ExiState+0x100u));
-    for(const auto& r:roots)need(!contains(RevisionRead,4,r.address,r.address+4u*uint32_t(r.words.size())));
-    c.mmu.write32(RevisionRead,0u); // explicit fixture revision, not live hardware state
+    ExiDiConfigBinding di(1u); // same explicit DI configuration as V60/V501
     c.mmu.write32(0x800000c4u,0xfffffff0u);c.mmu.write32(0x800000c8u,0);
     c.mmu.write32(Buffer,0xa0000600u);
     for(unsigned i=0;i<44;++i)c.mmu.write8(Buffer+4u+i,desired[20u+i]);

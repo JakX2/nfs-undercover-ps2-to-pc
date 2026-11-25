@@ -1,0 +1,3 @@
+# V834: reuse authenticated DI configuration MMIO for original EXISync
+
+V832 private preparation rejected the assumption that the revision leaf's single load was in MEM1. Earlier V60 explicitly identifies its bus register at 0x0d006024, returns 1 and records one read for each genuine sync. V501 already implements ExiDiConfigBinding, explicitly scoped to the DI configuration register and its normal mirror. V834 requires the original authenticated word-load address to match that register, delegates only that exact leaf read to the existing binding, and requires all 12 original synchronization reads. No new RAM permissions, synthetic EXISync result, or fabricated transfer completion. Owner retest pending.

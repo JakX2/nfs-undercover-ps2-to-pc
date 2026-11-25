@@ -31,9 +31,8 @@ def caller():
     return words+[0x60000000,BLR]
 
 def revision_read(words):
-    # The earlier original EXISync fixture uses the zero-revision path.
-    # Resolve the exact source address from the authenticated leaf, not
-    # from a runtime fault address or a broad permission grant.
+    # V60/V501 established the original leaf reads DI configuration.
+    # Authenticate the single exact word read and normal MMIO alias.
     regs=[None]*32;regs[13]=0x8070e8e0;regs[2]=0x80026000
     reads=[]
     for w in words:
@@ -42,7 +41,7 @@ def revision_read(words):
             base=regs[ra] if ra else 0
             if base is None:raise ValueError('revision address')
             a=(base+signed(w&0xffff))&0xffffffff
-            if a&3 or not 0x80000000<=a<=0x817ffffc:raise ValueError('revision address')
+            if a&3 or a&0xc0000000==0x40000000 or (a&0x3fffffff) not in (0x0d006024,0x0d806024):raise ValueError('revision address')
             reads.append(a)
         elif op in range(33,56) or (op==31 and (w>>1)&1023 in (23,55,87,119,279,311,343,375,151,183,215,247,407,439,534,662,790,918)):
             raise ValueError('revision access')
