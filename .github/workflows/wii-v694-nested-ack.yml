@@ -1,0 +1,24 @@
+name: Wii V694 Native Three Helper ACK Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v694*'
+      - '.github/workflows/wii-v694-nested-ack.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile generated PPC three-helper route and real SI stores
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw694"
+          git -C "$RUNNER_TEMP/nw694" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw694" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw694" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_nested_ack_v694.sh "$RUNNER_TEMP/nw694"
