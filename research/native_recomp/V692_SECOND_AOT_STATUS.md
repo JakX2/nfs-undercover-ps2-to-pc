@@ -1,0 +1,3 @@
+# V692: generated native two-helper ACK integration
+
+Independent synthetic PPC program uses a shared register-save entry, second native helper, actual PPC stw into native SI MMIO (either within the second helper or after return), and a conditional path to an unverified nested call. Translates through the pinned NWiiRecomp, applies the production label hooks and private-header equivalents, compiles both split/non-split generated code with sanitizers, and verifies actual MMU/device store and exact observer logs. The nested path must refuse before executing the dependency. No game code is included and no original execution claimed. CI pending.

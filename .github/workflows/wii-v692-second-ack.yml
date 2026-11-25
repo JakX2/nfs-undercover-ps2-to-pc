@@ -1,0 +1,24 @@
+name: Wii V692 Native Two Helper ACK Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v692*'
+      - '.github/workflows/wii-v692-second-ack.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile generated PPC two-helper route and real SI stores
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw692"
+          git -C "$RUNNER_TEMP/nw692" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw692" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw692" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_second_ack_v692.sh "$RUNNER_TEMP/nw692"
