@@ -253,7 +253,13 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
         if [[ "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V932_PENDING_RFI:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v939_second_vector.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V951_SECOND_DISPATCH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V939_SECOND_VECTOR:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v951_second_dispatch.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V951_SECOND_DISPATCH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v958_second_ack.py" "$dol" "$elf" "$work/generated";fi
-        if [[ "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v975_second_time.py" "$dol" "$elf" "$work/generated";fi
+        if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" != 1 ]]; then exit 2;fi
+        if [[ "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 ]]; then
+            [[ "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]] || exit 2
+            time_args=()
+            if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]]; then time_args+=(--frontier);fi
+            python3 "$here/prepare_v975_second_time.py" "$dol" "$elf" "$work/generated" "${time_args[@]}"
+        fi
         if [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v928_leaf_finish.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v930_ipc_join.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi

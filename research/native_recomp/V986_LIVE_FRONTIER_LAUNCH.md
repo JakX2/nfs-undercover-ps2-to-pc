@@ -1,0 +1,3 @@
+# V986: explicit live third-transfer frontier launch and audit
+
+V984 composed native binding CI 45723518537 passed all seven processes. V983 corrected private run 45723255501 passed the original post-transfer continuation and seven wider guard controls. V986 wires the read-only frontier flag into the actual translation and launch paths; the preceding time and post-ACK modes are required. The strict chained audit verifies the predecessor's original return, a unique bounded frontier record, and internal agreement of all argument predicates, including valid nonadmission; no original transfer is claimed or executed by this mode. No extra expensive full-image run is requested while the V974/V978 jobs remain active. Source checks pending.
