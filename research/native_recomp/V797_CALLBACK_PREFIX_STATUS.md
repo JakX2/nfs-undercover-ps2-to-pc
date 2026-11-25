@@ -1,3 +1,7 @@
 # V797: focused original callback prologue
 
 The V787 callback census established one first linked compiler save candidate, six saved nonvolatile registers, and a matching restore candidate. V797 authenticates the full DOL/ELF callback extent and linked edges, then translates only the straight-line original prologue, actual save alias and authenticated successor in a private scratch fixture. The independent synthetic caller does not establish dynamic callback identity. The synthetic terminal is unreachable: the native hook exits before the authenticated successor executes. A small independent prologue reference validates actual generated GPR, LR, CR, stack stores, contiguous ticks, and exact native entry ordering. Both generated modes run eight input states and a saved-word corruption refusal. No original callback body return or continuous startup is claimed. Private execution pending.
+
+## V798: correct fixture dispatcher tick
+
+V797 owner-context 139021340691 authenticated the original prefix and aliases, generated native code, and compiled it under sanitizers. It refused the first synthetic caller label (entries=1, visits=0, writes=0). Inspection of the pinned upstream emitter shows the initial outer dispatch increments inst_count once before function entry, independently of the native label tick. V798 accounts for exactly this initial tick at trace_call, requires unchanged ticks on direct nested entries, and distinguishes timing, next-PC, and instruction-identity checks. No original runtime behavior or guard is altered. Rerun required.

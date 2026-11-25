@@ -60,7 +60,9 @@ static void reference(uint32_t pc,uint32_t w){
 }
 namespace rfi_test{
 void before(CPUContext& c,uint32_t pc,uint32_t w){
-    need(c.inst_count==++tick&&pc==next&&c.mmu.read32(pc)==w);
+    need(c.inst_count==++tick);
+    need(pc==next);
+    need(c.mmu.read32(pc)==w);
     ++visits;need(visits<=32);
     if(pc==Resume&&corrupt){
         const uint32_t a=gp[SaveBase]+uint32_t(SaveDisp);
@@ -79,9 +81,14 @@ namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     constexpr std::array<uint32_t,3> order{H,C,S};
-    need(c.pc==pc&&entries<order.size()&&pc==order[entries]);++entries;
+    need(c.pc==pc&&entries<order.size()&&pc==order[entries]);
+    // The pinned dispatcher increments inst_count once before the first
+    // function entry. Subsequent direct calls do not re-enter the dispatcher.
+    if(entries==0){need(outer==1&&c.inst_count==tick+1u);++tick;}
+    else need(c.inst_count==tick);
+    ++entries;
 }
-bool process_pending_callbacks(CPUContext& c){need(!outer&&!visits&&c.pc==H);++outer;return false;}
+bool process_pending_callbacks(CPUContext& c){need(!outer&&!visits&&c.pc==H&&c.inst_count==tick);++outer;return false;}
 bool handle_syscall(CPUContext&){fail(4);}
 void interpret_step(CPUContext&){fail(5);}void micro_interpret(CPUContext&,uint32_t,uint32_t){fail(5);}
 void note_null_call(uint32_t,uint32_t){fail(6);}void watch_hit(uint32_t,uint32_t,int){}
