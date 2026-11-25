@@ -27,6 +27,24 @@ public:
         lr_=e_.call+4u;msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;next_=e_.root;
         stage_=1;return true;
     }
+    // The live callback is reached via bctrl, unlike the direct V846
+    // fixture. Returning to its caller requires the existing outer poll
+    // and exactly one dispatcher tick BEFORE the first caller label.
+    template<class C> bool start_dispatch(C& c,uint32_t pc,uint32_t w,const std::array<uint32_t,32>& original,uint32_t cr,bool held){
+        if(!start(c,pc,w,original,cr,held))return false;
+        dispatch_=true;return true;
+    }
+    template<class C> bool dispatch_poll(C& c,bool held){
+        if(!dispatch_||stage_!=4u||polled_||dispatched_||!common(c,held)||
+           c.inst_count!=last_||c.pc!=e_.caller||!state(c)||!match(c,e_.caller,e_.caller_word))return fail(6);
+        polled_=true;return true;
+    }
+    template<class C> bool dispatch_resume(C& c,uint32_t pc,uint32_t w,bool held){
+        if(!dispatch_||stage_!=4u||!polled_||dispatched_||!common(c,held)||
+           c.inst_count-last_!=1u||pc!=e_.caller||c.pc!=pc||w!=e_.caller_word||
+           !state(c)||!match(c,pc,w))return fail(6);
+        last_=c.inst_count;dispatched_=true;return true;
+    }
     template<class C> bool entry(C& c,uint32_t pc,bool held){
         if(stage_!=1||!common(c,held)||pc!=e_.root||c.pc!=pc||c.inst_count!=last_||!state(c))return fail(2);
         stage_=2;return true;
@@ -35,7 +53,7 @@ public:
         if(stage_<2||stage_>4||!common(c,held)||pc!=next_||c.inst_count-last_!=1u||!state(c)||!match(c,pc,w))return fail(3);
         last_=c.inst_count;++visits_;
         if(stage_==4){
-            if(pc!=e_.caller||c.pc!=pc||c.lr!=pc||w!=e_.caller_word||c.gpr[1]!=original_[1]||
+            if((dispatch_&&!dispatched_)||pc!=e_.caller||c.pc!=pc||c.lr!=pc||w!=e_.caller_word||c.gpr[1]!=original_[1]||
                c.gpr[2]!=original_[2]||c.gpr[13]!=original_[13]||(pack(c)&0x00fff000u)!=(original_cr_&0x00fff000u))return fail(5);
             for(unsigned i=14;i<32;++i)if(c.gpr[i]!=original_[i])return fail(5);
             if(visits_!=12u)return fail(5);
@@ -69,6 +87,7 @@ private:
     unsigned stage_=0,error_=0,index_=0,visits_=0;
     uint32_t lr_=0,cr_=0,original_cr_=0,msr_=0,srr0_=0,srr1_=0,next_=0;
     uint64_t last_=0;
+    bool dispatch_=false,polled_=false,dispatched_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t disp(uint32_t w){return ((w&0xffffu)^0x8000u)-0x8000u;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}

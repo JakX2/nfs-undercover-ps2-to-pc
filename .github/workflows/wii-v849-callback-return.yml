@@ -1,0 +1,21 @@
+name: Wii V849 Callback Return Dispatcher Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v849*'
+      - 'research/native_recomp/wii_callback_return_v846.h'
+      - '.github/workflows/wii-v849-callback-return.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate native return and existing dispatcher tick
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_return_dispatch_v849.cpp -o "$RUNNER_TEMP/v849"
+          "$RUNNER_TEMP/v849"
