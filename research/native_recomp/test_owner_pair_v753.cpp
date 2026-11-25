@@ -15,7 +15,7 @@ static uint64_t last=0;
 static uint32_t frame=0,cr=0,xer=0,ctr=0;
 static bool corrupt=false;
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
-    std::cout<<"V753_PAIR_FAULT kind="<<kind<<" line="<<line<<" entries="<<entries<<" visits="<<visits<<" stage="<<stage<<std::endl;
+    std::cout<<std::dec<<"V753_PAIR_FAULT kind="<<kind<<" line="<<line<<" entries="<<entries<<" visits="<<visits<<" stage="<<stage<<std::endl;
     std::_Exit(126);
 }
 static void need(bool b,const std::source_location loc=std::source_location::current()){if(!b)fail(1,loc.line());}
@@ -96,5 +96,5 @@ int main(int argc,char** argv)try{
         c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;run_game(c);
         need(!corrupt&&!c.is_running&&stage==5&&entries==3&&visits==3*Count+5&&outer==1&&stops==trial+1);
     }
-    std::cout<<"V753_OWNER_PAIR_AOT valid=8 native_save=8 native_restore=8 gprs="<<Count<<" fallback=0 continuous_boot=0"<<std::endl;
+    std::cout<<std::dec<<"V753_OWNER_PAIR_AOT valid=8 native_save=8 native_restore=8 gprs="<<Count<<" fallback=0 continuous_boot=0"<<std::endl;
 }catch(...){fail(8);}

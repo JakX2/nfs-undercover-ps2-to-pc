@@ -29,7 +29,10 @@ for mode in nonsplit split; do
     grep -Ex 'V753_PAIR_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-3] visits=[0-9]{1,3} stage=[0-5]' "$work/run.log" || true
     echo "V753_NATIVE_EXECUTION failed=1";exit 1;
   }
-  grep -Fx "V753_OWNER_PAIR_AOT valid=8 native_save=8 native_restore=8 gprs=$count fallback=0 continuous_boot=0" "$work/run.log"
+  grep -Fx "V753_OWNER_PAIR_AOT valid=8 native_save=8 native_restore=8 gprs=$count fallback=0 continuous_boot=0" "$work/run.log" || {
+    grep -Ex 'V753_OWNER_PAIR_AOT valid=8 native_save=8 native_restore=8 gprs=(6|11|b) fallback=0 continuous_boot=0' "$work/run.log" || true
+    echo "V757_PAIR_RESULT_MISMATCH lane=$lane mode=$mode";exit 1;
+  }
   rc=0
   timeout 20s "$work/probe" corrupt > "$work/run.log" 2>&1 || rc=$?
   [[ "$rc" == 126 ]]

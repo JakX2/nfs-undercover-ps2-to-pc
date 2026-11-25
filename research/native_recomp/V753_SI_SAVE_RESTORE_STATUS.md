@@ -1,3 +1,7 @@
 # V753: original SI transfer save/restore pairs
 
 V749 identifies compiler-save aliases before any other call in __SITransfer and SITransfer, and six/eleven-register restore aliases at their final direct callsites. V753 privately authenticates both pairs from their original DOL/ELF call edges, verifies matching GPR frame offsets and symbol/containing-function evidence, then executes actual translated save and restore routines around independently authored native register clobbers. Eight trials per lane and compilation mode, plus a corrupted saved value control. This proves only the paired compiler helpers, not full original SI transfers. Owner CI pending.
+
+## V757 result formatting correction
+
+Run 45549049115 passed all lane-4 original execution trials and both negative controls. Lane 7 authenticated the exact eleven-register pair and all 24 native labels, but the valid process exited zero and the exact result grep failed. Explicitly reset stream formatting to decimal for the numeric census (the upstream dispatcher may leave the stream in hexadecimal); print only a bounded permitted alternative census on mismatch. This is a result-format hypothesis, not a verified lane-7 pass. Retesting.
