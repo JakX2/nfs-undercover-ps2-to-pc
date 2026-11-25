@@ -10,6 +10,8 @@ full=();flags=();if [[ "${UNDERCOVER_TEST_CALLBACK_RETURN:-0}" == 1 ]];then full
 if [[ "${UNDERCOVER_TEST_CALLBACK_DISPATCH:-0}" == 1 ]];then [[ "${UNDERCOVER_TEST_CALLBACK_RETURN:-0}" == 1 ]];full+=(--callback-dispatch);flags+=(-DUNDERCOVER_TEST_CALLBACK_DISPATCH=1);fi
 if [[ "${UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS:-0}" == 1 ]];then flags+=(-DUNDERCOVER_TEST_WIRELESS_WRITE_WITNESS=1);fi
 if [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];then [[ "${UNDERCOVER_TEST_CALLBACK_DISPATCH:-0}" == 1 && "${UNDERCOVER_TEST_WIRELESS_WRITE_WITNESS:-0}" == 1 ]];flags+=(-DUNDERCOVER_TEST_LIVE_EXI_PROFILE=1);fi
+prior_tokens=2
+if [[ "${UNDERCOVER_TEST_STARTUP_EXI_PROFILE:-0}" == 1 ]];then [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];flags+=(-DUNDERCOVER_TEST_STARTUP_EXI_PROFILE=1);prior_tokens=4;fi
 python3 "$here/prepare_owner_callback_after_setter_v842.py" "$dol" "$elf" "$work/owner_callback_write.h" "${full[@]}"
 for patch in apply_verified_elf_spans_v6 apply_function_root_v443 apply_nonsplit_dispatch_v15 apply_exact_dispatch_v445 apply_native_tick_v438 apply_syscall_pc_v26; do
   python3 "$here/$patch.py" "$root" > "$work/patch.log" 2>&1 || { echo "V820_EMITTER_PATCH failed=1";exit 1; }
@@ -51,7 +53,8 @@ PY
     grep -Ex 'V842_OWNER_CALLBACK_SUFFIX ordinal=(4|13) target_class=[0-4] visits=[0-9]{1,3} writes=[0-8] polls=[0-9]{1,3} setter_return=1 changed=0 target_executed=0 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log"
     if [[ ${#full[@]} != 0 ]];then grep -Fx 'V846_OWNER_CALLBACK_RETURN original_restore=1 callback_return=1 abi=1 visits=12 changed=0 fallback=0 continuous_boot=0' "$work/run.log";fi
     if [[ "${UNDERCOVER_TEST_CALLBACK_DISPATCH:-0}" == 1 ]];then grep -Fx 'V851_OWNER_CALLBACK_DISPATCH outer_poll=1 outer_tick=1 callback_return=1 changed=0 fallback=0 continuous_boot=0' "$work/run.log";fi
-    if [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];then grep -Fx 'V866_OWNER_PROFILE_CALLBACK original_return=1 changed=0 prior_tokens=2 tokens=0 bytes=0 dispatcher=1 fallback=0 continuous_boot=0' "$work/run.log";fi
+    if [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];then grep -Fx "V866_OWNER_PROFILE_CALLBACK original_return=1 changed=0 prior_tokens=$prior_tokens tokens=0 bytes=0 dispatcher=1 fallback=0 continuous_boot=0" "$work/run.log";fi
+    if [[ "${UNDERCOVER_TEST_STARTUP_EXI_PROFILE:-0}" == 1 ]];then grep -Fx 'V873_OWNER_STARTUP_PROFILE original_return=1 changed=0 latency=8 prior_dma=64 prior_tokens=4 tokens=0 bytes=0 dispatcher=1 fallback=0 continuous_boot=0' "$work/run.log";fi
     row=$(grep -Ex 'V811_OWNER_TIME_OFFSET verified=1 nonzero=[01] wrap=[01] retry=[01]' "$work/run.log")
     echo "$row"
     if [[ "$trial" == 0 ]]; then
@@ -101,7 +104,8 @@ PY
     grep -Ex 'V842_OWNER_CALLBACK_SUFFIX ordinal=(4|13) target_class=[0-4] visits=[0-9]{1,3} writes=[0-8] polls=[0-9]{1,3} setter_return=1 changed=1 target_executed=0 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log"
     if [[ ${#full[@]} != 0 ]];then grep -Fx 'V846_OWNER_CALLBACK_RETURN original_restore=1 callback_return=1 abi=1 visits=12 changed=1 fallback=0 continuous_boot=0' "$work/run.log";fi
     if [[ "${UNDERCOVER_TEST_CALLBACK_DISPATCH:-0}" == 1 ]];then grep -Fx 'V851_OWNER_CALLBACK_DISPATCH outer_poll=1 outer_tick=1 callback_return=1 changed=1 fallback=0 continuous_boot=0' "$work/run.log";fi
-    if [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];then grep -Fx 'V866_OWNER_PROFILE_CALLBACK original_return=1 changed=1 prior_tokens=2 tokens=12 bytes=44 dispatcher=1 fallback=0 continuous_boot=0' "$work/run.log";fi
+    if [[ "${UNDERCOVER_TEST_LIVE_EXI_PROFILE:-0}" == 1 ]];then grep -Fx "V866_OWNER_PROFILE_CALLBACK original_return=1 changed=1 prior_tokens=$prior_tokens tokens=12 bytes=44 dispatcher=1 fallback=0 continuous_boot=0" "$work/run.log";fi
+    if [[ "${UNDERCOVER_TEST_STARTUP_EXI_PROFILE:-0}" == 1 ]];then grep -Fx 'V873_OWNER_STARTUP_PROFILE original_return=1 changed=1 latency=8 prior_dma=64 prior_tokens=4 tokens=12 bytes=44 dispatcher=1 fallback=0 continuous_boot=0' "$work/run.log";fi
   done
   rc=0
   timeout 20s "$work/probe" wireless-corrupt 0 > "$work/run.log" 2>&1 || rc=$?

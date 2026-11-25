@@ -24,6 +24,11 @@ static ExiController* controller=nullptr;
 static const ExiMxDevice* mx_device=nullptr;
 static const ExiEndpointScheduler* scheduler=nullptr;
 static uint64_t completion_baseline=0,selection_baseline=0;
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+static constexpr unsigned expected_prior_tokens=4u;
+#else
+[[maybe_unused]]static constexpr unsigned expected_prior_tokens=2u;
+#endif
 #ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
 static WirelessProfileTrace profile_trace;
 #else
@@ -232,10 +237,15 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         if(callback_return.stage()==5u){
             payload(c,lane==2u);
 #ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
-            need(completion_baseline==2u&&selection_baseline==2u&&device_held());
+            need(completion_baseline==expected_prior_tokens&&selection_baseline==expected_prior_tokens&&device_held());
             std::cout<<"V866_OWNER_PROFILE_CALLBACK original_return=1 changed="<<unsigned(lane==2u)
-                <<" prior_tokens=2 tokens="<<complete_count<<" bytes="<<(lane==2u?44u:0u)
+                <<" prior_tokens="<<expected_prior_tokens<<" tokens="<<complete_count<<" bytes="<<(lane==2u?44u:0u)
                 <<" dispatcher=1 fallback=0 continuous_boot=0"<<std::endl;
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+            std::cout<<"V873_OWNER_STARTUP_PROFILE original_return=1 changed="<<unsigned(lane==2u)
+                <<" latency=8 prior_dma=64 prior_tokens=4 tokens="<<complete_count
+                <<" bytes="<<(lane==2u?44u:0u)<<" dispatcher=1 fallback=0 continuous_boot=0"<<std::endl;
+#endif
 #endif
 #ifdef UNDERCOVER_TEST_CALLBACK_DISPATCH
             std::cout<<"V851_OWNER_CALLBACK_DISPATCH outer_poll=1 outer_tick=1 callback_return=1 changed="<<unsigned(lane==2u)<<" fallback=0 continuous_boot=0"<<std::endl;

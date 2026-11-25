@@ -12,6 +12,9 @@
 #include <source_location>
 #include <string>
 #include "callback_write_fixture_v838.h"
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+#include "wii_physical_ram.h"
+#endif
 using nwii::runtime::CPUContext;
 using namespace undercover::wii;
 constexpr uint32_t Stack=0x80022000u,Low=Stack-0x400u,High=Stack+0x100u,MSR=0x32u;
@@ -332,15 +335,39 @@ int main(int argc,char** argv)try{
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
     for(const auto& r:all_roots)put(r.address,r.words);
     channel=trial%4;
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+    for(unsigned i=0;i<64;++i)sram_seed[i]=uint8_t(17u*i+7u);
+    sram_seed[60]=0x12u;sram_seed[61]=0u;
+#else
     for(unsigned i=0;i<64;++i)sram_seed[i]=uint8_t(i*13u+trial);
+#endif
     if(!changed_seed){sram_seed[Wireless+2u*channel]=0;sram_seed[Wireless+2u*channel+1u]=0;}
-    else {sram_seed[Wireless+2u*channel]=0x12;sram_seed[Wireless+2u*channel+1u]=0x34;}
-    for(unsigned i=0;i<64;++i)c.mmu.write8(Sram+i,sram_seed[i]);
+    else {
+#ifndef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+        sram_seed[Wireless+2u*channel]=0x12;sram_seed[Wireless+2u*channel+1u]=0x34;
+#endif
+    }
+    for(unsigned i=0;i<64;++i)c.mmu.write8(Sram+i,
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+        0xa7u
+#else
+        sram_seed[i]
+#endif
+    );
     c.mmu.write8(Sram-1u,0xa7);c.mmu.write8(Sram+80u,0xa7);
-    std::atomic<uint32_t> cause{0x100u};WiiIrqBanks banks(cause);ExiController exi(banks);joined::controller=&exi;
+    std::atomic<uint32_t> cause{0x100u};WiiIrqBanks banks(cause);
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+    WiiPhysicalRam ram(c.mmu.mem1,c.mmu.mem2);ExiController exi(banks,&ram);
+#else
+    ExiController exi(banks);
+#endif
+    joined::controller=&exi;
     exi.write(0,0,0x2000u);
 #ifdef UNDERCOVER_TEST_LIVE_EXI_PROFILE
     ExiHostProfile profile{};profile.sram=sram_seed;profile.id=0;profile.di_config=1;profile.latency=32u+24u*channel;
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+    profile.id=0xbeef0010u;profile.rtc_seconds=0x12345678u;profile.latency=8u;
+#endif
     ExiProfileSession session(exi,profile);
     joined::mx_device=&session.endpoint();joined::scheduler=&session.scheduler();
     uint64_t prior=0;
@@ -348,9 +375,24 @@ int main(int argc,char** argv)try{
     for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
     exi.write(0,12,0x31u);
     for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
+    need(exi.read(0,16)==profile.id);
     exi.write(0,0,0x2008u);ExiTickBinding::advance(++prior);
+#ifdef UNDERCOVER_TEST_STARTUP_EXI_PROFILE
+    // The production startup profile performs a prior command and DMA
+    // read into the real CPUContext memory. Do not copy fixture bytes
+    // directly into the guest SRAM buffer in this lane.
+    exi.write(0,0,0x2130u);exi.write(0,16,0x20000100u);exi.write(0,12,0x35u);
+    for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
+    exi.write(0,4,Sram);exi.write(0,8,64u);exi.write(0,12,3u);
+    for(unsigned i=0;i<64;++i)need(c.mmu.read8(Sram+i)==0xa7u);
+    for(unsigned i=0;i<=profile.latency;++i)ExiTickBinding::advance(++prior);
+    for(unsigned i=0;i<64;++i)need(c.mmu.read8(Sram+i)==sram_seed[i]);
+    need(session.scheduler().last_completion()&&session.scheduler().last_completion()->dma&&
+         session.scheduler().last_completion()->length==64u&&!session.sram_dirty());
+    exi.write(0,0,0x2008u);ExiTickBinding::advance(++prior);
+#endif
     joined::completion_baseline=session.completed();joined::selection_baseline=exi.selection_epoch(0);
-    need(joined::completion_baseline==2u&&joined::selection_baseline==2u&&prior<512u);
+    need(joined::completion_baseline==joined::expected_prior_tokens&&joined::selection_baseline==joined::expected_prior_tokens&&prior<512u);
     tick=512u;
 #else
     ExiMxDevice mx(sram_seed,[]{return 0u;});ExiIdEndpoint id(0u);joined::mx_device=&mx;
