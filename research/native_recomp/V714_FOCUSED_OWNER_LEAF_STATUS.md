@@ -1,0 +1,3 @@
+# V714: private focused original OS leaf execution harness
+
+Avoid waiting for a complete link to verify original leaf semantics. Authenticate the exact 20 original DOL/ELF words with existing private plan, build three original roots plus independently written six-word synthetic caller, audit all 26 native labels/three edges and actual return witnesses, run both split/non-split under sanitizers with three different virtual tick seeds (including 32-bit rollover) and an ABI corruption refusal. No original bytes committed or printed; scratch-only owner workflow, redacted failures. This validates isolated original leaf execution only, not continuous startup. CI pending.

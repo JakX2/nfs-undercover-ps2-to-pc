@@ -15,6 +15,7 @@ on:
       - 'research/native_recomp/*v703*'
       - 'research/native_recomp/*v704*'
       - 'research/native_recomp/*v706*'
+      - 'research/native_recomp/*v714*'
       - '.github/workflows/wii-v668-si-ack.yml'
 permissions:
   contents: read
@@ -73,6 +74,15 @@ jobs:
         run: python3 research/native_recomp/audit_os_leaf_v703.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Authenticate original dispatcher epilogue and context restore geometry
         run: python3 research/native_recomp/audit_external_return_v706.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Execute three authenticated original OS leaves with independent caller
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw714"
+          git -C "$RUNNER_TEMP/nw714" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw714" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw714" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_owner_leaf_v714.sh "$RUNNER_TEMP/nw714" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Clean private files
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/originals"
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw714"
