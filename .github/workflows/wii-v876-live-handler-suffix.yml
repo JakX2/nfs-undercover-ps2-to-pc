@@ -1,4 +1,4 @@
-name: Wii V890 Continuous Original Handler Status Read
+name: Wii V897 Continuous Original Handler Status W1C
 on:
   workflow_dispatch:
   push:
@@ -69,7 +69,8 @@ jobs:
           grep -E '^V875_LAUNCH_PLAN requested=irq-si-handler-suffix base=irq-enable-return audit=audit_v870_handler_suffix.py flags=.*UNDERCOVER_V868_HANDLER_SUFFIX=1$' "$RUNNER_TEMP/v876-public.log"
           grep -E '^V870_HANDLER_SUFFIX_CENSUS rc=0 verified=1 callback_return=1 handler_ordinal=6 next=(7|8|12) kind=1 visits=[0-9]+ writes=[01] handler_continuation=1 next_call_executed=0 handler_return=0 boot_verified=0$' "$RUNNER_TEMP/v876-public.log"
           grep -Fx 'V890_HANDLER_STATUS_READ original_load=1 device_value=1 follow_held=1 reads=1 writes=0' "$RUNNER_TEMP/v876-public.log"
-          echo 'V890_LIVE_HANDLER_GATE continuation=1 original_callback=1 status_read=1 new_boundary=1 boot_verified=0'
+          grep -Fx 'V897_HANDLER_STATUS_WRITE original_store=1 w1c=1 follow_held=1 reads=1 writes=1' "$RUNNER_TEMP/v876-public.log"
+          echo 'V897_LIVE_HANDLER_GATE continuation=1 original_callback=1 status_read=1 status_write=1 new_boundary=1 boot_verified=0'
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v876-public.log"

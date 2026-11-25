@@ -5,6 +5,7 @@
 namespace undercover::wii::v868 {
 inline thread_local HandlerSuffixGuard guard;
 inline thread_local unsigned lane=0,status_reg=32;
+inline thread_local bool status_write_armed=false;
 inline bool active(){return lane!=0u;}
 [[noreturn]]inline void reject(unsigned reason){
     std::cout<<std::dec<<"V868_HANDLER_SUFFIX_INVALID reason="<<reason<<" guard="<<guard.failure()
@@ -29,8 +30,14 @@ template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsign
         status_reg=32u;
         std::cout<<"V890_HANDLER_STATUS_READ original_load=1 device_value=1 follow_held=1 reads=1 writes=0"<<std::endl;
     }
+    if(status_write_armed){
+        if(si_transfer_device.suffix_status_writes()!=1u||!v850::held(c))reject(3);
+        status_write_armed=false;
+        std::cout<<"V897_HANDLER_STATUS_WRITE original_store=1 w1c=1 follow_held=1 reads=1 writes=1"<<std::endl;
+    }
     const bool status=lane==6u&&pc==status_read_site;
-    if(!v850::held(c)||!guard.before(c,pc,w,ordinal,kind,status))reject(3);
+    const bool status_write=lane==6u&&pc==status_write_site;
+    if(!v850::held(c)||!guard.before(c,pc,w,ordinal,kind,status,status_write))reject(3);
     if(kind){
         if(!((lane==6u&&kind==1u&&(ordinal==7u||ordinal==8u||ordinal==12u))||
              (lane==11u&&((kind==2u&&ordinal==11u)||(kind==1u&&ordinal==12u))))||
@@ -44,6 +51,12 @@ template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsign
         if(w>>26!=32u||a.kind!=PostAckTransferDevice::Access::Read||a.store||
            !si_transfer_device.arm_suffix_status_read(c.inst_count,a.address))reject(3);
         status_reg=(w>>21)&31u;
+    }
+    if(status_write){
+        const auto a=PostAckTransferDevice::word_access(c,w);
+        if(w>>26!=36u||a.kind!=PostAckTransferDevice::Access::Write||!a.store||
+           !si_transfer_device.arm_suffix_status_write(c.inst_count,a.address,*a.store))reject(3);
+        status_write_armed=true;
     }
     return true;
 }

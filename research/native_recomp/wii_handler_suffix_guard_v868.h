@@ -21,7 +21,7 @@ public:
         if(!find(resume))return fail(1);
         ctx_=&c;sp_=c.gpr[1];last_=c.inst_count;return true;
     }
-    template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsigned kind,bool status_read=false){
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsigned kind,bool status_read=false,bool status_write=false){
         if(error_||ctx_!=&c||c.inst_count-last_!=unsigned(visits_!=0)||++visits_>128u)return fail(2);
         const auto* x=find(pc);
         if(!x||x->word!=w||x->ordinal!=ordinal||x->kind!=kind||!mapped(c,pc,4)||c.mmu.read32(pc)!=w)return fail(3);
@@ -30,8 +30,8 @@ public:
             pending_=0;
         }
         last_=c.inst_count;
-        if(status_read&&(kind||w>>26!=32u))return fail(5);
-        return kind||w==0x4e800020u||memory(c,w,status_read)?true:fail(5);
+        if((status_read&&(kind||w>>26!=32u))||(status_write&&(kind||w>>26!=36u||status_read)))return fail(5);
+        return kind||w==0x4e800020u||memory(c,w,status_read,status_write)?true:fail(5);
     }
 private:
     std::span<const HandlerSuffixLabel> rows_{};
@@ -46,7 +46,7 @@ private:
         for(unsigned i=0;i<n;++i)if(!c.mmu.get_ptr(a+i))return false;
         return true;
     }
-    template<class C>bool memory(C& c,uint32_t w,bool status_read){
+    template<class C>bool memory(C& c,uint32_t w,bool status_read,bool status_write){
         const unsigned op=w>>26,xo=(w>>1)&1023u,ra=(w>>16)&31u,rb=(w>>11)&31u,rs=(w>>21)&31u;
         const uint32_t base=ra?c.gpr[ra]:0u;
         uint32_t a=0;unsigned n=0;bool wr=false,multi=false,reverse=false;
@@ -72,7 +72,7 @@ private:
             default:break;
             }
         }else if(op>=48u||op==4u)return false;
-        if(status_read)return !wr&&n==4u&&op==32u&&!(a&3u)&&(a&0xc0000000u)!=0x40000000u&&((a&0x3fffffffu)&~0x00800000u)==0x0d006438u;
+        if(status_read||status_write)return wr==status_write&&n==4u&&op==(status_write?36u:32u)&&!(a&3u)&&(a&0xc0000000u)!=0x40000000u&&((a&0x3fffffffu)&~0x00800000u)==0x0d006438u;
         if(!n)return true;
         if(!mapped(c,a,n))return false;
         if(!wr)return true;

@@ -34,6 +34,15 @@ public:
         for(unsigned i=0;i<32;++i)buffer_[i]=ctl.read(SiController::Buffer+4*i);
         stage_=1;return true;
     }
+    // Called only AFTER an authenticated original W1C store reached the controller.
+    // Keep the completed token, COMCSR, PI mask/cause and response invariant.
+    bool accept_status_w1c(uint64_t tick,uint32_t previous,uint32_t value){
+        const uint32_t errors=response_?0u:SiController::ERR_NOREP<<((3u-channel_)*8u);
+        if(stage_!=3u||status_written_||!common(tick)||tick<last_||
+           previous!=(status_|errors)||(value&~0x0f0f0f0fu))return fail(6);
+        cleared_=value;status_written_=true;
+        return completed_held()?true:fail(6);
+    }
     bool started(uint64_t tick){
         if(stage_!=1||!common(tick)||tick!=start_||!pending_held())return fail(2);
         stage_=2;return true;
@@ -55,6 +64,7 @@ private:
     std::optional<std::array<uint8_t,3>> response_;
     uint32_t other_=0,mask_before_=0,status_=0,config_=0;unsigned channel_=0,stage_=0,error_=0;
     uint64_t token_=0,start_=0,last_=0,earliest_=0;
+    uint32_t cleared_=0;bool status_written_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool common(uint64_t tick)const{
         return !error_&&ctl_&&ctl_->issued_tokens()==token_&&mask_->load()==mask_before_&&
@@ -80,7 +90,7 @@ private:
     bool completed_held()const{
         const uint32_t errors=response_?0u:SiController::ERR_NOREP<<((3u-channel_)*8u);
         return !ctl_->pending()&&ctl_->read(SiController::Control)==(config_|SiController::TC_INT|(response_?0u:SiController::COM_ERR))&&
-               ctl_->read(SiController::Status)==(status_|errors)&&cause_->load()==(other_|SiController::PI_SI)&&ram(true);
+               ctl_->read(SiController::Status)==((status_|errors)&~cleared_)&&cause_->load()==(other_|SiController::PI_SI)&&ram(true);
     }
 };
 }

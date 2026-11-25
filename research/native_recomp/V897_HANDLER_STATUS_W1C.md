@@ -1,0 +1,3 @@
+# V897: authenticate resumed handler status W1C
+
+V896 private job 139152022738 identified visit 10 as a statically resolved SI status word store; it also confirmed nested compiler GPR save aliases (five registers for OSSetAlarm, six for __SITransfer). Admit only the exact original store after the authenticated status read, with a one-use real controller route and independently checked W1C mask, unchanged COMCSR, PI mask/cause, completed token and payload. Status read/write proofs must be ordered; no other post-return write admitted. Focused synthetic tests cover both device profiles and refusal paths. Full native execution pending; visit 12 is an indexed read with unknown static address.

@@ -37,13 +37,14 @@ def lane(root,words,start,expected):
     if len(seen)!=n:raise ValueError('handler suffix coverage')
     return seen
 
-def render(rows,status_site=0):
+def render(rows,status_site=0,status_write_site=0):
     h='#pragma once\n#include "wii_handler_suffix_guard_v868.h"\nnamespace undercover::wii::v868 {\n'
     for i,items in zip((6,11),rows):
         h+=f'inline constexpr std::array<HandlerSuffixLabel,{len(items)}> after{i}{{{{'
         h+=','.join(f'HandlerSuffixLabel{{0x{pc:08x}u,0x{w:08x}u,{o}u,{k}u}}' for pc,(w,o,k) in sorted(items.items()))
         h+='}};\n'
     h+=f'inline constexpr uint32_t status_read_site=0x{status_site:08x}u;\n'
+    h+=f'inline constexpr uint32_t status_write_site=0x{status_write_site:08x}u;\n'
     return h+'}\n'
 
 def patch_return(s):
@@ -96,6 +97,12 @@ def install(dol,elf,root,host):
     if unique_prefix(rows[0],sites[0]+4)[0]!='si_status':raise ValueError('handler status identity')
     status_site=sites[0]+24
     if rows[0].get(status_site,(0,0,0))[0]>>26!=32:raise ValueError('handler status identity')
+    from audit_handler_frontier_v896 import paths
+    start=sites[0]+4
+    if paths(rows[0],start,10)!=[('store','si_status',36)] or any(
+        rows[0][start+4*i][1:]!=(0,0) or rows[0][start+4*i][0]>>26 in (16,18,19) for i in range(10)):
+        raise ValueError('handler status store identity')
+    status_write_site=start+36
     merged={}
     for r in rows:
         for pc,row in r.items():
@@ -117,7 +124,7 @@ def install(dol,elf,root,host):
         verify_handler_label(body,pc,w,o,k,pc in {site+4 for site in sites})
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text() for n in ('wii_handler_suffix_guard_v868.h','wii_handler_suffix_binding_v868.h')}
-    files[dest/'v868_private_handler_suffix.h']=render(rows,status_site)
+    files[dest/'v868_private_handler_suffix.h']=render(rows,status_site,status_write_site)
     if dest.is_symlink() or any(f.exists() or f.is_symlink() for f in files):raise ValueError('handler suffix destination')
     for name,fn in (('wii_callback_return_binding_v850.h',patch_return),('wii_si_ack_binding_v672.h',patch_ack)):
         f=dest/name
@@ -126,13 +133,14 @@ def install(dol,elf,root,host):
     for f,s in files.items():f.write_text(s)
     print(f'V868_HANDLER_SUFFIX_ROUTE installed=1 labels={len(merged)} lane6=52 lane11=13 same_tick=1 default_disabled=1 execution=0')
     print('V890_HANDLER_STATUS_ROUTE installed=1 exact_load=1 status_only=1 execution=0')
+    print('V897_HANDLER_STATUS_ROUTE installed=1 exact_store=1 w1c_only=1 execution=0')
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('handler status identity','handler suffix duplicate','handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix resume order','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
+        safe=('handler status store identity','handler status identity','handler suffix duplicate','handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix resume order','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
         print('V868_HANDLER_SUFFIX_ROUTE installed=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
