@@ -30,7 +30,8 @@ public:
         }
         if(tick<due_)return;
         if(req->device==1)mx_.service(ctl_,*req);else id_.service(ctl_,*req);
-        last_completion_=*req;++completed_;token_=0;
+        last_completion_=*req;
+        ++completed_;token_=0;
     }
     uint64_t completed()const noexcept{return completed_;}
     // The last successfully serviced real request; count detects gaps.
