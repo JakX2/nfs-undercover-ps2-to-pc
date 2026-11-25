@@ -1,0 +1,20 @@
+name: Wii V800 Callback Prefix Runtime Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v800*'
+      - '.github/workflows/wii-v800-callback-prefix.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and execute exact callback prefix witness
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_prefix_v800.cpp -o "$RUNNER_TEMP/v800"
+          "$RUNNER_TEMP/v800"
