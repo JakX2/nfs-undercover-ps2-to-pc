@@ -32,8 +32,21 @@ public:
             if(pc!=ack_pc_+4u||!state(false))return fail(5);
             last_=c.inst_count;stage_=3;return true;
         }
-        if(stage_!=1u||!state(true))return fail(2);
-        last_=c.inst_count;pc_=pc;
+        if((stage_!=1u&&stage_!=4u)||!state(stage_==1u))return fail(2);
+        last_=c.inst_count;return arm_access(c,pc,w);
+    }
+    // The ACK successor was witnessed before it executed. Resume that exact
+    // instruction once, without adding a tick or replaying the W1C.
+    template<class C>bool resume_after_ack(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=3u||error_||armed_||!safe(c)||!tick_||&c.inst_count!=tick_||
+           c.inst_count!=last_||pc!=ack_pc_+4u||!state(false)||
+           !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w)return fail(5);
+        stage_=4u;return arm_access(c,pc,w);
+    }
+    bool postack_held()const{return stage_==4u&&!armed_&&tick_&&*tick_==last_&&state(false);}
+private:
+    template<class C>bool arm_access(C& c,uint32_t pc,uint32_t w){
+        pc_=pc;
         const auto a=PostAckTransferDevice::word_access(c,w);
         const auto off=PostAckTransferDevice::offset(a.address);
         if(!off){
@@ -53,16 +66,25 @@ public:
         if(a.kind==PostAckTransferDevice::Access::None||*off==SiController::Poll||reads_+writes_>=128u)return fail(2);
         armed_=true;off_=*off;access_=a.kind;value_=a.store;return true;
     }
+public:
     bool read(SiController& ctl,unsigned off,uint32_t& result){
         if(!consume(ctl,off,PostAckTransferDevice::Access::Read))return false;
-        result=ctl.read(off);++reads_;return state(true)?true:fail(3);
+        result=ctl.read(off);++reads_;return state(stage_==1u)?true:fail(3);
     }
     bool write(SiController& ctl,unsigned off,uint32_t v){
         if(!value_||*value_!=v||!consume(ctl,off,PostAckTransferDevice::Access::Write))return fail(3);
         if(off==SiController::Status){
             if(v&~0x0f0f0f0fu)return fail(4);
             try{ctl.write(off,v);}catch(...){return fail(4);}
-            status_&=~v;++writes_;return state(true)?true:fail(4);
+            status_&=~v;++writes_;return state(stage_==1u)?true:fail(4);
+        }
+        if(stage_==4u){
+            // After ACK permit only real communication RAM writes and
+            // status W1C; new COMCSR transactions need a separate witness.
+            if(off<SiController::Buffer||off>=0x100u||(off&3u))return fail(4);
+            try{ctl.write(off,v);}catch(...){return fail(4);}
+            buffer_[(off-SiController::Buffer)/4u]=v;++writes_;
+            return state(false)?true:fail(4);
         }
         // The guest must explicitly W1C TC while preserving the current
         // transfer parameters and interrupt masks; no new transaction.
@@ -76,7 +98,7 @@ public:
         stage_=2;return true;
     }
     bool poll(uint64_t tick)const{
-        return stage_==1u&&!error_&&!armed_&&tick==last_&&state(true);
+        return (stage_==1u||stage_==4u)&&!error_&&!armed_&&tick==last_&&state(stage_==1u);
     }
 private:
     SiController* ctl_=nullptr;const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
@@ -97,7 +119,7 @@ private:
         return true;
     }
     bool consume(SiController& ctl,unsigned off,PostAckTransferDevice::Access kind){
-        if(stage_!=1u||error_||!armed_||!tick_||*tick_!=last_||&ctl!=ctl_||off!=off_||kind!=access_||!state(true))return fail(3);
+        if((stage_!=1u&&stage_!=4u)||error_||!armed_||!tick_||*tick_!=last_||&ctl!=ctl_||off!=off_||kind!=access_||!state(stage_==1u))return fail(3);
         armed_=false;return true;
     }
 };

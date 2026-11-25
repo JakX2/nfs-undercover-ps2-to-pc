@@ -1,0 +1,3 @@
+# V961: second completion post-ACK device continuation
+
+The existing V950/V954 stop-at-W1C contract remains unchanged by default. Explicit resume admits the exact already witnessed successor at the same native tick, authenticates its original word and decodes its actual MMIO operation. Stage four permits real reads, status W1C and communication-buffer writes while holding the completed token, PI mask, unrelated causes, control parameters and cleared TC. Any new COMCSR operation or unsupported access refuses. Eight successful and twelve invalid synthetic continuation cases added; CI pending. This does not yet execute the original successor.
