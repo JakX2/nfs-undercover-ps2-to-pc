@@ -82,6 +82,9 @@ public:
     template<class C>bool transfer_returned(C& c,uint32_t pc,unsigned visits,bool device){
         return complete_call(c,pc,visits,device,4u,256u);
     }
+    template<class C>bool alarm_returned(C& c,uint32_t pc,unsigned visits,bool device){
+        return complete_call(c,pc,visits,device,5u,256u);
+    }
 private:
     template<class C>bool complete_call(C& c,uint32_t pc,unsigned visits,bool device,unsigned slot,unsigned limit){
         if(stage_!=2||!common(c)||!device||!active_call_||active_call_!=slot||pending_||
