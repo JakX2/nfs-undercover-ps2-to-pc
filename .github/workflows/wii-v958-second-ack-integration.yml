@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v958*'
       - 'research/native_recomp/*v957*'
       - 'research/native_recomp/*v959*'
+      - 'research/native_recomp/*v964*'
       - 'research/native_recomp/wii_second_si_dispatch_v944.h'
       - '.github/workflows/wii-v958-second-ack-integration.yml'
 permissions:
@@ -19,6 +20,7 @@ jobs:
       - run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v958_second_ack.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v964_composed_mmio.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v951_second_dispatch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v939_second_vector.py -v
           bash -n research/native_recomp/run_v572_full_sc_translation.sh

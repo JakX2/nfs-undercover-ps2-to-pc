@@ -40,6 +40,8 @@ def patch_si(s):
     static bool handoff_second_ack(const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,const uint64_t& tick){
         return active_&&si_transfer_device.handoff_second_ack(v958::ack,active_->controller_,cause,mask,tick);
     }''')
+    a='            if(si_completion_ack_trace.phase()!=SiCompletionAckTrace::Phase::Idle){'
+    s=replace_exact(s,a,'            if(v958::active())v958::reject(8);\n'+a)
     a='        if(si_transfer_device.stage()){\n            uint32_t value=0;'
     s=replace_exact(s,a,'''        if(v958::active()){
             uint32_t value=0;

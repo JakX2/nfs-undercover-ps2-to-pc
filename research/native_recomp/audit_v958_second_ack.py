@@ -4,7 +4,7 @@ from pathlib import Path
 import audit_v951_second_dispatch as old
 BEGIN=b'V958_ACK_BEGIN original_handler=1 exclusive_device=1'
 RESULT=rb'V958_ACK_RESULT original_w1c=1 next_label=1 saved_fields=38 token_preserved=1 visits=([0-9]{1,4}) reads=([0-9]{1,3}) writes=([0-9]{1,3}) boot_verified=0'
-FAULT=rb'V958_ACK_INVALID kind=[1-7] stage=[0-3] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}'
+FAULT=rb'V958_ACK_INVALID kind=[1-8] stage=[0-3] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}'
 def inspect(raw,rc):
     if len(raw)>old.capture.MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
     rows=raw.splitlines();hits=[i for i,l in enumerate(rows) if re.fullmatch(old.RESULT,l)]

@@ -5,6 +5,7 @@ from prepare_v958_second_ack import patch_label,patch_binding,patch_si
 from prepare_v939_second_vector import patch_binding as v939
 from prepare_v951_second_dispatch import patch_binding as v951
 from prepare_v777_transfer_return import patch_si as v777
+from prepare_v672_si_ack_route import patch_si as v672
 import audit_v958_second_ack as a
 HERE=Path(__file__).parent
 class LiveAck(unittest.TestCase):
@@ -16,8 +17,9 @@ class LiveAck(unittest.TestCase):
         self.assertIn('if(!v958::enabled())std::_Exit(0);',s)
         with self.assertRaises(ValueError):patch_binding(s)
     def test_mmio(self):
-        s='#include "wii_si_completion_ack_v668.h"\n    static bool active()noexcept{return active_!=nullptr;}\n        try{return si_completion_ack_trace.read(active_->controller_,off);}\ntry{si_completion_ack_trace.write(active_->controller_,*off,value);}'
-        s=v777(s);new=patch_si(s)
+        s=v777(v672((HERE/'wii_si_binding_v512.h').read_text()))
+        new=patch_si(s)
+        self.assertIn('if(v958::active())v958::reject(8);',new)
         self.assertIn('si_transfer_device.handoff_second_ack(v958::ack',new)
         self.assertIn('v958::ack.read(active_->controller_,off,value)',new)
         self.assertIn('v958::ack.write(active_->controller_,*off,value)',new)

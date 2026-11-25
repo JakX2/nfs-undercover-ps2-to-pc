@@ -1,0 +1,3 @@
+# V964: compiled production SI MMIO composition
+
+The earlier V960 compiled test called the new transaction directly; V964 instead composes the actual production sampling, discovery, first-ACK, post-ACK transfer and second-ACK installer patches into a temporary native SI binding, with a real scheduler and controller. Exercises actual SiBinding read/write, exclusive ownership handoff, both SI apertures, disabled behavior and eight failure cases. Malformed width/offset while second ACK is active now refuses in the new witness, not the retired first ACK observer. Synthetic fixture only, no original-code execution or continuous boot claim. CI pending.
