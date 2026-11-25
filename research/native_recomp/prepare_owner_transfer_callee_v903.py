@@ -68,7 +68,7 @@ def header(p,out):
     with out.open('a') as h:
         for name,(addr,save,site),(stop,w,label,count) in zip(('Alarm','Immediate'),nested,stops):
             h.write(f'inline constexpr uint32_t {name}Save={f(save)},{name}SaveSite={f(site)},{name}Resume={f(site+4)};\n')
-            h.write(f'inline constexpr uint32_t {name}NextStop={f(stop)},{name}NextControl={f(w)};\n'.replace('\n','\\n'))
+            h.write(f'inline constexpr uint32_t {name}NextStop={f(stop)},{name}NextControl={f(w)};\n')
             for suffix,words in (('Full',roots[addr]),('SaveWords',roots[save])):
                 h.write(f'inline constexpr std::array<uint32_t,{len(words)}> {name}{suffix}{{'+','.join(map(f,words))+'};\n')
     for ordinal,(_,w,label,count) in zip((5,6),stops):
