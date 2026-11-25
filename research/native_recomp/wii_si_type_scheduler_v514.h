@@ -41,6 +41,11 @@ public:
         ++completed_;token_=0;
     }
     uint64_t completed()const noexcept{return completed_;}
+    struct Configuration {std::optional<Type> response;uint64_t latency;};
+    std::optional<Configuration> configuration(const SiController& ctl,unsigned channel,uint64_t tick)const noexcept{
+        if(&ctl!=&ctl_||channel>3||last_!=tick)return std::nullopt;
+        return Configuration{profile_[channel].type,latency_};
+    }
 private:
     SiController& ctl_;
     const Profile profile_;
@@ -57,6 +62,9 @@ public:
     SiTickBinding(const SiTickBinding&)=delete;
     SiTickBinding& operator=(const SiTickBinding&)=delete;
     static bool active()noexcept{return active_!=nullptr;}
+    static std::optional<SiTypeScheduler::Configuration> configuration(const SiController& ctl,unsigned channel,uint64_t tick)noexcept{
+        return active_?active_->scheduler_.configuration(ctl,channel,tick):std::nullopt;
+    }
     static void advance(uint64_t tick){if(active_)active_->scheduler_.advance(tick);}
 private:
     SiTypeScheduler& scheduler_;

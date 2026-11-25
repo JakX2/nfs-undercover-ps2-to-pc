@@ -17,6 +17,10 @@ public:
     unsigned follow_failure()const noexcept{return follow_.failure();}
     uint64_t token()const noexcept{return follow_.token();}
     bool pending()const{return ctl_&&ctl_->pending().has_value();}
+    bool held(uint64_t tick)const{
+        return (stage_==1||stage_==2)&&!error_&&!armed_&&tick==last_&&common()&&
+            (follow_.stage()?follow_.held(tick):quiescent());
+    }
     static std::optional<unsigned> offset(uint32_t a)noexcept{
         if((a&0xc0000000u)==0x40000000u||(a&3u))return std::nullopt;
         const uint32_t p=(a&0x3fffffffu)&~0x00800000u;
