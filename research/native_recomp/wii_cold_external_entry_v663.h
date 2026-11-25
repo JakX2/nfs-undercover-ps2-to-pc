@@ -34,12 +34,17 @@ public:
         stage_=1;return true;
     }
     template<class C> bool poll(C& c,uint32_t cause,uint32_t mask){
+        return poll(c,cause,mask,[](C&,uint32_t,uint32_t){return true;});
+    }
+    template<class C,class Capture> bool poll(C& c,uint32_t cause,uint32_t mask,Capture&& capture){
         using W=IrqEnableWitness;
         if(!common(c,cause,mask))return fail(2);
         if(!(c.msr&0x8000u))return false; // masked source stays latched
         if(stage_!=2||c.pc!=e_.leaf.resume||c.lr!=W::Return||
            c.msr!=(msr_|0x8000u)||c.inst_count-entry_tick_!=(e_.leaf.resume-W::Entry)/4u||
            !word(c,c.pc,e_.leaf.resume_word)||!context(c)||!image(c))return fail(3);
+        // Capture only after authenticating the exact pre-exception boundary.
+        if(!capture(c,cause,mask))return fail(10);
         gp_=c.gpr;lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
         resume_=c.pc;prior_=c.msr;
         struct Source {bool external_exception_pending(uint32_t msr)const{return (msr&0x8000u)!=0;}};

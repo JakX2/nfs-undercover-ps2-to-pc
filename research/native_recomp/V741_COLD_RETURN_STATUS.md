@@ -1,0 +1,3 @@
+# V741: pre-exception snapshot for continuous native RFI
+
+The actual cold external-entry witness already authenticates the exact resume label, IRQ source, MSR, context and vector before entering the exception. Add a callback overload at that exact boundary, before mutation by native external entry. Existing three-argument behavior remains unchanged. A read-only V706 capture adapter preserves the original integer context for the eventual full-image RFI check. A synthetic end-to-end control verifies one capture only, masked polls and invalid entry never capture, a refused capture never enters the exception, corrupted restored GPR/CR are rejected. The new overload is not yet enabled in the production binding, and no original context return is claimed. 
