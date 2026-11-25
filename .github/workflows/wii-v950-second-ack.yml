@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v950*'
+      - 'research/native_recomp/*v957*'
+      - 'research/native_recomp/wii_postack_transfer_device_v771.h'
       - '.github/workflows/wii-v950-second-ack.yml'
 permissions:
   contents: read
@@ -15,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          for n in second_completion_ack_v950 second_si_dispatch_v944 si_completion_ack_v668 postack_transfer_device_v771; do
+          for n in second_ack_handoff_v957 second_completion_ack_v950 second_si_dispatch_v944 si_completion_ack_v668 postack_transfer_device_v771; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/test_$n.cpp" -o "$RUNNER_TEMP/$n"
             "$RUNNER_TEMP/$n"
           done

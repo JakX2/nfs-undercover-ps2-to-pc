@@ -25,6 +25,20 @@ public:
         return (stage_==1||stage_==2)&&!error_&&!armed_&&!status_pending_&&!status_write_pending_&&tick==last_&&common()&&
             (follow_.stage()?follow_.held(tick):quiescent());
     }
+    // Transfer ownership of the already completed successor to a fresh
+    // ACK observer. The old held witness is retired only after admission.
+    // No register write, token reset or scheduler advancement here.
+    template<class Ack>bool handoff_second_ack(Ack& ack,SiController& ctl,
+               const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
+               const uint64_t& tick){
+        if(stage_!=2u||error_||&ctl!=ctl_||&cause!=cause_||&mask!=mask_||&tick!=tick_||
+           follow_.stage()!=3u||!held(tick)||ctl.pending()||token()<2u||
+           ctl.issued_tokens()!=token()||(cause.load()&mask.load())!=SiController::PI_SI)
+            return false;
+        if(!ack.arm(ctl,cause,mask,tick,token(),true))return false;
+        stage_=3u;
+        return true;
+    }
     static std::optional<unsigned> offset(uint32_t a)noexcept{
         if((a&0xc0000000u)==0x40000000u||(a&3u))return std::nullopt;
         const uint32_t p=(a&0x3fffffffu)&~0x00800000u;
