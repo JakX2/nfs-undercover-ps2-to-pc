@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/prepare_owner_cancel_v754.py
+          python3 -m unittest discover -s research/native_recomp -p test_v759_alarm_queue.py -v
           bash -n research/native_recomp/run_owner_cancel_v754.sh
   owner-context:
     needs: original-free

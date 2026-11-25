@@ -9,7 +9,7 @@
 #include <source_location>
 #include <string>
 using nwii::runtime::CPUContext;
-constexpr uint32_t Sda=0x80020000u,Head=Sda-3496u,Tail=Sda-3492u,MSR=0x32u;
+constexpr uint32_t Sda=0x8070e8e0u,Head=Sda-3496u,Tail=Sda-3492u,MSR=0x32u;
 constexpr uint32_t A=0x80030000u,B=A+0x100u,N=B+0x100u,Handler=0x80050000u;
 static std::array<uint32_t,32> gp;
 static unsigned entries=0,visits=0,outer=0,stops=0,trial=0;

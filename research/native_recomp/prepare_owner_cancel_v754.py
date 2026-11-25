@@ -11,11 +11,51 @@ from audit_os_leaf_v703 import plan as leaf_plan
 from si_nested_geometry_v693 import nested_plan
 from prepare_owner_leaf_v714 import bl
 from prepare_owner_scheduler_v722 import reachable,sda_accesses,ROOT,READ,rewrite
+from audit_si_deep_v695 import step as constant_step,target,signed
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root
 H=0x80004000
 BLR=0x4e800020
+# Established original SDA and queue offsets from the V47 alarm-init fixture.
+SDA=0x8070e8e0
+QUEUE=(SDA-3496,SDA-3492)
+def queue_stores(root,words):
+    end=root+4*len(words);initial=[None]*32;initial[13]=SDA
+    states={root:tuple(initial)};work=[root];writes={};visits=0
+    while work:
+        pc=work.pop();visits+=1
+        if visits>16384:raise ValueError('cancel queue analysis bound')
+        w=words[(pc-root)//4];op=w>>26;rd=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31;xo=(w>>1)&1023
+        regs=states[pc];q=list(regs)
+        if op in (36,37):
+            a=regs[ra] if ra else 0
+            writes[pc]=None if a is None else (a+signed(w&0xffff))&0xffffffff
+        elif op==31 and xo in (151,183):
+            a=regs[ra] if ra else 0;b=regs[rb]
+            writes[pc]=None if a is None or b is None else (a+b)&0xffffffff
+        if op==18 and w&1:
+            # The independently authenticated call edges are ABI calls.
+            # Do not propagate volatile register constants across them.
+            for i in (0,*range(3,13)):q[i]=None
+        elif op==31 and xo in (339,19,83):q[rd]=None # mfspr/mfcr/mfmsr
+        elif op==31 and xo in (467,144,146,0,32):pass # mtspr/mtcrf/mtmsr/cmp
+        elif op in (20,21,23):q[ra]=None # rotate/mask
+        elif op==31 and xo in (266,40,10,8):
+            a,b=regs[ra],regs[rb]
+            q[rd]=None if a is None or b is None else ((a+b if xo in (266,10) else b-a)&0xffffffff)
+        elif op==31 and xo in (28,60,124,316,536,792,824,922,954):q[ra]=None
+        elif op in (7,8,12,13):q[rd]=None
+        else:q=list(constant_step(w,regs)[0])
+        if op==19 and xo==16 and not(w&1):continue
+        if op in (16,18) and not(w&1):
+            dest=[target(pc,w)]+([pc+4] if op==16 else [])
+        else:dest=[pc+4]
+        for a in dest:
+            if a&3 or not root<=a<end:raise ValueError('cancel queue flow')
+            old=states.get(a);new=tuple(q) if old is None else tuple(x if x==y else None for x,y in zip(old,q))
+            if old!=new:states[a]=new;work.append(a)
+    return tuple(sum(v==a for v in writes.values()) for a in QUEUE),sum(v is None for v in writes.values())
 def plan(dol,elf):
     n,*_=geometry(dol,elf);handler=exact(dol,elf,HANDLER,n);sizes=parse_functions(elf)
     C=edge(HANDLER,handler,5)[1]
@@ -27,7 +67,10 @@ def plan(dol,elf):
     if len(edges)!=7 or [v for _,v in edges[:3]]!=[D,R,T] or edges[-1][1]!=R:raise ValueError('cancel dependencies')
     # Head/tail offsets were already established by the V47 alarm init.
     # Require the original cancellation code to reference both as stores.
-    if set(sda_accesses(code,36))!={-3496,-3492}:raise ValueError('cancel queue sda')
+    counts,unknown=queue_stores(C,code)
+    direct=sda_accesses(code,36)
+    print(f'V759_QUEUE_GEOMETRY head={counts[0]} tail={counts[1]} direct={len(direct)} unknown={unknown}')
+    if not all(counts):raise ValueError('cancel queue sda')
     guards=sorted({v for _,v in edges if v not in (D,R)})
     for a in guards:
         if a!=T and sizes.get(a)!=8:raise ValueError('timer guard extent')
@@ -96,7 +139,7 @@ def main():
         else:
             header(p,x.output);print('V754_CANCEL_GEOMETRY verified=1 original_words=70 queue_sda=2')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError) as e:
-        allowed=('cancel extent','cancel shape','cancel dependencies','cancel queue sda','timer guard extent','guard overlap','fixture ownership','native labels','native call owner','hook identity','hook include','hook coverage')
+        allowed=('cancel extent','cancel shape','cancel dependencies','cancel queue sda','cancel queue analysis bound','cancel queue flow','timer guard extent','guard overlap','fixture ownership','native labels','native call owner','hook identity','hook include','hook coverage')
         print('V754_CANCEL_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
