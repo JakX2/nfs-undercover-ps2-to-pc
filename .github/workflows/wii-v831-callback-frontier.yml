@@ -22,7 +22,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v831_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v836_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v847_wireless_wrapper.py -v
-          python3 -m unittest discover -s research/native_recomp -p test_v848_wireless_audit.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v848_wireless_wrapper.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
