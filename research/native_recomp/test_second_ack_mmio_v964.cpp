@@ -66,6 +66,7 @@ int main(int argc,char** argv){
     if(mode=="return")c.gpr[14]^=1u;
     visit(H+4,bl(H+4,Completion));
     c.pc=Completion;c.lr=H+8;v958::observe(c.pc,c);
+    if(mode=="mirror")c.gpr[3]=Mirror;
     visit(Completion,Load);
     if(mode=="width")SiBinding::check(Base+C,2u,true);
     if(mode=="offset")SiBinding::check(Base+8u,4u,true);
