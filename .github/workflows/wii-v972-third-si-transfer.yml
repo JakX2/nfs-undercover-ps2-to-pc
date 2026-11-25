@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/*v972*'
       - 'research/native_recomp/*v973*'
       - 'research/native_recomp/*v976*'
+      - 'research/native_recomp/*v980*'
       - '.github/workflows/wii-v972-third-si-transfer.yml'
 permissions:
   contents: read

@@ -12,6 +12,9 @@ from prepare_owner_second_dispatch_v946 import reachable
 from prepare_owner_scheduler_v722 import ROOT,READ,rewrite
 from audit_handler_third_v740 import edge
 from prepare_v672_si_ack_route import call_census
+from audit_handler_suffix_v728 import suffix,target as branch_target
+from audit_si_deep_v695 import call_kind
+from make_private_elf_symbol_map import parse_functions
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root
@@ -51,10 +54,37 @@ def plan(dol,elf):
             category=kind if kind else 3 if op in (16,18) else 4 if op==19 and xo in (16,528) else 5 if op==31 and xo==146 else 6
             guard_rows.append((pc,lane,ordinal,category))
     if not guard_rows or len(guard_rows)>64:raise ValueError('guard census')
-    return (roots,edges,indirect,iw,hw,dw,guard,new),site,msr,frontier,call,C,S,R,overlaps,guard_rows
+    original=exact(dol,elf,HANDLER,n)
+    count,backs,stores,stops=suffix(HANDLER,original,call+4)
+    if not 1<=count<=64 or not stops or any(k not in (1,3,5) for _,k,_,_ in stops):raise ValueError('transfer suffix geometry')
+    stops_by_pc={pc:(ordinal,1 if kind==1 else 2 if kind==5 else 0) for pc,kind,ordinal,_ in stops}
+    rows={};todo=[call+4]
+    while todo:
+        pc=todo.pop()
+        if pc in rows:continue
+        if not HANDLER<=pc<HANDLER+4*n:raise ValueError('transfer suffix extent')
+        w=original[(pc-HANDLER)//4];ordinal,kind=stops_by_pc.get(pc,(0,0))
+        translated=roots[HANDLER][(pc-HANDLER)//4]
+        rows[pc]=(translated,ordinal,kind)
+        if pc in stops_by_pc:continue
+        if translated!=w:raise ValueError('transfer suffix guard')
+        if w>>26 in (16,18):
+            todo.append(branch_target(pc,w))
+            if w>>26==18:continue
+        todo.append(pc+4)
+    if len(rows)!=count:raise ValueError('transfer suffix extent')
+    # Classify the success-only completion helper's second direct call.
+    completion=extra[1][1];original_completion=exact(dol,elf,completion,len(roots[completion]))
+    direct=[(completion+4*i,branch_target(completion+4*i,w)) for i,w in enumerate(original_completion) if call_kind(w)==1]
+    if len(direct)!=2:raise ValueError('completion second call')
+    dep=direct[1][1];size=parse_functions(elf).get(dep,0)
+    if not 4<=size<=4096 or size&3:raise ValueError('completion second call')
+    code=exact(dol,elf,dep,size//4)
+    print(f'V980_COMPLETION_DEPENDENCY exact_root=1 words={len(code)} calls={sum(bool(call_kind(w)) for w in code)} returns={code.count(0x4e800020)} execution=0')
+    return (roots,edges,indirect,iw,hw,dw,guard,new),site,msr,frontier,call,C,S,R,overlaps,guard_rows,rows
 
 def header(p,out):
-    q,site,msr,frontier,call,C,S,R,overlaps,guard_rows=p
+    q,site,msr,frontier,call,C,S,R,overlaps,guard_rows,rows=p
     roots,edges,indirect,iw,hw,dw,guard,extra=q
     # Keep the proven nine-root header layout, then replace its edge census.
     base=(*q[:7],extra[:7]);time_header(base,out,site,msr,frontier)
@@ -67,6 +97,8 @@ def header(p,out):
         ws=roots[a];s+=f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+fmt(ws)+'};\n'
     s+=f'inline constexpr unsigned TransferRootCount={len(roots)};\n'
     s+=f'inline constexpr std::array<std::array<uint32_t,4>,{len(guard_rows)}> GuardCensus{{{{'+','.join('std::array<uint32_t,4>{'+fmt(row)+'}' for row in guard_rows)+'}};\n'
+    s+='#include "wii_handler_suffix_guard_v868.h"\n'
+    s+=f'inline constexpr std::array<undercover::wii::HandlerSuffixLabel,{len(rows)}> TransferSuffix{{{{'+','.join('undercover::wii::HandlerSuffixLabel{'+fmt((pc,w))+f',{o}u,{k}u'+'}' for pc,(w,o,k) in sorted(rows.items()))+'}};\n'
     out.write_text(s)
 
 def patch_analyzer(p,root):
@@ -101,7 +133,7 @@ def install(p,root):
     for path,s in changes.items():
         s=replace_exact(s,inc,inc+'\nnamespace rfi_test {void before_owned(nwii::runtime::CPUContext&,uint32_t,uint32_t,uint32_t);}')
         path.write_text(s)
-    print(f'V971_TRANSFER_NATIVE labels={total} roots={len(roots)} direct_edges={len(edges)+len(extra)} shared_suffixes={p[-2]} execution=0')
+    print(f'V971_TRANSFER_NATIVE labels={total} roots={len(roots)} direct_edges={len(edges)+len(extra)} shared_suffixes={p[-3]} execution=0')
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('output',type=Path)
@@ -111,9 +143,9 @@ def main():
         q=plan(a.dol.read_bytes(),a.elf.read_bytes())
         if a.install:install(q,a.output)
         elif a.patch_analyzer:patch_analyzer(q,a.output)
-        else:header(q,a.output);print(f'V971_TRANSFER_GEOMETRY roots={len(q[0][0])} edges=17 shared_suffixes={q[-2]} execution=0')
+        else:header(q,a.output);print(f'V971_TRANSFER_GEOMETRY roots={len(q[0][0])} edges=17 shared_suffixes={q[-3]} execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        allowed=('transfer geometry','transfer overlap','guard census','native owner','native coverage','hook identity','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        allowed=('transfer geometry','transfer overlap','guard census','transfer suffix geometry','transfer suffix extent','transfer suffix guard','completion second call','native owner','native coverage','hook identity','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V971_TRANSFER_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

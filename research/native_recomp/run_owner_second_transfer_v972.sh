@@ -73,6 +73,12 @@ for mode in nonsplit split; do
       }
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=[01] token=[23] pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       returned=$((returned+1))
+      case "$lane" in queue-transfer) suffix=queue-suffix;; transfer) suffix=seeded-suffix;; *) continue;; esac
+      timeout 20s "$work/probe" "$trial" "$suffix" "$dol" > "$work/run.log" 2>&1 || {
+        grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+        echo "V980_SUFFIX_EXECUTION failed=1";exit 1;
+      }
+      grep -Ex 'V980_TRANSFER_SUFFIX seed=[13] profile=[0-7] ordinal=[0-9]{1,2} kind=[0-2] handler_blr=[01] callback_candidate=[01] visits=[0-9]+ status_reads=[01] status_writes=[01] token_held=1 saved_fields=38 boundary_executed=0' "$work/run.log"
     done
   done
   [[ $((admitted+guards+incomplete)) == 32 && "$returned" == "$admitted" ]]

@@ -49,6 +49,12 @@ static SiTypeScheduler* scheduler=nullptr;
 static PostAckTransferDevice third;
 static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned seed_kind=0;
+static bool suffix_route=false;
+static HandlerSuffixGuard suffix_guard;
+static unsigned suffix_reg=32,suffix_tick=0;
+static bool suffix_write=false;
+static std::array<uint32_t,32> handler_gp{};
+static uint32_t handler_lr=0;
 static unsigned transfer_channel=0,transfer_tick=0,transfer_entries=0,transfer_returns=0;
 static std::array<uint32_t,32> transfer_args{};
 constexpr uint32_t TransferData=0x80619a60u;
@@ -89,10 +95,47 @@ static void load_private_data(CPUContext& c,const char* path){
     }
     need(!ranges.empty());
 }
+static void suffix_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
+    need(owner==Handler&&third.stage()==2u&&call_route.depth()==0u&&!(c.msr&0x8000u)&&third.held_now());
+    if(suffix_reg<32u){
+        const auto value=third.suffix_status_value();need(value&&c.gpr[suffix_reg]==*value);
+        suffix_reg=32u;
+    }
+    if(suffix_write){need(third.suffix_status_writes()==1u);suffix_write=false;}
+    const auto row=std::find_if(TransferSuffix.begin(),TransferSuffix.end(),[pc](const auto& v){return v.pc==pc;});
+    need(row!=TransferSuffix.end());
+    const auto a=PostAckTransferDevice::word_access(c,w);
+    const auto off=PostAckTransferDevice::offset(a.address);
+    const bool rd=off&&*off==SiController::Status&&a.kind==PostAckTransferDevice::Access::Read;
+    const bool wr=off&&*off==SiController::Status&&a.kind==PostAckTransferDevice::Access::Write;
+    need(!off||rd||wr);
+    need(suffix_guard.before(c,pc,w,row->ordinal,row->kind,rd,wr));
+    if(row->kind||w==0x4e800020u){
+        const bool returned=!row->kind;
+        if(returned){
+            need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&c.lr==handler_lr);
+            for(unsigned i:{1u,2u,13u})need(c.gpr[i]==handler_gp[i]);
+            for(unsigned i=14;i<32;++i)need(c.gpr[i]==handler_gp[i]);
+        }
+        need(third.held_now()&&third.token()==3u&&ctl->issued_tokens()==3u&&!ctl->pending()&&cause==(Other|SiController::PI_SI));
+        std::cout<<std::dec<<"V980_TRANSFER_SUFFIX seed="<<seed_kind<<" profile="<<trial<<" ordinal="<<row->ordinal
+            <<" kind="<<row->kind<<" handler_blr="<<returned<<" callback_candidate="<<(row->kind==2u&&c.ctr==0x805327f8u)
+            <<" visits="<<ack_visits-suffix_tick<<" status_reads="<<third.suffix_status_reads()<<" status_writes="<<third.suffix_status_writes()
+            <<" token_held=1 saved_fields=38 boundary_executed=0"<<std::endl;
+        std::_Exit(0);
+    }
+    if(rd){need(third.arm_suffix_status_read(c.inst_count,a.address));suffix_reg=(w>>21)&31u;}
+    if(wr){need(a.store&&third.arm_suffix_status_write(c.inst_count,a.address,*a.store));suffix_write=true;}
+}
 namespace rfi_test {
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(ack.stage()){
         need(captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
+        if(third.stage()==2u){
+            need(suffix_route&&ack.stage()==5u);
+            scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count));
+            suffix_before(c,owner,pc,w);return;
+        }
         if(third.stage()){
             need(ack.stage()==5u&&third.stage()==1u&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&c.mmu.read32(pc)==w);
             scheduler->advance(c.inst_count);
@@ -117,7 +160,9 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 std::cout<<std::dec<<"V972_TRANSFER_RETURN original_transfer=1 idle="<<transfer_idle<<" token="<<ctl->issued_tokens()
                          <<" pending="<<third.pending()<<" visits="<<ack_visits-transfer_tick<<" reads="<<third.reads()<<" writes="<<third.writes()
                          <<" saved_fields=38 handler_instruction_executed=0"<<std::endl;
-                std::_Exit(0);
+                if(!suffix_route)std::_Exit(0);
+                need(third.token()==3u&&third.follow_stage()==3u&&suffix_guard.start(c,TransferSuffix,pc));
+                suffix_tick=ack_visits;suffix_before(c,owner,pc,w);
             }
             return;
         }
@@ -219,6 +264,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(ok);
     if(pc==Handler){
         need(witness.stage()==6u&&entries==5u&&reads>=2u&&captured.saved_integer(c,Context).ok());
+        handler_gp=c.gpr;handler_lr=c.lr;
         need(call_route.begin(c,ack_spans,ack_edges,AckMsr));
         need(ack.arm(*ctl,cause,bank_mask,c.inst_count,ctl->issued_tokens(),held()));
         ++entries;return;
@@ -262,9 +308,10 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer");
+    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
-    seed_kind=mode=="seeded-args"||mode=="transfer"?3u:mode=="queue-args"||mode=="queue-transfer"?1u:mode=="active-args"||mode=="active-transfer"?2u:0u;
+    suffix_route=mode=="queue-suffix"||mode=="seeded-suffix";
+    seed_kind=mode=="seeded-args"||mode=="transfer"||mode=="seeded-suffix"?3u:mode=="queue-args"||mode=="queue-transfer"||mode=="queue-suffix"?1u:mode=="active-args"||mode=="active-transfer"?2u:0u;
     seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args";
     transfer_route=seeded_route||argument_probe;frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
