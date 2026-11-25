@@ -65,7 +65,7 @@ inline bool second_enabled(){const char* v=std::getenv("UNDERCOVER_V939_SECOND_V
         return;
     }
 '''+a)
-    a='            <<route.visits()<<" device_held=1 resumed_instruction_executed=0 boot_verified=0"<<std::endl;std::_Exit(0);'
+    a='\n            <<route.visits()<<" device_held=1 resumed_instruction_executed=0 boot_verified=0"<<std::endl;std::_Exit(0);'
     s=replace_exact(s,a,a.replace('std::_Exit(0);','')+'''
         if(!second_enabled())std::_Exit(0);
         if(!second.begin(c,reentry,cause(),mask(),v850::held(c)))reject_second(4);

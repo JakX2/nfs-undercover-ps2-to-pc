@@ -8,6 +8,8 @@ class SecondVector(unittest.TestCase):
     def test_seams(self):
         out=patch_binding((HERE/'wii_live_irq_return_binding_v922.h').read_text())
         self.assertIn('second.begin(c,reentry',out);self.assertIn('second.poll(c,cause()',out)
+        self.assertIn('             <<route.visits()<<" device_held=1 resumed_instruction_executed=0 boot_verified=0"<<std::endl;std::_Exit(0);',out)
+        self.assertEqual(out.count('if(!second_enabled())std::_Exit(0);'),1)
         with self.assertRaises(ValueError):patch_binding(out)
         label='loc_80000500: ;\n    // 0x80000500: 60000000\n    ++ctx.inst_count;\n'
         si='    ctx.si_instruction_boundary();\n'

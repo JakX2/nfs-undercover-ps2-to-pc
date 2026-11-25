@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/*v762*'
       - 'research/native_recomp/*v935*'
+      - 'research/native_recomp/wii_second_vector_v939.h'
+      - 'research/native_recomp/wii_external_return_v706.h'
       - 'research/native_recomp/*v932*'
       - 'research/native_recomp/*v921*'
       - 'research/native_recomp/prepare_owner_handler_tail_v879.py'
