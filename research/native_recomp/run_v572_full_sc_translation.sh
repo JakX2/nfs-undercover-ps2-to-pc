@@ -179,8 +179,8 @@ fi
 if [[ "$external_entry" == 1 ]]; then
   helper_args=()
   [[ "$si_ack" != 1 ]] || helper_args+=(--first-ack-helper)
-  if [[ "$si_handler_restore" == 1 || "$si_combined" == 1 ]]; then helper_args+=(--restore-alias);fi
-  [[ "$si_epilogue" != 1 ]] || helper_args+=(--epilogue)
+  if [[ "$si_handler_restore" == 1 || "$si_combined" == 1 || ( "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ) ]]; then helper_args+=(--restore-alias);fi
+  if [[ "$si_epilogue" == 1 || ( "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ) ]]; then helper_args+=(--epilogue);fi
   [[ "$si_transfer_prefix" != 1 ]] || helper_args+=(--transfer-prefix)
   [[ "$si_transfer_return" != 1 ]] || helper_args+=(--transfer-return)
   [[ "$si_alarm" != 1 ]] || helper_args+=(--alarm)
@@ -248,6 +248,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
         if [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]]; then python3 "$here/prepare_v919_handler_epilogue.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v920_handler_return.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v921_capture_join.py" "$work/generated";fi
+        if [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v922_irq_return.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_PREPARE_V884_HANDLER_TAIL:-0}" == 1 ]]; then python3 "$here/prepare_v884_handler_tail.py" "$dol" "$elf" "$work/generated";fi
       fi
     fi
@@ -308,6 +309,17 @@ CPP
 void instantiate_handler_suffix(nwii::runtime::CPUContext& cpu){
     undercover::wii::v868::before(cpu,cpu.pc,0u,0u,0u);
     undercover::wii::v868::poll(cpu);
+}
+CPP
+  fi
+  if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]]; then
+    cat >> "$work/probe.cpp" <<'CPP'
+void instantiate_live_irq_return(nwii::runtime::CPUContext& cpu){
+    undercover::wii::v922::begin(cpu,cpu.pc,0u);
+    undercover::wii::v922::before(cpu,cpu.pc,0u);
+    undercover::wii::v922::poll(cpu);
+    undercover::wii::v922::observe(cpu.pc,cpu);
+    undercover::wii::v922::resume(cpu,cpu.pc,0u);
 }
 CPP
   fi
