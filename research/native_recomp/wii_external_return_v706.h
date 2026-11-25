@@ -16,6 +16,29 @@ public:
         resume_=c.pc;restored_msr_=c.msr&ExternalSrr1Mask;
         cause_=cause&~8u;mask_=mask;start_tick_=c.inst_count;stage_=1;return true;
     }
+    struct SavedIntegerCheck{
+        unsigned gpr_mismatches=0,special_mask=0;
+        bool valid=false;
+        bool ok()const{return valid&&!gpr_mismatches&&!special_mask;}
+    };
+    // The original vector/trampoline must actually have saved the captured
+    // integer context, including the CR and previously unobserved r0-r2.
+    // This read-only check never changes the later RFI witness stage.
+    template<class C>SavedIntegerCheck saved_integer(C& c,uint32_t base)const{
+        SavedIntegerCheck out;
+        if(stage_!=1||error_||ctx_!=&c||!safe(c)||(c.msr&0x8000u)||
+           (base&3u)||base<0x80000000u||uint64_t(base)+416u>0x81800000u||
+           c.inst_count<=start_tick_||c.inst_count-start_tick_>32768u)return out;
+        auto same=[&](uint32_t off,uint32_t v){
+            const auto a=base+off;
+            return c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+3u)&&c.mmu.read32(a)==v;
+        };
+        for(unsigned i=0;i<32;++i)if(!same(i*4u,gp_[i]))++out.gpr_mismatches;
+        const std::array<uint32_t,6> offsets{128u,132u,136u,140u,408u,412u};
+        const std::array<uint32_t,6> values{cr_,lr_,ctr_,xer_,resume_,restored_msr_};
+        for(unsigned i=0;i<offsets.size();++i)if(!same(offsets[i],values[i]))out.special_mask|=1u<<i;
+        out.valid=true;return out;
+    }
     template<class C>bool before_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         // Only a private authenticated native RFI label may invoke this.
         if(stage_!=1||!common(c,cause,mask)||c.msr&0x8000u||

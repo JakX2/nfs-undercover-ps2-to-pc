@@ -2,10 +2,12 @@
 # Bounded, original DOL-only, headless startup through the DSP flush return.
 set -euo pipefail
 umask 077
-[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == dsp-return || "$4" == mi-return || "$4" == report-return || "$4" == arena-return || "$4" == irq-enable-return || "$4" == ipc-client-return || "$4" == stm-open || "$4" == open-request || "$4" == irq-pending-entry || "$4" == irq-si-dispatch || "$4" == irq-si-ack || "$4" == irq-si-postack || "$4" == irq-si-os-leaves || "$4" == irq-si-handler-return || "$4" == irq-si-handler-restore || "$4" == irq-si-handler-time || "$4" == irq-si-time-suffix || "$4" == irq-pending-capture ) ) ]] || exit 2
 mode="${4:-dsp-sc}"
 open_request=0
 external_entry=0
+external_capture=0
+if [[ "$mode" == irq-pending-capture ]]; then mode=irq-pending-entry;external_capture=1;fi
 si_dispatch=0
 si_ack=0
 si_postack=0
@@ -34,6 +36,7 @@ if [[ "$mode" == ipc-client-return || "$mode" == stm-open ]]; then extra+=(UNDER
 if [[ "$mode" == stm-open ]]; then extra+=(UNDERCOVER_V629_STM=1);audit=audit_v629_stm_open.py;fi
 if [[ "$open_request" == 1 ]]; then extra+=(UNDERCOVER_V641_OPEN=1);audit=audit_v641_open_request.py;fi
 if [[ "$external_entry" == 1 ]]; then extra+=(UNDERCOVER_V663_EXTERNAL=1);audit=audit_v663_external_entry.py;fi
+if [[ "$external_capture" == 1 ]]; then extra+=(UNDERCOVER_V751_CAPTURE=1);audit=audit_v751_cold_capture.py;fi
 if [[ "$si_dispatch" == 1 ]]; then extra+=(UNDERCOVER_V667_SI_DISPATCH=1);audit=audit_v667_si_dispatch.py;fi
 if [[ "$si_ack" == 1 ]]; then extra+=(UNDERCOVER_V672_SI_ACK=1);audit=audit_v672_si_ack_route.py;fi
 if [[ "$si_postack" == 1 ]]; then extra+=(UNDERCOVER_V699_SI_POSTACK=1);audit=audit_v699_si_postack.py;fi

@@ -1,0 +1,3 @@
+# V751: capture live original pre-exception integer state and validate saved OSContext
+
+V741 synthetic tests verified the capture hook. V751 adds a separate opt-in original-image installer that captures before the real IRQ entry and validates all 32 GPR memory slots, CR, LR, CTR, XER, SRR0 and SRR1 in the original saved OSContext at dispatcher entry. The witness remains at its captured stage for eventual native RFI validation. No register, memory or device state is written by the observer. Existing default external-entry scope unchanged. Source/synthetic tests and private preflight are automatic; original runtime invocation is a separate selectable scope, not yet verified. Saved FP/paired-single ownership is not claimed.

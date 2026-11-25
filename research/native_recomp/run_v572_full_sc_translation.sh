@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Full-image translation and opt-in bounded DSP SC startup; private scratch only.
 set -euo pipefail
-[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix ) ) ]] || exit 2
+[[ $# == 3 || ( $# == 4 && ( "$4" == --prepare-dsp-sc || "$4" == --run-dsp-sc || "$4" == --run-dsp-return || "$4" == --prepare-mi || "$4" == --run-mi || "$4" == --prepare-report || "$4" == --prepare-report-observer || "$4" == --run-report || "$4" == --prepare-arena || "$4" == --run-arena || "$4" == --prepare-irq-enable || "$4" == --run-irq-enable || "$4" == --prepare-ipc-client || "$4" == --run-ipc-client || "$4" == --prepare-stm-open || "$4" == --run-stm-open || "$4" == --prepare-open-request || "$4" == --run-open-request || "$4" == --prepare-external-overlay || "$4" == --prepare-external-entry || "$4" == --run-external-entry || "$4" == --prepare-si-dispatch || "$4" == --run-si-dispatch || "$4" == --prepare-si-ack || "$4" == --run-si-ack || "$4" == --run-si-postack || "$4" == --run-si-os-leaves || "$4" == --prepare-si-os-leaves || "$4" == --run-si-handler-return || "$4" == --prepare-si-handler-return || "$4" == --prepare-si-handler-restore || "$4" == --run-si-handler-restore || "$4" == --prepare-si-handler-time || "$4" == --run-si-handler-time || "$4" == --run-si-time-suffix || "$4" == --run-external-capture || "$4" == --prepare-external-capture ) ) ]] || exit 2
 mode="${4:-translation-only}"
 external_args=()
 external_entry=0
+external_capture=0
+if [[ "$mode" == --run-external-capture ]]; then mode=--run-external-entry;external_capture=1;fi
+if [[ "$mode" == --prepare-external-capture ]]; then mode=--prepare-external-entry;external_capture=1;fi
 si_dispatch=0
 si_ack=0
 si_postack=0
@@ -115,6 +118,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
   fi
   if [[ "$external_entry" == 1 ]]; then
     python3 "$here/prepare_v663_external_entry.py" "$dol" "$elf" "$work/generated"
+    if [[ "$external_capture" == 1 ]]; then python3 "$here/prepare_v751_cold_capture.py" "$work/generated";fi
     if [[ "$si_dispatch" == 1 ]]; then python3 "$here/prepare_v667_si_dispatch.py" "$dol" "$elf" "$work/generated";fi
     if [[ "$si_ack" == 1 ]]; then
       python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated"
@@ -162,6 +166,7 @@ if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run
     [[ "$mode" != --run-stm-open ]] || target=stm-open
     [[ "$open_request" != 1 ]] || target=open-request
     [[ "$external_entry" != 1 ]] || target=irq-pending-entry
+    [[ "$external_capture" != 1 ]] || target=irq-pending-capture
     [[ "$si_dispatch" != 1 ]] || target=irq-si-dispatch
     [[ "$si_ack" != 1 ]] || target=irq-si-ack
     [[ "$si_postack" != 1 ]] || target=irq-si-postack
