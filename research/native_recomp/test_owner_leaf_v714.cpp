@@ -26,6 +26,13 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
         <<" time_reads="<<time_reads<<std::endl;
     std::_Exit(126);
 }
+[[noreturn]]static void fault(unsigned kind){
+    const auto i=leaf_index<3?leaf_index:2u;
+    std::cout<<"V716_OWNER_LEAF_FAULT kind="<<kind<<" ordinal="<<i+1
+        <<" stage="<<leaves[i].stage()<<" witness="<<leaves[i].failure()
+        <<" time_reads="<<time_reads<<" outer_polls="<<outer_polls<<std::endl;
+    std::_Exit(126);
+}
 namespace leaf_test{
 void before(nwii::runtime::CPUContext& c,uint32_t pc,uint32_t word){
     if(pending_reg<32){need(c.gpr[pending_reg]==expected_word);pending_reg=32;}
@@ -68,27 +75,31 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(started&&leaf_index<3&&leaves[leaf_index].entry(pc,c));
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(started){need(!leaves[leaf_index].poll(c));throw std::runtime_error("unexpected inner callback");}
+    if(started){leaves[leaf_index].poll(c);fault(1);}
     ++outer_polls;return false;
 }
-bool handle_syscall(CPUContext&){throw std::runtime_error("unexpected syscall");}
-void interpret_step(CPUContext&){throw std::runtime_error("interpreter forbidden");}
-void micro_interpret(CPUContext&,uint32_t,uint32_t){throw std::runtime_error("micro interpreter forbidden");}
-void note_null_call(uint32_t,uint32_t){throw std::runtime_error("null call");}
+bool handle_syscall(CPUContext&){fault(2);}
+void interpret_step(CPUContext&){fault(3);}
+void micro_interpret(CPUContext&,uint32_t,uint32_t){fault(4);}
+void note_null_call(uint32_t,uint32_t){fault(5);}
 void watch_hit(uint32_t,uint32_t,int){}
-void GX_WGPIPE_Write8(uint8_t){}void GX_WGPIPE_Write16(uint16_t){}void GX_WGPIPE_Write32(uint32_t){}
-void GX_WGPIPE_WriteF32(float){}void GX_WGPIPE_WriteF64(double){}
-uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("unexpected MMIO");}
-uint32_t HW_Reg_Read32(uint32_t){throw std::runtime_error("unexpected MMIO");}
-void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("unexpected MMIO");}
-void HW_Reg_Write32(uint32_t,uint32_t){throw std::runtime_error("unexpected MMIO");}
+void GX_WGPIPE_Write8(uint8_t){fault(7);}void GX_WGPIPE_Write16(uint16_t){fault(7);}void GX_WGPIPE_Write32(uint32_t){fault(7);}
+void GX_WGPIPE_WriteF32(float){fault(7);}void GX_WGPIPE_WriteF64(double){fault(7);}
+uint16_t HW_Reg_Read16(uint32_t){fault(6);}
+uint32_t HW_Reg_Read32(uint32_t){fault(6);}
+void HW_Reg_Write16(uint32_t,uint16_t){fault(6);}
+void HW_Reg_Write32(uint32_t,uint32_t){fault(6);}
 }
 extern "C" void run_game(nwii::runtime::CPUContext&);
-int main(int argc,char**argv){
+int main(int argc,char**argv)try{
     need(argc==3);mode=argv[1];auto cpu=std::make_unique<nwii::runtime::CPUContext>();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& w){for(auto x:w){c.mmu.write32(a,x);a+=4;}};
     put(H,caller);put(D,disable_words);put(T,time_words);put(R,restore_words);
     for(unsigned r=0;r<32;++r)c.gpr[r]=0x12340000u+r;
     c.gpr[1]=0x80011000u;c.pc=H;c.lr=0x80008000u;c.msr=0x32u;c.srr0=0x80009000u;c.srr1=0x8032u;
-    c.is_running=true;c.dispatch_saved_ctx=0;c.inst_count=std::stoull(argv[2],nullptr,0);run_game(c);throw std::runtime_error("leaf fixture escaped");
-}
+    c.is_running=true;c.dispatch_saved_ctx=0;c.inst_count=std::stoull(argv[2],nullptr,0);run_game(c);fault(8);
+}catch(const std::out_of_range&){fault(9);}
+ catch(const std::logic_error&){fault(10);}
+ catch(const std::runtime_error&){fault(11);}
+ catch(const std::exception&){fault(12);}
+ catch(...){fault(13);}

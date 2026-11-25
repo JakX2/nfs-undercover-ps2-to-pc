@@ -25,6 +25,7 @@ for mode in nonsplit split; do
   for tick in 100 0x100000064 0xfffffff4 0xfffffff5 0xfffffff6 0xfffffff7 0xfffffff8 0xfffffff9 0xfffffffa 0xfffffffb; do
     timeout 15s env -u NWII_WALLTB "$work/probe" valid "$tick" > "$work/valid.log" 2>&1 || {
       grep -Ex 'V715_OWNER_LEAF_ASSERT line=[0-9]{1,4} ordinal=[1-3] stage=[0-4] witness=[0-6] time_reads=[0-9]{1,2}' "$work/valid.log" || true
+      grep -Ex 'V716_OWNER_LEAF_FAULT kind=([1-9]|1[0-3]) ordinal=[1-3] stage=[0-4] witness=[0-6] time_reads=[0-9]{1,2} outer_polls=[0-9]{1,2}' "$work/valid.log" || true
       echo "V714_NATIVE_EXECUTION failed=1";exit 1;
     }
     grep -Fxq 'V714_LEAF_AOT roots=3 mtmsr=2 timebase=1 inner_callbacks=0 native_return=3 fallback=0' "$work/valid.log"

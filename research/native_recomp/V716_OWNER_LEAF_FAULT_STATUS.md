@@ -1,0 +1,3 @@
+# V716: distinguish unexpected focused-owner runtime faults from witness assertions
+
+V715 owner job 138946490548 confirmed original timebase encoding uses three mftb instructions, no mfspr aliases. All 20 original native labels and six synthetic caller labels passed, but first run aborted without V715 witness assertion. Categorize explicit unexpected callback/syscall/interpreter/null call/MMIO/GX/escaped route, and catch standard exception classes at top level. Emit only public ordinal/stage/reason/counts, never original addresses or exception text. This is diagnostic only; no runtime or witness relaxation. Rerun pending.
