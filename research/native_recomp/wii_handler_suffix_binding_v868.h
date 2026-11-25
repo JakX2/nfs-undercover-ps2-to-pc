@@ -1,6 +1,7 @@
 #pragma once
 #include "v868_private_handler_suffix.h"
 #include "wii_si_handler_return_binding_v726.h"
+#include "wii_callback_return_binding_v850.h"
 namespace undercover::wii::v868 {
 inline thread_local HandlerSuffixGuard guard;
 inline thread_local unsigned lane=0;

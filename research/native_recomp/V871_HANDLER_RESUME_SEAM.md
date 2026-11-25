@@ -1,0 +1,3 @@
+# V871: authenticate the real pre-tick resume seam
+
+V867's fresh private preflight passed (job 139096513999); explicit owner execution job 139103695913 running. V868/V869/V870 private handler preflights failed at handler_suffix_label, although source-only tests passed. The earlier V850 installer intentionally emits dispatch_resume before ++inst_count on the two handler resume labels. V871 verifies that precise pre-tick hook and the post-SI handler_resume before the existing handler hook, rather than requiring the plain-label form. Other labels must still match the unmodified tick form. Added eight invalid source-shape controls; explicit callback binding include. Private rerun pending.

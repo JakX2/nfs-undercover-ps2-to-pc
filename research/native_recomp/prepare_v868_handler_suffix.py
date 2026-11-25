@@ -12,7 +12,8 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function
 from prepare_v709_os_leaves import owns_root
 from prepare_v813_callback_time import verify_order
-from prepare_v850_callback_return import LABEL_TICK,BLOCK_END
+from prepare_v850_callback_return import BLOCK_END
+from prepare_v807_callback_prefix import SI
 
 def lane(root,words,start,expected):
     n,backs,stores,stops=suffix(root,words,start)
@@ -67,6 +68,24 @@ def patch_ack(s):
     a='template<class C>void observe(uint32_t a,C& c){'
     return replace_exact(s,a,a+'\n    if(v868::active())v868::reject(6);')
 
+def verify_handler_label(body,pc,w,o,k,resume):
+    prefix=(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
+    if resume:
+        prefix+=re.escape(f'    undercover::wii::v850::dispatch_resume(ctx,0x{pc:08x}u,0x{w:08x}u);\n')
+    pat=re.compile(prefix+r'    \+\+ctx\.inst_count;\n')
+    hits=list(pat.finditer(body))
+    if len(hits)!=1:raise ValueError('handler suffix label')
+    start=hits[0].end();m=BLOCK_END.search(body,start);block=body[start:m.start() if m else len(body)]
+    hook=f'undercover::wii::v672::before(ctx,0x{pc:08x}u,0x{w:08x}u,{o}u,{k}u);'
+    rh=f'undercover::wii::v850::handler_resume(ctx,0x{pc:08x}u,0x{w:08x}u);'
+    if block.count('++ctx.inst_count;') or block.count(SI)!=1 or block.count(hook)!=1 or block.index(SI)>block.index(hook):
+        raise ValueError('handler suffix hook')
+    if resume:
+        if block.count(rh)!=1 or not block.index(SI)<block.index(rh)<block.index(hook):
+            raise ValueError('handler suffix resume order')
+    elif 'v850::handler_resume' in block or 'v850::dispatch_resume' in block:
+        raise ValueError('handler suffix resume order')
+
 def install(dol,elf,root,host):
     n,*_=geometry(dol,elf);words=exact(dol,elf,HANDLER,n)
     _,_,sites=expectations(dol,elf)
@@ -90,11 +109,7 @@ def install(dol,elf,root,host):
     for pc,(w,o,k) in merged.items():
         if census.get(pc,(0,0))!=(o,k):raise ValueError('handler suffix call')
         verify_order(body,pc,w,'v672')
-        hits=list(LABEL_TICK(pc,w).finditer(body))
-        if len(hits)!=1:raise ValueError('handler suffix label')
-        start=hits[0].end();m=BLOCK_END.search(body,start);block=body[start:m.start() if m else len(body)]
-        hook=f'undercover::wii::v672::before(ctx,0x{pc:08x}u,0x{w:08x}u,{o}u,{k}u);'
-        if block.count(hook)!=1:raise ValueError('handler suffix hook')
+        verify_handler_label(body,pc,w,o,k,pc in {site+4 for site in sites})
     dest=root/'nWiiRuntime/include/undercover'
     files={dest/n:(host/n).read_text() for n in ('wii_handler_suffix_guard_v868.h','wii_handler_suffix_binding_v868.h')}
     files[dest/'v868_private_handler_suffix.h']=render(rows)
@@ -111,7 +126,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        safe=('handler suffix duplicate','handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
+        safe=('handler suffix duplicate','handler suffix census','handler suffix extent','handler suffix control','handler suffix coverage','handler suffix overlap','handler suffix tree','handler suffix owner','handler suffix call','handler suffix label','handler suffix hook','handler suffix resume order','handler suffix destination','source seam','shared time label','shared time scheduler order','native IPC label identity','native IPC coverage','native IPC dispatch')
         print('V868_HANDLER_SUFFIX_ROUTE installed=0 reason='+ (str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
