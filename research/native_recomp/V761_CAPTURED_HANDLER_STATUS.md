@@ -1,0 +1,3 @@
+# V761: one live original IRQ capture and handler route
+
+V751 private preflight passed in run 45548742107. V756 passed the combined native time/restore tests, V760 adds the private full-image composition. V761 composes V751 with V760 in the same process: the pre-exception integer snapshot is captured and all 38 saved integer fields are checked at dispatcher entry, then the original SI handler follows the existing guarded route. Audit requires a uniquely ordered real capture prefix and subsequent verified handler result or exact next-call refusal; no capture from another run, no missing or repeated capture events. RFI is not yet enabled. Automatic preflight only; the new run scope is available without changing prior flags. Original execution pending.
