@@ -31,6 +31,7 @@ for mode in nonsplit split; do
       echo "V826_NATIVE_EXECUTION failed=1";exit 1;
     }
     grep -Fx 'V810_OWNER_TIME_WITNESS verified=1 leaves=3 abi=1 timebase=1 callback_return=0' "$work/run.log"
+    grep -Fx 'V829_OWNER_FRONTIER verified=1 store_bytes=1 ordinal=3' "$work/run.log"
     grep -Fx 'V826_OWNER_CALLBACK_WIRELESS original_time_return=1 original_setter_return=1 abi=1 unchanged=1 exi=0 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log"
     row=$(grep -Ex 'V811_OWNER_TIME_OFFSET verified=1 nonzero=[01] wrap=[01] retry=[01]' "$work/run.log")
     echo "$row"
@@ -75,6 +76,7 @@ for mode in nonsplit split; do
       grep -Ex 'V802_CALLBACK_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-9] visits=[0-9]{1,3} writes=[0-9]{1,2}|V826_JOIN_DIAG active=[01] depth=[0-8] visits=[0-9]{1,3} unlocks=[0-9] disables=[0-9] restores=[0-9]' "$work/run.log" || true
       echo 'V826_CHANGED_EXECUTION failed=1';exit 1;
     }
+    grep -Fx 'V829_OWNER_FRONTIER verified=1 store_bytes=1 ordinal=3' "$work/run.log"
     grep -Fx 'V826_OWNER_CALLBACK_CHANGED original_time_return=1 original_setter_update=1 exi_lock_entry=1 exi_executed=0 callback_return=0 fallback=0 continuous_boot=0' "$work/run.log"
   done
   rc=0

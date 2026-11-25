@@ -2,6 +2,7 @@
 #include "rfi_test_v708.h"
 #include "wii_postack_os_leaf_v703.h"
 #include "wii_callback_time_v810.h"
+#include "wii_callback_frontier_v829.h"
 #include "owner_callback_wireless.h"
 #include <algorithm>
 #include <array>
@@ -28,6 +29,14 @@ static unsigned wireless_depth=0,wireless_visits=0,wireless_unlocks=0,wireless_d
 static constexpr uint32_t Sram=0x806f52c0u,Wireless=48u;
 static std::array<uint8_t,64> sram_seed{};
 static uint16_t desired_id=0;
+static constexpr auto authenticated_frontier=[]{
+    std::array<CallbackFrontierWord,frontier_sites.size()> out{};
+    for(unsigned i=0;i<out.size();++i)out[i]={frontier_sites[i],prefix_words[(frontier_sites[i]-C)/4u]};
+    return out;
+}();
+static CallbackFrontierWitness frontier_witness({C,C+688u,TimeResume,authenticated_frontier,{{
+    {wireless_sites[0],wireless_roots[0],wireless_ordinals[0]},
+    {wireless_sites[1],wireless_roots[1],wireless_ordinals[1]}}}});
 struct WirelessFrame{uint32_t root,ret;std::array<uint32_t,32> gpr;uint32_t cr;};
 static std::array<WirelessFrame,8> wf{};
 static constexpr uint32_t Offset=0x800030d8u; // previously verified by V435 cold OS time
@@ -199,14 +208,15 @@ static void frontier_step(CPUContext& c,uint32_t pc,uint32_t w){
     const auto expected=prefix_words[(pc-C)/4u];
     if(frontier_corrupt){
         c.mmu.write32(pc,w^1u);
-        need(c.mmu.read32(pc)!=expected);
+        need(c.mmu.read32(pc)!=expected&&!frontier_witness.before(c,pc,w,true)&&frontier_witness.failure()==3u);
         std::cout<<"V820_FRONTIER_REFUSAL identity=1"<<std::endl;std::_Exit(126);
     }
-    need(c.mmu.read32(pc)==expected&&w==expected);
+    need(c.mmu.read32(pc)==expected&&w==expected&&frontier_witness.before(c,pc,w,true));
     for(unsigned i=0;i<wireless_sites.size();++i)if(pc==wireless_sites[i]){
         need(w>>26==18u&&(w&3u)==1u&&pc+(((w&0x03fffffcu)^0x02000000u)-0x02000000u)==wireless_roots[i]);
         need(c.gpr[3]==channel&&(wireless_ordinals[i]==3u||wireless_ordinals[i]==5u));
-        need(wireless_ordinals[i]==3u&&wireless_roots[i]==Setter);
+        need(wireless_ordinals[i]==3u&&wireless_roots[i]==Setter&&frontier_witness.stage()==2&&frontier_witness.ordinal()==3u&&frontier_witness.zero_id()==1u&&frontier_witness.visits()==post_visits&&frontier_witness.writes()==post_writes);
+        std::cout<<"V829_OWNER_FRONTIER verified=1 store_bytes=1 ordinal=3"<<std::endl;
         desired_id=uint16_t(c.gpr[4]);need(desired_id==0u);
         wireless_payload(c,false);
         const auto old=c.mmu.read16(Sram+Wireless+2u*channel);
@@ -258,7 +268,7 @@ static void continuation(CPUContext& c,uint32_t pc,uint32_t w){
             std::cout<<"V814_TIMEBASE_RETRY verified=1 original_retry=1 original_time_return=1 offset=1 fallback=0"<<std::endl;}
         std::cout<<"V802_OWNER_CALLBACK_TIME original_prologue=1 original_time_return=1 leaves=3 timebase=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
         std::cout<<"V823_TIME_COUNTS leaf_visits="<<reusable.leaf_visits()<<" polls="<<reusable.polls()<<" reads="<<reusable.reads()<<std::endl;
-        posttime=true;in_time=false;next=pc;frontier_step(c,pc,w);return;
+        posttime=true;in_time=false;next=pc;need(frontier_witness.start(c,pc,w,channel,reusable.stage()==5,true));frontier_step(c,pc,w);return;
     }
     need(pc==next);
     memory_guard(c,w);

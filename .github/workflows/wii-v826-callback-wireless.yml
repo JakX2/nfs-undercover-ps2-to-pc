@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v826*'
+      - 'research/native_recomp/*v829*'
       - '.github/workflows/wii-v826-callback-wireless.yml'
 permissions:
   contents: read
@@ -16,6 +17,8 @@ jobs:
       - run: |
           set -euo pipefail
           python3 -m unittest discover -s research/native_recomp -p test_v802_callback_time.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
+          "$RUNNER_TEMP/v829"
           bash -n research/native_recomp/run_owner_callback_wireless_v826.sh
   owner-context:
     needs: original-free
