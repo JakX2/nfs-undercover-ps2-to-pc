@@ -1,0 +1,3 @@
+# V928: continuous original IRQ-enable leaf return to OSInit
+
+Separate opt-in extension of V922. Authenticate the original two-word post-mtmsr IRQ-enable suffix, original BLR, and exact OSInit call-return label using matching DOL/ELF and existing V616 trace. Read-only V927 witness observes actual previous EE extraction (zero in the cold pending-SI lane), full integer/GQR state, same-tick return poll and actual dispatcher/label ticks. Advance both device witnesses through those ticks. Stop before the first OSInit caller instruction. Preflight default, full link/execution only on explicit workflow dispatch; V926's full-image RFI gate remains independent. The focused V927 result is still pending, so this is implementation, not verified continuous execution.

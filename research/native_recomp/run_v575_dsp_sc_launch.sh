@@ -103,6 +103,7 @@ if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" 
 if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V919_HANDLER_EPILOGUE:-0}" == 1 ]] || exit 2;extra+=(UNDERCOVER_V920_HANDLER_RETURN=1);audit=audit_v920_handler_return.py;fi
 if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V920_HANDLER_RETURN:-0}" == 1 ]] || exit 2;extra+=(UNDERCOVER_V751_CAPTURE=1);audit=audit_v921_capture_join.py;fi
 if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V921_CAPTURE_JOIN:-0}" == 1 ]] || exit 2;audit=audit_v922_irq_return.py;fi
+if [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;audit=audit_v928_leaf_finish.py;fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
 if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
