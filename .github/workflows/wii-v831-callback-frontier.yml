@@ -22,6 +22,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v831_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v836_callback_frontier.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v847_wireless_wrapper.py -v
+          test -f research/native_recomp/test_v848_wireless_wrapper.py
           python3 -m unittest discover -s research/native_recomp -p test_v848_wireless_wrapper.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_frontier_v829.cpp -o "$RUNNER_TEMP/v829"
           "$RUNNER_TEMP/v829"
@@ -68,7 +69,7 @@ jobs:
       github.ref == 'refs/heads/research/wii-native-recomp-preflight' &&
       vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' &&
       (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'V839 launch live wireless frontier') ||
-      contains(github.event.head_commit.message, 'V854 launch live wireless wrapper'))
+      contains(github.event.head_commit.message, 'V856 launch live wireless wrapper'))
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
