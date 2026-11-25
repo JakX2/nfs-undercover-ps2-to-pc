@@ -1,0 +1,20 @@
+name: Wii V725 SI Handler Return Witness
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v725*'
+      - '.github/workflows/wii-v725-handler-return.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate bounded SI handler return witness
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_handler_return_v725.cpp -o "$RUNNER_TEMP/v725"
+          "$RUNNER_TEMP/v725"
