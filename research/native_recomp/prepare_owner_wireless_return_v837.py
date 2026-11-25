@@ -111,13 +111,13 @@ def patch_analyzer(p,root):
     old=f.read_text();new=rewrite(old,((ROOT,root_patch),(READ,read_patch)))
     if old!=new:f.write_text(new)
 
-def install(p,root):
+def install(p,root,extra_indirect=()):
     roots,A,B,U,L,guards=p[0]
     paths=sorted(root.glob('*.cpp'))
     if not paths or any(f.is_symlink() or f.stat().st_size>4*1024*1024 for f in paths):raise ValueError('private output')
     src={f:f.read_text() for f in paths};main=root/('main_output.cpp' if (root/'main_output.cpp').is_file() else 'output.cpp')
     outer=src[main].split('extern "C" void run_game(',1)[1]
-    edits={};labels=0;edges=0
+    edits={};labels=0;edges=0;seen_extra=set();extra_indirect=set(extra_indirect)
     for a,ws in roots.items():
         owners=[f for f,s in src.items() if owns_root(s,a)]
         if len(owners)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('native owner')
@@ -125,8 +125,10 @@ def install(p,root):
         expected={pc:(a,ws[(pc-a)//4]) for pc in reachable(a,ws)}
         if audit_native([original],outer,expected)!=len(expected):raise ValueError('native coverage')
         for pc,k,dst in call_sites(a,ws):
-            if k==2 and a==p[5] and ws[(pc-a)//4]==0x4e800421:
-                verify_indirect(original,pc);continue
+            if k==2 and (a==p[5] or (a,pc) in extra_indirect) and ws[(pc-a)//4]==0x4e800421:
+                verify_indirect(original,pc)
+                if (a,pc) in extra_indirect:seen_extra.add((a,pc))
+                continue
             if k!=1 or dst not in roots:raise ValueError('native edge')
             verify_direct(original,pc,dst);edges+=1
         if a in guards:continue
@@ -137,6 +139,7 @@ def install(p,root):
             out=pat.sub(lambda m:m[0]+f'    rfi_test::before(ctx,0x{pc:08x}u,0x{w:08x}u);\n',out,count=1)
             labels+=1
         edits[f]=replace_exact(edits.get(f,src[f]),original,out)
+    if seen_extra!=extra_indirect:raise ValueError('indirect coverage')
     for f,s in edits.items():
         s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n#include "rfi_test_v708.h"')
         f.write_text(s)

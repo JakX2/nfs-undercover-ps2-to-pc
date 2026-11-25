@@ -1,6 +1,9 @@
 #pragma once
 #include "wii_exi_profile_v501.h"
 #include "wii_sram_write_witness_v818.h"
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+#include "wii_callback_suffix_v841.h"
+#endif
 namespace joined {
 using nwii::runtime::CPUContext;
 using namespace undercover::wii;
@@ -27,13 +30,27 @@ static uint32_t next=0,entry_due=0,outer_pc=0;
 static uint64_t tick=100;
 static bool returned=false,corrupt=false,active=false;
 static uint32_t caller_sp=0;
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+static constexpr auto suffix_words=[] {
+    std::array<CallbackSuffixWord,postsetter_words.size()> a{};
+    for(unsigned i=0;i<a.size();++i)a[i]={postsetter_words[i][0],postsetter_words[i][1]};
+    return a;
+}();
+static CallbackSuffixWitness suffix({C,C+688u,PostSetterResume,suffix_words,{{
+    {postsetter_edges[0][0],postsetter_edges[0][1],postsetter_edges[0][2]},
+    {postsetter_edges[1][0],postsetter_edges[1][1],postsetter_edges[1][2]}}}});
+#endif
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V816_WIRELESS_FAULT kind="<<kind<<" line="<<line<<" lane="<<lane<<" depth="<<depth
         <<" visits="<<visits<<" entries="<<entries<<" unlocks="<<unlocks<<" disables="<<disables<<" restores="<<restores<<std::endl;
     std::cout<<"V819_LOCK_DIAG lock="<<locks<<" returned="<<lock_returns<<" masks="<<mask_calls<<" reads="<<reads<<" writes="<<writes<<" polls="<<polls<<std::endl;
     std::cout<<"V825_SELECT_DIAG selected="<<selects<<" returned="<<select_returns<<std::endl;
     std::cout<<"V835_WRITE_DIAG imm="<<imm_calls<<" imm_return="<<imm_returns<<" sync="<<sync_calls<<" sync_return="<<sync_returns<<" extended="<<immex_calls<<" deselect="<<deselects<<" completed="<<complete_count<<" witness="<<witness.failure()<<std::endl;
-    std::cout<<"V837_RETURN_DIAG exi_unlock="<<exi_unlocks<<" exi_return="<<exi_unlock_returns<<" sram_return="<<sram_returns<<std::endl;std::_Exit(126);
+    std::cout<<"V837_RETURN_DIAG exi_unlock="<<exi_unlocks<<" exi_return="<<exi_unlock_returns<<" sram_return="<<sram_returns<<std::endl;
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+    std::cout<<"V842_SUFFIX_DIAG stage="<<suffix.stage()<<" reason="<<suffix.failure()<<" visits="<<suffix.visits()<<" polls="<<suffix.polls()<<std::endl;
+#endif
+    std::_Exit(126);
 }
 static void need(bool b,const std::source_location l=std::source_location::current()){if(!b)fail(1,l.line());}
 static void advance(){
@@ -99,9 +116,31 @@ static const Root& root_at(uint32_t a){
     fail(3);
 }
 
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+static bool device_held(){
+    return !controller->pending(0)&&!(controller->read(0,0)&0x380u)&&
+        mx_device->sram()==desired&&mx_device->dirty()==(lane==2u)&&
+        complete_count==(lane==2u?12u:0u)&&witness.stage()==(lane==2u?4u:0u);
+}
+static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
+    need(suffix.before(c,pc,w,device_held()));
+    if(suffix.stage()==2u){
+        std::cout<<"V842_OWNER_CALLBACK_SUFFIX ordinal="<<suffix.ordinal()<<" target_class="<<suffix.target_class()
+            <<" visits="<<suffix.visits()<<" writes="<<suffix.writes()<<" polls="<<suffix.polls()
+            <<" setter_return=1 changed="<<unsigned(lane==2u)<<" target_executed=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+    }
+}
+static void suffix_start(CPUContext& c,uint32_t pc,uint32_t w){
+    need(pc==PostSetterResume&&suffix.start(c,pc,w,true,device_held()));
+    suffix_step(c,pc,w);
+}
+#endif
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(c.inst_count==++tick&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&c.msr==MSR&&c.srr0==0x80030000u&&c.srr1==0x8032u);
     need(!entry_due&&pc==next&&c.mmu.read32(pc)==w&&++visits<=12000u);backward=false;advance();
+    #ifdef UNDERCOVER_TEST_AFTER_SETTER
+    if(suffix.stage()==1u){suffix_step(c,pc,w);return;}
+    #endif
     if(returned){
         need(depth>1&&c.pc==pc&&c.lr==pc);
         if(corrupt&&depth==2){c.gpr[14]^=1u;need(!abi(c,frames[depth-1]));std::cout<<"V826_JOIN_REFUSAL abi=1"<<std::endl;std::_Exit(126);}
@@ -124,12 +163,22 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
             need(imm_returns==12u&&sync_returns==12u&&revision_reads==12u&&witness.stage()==4u&&witness.completed()==12u&&witness.bytes()==44u);
             need(!controller->pending(0)&&!(controller->read(0,0)&0x380u)&&mx_device->sram()==desired&&mx_device->dirty()&&c.mmu.read32(ExiState+12u)==0u);
             payload(c,true);
-            std::cout<<"V838_OWNER_CALLBACK_WRITE original_time_return=1 original_setter_return=1 original_unlock=1 bytes=44 payload=1 abi=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+            std::cout<<"V838_OWNER_CALLBACK_WRITE original_time_return=1 original_setter_return=1 original_unlock=1 bytes=44 payload=1 abi=1 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+            suffix_start(c,pc,w);return;
+#else
+            std::_Exit(0);
+#endif
         }
         need(disables==1u&&!exi_unlocks&&!exi_unlock_returns);
         payload(c,false);need(!complete_count&&!mx_device->dirty()&&mx_device->sram()==initial&&!witness.stage());
         need(lane==1u&&initial_id==new_id);
-        std::cout<<"V826_OWNER_CALLBACK_WIRELESS original_time_return=1 original_setter_return=1 abi=1 unchanged=1 exi=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;std::_Exit(0);
+        std::cout<<"V826_OWNER_CALLBACK_WIRELESS original_time_return=1 original_setter_return=1 abi=1 unchanged=1 exi=0 callback_return=0 fallback=0 continuous_boot=0"<<std::endl;
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+        suffix_start(c,pc,w);return;
+#else
+        std::_Exit(0);
+#endif
     }
     const auto& r=root_at(frames[depth-1].root);
     need(contains(pc,4,r.address,r.address+4u*uint32_t(r.words.size()))&&r.words[(pc-r.address)/4u]==w);
@@ -211,6 +260,9 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
     need(active&&entries);
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
+    if(suffix.stage()==1u){need(suffix.poll(c,device_held()));return false;}
+#endif
     need(backward&&c.inst_count==tick&&++polls<=4096u);backward=false;return false;
 }
 bool handle_syscall(CPUContext&){fail(4);}
