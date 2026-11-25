@@ -1,0 +1,24 @@
+name: Wii V702 Native Post-ACK Native Control
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v702*'
+      - '.github/workflows/wii-v702-postack.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile generated PPC post-ACK nested return and actual MMIO
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw702"
+          git -C "$RUNNER_TEMP/nw702" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw702" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw702" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_postack_v702.sh "$RUNNER_TEMP/nw702"
