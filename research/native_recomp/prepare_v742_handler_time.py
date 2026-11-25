@@ -59,7 +59,7 @@ def patch_handler(s):
 ''')
     a='    if(witness.stage()==3)std::cout<<"V726_HANDLER_STAGE n=3"<<std::endl;'
     return replace_exact(s,a,'    if(allow){v742::start(c,pc,w);return;}\n'+a)
-def install(dol,elf,root,host):
+def install(dol,elf,root,host,handler_patch=patch_handler):
     row=plan(dol,elf);site,target,_,_=row
     paths=sorted(root.glob('output_*.cpp'))
     if len(paths)<20 or any(p.is_symlink() or p.stat().st_size>64*1024*1024 for p in paths):raise ValueError('private tree')
@@ -71,7 +71,7 @@ def install(dol,elf,root,host):
     new[dest/'v742_private_time_expectations.h']=render(row)
     edits={dest/n:fn for n,fn in (
         ('wii_si_nested_binding_v693.h',patch_nested),('wii_si_os_leaf_binding_v709.h',patch_leaf),
-        ('wii_si_ack_binding_v672.h',patch_ack),('wii_si_handler_return_binding_v726.h',patch_handler))}
+        ('wii_si_ack_binding_v672.h',patch_ack),('wii_si_handler_return_binding_v726.h',handler_patch))}
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in new) or any(p.is_symlink() for p in edits):raise ValueError('destination')
     for p,fn in edits.items():new[p]=fn(p.read_text())
     for p,s in new.items():p.write_text(s)

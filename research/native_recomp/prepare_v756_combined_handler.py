@@ -1,8 +1,9 @@
-"""Compose two individually authenticated handler bindings; synthetic integration only."""
+"""Compose two individually authenticated handler bindings."""
 from prepare_v419_full_start import replace_exact
 from prepare_v738_handler_restore import patch_binding
 def combine(s):
-    s=patch_binding(s)
+    return after_restore(patch_binding(s))
+def after_restore(s):
     a='#include "wii_si_handler_return_v725.h"'
     s=replace_exact(s,a,a+'\n#include "wii_si_handler_time_binding_v742.h"')
     a='    if(restore.stage()>=1&&restore.stage()<=3){'

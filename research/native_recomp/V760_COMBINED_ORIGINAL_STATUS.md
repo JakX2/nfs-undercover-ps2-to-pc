@@ -1,0 +1,3 @@
+# V760: private combined original handler installation
+
+V756 generated regression passed 20/20 with zero fallback. V760 exposes an opt-in full-image prepare/run scope composing the exact V738 restore and V742 time installers. The same native labels, call edges, per-callee witnesses, and shared-alias audit remain required. It accepts only the complete prior time prefix followed by an authenticated restore/handler return or the existing precise next-call refusal. Automatic private preflight only, to avoid duplicating the pending V742/V747 full builds; execution scope is available after the live boundary is known. Existing scopes unchanged. No original combined execution claimed.
