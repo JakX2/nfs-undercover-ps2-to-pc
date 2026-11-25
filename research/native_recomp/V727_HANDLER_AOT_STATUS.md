@@ -5,3 +5,7 @@ Extends the independently authored V710 fixture with an actual PPC bctrl dispatc
 ## V729
 
 V727 initially refused the synthetic generated resume label. The private route still fails closed; add bounded label/comment/tick classification and an exact public synthetic patch test. The synthetic-only runner may print its independently authored generated function on failure. V728's generic CFG census no longer calls the stricter full-handler shape gate (which requires four words and a store); original input authentication still invokes the full handler geometry gate.
+
+## V733 fixture placement correction
+
+The pinned upstream emitter deliberately emits interpreter-only bodies for roots below physical 0x3100. V727 had placed its independent dispatcher at 0x80003000, inside that reserved low-memory window. Move only the synthetic dispatcher to 0x8000b000. The original dispatcher is not in the low-memory window; its V726 installer already passed owner preflight. Do not alter upstream low-memory behavior or loosen native coverage.

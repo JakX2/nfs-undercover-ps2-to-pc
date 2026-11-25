@@ -9,7 +9,7 @@ from prepare_v709_os_leaves import patch_nested,patch_poll,patch_second_poll,pat
 from prepare_v625_ipc_client import audit_native
 from prepare_v726_handler_return import patch_ack,patch_second as return_second,patch_resume,verify_resume_dispatch,render as render_return
 HOST=Path(__file__).resolve().parent
-X=0x80003000;H=0x80004000;A=0x80005004;B=0x80006000;N=0x80007000;D=0x80008000;T=0x80009000;R=0x8000a000
+X=0x8000b000;H=0x80004000;A=0x80005004;B=0x80006000;N=0x80007000;D=0x80008000;T=0x80009000;R=0x8000a000
 def bl(a,b):return 0x48000001|((b-a)&0x03fffffc)
 handler=[0x7c0802a6,0x9001000c,bl(H+8,A),bl(H+12,B),0x90c50000,0x8001000c,0x7c0803a6,0x4e800020]
 first=[0x900b0000|(r<<21)|((-4*(32-r))&0xffff) for r in range(29,32)]+[0x4e800020]

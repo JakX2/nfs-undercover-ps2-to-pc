@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <vector>
-constexpr uint32_t X=0x80003000u,H=0x80004000u,A=0x80005000u,B=0x80006000u,N=0x80007000u,D=0x80008000u,T=0x80009000u,R=0x8000a000u;
+constexpr uint32_t X=0x8000b000u,H=0x80004000u,A=0x80005000u,B=0x80006000u,N=0x80007000u,D=0x80008000u,T=0x80009000u,R=0x8000a000u;
 static uint32_t bl(uint32_t a,uint32_t b){return 0x48000001u|((b-a)&0x03fffffcu);}
 static std::vector<uint8_t> be(const std::vector<uint32_t>& words){
     std::vector<uint8_t> v;for(auto w:words)for(unsigned shift:{24u,16u,8u,0u})v.push_back(uint8_t(w>>shift));return v;

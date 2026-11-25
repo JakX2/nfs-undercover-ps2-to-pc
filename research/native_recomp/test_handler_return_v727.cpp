@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string>
 using namespace undercover::wii;
-constexpr uint32_t X=0x80003000u,H=0x80004000u,A=0x80005000u,B=0x80006000u,N=0x80007000u,D=0x80008000u,T=0x80009000u,R=0x8000a000u,Frame=0x80010000u,Other=0x100u;
+constexpr uint32_t X=0x8000b000u,H=0x80004000u,A=0x80005000u,B=0x80006000u,N=0x80007000u,D=0x80008000u,T=0x80009000u,R=0x8000a000u,Frame=0x80010000u,Other=0x100u;
 static void need(bool ok){if(!ok)throw std::runtime_error("V710 AOT assertion");}
 namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
