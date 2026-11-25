@@ -25,6 +25,7 @@ for mode in nonsplit split; do
   for trial in {0..7}; do
     timeout 20s "$work/probe" "$trial" 0 > "$work/run.log" 2>&1 || {
       grep -Ex 'V908_STATUS_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-2] visits=[0-9]{1,2} reads=[01] writes=[01] guard=[0-5] device=[0-9]' "$work/run.log" || true
+      grep -Ex 'V913_ARM_NATIVE visit=[0-9]{1,2} mem1=[01] si=[01] aligned=[01] base_class=[1-4]' "$work/run.log" || true
       echo 'V908_NATIVE_EXECUTION failed=1';exit 1;
     }
     changed=1; if (( trial>=4 )); then changed=0; fi

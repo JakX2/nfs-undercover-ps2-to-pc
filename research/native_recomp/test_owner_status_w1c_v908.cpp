@@ -121,6 +121,16 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
         std::cout<<"V908_STATUS_REFUSAL kind=5"<<std::endl;std::_Exit(126);
     }
     if(visits<=14u)need(c.gpr==gp);
+    if(visits>=14u&&w!=0x4e800020u){
+        const unsigned op=w>>26,xo=(w>>1)&1023u;
+        if((op>=32u&&op<=47u)||(op==31u&&(xo==23u||xo==55u||xo==534u||xo==87u||xo==119u||xo==279u||xo==311u||xo==343u||xo==375u||xo==790u))){
+            const unsigned ra=(w>>16)&31u,rb=(w>>11)&31u;
+            const uint32_t a=(ra?c.gpr[ra]:0u)+(op==31u?c.gpr[rb]:((w&0xffffu)^0x8000u)-0x8000u);
+            const auto si=PostAckTransferDevice::offset(a);
+            std::cout<<"V913_ARM_NATIVE visit="<<visits+1u<<" mem1="<<unsigned(a>=0x80000000u&&a<0x81800000u)<<" si="<<unsigned(bool(si))
+                     <<" aligned="<<unsigned(!(a&3u))<<" base_class="<<(ra==1u?1u:ra==2u||ra==13u?2u:ra>=14u?3u:4u)<<std::endl;
+        }
+    }
     need(guard.before(c,pc,w,0,0,visits==5u,visits==9u));
     if(visits>=14u){
         if(arm_pending){
