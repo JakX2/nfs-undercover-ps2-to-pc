@@ -1,5 +1,5 @@
 import unittest
-from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,OS_SRAM_PATCHES,OS_SC_PATCHES,MAX_LOG,requires_sram_profile,requires_sc_overlay
+from windows_startup_scope_v434 import contract,audit,launch_flags,requires_exi_profile,requires_si_profile,SCOPES,PREFIXES,HARDWARE_PATCHES,CACHE_PATCHES,OS_HW_PATCHES,OS_IPC_PATCHES,OS_VECTOR_PATCHES,OS_SRAM_PATCHES,OS_SC_PATCHES,MAX_LOG,requires_sram_profile,requires_sc_overlay,requires_external_overlay,EXTERNAL_SCOPES,FAILURE_PREFIXES
 from audit_v419_full_start import STAGES as START,RESULT as START_RESULT
 from audit_v425_full_hardware import STAGES as HW,RESULT as HW_RESULT
 from audit_v428_full_cache import STAGES as CACHE,RESULT as CACHE_RESULT
@@ -33,6 +33,9 @@ from audit_v581_dsp_return import STAGES as DSP_RETURN,RESULT as DSP_RETURN_RESU
 from audit_v591_memory_init import STAGES as MI,RESULT as MI_RESULT
 from audit_v603_boot_report import EVENTS as REPORT
 from audit_v609_arena_clear import EVENTS as ARENA_CLEAR
+from audit_v663_external_entry import EVENTS as EXT,RESULT as EXT_RESULT
+from audit_v667_si_dispatch import EVENTS as SI_DISP,RESULT as SI_DISP_RESULT
+from audit_v672_si_ack_route import EVENTS as SI_ACK,RESULT as SI_ACK_RESULT
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -65,10 +68,13 @@ OS_DSP_SC=OS_DSP_STAGE+DSP_SC+[DSP_SC_RESULT]
 OS_DSP_RETURN=OS_DSP_SC+DSP_RETURN+[DSP_RETURN_RESULT]
 OS_REPORT=OS_DSP_RETURN+MI+[MI_RESULT]+REPORT+[b'V603_REPORT_RESULT reports=10 getters=6 native_console=1 computed=0 returned=1 output_backend=0 fallback=0 boot_verified=0']
 OS_ARENA_CLEAR=OS_REPORT+ARENA_CLEAR+[b'V609_ARENA_RESULT lanes=2 reset=2 getters=6 zeros=20000 flush=16384 vectors=2 returned=1 hardware_cache=0 fallback=0 boot_verified=0']
+OS_EXTERNAL=OS_ARENA_CLEAR+EXT+[EXT_RESULT]
+OS_SI_DISPATCH=OS_EXTERNAL+SI_DISP+[SI_DISP_RESULT]
+OS_SI_ACK=OS_SI_DISPATCH+SI_ACK+[SI_ACK_RESULT]
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT),('os-arena-clear',OS_ARENA_CLEAR))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT),('os-arena-clear',OS_ARENA_CLEAR),('os-external-entry',OS_EXTERNAL),('os-si-dispatch',OS_SI_DISPATCH),('os-si-ack',OS_SI_ACK))}
 
 
 class Tests(unittest.TestCase):
@@ -113,12 +119,23 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):contract('os-report',True)
         self.assertEqual(contract('os-arena-clear'),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v609_arena_clear.py','audit_v609_arena_clear'))
         with self.assertRaises(ValueError):contract('os-arena-clear',True)
+        for name,auditor in zip(EXTERNAL_SCOPES,('audit_v663_external_entry','audit_v667_si_dispatch','audit_v672_si_ack_route')):
+            self.assertEqual(contract(name),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py',auditor))
+            with self.assertRaises(ValueError):contract(name,True)
         self.assertEqual(set(LOGS),set(SCOPES))
         for scope in ('', 'bogus', 'CACHE'):
             with self.assertRaises(ValueError):contract(scope)
     def test_launch_flags(self):
         self.assertEqual(launch_flags('startup',True),{'UNDERCOVER_V426_SYNTHETIC':'1'})
         for scope in SCOPES:
+            self.assertEqual(requires_external_overlay(scope),scope in EXTERNAL_SCOPES)
+            if scope in EXTERNAL_SCOPES:
+                self.assertTrue(all(f(scope) for f in (requires_sram_profile,requires_sc_overlay,requires_exi_profile,requires_si_profile)))
+                expected={**launch_flags('os-arena-clear'),'UNDERCOVER_V616_IRQ':'1','UNDERCOVER_V663_EXTERNAL':'1'}
+                if scope in EXTERNAL_SCOPES[1:]:expected['UNDERCOVER_V667_SI_DISPATCH']='1'
+                if scope=='os-si-ack':expected['UNDERCOVER_V672_SI_ACK']='1'
+                self.assertEqual(launch_flags(scope),expected)
+                continue
             if scope=='os-arena-clear':
                 self.assertTrue(all(f(scope) for f in (requires_sram_profile,requires_sc_overlay,requires_exi_profile,requires_si_profile)))
                 self.assertEqual(launch_flags(scope),{**launch_flags('os-report'),'UNDERCOVER_V609_ARENA':'1'})
@@ -154,7 +171,7 @@ class Tests(unittest.TestCase):
             self.assertTrue(audit(b'private non-marker line\n'+raw,0,scope)[1])
     def test_foreign_markers_and_bounds(self):
         for scope,raw in LOGS.items():
-            for prefix in PREFIXES:
+            for prefix in PREFIXES+FAILURE_PREFIXES:
                 self.assertFalse(audit(raw+prefix+b'UNEXPECTED\n',0,scope)[1])
         with self.assertRaises(ValueError):audit(b'x'*(MAX_LOG+1),0,'startup')
         with self.assertRaises(ValueError):audit(b'',0,'bad')

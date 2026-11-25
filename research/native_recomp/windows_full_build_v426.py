@@ -8,12 +8,11 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
-from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile,requires_sram_profile,requires_sc_overlay
+from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile,requires_sram_profile,requires_sc_overlay,requires_external_overlay,REPORT_SCOPES,EXTERNAL_SCOPES
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 from write_sram_profile_v536 import sram_fixture
 
 HOST=Path(__file__).resolve().parent
-REPORT_SCOPES=('os-report','os-arena-clear')
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
 OWNER_SHA='16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4'
 ENTRY=0x80004000
@@ -182,6 +181,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if scope in REPORT_SCOPES:
         run_stage('bat_roots',[sys.executable,HOST/'apply_bat_roots_v586.py',root],work,60)
         run_stage('report_table',[sys.executable,HOST/'apply_report_table_v594.py',root,dol,elf],work,60)
+    if scope in EXTERNAL_SCOPES[1:]:
+        run_stage('si_roots',[sys.executable,HOST/'apply_si_roots_v669.py',root,dol,elf],work,120)
     portable_patch(root)
     sc_overlay=requires_sc_overlay(scope)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root,sc_overlay),encoding='utf-8')
@@ -191,7 +192,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if not legacy_loader:
         run_stage('dol_equivalence',[tb/'Release/dol_equivalence.exe',dol],work,60)
     generated=work/'generated';generated.mkdir()
-    run_stage('translation',[tb/'Release/translator.exe',dol,symbols,generated,'--strict-symbol-spans',*(['--native-sc-overlay'] if sc_overlay else []),'--generate',root/'nWiiRuntime'],work,1200)
+    run_stage('translation',[tb/'Release/translator.exe',dol,symbols,generated,'--strict-symbol-spans',*(['--native-sc-overlay'] if sc_overlay else []),*(['--native-external-overlay-preflight'] if requires_external_overlay(scope) else []),'--generate',root/'nWiiRuntime'],work,1200)
     shards=list(generated.glob('output_*.cpp'))
     if len(shards)<(1 if synthetic else 20) or not (generated/'main_output.cpp').is_file():raise BuildError('shards')
     swaps=0
@@ -203,7 +204,14 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     generated_patch(generated,synthetic)
     if not synthetic:
         observer_inputs=[dol,elf,generated] if scope in REPORT_SCOPES else [dol,generated]
-        run_stage('startup_observer',[sys.executable,HOST/observer,*observer_inputs],work,900 if scope=='os-arena-clear' else 600 if scope=='os-report' else 180)
+        run_stage('startup_observer',[sys.executable,HOST/observer,*observer_inputs],work,1200 if scope in EXTERNAL_SCOPES else 900 if scope=='os-arena-clear' else 600 if scope=='os-report' else 180)
+        if requires_external_overlay(scope):
+            run_stage('external_observer',[sys.executable,HOST/'prepare_v663_external_entry.py',dol,elf,generated],work,300)
+            if scope in EXTERNAL_SCOPES[1:]:
+                run_stage('si_dispatch_observer',[sys.executable,HOST/'prepare_v667_si_dispatch.py',dol,elf,generated],work,300)
+            if scope=='os-si-ack':
+                run_stage('si_ack_observer',[sys.executable,HOST/'prepare_v672_si_ack_route.py',dol,elf,generated],work,300)
+            run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
         if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
             run_stage('bat_translation_audit',[sys.executable,HOST/'audit_v584_bat_translation.py',dol,generated],work,300)
@@ -254,6 +262,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
+        if scope in EXTERNAL_SCOPES:
+            import re
+            for line in raw.splitlines():
+                if re.fullmatch(rb'V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V672_SI_ACK_INVALID reason=[1-6] trace=[0-7]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]',line):
+                    print(line.decode(),flush=True)
         print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
