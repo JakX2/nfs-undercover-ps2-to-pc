@@ -18,7 +18,7 @@ KNOWN=('SITransfer','__SITransfer','SIGetType','SIGetTypeAsync','SIGetStatus','S
        'OSGetTick','__OSSetAlarm','OSGetCurrentThread','OSGetCurrentContext','OSDisableScheduler','OSEnableScheduler',
        '__OSReschedule','__OSGetTime','SIIsBusy','SIIsChanBusy','SIGetTypeAsync','SISetCommand',
        '__SIGetType','SIGetTypeCallback','SIGetTypeAsyncCallback','SIGetTypeCallback','SIGetResponseRaw')
-def names(elf,address):
+def names(elf,address,allowlist=KNOWN):
     h=HEADER.unpack_from(elf);off,unit,n=h[6],h[11],h[12]
     if unit!=SECTION.size or not 1<=n<10000 or off+n*unit>len(elf):raise ValueError('section table')
     rows=[SECTION.unpack_from(elf,off+i*unit) for i in range(n)]
@@ -34,7 +34,7 @@ def names(elf,address):
             lo=st[4]+name;hi=elf.find(b'\0',lo,min(lo+256,st[4]+st[5]))
             if hi<0:continue
             raw=elf[lo:hi]
-            for k in KNOWN:
+            for k in allowlist:
                 if raw==k.encode():out.add(k)
     return ','.join(sorted(out)) or 'unclassified'
 def edge(root,words,ordinal):

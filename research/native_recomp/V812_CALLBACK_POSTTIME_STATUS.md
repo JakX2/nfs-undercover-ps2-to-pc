@@ -1,0 +1,3 @@
+# V812: callback post-time dependency census
+
+V799 established that the callback's return from the system-time helper has 27 reachable labels with the next linked call at ordinal 3 or 5. Their 39- and 30-word exact roots appear to share a 184-word child after OSDisableInterrupts and OSRestoreInterrupts. V812 verifies the exact shared target identity, inspects bounded downstream roots and call frontiers, and expands SDK-only name classification to wireless ID, SRAM and EXI routines. This is private static analysis, not evidence that the live path uses SRAM or either call. All output is restricted to counts, stable local IDs, public SDK allowlist strings and known classifications; no game code or raw addresses. Synthetic geometry tests and owner census pending.
