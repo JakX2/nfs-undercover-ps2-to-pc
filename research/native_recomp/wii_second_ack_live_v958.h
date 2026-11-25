@@ -8,7 +8,8 @@ namespace undercover::wii::v958 {
 inline thread_local SecondCompletionAck ack;
 inline thread_local BoundedAckCallRoute calls;
 inline thread_local ExternalReturnWitness* frame=nullptr;
-inline thread_local unsigned visits=0;
+inline thread_local unsigned visits=0,post_visits=0,post_returns=0;
+inline bool post_enabled(){const char* v=std::getenv("UNDERCOVER_V967_POST_ACK");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool enabled(){const char* v=std::getenv("UNDERCOVER_V958_SECOND_ACK");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool active(){return ack.stage()!=0u;}
 [[noreturn]]inline void reject(unsigned kind){
@@ -27,6 +28,15 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         if(ack.token()<2u||!ack.reads()||!ack.writes()||calls.entries()<2u||!calls.returns())reject(2);
         std::cout<<std::dec<<"V958_ACK_RESULT original_w1c=1 next_label=1 saved_fields=38 token_preserved=1 visits="
                  <<visits<<" reads="<<ack.reads()<<" writes="<<ack.writes()<<" boot_verified=0"<<std::endl;
+        if(!post_enabled())std::_Exit(0);
+        post_visits=visits;post_returns=calls.returns();
+        if(!ack.resume_after_ack(c,pc,w))reject(9);
+        return;
+    }
+    if(ack.stage()==4u&&pc>=spans[0].root&&pc<spans[0].end&&calls.depth()==0u){
+        if(!post_visits||visits<=post_visits||calls.returns()<=post_returns||!ack.postack_held())reject(9);
+        std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
+                 <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
         std::_Exit(0);
     }
 }

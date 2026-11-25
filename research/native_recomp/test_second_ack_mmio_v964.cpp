@@ -12,7 +12,7 @@ constexpr uint32_t Load=0x80830034u,Store=0x90830034u,Nop=0x60000000u,Blr=0x4e80
 constexpr uint32_t bl(uint32_t from,uint32_t to){return 0x48000001u|((to-from)&0x03fffffcu);}
 struct Cr{bool lt=false,gt=false,eq=false,so=false;};
 struct Mmu{
-    std::map<uint32_t,uint32_t> words{{H,bl(H,Save)},{H+4,bl(H+4,Completion)},{Save,Blr},{Completion,Load},{Completion+4,Store},{Completion+8,Nop}};
+    std::map<uint32_t,uint32_t> words{{H,bl(H,Save)},{H+4,bl(H+4,Completion)},{Save,Blr},{Completion,Load},{Completion+4,Store},{Completion+8,Nop},{Completion+12,Blr},{H+8,Nop}};
     uint8_t byte=0;
     uint8_t* get_ptr(uint32_t a){return words.count(a&~3u)?&byte:nullptr;}
     uint32_t read32(uint32_t a){return words.at(a);}
@@ -76,5 +76,9 @@ int main(int argc,char** argv){
     need(SiBinding::write32((mode=="mirror"?Mirror:Base)+C,mode=="write"?c.gpr[4]^2u:c.gpr[4]));
     need(ctl.issued_tokens()==2u&&cause==Other&&mask==SI&&scheduler.completed()==2u);
     visit(Completion+8,Nop);
+    need(v958::post_enabled()&&v958::ack.stage()==4u);
+    visit(Completion+12,Blr);
+    if(mode=="post-return")c.gpr[14]^=1u;
+    visit(H+8,Nop);
     need(false);
 }

@@ -82,7 +82,7 @@ def install(p,root):
             changes[path]=s.replace(inc,inc+'\n#include "rfi_test_v708.h"')
     if seen!=set(expected):raise ValueError('hook coverage')
     for path,s in changes.items():path.write_text(s)
-    print(f'V955_ACK_NATIVE labels={len(expected)} guarded={sum(pc in guard for pc in expected)} direct_edges=7 execution=0')
+    print(f'V955_ACK_NATIVE labels={len(expected)} guarded={sum(pc in guard for pc in expected)} direct_edges={len(edges)+len(extra)} execution=0')
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('output',type=Path)
