@@ -1,0 +1,3 @@
+# V933: focused original RFI with actual SI backend completion held
+
+Use the original V923 handler tail, scheduler, and context loader in the same generated native image. Fixture starts with a synthetic context and two actual backend SI completions (first ACK, second retained), alternates present/no-response and all four channels. The real native RFI's rising-EE callback verifies restored integer state and enters the second external exception through V932. A synthetic vector stop proves the outer dispatch boundary; no original vector execution or resumed instruction claimed. Four negative controls per build: saved GPR, saved context, switch, and installed vector corruption. Split/nonsplit sanitizer builds pending.
