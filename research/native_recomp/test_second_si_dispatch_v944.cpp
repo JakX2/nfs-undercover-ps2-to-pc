@@ -1,6 +1,7 @@
 #include "wii_second_si_dispatch_v944.h"
 #include <iostream>
 #include <map>
+#include <source_location>
 using namespace undercover::wii;
 using R=SiDispatchWitness;
 constexpr uint32_t Resume=0x80004000u,Other=0x100u,Mask=8u;
@@ -15,13 +16,17 @@ struct Cpu{
     uint32_t pc=Resume,lr=0x80005000u,msr=0x8032u,ctr=17,xer=0x80000000u,dispatch_saved_ctx=0;
     bool is_running=true,in_callback=false;uint64_t inst_count=100;
 };
-static void need(bool b){if(!b)throw std::runtime_error("V944 dispatcher assertion");}
+static unsigned trial=0;
+static void need(bool b,const std::source_location loc=std::source_location::current()){
+    if(!b){std::cerr<<"V945_DISPATCH_TEST_FAULT trial="<<trial<<" line="<<loc.line()<<std::endl;throw std::runtime_error("V944 dispatcher assertion");}
+}
 int main(){
     const SiDispatchExpectations e{{{{0x80010000,0x80011004,1,2},
-        {0x80012000,0x80011008,3,4},{0x80013000,0x80012004,5,6},
-        {0x80014000,0x80012008,7,8}}},0x8001100c,0x4e800421,9,10};
+        {0x80012000,0x80011008,3,4},{0x80013000,0x80012104,5,6},
+        {0x80014000,0x80012108,7,8}}},0x8001100c,0x4e800421,9,10};
     unsigned valid=0,refused=0;
     for(unsigned i=0;i<17;++i){
+        trial=i;
         Cpu c;ExternalReturnWitness capture;SecondSiDispatchWitness w(e);auto& m=c.mmu.words;
         for(unsigned k=0;k<32;++k)c.gpr[k]=k*17u+3u;
         need(capture.capture(c,Other|Mask,Mask));
