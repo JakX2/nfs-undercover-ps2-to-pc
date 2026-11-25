@@ -61,6 +61,14 @@ def patch_alias(s,root,code):
     inc='#include "undercover/wii_si_handler_return_binding_v726.h"'
     if inc not in s:s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
     return s
+def audit_shared_alias(sources,main,target,code):
+    # Like V680's authenticated compiler-save suffix, the restore suffix
+    # can intentionally appear in several overlapping native entry bodies.
+    # Only the exact directly called root is authorized and instrumented.
+    owners=[exact_function(s,target) for s in sources if owns_root(s,target)]
+    if len(owners)!=1:raise ValueError('restore unique root')
+    expected={target+4*i:(target,w) for i,w in enumerate(code)}
+    return audit_native(owners,main,expected)
 def install(dol,elf,root,host):
     target,code,base,disp=plan(dol,elf)
     n,*_=geometry(dol,elf);words=exact(dol,elf,HANDLER,n)
@@ -70,8 +78,7 @@ def install(dol,elf,root,host):
     branch=words[(site-HANDLER)//4]
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(p.is_symlink() or not p.is_file() or p.stat().st_size>64*1024*1024 for p in paths+[main]):raise ValueError('private tree')
-    expected={target+4*i:(target,w) for i,w in enumerate(code)}
-    audit_native((p.read_text() for p in paths),main.read_text(),expected)
+    if audit_shared_alias((p.read_text() for p in paths),main.read_text(),target,code)!=len(code):raise ValueError('restore coverage')
     changes={};calls=entries=0
     for p in paths:
         s=p.read_text()
@@ -93,7 +100,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError) as e:
-        allowed=('restore edge','private tree','restore label identity','restore coverage','destination','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge','helper exact root')
+        allowed=('restore edge','restore unique root','private tree','restore label identity','restore coverage','destination','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge','helper exact root')
         print('V738_RESTORE_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

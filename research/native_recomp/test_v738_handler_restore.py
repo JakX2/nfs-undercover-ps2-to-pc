@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from prepare_v738_handler_restore import patch_binding,patch_ack,render,patch_alias
+from prepare_v738_handler_restore import patch_binding,patch_ack,render,patch_alias,audit_shared_alias
 from prepare_v726_handler_return import patch_ack as handler_patch
 from prepare_v709_os_leaves import patch_poll
 from prepare_v680_si_helper import patch_binding as first
@@ -27,6 +27,14 @@ class RestoreRoute(unittest.TestCase):
         source='#include "runtime/cpu_context.h"\nvoid func_80005000(CPUContext& ctx) {\nloc_80005000: ;\n    // 0x80005000: 4E800020\n    ++ctx.inst_count;\n}\n'
         self.assertIn('v726::restore_before(ctx,0x80005000u,0x4e800020u)',patch_alias(source,0x80005000,[0x4e800020]))
         with self.assertRaises(ValueError):patch_alias(source,0x80005000,[0x60000000])
+    def test_shared_alias(self):
+        source='void func_80005000(CPUContext& ctx) {\nloc_80005000: ;\n    // 0x80005000: 4E800020\n    ++ctx.inst_count;\n    return;\n}\n'
+        other=source.replace('func_80005000','func_80004FFC')
+        main=' case 0x80005000: func_80005000(ctx); break;'
+        self.assertEqual(audit_shared_alias([other,source],main,0x80005000,[0x4e800020]),1)
+        for src in ([other],[source,source],[source.replace('4E800020','60000000')]):
+            with self.assertRaises(ValueError):audit_shared_alias(src,main,0x80005000,[0x4e800020])
+        with self.assertRaises(ValueError):audit_shared_alias([source],main.replace('func_80005000','func_80004FFC'),0x80005000,[0x4e800020])
     def test_order(self):
         first=[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]
         second=[f'V688_SI_SECOND_STAGE n={i}'.encode() for i in range(1,3)]
