@@ -10,7 +10,7 @@ from make_private_elf_symbol_map import parse_functions
 TRAMP=0x80526ce0
 ROOTS=tuple(sorted({DISPATCH,HANDLER,SCHED,TIME,DISABLE,RESTORE,TRAMP}))
 TEST_SPANS=tuple((r,4) for r in ROOTS)
-def spans(dol,elf):
+def spans(dol,elf,first_helper=False):
     geometry(dol,elf)
     sizes=parse_functions(elf);out=[]
     for pc in ROOTS:
@@ -18,9 +18,13 @@ def spans(dol,elf):
         if not 4<=n<=4096 or n&3:raise ValueError('SI root extent')
         exact(dol,elf,pc,n//4)
         out.append((pc,n))
-    return tuple(out)
+    if first_helper:
+        from si_helper_geometry_v680 import helper_geometry
+        _,target,size,_,_=helper_geometry(dol,elf)
+        if target not in ROOTS:out.append((target,size))
+    return tuple(sorted(out))
 def pairs(ranges=TEST_SPANS):
-    if tuple(pc for pc,_ in ranges)!=ROOTS or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
+    if not set(ROOTS).issubset(pc for pc,_ in ranges) or len(ranges) not in (7,8) or tuple(sorted(set(pc for pc,_ in ranges)))!=tuple(pc for pc,_ in ranges) or any(n&3 or not 4<=n<=4096 for pc,n in ranges):
         raise ValueError('SI roots')
     if any(a+n>b for (a,n),(b,_) in zip(ranges,ranges[1:])):raise ValueError('SI root overlap')
     root=ROOT+'''
@@ -40,10 +44,10 @@ def apply(root,ranges):
     old=p.read_text(encoding='utf-8');new=rewrite(old,pairs(ranges))
     if new!=old:p.write_text(new,encoding='utf-8')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('--first-ack-helper',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>32*1024*1024 or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        apply(a.root,spans(a.dol.read_bytes(),a.elf.read_bytes()))
+        ranges=spans(a.dol.read_bytes(),a.elf.read_bytes(),a.first_ack_helper);apply(a.root,ranges)
     except (OSError,ValueError,UnicodeError):print('V669_SI_ANALYZER installed=0');return 1
-    print('V669_SI_ANALYZER installed=1 roots=7 exact_dol_elf=1 scoped=1');return 0
+    print(f'V669_SI_ANALYZER installed=1 roots={len(ranges)} exact_dol_elf=1 scoped=1');return 0
 if __name__=='__main__':raise SystemExit(main())

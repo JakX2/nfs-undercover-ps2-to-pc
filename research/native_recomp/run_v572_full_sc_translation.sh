@@ -61,7 +61,11 @@ if [[ "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
   python3 "$here/apply_stm_native_open_v632.py" "$nw" "$dol" "$elf"
   if [[ "$open_request" == 1 ]]; then python3 "$here/apply_open_roots_v645.py" "$nw" "$dol" "$elf";fi
 fi
-if [[ "$external_entry" == 1 ]]; then python3 "$here/apply_si_roots_v669.py" "$nw" "$dol" "$elf";fi
+if [[ "$external_entry" == 1 ]]; then
+  helper_args=()
+  [[ "$si_ack" != 1 ]] || helper_args+=(--first-ack-helper)
+  python3 "$here/apply_si_roots_v669.py" "$nw" "$dol" "$elf" "${helper_args[@]}"
+fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \
   "$nw/nWiiAnalyzer/src/dolphin_sigdb.cpp" "$nw/nWiiAnalyzer/src/signature_scanner.cpp" "$nw/nWiiRecomp/src/recompiler.cpp" "$nw/nWiiRecomp/src/symbols.cpp" \
@@ -95,7 +99,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
   if [[ "$external_entry" == 1 ]]; then
     python3 "$here/prepare_v663_external_entry.py" "$dol" "$elf" "$work/generated"
     if [[ "$si_dispatch" == 1 ]]; then python3 "$here/prepare_v667_si_dispatch.py" "$dol" "$elf" "$work/generated";fi
-    if [[ "$si_ack" == 1 ]]; then python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated";fi
+    if [[ "$si_ack" == 1 ]]; then
+      python3 "$here/prepare_v672_si_ack_route.py" "$dol" "$elf" "$work/generated"
+      python3 "$here/prepare_v680_si_helper.py" "$dol" "$elf" "$work/generated"
+    fi
   fi
   cat > "$work/probe.cpp" <<'CPP'
 #include "runtime/cpu_context.h"

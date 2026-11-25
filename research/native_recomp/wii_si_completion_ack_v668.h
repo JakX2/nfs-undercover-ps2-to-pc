@@ -51,6 +51,14 @@ public:
         if(!source_held())return fail(4);
         pc_=pc;last_tick_=*tick_;store_=word_store(word);return true;
     }
+    // An authenticated auxiliary helper may execute, but it cannot issue an
+    // SI write in the handler-only store witness. Every visit is contiguous.
+    bool auxiliary_before(){
+        if(phase_!=Phase::Armed||!tick_||*tick_<=last_tick_||
+           *tick_-last_tick_!=1u||*tick_-start_tick_>8192u)return fail(2);
+        if(!source_held())return fail(4);
+        last_tick_=*tick_;store_=false;pc_=0;return true;
+    }
     // This wrapper makes exactly one real backend write with the unchanged
     // guest arguments. It never writes PI, manufactures an IOS result or
     // clears TC on behalf of the guest. All checks precede/observe the write.
