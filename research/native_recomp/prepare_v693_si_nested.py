@@ -14,7 +14,7 @@ def patch_second(s):
         ('    if(!second.instruction(c,pc,word,si_completion_ack_trace,true)){',
          '    v693::boundary(c,pc);\n    const bool allow=v693::eligible(pc,word,ordinal,kind);\n    if(!second.instruction(c,pc,word,si_completion_ack_trace,true,allow)){'),
         ('    if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Complete){',
-         '    if(allow&&si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Armed){v693::start(c,pc,word);return;}\n    if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Complete){')):
+         '    if(allow&&(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Armed||si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::PostAck)){v693::start(c,pc,word);return;}\n    if(si_completion_ack_trace.phase()==SiCompletionAckTrace::Phase::Complete){')):
         s=replace_exact(s,a,b)
     return s
 def install(dol,elf,root,host):

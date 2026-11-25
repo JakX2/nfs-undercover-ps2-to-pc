@@ -10,7 +10,7 @@ namespace undercover::wii {
 // change. The installer must authenticate every supplied label/opcode.
 class SiCompletionAckTrace {
 public:
-    enum class Phase {Idle, Armed, Acknowledged, Complete, Failed};
+    enum class Phase {Idle, Armed, Acknowledged, Complete, Failed, PostAck};
     static constexpr bool word_store(uint32_t w) noexcept {
         const auto op=w>>26,xo=(w>>1)&1023u;
         return op==36u||op==37u||(op==31u&&(xo==151u||xo==183u||xo==662u));
@@ -45,15 +45,21 @@ public:
         helper_first_=first;helper_end_=end;return true;
     }
     bool allow_nested(uint32_t first,uint32_t end){
-        if(phase_!=Phase::Armed||!helper_first_||nested_first_||((first|end)&3u)||
+        if((phase_!=Phase::Armed&&phase_!=Phase::PostAck)||!helper_first_||nested_first_||((first|end)&3u)||
            first<0x80000000u||end>0x81800000u||end<=first||end-first>4096u||
            (first<end_&&first_<end)||(first<helper_end_&&helper_first_<end))return fail(2);
         nested_first_=first;nested_end_=end;return true;
     }
+    bool resume_after_ack(uint32_t pc,uint32_t word){
+        if(phase_!=Phase::Complete||!tick_||pc!=store_pc_+4u||
+           *tick_!=store_tick_+1u||!post_held())return fail(9);
+        phase_=Phase::PostAck;pc_=pc;last_tick_=*tick_;
+        store_=word_store(word);load_=word_load(word);return true;
+    }
     // Called at a real native instruction label, after its visit counter
     // increments but BEFORE executing that instruction.
     bool before(uint32_t pc,uint32_t word){
-        if(phase_!=Phase::Armed&&phase_!=Phase::Acknowledged)return fail(2);
+        if(phase_!=Phase::Armed&&phase_!=Phase::Acknowledged&&phase_!=Phase::PostAck)return fail(2);
         if(!tick_||*tick_<=last_tick_||*tick_-start_tick_>8192u||!allowed(pc)||(pc&3u))
             return fail(2);
         if(phase_==Phase::Acknowledged){
@@ -66,7 +72,7 @@ public:
         // In the handler-only lane every native instruction is instrumented.
         // A gap before acknowledgement is just as invalid as a gap after it.
         if(*tick_-last_tick_!=1u)return fail(2);
-        if(!source_held())return fail(4);
+        if(phase_==Phase::PostAck?!post_held():!source_held())return fail(4);
         pc_=pc;last_tick_=*tick_;store_=word_store(word);load_=word_load(word);return true;
     }
     // An authenticated auxiliary helper may execute, but it cannot issue an
@@ -81,11 +87,11 @@ public:
     // native word-load visit is accepted while this route is armed.
     uint32_t read(SiController& ctl,unsigned off){
         if(phase_==Phase::Idle)return ctl.read(off);
-        if(phase_!=Phase::Armed||&ctl!=ctl_||!load_||!tick_||*tick_!=last_tick_||
-           !allowed(pc_)||reads_>=128u||!source_held())reject(8);
+        if((phase_!=Phase::Armed&&phase_!=Phase::PostAck)||&ctl!=ctl_||!load_||!tick_||*tick_!=last_tick_||
+           !allowed(pc_)||reads_>=128u||(phase_==Phase::PostAck?!post_held():!source_held()))reject(8);
         load_=false;
         const auto value=ctl.read(off);
-        if(!source_held())reject(8);
+        if(phase_==Phase::PostAck?!post_held():!source_held())reject(8);
         ++reads_;return value;
     }
     // This wrapper makes exactly one real backend write with the unchanged
@@ -93,6 +99,7 @@ public:
     // clears TC on behalf of the guest. All checks precede/observe the write.
     void write(SiController& ctl,unsigned off,uint32_t value){
         if(phase_==Phase::Idle){ctl.write(off,value);return;}
+        if(phase_==Phase::PostAck){post_write(ctl,off,value);return;}
         if(phase_!=Phase::Armed||&ctl!=ctl_||!store_||*tick_!=last_tick_||
            !allowed(pc_)||writes_>=16u||!source_held())reject(5);
         store_=false; // at most one device write per authenticated store
@@ -128,6 +135,23 @@ private:
     uint64_t start_tick_=0,last_tick_=0,store_tick_=0;
     bool fail(unsigned reason)noexcept{if(!error_)error_=reason;phase_=Phase::Failed;return false;}
     [[noreturn]]void reject(unsigned reason){fail(reason);throw std::runtime_error("SI completion ACK trace rejected");}
+    bool post_held()const{
+        return ctl_&&cause_->load()==(cause_before_&~SiController::PI_SI)&&
+            mask_->load()==mask_before_&&!ctl_->pending()&&
+            ctl_->read(SiController::Control)==ack_control_&&ctl_->read(SiController::Status)==ack_status_;
+    }
+    void post_write(SiController& ctl,unsigned off,uint32_t value){
+        if(&ctl!=ctl_||!store_||!tick_||*tick_!=last_tick_||!allowed(pc_)||
+           writes_>=32u||!post_held())reject(9);
+        store_=false;
+        // No new transfer or configuration changes in this first continuation.
+        const bool buffer=off>=SiController::Buffer&&off<0x100u&&!(off&3u);
+        if(off!=SiController::Status&&!buffer)reject(10);
+        try{ctl.write(off,value);}catch(...){fail(10);throw;}
+        ++writes_;
+        if(off==SiController::Status)ack_status_&=~value;
+        if(!post_held()||(buffer&&ctl.read(off)!=value))reject(10);
+    }
     bool source_held()const{
         return ctl_&&cause_->load()==cause_before_&&mask_->load()==mask_before_&&!ctl_->pending()&&
            (ctl_->read(SiController::Control)&(SiController::TC_INT|SiController::TC_MASK))==
