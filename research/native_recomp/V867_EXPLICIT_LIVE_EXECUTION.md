@@ -1,0 +1,5 @@
+# V867 explicit continuous callback execution
+
+V856 execution job 139080137321 passed V836 only: LIVE_WRAPPER=false in the actual log. Its earlier preflight passed V847, but no wrapper was executed. V861/V862 private preflight 139084591836 passed 17 new roots, 927 labels, 54 direct edges and two restore aliases. V863 combined preflight 139086340262 passed the joined native syntax check. V866 owner job 139088180458 passed 32 focused original callbacks (16 changed and 16 unchanged), using actual EXI profile, two prior tokens and native dispatcher. V865 owner census identified original post-slot-6 calls 7, 8 and restore slot 12; slot-11 continuation has a loop and restore slot 12.
+
+Use a dedicated workflow with narrow path trigger and an unconditional explicit combined launch after fresh private preflight. No dependence on push head_commit message availability. It runs --run-si-combined-callback, and requires the V864 result audit. Ordinary commits do not trigger the long execution. This run is pending; no boot claim.
