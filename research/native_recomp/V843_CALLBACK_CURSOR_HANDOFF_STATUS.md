@@ -1,0 +1,3 @@
+# V843: separate callback successor cursor from completed setter cursor
+
+V841 original-free job 139063544670 passed six valid and 15 invalid callback successor cases. In V842's joined fixture, the original setter observer's next-PC cursor is terminal at the verified return; the separate post-setter witness owns the subsequent path. Move the original setter cursor check after the opt-in suffix delegation, preserving the exact native tick and code-word checks for both. Add targeted dependency triggers so edits to the two shared observer headers exercise the post-setter fixture. Owner execution pending; no new callback milestone is claimed.

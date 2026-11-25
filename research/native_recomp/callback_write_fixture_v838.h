@@ -137,10 +137,11 @@ static void suffix_start(CPUContext& c,uint32_t pc,uint32_t w){
 #endif
 void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(c.inst_count==++tick&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&c.msr==MSR&&c.srr0==0x80030000u&&c.srr1==0x8032u);
-    need(!entry_due&&pc==next&&c.mmu.read32(pc)==w&&++visits<=12000u);backward=false;advance();
-    #ifdef UNDERCOVER_TEST_AFTER_SETTER
+    need(!entry_due&&c.mmu.read32(pc)==w&&++visits<=12000u);backward=false;advance();
+#ifdef UNDERCOVER_TEST_AFTER_SETTER
     if(suffix.stage()==1u){suffix_step(c,pc,w);return;}
-    #endif
+#endif
+    need(pc==next);
     if(returned){
         need(depth>1&&c.pc==pc&&c.lr==pc);
         if(corrupt&&depth==2){c.gpr[14]^=1u;need(!abi(c,frames[depth-1]));std::cout<<"V826_JOIN_REFUSAL abi=1"<<std::endl;std::_Exit(126);}

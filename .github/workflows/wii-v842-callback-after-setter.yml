@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v842*'
+      - 'research/native_recomp/wii_callback_suffix_v841.h'
+      - 'research/native_recomp/callback_write_fixture_v838.h'
       - 'research/native_recomp/*v829*'
       - '.github/workflows/wii-v842-callback-after-setter.yml'
 permissions:
