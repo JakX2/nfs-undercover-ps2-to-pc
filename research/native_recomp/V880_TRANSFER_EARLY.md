@@ -1,0 +1,3 @@
+# V880 focused complete SITransfer early return
+
+V878 owner job 139120771083 passed 16/16 original choice cases, both corrupted save cases refused. Actual path was slot 3 OSRestoreInterrupts, six visits, no stores; private census shows the other reachable boundary is slot 4 __OSGetSystemTime. V880 authenticates the slot-3 return path to slot 9, uses exact original IRQ restore and matched 11-register restore alias plus original stack/LR tail, and checks the real direct return, zero result, unchanged EE and ABI. No new SI transfer, alarm, or unknown function is executed. This test uses the same focused synthetic inputs as V878 and does not predict the continuous route. Pending CI.
