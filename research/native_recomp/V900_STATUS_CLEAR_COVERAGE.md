@@ -1,0 +1,3 @@
+# V900: cover an actual original W1C state transition
+
+V898 owner job 139153470473 passed 16 original read/store trials and eight negative controls, but all stores were no-ops under arbitrary initial GPRs. V900 authenticates the original channel selector using a bounded independent PPC arithmetic model across four channel values, unrelated register patterns and varied status words. The focused fixture seeds only this original input to the real follow-on channel, then requires a nonzero actual W1C transition for absent controllers and a no-op for present controllers. No instruction, mask or device response is forced; no original register indices or raw game data published. Pending private execution.
