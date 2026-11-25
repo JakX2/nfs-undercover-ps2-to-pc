@@ -50,7 +50,7 @@ static PostAckTransferDevice third;
 static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned seed_kind=0;
 static bool suffix_route=false,alarm_route=false;
-static AlarmCancelReturnWitness alarm(v786::expected);
+static AlarmCancelReturnWitness alarm_witness(v786::expected);
 static HandlerSuffixGuard suffix_guard;
 static unsigned suffix_reg=32,suffix_tick=0;
 static bool suffix_write=false;
@@ -129,8 +129,8 @@ static void suffix_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         }
         need(third.held_now()&&third.token()==3u&&ctl->issued_tokens()==3u&&!ctl->pending()&&cause==(Other|SiController::PI_SI));
         if(alarm_route&&row->kind==1u&&row->ordinal==5u){
-            need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&alarm.start(c,pc,w,third.held_now()));
-            std::cout<<std::dec<<"V985_ALARM_ENTRY lane="<<alarm.lane()<<" timer="<<alarm.timer_required()<<std::endl;
+            need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&alarm_witness.start(c,pc,w,third.held_now()));
+            std::cout<<std::dec<<"V985_ALARM_ENTRY lane="<<alarm_witness.lane()<<" timer="<<alarm_witness.timer_required()<<std::endl;
             return;
         }
         std::cout<<std::dec<<"V980_TRANSFER_SUFFIX seed="<<seed_kind<<" profile="<<trial<<" ordinal="<<row->ordinal
@@ -149,15 +149,15 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         if(third.stage()==2u){
             need(suffix_route&&ack.stage()==5u);
             scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count));
-            if(alarm.stage()){
+            if(alarm_witness.stage()){
                 need(alarm_route&&third.held_now()&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
-                if(alarm.stage()==3u){
-                    need(owner==Handler&&alarm.returned(c,pc,w,third.held_now())&&third.token()==3u&&cause==(Other|SiController::PI_SI));
-                    std::cout<<std::dec<<"V985_ALARM_RETURN original_return=1 queue=1 lane="<<alarm.lane()<<" timer="<<alarm.timer_required()
-                        <<" calls="<<alarm.calls()<<" visits="<<alarm.total()<<" token_held=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
+                if(alarm_witness.stage()==3u){
+                    need(owner==Handler&&alarm_witness.returned(c,pc,w,third.held_now())&&third.token()==3u&&cause==(Other|SiController::PI_SI));
+                    std::cout<<std::dec<<"V985_ALARM_RETURN original_return=1 queue=1 lane="<<alarm_witness.lane()<<" timer="<<alarm_witness.timer_required()
+                        <<" calls="<<alarm_witness.calls()<<" visits="<<alarm_witness.total()<<" token_held=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
                     std::_Exit(0);
                 }
-                need(alarm.native_before(c,pc,w,third.held_now()));return;
+                need(alarm_witness.native_before(c,pc,w,third.held_now()));return;
             }
             suffix_before(c,owner,pc,w);return;
         }
@@ -277,7 +277,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
 namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
-    if(alarm.stage()){need(captured.saved_integer(c,Context).ok()&&alarm.entry(c,pc,third.held_now()));return;}
+    if(alarm_witness.stage()){need(captured.saved_integer(c,Context).ok()&&alarm_witness.entry(c,pc,third.held_now()));return;}
     if(ack.stage()){
         need(call_route.entry(c,pc)&&(third.stage()?third.held_now():ack.poll(c.inst_count)));
         ++ack_entries;return;
@@ -298,7 +298,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
-    if(alarm.stage()){need(captured.saved_integer(c,Context).ok()&&alarm.poll(c,third.held_now()));return false;}
+    if(alarm_witness.stage()){need(captured.saved_integer(c,Context).ok()&&alarm_witness.poll(c,third.held_now()));return false;}
     if(ack.stage()){need(call_route.can_poll()&&(third.stage()?third.held_now():ack.poll(c.inst_count)));++polls;return false;}
     if(!entries){need(c.pc==Dispatcher&&held());return false;}
     const bool ok=witness.poll(c,cause.load(),Mask,held());
