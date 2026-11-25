@@ -1,4 +1,6 @@
 import unittest
+from unittest.mock import patch
+import audit_v975_second_time as audit
 from prepare_v975_second_time import shared_label,patch_existing,render_time
 from prepare_v667_si_dispatch import TIME,DISABLE,RESTORE
 class SharedTime(unittest.TestCase):
@@ -23,4 +25,13 @@ class SharedTime(unittest.TestCase):
         self.assertIn(',false);',patch_existing(s,0x80004000,0x60000000,True,False))
         with self.assertRaises(ValueError):patch_existing(s+s,0x80004000,0x60000000,True,False)
         with self.assertRaises(ValueError):patch_existing('',0x80004000,0x60000000,True,True)
+    def test_chained_audit(self):
+        p=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=11 handler_instruction_executed=0 boot_verified=0'
+        r=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=44 handler_instruction_executed=0 boot_verified=0'
+        rows=[p,r]
+        with patch('audit_v967_post_ack.inspect',return_value=('',True)):
+            self.assertTrue(audit.inspect(b'\n'.join(rows),0)[1])
+            for bad in (rows[:-1],rows[::-1],rows+[r],[r,*rows],rows+[b'V958_ACK_INVALID kind=10 stage=4 reason=0 call_reason=0 visits=2']):
+                self.assertFalse(audit.inspect(b'\n'.join(bad),0)[1])
+            self.assertFalse(audit.inspect(b'\n'.join(rows),126)[1])
 if __name__=='__main__':unittest.main()

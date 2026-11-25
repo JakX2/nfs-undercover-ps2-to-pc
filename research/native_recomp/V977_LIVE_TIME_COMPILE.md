@@ -1,0 +1,3 @@
+# V977: compile the opt-in live system-time route
+
+V975 source-only shared-leaf seam tests passed in 45722075533. V977 compiles the actual V975 live header with independently authored synthetic geometry and the existing composed production SI binding. Six processes cover one valid nested time route, earlier ACK-only and helper-return scopes, wrong nested leaf, changed MSR input and missing MSR witness. Verify same scheduler-backed device token and all saved fields, two unchanged-MSR sites and exact chained log order. Synthetic native-label events only, not original-code execution. Tests pending.
