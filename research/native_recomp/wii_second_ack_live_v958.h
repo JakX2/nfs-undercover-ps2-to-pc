@@ -26,6 +26,9 @@
 #include "v1151_private_held_epilogue.h"
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
 #include "v1158_private_held_dispatch.h"
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+#include "v1167_private_third_ack.h"
+#endif
 #endif
 #endif
 #endif
@@ -80,6 +83,10 @@ inline bool held_epilogue_active(){return held_epilogue.stage()!=0u;}
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
 inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_HELD_DISPATCH");return v&&v[0]=='1'&&v[1]==0;}
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u;}
+#endif
 #endif
 [[noreturn]]inline void reject_held_epilogue(){
     std::cout<<std::dec<<"V1151_HELD_EPILOGUE_FAULT stage="<<held_epilogue.stage()<<" reason="<<held_epilogue.failure()
@@ -410,6 +417,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(held_epilogue_enabled()&&!third_postalarm_handler_return_enabled())return false;
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
     if(held_dispatch_enabled()&&!held_epilogue_enabled())return false;
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+    if(third_ack_enabled()&&!held_dispatch_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -465,6 +475,20 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+        if(third_ack_active()){
+            if(second_dispatch_mmio||!held_epilogue.ack_before(c,0u,pc,w,guard))reject_held_epilogue();
+            if(held_epilogue.stage()==9u){
+                const auto& a=held_epilogue.completion_ack();const auto& calls3=held_epilogue.ack_calls();
+                if(ack.stage()!=5u||next_device.stage()!=3u||!held_epilogue.ack_saved(c))reject_held_epilogue();
+                std::cout<<std::dec<<"V1167_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response="<<a.no_response_verified()
+                         <<" visits="<<held_epilogue.ack_visits()<<" entries="<<calls3.entries()<<" returns="<<calls3.returns()
+                         <<" reads="<<a.reads()<<" writes="<<a.writes()<<" saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
+            return;
+        }
+#endif
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
         if(held_epilogue.stage()==6u){
             if(second_dispatch_mmio!=held_epilogue.dispatch_witness()||!held_epilogue.dispatch_before(c,pc,w,guard))reject_held_epilogue();
@@ -719,6 +743,9 @@ template<class C>bool poll(C& c){
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
         if(held_epilogue.stage()==6u&&second_dispatch_mmio!=held_epilogue.dispatch_witness())reject_held_epilogue();
 #endif
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+        if(third_ack_active()&&second_dispatch_mmio)reject_held_epilogue();
+#endif
         const auto p=held_epilogue.poll(c,v1151::image);
         if(p==Poll::Rejected)reject_held_epilogue();
         if(p==Poll::Entered){
@@ -789,6 +816,9 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
         if(held_epilogue.stage()==6u&&second_dispatch_mmio!=held_epilogue.dispatch_witness())reject_held_epilogue();
 #endif
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+        if(third_ack_active()&&second_dispatch_mmio)reject_held_epilogue();
+#endif
         if(!held_epilogue.entry(c,pc))reject_held_epilogue();
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
         if(held_epilogue.stage()==7u){
@@ -798,6 +828,12 @@ template<class C>void observe(uint32_t pc,C& c){
                      <<held_epilogue.dispatch_visits()<<" entries="<<held_epilogue.dispatch_entries()
                      <<" pi_reads="<<held_epilogue.dispatch_reads()<<" polls="<<held_epilogue.dispatch_polls()
                      <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+            if(third_ack_enabled()){
+                if(ack.stage()!=5u||!held_epilogue.begin_ack(c,v1167::spans,v1167::edges,v1167::msr))reject_held_epilogue();
+                return;
+            }
+#endif
             std::_Exit(0);
         }
 #endif

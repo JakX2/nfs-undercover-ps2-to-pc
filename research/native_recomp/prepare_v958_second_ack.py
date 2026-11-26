@@ -66,9 +66,16 @@ def patch_si(s):
     }
 #endif''')
     a='            if(si_completion_ack_trace.phase()!=SiCompletionAckTrace::Phase::Idle){'
-    s=replace_exact(s,a,'            if(v958::active())v958::reject(8);\n'+a)
+    s=replace_exact(s,a,'#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK\n            if(v958::third_ack_active())v958::reject_held_epilogue();\n#endif\n            if(v958::active())v958::reject(8);\n'+a)
     a='        if(si_transfer_device.stage()){\n            uint32_t value=0;'
-    s=replace_exact(s,a,'''#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+    s=replace_exact(s,a,'''#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+        if(v958::third_ack_active()){
+            uint32_t value=0;
+            if(v958::next_device.stage()!=3u||!v958::held_epilogue.ack_read(active_->controller_,off,value))v958::reject_held_epilogue();
+            return value;
+        }
+#endif
+#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
         if(v958::next_device.stage()){
             uint32_t value=0;
             if(v958::ack.stage()!=5u||!v958::next_device.read(active_->controller_,off,value))v958::reject(17);
@@ -82,7 +89,12 @@ def patch_si(s):
         }
 '''+a)
     a='            if(si_transfer_device.stage()){\n                if(!si_transfer_device.write'
-    return replace_exact(s,a,'''#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+    return replace_exact(s,a,'''#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+            if(v958::third_ack_active()){
+                if(v958::next_device.stage()!=3u||!v958::held_epilogue.ack_write(active_->controller_,*off,value))v958::reject_held_epilogue();
+            }else
+#endif
+#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
             if(v958::next_device.stage()){
                 if(v958::ack.stage()!=5u||!v958::next_device.write(active_->controller_,*off,value))v958::reject(17);
             }else
