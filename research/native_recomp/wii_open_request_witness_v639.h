@@ -87,6 +87,7 @@ public:
             const uint32_t req=canonical(c.gpr[3]);
             if(!req||(req&3u)||req<lo_||uint64_t(req)+32>uint64_t(lo_)+size_||!mapped(c,req,32)||
                c.mmu.read32(req)!=1u||canonical(c.mmu.read32(req+12u))!=path_||c.mmu.read32(req+16u)!=0)return fail(6);
+            if(epoch_.second()&&((req&31u)||uint64_t(req)+64u>uint64_t(lo_)+size_||!mapped(c,req,64u)))return fail(6);
             request_=req;break;}
         default:return fail(2);
         }

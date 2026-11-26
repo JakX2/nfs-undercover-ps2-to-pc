@@ -223,6 +223,12 @@ static StmSecondWitness* second_open=nullptr;
 static bool second_open_active=false;
 static unsigned second_open_count=0;
 struct SecondOpenReached{};
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+static PostAckOpenJoin* second_request=nullptr;
+static bool second_request_active=false;
+static unsigned second_request_count=0,second_request_vectors=0,second_request_returns=0,second_request_polls=0;
+struct SecondRequestReached{};
+#endif
 #endif
 #endif
 #endif
@@ -310,6 +316,20 @@ static bool open_descriptor(nw::CPUContext& c){
     return allocator_descriptor&&allocator_release&&allocator_descriptor->returned(c,allocator_release->metadata_stores())&&B::is_open(0u,open_return_device);
 }
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+static bool second_request_held(nw::CPUContext& c){
+    // Unlike the live reply lane, this proof begins after the first free.
+    // Guest allocation can overwrite retired wire bytes and free-list head.
+    return second_request&&selection_witness&&allocator_descriptor&&
+        selection_witness->selected_after_release(c,raw_device_ok(c))&&
+        B::is_open(0u,open_return_device);
+}
+[[noreturn]]static void second_request_refuse(unsigned kind){
+    std::cout<<"V1364_REQUEST_REFUSAL kind="<<kind<<" stage="<<(second_request?second_request->stage():0u)
+        <<" reason="<<(second_request?second_request->failure():0u)<<" request="<<(second_request?second_request->request_failure():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void second_open_refuse(unsigned kind){
     std::cout<<"V1359_SECOND_REFUSAL kind="<<kind<<" stage="<<second_open->stage()<<" reason="<<second_open->failure()<<" visits="<<second_open->visits()<<" stores="<<second_open->stores()<<'\n';throw WitnessFailure{};
 }
@@ -634,8 +654,31 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active){
         if(!second_open->entry(c,pc,open_return_held(c),open_descriptor(c)))second_open_refuse(3);
-        ++second_open_count;throw SecondOpenReached{};
+        ++second_open_count;
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+        if(!second_request||!second_request->begin_second(c,*second_open,second_request_held(c),
+                open_return_held(c),open_descriptor(c),allocator_heap.size))second_request_refuse(1);
+        std::cout<<"V1364_REQUEST_HANDOFF n="<<last_trial<<" first_release=1 second_entry=1 cache_rearmed=1\n";
+        second_open_active=false;second_request_active=true;return;
+#else
+        throw SecondOpenReached{};
+#endif
     }
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    if(second_request_active){
+        if(pc==OpenScRoute::Vector){
+            if(!second_request->vector_trace(c,pc,second_request_held(c)))second_request_refuse(2);
+            ++second_request_vectors;return;
+        }
+        if(!second_request->observe(c,pc,second_request_held(c)))second_request_refuse(3);
+        if(second_request->stage()==9u){
+            if(!second_request->submit_at(c,second_request_held(c))||
+               !allocator_descriptor->identity_after_release(c))second_request_refuse(4);
+            ++second_request_count;throw SecondRequestReached{};
+        }
+        return;
+    }
+#endif
 #endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active)open_return_refuse(5);
@@ -843,6 +886,20 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    if(second_request_active){
+        if(!second_request->boundary(c,second_request_held(c))||++second_request_polls>8192u)second_request_refuse(5);
+        const auto stage=second_request->stage();
+        bool allowed=false;
+        if(c.pc==OpenRequestWitness::Alloc)allowed=stage==2u&&c.lr==0x8051998cu;
+        else if(c.pc==0x8051998cu)allowed=stage==5u&&c.lr==c.pc&&(c.msr&0x8000u);
+        else if(c.pc==v626::restore_resume)allowed=stage==5u&&(c.msr&0x8000u);
+        else if(c.pc==OpenScRoute::Resume)allowed=stage==7u&&(c.msr&0x8000u);
+        else allowed=std::find(v626::backward_polls.begin(),v626::backward_polls.end(),c.pc)!=v626::backward_polls.end();
+        if(!allowed)second_request_refuse(5);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active){if(!second_open->poll(c,open_return_held(c),open_descriptor(c)))second_open_refuse(4);return false;}
 #endif
@@ -1058,6 +1115,16 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    if(second_request_active){
+        if(!second_request->dispatch(c,second_request_held(c),[](auto& cpu){func_80000C00(cpu);},
+            [](auto& cpu,const auto& gp,uint32_t hid){
+                for(unsigned i=0;i<32;++i)if(cpu.gpr[i]!=(i==9?hid:i==10?(hid|8u):gp[i]))return false;
+                return true;
+            }))second_request_refuse(6);
+        ++second_request_returns;return false;
+    }
+#endif
     if(submit_host){
         need(submit_stage==4&&submit_join&&device_ok(c));
         need(submit_join->dispatch(c,device_ok(c),[](auto& cpu){func_80000C00(cpu);},
@@ -1085,6 +1152,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    if(second_request_active)second_request_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active)second_open_refuse(5);
 #endif
@@ -1160,6 +1230,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    if(second_request_active)second_request_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active)second_open_refuse(5);
 #endif
@@ -1394,6 +1467,14 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
         if(!open_tail.capture_submit(c,device_ok(c)))open_return_refuse(2);
         open_return_device=kind==1u?StmIos::Device::Immediate:StmIos::Device::Event;
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+        auto second_expect=v639::expected_open;
+        const auto second_call=std::find_if(v1359::words.begin(),v1359::words.end(),[](auto w){return w.pc==v1359::expected.call;});
+        need(second_call!=v1359::words.end());
+        second_expect.entry={v1359::expected.open,v1359::expected.call+4u,second_call->word,v1359::expected.entry_word};
+        PostAckOpenJoin second_build(second_expect,v626::vector,kind);
+        second_request=&second_build;second_request_polls=0;
+#endif
 #endif
         std::array<VectorEdge,v626::submit_edges.size()> edges{};
         for(unsigned i=0;i<edges.size();++i){auto e=v626::submit_edges[i];edges[i]={e.pc,e.lr,e.branch,e.entry};}
@@ -1636,8 +1717,18 @@ int main(int argc,char** argv)try{
         bool allocator_returned=false;
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+        try{run_game(c);}catch(const SecondRequestReached&){allocator_returned=true;}
+        need(allocator_returned&&second_build.submit_at(c,second_request_held(c))&&
+            descriptor.identity_after_release(c)&&second_request_count==trial+1u&&
+            second_request_vectors==trial+1u&&second_request_returns==trial+1u&&
+            second_open_count==trial+1u&&open_return_count==trial+1u&&host.serviced_steps()==2u);
+        std::cout<<"V1364_REQUEST_TRIAL n="<<trial<<" request=1 opposite_path=1 native_rfi=1 first_fd_held=1 reused="<<(second_build.request()==open.request())<<"\n";
+        second_request_active=false;second_request=nullptr;
+#else
         try{run_game(c);}catch(const SecondOpenReached&){allocator_returned=true;}
         need(allocator_returned&&stm_second.reached(c,open_return_held(c),open_descriptor(c))&&second_open_count==trial+1u&&open_return_count==trial+1u);
+#endif
         std::cout<<"V1359_SECOND_TRIAL n="<<trial<<" second_entry=1 opposite_path=1 descriptor_store=1 first_fd_held=1\n";
         second_open_active=false;second_open=nullptr;
 #else
@@ -1654,7 +1745,13 @@ int main(int argc,char** argv)try{
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
             allocator_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load()));
 #ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+        // The completed descriptor and full heap shadow were verified
+        // at the inline first return and again at second Open entry.
+        if(!descriptor.identity_after_release(c)){std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=4\n";throw WitnessFailure{};}
+#else
         if(!descriptor.returned(c,allocator.metadata_stores())){std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=4\n";throw WitnessFailure{};}
+#endif
         std::cout<<"V1356_DESCRIPTOR_RETURN n="<<trial<<" exact_field=1 shadow=1 stores="<<allocator.metadata_stores()<<'\n';
         allocator_descriptor=nullptr;
 #endif
@@ -1783,6 +1880,10 @@ int main(int argc,char** argv)try{
     need(open_return_count==8u);
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     need(second_open_count==8u);
+#ifdef UNDERCOVER_V1364_SECOND_REQUEST
+    need(second_request_count==8u&&second_request_vectors==8u&&second_request_returns==8u);
+    std::cout<<"V1364_REQUEST_NATIVE owner=1 trials=8 request=8 opposite_path=8 native_rfi=8 first_fd_held=8 ios_steps=2 second_submitted=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1359_SECOND_NATIVE owner=1 trials=8 second_entry=8 opposite_path=8 descriptor_store=8 first_fd_held=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1358_OPEN_NATIVE owner=1 trials=8 submit_return=8 open_return=8 stm_resume=8 descriptor=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";

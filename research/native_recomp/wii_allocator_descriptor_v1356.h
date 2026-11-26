@@ -42,6 +42,13 @@ public:
            !valid_head(c,heap_,c.mmu.read32(record_+12u),false))return fail(4);
         return true;
     }
+    // The verified first release has retired its free-list snapshot.
+    // The next original allocation may change the head, not the heap's
+    // identity. Permit an empty free list, never an invalid nonzero head.
+    template<class C>bool identity_after_release(C& c)const{
+        return !error_&&cpu_==&c&&admitted_&&identity(c)&&
+            valid_head(c,heap_,c.mmu.read32(record_+12u),true);
+    }
 private:
     struct Initial{uint32_t addr,base;unsigned id;};
     const void* cpu_=nullptr;std::vector<Initial> initial_;AllocatorRange heap_{};
