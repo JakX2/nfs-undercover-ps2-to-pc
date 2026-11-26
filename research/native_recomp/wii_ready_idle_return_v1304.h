@@ -46,9 +46,14 @@ public:
             ready_->ready_storage_held(c,*frame_,held);
     }
     template<class C>bool selection_transport_held(C& c,bool held)const{
+        return completed_transport_held(c,held)&&wire();
+    }
+    // After authenticated free and return, the next allocator may reuse
+    // the old reply buffer. Keep the mailbox identity but not retired bytes.
+    template<class C>bool completed_transport_held(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
         return held&&!error_&&stage_==2u&&cpu_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&s&&
-            c.inst_count>=end_&&c.inst_count-end_<=4096u&&same_scheduler_ipc_snapshot(mail_,*s)&&wire();
+            c.inst_count>=end_&&c.inst_count-end_<=4096u&&same_scheduler_ipc_snapshot(mail_,*s);
     }
 private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;ExternalReturnWitness* frame_=nullptr;

@@ -38,9 +38,9 @@ public:
     // OSLoadContext starts changing CPU registers. Intermediate scheduler
     // list/pointer stores need not be atomic.
 private:
-    template<class C>unsigned state_detail(C& c,bool held,bool exact_msr_checked)const{
+    template<class C>unsigned state_detail(C& c,bool held,bool exact_msr_checked,bool retired=false)const{
         if(stage_<1u||stage_>6u||error_||!prior_||cpu_!=&c)return 1u;
-        if(!prior_->selection_transport_held(c,held))return 2u;
+        if(!(retired?prior_->completed_transport_held(c,held):prior_->selection_transport_held(c,held)))return 2u;
         if(!word(c,e_.counter,0u)||!word(c,e_.callback_ptr,e_.callback))return 3u;
         if(!word(c,wait_,0u)||!word(c,wait_+4u,0u))return 4u;
         if(!word(c,e_.thread+720u,priority_)||c.inst_count<tick_||c.inst_count-tick_>4096u)return 5u;
@@ -85,6 +85,13 @@ public:
     // never the live MSR as a substitute for the expected state.
     template<class C>bool selected_response_held(C& c,bool held,uint32_t expected_msr)const{
         return stage_==6u&&c.msr==expected_msr&&state_detail(c,held,true)==0u&&
+            word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
+    }
+    // Only for the new request after a separately verified first Open
+    // return. The old reply wire is no longer live; selected OSContext,
+    // queue, scheduler counter, mailbox, and tick budget remain exact.
+    template<class C>bool selected_after_release(C& c,bool held)const{
+        return stage_==6u&&state_detail(c,held,true,true)==0u&&
             word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
     }
     template<class C>bool loader_ready(C& c,bool held)const{

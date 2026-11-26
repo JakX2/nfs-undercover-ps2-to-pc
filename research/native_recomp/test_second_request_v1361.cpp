@@ -3,7 +3,7 @@
 #include <source_location>
 using namespace undercover::wii;
 using W=OpenRequestWitness;using I=IpcClientWitness;using R=OpenScRoute;using B=NativeIosBinding;using H=HollywoodIrq;using M=IpcMailbox;
-static void need(bool b,const std::source_location l=std::source_location::current()){if(!b)throw std::runtime_error("V639 line "+std::to_string(l.line()));}
+static void need(bool b,const std::source_location l=std::source_location::current()){if(!b)throw std::runtime_error("V1363 line "+std::to_string(l.line()));}
 struct Mmu{
     std::vector<uint8_t> mem1=std::vector<uint8_t>(24u*1024u*1024u),mem2=std::vector<uint8_t>(0x20000);
     uint8_t* get_ptr(uint32_t a){
@@ -98,7 +98,7 @@ int main(){
         enter(e.submit);c.gpr[3]=fault==14?lo+size-4u:fault==15?0x500000a0u:req;
         m.write32(req,fault==16?2u:1u);m.write32(req+12,fault==17?path+4:path&0x3fffffffu);m.write32(req+16,fault==18?1u:0u);
         if(fault==19)m.write8(lo+size,0);
-        if(fault==20)need(B::write32(IosBus::IPC+M::PPCMSG,0x100));
+        if(fault==20)need(B::write32(IosBus::IPC+M::PPCMSG,0x120));
         const bool ok=fault==0||fault==21;
         need(w.observe(c.pc,c,route)==ok);
         if(ok){need(w.stage()==9&&w.request()==req&&host.serviced_steps()==2);++good;}else ++bad;

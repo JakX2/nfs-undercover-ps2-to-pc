@@ -514,6 +514,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                         if(idle_case==27)m.write32(0x800000c0u,Context&0x3fffffffu);
                         if(idle_case==28)m.write32(Queue,Thread);
                         assert(select.selected_response_held(c,true,enabled)==(idle_case==24u));
+                        assert(select.selected_after_release(c,true)==(idle_case==24u||idle_case==25u));
                     }
                     else assert(idle_case==13u||idle_case==22u);
                     return;

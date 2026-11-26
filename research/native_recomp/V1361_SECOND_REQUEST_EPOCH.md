@@ -5,3 +5,7 @@ Prepare reusable second request verification without resetting IOS, guest RAM or
 ## V1362 complete-image staging
 
 The complete-image V641 installer uses an explicit include allowlist. Stage the new epoch header alongside the existing Open request/SC headers, preserving the default cold contract. Without this correction, a private generated tree could fail to compile even though the source-only tests find the header locally.
+
+## V1363 retired wire and negative-test correction
+
+V1360 original owner job 139933458460 passed 8/8 second STM entries, descriptor stores and opposite paths. V1361 source job 139933327035 passed the cache rearm and all four existing cold suites; the final negative case wrote PPCMSG=0x100, identical to the already completed first message. Use 0x120 instead. Add a separate selected-after-release predicate that preserves mailbox, scheduler context, queue, priority and budget but does not require the contents of the retired request buffer. Existing selected-response checks still require the wire bytes. The new predicate is intended only after verified allocator release and Open return, not for the prior IRQ phases. Test the retired wire mutation independently from context and queue corruption.
