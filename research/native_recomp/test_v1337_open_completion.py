@@ -1,5 +1,5 @@
 import unittest
-from prepare_v1337_open_completion import corridor,merge,rebuild,ensure_resume,STM,BLR,ROOT,SOURCE,SC_SOURCE,VECTORS
+from prepare_v1337_open_completion import corridor,merge,rebuild,ensure_resume,hook_submit,STM,BLR,ROOT,SOURCE,SC_SOURCE,VECTORS
 from make_v626_ipc_fixture import assemble
 from prepare_v419_full_start import words_at
 import struct
@@ -7,6 +7,20 @@ NOP=0x60000000
 def bl(pc,dst):return 0x48000001|((dst-pc)&0x03fffffc)
 def bc(pc,dst):return 0x41820000|((dst-pc)&0xfffc)
 class Tests(unittest.TestCase):
+    def test_hook_prefix(self):
+        pc=0x8051963c
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {NOP:08X}\n'
+        trace=f'    if (nwii::runtime::g_trace_calls) nwii::runtime::trace_call(0x{pc:X}, ctx); // V625 IPC client return\n'
+        tick='    ++ctx.inst_count;\n'
+        for prefix in ('',trace):
+            s=label+prefix+tick
+            patched,found=hook_submit(s,pc,NOP)
+            self.assertTrue(found);self.assertTrue(patched.startswith(s))
+            self.assertEqual(patched.count('v1344_before'),1)
+        for s in (label+trace.replace(f'0x{pc:X}',f'0x{pc+4:X}')+tick,
+                  label+'    arbitrary(ctx);\n'+tick,label+tick+label+tick,label):
+            with self.assertRaises(ValueError):hook_submit(s,pc,NOP)
+        self.assertEqual(hook_submit('other',pc,NOP),('other',False))
     def test_resume(self):
         root=0x80004000;pc=root+4
         body=' switch(ctx.pc) {\n case 0x80004004: goto loc_80004004;\n }\n'

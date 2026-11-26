@@ -118,6 +118,21 @@ def ensure_resume(main,body,owner,pc):
     if len(re.findall(pattern,out))!=1:raise ValueError('completion outer resume')
     return out,True
 
+def hook_submit(s,pc,w):
+    # V651 deliberately traces one original continuation before its tick.
+    # Authenticate the optional trace by its exact PC and spelling, not
+    # arbitrary lines between the original label and native tick.
+    prefix=r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n'
+    trace=(r'    if \(nwii::runtime::g_trace_calls\) nwii::runtime::trace_call\(0x'+
+           f'{pc:X}'+r', ctx\); // V625 IPC client return\n')
+    pat=re.compile(prefix+(r'(?:'+trace+r')?' if pc==0x8051963c else '')+r'    \+\+ctx\.inst_count;\n')
+    hits=list(pat.finditer(s))
+    labels=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;$',s)
+    if not labels:return s,False
+    if len(labels)!=1 or len(hits)!=1:raise ValueError('completion hook label')
+    i=hits[0].end()
+    return s[:i]+f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:],True
+
 def install_submit(root,p):
     from prepare_v625_ipc_client import audit_native
     from prepare_owner_scheduler_v722 import reachable
@@ -144,16 +159,15 @@ def install_submit(root,p):
     for f,s in sources.items():
         old=s
         for pc,w in wanted.items():
-            pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
-            hits=list(pat.finditer(s))
-            if not hits:continue
-            if len(hits)!=1 or pc in seen:raise ValueError('completion hook')
-            seen.add(pc);i=hits[0].end();s=s[:i]+f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:]
+            s,found=hook_submit(s,pc,w)
+            if not found:continue
+            if pc in seen:raise ValueError('completion hook duplicate')
+            seen.add(pc)
         if s!=old:
             anchor='#include "runtime/cpu_context.h"'
-            if s.count(anchor)!=1:raise ValueError('completion hook')
+            if s.count(anchor)!=1:raise ValueError('completion hook include')
             changes[f]=s.replace(anchor,anchor+'\nvoid v1344_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
-    if seen!=set(wanted):raise ValueError('completion hook')
+    if seen!=set(wanted):raise ValueError('completion hook coverage')
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
     rows=[(a,a+4*i,w) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE) for i,w in enumerate(ws)]
     header='#pragma once\n#include "wii_submit_resume_v1342.h"\nnamespace v1344 {\n'
@@ -172,6 +186,6 @@ def main():
         if a.submit_install:install_submit(a.out,plan(d,e));return 0
         verify(d,e,(a.out/'fixture.dol').read_bytes(),(a.out/'symbols.csv').read_text());return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip','completion hook','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper exact root','helper call label','helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional')
+        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip','completion hook','completion hook label','completion hook duplicate','completion hook include','completion hook coverage','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper exact root','helper call label','helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional')
         print('V1337_COMPLETION_PREFLIGHT verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'prior_or_io'));return 1
 if __name__=='__main__':raise SystemExit(main())
