@@ -14,7 +14,7 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function
 from prepare_v709_os_leaves import owns_root
 from verify_callback_resume_v853 import verify_callback_resume
-from audit_handler_suffix_v728 import suffix as handler_suffix,target as handler_target
+from collect_third_alarm_suffix_v1044 import collect_after_alarm
 from audit_handler_third_v740 import edge as handler_edge
 
 def plan(dol,elf):
@@ -66,34 +66,7 @@ def plan(dol,elf):
     extra=(*extra[:-1],(site,root,64,tail[0],tr),*new,extra[-1])
     p[0]=(roots,edges,indirect,iw,hw,dw,guard,extra);result[0]=tuple(p)
     alarm_site,_,_=handler_edge(HANDLER,original,5)
-    count,_,_,stops=handler_suffix(HANDLER,original,alarm_site+4)
-    boundaries={pc:(kind,ordinal) for pc,kind,ordinal,_ in stops}
-    after={};todo=[alarm_site+4]
-    while todo:
-        pc=todo.pop()
-        if pc in after:continue
-        if not HANDLER<=pc<HANDLER+4*len(original):raise ValueError('third alarm suffix extent')
-        w=original[(pc-HANDLER)//4];translated=roots[HANDLER][(pc-HANDLER)//4]
-        k,o=boundaries.get(pc,(0,0))
-        # An authenticated refusal guard is a terminal diagnostic, never
-        # interpreted as an actual original return or executed call.
-        if pc in guard and translated==0x4e800020 and translated!=w:
-            after[pc]=(translated,0,0);continue
-        if k:
-            if k in (1,5):
-                if translated!=w or not o:raise ValueError('third alarm suffix call')
-                after[pc]=(w,o,1 if k==1 else 2)
-            elif translated==0x4e800020:after[pc]=(translated,0,0)
-            else:raise ValueError('third alarm suffix boundary')
-            continue
-        if translated!=w:raise ValueError('third alarm suffix word')
-        after[pc]=(w,0,0)
-        if w>>26 in (16,18):
-            todo.append(handler_target(pc,w))
-            if w>>26==18:continue
-        todo.append(pc+4)
-    if not 1<=len(after)<=min(count,256) or not any(o==6 and k==2 for _,o,k in after.values()):
-        raise ValueError('third alarm suffix geometry')
+    after=collect_after_alarm(HANDLER,original,roots[HANDLER],guard,alarm_site+4)
     return q,site,root,tr,tail[1:],resume,word,added,added_roots,code,reg,counter,hint,G,gqr,after
 
 def header(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hint,G,gqr,after,out):
@@ -147,7 +120,7 @@ def main():
         elif x.patch_analyzer:patch_analyzer(q[0][0][0],x.output)
         else:header(*q,x.output);print('V1007_EPILOGUE_GEOMETRY dispatcher_words=4 loader_words=54 scheduler_enable=1 reschedule=1 execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        allowed=('handler tail geometry','handler tail words','handler restore overlap','handler suffix seam','dispatcher resume geometry','dispatcher owner','dispatcher resume coverage','dispatcher resume label','resume dispatcher identity','local resume dispatcher identity','native coverage','native owner','hook identity')
+        allowed=('handler tail geometry','handler tail words','handler restore overlap','handler suffix seam','dispatcher resume geometry','dispatcher owner','dispatcher resume coverage','dispatcher resume label','resume dispatcher identity','local resume dispatcher identity','native coverage','native owner','hook identity','third alarm suffix extent','third alarm suffix call','third alarm suffix boundary','third alarm suffix word','third alarm suffix geometry','third alarm suffix guard')
         print('V1007_EPILOGUE_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
