@@ -45,8 +45,9 @@ public:
         }
         if(std::count_if(e_.slots.begin(),e_.slots.end(),[](auto s){return s.reg==32u;})!=1)return fail(1);
         if(e_.boundary.width){
-            const unsigned op=e_.target_word>>26,n=op<=33u?4u:op<=35u?1u:2u;
-            if(!((op>=32u&&op<=35u)||(op>=40u&&op<=43u))||n!=e_.boundary.width||
+            const auto form=decode_load(e_.target_word);
+            const unsigned n=form.width;
+            if(!n||n!=e_.boundary.width||
                e_.boundary.address%n||!mapped(c,{e_.boundary.address,n})||e_.target<e_.root||
                std::any_of(e_.path.begin(),e_.path.end(),[&](auto x){return x.pc==e_.target;}))return fail(1);
         }
@@ -100,17 +101,18 @@ public:
             if(gp_[1]!=frame_.base||!access(pc,a,n,true)||!store(a,n,gp_[rs]))return fail(5);
             ++stores_;
             if(xo==183u||xo==247u||xo==439u){if(!ra||ra==1u)return fail(5);gp_[ra]=a;}
-        }else if((op>=32u&&op<=35u)||(op>=40u&&op<=43u)){
-            const unsigned n=op<=33u?4u:op<=35u?1u:2u;
-            if(rs==1u||!access(pc,ea,n,false)||!mapped(c,{ea,n})||(ea%n))return fail(5);
-            uint32_t v=0;for(unsigned i=0;i<n;++i)v=(v<<8)|c.mmu.read8(ea+i);
+        }else if(const auto form=decode_load(w);form.width){
+            const unsigned n=form.width;
+            const uint32_t a=(ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm);
+            if(!access(pc,a,n,false)||!mapped(c,{a,n})||(a%n))return fail(5);
+            uint32_t v=0;for(unsigned i=0;i<n;++i)v=(v<<8)|c.mmu.read8(a+i);
             const auto site=std::find_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==pc;});
             if(site->expected_value){
                 if(v!=*site->expected_value)return fail(5);
                 ++authenticated_loads_;
             }
-            gp_[rs]=op>=42u&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
-            if(op&1u){if(!ra||ra==rs||ra==1u)return fail(5);gp_[ra]=ea;}
+            gp_[rs]=form.sign&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
+            if(form.update)gp_[ra]=a;
         }else if(op==31u&&xo==339u&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
         else if(op==31u&&xo==467u&&(ra|(rb<<5))==9u)ctr_=gp_[rs];
         else if((op==14u||op==15u)&&rs!=1u)gp_[rs]=(ra?gp_[ra]:0u)+(op==15u?imm<<16u:imm);
@@ -162,9 +164,12 @@ public:
         if(stage_!=1u||!e_.boundary.width||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
            c.inst_count-last_!=1u||!common(c,held)||!word(c,pc,w)||!abi(c))return fail(6);
-        const unsigned ra=(w>>16)&31u;
+        const auto form=decode_load(w);
+        const unsigned ra=(w>>16)&31u,rb=(w>>11)&31u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
-        if((ra?gp_[ra]:0u)+imm!=e_.boundary.address||!mapped(c,{e_.boundary.address,e_.boundary.width}))return fail(6);
+        if(!form.width||form.width!=e_.boundary.width||
+           (ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm)!=e_.boundary.address||
+           !mapped(c,{e_.boundary.address,e_.boundary.width}))return fail(6);
         last_=c.inst_count;stage_=2;return true;
     }
     template<class C>bool reached_load_boundary(C& c,bool held)const{
@@ -196,6 +201,23 @@ public:
         return true;
     }
 private:
+    struct LoadForm {unsigned width=0;bool indexed=false,update=false,sign=false;};
+    static LoadForm decode_load(uint32_t w){
+        const unsigned op=w>>26,rt=(w>>21)&31u,ra=(w>>16)&31u,xo=(w>>1)&1023u;
+        LoadForm f;
+        if((op>=32u&&op<=35u)||(op>=40u&&op<=43u)){
+            f={op<=33u?4u:op<=35u?1u:2u,false,bool(op&1u),op>=42u};
+        }else if(op==31u&&!(w&1u)){
+            switch(xo){
+            case 23:case 55:f={4,true,xo==55,false};break;
+            case 87:case 119:f={1,true,xo==119,false};break;
+            case 279:case 311:case 343:case 375:f={2,true,xo==311||xo==375,xo==343||xo==375};break;
+            default:return {};
+            }
+        }
+        if(rt==1u||(f.update&&(!ra||ra==rt||ra==1u)))return {};
+        return f;
+    }
     ScFormatterExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
     std::vector<uint8_t> shadow_,written_;

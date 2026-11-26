@@ -85,5 +85,40 @@ static void many_accesses(unsigned fault){
     assert(w.stop_before_load(c,target,load,true)&&w.reached_load_boundary(c,true));
     assert(w.loads()==2&&w.authenticated_loads()==(fault==4?1u:2u)&&w.stores()==12&&c.mmu.data_reads==0);
 }
+constexpr uint32_t xload(unsigned xo,unsigned rt,unsigned ra,unsigned rb,unsigned rc=0){return (31u<<26)|(rt<<21)|(ra<<16)|(rb<<11)|(xo<<1)|rc;}
+static void indexed(unsigned xo,unsigned n,uint32_t value,unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A+4;c.gpr[5]=uint32_t(-4);c.gpr[8]=A+16;
+    c.mmu.write32(A,0x81ff1234u);
+    const auto rd=R+12,target=R+16;
+    const auto word=xload(xo,4,3,5),stop=xload(23,7,0,8);
+    const std::array<IpcDispatchWord,4> path{{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},
+        {R,R+8,ins(36,0,1,52)},{R,rd,word}}};
+    const uint32_t raw=n==4?0x81ff1234u:n==2?0x81ffu:0x81u;
+    const std::array<ScFormatterAccess,3> access{{{R,4,-48,true,true},{R+8,4,4,true,true},
+        {rd,n,fault==1?A+4:A,false,false,fault==2?raw^1u:raw}}};
+    const std::array<StmFinalSlot,1> slots{{{4,32}}};
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(target,stop);
+    ScFormatterWitness w({R,L,target,stop,48,path,access,slots,{fault==3?A+20:A+16,4}});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        ++c.inst_count;const bool ok=w.before(c,x.pc,x.word,true);
+        if(x.pc==rd&&(fault==1||fault==2)){assert(!ok&&w.authenticated_loads()==0);return;}
+        assert(ok);
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else {c.gpr[4]=fault==4?value^1u:value;if(xo==55||xo==119||xo==311||xo==375)c.gpr[3]=A;}
+    }
+    ++c.inst_count;const bool ok=w.stop_before_load(c,target,stop,true);
+    if(fault>=3){assert(!ok);return;}
+    assert(ok&&w.reached_load_boundary(c,true)&&w.authenticated_loads()==1&&w.loads()==1&&c.gpr[7]==0);
+}
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=14 original_execution=0\n";}
+    for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
+        const unsigned n=xo<=55?4:xo<=119?1:2;
+        const uint32_t v=n==4?0x81ff1234u:n==1?0x81u:xo>=343?0xffff81ffu:0x81ffu;
+        indexed(xo,n,v,0);
+    }
+    for(unsigned i=1;i<=4;++i)indexed(23,4,0x81ff1234u,i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=26 original_execution=0\n";}
