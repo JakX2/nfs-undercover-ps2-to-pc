@@ -23,6 +23,10 @@ inline constexpr uint32_t transfer_data=0x8000c000u,transfer_slots=0x8000c100u;
 inline constexpr uint32_t second_callback_save_root=0x8000e000u;
 inline constexpr std::array<uint32_t,6> second_callback_prefix{0x9421ffc0u,0x7c0802a6u,0x90010044u,0x39610040u,0x48000ff1u,0x60000000u};
 inline constexpr std::array<uint32_t,7> second_callback_save{0x934bffe8u,0x936bffecu,0x938bfff0u,0x93abfff4u,0x93cbfff8u,0x93ebfffcu,0x4e800020u};
+#ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME
+inline constexpr std::array<uint32_t,8> success_callback_words{second_callback_prefix[0],second_callback_prefix[1],second_callback_prefix[2],second_callback_prefix[3],second_callback_prefix[4],second_callback_prefix[5],0x48001fe9u,0x60000000u};
+#else
 inline constexpr std::array<uint32_t,7> success_callback_words{second_callback_prefix[0],second_callback_prefix[1],second_callback_prefix[2],second_callback_prefix[3],second_callback_prefix[4],second_callback_prefix[5],0x4e800020u};
+#endif
 inline constexpr std::array<uint32_t,2> success_callback_sites{0x80004018u,0x8000401cu};
 }

@@ -25,6 +25,7 @@ struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint64_t inst_count=100;
     uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=0x80005000u,srr1=0x8032u;
     bool is_running=true,in_callback=false;
+    uint64_t read_timebase()const{return 0x100000020ull;}
 };
 static void need(bool b,const std::source_location loc=std::source_location::current()){
     if(!b){std::cerr<<"V997_ASSERT line="<<loc.line()<<std::endl;std::_Exit(125);}
@@ -127,7 +128,40 @@ int main(int argc,char** argv){
         visit(target+16,prefix[4]);c.pc=save;c.lr=target+20u;v958::observe(save,c);
         for(unsigned i=0;i<6;++i){visit(save+4*i,v958::second_callback_save[i]);c.mmu.words[stack-24+4*i]=c.gpr[26+i];}
         if(mode=="callback-save-corrupt")c.mmu.words[stack-4]^=1u;
-        visit(save+24,v958::second_callback_save[6]);visit(target+20,prefix[5]);need(false);
+        visit(save+24,v958::second_callback_save[6]);
+#ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME
+        if(mode.starts_with("callback-time")){
+            auto put=[&](uint32_t base,const auto& words){for(auto word:words){c.mmu.words[base]=word;base+=4;}};
+            put(v813::T,v813::system_words);put(v813::D,v813::disable);put(v813::U,v813::timebase);put(v813::R,v813::restore);
+            if(mode!="callback-time-offset"){c.mmu.words[v813::Offset]=0;c.mmu.words[v813::Offset+4]=0x1234u;}
+            visit(target+20,prefix[5]);
+            need(v958::callback_time_active()&&v958::callback_time.visits()==1u&&v958::ack.postack_held());
+            if(mode=="callback-time-frame")c.mmu.words[v958::context+124]^=1u;
+            visit(target+24,v813::continuation[1]);
+            c.pc=v813::T;c.lr=target+28;v958::observe(c.pc,c);
+            for(unsigned i=0;i<25;++i){
+                const uint32_t pc=v813::T+4*i;visit(pc,v813::system_words[i]);
+                if(i==1||i==4||i==7){
+                    const uint32_t leaf=i==1?v813::D:i==4?v813::U:v813::R;
+                    const auto& words=i==1?v813::disable:i==4?v813::timebase:v813::restore;
+                    c.pc=leaf;c.lr=pc+4;v958::observe(leaf,c);
+                    for(unsigned j=0;j<words.size();++j){
+                        visit(leaf+4*j,words[j]);
+                        if(i==4){
+                            if(j==0)c.gpr[3]=uint32_t(c.read_timebase()>>32);
+                            if(j==1)c.gpr[4]=uint32_t(c.read_timebase());
+                            if(j==2)c.gpr[5]=uint32_t(c.read_timebase()>>32);
+                            if(j==3)v958::poll(c);
+                        }else if(j==0){c.gpr[6]=c.msr;c.gpr[3]=0;}
+                    }
+                }
+                if(i==5)c.gpr[3]=0;
+                if(i==23){c.gpr[3]=1;c.gpr[4]=mode=="callback-time-result"?0x1255u:0x1254u;c.lr=target+28;}
+            }
+            visit(target+28,v813::continuation.back());need(false);
+        }
+#endif
+        visit(target+20,prefix[5]);need(false);
     }
     visit(H+12,bl(H+12,Nested));c.pc=Nested;c.lr=H+16;v958::observe(c.pc,c);
     visit(Nested,bl(Nested,Disable));c.pc=Disable;c.lr=Nested+4;v958::observe(c.pc,c);

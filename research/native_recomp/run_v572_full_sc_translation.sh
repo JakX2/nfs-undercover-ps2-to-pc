@@ -264,6 +264,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
             if [[ "${UNDERCOVER_RUN_V1009_SECOND_CALLBACK:-0}" == 1 ]]; then
                 [[ "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 ]] || exit 2
                 python3 "$here/prepare_v1009_second_callback.py" "$dol" "$elf" "$work/generated"
+                if [[ "${UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME:-0}" == 1 ]]; then
+                    python3 "$here/prepare_v1014_second_callback_time.py" "$dol" "$elf" "$work/generated"
+                fi
+            elif [[ "${UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME:-0}" == 1 ]]; then exit 2
             fi
         fi
         if [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v928_leaf_finish.py" "$dol" "$elf" "$work/generated";fi

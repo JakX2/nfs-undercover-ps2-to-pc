@@ -1,0 +1,126 @@
+name: Wii V1014 Second Callback Time Complete Image Preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-v1014-second-callback-time-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate witness and installer
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v868_handler_suffix.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v870_handler_suffix_audit.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_suffix_guard_v868.cpp -o "$RUNNER_TEMP/v868"
+          "$RUNNER_TEMP/v868"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_handler_callback_join_v865.cpp -o "$RUNNER_TEMP/v865"
+          "$RUNNER_TEMP/v865"
+          python3 -m unittest discover -s research/native_recomp -p test_v864_combined_callback.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_wireless_profile_trace_v859.cpp -o "$RUNNER_TEMP/v859"
+          "$RUNNER_TEMP/v859"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_callback_return_dispatch_v849.cpp -o "$RUNNER_TEMP/v849"
+          "$RUNNER_TEMP/v849"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_postack_transfer_device_v771.cpp -o "$RUNNER_TEMP/v890"
+          "$RUNNER_TEMP/v890"
+          python3 -m unittest discover -s research/native_recomp -p test_v919_handler_epilogue.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v920_handler_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v921_capture_join.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v922_irq_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v924_irq_launch.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v767_live_epilogue.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_saved_context_join_v921.cpp -o "$RUNNER_TEMP/v921"
+          "$RUNNER_TEMP/v921"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_si_handler_return_v725.cpp -o "$RUNNER_TEMP/v725"
+          "$RUNNER_TEMP/v725"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_gpr_restore_v736.cpp -o "$RUNNER_TEMP/v736"
+          "$RUNNER_TEMP/v736"
+          python3 -m unittest discover -s research/native_recomp -p test_v939_second_vector.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_second_vector_v940.cpp -o "$RUNNER_TEMP/v940"
+          "$RUNNER_TEMP/v940"
+          python3 -m unittest discover -s research/native_recomp -p test_v951_second_dispatch.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_second_si_dispatch_v944.cpp -o "$RUNNER_TEMP/v944"
+          "$RUNNER_TEMP/v944"
+          python3 -m unittest discover -s research/native_recomp -p test_v958_second_ack.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v975_second_time.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v977_composed_time.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v989_shared_time.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v990_composed_shared.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v995_success_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v997_composed_success_frontier.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1009_composed_callback.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1010_callback_installer.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1014_composed_callback_time.py -v
+          echo 'V977_LIVE_TIME valid=1 earlier_modes=2 refused=3 actual_binding=1 original_execution=0'
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v875_launch_contract.py -v
+  owner-execution:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Authenticate both original successful-response branches without linking
+        env:
+          UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
+          UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V921_CAPTURE_JOIN: "1"
+          UNDERCOVER_RUN_V922_IRQ_RETURN: "1"
+          UNDERCOVER_RUN_V932_PENDING_RFI: "1"
+          UNDERCOVER_RUN_V939_SECOND_VECTOR: "1"
+          UNDERCOVER_RUN_V951_SECOND_DISPATCH: "1"
+          UNDERCOVER_RUN_V958_SECOND_ACK: "1"
+          UNDERCOVER_RUN_V967_POST_ACK: "1"
+          UNDERCOVER_RUN_V975_SECOND_TIME: "1"
+          UNDERCOVER_RUN_V989_SHARED_COMPLETION: "1"
+          UNDERCOVER_RUN_V981_SECOND_FRONTIER: "1"
+          UNDERCOVER_RUN_V995_SUCCESS_FRONTIER: "1"
+          UNDERCOVER_RUN_V1009_SECOND_CALLBACK: "1"
+          UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME: "1"
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw876"
+          git -C "$RUNNER_TEMP/nw876" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw876" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw876" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --prepare-si-handler-suffix | tee "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V921_CAPTURE_JOIN_ROUTE installed=1 pre_exception=1 saved_frame=1 handler_return=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V922_IRQ_RETURN_ROUTE installed=1 native_labels=[0-9]+ same_thread=1 exact_resume=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V574_FULL_SC_PREP owner=1 full_image=1 observer=1 syntax=1 link=0 execution=0 boot_verified=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V939_SECOND_ROUTE installed=1 vector_labels=38 trampoline_labels=20 dispatcher_entry=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V951_DISPATCH_ROUTE installed=1 native_labels=[1-9][0-9]* original_edges=4 indirect=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V958_ACK_ROUTE installed=1 native_labels=[1-9][0-9]* original_edges=3 exclusive_device=1 execution=0$' "$RUNNER_TEMP/v876-public.log"
+          grep -E '^V975_TIME_ROUTE installed=1 native_labels=[1-9][0-9]* original_edges=7 unchanged_msr_sites=2 execution=0$' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V989_SHARED_ROUTE installed=1 original_edges=8 shared_time_root=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V981_FRONTIER_ROUTE installed=1 original_call=4 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V995_SUCCESS_ROUTE installed=1 direct_boundary=4 indirect_boundary=6 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V1009_CALLBACK_ROUTE installed=1 original_prefix=6 original_save=7 shared_device=1 execution=0' "$RUNNER_TEMP/v876-public.log"
+          grep -Fx 'V1014_CALLBACK_TIME_ROUTE installed=1 callback_labels=13 shared_labels=45 direct_edges=4 execution=0' "$RUNNER_TEMP/v876-public.log"
+          echo 'V1014_SECOND_CALLBACK_TIME_PREFLIGHT verified=1 execution=0 boot_verified=0'
+      - name: Clean private files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v876-public.log"
