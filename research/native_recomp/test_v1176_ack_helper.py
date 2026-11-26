@@ -208,4 +208,27 @@ class AckWirelessMetadata(unittest.TestCase):
     def test_requires_frontier(self):
         with self.assertRaisesRegex(ValueError,'ACK wireless mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,False,True)
+class AckSuffixMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;resume=C+64;A=C+0x1000;B=A+0x100
+        original=[W]*172;frontier={resume-4:(3,A),resume+100:(5,B)}
+        seen=[resume+4*i for i in range(21)]
+        stops={seen[4]:(4,2,None),seen[-1]:(13,1,B)}
+        rows={pc:W for pc in seen};prior=({},(),0,W,C,original,frontier)
+        old='#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v1123_private_postalarm_suffix.h'
+            h.write_text(ins.suffix_render(C,resume,rows,stops))
+            n='wii_callback_suffix_v841.h';(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'suffix_plan',return_value=(None,C,resume,seen,stops)):
+                self.assertEqual(ins.verify_suffix_metadata(b'',b'',old,dest,HOST,prior),(C,rows,stops))
+                for bad in (old+old,old.replace('SUFFIX 1','SUFFIX 0'),old+'#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_suffix_metadata(b'',b'',bad,dest,HOST,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_suffix_metadata(b'',b'',old,dest,HOST,({},(),0,W,C+4,original,frontier))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_suffix_metadata(b'',b'',old,dest,HOST,prior)
+    def test_requires_wireless(self):
+        with self.assertRaisesRegex(ValueError,'ACK suffix mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()

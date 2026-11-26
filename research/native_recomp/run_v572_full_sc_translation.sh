@@ -225,6 +225,10 @@ ack_wireless="${UNDERCOVER_RUN_V1198_ACK_WIRELESS-0}"
 [[ "$ack_wireless" == 0 || "$ack_wireless" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1198_ACK_WIRELESS-0}" == "$ack_wireless" ]] || exit 2
 [[ "$ack_wireless" == 0 || "$ack_frontier" == 1 ]] || exit 2
+ack_suffix="${UNDERCOVER_RUN_V1203_ACK_SUFFIX-0}"
+[[ "$ack_suffix" == 0 || "$ack_suffix" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1203_ACK_SUFFIX-0}" == "$ack_suffix" ]] || exit 2
+[[ "$ack_suffix" == 0 || "$ack_wireless" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -275,6 +279,9 @@ if [[ "$third_postalarm" == 1 ]]; then
                                 echo 'V1194_ACK_FRONTIER_BUILD_PLAN links=1 private_installer=1 time_predecessor=1'
                                 if [[ "$ack_wireless" == 1 ]]; then
                                   echo 'V1198_ACK_WIRELESS_BUILD_PLAN links=1 private_installer=1 frontier_predecessor=1'
+                                  if [[ "$ack_suffix" == 1 ]]; then
+                                    echo 'V1203_ACK_SUFFIX_BUILD_PLAN links=1 private_installer=1 wireless_predecessor=1'
+                                  fi
                                 fi
                               fi
                             fi
@@ -462,6 +469,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                                     if [[ "$ack_time" == 1 ]]; then callback_args+=(--time); fi
                                                                     if [[ "$ack_frontier" == 1 ]]; then callback_args+=(--frontier); fi
                                                                     if [[ "$ack_wireless" == 1 ]]; then callback_args+=(--wireless); fi
+                                                                    if [[ "$ack_suffix" == 1 ]]; then callback_args+=(--suffix); fi
                                                                     python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi
