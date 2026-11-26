@@ -1,0 +1,3 @@
+# V1022: queued no-response successor transfer and alarm
+
+V1020 passed 16/16 original no-response RFI trials. The active-only route returns without a queued successor. V1017 independently verified that the queued route reaches SITransfer after 78 visits. Extend the same focused original harness to the queued absent-controller case with retained and cold predecessor data, all four channels and split/nonsplit output. Require the exact error helper and timing census before native transfer entry, then preserve existing third-token MMIO and alarm return witnesses. The 16 new trials are original execution from reconstructed fixture state; no boot claim. Pending CI.
