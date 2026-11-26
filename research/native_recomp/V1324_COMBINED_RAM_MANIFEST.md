@@ -1,0 +1,3 @@
+# V1324: combined scheduler guest RAM manifest
+
+V1323 identifies the missing initialized helper body in the focused harness. Prevent the same mistake in the later combined scheduler route by emitting private contiguous instruction rows for every original cooperative root and the authenticated callback, including the expanded 9-word OSClearContext. Add a read-only complete-manifest validation routine and tests for corruption/unmapped words. The future combined runner must seed the clear expansion before execution and verify the full manifest; no private execution or generated words committed. V1321 and V1322 source checks passed before this change. CI pending.

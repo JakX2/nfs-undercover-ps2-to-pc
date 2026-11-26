@@ -1,5 +1,5 @@
 import unittest
-from prepare_v1321_combined_resume import CLEAR,HELPER,expand_scope,merge
+from prepare_v1321_combined_resume import CLEAR,HELPER,CALLBACK,ram_rows,expand_scope,merge
 NOP=0x60000000
 BLR=0x4e800020
 H=(NOP,)*30+(BLR,)
@@ -10,6 +10,12 @@ class Tests(unittest.TestCase):
         self.assertEqual(dict(expand_scope([(CLEAR,8),(HELPER,0x7c)],sizes)),sizes)
         for prior in ([(CLEAR,0x24),(HELPER,0x7c)],[(CLEAR,8),(HELPER,8)],[(CLEAR,8),(HELPER,0x7c),(CLEAR+8,4)]):
             with self.assertRaises(ValueError):expand_scope(prior,sizes)
+    def test_ram_rows(self):
+        rows=ram_rows({CLEAR:C},(BLR,))
+        self.assertEqual(len(rows),10)
+        self.assertEqual(tuple(w for owner,pc,w in rows if owner==CLEAR),C)
+        self.assertEqual(tuple(pc for owner,pc,w in rows if owner==CLEAR),tuple(CLEAR+4*i for i in range(9)))
+        self.assertEqual(tuple((pc,w) for owner,pc,w in rows if owner==CALLBACK),((CALLBACK,BLR),))
     def test_merge(self):
         old={CLEAR:(NOP,BLR),HELPER:H}
         self.assertEqual(merge(old,{CLEAR:C},H),{CLEAR:C,HELPER:H})

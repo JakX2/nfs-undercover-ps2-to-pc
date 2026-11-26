@@ -27,7 +27,13 @@ int main(){
         if(f==8)rows.push_back({A+12,A+4,Blr});
         auto before=m.ram;bool ok=seed_private_expansion(m,rows,A,n);
         if(f){assert(!ok&&m.writes==0&&m.ram==before);}
-        else assert(ok&&m.writes==3&&m.read32(A+4)==Nop&&m.read32(A+8)==Blr&&m.read32(A+12)==0x12345678u);
+        else {
+            assert(ok&&m.writes==3&&m.read32(A+4)==Nop&&m.read32(A+8)==Blr&&m.read32(A+12)==0x12345678u);
+            assert(verify_private_words(m,rows));
+            m.ram[A+8]^=1;assert(!verify_private_words(m,rows));m.ram[A+8]^=1;
+            m.ram.erase(A+4);assert(!verify_private_words(m,rows));
+            assert(m.writes==3);
+        }
     }
     std::cout<<"V1323_PRIVATE_SEED synthetic=1 valid=1 refused=8 atomic_preflight=1 original_execution=0\n";
 }

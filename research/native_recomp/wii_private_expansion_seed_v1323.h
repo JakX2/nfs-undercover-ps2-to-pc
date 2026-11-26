@@ -2,6 +2,14 @@
 #include <array>
 #include <cstdint>
 namespace undercover::wii {
+// Validate a complete authenticated manifest without modifying guest RAM.
+template<class M,class Rows>bool verify_private_words(M& m,const Rows& rows){
+    for(auto row:rows){
+        if((row.pc&3u)||row.pc<0x80000000u||row.pc>0x817ffffcu||
+           !m.get_ptr(row.pc)||!m.get_ptr(row.pc+3u)||m.read32(row.pc)!=row.word)return false;
+    }
+    return true;
+}
 // Install only one previously authenticated private fixture expansion.
 // Validate the complete extent before any mutation. Called exclusively
 // during focused harness initialization, never by a native callback.

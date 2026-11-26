@@ -47,13 +47,20 @@ def plan(dol,elf):
         raise ValueError('combined selection edges')
     return coop,helper,selection,indirect,sn[CALLBACK]
 
+def ram_rows(roots,callback):
+    spans={**roots,CALLBACK:tuple(callback)}
+    return tuple((owner,owner+4*i,w) for owner,ws in sorted(spans.items()) for i,w in enumerate(ws))
+
 def render(result):
-    coop,_,selection,indirect,_=result
+    coop,_,selection,indirect,callback=result
     roots,_,_,mask=coop
     f=lambda n:f'0x{n:08x}u'
     row=lambda e:'undercover::wii::VectorEdge{'+','.join(map(f,e))+'}'
     loader=roots[L]
-    return '\n'.join(('#pragma once','#include "wii_idle_selection_v1319.h"','#include "wii_cooperative_load_lane_v1317.h"','#include <array>','namespace v1321 {',
+    rows=ram_rows(roots,callback)
+    return '\n'.join(('#pragma once','#include "wii_idle_selection_v1319.h"','#include "wii_cooperative_load_lane_v1317.h"','#include "wii_private_expansion_seed_v1323.h"','#include <array>','namespace v1321 {',
+        f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> ram_words'+'{'+','.join('undercover::wii::ReplyNativeWord{'+','.join(map(f,row))+'}' for row in rows)+'};',
+        'inline constexpr uint32_t clear_root='+f(CLEAR)+';',
         f'inline constexpr std::array<uint32_t,{len(loader)}> loader_words'+'{'+','.join(map(f,loader))+'};',
         f'inline constexpr std::array<undercover::wii::VectorEdge,{len(indirect)}> callbacks'+'{'+','.join(map(row,indirect))+'};',
         'inline constexpr undercover::wii::IdleSelectionExpectation selection(uint32_t thread,uint32_t idle,uint32_t counter){return {thread,idle,counter,'+
