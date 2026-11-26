@@ -1,0 +1,21 @@
+name: Wii Async Wrapper Return Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_async_wrapper_return.h'
+      - 'research/native_recomp/test_async_wrapper_return.cpp'
+      - '.github/workflows/wii-async-wrapper-return.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_async_wrapper_return.cpp -o /tmp/async_wrapper_return
+          /tmp/async_wrapper_return
