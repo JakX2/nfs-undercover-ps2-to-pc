@@ -2,6 +2,7 @@
 #include "wii_callback_prefix_v800.h"
 #include "synthetic_callback_time_expectations_v1014.h"
 #include "wii_callback_frontier_v829.h"
+#include "wii_wireless_wrapper_v844.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -36,8 +37,10 @@ int main(){
     unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0,frontier_valid=0,frontier_refused=0,callback_valid=0,callback_refused=0;
     unsigned time_valid=0,time_refused=0;
     unsigned post_valid=0,post_refused=0;
-    for(trial=0;trial<148;++trial){
-        const unsigned post_fault=trial>=136?trial-135u:0u;
+    unsigned wireless_valid=0,wireless_refused=0;
+    for(trial=0;trial<168;++trial){
+        const unsigned wireless_fault=trial>=156?trial-155u:0u;
+        const unsigned post_fault=trial>=148?0u:trial>=136?trial-135u:0u;
         const unsigned time_fault=trial>=128?0u:trial>=116?trial-115u:0u;
         const unsigned fault=trial>=108?0u:trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
@@ -394,10 +397,67 @@ int main(){
         need(route.stage()==16u&&frontier.stage()==2u&&frontier.ordinal()==3u&&frontier.zero_id()==1u&&
              frontier.visits()==4u&&frontier.writes()==1u&&route.completion_ack().postack_held()&&
              ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-        ++post_valid;
+        if(trial<148){++post_valid;continue;}
+        // Source-only synthetic wrapper: retain the real ACK, use distinct
+        // authored functions with the same ABI contract and metadata.
+        constexpr uint32_t U=0x8000c000u,DI=0x8000c400u,RI=0x8000c500u,L=0x8000c600u,
+                           SRAM=0x80030000u,Return=P+16u;
+        std::array<uint32_t,39> setter;setter.fill(Nop);
+        std::array<uint32_t,30> getter;getter.fill(Nop);
+        std::array<uint32_t,184> unlock;unlock.fill(Nop);
+        std::array<uint32_t,5> disable;disable.fill(Nop);
+        std::array<uint32_t,9> restore;restore.fill(Nop);
+        setter[0]=branch(A,U)|1u;setter[1]=Nop;setter[2]=Blr;getter[0]=Blr;
+        unlock[0]=branch(U,DI)|1u;unlock[1]=0x90850048u;
+        unlock[2]=branch(U+8u,RI)|1u;unlock[3]=Nop;unlock[4]=Blr;
+        disable[0]=Blr;restore[0]=Blr;
+        put(A,setter);put(B,getter);put(U,unlock);put(DI,disable);put(RI,restore);
+        c.mmu.words[L]=Nop;
+        for(unsigned i=0;i<20;++i)c.mmu.words[SRAM+4u*i]=0;
+        c.mmu.words[SRAM+64u]=64u;c.mmu.words[SRAM+76u]=1u;
+        const WirelessExpectation wireless_ex{{{{A,setter},{B,getter},{U,unlock},{DI,disable},{RI,restore}}},
+            {{{P+12u,rows[3].word,rows[4].word,3},{P+16u,rows[4].word,Nop,5}}},L,Nop,SRAM};
+        c.mmu.words[P+20u]=Nop;
+        WirelessWrapperWitness wrapper(wireless_ex),foreign_wrapper(wireless_ex);
+        auto refuse_wireless=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++wireless_refused;
+        };
+        if(wireless_fault==4)tick();
+        if(wireless_fault==5)c.mmu.words[SRAM+48u]=0x01000100u,c.mmu.words[SRAM+52u]=0x01000100u;
+        if(wireless_fault==6)c.mmu.words[SRAM+72u]=1u;
+        if(wireless_fault==7)c.gpr[3]=(ch+1u)%4u;
+        ok=route.begin_wireless(c,wireless_fault==1?foreign_frontier:frontier,wrapper,
+                                P+12u+(wireless_fault==2?4u:0u),wireless_fault==3?Nop:rows[3].word);
+        if(wireless_fault>=1&&wireless_fault<=7){refuse_wireless(!ok,29);continue;}need(ok);
+        need(route.stage()==17u&&wrapper.stage()==1u&&!wrapper.changed());
+        c.pc=A;c.lr=Return;
+        ok=route.wireless_entry(c,wrapper,wireless_fault==8?B:A);
+        if(wireless_fault==8){refuse_wireless(!ok,31);continue;}need(ok);
+        auto at_wireless=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.wireless_before(c,wrapper,pc,w);};
+        if(wireless_fault==9)c.mmu.words[Context+124]^=1u;
+        if(wireless_fault==10){tick();refuse_wireless(!route.wireless_before(c,foreign_wrapper,A,setter[0]),30);continue;}
+        ok=at_wireless(A,setter[0]);
+        if(wireless_fault==9){refuse_wireless(!ok,30);continue;}need(ok);
+        c.gpr[3]=0;c.gpr[4]=20;c.gpr[5]=SRAM;c.mmu.words[SRAM+72u]=1u;
+        c.pc=U;c.lr=A+4u;need(route.wireless_entry(c,wrapper,U));
+        need(at_wireless(U,unlock[0]));c.pc=DI;c.lr=U+4u;need(route.wireless_entry(c,wrapper,DI));
+        need(at_wireless(DI,Blr));c.gpr[4]=0;need(at_wireless(U+4u,unlock[1]));
+        c.mmu.words[SRAM+72u]=0u;
+        if(wireless_fault==11)c.mmu.words[SRAM+72u]^=1u;
+        ok=at_wireless(U+8u,unlock[2]);
+        if(wireless_fault==11){refuse_wireless(!ok,30);continue;}need(ok);
+        c.pc=RI;c.lr=U+12u;need(route.wireless_entry(c,wrapper,RI));
+        need(at_wireless(RI,Blr));need(at_wireless(U+12u,Nop));c.lr=A+4u;
+        need(at_wireless(U+16u,Blr));need(at_wireless(A+4u,Nop));c.lr=Return;
+        if(wireless_fault==12)c.gpr[31]^=1u;
+        need(at_wireless(A+8u,Blr));ok=at_wireless(Return,rows[4].word);
+        if(wireless_fault==12){refuse_wireless(!ok,30);continue;}need(ok);
+        need(route.stage()==18u&&wrapper.stage()==2u&&wrapper.visits()==11u&&wrapper.writes()==1u&&
+             route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
+        ++wireless_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -406,4 +466,5 @@ int main(){
     std::cout<<"V1093_THIRD_ACK_CALLBACK_JOIN valid=8 refused=12 actual_device=1 fresh_witness=1 original_execution=0\n";
     std::cout<<"V1104_THIRD_ACK_TIME_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1108_THIRD_ACK_FRONTIER_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
+    std::cout<<"V1112_THIRD_ACK_WIRELESS_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
 }

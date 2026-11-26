@@ -191,14 +191,36 @@ public:
            !ack_.poll(c.inst_count)||!ack_.postack_held()||
            !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
            !witness.start(c,pc,w,callback_channel_,true,true)||!witness.before(c,pc,w,true))return fail(27);
-        frontier_=&witness;stage_=witness.stage()==2u?16u:15u;return true;
+        frontier_=&witness;stage_=witness.stage()==2u?16u:15u;
+        if(stage_==16u){frontier_site_=pc;frontier_word_=w;}return true;
     }
     template<class C,class W>bool callback_frontier_before(C& c,W& witness,uint32_t pc,uint32_t w){
         if(stage_!=15u||error_||cpu_!=&c||frontier_!=&witness||!dev_||dev_->stage()!=3u||
            !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
            !ack_.before(c,pc,w,true)||!ack_.postack_held()||!witness.before(c,pc,w,true))return fail(28);
-        if(witness.stage()==2u)stage_=16u;
+        if(witness.stage()==2u){frontier_site_=pc;frontier_word_=w;stage_=16u;}
         return true;
+    }
+    // Admit only the observed unchanged setter lane. A changed payload
+    // would require its own EXI transaction and exclusive device proof.
+    template<class C,class F,class W>bool begin_wireless(C& c,F& frontier,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=16u||error_||cpu_!=&c||frontier_!=&frontier||wireless_||
+           frontier.stage()!=2u||frontier.ordinal()!=3u||frontier.zero_id()!=1u||
+           pc!=frontier_site_||w!=frontier_word_||c.gpr[3]!=callback_channel_||c.gpr[4]!=0u||
+           !dev_||dev_->stage()!=3u||!ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start(c,pc,w,true,true)||witness.changed()||witness.ordinal()!=3u)return fail(29);
+        wireless_=&witness;stage_=17u;return true;
+    }
+    template<class C,class W>bool wireless_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!wireless_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(30);
+        if(witness.stage()==2u){wireless_resume_=pc;wireless_word_=w;stage_=18u;}
+        return true;
+    }
+    template<class C,class W>bool wireless_entry(C& c,W& witness,uint32_t pc){
+        return wireless_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.entry(c,pc,true)&&witness.stage()==1u?true:fail(31);
     }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -219,6 +241,12 @@ private:
         return stage_==13u&&!error_&&cpu_==&c&&time_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C,class W>bool wireless_frame(C& c,W& witness)const{
+        return stage_==17u&&!error_&&cpu_==&c&&wireless_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* wireless_=nullptr;
+    uint32_t frontier_site_=0,frontier_word_=0,wireless_resume_=0,wireless_word_=0;
     const void* time_=nullptr;const void* frontier_=nullptr;
     uint32_t time_resume_=0,time_word_=0,callback_channel_=4u;
     uint32_t callback_resume_=0,callback_resume_word_=0;
