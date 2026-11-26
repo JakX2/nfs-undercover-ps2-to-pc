@@ -1,0 +1,100 @@
+name: Wii V1059 Gated Continuous Third Alarm
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-v1059-continuous-third-alarm
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate strict launch and terminal contracts
+        run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          for n in 1041_transfer_abi 1043_live_third_handoff 1045_third_transfer_abi 1048_third_alarm_installer 1051_third_launch 1054_third_alarm_audit 1055_third_alarm_launch; do
+            python3 -m unittest discover -s research/native_recomp -p "test_v$n.py" -v
+          done
+  owner-execution:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Require prior owner verification before private work
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          check() {
+            gh api "repos/$GH_REPO/actions/runs/$1" --jq '[.head_sha,.status,.conclusion,.head_branch,.path] | @tsv' |
+              grep -Fx "$(printf '%s\tcompleted\tsuccess\tresearch/wii-native-recomp-preflight\t%s' "$2" "$3")"
+          }
+          check 45741527878 65a7300bc1555e3e94e692132e9813671ee4e670 .github/workflows/wii-v1029-third-transfer-preflight.yml
+          check 45740655991 0b8dec7547f2245b37bd9d227b397a6ee0976812 .github/workflows/wii-v1038-continuous-queue-history.yml
+          check 45742746303 90b71ec01b245095278cb528a5d1be69c8753245 .github/workflows/wii-v1007-second-rfi.yml
+          echo 'V1059_PREREQUISITES verified=1 historical_installer=1 queue=1 focused_alarm=1'
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Link once and execute through original third alarm
+        env:
+          UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
+          UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V921_CAPTURE_JOIN: "1"
+          UNDERCOVER_RUN_V922_IRQ_RETURN: "1"
+          UNDERCOVER_RUN_V932_PENDING_RFI: "1"
+          UNDERCOVER_RUN_V939_SECOND_VECTOR: "1"
+          UNDERCOVER_RUN_V951_SECOND_DISPATCH: "1"
+          UNDERCOVER_RUN_V958_SECOND_ACK: "1"
+          UNDERCOVER_RUN_V967_POST_ACK: "1"
+          UNDERCOVER_RUN_V989_SHARED_COMPLETION: "1"
+          UNDERCOVER_RUN_V1015_ERROR_COMPLETION: "1"
+          UNDERCOVER_RUN_V975_SECOND_TIME: "1"
+          UNDERCOVER_RUN_V981_SECOND_FRONTIER: "1"
+          UNDERCOVER_RUN_V995_SUCCESS_FRONTIER: "1"
+          UNDERCOVER_RUN_V1021_ERROR_FRONTIER: "1"
+          UNDERCOVER_RUN_V1034_QUEUE_DETAIL: "1"
+          UNDERCOVER_RUN_V1040_SIX_ARGS: "1"
+          UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER: "1"
+          UNDERCOVER_RUN_V1051_THIRD_TRANSFER: "1"
+          UNDERCOVER_PREPARE_V1048_THIRD_ALARM: "1"
+          UNDERCOVER_RUN_V1055_THIRD_ALARM: "1"
+          UNDERCOVER_RUN_V1012_SI_PROFILE: absent
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw876"
+          git -C "$RUNNER_TEMP/nw876" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw876" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw876" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-handler-suffix | tee "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1051_THIRD_BUILD_PLAN links=1 private_transfer=1 abi_proof_required=1 alarm=1' "$RUNNER_TEMP/v1059-public.log"
+          grep -E '^V1049_PRIVATE_ABI_PROOF verified=1 states=[1-9][0-9]{0,4} incoming_reads=0 execution=0$' "$RUNNER_TEMP/v1059-public.log"
+          grep -E '^V1029_THIRD_ROUTE installed=1 native_labels=[1-9][0-9]* direct_edges=6 exclusive_device=1 execution=0$' "$RUNNER_TEMP/v1059-public.log"
+          grep -E '^V1048_THIRD_ALARM_ROUTE installed=1 native_labels=[1-9][0-9]* suffix_labels=[1-9][0-9]* original_edges=11 token_owner=3 execution=0$' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1054_ALARM_CENSUS verified=1 original_alarm_return=1 token_held=1 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          echo 'V1059_CONTINUOUS_THIRD_ALARM verified=1 original_transfer=1 original_alarm=1 boot_verified=0'
+      - name: Clean private files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v1059-public.log"

@@ -1,0 +1,3 @@
+# V1059: manually gated single-link continuous alarm execution
+
+The original V1046 installer preflight is not a V1049 ABI proof. Require successful historical installer and queue-history owner runs and the V1054 focused owner census before staging private inputs. Then require the current private V1049 ABI proof, V1029 transfer installer, V1048 alarm installer and V1054 exact execution audit on one full-image launch. No automatic push trigger, no parallel full-image build or new schedule. Source-only V958 CI now triggers when the later ABI, installer, audit and launch sources change. Do not dispatch until both outstanding historical jobs are successful. A passing result would demonstrate continuous original execution to third alarm return only, not game boot.
