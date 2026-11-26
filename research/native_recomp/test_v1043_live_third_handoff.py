@@ -24,7 +24,7 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_third_ack_v1167.h',root/'v1167_private_third_ack.h')
             shutil.copyfile(HOST/'synthetic_ack_helper_v1175.h',root/'v1175_private_ack_helper.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
@@ -69,6 +69,7 @@ inline constexpr AlarmCancelExpectation expected{
             h=root/'wii_postack_transfer_device_v771.h';s=h.read_text();seam='\n};\n}\n'
             self.assertEqual(s.count(seam),1);h.write_text(s.replace(seam,'\n};\ninline thread_local PostAckTransferDevice si_transfer_device{};\n}\n'))
             (root/'v1199_test_sram.h').write_text('#pragma once\n#include <array>\n#include <cstdint>\nnamespace v1199_test {\n'+''.join('inline constexpr std::array<uint8_t,64> '+name+'{'+','.join(map(str,blob))+'};\n' for name,blob in (('pattern',sram_fixture()),('zero',wireless_zero_fixture())))+'}\n')
+            (root/'v1227_private_ack_leaf.h').write_text('#pragma once\n#include "wii_irq_leaf_finish_v927.h"\nnamespace undercover::wii::v1227 {inline constexpr IrqLeafFinishExpectation expected{0x80005000u,(21u<<26)|(3u<<16)|(17u<<11)|(31u<<6)|(31u<<1),0x80006000u,0x60000000u};}\n')
             exe=root/'probe'
             build=subprocess.run([cc,'-DUNDERCOVER_V1199_TEST_SRAM=1','-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'probe.cpp'),'-o',str(exe)],capture_output=True,timeout=90)
             self.assertEqual(build.returncode,0,build.stderr.decode(errors='replace'))
@@ -408,4 +409,17 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=(31|32) reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
+            env['UNDERCOVER_V1227_ACK_LEAF']='1'
+            for fault in ('','-leaf-word','-caller-word','-extract','-tick','-mask','-bus','-guard','-abi','-poll','-double-poll','-dispatch','-target','-gqr'):
+                with self.subTest(ack_leaf=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback-prefix-time-frontier-wireless-suffix-return-handler-return-final-resume-leaf'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1220_ACK_FINAL_RESUME original_resume=1 restored_context=1 dispatch_ticks=2 token=3 pi_cleared=1 resumed_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1227_ACK_LEAF_RETURN original_extract=1 original_blr=1 osinit_resume=1 previous_ee=0 integer_state=1 gqr=1 token=3 pi_cleared=1 caller_instruction_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=(33|34) reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
 if __name__=='__main__':unittest.main()

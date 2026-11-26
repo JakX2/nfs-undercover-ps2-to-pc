@@ -30,6 +30,9 @@
 #include "v1167_private_third_ack.h"
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 #include "v1175_private_ack_helper.h"
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+#include "v1227_private_ack_leaf.h"
+#endif
 #endif
 #endif
 #endif
@@ -88,7 +91,7 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u||held_epilogue.stage()==20u||held_epilogue.stage()==21u||held_epilogue.stage()==22u||held_epilogue.stage()==23u||held_epilogue.stage()==24u||held_epilogue.stage()==25u||held_epilogue.stage()==26u||held_epilogue.stage()==27u||held_epilogue.stage()==28u||held_epilogue.stage()==29u||held_epilogue.stage()==30u||held_epilogue.stage()==31u||held_epilogue.stage()==32u||held_epilogue.stage()==33u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u||held_epilogue.stage()==20u||held_epilogue.stage()==21u||held_epilogue.stage()==22u||held_epilogue.stage()==23u||held_epilogue.stage()==24u||held_epilogue.stage()==25u||held_epilogue.stage()==26u||held_epilogue.stage()==27u||held_epilogue.stage()==28u||held_epilogue.stage()==29u||held_epilogue.stage()==30u||held_epilogue.stage()==31u||held_epilogue.stage()==32u||held_epilogue.stage()==33u||held_epilogue.stage()==34u||held_epilogue.stage()==35u;}
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1180_ACK_CALLBACK");return v&&v[0]=='1'&&v[1]==0;}
@@ -97,6 +100,10 @@ inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_T
 inline bool ack_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1193_ACK_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1197_ACK_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_suffix_enabled(){const char* v=std::getenv("UNDERCOVER_V1201_ACK_SUFFIX");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_leaf_enabled(){const char* v=std::getenv("UNDERCOVER_V1227_ACK_LEAF");return v&&v[0]=='1'&&v[1]==0;}
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+inline thread_local IrqLeafFinishWitness ack_leaf(v1227::expected);
+#endif
 inline bool ack_resume_enabled(){const char* v=std::getenv("UNDERCOVER_V1220_ACK_RESUME");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_final_enabled(){const char* v=std::getenv("UNDERCOVER_V1217_ACK_FINAL");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_handler_return_enabled(){const char* v=std::getenv("UNDERCOVER_V1214_ACK_HANDLER_RETURN");return v&&v[0]=='1'&&v[1]==0;}
@@ -482,6 +489,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_handler_return_enabled()&&!ack_handler_enabled())return false;
     if(ack_final_enabled()&&!ack_handler_return_enabled())return false;
     if(ack_resume_enabled()&&!ack_final_enabled())return false;
+    if(ack_leaf_enabled()&&!ack_resume_enabled())return false;
+#ifndef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+    if(ack_leaf_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1220_PRIVATE_ACK_RESUME
     if(ack_resume_enabled())return false;
 #endif
@@ -610,11 +621,30 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+            if(held_epilogue.stage()==34u){
+                if(!ack_leaf_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u)reject_held_epilogue();
+                if(ack_leaf.stage()==1u){
+                    if(!held_epilogue.prefix_leaf_blr(c,ack_leaf,pc,w,guard))reject_held_epilogue();
+                }else{
+                    if(!held_epilogue.prefix_leaf_return(c,ack_leaf,pc,w,guard)||!held_epilogue.prefix_leaf_saved(c,ack_leaf))reject_held_epilogue();
+                    std::cout<<"V1227_ACK_LEAF_RETURN original_extract=1 original_blr=1 osinit_resume=1 previous_ee=0 integer_state=1 gqr=1 token=3 pi_cleared=1 caller_instruction_executed=0 boot_verified=0"<<std::endl;
+                    std::_Exit(0);
+                }
+                return;
+            }
+#endif
 #ifdef UNDERCOVER_V1220_PRIVATE_ACK_RESUME
             if(held_epilogue.stage()==32u){
                 if(!ack_resume_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
                    !held_epilogue.prefix_resume_label(c,pc,w,guard)||!held_epilogue.prefix_resume_saved(c))reject_held_epilogue();
                 std::cout<<"V1220_ACK_FINAL_RESUME original_resume=1 restored_context=1 dispatch_ticks=2 token=3 pi_cleared=1 resumed_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+                if(ack_leaf_enabled()){
+                    if(!held_epilogue.begin_prefix_leaf(c,ack_leaf,pc,w))reject_held_epilogue();
+                    return;
+                }
+#endif
                 std::_Exit(0);
             }
 #endif
@@ -1115,6 +1145,12 @@ template<class C>bool poll(C& c){
             return false;
         }
 #endif
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+        if(held_epilogue.stage()==34u){
+            if(!ack_leaf_enabled()||!held_epilogue.prefix_leaf_poll(c,ack_leaf))reject_held_epilogue();
+            return false;
+        }
+#endif
         const auto p=held_epilogue.poll(c,v1151::image);
         if(p==Poll::Rejected)reject_held_epilogue();
         if(p==Poll::Entered){
@@ -1227,6 +1263,12 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1220_PRIVATE_ACK_RESUME
         if(held_epilogue.stage()==31u){
             if(!ack_resume_enabled()||!held_epilogue.prefix_resume_dispatch(c,pc))reject_held_epilogue();
+            return;
+        }
+#endif
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+        if(held_epilogue.stage()==34u){
+            if(!ack_leaf_enabled()||!held_epilogue.prefix_leaf_dispatch(c,ack_leaf,pc))reject_held_epilogue();
             return;
         }
 #endif

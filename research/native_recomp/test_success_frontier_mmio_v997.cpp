@@ -974,6 +974,19 @@ int main(int argc,char** argv){
                                                                                                         // This original-free fixture previously stopped before the resume label.
                                                                                                         // Supply an independently mapped synthetic instruction for this new lane.
                                                                                                         c.mmu.words[Resume]=Nop;
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+                                                                                                        const bool leaf_mode=v958::ack_leaf_enabled();
+                                                                                                        const auto lf=rf3.starts_with("-leaf")?rf3.substr(std::string_view("-leaf").size()):std::string_view{};
+                                                                                                        const auto le=v1227::expected;
+                                                                                                        if(leaf_mode){
+                                                                                                            need(rf3.starts_with("-leaf")&&le.resume==Resume&&le.caller==interrupted_lr);
+                                                                                                            c.mmu.words[Resume]=le.extract;
+                                                                                                            c.mmu.words[Resume+4u]=Blr;
+                                                                                                            c.mmu.words[le.caller]=le.caller_word;
+                                                                                                            if(lf=="-leaf-word")c.mmu.words[Resume+4u]^=1u;
+                                                                                                            if(lf=="-caller-word")c.mmu.words[le.caller]^=1u;
+                                                                                                        }
+#endif
                                                                                                         const uint32_t rw=c.mmu.read32(Resume);
                                                                                                         if(rf3!="-missing-dispatch-tick")scheduler.advance(++tick);
                                                                                                         if(rf3=="-extra-dispatch-tick")scheduler.advance(++tick);
@@ -988,6 +1001,24 @@ int main(int argc,char** argv){
                                                                                                         if(rf3=="-extra-label-tick")scheduler.advance(++tick);
                                                                                                         if(rf3=="-missing-label-tick")v958::before(c,Resume,rw,false);
                                                                                                         else visit(Resume,rw,rf3=="-guard");
+#ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+                                                                                                        if(leaf_mode){
+                                                                                                            need(v958::held_epilogue.stage()==34u);
+                                                                                                            if(lf!="-extract")c.gpr[3]=0;
+                                                                                                            if(lf=="-tick")scheduler.advance(++tick);
+                                                                                                            if(lf=="-mask")mask=0;
+                                                                                                            if(lf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                                            visit(Resume+4u,Blr,lf=="-guard");
+                                                                                                            c.pc=le.caller;
+                                                                                                            if(lf=="-abi")c.gpr[31]^=1u;
+                                                                                                            if(lf!="-poll")v958::poll(c);
+                                                                                                            if(lf=="-double-poll")v958::poll(c);
+                                                                                                            scheduler.advance(++tick);
+                                                                                                            if(lf!="-dispatch")v958::observe(lf=="-target"?le.caller+4u:le.caller,c);
+                                                                                                            if(lf=="-gqr")c.gqr[0]^=1u;
+                                                                                                            visit(le.caller,le.caller_word);
+                                                                                                        }
+#endif
                                                                                                     }
 #endif
                                                                                                 }
