@@ -35,6 +35,19 @@ public:
     // Read-only observation seams for native submit and IRQ continuations.
     bool submission_held(bool authorized)const{return stage_>=1u&&stage_<=3u&&boundary(authorized);}
     bool deferred_held(bool authorized)const{return stage_==4u&&boundary(authorized);}
+    // The guest ACK handler owns the bus from the pending Y2 latch
+    // through the subsequent Hollywood W1C. Reads must not pump IOS.
+    bool ack_held(bool authorized)const{return stage_>=4u&&stage_<=6u&&boundary(authorized);}
+    std::optional<uint32_t> read_ack(uint32_t addr,uint32_t msr,bool authorized){
+        if(!ack_held(authorized)||(msr&IosBus::MSR_EE)||
+           (!reg(addr,M::PPCCTRL)&&!reg(addr,H::PPC_FLAG))){fail(6);return {};}
+        const uint32_t expected=reg(addr,M::PPCCTRL)?expected_.control:expected_.flags;
+        try{
+            auto v=B::read32(addr);
+            if(v&&*v==expected&&ack_held(authorized))return v;
+        }catch(const std::exception&){}
+        fail(6);return {};
+    }
     std::optional<uint32_t> read_submission_control(uint32_t addr,uint32_t msr,bool authorized){
         if((stage_!=1u&&stage_!=2u)||(msr&IosBus::MSR_EE)||!reg(addr,M::PPCCTRL)||!boundary(authorized)){
             fail(5);return std::nullopt;

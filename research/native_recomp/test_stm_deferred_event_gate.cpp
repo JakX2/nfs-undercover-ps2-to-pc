@@ -63,15 +63,28 @@ static void trial(unsigned first,unsigned fault,bool input){
     need(accepted&&gate.deferred_held(true)&&!gate.submission_held(true)&&host.services().event_pending()&&host.serviced_steps()==5,"deferred service");
     if(fault==23){if(input)ram.write8(in+3,0);else ram.write8(out+3,0);need(!gate.deferred_held(true),"deferred mutation");return;}
     need(ram.read32(req)==S::Ioctl,"unsolicited reply");
+    if(fault>=24&&fault<=27){
+        auto v=gate.read_ack(I::IPC+(fault==24?M::PPCMSG:M::PPCCTRL),fault==25?I::MSR_EE:0,fault!=26);
+        if(fault==27){
+            need(v&&*v==(en|M::Y2)&&gate.ack_held(true),"pending control read");
+            auto flags=gate.read_ack(I::MIRROR+H::PPC_FLAG,0,true);
+            need(flags&&(*flags&H::IPC_PPC)&&host.serviced_steps()==5,"pending flag read");
+        }else {need(!v&&gate.failure()==6&&host.serviced_steps()==5,"ACK read refused");return;}
+    }
+    need(gate.ack_held(true)&&!gate.ack_held(false),"pending ACK boundary");
     if(fault==12){need(!gate.ack_write(I::IPC+H::PPC_FLAG,H::IPC_PPC,0,true),"ACK order");return;}
     if(fault==13){need(!gate.ack_write(I::IPC+M::PPCCTRL,en|M::Y2,I::MSR_EE,true),"unmasked ACK");return;}
     if(fault==14){need(!gate.ack_write(I::IPC+M::PPCCTRL,en|M::Y2,0,false),"unauthenticated ACK");return;}
     need(gate.ack_write(I::IPC+M::PPCCTRL,en|M::Y2,0,true),"Y2 clear");
     if(fault==15){need(!gate.ack_write(I::IPC+H::PPC_FLAG,0,0,true),"bad flag");return;}
+    auto midway=gate.read_ack(I::IPC+M::PPCCTRL,0,true);
+    need(midway&&*midway==en&&gate.ack_held(true)&&!gate.deferred_held(true),"Y2 cleared read");
     need(gate.ack_write(I::MIRROR+H::PPC_FLAG,H::IPC_PPC,0,true)&&gate.completed(true),"ACK finish");
+    auto cleared=gate.read_ack(I::MIRROR+H::PPC_FLAG,0,true);
+    need(cleared&&!(*cleared&H::IPC_PPC)&&gate.ack_held(true),"cleared flag read");
     need(!B::service_at_guest_boundary(I::MSR_EE)&&gate.completed(true)&&host.serviced_steps()==5,"idle service published reply");
     need(cause.load()==other&&host.services().event_pending()&&ram.read32(req)==S::Ioctl,"pending event state");
     if(fault==16){ram.write8(out,0);need(!gate.completed(true),"output mutation accepted");}
 }
-int main(){for(unsigned first:{1u,2u})for(bool input:{false,true})for(unsigned f=0;f<=23;++f)trial(first,f,input);
-    std::cout<<"PASS: STM deferred event contract 96/96 (both descriptor orders, empty/nonempty input, native broker, no unsolicited reply)\n";}
+int main(){for(unsigned first:{1u,2u})for(bool input:{false,true})for(unsigned f=0;f<=27;++f)trial(first,f,input);
+    std::cout<<"PASS: STM deferred event contract 112/112 (both descriptor orders, empty/nonempty input, native broker, no unsolicited reply)\n";}
