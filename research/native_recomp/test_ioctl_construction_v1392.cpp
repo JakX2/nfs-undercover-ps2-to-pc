@@ -15,17 +15,18 @@ struct Mmu {
 };
 struct Cr{bool lt=false,gt=false,eq=false,so=false;};
 struct Cpu{Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint32_t pc=W,lr=0,ctr=0,msr=0x32,dispatch_saved_ctx=0;uint64_t inst_count=100;bool is_running=true,in_callback=false;};
-static void trial(unsigned fault,unsigned first,bool input){
+static void trial(unsigned fault,unsigned first,bool input,bool output_first){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=first==2?0:1;c.gpr[4]=StmIos::EventHook;
     c.gpr[5]=input?O+64:0;c.gpr[6]=input?32:0;c.gpr[7]=O;c.gpr[8]=32;c.gpr[9]=CB;
-    constexpr uint32_t I=U+36,V=U+40;
-    constexpr uint32_t local_store=(36u<<26)|(5u<<21)|(1u<<16)|16u;
+    constexpr uint32_t J=U+36,I=J+4,V=I+4;
+    const uint32_t local_store=(36u<<26)|(5u<<21)|(1u<<16)|(fault==10?64u:16u);
+    const uint32_t jump=b(J,output_first?V:I)&~1u;
     const std::array<unsigned,8> off{0,8,12,16,20,24,28,32};
     const std::array<uint32_t,8> val{StmIos::Ioctl,c.gpr[3],StmIos::EventHook,c.gpr[5]&0x3fffffffu,c.gpr[6],O&0x3fffffffu,32u,CB};
-    std::array<ReplyNativeWord,11> words{};
+    std::array<ReplyNativeWord,12> words{};
     words[0]={W,U,local_store};
     for(unsigned i=0;i<off.size();++i)words[i+1]={W,U+4*(i+1),st(off[i])};
-    words[9]={W,I,b(I,F)};words[10]={W,V,b(V,F)};
+    words[9]={W,J,jump};words[10]={W,I,b(I,F)};words[11]={W,V,b(V,F)};
     for(auto w:words)c.mmu.write32(w.pc,w.word);
     c.mmu.write32(F,Nop);
     IoctlConstructionWitness w({W,U,{F,I+4,b(I,F),Nop},{F,V+4,b(V,F),Nop},words});
@@ -36,28 +37,35 @@ static void trial(unsigned fault,unsigned first,bool input){
     c.gpr[5]=0x12345678u;c.inst_count+=2u;
     if(fault==9)c.gpr[1]+=64u;
     bool local_ok=w.before(c,U,local_store,true);
-    if(fault==9){assert(!local_ok);return;}assert(local_ok);
-    c.mmu.write32(c.gpr[1]+16u,c.gpr[5]);
+    if(fault==9){assert(!local_ok);return;}
+    if(fault==10){assert(!local_ok&&w.base_class()==1&&w.range_failure()==7);return;}assert(local_ok);
+    c.mmu.write32(c.gpr[1]+16u,c.gpr[5]^(fault==11?1u:0u));
     for(unsigned i=0;i<off.size();++i){
         c.gpr[5]=val[i];if(fault==1&&i==7)c.gpr[5]=0;
         if(fault==2&&i==3)c.gpr[5]^=1;
         if(fault==3&&i==0)c.gpr[6]=H;
         ++c.inst_count;
         bool ok=w.before(c,U+4*(i+1),st(off[i]),true);
-        if(fault==3&&i==0){assert(!ok);return;}assert(ok);
+        if((fault==3||fault==11)&&i==0){assert(!ok);return;}assert(ok);
         c.mmu.write32(Q+off[i],c.gpr[5]);
     }
-    // Exercise input first, including its zero-length form. The actual output-first branch is owner-fixture dependent.
-    c.gpr[3]=input?O+64:0;c.gpr[4]=input?32:0;
+    // Exercise both authenticated first-flush choices, and refuse a
+    // nonempty input that would otherwise be skipped by output-first.
+    ++c.inst_count;assert(w.before(c,J,jump,true));
+    const uint32_t site=output_first?V:I;
+    c.gpr[3]=output_first?O:input?O+64:0;c.gpr[4]=output_first||input?32:0;
     if(fault==4)c.mmu.write32(H+200,1);
     if(fault==5)c.mmu.write32(M,1);
     if(fault==6)c.mmu.write32(O,1);
     if(fault==7)c.gpr[4]^=1;
-    ++c.inst_count;bool ok=w.before(c,I,b(I,F),true);
-    if(fault>=1&&fault<=7){assert(!ok);return;}assert(ok);
-    c.pc=F;c.lr=fault==8?V+4:I+4;
+    ++c.inst_count;bool ok=w.before(c,site,b(site,F),true);
+    if((fault>=1&&fault<=7)||(output_first&&input)){assert(!ok);return;}assert(ok);
+    c.pc=F;c.lr=fault==8?(output_first?I:V)+4:site+4;
     ok=w.entry(c,F,true);if(fault==8){assert(!ok);return;}assert(ok);
-    assert(w.reached(c,true)&&w.request_stores()==8&&w.flush_kind()==1);
+    assert(w.reached(c,true)&&w.request_stores()==8&&w.flush_kind()==(output_first?2u:1u));
 }
-int main(){for(unsigned first:{1u,2u})for(bool input:{false,true})for(unsigned f=0;f<=9;++f)trial(f,first,input);
-    std::cout<<"V1392_CONSTRUCTION_TEST cases=40 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u}){
+    for(unsigned f=0;f<=11;++f){trial(f,first,false,false);trial(f,first,true,false);trial(f,first,false,true);}
+    trial(0,first,true,true);
+    }
+    std::cout<<"V1392_CONSTRUCTION_TEST cases=74 original_execution=0\n";}
