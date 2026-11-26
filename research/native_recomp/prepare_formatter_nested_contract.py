@@ -24,11 +24,11 @@ def boundary_width(w):
     else:return 0
     return 0 if rt==1 or (update and (not ra or ra==rt or ra==1)) else width
 
-def contract(entry,record,words,blocks,resolve,*,extended=False,third=False,control=None):
+def contract(entry,record,words,blocks,resolve,*,extended=False,third=False,control=None,stack_boundary=False):
     root,initial,parent,caller,readonly=entry
     at,n,path,frame,sites,gp,mem,cr,ctr,lr,saves=record
-    if sum((extended,third,control is not None))>1:raise ValueError('nested contract geometry')
-    labels,accesses=(77,19) if control is not None else (75,18) if third else (45,14) if extended else (36,13)
+    if sum((extended,third,control is not None,stack_boundary))>1:raise ValueError('nested contract geometry')
+    labels,accesses=(85,21) if stack_boundary else (77,19) if control is not None else (75,18) if third else (45,14) if extended else (36,13)
     if len(path)!=labels or path[0]!=root or len(set(path))!=labels or frame!=48 or len(sites)!=accesses or (control is None and n!=4):
         raise ValueError('nested contract geometry')
     if initial[1][0]!='stack' or gp[1]!=('stack',initial[1][1]-frame) or lr!=('const',caller):
@@ -59,6 +59,7 @@ def contract(entry,record,words,blocks,resolve,*,extended=False,third=False,cont
     if blocks.get(root)!=(words[0],GUARD):raise ValueError('nested contract boundary')
     if control is None:
         if boundary_width(w)!=n:raise ValueError('nested contract boundary')
+        if stack_boundary and (at%n or not sp-frame+4<=at<at+n<=sp):raise ValueError('nested stack boundary')
     else:
         dst,dword,size=control
         if at!=target or n!=w or w!=0x4e800420 or ctr!=dst or dst in path or dst&3 or not root<dst<root+size or size!=4*len(words) or words[(dst-root)//4]!=dword:
@@ -80,7 +81,7 @@ def contract(entry,record,words,blocks,resolve,*,extended=False,third=False,cont
     extended={**blocks,root:body}
     check_spans({a:4*len(ws) for a,ws in extended.items()})
     access=tuple((pc,width,address-sp if k.startswith('stack') else address,k.startswith('stack'),k=='stack_write') for pc,k,width,address in sites)
-    fields=(root,caller,target,w,frame,at,n) if control is None else (root,caller,target,w,frame,0,0,*control)
+    fields=(root,caller,target,w,frame,at-sp if stack_boundary else at,n) if control is None else (root,caller,target,w,frame,0,0,*control)
     return extended,fields,rows,access,tuple(slots),tuple(known)
 
 def plan(d,e,*,previous=None):
