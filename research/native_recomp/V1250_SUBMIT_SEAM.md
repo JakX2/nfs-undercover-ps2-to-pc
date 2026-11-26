@@ -1,0 +1,3 @@
+# V1250: same-tick request admission integrity
+
+At the verified IOS submit entry, capture the eight original request words and CPU LR/SP/r3/MSR. Revalidate them, the pathname bytes and the transport snapshot on successor admission, even when the instruction tick and CPU pointer are unchanged. Both synthetic path kinds test all eight request words, four CPU fields and one pathname mutation (26 refusals total) with restoration before the next case. This is preparation for native submission ownership; no guest IOS request is serviced by this change. V1245 original request construction remains verified at its pinned commit. CI pending.

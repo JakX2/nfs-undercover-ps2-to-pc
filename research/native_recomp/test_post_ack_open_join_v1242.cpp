@@ -210,9 +210,22 @@ int main(){
         need(open.observe(c,c.pc,true)==valid_request);
         if(valid_request){
             need(open.stage()==9u&&open.submit_at(c,true)&&open.request()==req&&host.serviced_steps()==0);
-            ++c.inst_count;need(!open.submit_at(c,true));++valid;
+            // Refuse same-tick mutations at the seam, even though no
+            // new guest instruction has executed since construction.
+            for(unsigned i=0;i<8;++i){
+                auto v=m.read32(req+4*i);m.write32(req+4*i,v^1u);
+                need(!open.submit_at(c,true));m.write32(req+4*i,v);
+                need(open.submit_at(c,true));
+            }
+            for(auto* field:{&c.lr,&c.gpr[1],&c.gpr[3],&c.msr}){
+                *field^=4u;need(!open.submit_at(c,true));*field^=4u;
+                need(open.submit_at(c,true));
+            }
+            auto* first=m.get_ptr(path);*first^=1u;need(!open.submit_at(c,true));*first^=1u;
+            need(open.submit_at(c,true));++c.inst_count;need(!open.submit_at(c,true));++valid;
         }else ++refused;
     }
     need(valid==2&&refused==14);
     std::cout<<"V1242_STM_OPEN_JOIN positive=2 refused=14 calls=17 stm=3 open=9 vector=1 cache=1 request=1 submitted=0 serviced=0 original_execution=0 boot_verified=0\n";
+    std::cout<<"V1250_SUBMIT_SEAM same_tick_mutations_refused=26 valid_context_restored=26 original_execution=0\n";
 }
