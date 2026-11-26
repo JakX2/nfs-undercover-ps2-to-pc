@@ -8,7 +8,7 @@ from make_v1243_stm_fixture import seed_data
 from prepare_v629_stm_open import geometry as stm_geometry,STM,FIRST_OPEN_CALL
 from make_v1252_sleep_fixture import geometry as sleep_geometry,SLEEP
 from apply_open_roots_v645 import irq_spans
-from make_v624_ipc_geometry import exact_words
+from make_v624_ipc_geometry import ROOT,exact_words
 from prepare_v419_full_start import MAX_DOL,direct_bl,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1321_combined_resume import scope as combined_scope
@@ -76,6 +76,14 @@ def merge(blocks,shared,old,new):
     if len(out)+2>48 or any(end>b for (_,end),(b,_) in zip(spans,spans[1:])):raise ValueError('completion ownership')
     return out
 
+def rebuild(raw,expanded):
+    table=data_at(raw,VECTORS,60)
+    out=bytearray(assemble({**expanded,SOURCE:words_at(raw,SOURCE,38),SC_SOURCE:words_at(raw,SC_SOURCE,7)},ROOT,max_roots=48))
+    for off,v in ((0x1c,len(out)),(0x64,VECTORS),(0xac,len(table))):struct.pack_into('>I',out,off,v)
+    image=bytes(out)+table
+    if any(words_at(image,a,len(ws))!=ws for a,ws in expanded.items()):raise ValueError('completion roundtrip')
+    return image
+
 def verify(dol,elf,raw,csv):
     shared,edges,old,new,visits,exits,data,old_data=plan(dol,elf)
     sizes=symbols(csv)
@@ -86,11 +94,7 @@ def verify(dol,elf,raw,csv):
     prior[STM]=4*(len(new)+1)
     spans=sorted(prior.items())
     if any(a+n>b for (a,n),(b,_) in zip(spans,spans[1:])):raise ValueError('completion ownership')
-    table=data_at(raw,VECTORS,60)
-    out=bytearray(assemble({**expanded,SOURCE:words_at(raw,SOURCE,38),SC_SOURCE:words_at(raw,SC_SOURCE,7)},ROOT,max_roots=48))
-    for off,v in ((0x1c,len(out)),(0x64,VECTORS),(0xac,len(table))):struct.pack_into('>I',out,off,v)
-    image=bytes(out)+table
-    if any(words_at(image,a,len(ws))!=ws for a,ws in expanded.items()):raise ValueError('completion roundtrip')
+    rebuild(raw,expanded)
     print(f'V1337_COMPLETION_PREFLIGHT verified=1 roots={len(expanded)+2} shared_roots={len(shared)} direct_edges={len(edges)+2} stm_original_words={len(new)} continuation_labels={len(visits)} alternate_exits={len(exits)} additional_seed_bytes={len(data)-len(old_data)} original_execution=0')
 
 def main():
