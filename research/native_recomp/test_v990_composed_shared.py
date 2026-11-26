@@ -52,19 +52,9 @@ class ComposedShared(unittest.TestCase):
                         self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=(?:[1-9]|1[0-2]) stage=4 reason=[0-5] call_reason=[0-5] visits=[0-9]+$')
                         self.assertEqual(shared in rows,mode=='corrupt-abi')
                         if mode=='missing-shared':
-                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=3 depth=0 started=0 seen=0 post=0 held=1 entries=2 returns=2 msr=0 visits=[0-9]+
-                        if mode in ('guard-shared','frame-after-ack'):
-                            self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
-                    self.assertEqual(got.stderr,b'')
-if __name__=='__main__':unittest.main()
-)
+                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=3 depth=0 started=0 seen=0 post=0 held=1 entries=2 returns=2 msr=0 visits=[0-9]+$')
                         elif mode=='extra-shared':
-                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=2 depth=1 started=1 seen=0 post=0 held=1 entries=6 returns=6 msr=3 visits=[0-9]+
-                        if mode in ('guard-shared','frame-after-ack'):
-                            self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
-                    self.assertEqual(got.stderr,b'')
-if __name__=='__main__':unittest.main()
-)
+                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=2 depth=1 started=1 seen=0 post=0 held=1 entries=6 returns=6 msr=3 visits=[0-9]+$')
                         if mode in ('guard-shared','frame-after-ack'):
                             self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
                     self.assertEqual(got.stderr,b'')
