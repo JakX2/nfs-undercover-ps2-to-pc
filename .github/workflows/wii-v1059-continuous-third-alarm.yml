@@ -1,6 +1,10 @@
 name: Wii V1059 Gated Continuous Third Alarm
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-v1059-continuous-third-alarm.yml'
 permissions:
   contents: read
   actions: read
