@@ -1,5 +1,6 @@
 import os,shutil,subprocess,tempfile,unittest
 from pathlib import Path
+from write_sram_profile_v536 import sram_fixture,wireless_zero_fixture
 from test_v997_composed_success_frontier import HOST,sampling,discovery,first,transfer,second
 class LiveThird(unittest.TestCase):
     @unittest.skipIf(os.name=='nt','GCC sanitizer regression')
@@ -67,8 +68,9 @@ inline constexpr AlarmCancelExpectation expected{
             (root/'wii_si_binding_v512.h').write_text(second(transfer(first(discovery(sampling((HOST/'wii_si_binding_v512.h').read_text()))))))
             h=root/'wii_postack_transfer_device_v771.h';s=h.read_text();seam='\n};\n}\n'
             self.assertEqual(s.count(seam),1);h.write_text(s.replace(seam,'\n};\ninline thread_local PostAckTransferDevice si_transfer_device{};\n}\n'))
+            (root/'v1199_test_sram.h').write_text('#pragma once\n#include <array>\n#include <cstdint>\nnamespace v1199_test {\n'+''.join('inline constexpr std::array<uint8_t,64> '+name+'{'+','.join(map(str,blob))+'};\n' for name,blob in (('pattern',sram_fixture()),('zero',wireless_zero_fixture())))+'}\n')
             exe=root/'probe'
-            build=subprocess.run([cc,'-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'probe.cpp'),'-o',str(exe)],capture_output=True,timeout=90)
+            build=subprocess.run([cc,'-DUNDERCOVER_V1199_TEST_SRAM=1','-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'probe.cpp'),'-o',str(exe)],capture_output=True,timeout=90)
             self.assertEqual(build.returncode,0,build.stderr.decode(errors='replace'))
             env={k:v for k,v in os.environ.items() if not k.startswith('UNDERCOVER_V')}
             for key in ('V958_SECOND_ACK','V967_POST_ACK','V989_SHARED_COMPLETION','V975_SECOND_TIME','V981_SECOND_FRONTIER','V995_SUCCESS_FRONTIER','V1015_ERROR_COMPLETION','V1021_ERROR_FRONTIER','V1034_QUEUE_DETAIL','V1040_SIX_ARGS','V1028_THIRD_TRANSFER'):
@@ -141,18 +143,19 @@ inline constexpr AlarmCancelExpectation expected{
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1111_POSTALARM_FRONTIER_FAULT route=(0|10|11) witness=[0-7] stage=[56]$')
             env['UNDERCOVER_V1118_POSTALARM_WIRELESS']='1'
-            for fault in ('','-changed','-identity','-entry','-frame','-tick','-device','-poll','-store','-abi'):
+            for fault in ('','-changed','-pattern','-zero-profile','-identity','-entry','-frame','-tick','-device','-poll','-store','-abi'):
                 with self.subTest(postalarm_wireless=fault):
                     got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless'+fault],env=env,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
                     self.assertEqual(got.stderr,b'',got.stdout)
                     self.assertIn(b'V1111_POSTALARM_FRONTIER ordinal=3 visits=4 writes=1 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0',rows)
-                    if not fault:
+                    if fault in ('','-zero-profile'):
                         self.assertEqual(got.returncode,0,got.stdout)
                         self.assertEqual(rows[-1],b'V1118_POSTALARM_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=11 stores=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0')
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1118_POSTALARM_WIRELESS_FAULT route=(0|12|13|14) witness=[0-7] stage=[78]$')
+                        if fault=='-pattern':self.assertEqual(rows[-1],b'V1118_POSTALARM_WIRELESS_FAULT route=12 witness=0 stage=7')
             env['UNDERCOVER_V1123_POSTALARM_SUFFIX']='1'
             for fault in ('','-identity','-frame','-tick','-device','-entry','-early-poll','-store','-missing-poll','-double-poll'):
                 with self.subTest(postalarm_suffix=fault):

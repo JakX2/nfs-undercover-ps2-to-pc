@@ -6,6 +6,9 @@
 #include <map>
 #include <source_location>
 #include <string_view>
+#ifdef UNDERCOVER_V1199_TEST_SRAM
+#include "v1199_test_sram.h"
+#endif
 using namespace undercover::wii;
 using Access=PostAckTransferDevice::Access;
 constexpr uint32_t H=0x80004000u,Save=H+0x100u,Completion=H+0x200u,Resume=H+0x1000u,Other=0x100u,Base=0xcd006400u,Mirror=0xcd806400u;
@@ -351,6 +354,15 @@ int main(int argc,char** argv){
                             c.mmu.words[v847::L]=Nop;c.mmu.words[Root+44u]=Nop;c.mmu.words[Root+96u]=Nop;
                             for(unsigned i=0;i<20u;++i)c.mmu.words[v847::SRAM+4u*i]=0;
                             c.mmu.words[v847::SRAM+64u]=64u;c.mmu.words[v847::SRAM+76u]=1u;
+#ifdef UNDERCOVER_V1199_TEST_SRAM
+                            if(wf=="-pattern"||wf=="-zero-profile"){
+                                const auto& data=wf=="-pattern"?v1199_test::pattern:v1199_test::zero;
+                                for(unsigned i=0;i<64u;i+=4u){
+                                    uint32_t word=0;for(unsigned j=0;j<4u;++j)word=(word<<8)|data[i+j];
+                                    c.mmu.words[v847::SRAM+i]=word;
+                                }
+                            }
+#endif
                             if(wf=="-changed")c.mmu.words[v847::SRAM+52u]=0x01000100u;
                             if(wf=="-identity")c.mmu.words[v847::A]^=1u;
                             visit(Root+40,v831::words[3].word);
