@@ -1,0 +1,3 @@
+# V1031: exact third-transfer output audit
+
+The V1022 owner matrix returned the original third transfer after 105 visits, with two SI reads and three writes and token three completed. The new V1028 route additionally counts direct native entries/returns; five are expected (transfer, save, disable, one restore-IRQ lane, compiler restore). V1031 requires the authenticated no-response direct-call prefix and this exact census before marking a third transfer verified. The legitimate alternate callback or unadmitted boundary may be classified separately, but cannot count as an executed transfer. Numeric diagnostic-only rows are allowlisted without raw guest state. The launcher does not enable this route until V1029 owner preflight passes. Pending CI.
