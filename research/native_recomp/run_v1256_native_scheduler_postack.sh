@@ -809,10 +809,5 @@ if [[ "$formatter_continuation_mode" == 1 ]];then
 fi
 
 if [[ "$formatter_nested_mode" == 1 ]];then
-  [[ "$(grep -Ec '^FORMATTER_NESTED_TRIAL n=[0-7] native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35$' "$work/run.log")" == 8 ]]
-  [[ "$(grep -Ec '^FORMATTER_NESTED_CELL_TRIAL n=[0-7] cold_match=[01] live_match=[01] sample_equal=[01] guest_load=0
-fi
- "$work/run.log")" == 8 ]]
-  grep -Ex 'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match=[0-8] live_match=[0-8] sample_equal=[0-8] endpoint_only=1 guest_loads=0 guest_writes=0' "$work/run.log"
-  grep -Fx 'FORMATTER_NESTED_NATIVE owner=1 trials=8 native_prefix=8 loads=8 stores=96 nonvolatile=24 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=280 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
+  python3 "$here/validate_formatter_nested_log.py" "$work/run.log"
 fi
