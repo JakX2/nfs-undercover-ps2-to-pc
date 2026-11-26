@@ -139,6 +139,58 @@ static void long_prefix(unsigned count,unsigned fault){
     if(fault==2){assert(!stopped);return;}
     assert(stopped&&w.reached_load_boundary(c,true)&&w.visits()==count&&c.gpr[6]==count-3&&c.mmu.data_reads==0);
 }
+// Model the third contract's exact access census with original-free words.
+// Every completed load is compared by the next hook; the final load is not read.
+static void mixed_third(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[5]=0x55;c.gpr[14]=0x14;c.gpr[15]=0x15;c.gpr[16]=0x16;
+    std::vector<IpcDispatchWord> path;std::vector<ScFormatterAccess> access;
+    auto emit=[&](uint32_t w){const auto pc=R+4u*uint32_t(path.size());path.push_back({R,pc,w});return pc;};
+    auto store=[&](unsigned op,unsigned reg,int off,unsigned n){
+        const auto pc=emit(ins(op,reg,1,off));access.push_back({pc,n,off-48,true,true});
+    };
+    store(37,1,-48,4);access.back().address=-48;
+    emit(0x7c0802a6);store(36,0,52,4);
+    store(36,14,44,4);store(36,15,40,4);store(36,16,36,4);
+    for(unsigned i=0;i<8;++i)store(38,5,8+int(i),1);
+    const auto stack_pc=emit(ins(32,7,1,8));access.push_back({stack_pc,4,-40,true,false});
+    std::array<uint32_t,4> read_pc{};
+    for(unsigned i=0;i<4;++i){
+        c.mmu.write32(A+8+4*i,0x10203040u+i);
+        read_pc[i]=emit(ins(32,8,3,8+4*int(i)));
+        access.push_back({read_pc[i],4,A+8+4*i,false,false,0x10203040u+i});
+    }
+    while(path.size()<74u)emit(ins(14,6,6,1));
+    const auto target=R+4u*uint32_t(path.size()),load=ins(32,9,3,0);
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(target,load);
+    const std::array<StmFinalSlot,4> slots{{{4,32},{-4,14},{-8,15},{-12,16}}};
+    ScFormatterWitness w({R,L,target,load,48,path,access,slots,{A,4}});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        if(fault==1&&x.pc==stack_pc)*c.mmu.get_ptr(SP-40)=0x66;
+        if(fault==2&&x.pc==read_pc[2])c.mmu.write32(A+16,0);
+        ++c.inst_count;const bool ok=w.before(c,x.pc,x.word,true);
+        if((fault==1&&x.pc==stack_pc)||(fault==2&&x.pc==read_pc[2])){assert(!ok);return;}
+        if(fault==3&&x.pc==read_pc[1]){assert(!ok);return;}
+        assert(ok);
+        const unsigned op=x.word>>26,rt=(x.word>>21)&31;
+        const int off=int((x.word&0xffffu)^0x8000u)-0x8000;
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.word==0x7c0802a6)c.gpr[0]=L;
+        else if(op==36)c.mmu.write32(c.gpr[1]+uint32_t(off),c.gpr[rt]);
+        else if(op==38)*c.mmu.get_ptr(c.gpr[1]+uint32_t(off))=uint8_t(c.gpr[rt]);
+        else if(x.pc==stack_pc)c.gpr[7]=c.mmu.read32(SP-40);
+        else if(op==32){
+            c.gpr[8]=c.mmu.read32(A+uint32_t(off));
+            if(fault==3&&x.pc==read_pc[0])c.gpr[8]^=1u;
+        }else ++c.gpr[6];
+    }
+    if(fault==4)c.mmu.write32(SP-4,0);
+    ++c.inst_count;const bool stopped=w.stop_before_load(c,target,load,true);
+    if(fault==4){assert(!stopped);return;}
+    assert(stopped&&w.reached_load_boundary(c,true)&&w.visits()==74&&w.loads()==5&&
+           w.stores()==13&&w.authenticated_loads()==4&&c.gpr[7]==0x55555555u&&c.gpr[9]==0&&c.mmu.data_reads==0);
+}
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
         const unsigned n=xo<=55?4:xo<=119?1:2;
@@ -147,4 +199,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
     }
     for(unsigned i=1;i<=4;++i)indexed(23,4,0x81ff1234u,i);
     long_prefix(74,0);long_prefix(128,0);long_prefix(129,0);long_prefix(74,1);long_prefix(74,2);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=31 original_execution=0\n";}
+    for(unsigned i=0;i<=4;++i)mixed_third(i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=36 original_execution=0\n";}
