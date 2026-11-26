@@ -33,6 +33,7 @@ public:
         cpu_=&c;frame_=&frame;dev_=&dev;ctl_=&ctl;cause_=&cause;mask_=&mask;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+        if(stage_==8u)return ack_before(c,0u,pc,w,false);
         if(stage_==6u)return dispatch_before(c,pc,w,false);
         if(stage_==4u)return same(c)&&no_si(c,w)&&next_.before(c,pc,w)?true:fail(5);
         if(stage_!=1u||!same(c)||!no_si(c,w)||c.inst_count-last_!=1u||
@@ -43,6 +44,7 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc){
+        if(stage_==8u)return same(c)&&next_.ack_entry(c,pc)?true:fail(10);
         if(stage_==6u){
             if(!same(c)||!dispatch_||!next_.dispatch_entry(c,pc)||++dispatch_entries_>5u)return fail(7);
             if(next_.stage()==6u){
@@ -65,6 +67,7 @@ public:
                ep_.entry(c,pc,cause_->load(),mask_->load())?true:fail(3);
     }
     template<class C,size_t N>PollResult poll(C& c,const std::array<uint8_t,N>& image){
+        if(stage_==8u)return same(c)&&next_.ack_poll(c)?PollResult::Continue:reject(10);
         if(stage_==6u)return same(c)&&dispatch_&&++dispatch_polls_<=256u&&next_.dispatch_poll(c)?PollResult::Continue:reject(8);
         if(stage_==4u)return same(c)&&next_.poll(c)?PollResult::Continue:reject(5);
         if(stage_==3u)return same(c)&&next_.outer_poll(c)?PollResult::Continue:reject(5);
@@ -100,10 +103,35 @@ public:
         return stage_==7u&&same(c)&&next_.dispatch_saved(c,expected_.context)&&
             dispatch_&&dispatch_->handler_ready(c,cause_->load(),mask_->load());
     }
+    // Handoff to a distinct ACK observer on the exact third-handler
+    // admission tick. Never recycle the completed transfer witness.
+    template<class C>bool begin_ack(C& c,std::span<const AckCallSpan> spans,
+            std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr={}){
+        if(stage_!=7u||!dispatch_saved(c)||!next_.begin_ack(c,spans,edges,msr))return fail(9);
+        stage_=8u;return true;
+    }
+    template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w,bool guard){
+        if(stage_!=8u||guard||!same(c)||++ack_visits_>2048u||!next_.ack_before(c,owner,pc,w))return fail(10);
+        if(next_.stage()==8u){
+            if(!next_.ack_boundary(c))return fail(10);
+            stage_=9u;
+        }
+        return true;
+    }
+    bool ack_read(SiController& ctl,unsigned off,uint32_t& v){
+        return stage_==8u&&!error_&&ctl_==&ctl&&next_.ack_read(off,v)?true:fail(11);
+    }
+    bool ack_write(SiController& ctl,unsigned off,uint32_t v){
+        return stage_==8u&&!error_&&ctl_==&ctl&&next_.ack_write(off,v)?true:fail(12);
+    }
+    template<class C>bool ack_saved(C& c){return stage_==9u&&same(c)&&next_.ack_boundary(c);}
+    unsigned ack_visits()const{return ack_visits_;}
+    const SecondCompletionAck& completion_ack()const{return next_.completion_ack();}
+    const BoundedAckCallRoute& ack_calls()const{return next_.ack_calls();}
 private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
-    unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0;
+    unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
     const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
     uint64_t last_=0;unsigned stage_=0,error_=0;

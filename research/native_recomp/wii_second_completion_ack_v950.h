@@ -53,6 +53,7 @@ public:
            c.inst_count-last_!=1u||!state(false))return fail(5);
         last_=c.inst_count;return true;
     }
+    bool successor_verified(uint64_t tick)const{return stage_==3u&&!armed_&&tick_&&*tick_==tick&&last_==tick&&state(false);}
     bool postack_held()const{return stage_==4u&&!armed_&&tick_&&*tick_==last_&&state(false);}
     // Read-only terminal observation after independently witnessed native RFI.
     bool postack_held_after_rfi(uint64_t tick,unsigned delta)const{

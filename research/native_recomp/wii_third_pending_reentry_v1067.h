@@ -102,6 +102,10 @@ public:
         observe_ack_access(c,w);
         return true;
     }
+    template<class C>bool ack_boundary(C& c)const{
+        return stage_==8u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&ack_.token()==3u&&
+            ack_.successor_verified(c.inst_count)&&next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // Resume the exact verified successor, at the same tick. The native
     // call witness already consumed its label; never consume it twice.
     template<class C>bool resume_ack(C& c,uint32_t pc,uint32_t w){
