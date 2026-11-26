@@ -1,0 +1,3 @@
+# V1077: original-free third dispatch join controls
+
+Extend the existing real-device and real-scheduler V1067 probe, preserving eight successful and sixteen refused vector cases. Use the dispatcher's fixed address/context constants and synthetic direct-leaf instruction effects. Add eight valid joins and eight refusal cases: wrong handler table, changed fresh frame, skipped tick, wrong PI value, wrong direct entry, missing mask read, wrong handler argument, and cleared third source. Require the actual device token, exact handler entry, and saved-frame identity at the final boundary. The CI test remains original-free and uses sanitizers; new results pending.

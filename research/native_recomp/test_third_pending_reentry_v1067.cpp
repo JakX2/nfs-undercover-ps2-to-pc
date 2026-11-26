@@ -6,7 +6,7 @@
 #include <source_location>
 using namespace undercover::wii;
 using Access=PostAckTransferDevice::Access;
-constexpr uint32_t V=ExternalVector,T=0x80006000u,D=0x80005000u,H=0x80004000u,R=0x80004100u,Context=0x80010000u,Other=0x100u,Base=0xcd006400u;
+constexpr uint32_t V=ExternalVector,T=0x80006000u,D=SiDispatchWitness::Dispatcher,H=0x80004000u,R=0x80004100u,Context=SiDispatchWitness::Thread,Other=0x100u,Base=0xcd006400u;
 constexpr unsigned C=SiController::Control,S=SiController::Status,B=SiController::Buffer,SI=SiController::PI_SI;
 constexpr uint32_t Load=0x80830034u,Store=0x90830034u,Nop=0x60000000u,Rfi=0x4c000064u;
 constexpr uint32_t branch(uint32_t a,uint32_t b){return 0x48000000u|((b-a)&0x03fffffcu);}
@@ -29,9 +29,9 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
     if(!ok){std::cerr<<"V1067_ASSERT trial="<<trial<<" line="<<loc.line()<<'\n';throw std::runtime_error("third reentry");}
 }
 int main(){
-    unsigned valid=0,refused=0;
-    for(trial=0;trial<24;++trial){
-        const unsigned fault=trial<8?0u:trial-7u,ch=trial%4u;
+    unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0;
+    for(trial=0;trial<40;++trial){
+        const unsigned fault=trial<8||trial>=32?0u:trial-7u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
         using Port=SiTypeScheduler::Port;
@@ -108,8 +108,53 @@ int main(){
         need(route.stage()==4u&&route.saved(c,Context)&&route.vector_visits()==2u&&route.trampoline_visits()==2u);
         need(dev.held_now()&&ack.stage()==5u&&ctl.issued_tokens()==3u&&sched.completed()==3u&&
              cause==(Other|SI)&&ctl.read(C)==control&&ctl.read(S)==status&&ctl.read(B)==buffer);
-        ++valid;
+        if(trial<24){++valid;continue;}
+        // Synthetic direct-leaf effects only; exercise the same production
+        // device-bound dispatcher join used by the focused original runner.
+        constexpr uint32_t Handler=SiDispatchWitness::Handler,Indirect=D+16u;
+        SiDispatchExpectations ex{};
+        ex.dispatcher_word=Nop;ex.handler_word=Nop;ex.indirect_pc=Indirect;ex.indirect_word=0x4e800421u;
+        for(unsigned i=0;i<4;++i){
+            const uint32_t site=D+0x20u+4u*i,dst=0x80008000u+0x100u*i;
+            ex.edges[i]={dst,site+4u,branch(site,dst)|1u,Nop};
+            c.mmu.words[site]=ex.edges[i].branch_word;c.mmu.words[dst]=Nop;
+        }
+        c.mmu.words[Indirect]=ex.indirect_word;c.mmu.words[Handler]=Nop;
+        c.mmu.words[0x80003090u]=Handler;c.mmu.words[0x800000d4u]=Context;c.mmu.words[0x800000e4u]=Context;
+        SecondSiDispatchWitness dispatch(ex);
+        auto reject=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason);++dispatch_refused;
+        };
+        if(fault==17)c.mmu.words[0x80003090u]^=4u;
+        if(fault==18)c.mmu.words[Context+124]^=1u;
+        ok=route.begin_dispatch(c,dispatch);
+        if(fault==17||fault==18){reject(!ok,7);continue;}need(ok);
+        if(fault==19)tick();
+        if(fault==20)dispatch.record(false,0x0c003000u,32,cause.load()^SI,false);
+        else dispatch.record(false,0x0c003000u,32,cause.load(),false);
+        if(fault!=22)dispatch.record(false,0x0c003004u,32,mask.load(),false);
+        tick();ok=route.dispatch_tick(c);
+        if(fault==19||fault==20){reject(!ok,8);continue;}need(ok);
+        c.pc=ex.edges[0].pc;c.lr=ex.edges[0].lr;
+        ok=route.dispatch_entry(c,fault==21?ex.edges[1].pc:c.pc);
+        if(fault==21){reject(!ok,9);continue;}need(ok);
+        for(unsigned i=1;i<4;++i){
+            need(route.dispatch_poll(c));tick();need(route.dispatch_tick(c));
+            c.pc=ex.edges[i].pc;c.lr=ex.edges[i].lr;need(route.dispatch_entry(c,c.pc));
+        }
+        need(route.dispatch_poll(c));tick();
+        if(fault==24)ctl.write(C,cfg|SiController::TC_INT);
+        ok=route.dispatch_tick(c);
+        if(fault==24){reject(!ok,8);continue;}need(ok);
+        c.pc=Handler;c.ctr=Handler;c.lr=Indirect+4u;c.gpr[3]=fault==23?19u:20u;c.gpr[4]=Context;
+        ok=route.dispatch_entry(c,Handler);
+        if(fault==22||fault==23){reject(!ok,9);continue;}need(ok);
+        need(route.stage()==6u&&dispatch.stage()==6u&&route.dispatch_saved(c,Context)&&
+             dev.held_now()&&ack.stage()==5u&&ctl.issued_tokens()==3u&&sched.completed()==3u&&
+             cause==(Other|SI)&&ctl.read(C)==control&&ctl.read(S)==status&&ctl.read(B)==buffer);
+        ++dispatch_valid;
     }
-    need(valid==8&&refused==16);
+    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
+    std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
 }
