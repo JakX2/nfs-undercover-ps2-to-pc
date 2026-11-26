@@ -1,0 +1,3 @@
+# V1058: third-token original wireless setter
+
+Extend the four V1053 callback fixtures (retained/cold prior transfer, exact/due timing) through the existing authenticated WirelessWrapperWitness. Seed all four SRAM wireless IDs before native execution, either zero or nonzero, to avoid assuming the third callback uses the completed channel. Advance the actual SI scheduler and third-device ownership at every native label; require saved exception state and pending third PI source throughout. The unchanged branch must return through original unlock/restore; the changed branch stops at authenticated EXILock entry, before any EXI instruction. Preserve old callback lanes. 32 additional trials per split mode; pending owner execution, no continuous boot claim.

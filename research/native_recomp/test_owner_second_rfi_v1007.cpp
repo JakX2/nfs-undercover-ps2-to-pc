@@ -58,7 +58,7 @@ static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route
 static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
-static bool third_callback_route=false;
+static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -207,13 +207,24 @@ static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint3
     need(!PostAckTransferDevice::offset(a.address)&&
          !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
          !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
+    if(wireless.stage()){
+        need(third_wireless_route&&wireless.stage()==1u&&wireless.before(c,pc,w,true));
+        if(wireless.stage()==2u){
+            need(owner==CallbackRoot&&!third_wireless_changed&&!wireless.changed()&&wireless.ordinal()==3u);
+            std::cout<<std::dec<<"V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits="<<wireless.visits()
+                     <<" stores="<<wireless.writes()<<" token=3 held=1 saved_fields=38 continuation_executed=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
     if(callback_frontier.stage()){
         need(owner==CallbackRoot&&callback_frontier.before(c,pc,w,true));
         if(callback_frontier.stage()==2u){
             std::cout<<std::dec<<"V1053_THIRD_CALLBACK_FRONTIER ordinal="<<callback_frontier.ordinal()
                      <<" visits="<<callback_frontier.visits()<<" writes="<<callback_frontier.writes()
                      <<" zero_id="<<callback_frontier.zero_id()<<" token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
-            std::_Exit(0);
+            if(!third_wireless_route)std::_Exit(0);
+            need(callback_frontier.ordinal()==3u&&wireless.start(c,pc,w,true,true)&&wireless.changed()==third_wireless_changed);
         }
         return;
     }
@@ -616,7 +627,18 @@ namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_callback_route&&callback_witness.stage()){
-        need(captured.saved_integer(c,Context).ok()&&!callback_frontier.stage());
+        need(captured.saved_integer(c,Context).ok());
+        if(wireless.stage()){
+            need(third_wireless_route&&third_callback_held()&&wireless.entry(c,pc,true));
+            if(wireless.stage()==3u){
+                need(third_wireless_changed&&wireless.changed()&&pc==WirelessLock&&wireless.ordinal()==3u);
+                std::cout<<std::dec<<"V1058_THIRD_WIRELESS_LOCK original_setter_prefix=1 original_unlock_prefix=1 changed=1 visits="<<wireless.visits()
+                         <<" stores="<<wireless.writes()<<" token=3 held=1 saved_fields=38 exi_instruction_executed=0"<<std::endl;
+                std::_Exit(0);
+            }
+            return;
+        }
+        need(!callback_frontier.stage());
         if(callback_witness.stage()==1u){scheduler->advance(c.inst_count);need(observe_completed_callback_dispatch(third,c.inst_count));}
         need(third_callback_held());
         if(callback_time.stage())need(callback_time.entry(c,pc,true));
@@ -722,6 +744,14 @@ extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
+    // Extend only the four authenticated third-callback fixtures.
+    for(const std::string tail:{"-wireless-same","-wireless-changed"}){
+        if(mode.ends_with(tail)){
+            mode.resize(mode.size()-tail.size());
+            need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";break;
+        }
+    }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
     third_callback_route=mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback";
     after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm"||third_callback_route;
@@ -752,10 +782,16 @@ int main(int argc,char** argv)try{
     put(Transfer,transfer_words);put(TransferSave,transfer_save_words);put(TransferRestore,transfer_restore_words);
     put(Alarm,alarm_words);put(AlarmTimer,alarm_timer_words);
     put(CallbackRoot,callback_full);put(CallbackRestore,CallbackRestoreWords);put(HandlerRestore,HandlerRestoreWords);for(auto root:EpilogueRoots)put(root.root,root.words);for(auto root:wireless_roots)put(root.root,root.words);
-    if(wireless_route){
+    if(wireless_route||third_wireless_route){
         for(unsigned i=0;i<64;++i)c.mmu.write8(WirelessSram+i,uint8_t(i*13u+trial));
-        const unsigned at=48u+2u*(trial%4u);
-        c.mmu.write8(WirelessSram+at,wireless_changed?0x12u:0u);c.mmu.write8(WirelessSram+at+1u,wireless_changed?0x34u:0u);
+        // The queued third transfer may make the callback channel differ
+        // from the completed channel. Seed all four IDs before execution.
+        for(unsigned ch=0;ch<4;++ch){
+            if(!third_wireless_route&&ch!=trial%4u)continue;
+            const unsigned at=48u+2u*ch;
+            const bool changed=third_wireless_route?third_wireless_changed:wireless_changed;
+            c.mmu.write8(WirelessSram+at,changed?0x12u:0u);c.mmu.write8(WirelessSram+at+1u,changed?0x34u:0u);
+        }
         c.mmu.write32(WirelessSram+64u,64u);c.mmu.write32(WirelessSram+68u,0u);c.mmu.write32(WirelessSram+72u,0u);c.mmu.write32(WirelessSram+76u,1u);
     }
     SiController dev(cause);ctl=&dev;
