@@ -1,0 +1,21 @@
+name: Wii V1246 Open Source Planner
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1246*'
+      - '.github/workflows/wii-v1246-open-source-planner.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source planning and legacy cache/SC seams
+        run: |
+          set -euo pipefail
+          for test in test_v1246_ack_open test_v641_open_request test_v645_open_roots test_v649_open_cache; do
+            python3 -m unittest discover -s research/native_recomp -p "$test.py" -v
+          done
