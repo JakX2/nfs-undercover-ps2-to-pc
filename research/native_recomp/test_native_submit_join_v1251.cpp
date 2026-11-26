@@ -185,7 +185,15 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
     if(submit_host){
         // The guest CPU is available only in this isolated harness; keep
         // the witness on exactly the same context as the original call.
-        need(submit_cpu&&submit_join&&submit_join->write(*submit_cpu,a,v,device_ok(*submit_cpu)));
+        need(submit_cpu&&submit_join);
+        if(!submit_join->write(*submit_cpu,a,v,device_ok(*submit_cpu))){
+            const auto s=B::cold_snapshot();
+            const bool ctrl=p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL;
+            std::cout<<"V1254_SUBMIT_MMIO_REFUSAL category="<<submit_join->write_failure()
+                     <<" writes="<<submit_join->writes()<<" control="<<int(ctrl)
+                     <<" low_bits="<<(ctrl?v&0x3fu:0u)<<" prior="<<(s?s->control&0x3fu:0u)<<'\n';
+            last_reason=submit_join->failure();throw WitnessFailure{};
+        }
         return;
     }
     if(p==IosBus::PI_MASK){mask.store(v);B::refresh_pi(a);return;}

@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v1252*'
+      - 'research/native_recomp/wii_post_ack_submit_join_v1251.h'
       - '.github/workflows/wii-v1252-focused-sleep-postack.yml'
 permissions:
   contents: read

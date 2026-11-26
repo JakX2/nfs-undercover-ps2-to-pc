@@ -16,6 +16,17 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned writes()const{return writes_;}
+    unsigned write_failure()const{return write_error_;}
+    // PPCCTRL Y1/Y2 are W1C, not persistent bits in the written value.
+    // X2 is independently writable by Broadway; no reply is pending.
+    // Preserve both notification enables and require the actual X1 edge.
+    static std::optional<uint32_t> submission_control(uint32_t before,uint32_t value){
+        using M=IpcMailbox;
+        constexpr uint32_t en=M::IY1|M::IY2;
+        if((before&(M::X1|M::Y1|M::Y2))||!(before&M::IY2)||
+           (value&~0x3fu)||!(value&M::X1)||(value&en)!=(before&en))return std::nullopt;
+        return value&(M::X1|M::X2|en);
+    }
     unsigned path_kind()const{return kind_;}
     uint32_t request()const{return req_;}
     template<class C>bool begin(C& c,const PostAckOpenJoin& open,bool device_ok){
@@ -80,17 +91,21 @@ public:
     }
     template<class C>bool write(C& c,uint32_t addr,uint32_t value,bool device_ok){
         using M=IpcMailbox;
-        if(stage_!=7u||writes_>1u||(c.msr&0x8000u)||!boundary(c,device_ok)||
-           (addr&0xc0000000u)==0x40000000u)return fail(4);
+        if(stage_!=7u||writes_>1u||(c.msr&0x8000u)||!boundary(c,device_ok))return write_fail(1);
+        if((addr&0xc0000000u)==0x40000000u)return write_fail(2);
         const uint32_t a=addr&0x3fffffffu;
         const auto offset=writes_?M::PPCCTRL:M::PPCMSG;
-        if((a!=IosBus::IPC+offset&&a!=IosBus::MIRROR+offset)||
-           (writes_?value!=(initial_.control|M::X1):value!=(req_&0x3fffffffu)))return fail(4);
-        try{if(!NativeIosBinding::write32(addr,value))return fail(4);}
-        catch(const std::exception&){return fail(4);}
+        if(a!=IosBus::IPC+offset&&a!=IosBus::MIRROR+offset)return write_fail(2);
+        if(writes_){
+            const auto next=submission_control(initial_.control,value);
+            if(!next)return write_fail(3);
+            sent_control_=*next;
+        }else if(value!=(req_&0x3fffffffu))return write_fail(3);
+        try{if(!NativeIosBinding::write32(addr,value))return write_fail(4);}
+        catch(const std::exception&){return write_fail(4);}
         ++writes_;
         auto s=NativeIosBinding::cold_snapshot();
-        if(!s||!stable(*s,writes_))return fail(4);
+        if(!s||!stable(*s,writes_))return write_fail(5);
         return true;
     }
     template<class C>bool acknowledge(C& c,bool device_ok){
@@ -105,7 +120,7 @@ public:
         if(!ack||ack->progress!=S::Pump::Ack||!ack->broadway_irq_level||ack->guest_exception_ready||
            !after||after->queued||after->event||after->steps!=initial_.steps+1u||after->replies!=1u||
            after->ppc!=before->ppc||after->arm!=before->arm||after->irq_mask!=before->irq_mask||
-           after->pi_mask!=before->pi_mask||after->control!=(initial_.control|M::Y2)||
+           after->pi_mask!=before->pi_mask||after->control!=((sent_control_&~M::X1)|M::Y2)||
            after->flags!=(before->flags|H::IPC_PPC)||after->pi_cause!=(before->pi_cause|H::PI_HOLLYWOOD)||
            !NativeIosBinding::is_open(0u,device)||!valid_request(c))return fail(5);
         ack_=*after;stage_=9;return true;
@@ -120,11 +135,13 @@ private:
     std::span<const VectorEdge> edges_;
     OpenScRoute sc_;
     const void* cpu_=nullptr;ColdIpcSnapshot initial_{},ack_{};
-    unsigned stage_=0,error_=0,writes_=0,kind_=0;
+    unsigned stage_=0,error_=0,writes_=0,kind_=0,write_error_=0;
+    uint32_t sent_control_=0;
     bool entered_=false;
     uint32_t req_=0,path_=0,sleep_lr_=0,sleep_sp_=0,sleep_queue_=0;
     uint64_t tick_=0,sleep_tick_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    bool write_fail(unsigned n){if(!write_error_)write_error_=n;return fail(4);}
     template<class C>bool context(C& c,bool device_ok)const{
         return cpu_==&c&&device_ok&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
             c.inst_count>=tick_&&c.inst_count-tick_<=200000u;
@@ -143,7 +160,7 @@ private:
     bool stable(const ColdIpcSnapshot& s,unsigned n)const{
         auto e=initial_;
         if(n)e.ppc=req_&0x3fffffffu;
-        if(n==2u){e.control|=IpcMailbox::X1;e.queued=true;}
+        if(n==2u){e.control=sent_control_;e.queued=true;}
         return same(s,e);
     }
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
