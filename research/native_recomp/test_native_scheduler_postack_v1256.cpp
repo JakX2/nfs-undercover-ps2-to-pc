@@ -51,6 +51,9 @@
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
 #include "v1321_private_selection.h"
 #include "wii_idle_route_v1327.h"
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+#include "wii_sleep_resume_v1335.h"
+#endif
 #endif
 #endif
 #include "v639_private_open_expectations.h"
@@ -168,6 +171,12 @@ static CooperativeSaveLane* load_save=nullptr;
 static bool load_active=false;
 static unsigned load_count=0;
 struct CooperativeReturned{};
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+static SleepResumeWitness* sleep_resume=nullptr;
+static bool sleep_active=false;
+static unsigned resumed_sleep_count=0;
+struct SleepRestoreReached{};
+#endif
 #endif
 #endif
 #endif
@@ -212,7 +221,20 @@ static bool load_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 #endif
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+[[noreturn]]static void sleep_resume_refuse(unsigned kind){
+    std::cout<<"V1336_SLEEP_REFUSAL kind="<<kind<<" stage="<<sleep_resume->stage()
+        <<" reason="<<sleep_resume->failure()<<" visits="<<sleep_resume->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active){
+        if(!sleep_resume->before(c,pc,w,load_held(c)))sleep_resume_refuse(1);
+        return;
+    }
+#endif
     if(!selection_route)return;
     if(!selection_witness->boundary(c,device_ok(c))||!selection_route->before(c,pc,w,device_ok(c)))selection_refuse(1);
 }
@@ -228,6 +250,9 @@ void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     throw WitnessFailure{};
 }
 void v1314_save_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active)return; // v1328 owns the resumed save-return label
+#endif
     need(coop_save&&sched_join);
     if(!coop_save->before(c,pc,w,device_ok(c)))coop_save_refuse(1);
 }
@@ -454,6 +479,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active){
+        if(!sleep_resume->entry(c,pc,load_held(c))||!sleep_resume->restored_sleep_at(c,load_held(c)))sleep_resume_refuse(2);
+        ++resumed_sleep_count;throw SleepRestoreReached{};
+    }
+#endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     if(load_active)load_refuse(2);
 #endif
@@ -610,12 +641,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active){if(!sleep_resume->poll(c,load_held(c)))sleep_resume_refuse(3);return false;}
+#endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     if(load_active){
         if(!coop_load->poll(c,load_held(c)))load_refuse(4);
         if(coop_load->stage()==4u){
             if(!coop_load->restored(c,load_held(c)))load_refuse(5);
-            ++load_count;throw CooperativeReturned{};
+            ++load_count;
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+            if(!sleep_resume->begin(c,*coop_load,load_held(c))||!sleep_resume->poll(c,load_held(c)))sleep_resume_refuse(4);
+            load_active=false;sleep_active=true;return false;
+#else
+            throw CooperativeReturned{};
+#endif
         }
         return false;
     }
@@ -799,6 +839,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active)sleep_resume_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     if(load_active)load_refuse(6);
 #endif
@@ -856,6 +899,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    if(sleep_active)sleep_resume_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     if(load_active)load_refuse(7);
 #endif
@@ -1070,6 +1116,11 @@ int main(int argc,char** argv)try{
         try{run_game(c);}catch(const SleepStop&){waiting=true;}
         need(waiting&&sleep.stage()==4u&&sleep.select_at(c,device_ok(c))&&host.serviced_steps()==1u&&sleep_count==trial+1u);
         std::cout<<"V1252_SLEEP_TRIAL n="<<trial<<" waiting=1 queue=1 pending_ack=1 reply=0\n";
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+        SleepResumeWitness resumed({Q::Select,PostAckSleepJoin::Sleep,0x80529818u,0x8052a4fcu,v1252::edges[2],v1321::ram_words});
+        sleep_resume=&resumed;
+        if(!resumed.capture(c,device_ok(c)))sleep_resume_refuse(7);
+#endif
         PostAckSchedulerJoin sched(v1256::edges,v1256::indirect,v1256::resume,v1256::resume_word);
         need(sched.begin(c,sleep,device_ok(c)));sleep_join=nullptr;sched_join=&sched;
 #ifdef UNDERCOVER_V1315_COOP_SAVE
@@ -1264,10 +1315,19 @@ int main(int argc,char** argv)try{
         if(!selection.begin(c,idle_join,device_ok(c))||!route.begin(c,device_ok(c)))selection_refuse(7);
 #ifdef UNDERCOVER_V1334_COOP_LOAD
         CooperativeLoadLane load(v1321::load());coop_load=&load;load_save=&save_lane;
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+        bool sleep_reached=false;try{run_game(c);}catch(const SleepRestoreReached&){sleep_reached=true;}
+        need(sleep_reached&&resumed.restored_sleep_at(c,load_held(c))&&selection_count==trial+1u&&
+            load_count==trial+1u&&resumed_sleep_count==trial+1u&&host.serviced_steps()==2u&&
+            !(cause.load()&mask.load()));
+        sleep_active=false;sleep_resume=nullptr;
+        std::cout<<"V1336_SLEEP_TRIAL n="<<trial<<" native_rfi=1 select_return=1 sleep_stack=1 saved_abi=1 restore_entry=1\n";
+#else
         bool cooperative_returned=false;try{run_game(c);}catch(const CooperativeReturned&){cooperative_returned=true;}
         need(cooperative_returned&&load.restored(c,load_held(c))&&selection_count==trial+1u&&
             load_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load())&&
             c.pc==save_lane.expectation().geometry.save_return&&!(c.msr&0x8000u));
+#endif
         load_active=false;coop_load=nullptr;load_save=nullptr;coop_saved=nullptr;
         std::cout<<"V1334_LOAD_TRIAL n="<<trial<<" original_loader=1 native_rfi=1 saved_abi=1 gqr=1 cooperative_return=1\n";
 #else
@@ -1345,6 +1405,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     need(load_count==8u);
     std::cout<<"V1334_COOPERATIVE_LOAD_NATIVE owner=1 trials=8 original_loader=8 native_rfi=8 saved_abi=8 gqr=8 cooperative_return=8 sleep_return=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1336_SLEEP_RESUME
+    need(resumed_sleep_count==8u);
+    std::cout<<"V1336_SLEEP_NATIVE owner=1 trials=8 native_rfi=8 select_return=8 sleep_stack=8 saved_abi=8 restore_entry=8 sleep_return=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

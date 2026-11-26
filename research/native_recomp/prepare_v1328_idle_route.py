@@ -4,15 +4,16 @@ import argparse,re,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from prepare_v1321_combined_resume import plan,audit,CLEAR,CALLBACK,SELECT
-from prepare_v1307_cooperative_fixture import ENABLE,DISABLE,SET
+from prepare_v1307_cooperative_fixture import ENABLE,DISABLE,SET,SLEEP
 from prepare_owner_scheduler_v722 import reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v1299_reply_return import verify_resume
 
-def install(root,result):
+def install(root,result,sleep_resume=False):
     coop,_,edges,indirect,callback=result
     roots=coop[0];routes={a:roots[a] for a in (ENABLE,SELECT,DISABLE,CLEAR,SET)}
     routes[CALLBACK]=tuple(callback)
+    if sleep_resume:routes[SLEEP]=roots[SLEEP]
     expected={pc:(a,ws[(pc-a)//4]) for a,ws in routes.items() for pc in reachable(a,ws)}
     sources={p:p.read_text() for p in sorted(root.glob('output_*.cpp'))}
     main=(root/'main_output.cpp').read_text()
@@ -43,10 +44,10 @@ def install(root,result):
     print(f'V1328_SELECTION_TRANSLATION verified=1 route_labels={len(expected)} combined_labels={n} indirect_edges={len(indirect)}')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);p.add_argument('--sleep-resume',action='store_true');a=p.parse_args()
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not 52<=a.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        install(a.out,plan(a.dol.read_bytes(),a.elf.read_bytes()));return 0
+        install(a.out,plan(a.dol.read_bytes(),a.elf.read_bytes()),a.sleep_resume);return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed=('size','selection coverage','selection indirect dispatch','selection hook identity','selection hook include','selection hook coverage',
                  'resume coverage','resume direct owner','return dispatch identity','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch')

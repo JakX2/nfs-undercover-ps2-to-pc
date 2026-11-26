@@ -1,0 +1,3 @@
+# V1336 original sleeping thread continuation
+
+V1334 owner run 45817950783/job 139902603530 passed all eight original cooperative restores and V1335 synthetic regression passed. Capture the actual sleep caller before initial SelectThread, then continue from the same native RFI outer poll without restarting the dispatcher. Observe original SelectThread and OSSleepThread labels to interrupt restore entry; require original caller stack and nonvolatile ABI, r3=0, no extra IOS step, selected context and response unchanged. Reuse the authenticated private roots, add no roots and no guest writes. Separate opt-in mode pinned to V1334. Source and owner run pending.
