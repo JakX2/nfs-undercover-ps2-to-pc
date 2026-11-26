@@ -67,6 +67,7 @@ inline constexpr AlarmCancelExpectation expected{
                     rows=got.stdout.splitlines()
                     self.assertEqual(got.stderr,b'')
                     self.assertIn(b'V1028_THIRD_RETURN original_transfer=1 token=3 pending=0 visits=21 entries=4 returns=4 reads=1 writes=3 saved_fields=38 handler_instruction_executed=0 boot_verified=0',rows)
+                    self.assertIn(b'V1087_ALARM_HANDOFF started=1 first=1 stage=1 reason=0',rows)
                     if not fault:
                         self.assertEqual(got.returncode,0,got.stdout)
                         self.assertEqual(rows[-1],b'V1048_THIRD_ALARM_RETURN original_return=1 queue=1 token=3 lane=0 timer=0 calls=3 visits=9 suffix_visits=4 status_reads=1 status_writes=1 token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0')

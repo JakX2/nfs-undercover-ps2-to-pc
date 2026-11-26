@@ -193,7 +193,11 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 <<" saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
             if(third_alarm_enabled()){
-                if(!third_alarm.start(c,pc,third_alarm_suffix,next_device)||!third_alarm.before(c,pc,w,next_device))reject(19);
+                const bool started=third_alarm.start(c,pc,third_alarm_suffix,next_device);
+                const bool first=started&&third_alarm.before(c,pc,w,next_device);
+                std::cout<<std::dec<<"V1087_ALARM_HANDOFF started="<<started<<" first="<<first
+                         <<" stage="<<third_alarm.stage()<<" reason="<<third_alarm.failure()<<std::endl;
+                if(!first)reject(19);
                 return;
             }
 #endif
@@ -387,7 +391,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 template<class C>bool poll(C& c){
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_active()){
-        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.poll(c,next_device))reject(19);
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.poll(c,next_device)){
+            std::cout<<std::dec<<"V1087_ALARM_SEAM kind=1 stage="<<third_alarm.stage()<<" reason="<<third_alarm.failure()<<std::endl;
+            reject(19);
+        }
         return false;
     }
 #endif
@@ -415,7 +422,10 @@ template<class C>bool poll(C& c){
 template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_active()){
-        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.entry(c,pc,next_device))reject(19);
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.entry(c,pc,next_device)){
+            std::cout<<std::dec<<"V1087_ALARM_SEAM kind=2 stage="<<third_alarm.stage()<<" reason="<<third_alarm.failure()<<std::endl;
+            reject(19);
+        }
         return;
     }
 #endif

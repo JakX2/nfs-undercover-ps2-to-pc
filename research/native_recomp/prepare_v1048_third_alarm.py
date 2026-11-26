@@ -16,8 +16,13 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v850_callback_return import BLOCK_END
 from prepare_v1029_third_transfer import replace_body,replace_stage,include_once,SI
 
-LEGACY=re.compile(r'(?m)^    ([^\n]*undercover::wii::(?:v672::before|v709::before|v693::before|v786::before|v768::(?:before|save_before|restore_before)|v807::before|v813::before|v850::before)\(ctx,[^\n]+;\n)')
-def hook(body,pc,w):
+# Include already-guarded statements: the preceding transfer installer
+# uses third_active(), which becomes false inside the resume label.
+LEGACY=re.compile(r'(?m)^    ((?:if\([^\n]*\)\s+)?undercover::wii::(?:v672::before|v680::before|v709::before|v693::before|v726::resume|v786::before|v768::(?:before|save_before|restore_before)|v807::before|v813::before|v850::(?:before|handler_resume|dispatch_resume))\(ctx,[^\n]+;\n)')
+def suppress_legacy(block):
+    return LEGACY.sub(lambda m:'    if(!undercover::wii::v958::third_active()&&!undercover::wii::v958::third_alarm_active()) { '+m[1].rstrip('\n')+' }\n',block)
+
+def hook(body,pc,w,handoff=False):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
     hits=list(pat.finditer(body))
     if len(hits)!=1:raise ValueError('third alarm label')
@@ -27,6 +32,12 @@ def hook(body,pc,w):
     base=f'undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{w:08x}u,'
     current='    '+base+'false);\n';guard='    '+base+'true);\n'
     hits=re.findall(r'(?m)^    [^\n]*v958::before\(ctx,[^\n]+\n',block)
+    if handoff:
+        # Same label is consumed by V1028 and V1047 in one before().
+        # Do not add another tick or another observer call.
+        expected='    if(undercover::wii::v958::third_active()) '+current.lstrip()+'    else '+guard.lstrip()
+        if hits!=[expected] or block.index(expected)<block.index(SI):raise ValueError('third alarm handoff hook')
+        return body[:i]+suppress_legacy(block)+body[j:]
     if len(hits)>1:raise ValueError('third alarm duplicate hook')
     if hits:
         old=hits[0]
@@ -40,7 +51,7 @@ def hook(body,pc,w):
     else:
         k=block.index(SI)+len(SI)
         block=block[:k]+'    if(undercover::wii::v958::third_alarm_active()) '+current.lstrip()+block[k:]
-    block=LEGACY.sub(lambda m:'    if(!undercover::wii::v958::third_alarm_active()) '+m[1],block)
+    block=suppress_legacy(block)
     return body[:i]+block+body[j:]
 
 def verify_alarm_identity(actual,base,callback):
@@ -81,7 +92,7 @@ def install(dol,elf,root,host):
         expected={pc:(addr,words[(pc-addr)//4]) for pc in pcs}
         if audit_native([body],outer,expected)!=len(expected):raise ValueError('third alarm coverage')
         for pc,(_,w) in sorted(expected.items()):
-            if pc!=transfer+4:out=hook(out,pc,w)
+            out=hook(out,pc,w,handoff=pc==transfer+4)
         changes[path]=include_once(replace_body(source,body,out),'#include "undercover/wii_second_ack_live_v958.h"');count+=len(expected)
     fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
     old=replace_stage(old,macro,macro+'#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n','third alarm header seam')
@@ -97,7 +108,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        safe=('third alarm label','third alarm tick','third alarm duplicate hook','third alarm hook seam','third alarm shared hook','third alarm suffix geometry','third alarm suffix extent','third alarm suffix boundary','third alarm suffix word','third alarm suffix guard','third alarm suffix call','third alarm destination','third alarm identity','third alarm mode','third alarm tree','third alarm owner','third alarm coverage','third alarm header seam','third body seam','third include seam','helper call label','helper direct native call','helper native return edge','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch')
+        safe=('third alarm label','third alarm tick','third alarm duplicate hook','third alarm hook seam','third alarm shared hook','third alarm handoff hook','third alarm suffix geometry','third alarm suffix extent','third alarm suffix boundary','third alarm suffix word','third alarm suffix guard','third alarm suffix call','third alarm destination','third alarm identity','third alarm mode','third alarm tree','third alarm owner','third alarm coverage','third alarm header seam','third body seam','third include seam','helper call label','helper direct native call','helper native return edge','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch')
         print('V1048_THIRD_ALARM_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

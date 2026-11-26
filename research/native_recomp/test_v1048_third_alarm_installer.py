@@ -16,9 +16,20 @@ class Hooks(unittest.TestCase):
             got=hook(L+extra+OLD,P,W)
             self.assertEqual(got.count(SI),1)
             self.assertIn('third_alarm_active()',got)
-            self.assertIn('if(!undercover::wii::v958::third_alarm_active()) '+OLD.lstrip(),got)
+            self.assertIn('if(!undercover::wii::v958::third_active()&&!undercover::wii::v958::third_alarm_active()) { '+OLD.strip()+' }',got)
             self.assertLess(got.index(SI),got.index('v958::before'))
         self.assertIn('else '+B+'true);',hook(L+'    '+B+'true);\n',P,W))
+    def test_handoff_legacy_order(self):
+        old=L+'    '+B+'true);\n'+OLD
+        legacy=f'    undercover::wii::v768::before(ctx,0x{P:08x}u,0x{W:08x}u);\n'
+        source=transfer_hook(old+legacy,P,W,'resume')
+        out=hook(source,P,W,handoff=True)
+        self.assertEqual(out.count('v958::before('),2)
+        self.assertEqual(out.count(SI),1)
+        self.assertEqual(out.count('third_alarm_active()) {'),2)
+        self.assertIn('if(!undercover::wii::v958::third_active()) '+legacy.strip(),out)
+        with self.assertRaisesRegex(ValueError,'third alarm handoff hook'):
+            hook(L+'    '+B+'false);\n',P,W,handoff=True)
     def test_composed_alarm_identity(self):
         base='#pragma once\nnamespace undercover::wii::v786 {\ninline constexpr unsigned marker=1;\n}\n'
         callback=(0x80006000,(0x60000000,0x4e800020),(0x80004000,0x80004004))
@@ -112,7 +123,7 @@ class FullInstaller(unittest.TestCase):
             # route; no third-alarm hook is allowed to consume its tick twice.
             a=out.index('loc_80004014:');b=out.index('loc_80004018:')
             self.assertEqual(out[a:b].count('v958::before('),2)
-            self.assertNotIn('third_alarm_active()',out[a:b])
+            self.assertEqual(out[a:b].count('third_alarm_active()) {'),1)
             self.assertIn('third_alarm_active()',out[b:])
             self.assertEqual(out.count('++ctx.inst_count;'),len(fixture[1]))
     def test_fail_closed_no_partial_edits(self):
