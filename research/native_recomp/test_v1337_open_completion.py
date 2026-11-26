@@ -7,6 +7,11 @@ NOP=0x60000000
 def bl(pc,dst):return 0x48000001|((dst-pc)&0x03fffffc)
 def bc(pc,dst):return 0x41820000|((dst-pc)&0xfffc)
 class Tests(unittest.TestCase):
+    def test_open_return_scope(self):
+        from prepare_v1358_open_return import expand_scope
+        self.assertEqual(expand_scope([(STM,96),(ROOT,4)],96,136),sorted([(STM,136),(ROOT,4)]))
+        for prior,old,new in (([(STM,92)],96,136), ([(STM,96),(STM+100,4)],96,136), ([(STM,96)],92,136), ([(STM,96)],96,132)):
+            with self.assertRaises(ValueError):expand_scope(prior,old,new)
     def test_hook_prefix(self):
         pc=0x8051963c
         label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {NOP:08X}\n'

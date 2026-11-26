@@ -61,6 +61,9 @@
 #ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
 #include "v1356_private_descriptor.h"
 #endif
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+#include "v1358_private_open_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -206,6 +209,13 @@ static AllocatorDescriptorWitness* allocator_descriptor=nullptr;
 static uint32_t allocator_request=0;
 static unsigned allocator_count=0;
 struct AllocatorReturned{};
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+static OpenReturnWitness* open_return=nullptr;
+static bool open_return_active=false;
+static StmIos::Device open_return_device=StmIos::Device::None;
+static unsigned open_return_count=0;
+struct OpenReturned{};
+#endif
 #endif
 #endif
 #endif
@@ -283,6 +293,19 @@ static bool allocator_held(nw::CPUContext& c){
     return selection_witness&&allocator_release&&!(cause.load()&mask.load())&&
         selection_witness->selected_response_held(c,raw_device_ok(c),allocator_release->expected_msr());
 }
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+static bool open_return_held(nw::CPUContext& c){
+    return open_return&&allocator_release&&allocator_held(c)&&allocator_release->storage_preserved(c,true);
+}
+static bool open_descriptor(nw::CPUContext& c){
+    return allocator_descriptor&&allocator_release&&allocator_descriptor->returned(c,allocator_release->metadata_stores())&&B::is_open(0u,open_return_device);
+}
+[[noreturn]]static void open_return_refuse(unsigned kind){
+    std::cout<<"V1358_OPEN_REFUSAL kind="<<kind<<" stage="<<(open_return?open_return->stage():0u)
+        <<" reason="<<(open_return?open_return->failure():0u)<<" visits="<<(open_return?open_return->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void allocator_refuse(unsigned kind){
     std::cout<<"V1352_ALLOCATOR_REFUSAL kind="<<kind<<" stage="<<allocator_release->stage()
         <<" reason="<<allocator_release->failure()<<" store="<<allocator_release->store_failure()
@@ -299,12 +322,27 @@ static bool allocator_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    if(open_return_active){
+        if(!open_return->before(c,pc,w,open_return_held(c),open_descriptor(c)))open_return_refuse(4);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active){
         if(pc==v1344::release_expected.resume){
             if(!allocator_release->inline_return(c,pc,w,allocator_held(c))||
                !allocator_release->returned(c,allocator_held(c)))allocator_refuse(1);
-            ++allocator_count;throw AllocatorReturned{};
+            ++allocator_count;
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+            if(!open_return||!open_return->begin_inline(c,*allocator_release,open_return_held(c),open_descriptor(c),0u))open_return_refuse(3);
+            std::cout<<"V1358_ALLOCATOR_HANDOFF n="<<last_trial<<" verified=1\n";
+            allocator_active=false;open_return_active=true;
+            if(!open_return->before(c,pc,w,open_return_held(c),open_descriptor(c)))open_return_refuse(4);
+            return;
+#else
+            throw AllocatorReturned{};
+#endif
         }
         if(!allocator_release->before(c,pc,w,allocator_held(c)))allocator_refuse(2);
         return;
@@ -576,6 +614,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    if(open_return_active)open_return_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active){
         if(!allocator_release->entry(c,pc,allocator_held(c)))allocator_refuse(3);
@@ -764,6 +805,9 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(pc==StmPrefixWitness::Open&&stm_witness->open_at(c)){
             need(open_witness);
             ++open_entries;
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+            if(!open_return||!open_return->capture_open(c,device_ok(c)))open_return_refuse(1);
+#endif
             if(!open_witness->begin(c,*stm_witness,device_ok(c))){
                 last_reason=open_witness->request_failure();throw WitnessFailure{};
             }
@@ -776,6 +820,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    if(open_return_active){
+        if(!open_return->poll(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
+        if(open_return->stage()==5u){
+            if(!open_return->returned(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
+            ++open_return_count;throw OpenReturned{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active){
         if(!allocator_release->poll(c,allocator_held(c))||allocator_release->stage()!=1u)allocator_refuse(5);
@@ -999,6 +1053,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    if(open_return_active)open_return_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active)allocator_refuse(6);
 #endif
@@ -1068,6 +1125,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    if(open_return_active)open_return_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active)allocator_refuse(6);
 #endif
@@ -1165,6 +1225,9 @@ int main(int argc,char** argv)try{
         for(auto w:v626::words)c.mmu.write32(w.pc,w.word);
         for(auto w:v626::submit_sda)c.mmu.write32(w.pc,w.word);
         for(auto w:v1243::words)c.mmu.write32(w.pc,w.word);
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+        for(auto w:v1358::stm_words)c.mmu.write32(w.pc,w.word);
+#endif
         for(auto w:v1252::words)c.mmu.write32(w.pc,w.word);
         for(auto w:v1256::words)c.mmu.write32(w.pc,w.word);
         // Focused fixture: model the default thread previously initialized
@@ -1271,6 +1334,9 @@ int main(int argc,char** argv)try{
         need(callbacks==before_callbacks+2&&control_writes==before_writes+1);
         PostAckStmJoin stm(v629::expected_stm);stm_witness=&stm;
         PostAckOpenJoin open(v639::expected_open,v626::vector);open_witness=&open;open_polls=0;
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+        OpenReturnWitness open_tail(v1358::expected);open_return=&open_tail;
+#endif
         need(stm.begin(c,w,device_ok(c)));
         // Focused proof: model the caller bridge after the verified IPC
         // return. Execute the original STM prefix, not a synthetic
@@ -1284,6 +1350,10 @@ int main(int argc,char** argv)try{
         // Continue from the authenticated native submit entry, without
         // resetting memory or creating a replacement guest request.
         const auto kind=open.path_kind();
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+        if(!open_tail.capture_submit(c,device_ok(c)))open_return_refuse(2);
+        open_return_device=kind==1u?StmIos::Device::Immediate:StmIos::Device::Event;
+#endif
         std::array<VectorEdge,v626::submit_edges.size()> edges{};
         for(unsigned i=0;i<edges.size();++i){auto e=v626::submit_edges[i];edges[i]={e.pc,e.lr,e.branch,e.entry};}
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
@@ -1522,8 +1592,17 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
-        bool allocator_returned=false;try{run_game(c);}catch(const AllocatorReturned&){allocator_returned=true;}
-        need(allocator_returned&&allocator.returned(c,allocator_held(c))&&selection_count==trial+1u&&
+        bool allocator_returned=false;
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+        try{run_game(c);}catch(const OpenReturned&){allocator_returned=true;}
+        need(allocator_returned&&open_tail.returned(c,open_return_held(c),open_descriptor(c))&&open_return_count==trial+1u);
+        std::cout<<"V1358_OPEN_TRIAL n="<<trial<<" submit_return=1 open_return=1 stm_resume=1 descriptor=1\n";
+        open_return_active=false;open_return=nullptr;open_return_device=StmIos::Device::None;
+#else
+        try{run_game(c);}catch(const AllocatorReturned&){allocator_returned=true;}
+        need(allocator_returned&&allocator.returned(c,allocator_held(c)));
+#endif
+        need(selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
             allocator_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load()));
 #ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
@@ -1652,6 +1731,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     need(allocator_count==8u);
     std::cout<<"V1352_ALLOCATOR_NATIVE owner=1 trials=8 native_free=8 heap_shadow=8 caller_abi=8 inline_return=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1358_OPEN_RETURN
+    need(open_return_count==8u);
+    std::cout<<"V1358_OPEN_NATIVE owner=1 trials=8 submit_return=8 open_return=8 stm_resume=8 descriptor=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

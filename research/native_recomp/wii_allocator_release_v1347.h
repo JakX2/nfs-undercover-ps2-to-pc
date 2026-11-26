@@ -116,6 +116,11 @@ public:
            !abi(c)||!restore_returned_||!fence_.finished(c))return fail(8);
         last_=c.inst_count;stage_=2;outer_=false;inline_completed_=true;return true;
     }
+    // At later caller boundaries the ABI/PC naturally change; the
+    // authenticated allocator memory image must not change again.
+    template<class C>bool storage_preserved(C& c,bool held){
+        return stage_==2u&&base(c,held)&&c.msr==msr_&&fence_.finished(c);
+    }
     template<class C>bool returned(C& c,bool held){
         return stage_==2u&&base(c,held)&&c.pc==e_.resume&&c.lr==e_.resume&&c.inst_count==last_&&
             c.msr==msr_&&abi(c)&&restore_returned_&&word(c,c.pc,e_.resume_word)&&fence_.finished(c);
