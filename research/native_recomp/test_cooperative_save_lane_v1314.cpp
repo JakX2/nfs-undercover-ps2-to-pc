@@ -76,15 +76,16 @@ static void trial(unsigned fault){
     if(fault==13){assert(!ok&&lane.failure()==4u);return;}assert(ok);
     c.pc=Ret;c.msr=saved_msr;
     if(fault==14)c.gpr[3]=0;
-    ok=lane.poll(c,true);if(fault==14){assert(!ok&&lane.failure()==6u);return;}assert(ok);
     if(fault==15)++c.inst_count;
-    ok=lane.poll(c,true);if(fault==15){assert(!ok&&lane.failure()==6u);return;}assert(ok);
+    ok=lane.poll(c,true);if(fault==14||fault==15){assert(!ok&&lane.failure()==6u);return;}assert(ok);
     assert(lane.restored(c,true)&&lane.visits()==54u);
     if(fault==16){c.gpr[31]^=1;assert(!lane.restored(c,true));}
+    if(fault==17){assert(!lane.poll(c,true)&&lane.failure()==6u);}
+
 }
 int main(){
     for(unsigned i=0;i<=8;++i)trial(i);
     std::cout<<"V1314_SAVE_LANE synthetic=1 valid=1 refused=8 gqr=1 exact_ticks=1 original_execution=0\n";
-    for(unsigned i=9;i<=16;++i)trial(i);
-    std::cout<<"V1317_LOAD_LANE synthetic=1 valid=1 refused=7 gqr=1 two_rfi_polls=1 original_execution=0\n";
+    for(unsigned i=9;i<=17;++i)trial(i);
+    std::cout<<"V1322_LOAD_LANE synthetic=1 valid=1 refused=8 gqr=1 single_rfi_poll=1 original_execution=0\n";
 }

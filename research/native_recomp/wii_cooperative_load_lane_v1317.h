@@ -47,8 +47,8 @@ public:
         if(op==17u||(op==19u&&(xo==16u||xo==528u||xo==50u)))return fail(5);
         if(op==31u&&xo==146u){
             if(c.gpr[(w>>21)&31u]&0x8000u)return fail(5);
-            // The generated mtmsr seam can yield at its exact next label.
-            poll_due_=true;poll_pc_=next_;
+            // NWiiRecomp emits a callback only on an EE 0->1 transition.
+            // This cooperative loader must keep interrupts disabled.
         }
         if(op==16u||op==18u){
             if(w&3u)return fail(5);
@@ -62,8 +62,9 @@ public:
     template<class C>bool poll(C& c,bool held){
         if(!live(c,held)||c.inst_count!=last_)return fail(6);
         if(stage_==1u&&poll_due_&&c.pc==poll_pc_){poll_due_=false;return true;}
-        if(stage_==2u&&c.gqr==gqr_&&save_->context().returned(c,held)){stage_=3;return true;}
-        if(stage_==3u&&c.gqr==gqr_&&save_->context().resumed_at(c,held)){stage_=4;return true;}
+        // The saved cooperative MSR has EE=0. Unlike IRQ return, the
+        // generated RFI has no inline callback; only run_game polls.
+        if(stage_==2u&&!(c.msr&0x8000u)&&c.gqr==gqr_&&save_->context().returned(c,held)){stage_=4;return true;}
         return fail(6);
     }
     template<class C>bool restored(C& c,bool held)const{
