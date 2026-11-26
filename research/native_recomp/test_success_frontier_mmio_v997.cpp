@@ -845,7 +845,41 @@ int main(int argc,char** argv){
                                                                                         if(rf2=="-double-poll")v958::poll(c);
                                                                                         if(rf2!="-dispatch"){scheduler.advance(++tick);v958::postalarm_dispatch_resume(c,e2.caller,e2.caller_word);}
                                                                                         if(rf2=="-abi")c.gpr[31]^=1u;
+#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER
+                                                                                        const bool handler_mode=v958::ack_handler_enabled();
+                                                                                        const auto hf2=rf2.starts_with("-handler")?rf2.substr(std::string_view("-handler").size()):std::string_view{};
+                                                                                        if(handler_mode){
+                                                                                            need(rf2.starts_with("-handler"));
+                                                                                            for(auto row:q4::handler_rows)c.mmu.words[row.pc]=row.word;
+                                                                                            for(unsigned i=0;i<4;++i)c.mmu.words[q4::handler_index.table[i]]=i==2u?7u:9u;
+                                                                                            if(hf2=="-identity")c.mmu.words[e2.caller+44u]^=1u;
+                                                                                        }
+#endif
                                                                                         visit(e2.caller,e2.caller_word);
+#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER
+                                                                                        if(handler_mode){
+                                                                                            need(v958::held_epilogue.stage()==26u&&v958::held_epilogue.prefix_handler_visits()==1u);
+                                                                                            if(hf2=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                                            if(hf2=="-tick")scheduler.advance(++tick);
+                                                                                            if(hf2=="-poll")v958::poll(c);
+                                                                                            if(hf2=="-entry")v958::observe(q4::handler_rd,c);
+                                                                                            if(hf2=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                            c.gpr[3]=Base+(hf2=="-address"?4u:0u);
+                                                                                            visit(q4::handler_rd,v1139::Rd,hf2=="-guard");
+                                                                                            if(hf2!="-missing-read"){
+                                                                                                const auto got=SiBinding::read32(Base+S);need(got.has_value());
+                                                                                                c.gpr[4]=*got^(hf2=="-load-value"?1u:0u);
+                                                                                            }
+                                                                                            visit(q4::handler_wr,v1139::Wr);
+                                                                                            if(hf2!="-missing-write")need(SiBinding::write32(Base+S,c.gpr[4]^(hf2=="-write-value"?1u:0u)));
+                                                                                            visit(e2.caller+12u,Nop);
+                                                                                            for(unsigned i=4;i<11;++i)visit(e2.caller+4u*i,Nop);
+                                                                                            c.gpr[3]=q4::handler_index.table[0];c.gpr[4]=8u;visit(e2.caller+44u,v1139::Indexed);
+                                                                                            c.gpr[5]=7u;visit(e2.caller+48u,v1139::Compare);
+                                                                                            c.cr[0]={false,false,hf2!="-branch",false};visit(e2.caller+52u,v1139::Branch);
+                                                                                            visit(e2.caller+64u,q4::handler_rows.back().word);
+                                                                                        }
+#endif
                                                                                     }
 #endif
                                                                                 }

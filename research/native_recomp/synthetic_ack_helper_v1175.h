@@ -26,4 +26,15 @@ inline constexpr unsigned return_loads=2;
 inline constexpr NativeReturnExpectation<return_loads> return_expected{v1123::R+12u,v1123::Restore,Handler+16u,
     {0x83cbfff8u,0x83ebfffcu,Blr},{0x80010044u,0x7c0803a6u,0x38210040u,Blr},Nop};
 #endif
+#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER
+inline constexpr auto handler_rows=[]{
+    auto rows=v1139::rows;
+    for(auto& row:rows)row.pc=Handler+16u+(row.pc-v1139::A);
+    return rows;
+}();
+inline constexpr uint32_t handler_rd=Handler+20u,handler_wr=Handler+24u;
+inline constexpr auto handler_index=[]{
+    auto e=v1139::index;e.resume=Handler+16u;e.destination=e.resume+64u;return e;
+}();
+#endif
 }
