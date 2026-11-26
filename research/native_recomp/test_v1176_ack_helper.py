@@ -156,4 +156,31 @@ class AckTimeMetadata(unittest.TestCase):
     def test_requires_prefix(self):
         with self.assertRaisesRegex(ValueError,'ACK time mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,False,True)
+class AckFrontierMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;S=C+0x400;T=C+0x500;D=T+0x100;U=T+0x200;R=T+0x300
+        site=C+16;ts=C+64;resume=ts+4;A=C+0x1000;B=A+0x100
+        words=[W]*172;seen=[resume+4*i for i in range(27)]
+        stops={seen[5]:(3,A),seen[-1]:(5,B)}
+        roots={C:words,S:[BLR],T:[W]*25,D:[BLR],U:[BLR],R:[BLR]}
+        leaves=[(T+4,D,D+4,W,1,[BLR]),(T+16,U,U+4,W,2,[BLR]),(T+28,R,R+4,W,3,[BLR])]
+        q=((roots,C,S,site,11,-24),T,D,U,R,ts,leaves)
+        prior=(roots,C,T,D,U,R,site+4,ts,leaves)
+        old='#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n'
+        rows={pc:(C,W) for pc in seen}
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v831_private_callback_frontier.h'
+            h.write_text(ins.frontier_render(C,resume,rows,stops))
+            n='wii_callback_frontier_v829.h';(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'callback_frontier_plan',return_value=(q,seen,stops,A,B)),patch.object(ins,'exact',return_value=words),patch.object(ins,'callback_expectations',return_value=(C,words,(H,H+4))):
+                self.assertEqual(ins.verify_frontier_metadata(b'',b'',old,dest,HOST,prior),(C,rows,stops))
+                for bad in (old+old,old.replace('FRONTIER 1','FRONTIER 0'),old+'#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_frontier_metadata(b'',b'',bad,dest,HOST,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_frontier_metadata(b'',b'',old,dest,HOST,(roots,C,T,D,U,R,site+4,ts+4,leaves))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_frontier_metadata(b'',b'',old,dest,HOST,prior)
+    def test_requires_time(self):
+        with self.assertRaisesRegex(ValueError,'ACK frontier mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,False,True)
 if __name__=='__main__':unittest.main()

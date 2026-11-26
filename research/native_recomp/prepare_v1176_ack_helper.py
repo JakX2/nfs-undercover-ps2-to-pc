@@ -14,6 +14,8 @@ from prepare_owner_callback_prefix_v797 import plan as prefix_plan
 from prepare_owner_indirect_callback_v806 import verify_indirect
 from prepare_owner_callback_time_v802 import plan as callback_time_plan
 from prepare_v813_callback_time import render as time_render
+from prepare_owner_callback_frontier_v820 import plan as callback_frontier_plan
+from prepare_v831_callback_frontier import render as frontier_render
 from prepare_owner_scheduler_v722 import reachable as callback_reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
@@ -167,9 +169,40 @@ def verify_time_native(src,outer,meta):
         total+=len(rows)
     if total-len(callback_pcs)!=45:raise ValueError('ACK time geometry')
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False):
+def verify_frontier_metadata(dol,elf,old,dest,host,time_meta):
+    q,seen,stops,A,B=callback_frontier_plan(dol,elf)
+    base,T,D,U,R,ts,leaves=q;roots,C,S,site,_,_=base
+    old_roots,old_C,old_T,old_D,old_U,old_R,old_resume,old_ts,old_leaves=time_meta
+    if (C,T,D,U,R,site+4,ts,leaves)!=(old_C,old_T,old_D,old_U,old_R,old_resume,old_ts,old_leaves) or any(roots[x]!=old_roots[x] for x in (T,D,U,R)):
+        raise ValueError('ACK frontier predecessor')
+    original=exact(dol,elf,C,172);candidate,words,_=callback_expectations(dol,elf);resume=ts+4
+    if candidate!=C or tuple(original)!=tuple(words) or len(original)!=172 or len(seen)!=27 or len(set(seen))!=27 or min(seen)!=resume or \
+       sorted(o for o,_ in stops.values())!=[3,5] or {dst for _,dst in stops.values()}!={A,B} or A==B or \
+       not set(stops).issubset(seen) or any(pc&3 or not resume<=pc<C+688 for pc in seen):
+        raise ValueError('ACK frontier geometry')
+    if old.splitlines().count('#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1')!=1 or 'UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER' in old:
+        raise ValueError('ACK frontier mode')
+    rows={pc:(C,original[(pc-C)//4]) for pc in seen}
+    expected={'v831_private_callback_frontier.h':frontier_render(C,resume,rows,stops),
+              'wii_callback_frontier_v829.h':(host/'wii_callback_frontier_v829.h').read_text()}
+    for n,s in expected.items():
+        h=dest/n
+        if h.is_symlink() or not h.is_file() or h.read_text()!=s:raise ValueError('ACK frontier metadata')
+    return C,rows,stops
+
+def verify_frontier_native(src,outer,meta):
+    C,rows,stops=meta
+    hits=[s for s in src.values() if owns_root(s,C)]
+    if len(hits)!=1 or sum(entry_count(s,C) for s in src.values())!=1:raise ValueError('ACK frontier owner')
+    body=exact_function(hits[0],C)
+    if audit_native([body],outer,rows)!=len(rows):raise ValueError('ACK frontier coverage')
+    for pc,(_,dst) in stops.items():verify_direct(body,pc,dst)
+    for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
+    if frontier and not time:raise ValueError('ACK frontier mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -197,6 +230,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False):
         if h.is_symlink() or not h.is_file() or h.read_text()!=(host/h.name).read_text() or 'UNDERCOVER_V1184_PRIVATE_ACK_PREFIX' in old:
             raise ValueError('ACK prefix metadata')
     time_meta=verify_time_metadata(dol,elf,old,dest,host,prefix_meta) if time else None
+    frontier_meta=verify_frontier_metadata(dol,elf,old,dest,host,time_meta) if frontier else None
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
@@ -204,6 +238,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False):
     callback_guard=True
     if prefix_meta:verify_prefix_native(src,outer,prefix_meta)
     if time_meta:verify_time_native(src,outer,time_meta)
+    if frontier_meta:verify_frontier_native(src,outer,frontier_meta)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -228,22 +263,25 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False):
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'
     if time:extra+='#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n'
+    if frontier:extra+='#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
     if time:print('V1190_ACK_TIME_METADATA installed=1 callback_labels=13 shared_labels=45 native_edges=4 execution=0')
+    if frontier:print('V1194_ACK_FRONTIER_METADATA installed=1 callback_labels=27 native_edges=2 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
         safe|={'ACK prefix '+s for s in ('geometry','metadata','owner','coverage','mode')}
         safe|={'ACK time '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
+        safe|={'ACK frontier '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
