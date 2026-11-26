@@ -65,5 +65,18 @@ static void backedge(unsigned fault){
     }
     assert(w.entry(c,T,true)&&w.reached(c,true)&&w.visits()==5&&w.polls()==2&&c.ctr==0&&c.gpr[3]==2);
 }
-int main(){for(unsigned i=0;i<=12;++i)direct(i);for(unsigned i=0;i<=5;++i)backedge(i);
-    std::cout<<"REGISTER_CONTINUATION_TEST cases=19 original_execution=0\n";}
+static void arguments(unsigned fault){
+    Cpu c;c.gpr[1]=B+0x900;c.gpr[3]=11;
+    const std::array<IpcDispatchWord,2> path{{{R,S,ins(14,4,1,16)},{R,S+4,bl(S+4,T)}}};
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(T,N);
+    const std::array<RegisterContinuationArgument,2> args{{{3,fault==1?12:11,false},{fault==2?3u:fault==3?11u:4u,fault==4?8192:16,true}}};
+    RegisterContinuationWitness w({R,S,T,N,0,path,args});
+    bool ok=w.begin(c,true);if(fault>=2&&fault<=4){assert(!ok);return;}assert(ok);
+    assert(w.poll(c,true));++c.inst_count;assert(w.entry(c,S,true));
+    ++c.inst_count;assert(w.before(c,S,path[0].word,true));c.gpr[4]=c.gpr[1]+16;
+    ++c.inst_count;assert(w.before(c,S+4,path[1].word,true));c.pc=T;c.lr=S+8;
+    ok=w.entry(c,T,true);if(fault==1){assert(!ok);return;}assert(ok&&w.reached(c,true));
+}
+int main(){for(unsigned i=0;i<=12;++i)direct(i);for(unsigned i=0;i<=5;++i)backedge(i);for(unsigned i=0;i<=4;++i)arguments(i);
+    std::cout<<"REGISTER_CONTINUATION_TEST cases=24 original_execution=0\n";}

@@ -5,10 +5,12 @@ namespace undercover::wii {
 // Read-only observer of an already-established frame's register-only path.
 // No guest state is changed by the observer. The caller supplies its frame
 // and device continuity predicate at every boundary.
+struct RegisterContinuationArgument {unsigned reg;int64_t value;bool stack_relative;};
 struct RegisterContinuationSpec {
     uint32_t owner,start,target,target_word;
     uint32_t saved_mask;
     std::span<const IpcDispatchWord> path;
+    std::span<const RegisterContinuationArgument> arguments{};
 };
 class RegisterContinuationWitness {
 public:
@@ -24,6 +26,16 @@ public:
         for(auto x:s_.path)if(x.owner!=s_.owner||!word(c,x.pc,x.word))return fail(1);
         auto tail=s_.path.back();
         if(tail.word>>26!=18u||(tail.word&3u)!=1u||branch_target(tail.pc,tail.word)!=s_.target)return fail(1);
+        if(s_.arguments.size()>8)return fail(1);
+        uint32_t seen=0;
+        for(auto a:s_.arguments){
+            if(a.reg<3u||a.reg>10u||(seen&(1u<<a.reg)))return fail(1);
+            seen|=1u<<a.reg;
+            if(a.stack_relative&&(a.value< -4096||a.value>4096))return fail(1);
+            const int64_t value=a.stack_relative?int64_t(c.gpr[1])+a.value:a.value;
+            if(value<0||value>0xffffffffll||(a.stack_relative&&(value<0x80000000ll||value>=0x81800000ll)))return fail(1);
+            arg_values_[a.reg-3]=uint32_t(value);
+        }
         cpu_=&c;gp_=c.gpr;gqr_=c.gqr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;msr_=c.msr;
         srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;stage_=1;return true;
     }
@@ -42,6 +54,7 @@ public:
             entry_seen_=true;return true;
         }
         if(!call_due_||visits_!=s_.path.size()||pc!=s_.target||c.inst_count!=last_||!word(c,pc,s_.target_word))return fail(3);
+        if(!args_match(c))return fail(3);
         stage_=2;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
@@ -105,14 +118,18 @@ public:
         return true;
     }
     template<class C>bool reached(C& c,bool held)const{
-        return stage_==2&&call_due_&&!pending_poll_&&same(c,held)&&c.pc==s_.target&&c.inst_count==last_;
+        return stage_==2&&call_due_&&!pending_poll_&&same(c,held)&&c.pc==s_.target&&c.inst_count==last_&&args_match(c);
     }
 private:
     RegisterContinuationSpec s_;const void* cpu_=nullptr;
-    std::array<uint32_t,32> gp_{};std::array<uint32_t,8> gqr_{};
+    std::array<uint32_t,32> gp_{};std::array<uint32_t,8> gqr_{},arg_values_{};
     uint32_t lr_=0,ctr_=0,xer_=0,msr_=0,cr_=0,srr0_=0,srr1_=0,poll_pc_=0,poll_ctr_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,polls_=0;
     bool initial_poll_=false,entry_seen_=false,pending_poll_=false,call_due_=false;
+    template<class C>bool args_match(C& c)const{
+        for(auto a:s_.arguments)if(c.gpr[a.reg]!=arg_values_[a.reg-3])return false;
+        return true;
+    }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool writable(unsigned r)const{return r==0u||(r>=3u&&r<=12u)||(r>=14u&&(s_.saved_mask&(uint32_t(1)<<r)));}
     static uint32_t mask(unsigned mb,unsigned me){
