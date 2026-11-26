@@ -1,0 +1,3 @@
+# V1032: next original boundary after queued third-token alarm return
+
+V1022 verified original third transfer and alarm cancellation (16/16). Extend the focused owner harness to authenticate the exact original post-alarm handler labels and classify the next actual call or terminal boundary without executing it. Preserve token three, pending PI source, saved frame, exact instruction flow and device status; no new SI access is admitted. Add 16 trials across four channels, two predecessor states and split/nonsplit translation; also publish the numeric third-transfer entry/return count to verify V1031's expected five edges. Pending owner CI. Focused reconstructed state only, no continuous boot claim.

@@ -52,7 +52,9 @@ static unsigned seed_kind=0;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static bool callback_route=false,callback_time_route=false,callback_frontier_route=false;
-static bool error_rfi=false,error_cold=false,error_queue=false;
+static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route=false;
+static HandlerSuffixGuard after_alarm;
+static unsigned after_alarm_visit=0;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -167,6 +169,21 @@ static void suffix_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     }
     if(rd){need(third.arm_suffix_status_read(c.inst_count,a.address));suffix_reg=(w>>21)&31u;}
     if(wr){need(a.store&&third.arm_suffix_status_write(c.inst_count,a.address,*a.store));suffix_write=true;}
+}
+static void after_alarm_step(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
+    need(owner==Handler&&alarm_witness.stage()==4u&&third.held_now()&&third.token()==3u&&
+         !third.pending()&&cause==(Other|SiController::PI_SI)&&call_route.depth()==0u);
+    const auto row=std::find_if(AfterThirdAlarm.begin(),AfterThirdAlarm.end(),[pc](const auto& x){return x.pc==pc;});
+    need(row!=AfterThirdAlarm.end());
+    const auto a=PostAckTransferDevice::word_access(c,w);
+    need(!PostAckTransferDevice::offset(a.address)&&after_alarm.before(c,pc,w,row->ordinal,row->kind));
+    if(row->kind||w==0x4e800020u){
+        const unsigned category=row->kind==2u?classify_callback_identity(c,pc,w,row->ordinal,row->kind,CallbackRoot,callback_full,callback_sites):0u;
+        std::cout<<std::dec<<"V1032_AFTER_ALARM_FRONTIER prior_absent="<<error_cold<<" profile="<<trial
+            <<" ordinal="<<row->ordinal<<" kind="<<row->kind<<" target_class="<<category
+            <<" visits="<<after_alarm.visits()<<" token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
+        std::_Exit(0);
+    }
 }
 static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
     need(callback_suffix.before(c,pc,w,true));
@@ -313,12 +330,17 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         if(third.stage()==2u){
             need(suffix_route&&ack.stage()==5u);
             scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count));
+            if(after_alarm_visit){after_alarm_step(c,owner,pc,w);return;}
             if(alarm_witness.stage()){
                 need(alarm_route&&third.held_now()&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
                 if(alarm_witness.stage()==3u){
                     need(owner==Handler&&alarm_witness.returned(c,pc,w,third.held_now())&&third.token()==3u&&cause==(Other|SiController::PI_SI));
                     std::cout<<std::dec<<"V985_ALARM_RETURN original_return=1 queue=1 lane="<<alarm_witness.lane()<<" timer="<<alarm_witness.timer_required()
                         <<" calls="<<alarm_witness.calls()<<" visits="<<alarm_witness.total()<<" token_held=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
+                    if(after_alarm_route){
+                        need(after_alarm.start(c,AfterThirdAlarm,pc,256u,true));after_alarm_visit=ack_visits;
+                        after_alarm_step(c,owner,pc,w);return;
+                    }
                     std::_Exit(0);
                 }
                 need(alarm_witness.native_before(c,pc,w,third.held_now()));return;
@@ -349,6 +371,9 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 std::cout<<std::dec<<"V972_TRANSFER_RETURN original_transfer=1 idle="<<transfer_idle<<" token="<<ctl->issued_tokens()
                          <<" pending="<<third.pending()<<" visits="<<ack_visits-transfer_tick<<" reads="<<third.reads()<<" writes="<<third.writes()
                          <<" saved_fields=38 handler_instruction_executed=0"<<std::endl;
+                if(error_queue){
+                    std::cout<<"V1032_THIRD_CALL_CENSUS entries="<<call_route.entries()-transfer_entries<<" returns="<<call_route.returns()-transfer_returns<<" visits="<<ack_visits-transfer_tick<<" token=3"<<std::endl;
+                }
                 if(!suffix_route)std::_Exit(0);
                 need(third.token()==3u&&third.follow_stage()==3u);
                 need(suffix_guard.start(c,TransferSuffix,pc,256u));
@@ -595,8 +620,9 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
-    error_queue=mode=="error-queue"||mode=="error-queue-cold";
-    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold";
+    after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm";
+    error_queue=mode=="error-queue"||mode=="error-queue-cold"||after_alarm_route;
+    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm";
     if(error_rfi||error_queue){need(trial&4u);mode=error_rfi?"second-rfi":"successful-alarm";}
     need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";

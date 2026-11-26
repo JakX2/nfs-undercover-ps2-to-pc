@@ -106,8 +106,8 @@ for mode in nonsplit split; do
     done
   done
   echo "V1020_OWNER_ERROR_RFI mode=$mode native_rfi=8 fallback=0 continuous_boot=0"
-  for lane in error-queue error-queue-cold; do
-    prior=0; [[ "$lane" != error-queue-cold ]] || prior=1
+  for lane in error-queue error-queue-cold error-queue-after-alarm error-queue-cold-after-alarm; do
+    prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
         grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
@@ -119,9 +119,14 @@ for mode in nonsplit split; do
       grep -Fx "V1022_ERROR_TRANSFER_ENTRY prior_absent=$prior profile=$trial original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38" "$work/run.log"
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Ex 'V985_ALARM_RETURN original_return=1 queue=1 lane=[0-4] timer=[01] calls=[0-9]+ visits=[1-9][0-9]* token_held=1 saved_fields=38 handler_instruction_executed=0' "$work/run.log"
+      grep -Ex 'V1032_THIRD_CALL_CENSUS entries=[1-9][0-9]* returns=[1-9][0-9]* visits=105 token=3' "$work/run.log"
+      if [[ "$lane" == *after-alarm ]]; then
+        grep -Ex "V1032_AFTER_ALARM_FRONTIER prior_absent=$prior profile=$trial ordinal=[0-9]+ kind=[0-2] target_class=[0-4] visits=[1-9][0-9]* token=3 held=1 saved_fields=38 call_executed=0" "$work/run.log"
+      fi
     done
   done
   echo "V1022_OWNER_ERROR_QUEUE mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
+  echo "V1032_OWNER_AFTER_ALARM mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

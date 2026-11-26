@@ -14,6 +14,8 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function
 from prepare_v709_os_leaves import owns_root
 from verify_callback_resume_v853 import verify_callback_resume
+from audit_handler_suffix_v728 import suffix as handler_suffix,target as handler_target
+from audit_handler_third_v740 import edge as handler_edge
 
 def plan(dol,elf):
     q=list(base_plan(dol,elf));result=q[0];p=list(result[0])
@@ -63,9 +65,34 @@ def plan(dol,elf):
         new.append((pc,dst,4*len(roots[dst]),w,roots[dst]))
     extra=(*extra[:-1],(site,root,64,tail[0],tr),*new,extra[-1])
     p[0]=(roots,edges,indirect,iw,hw,dw,guard,extra);result[0]=tuple(p)
-    return q,site,root,tr,tail[1:],resume,word,added,added_roots,code,reg,counter,hint,G,gqr
+    alarm_site,_,_=handler_edge(HANDLER,original,5)
+    count,_,_,stops=handler_suffix(HANDLER,original,alarm_site+4)
+    boundaries={pc:(kind,ordinal) for pc,kind,ordinal,_ in stops}
+    after={};todo=[alarm_site+4]
+    while todo:
+        pc=todo.pop()
+        if pc in after:continue
+        if not HANDLER<=pc<HANDLER+4*len(original):raise ValueError('third alarm suffix extent')
+        w=original[(pc-HANDLER)//4];translated=roots[HANDLER][(pc-HANDLER)//4]
+        k,o=boundaries.get(pc,(0,0))
+        if k:
+            if k in (1,5):
+                if translated!=w or not o:raise ValueError('third alarm suffix call')
+                after[pc]=(w,o,1 if k==1 else 2)
+            elif translated==0x4e800020:after[pc]=(translated,0,0)
+            else:raise ValueError('third alarm suffix boundary')
+            continue
+        if translated!=w:raise ValueError('third alarm suffix word')
+        after[pc]=(w,0,0)
+        if w>>26 in (16,18):
+            todo.append(handler_target(pc,w))
+            if w>>26==18:continue
+        todo.append(pc+4)
+    if not 1<=len(after)<=min(count,256) or not any(o==6 and k==2 for _,o,k in after.values()):
+        raise ValueError('third alarm suffix geometry')
+    return q,site,root,tr,tail[1:],resume,word,added,added_roots,code,reg,counter,hint,G,gqr,after
 
-def header(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hint,G,gqr,out):
+def header(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hint,G,gqr,after,out):
     base_header(*q,out)
     fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
     with out.open('a') as f:
@@ -80,8 +107,9 @@ def header(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hi
         f.write(f'inline constexpr std::array<undercover::wii::WirelessCode,{len(added_roots)}> EpilogueRoots{{{{'+','.join(f'undercover::wii::WirelessCode{{0x{a:08x}u,epilogue_code_{i}}}' for i,a in enumerate(added_roots))+'}};\n')
         f.write('inline constexpr undercover::wii::LiveEpilogueExpectation SecondEpilogueExpected{'+fmt((resume,E,S,DISABLE,RESTORE,L,G,0x806f5318))+f',{counter},{hint},{reg}u,{gqr}u'+'};\n')
         f.write(f'inline constexpr uint32_t SecondResume=0x{H:08x}u;\n')
+        f.write(f'inline constexpr std::array<undercover::wii::HandlerSuffixLabel,{len(after)}> AfterThirdAlarm{{{{'+','.join('undercover::wii::HandlerSuffixLabel{'+fmt((pc,w))+f',{o}u,{k}u'+'}' for pc,(w,o,k) in sorted(after.items()))+'}};\n')
 
-def install(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hint,G,gqr,tree):
+def install(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,hint,G,gqr,after,tree):
     base_install(*q,tree)
     paths=sorted(tree.glob('*.cpp'));main=tree/('main_output.cpp' if (tree/'main_output.cpp').is_file() else 'output.cpp')
     found=[p for p in paths if owns_root(p.read_text(),DISPATCH)]
@@ -103,6 +131,7 @@ def install(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,h
     decl='namespace rfi_test {void before_owned(nwii::runtime::CPUContext&,uint32_t,uint32_t,uint32_t);}'
     path.write_text(replace_exact(s,decl,decl+'\nnamespace rfi_test {void handler_resume(nwii::runtime::CPUContext&,uint32_t,uint32_t);}' ))
     print('V1006_HANDLER_RESUME_ROUTE original_dispatcher=1 original_restore=1 pre_tick_hook=1 execution=0')
+    print(f'V1032_ALARM_SUFFIX_GEOMETRY labels={len(after)} original_call=6 execution=0')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path)
