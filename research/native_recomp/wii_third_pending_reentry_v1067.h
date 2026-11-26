@@ -5,6 +5,7 @@
 #include "wii_bounded_ack_call_route_v956.h"
 #include "wii_handler_suffix_guard_v868.h"
 #include "wii_handler_index_branch_v911.h"
+#include "wii_live_epilogue_v762.h"
 namespace undercover::wii {
 // Compose the completed third SI owner with a real restored RFI context.
 // No host-supplied "held" boolean, no device writes and no scheduler advance.
@@ -333,6 +334,41 @@ public:
         return handler_return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
                witness.dispatch_resume(c,pc,w,true)?true:fail(48);
     }
+    // The dispatcher return label has already been charged to the
+    // fresh ACK owner. Continue its actual epilogue with the third frame.
+    template<class C,class W>bool begin_epilogue(C& c,W& prior,LiveEpilogueWitness& ep,uint32_t pc,uint32_t w){
+        if(stage_!=26u||error_||cpu_!=&c||handler_return_!=&prior||prior.stage()!=5u||
+           epilogue_||pc!=dispatcher_site_||w!=dispatcher_word_||!dev_||dev_->stage()!=3u||
+           !ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !ep.begin(c,next_.captured(),cause_->load(),mask_->load())||
+           !ep.before(c,pc,w,cause_->load(),mask_->load()))return fail(49);
+        epilogue_=&ep;stage_=27u;return true;
+    }
+    template<class C>bool epilogue_before(C& c,uint32_t pc,uint32_t w){
+        if(!epilogue_frame(c)||epilogue_->stage()!=1u||
+           !ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !epilogue_->before(c,pc,w,cause_->load(),mask_->load()))return fail(50);
+        return true;
+    }
+    template<class C>bool epilogue_entry(C& c,uint32_t pc){
+        return epilogue_frame(c)&&epilogue_->stage()==1u&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               epilogue_->entry(c,pc,cause_->load(),mask_->load())?true:fail(51);
+    }
+    template<class C>bool epilogue_poll(C& c){
+        if(stage_!=27u||error_||cpu_!=&c||!epilogue_||!dev_||dev_->stage()!=3u||
+           !ack_.poll(c.inst_count)||!ack_.postack_held())return fail(52);
+        const unsigned before=epilogue_->stage();
+        if(before<1u||before>3u||(before==1u&&!epilogue_frame(c))||
+           (before==3u&&c.gqr!=epilogue_gqr_)||
+           !epilogue_->poll(c,cause_->load(),mask_->load()))return fail(52);
+        if(before==2u)epilogue_gqr_=c.gqr;
+        if(epilogue_->stage()==4u){
+            if(next_.captured().stage()!=4u)return fail(52);
+            stage_=28u;
+        }
+        return true;
+    }
+    unsigned epilogue_failure()const{return epilogue_?epilogue_->failure():0u;}
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
@@ -406,6 +442,12 @@ private:
         return stage_==25u&&!error_&&cpu_==&c&&handler_return_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C>bool epilogue_frame(C& c)const{
+        return stage_==27u&&!error_&&cpu_==&c&&epilogue_&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    LiveEpilogueWitness* epilogue_=nullptr;
+    std::array<uint32_t,8> epilogue_gqr_{};
     const void* handler_return_=nullptr;
     std::array<uint32_t,32> handler_gp_{};
     uint32_t handler_cr_=0,handler_site_=0,handler_word_=0,dispatcher_site_=0,dispatcher_word_=0;

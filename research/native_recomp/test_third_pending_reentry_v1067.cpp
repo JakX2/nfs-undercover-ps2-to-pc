@@ -24,6 +24,7 @@ struct Mmu{
     uint8_t* get_ptr(uint32_t a){return words.count(a&~3u)?&byte:nullptr;}
     uint32_t read32(uint32_t a){return words.at(a);}
     uint8_t read8(uint32_t a){return uint8_t(read32(a&~3u)>>(24u-8u*(a&3u)));}
+    uint16_t read16(uint32_t a){return uint16_t((uint16_t(read8(a))<<8)|read8(a+1u));}
 };
 struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};std::array<uint32_t,8> gqr{};std::array<Cr,8> cr{};
@@ -44,8 +45,10 @@ int main(){
     unsigned return_valid=0,return_refused=0;
     unsigned handler_valid=0,handler_refused=0;
     unsigned handler_return_valid=0,handler_return_refused=0;
-    for(trial=0;trial<248;++trial){
-        const unsigned hr_fault=trial>=236?trial-235u:0u;
+    unsigned ep_valid=0,ep_refused=0;
+    for(trial=0;trial<268;++trial){
+        const unsigned ep_fault=trial>=256?trial-255u:0u;
+        const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
         const unsigned handler_fault=trial>=228?0u:trial>=216?trial-215u:0u;
         const unsigned return_fault=trial>=208?0u:trial>=196?trial-195u:0u;
         const unsigned suffix_fault=trial>=188?0u:trial>=176?trial-175u:0u;
@@ -190,6 +193,7 @@ int main(){
             need(rejected&&route.failure()==reason);++ack_refused;
         };
         if(trial>=228){c.gpr[20]=ch;c.gpr[1]=0x80034000u;}
+        if(trial>=248){c.gpr[13]=0x80035000u;c.gpr[21]=Context;}
         const auto original_handler_gp=c.gpr;
         if(fault==25)c.mmu.words[Context+124]^=1u;
         if(fault==26)c.pc=Handler+4;
@@ -607,8 +611,10 @@ int main(){
         // The original focused geometry uses fifteen restores.
         constexpr std::array<uint32_t,3> handler_restore{0x83cbfff8u,0x83ebfffcu,Blr};
         constexpr std::array<uint32_t,4> handler_tail{0x80010044u,0x7c0803a6u,0x38210040u,Blr};
-        const NativeReturnExpectation<2> he{HandlerCall,RestoreRoot,DispatcherResume,handler_restore,handler_tail,Nop};
-        put(RestoreRoot,handler_restore);put(HandlerCall+4u,handler_tail);c.mmu.words[DispatcherResume]=Nop;
+        constexpr uint32_t Enable=0x80036000u,Reschedule=Enable+0x100u,Dis=Enable+0x200u,Rest=Enable+0x300u,Loader=Enable+0x400u;
+        const uint32_t dispatcher_word=trial>=248?branch(DispatcherResume,Enable)|1u:Nop;
+        const NativeReturnExpectation<2> he{HandlerCall,RestoreRoot,DispatcherResume,handler_restore,handler_tail,dispatcher_word};
+        put(RestoreRoot,handler_restore);put(HandlerCall+4u,handler_tail);c.mmu.words[DispatcherResume]=dispatcher_word;
         const uint32_t old_sp=original_handler_gp[1];
         // This fixture previously used a small non-address r1 at handler
         // entry. A valid synthetic handler ABI is established before entry.
@@ -645,18 +651,65 @@ int main(){
         need(at_hr(HandlerCall+16u,Blr));c.pc=DispatcherResume;
         if(hr_fault==9){tick();refuse_hr(!route.handler_return_poll(c,hr),47);continue;}
         if(hr_fault!=10)need(route.handler_return_poll(c,hr));
-        tick();ok=route.handler_return_resume(c,hr,DispatcherResume,Nop);
+        tick();ok=route.handler_return_resume(c,hr,DispatcherResume,dispatcher_word);
         if(hr_fault==10){refuse_hr(!ok,48);continue;}need(ok);
         if(hr_fault==11)c.gpr[31]^=1u;
         if(hr_fault==12){tick();refuse_hr(!route.handler_return_before(c,foreign_hr,DispatcherResume,Nop),46);continue;}
-        ok=at_hr(DispatcherResume,Nop);
+        ok=at_hr(DispatcherResume,dispatcher_word);
         if(hr_fault==11){refuse_hr(!ok,46);continue;}need(ok);
         need(route.stage()==26u&&hr.stage()==5u&&hr.visits()==8u&&c.gpr[1]==old_sp&&
              route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
-        ++handler_return_valid;
+        if(trial<248){++handler_return_valid;continue;}
+        // Synthetic effects only. Every admitted label and device tick
+        // uses the same fresh-frame epilogue join as the original fixture.
+        const uint32_t counter=c.gpr[13]+4u,hint=c.gpr[13]+8u;
+        c.mmu.words[counter]=2;c.mmu.words[hint]=0;
+        for(unsigned i=0;i<8;++i)c.mmu.words[Context+0x1a4u+4*i]=0;
+        c.mmu.words[Context+0x1a0u]=0;
+        c.mmu.words[Enable]=branch(Enable,Dis)|1u;c.mmu.words[Enable+4u]=branch(Enable+4u,Rest)|1u;
+        c.mmu.words[Enable+8u]=Blr;c.mmu.words[Dis]=Blr;c.mmu.words[Rest]=Blr;c.mmu.words[Reschedule]=Blr;
+        c.mmu.words[DispatcherResume+4u]=branch(DispatcherResume+4u,Reschedule)|1u;
+        c.mmu.words[DispatcherResume+8u]=Nop;
+        c.mmu.words[DispatcherResume+12u]=branch(DispatcherResume+12u,Loader)|1u;
+        c.mmu.words[Loader]=Rfi;
+        LiveEpilogueWitness ep({DispatcherResume,Enable,Reschedule,Dis,Rest,Loader,Loader+4u,Context,4,8,21,255});
+        auto reject_ep=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++ep_refused;
+        };
+        if(ep_fault==4)tick();
+        if(ep_fault==5)c.mmu.words[Context+124]^=1u;
+        if(ep_fault==6)c.gpr[21]^=4u;
+        ok=route.begin_epilogue(c,ep_fault==1?foreign_hr:hr,ep,DispatcherResume+(ep_fault==2?4u:0u),
+                                ep_fault==3?Nop:dispatcher_word);
+        if(ep_fault>=1&&ep_fault<=6){reject_ep(!ok,49);continue;}need(ok);
+        auto enter_ep=[&](uint32_t root,uint32_t retpc){c.pc=root;c.lr=retpc;return route.epilogue_entry(c,root);};
+        auto at_ep=[&](uint32_t pc){c.pc=pc;tick();return route.epilogue_before(c,pc,c.mmu.words.at(pc));};
+        ok=enter_ep(ep_fault==7?Dis:Enable,DispatcherResume+4u);
+        if(ep_fault==7){reject_ep(!ok,51);continue;}need(ok);
+        if(ep_fault==8){reject_ep(!at_ep(Enable+4u),50);continue;}
+        need(at_ep(Enable)&&enter_ep(Dis,Enable+4u)&&at_ep(Dis));
+        need(at_ep(Enable+4u)&&enter_ep(Rest,Enable+8u)&&at_ep(Rest));
+        c.lr=DispatcherResume+4u;c.gpr[3]=2;c.mmu.words[counter]=1;
+        need(at_ep(Enable+8u)&&at_ep(DispatcherResume+4u)&&enter_ep(Reschedule,DispatcherResume+8u)&&at_ep(Reschedule));
+        need(at_ep(DispatcherResume+8u));c.gpr[3]=Context;
+        need(at_ep(DispatcherResume+12u)&&enter_ep(Loader,DispatcherResume+16u));
+        c.gpr=gp;c.lr=lr;c.ctr=ctr;c.xer=xer;c.cr.fill({});c.srr0=H;c.srr1=0x8032u;
+        if(ep_fault==9)c.gpr[31]^=1u;
+        ok=at_ep(Loader);
+        if(ep_fault==9){reject_ep(!ok,50);continue;}need(ok);
+        c.pc=H;c.msr=c.srr1;
+        if(ep_fault==10)c.gpr[31]^=1u;
+        if(ep_fault==11)tick();
+        ok=route.epilogue_poll(c);
+        if(ep_fault==10||ep_fault==11){reject_ep(!ok,52);continue;}need(ok);
+        if(ep_fault==12)c.gqr[0]^=1u;
+        ok=route.epilogue_poll(c);
+        if(ep_fault==12){reject_ep(!ok,52);continue;}need(ok);
+        need(route.stage()==28u&&ep.stage()==4u&&route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
+        ++ep_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -670,4 +723,5 @@ int main(){
     std::cout<<"V1117_THIRD_ACK_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1122_THIRD_ACK_HANDLER_JOIN valid=8 refused=12 same_tick=1 status_read=1 status_w1c=1 original_execution=0\n";
     std::cout<<"V1126_THIRD_ACK_HANDLER_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 original_execution=0\n";
+    std::cout<<"V1130_THIRD_ACK_RFI_JOIN valid=8 refused=12 fresh_context=1 two_polls=1 original_execution=0\n";
 }

@@ -95,6 +95,8 @@ static bool third_ack_time_route=false,third_ack_frontier_route=false,third_ack_
 static CallbackSuffixWitness third_ack_suffix(CallbackSuffixExpected);
 static bool third_ack_return_route=false,third_ack_handler_route=false,third_ack_handler_return_route=false;
 static HandlerNativeReturnWitness third_ack_handler_return(HandlerReturnExpected);
+static bool third_ack_rfi_route=false;
+static LiveEpilogueWitness third_ack_epilogue(SecondEpilogueExpected);
 static CallbackReturnWitness third_ack_return(CallbackReturnExpected);
 static WirelessWrapperWitness third_ack_wireless(WirelessExpected);
 static CallbackFrontierWitness third_ack_frontier(v831::expected);
@@ -452,6 +454,17 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 }
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(third_reentry.stage()){
+        if(third_reentry.stage()==27u){
+            const auto loader=std::find_if(EpilogueRoots.begin(),EpilogueRoots.end(),[](const auto& x){return x.root==SecondEpilogueExpected.loader;});
+            const bool native_rfi=loader!=EpilogueRoots.end()&&!loader->words.empty()&&owner==loader->root&&
+                pc==loader->root+4u*(loader->words.size()-1u)&&w==0x4c000064u&&loader->words.back()==w;
+            const bool dispatcher_word=owner==Dispatcher&&pc>=SecondEpilogueExpected.dispatcher&&
+                pc-SecondEpilogueExpected.dispatcher<=12u&&!(pc&3u)&&pc>=Dispatcher&&
+                (pc-Dispatcher)/4u<dispatcher_words.size()&&dispatcher_words[(pc-Dispatcher)/4u]==w;
+            need(third_ack_rfi_route&&third_ack_epilogue.stage()==1u&&
+                 (std::find(Guard.begin(),Guard.end(),pc)==Guard.end()||native_rfi||dispatcher_word));
+            scheduler->advance(c.inst_count);third_vector_need(third_reentry.epilogue_before(c,pc,w));return;
+        }
         if(third_reentry.stage()==25u){
             const bool resume=third_ack_handler_return.stage()==4u&&owner==Dispatcher&&pc==HandlerReturnExpected.caller&&w==HandlerReturnExpected.caller_word;
             need(third_ack_handler_return_route&&(resume||std::find(Guard.begin(),Guard.end(),pc)==Guard.end()));
@@ -461,7 +474,12 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                      ctl->issued_tokens()==3u&&cause==Other&&bank_mask==Mask);
                 std::cout<<std::dec<<"V1126_THIRD_ACK_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits="
                     <<third_ack_handler_return.visits()<<" token=3 pi_cleared=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
-                std::_Exit(0);
+                if(!third_ack_rfi_route)std::_Exit(0);
+                if(!third_reentry.begin_epilogue(c,third_ack_handler_return,third_ack_epilogue,pc,w)){
+                    std::cout<<std::dec<<"V1130_THIRD_EPILOGUE_REFUSAL stage="<<third_ack_epilogue.stage()
+                             <<" reason="<<third_ack_epilogue.failure()<<" entry_mask="<<third_ack_epilogue.entry_refusal()<<std::endl;
+                    third_vector_need(false);
+                }
             }
             return;
         }
@@ -995,6 +1013,7 @@ bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_reentry.stage()){
         scheduler->advance(c.inst_count);
+        if(third_reentry.stage()==27u){third_vector_need(third_reentry.epilogue_entry(c,pc));return;}
         if(third_reentry.stage()==25u){third_vector_need(third_reentry.handler_return_entry(c,third_ack_handler_return,pc));return;}
         if(third_reentry.stage()==21u){third_vector_need(third_reentry.callback_return_entry(c,third_ack_return,pc));return;}
         if(third_reentry.stage()==17u){third_vector_need(third_reentry.wireless_entry(c,third_ack_wireless,pc));return;}
@@ -1106,6 +1125,21 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
     if(third_reentry.stage()){
+        if(third_reentry.stage()==27u){
+            if(!third_reentry.epilogue_poll(c)){
+                std::cout<<std::dec<<"V1130_THIRD_EPILOGUE_REFUSAL stage="<<third_ack_epilogue.stage()
+                         <<" reason="<<third_ack_epilogue.failure()<<" entry_mask="<<third_ack_epilogue.entry_refusal()<<std::endl;
+                third_vector_need(false);
+            }
+            if(third_reentry.stage()==28u){
+                need(c.pc==Resume&&cause==Other&&bank_mask==Mask&&ctl->issued_tokens()==3u&&
+                     third_reentry.completion_ack().postack_held());
+                std::cout<<std::dec<<"V1130_THIRD_ACK_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 polls=2 visits="
+                         <<third_ack_epilogue.visits()<<" token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
+            return false;
+        }
         if(third_reentry.stage()==25u){third_vector_need(third_reentry.handler_return_poll(c,third_ack_handler_return));return false;}
         if(third_reentry.stage()==21u){third_vector_need(third_reentry.callback_return_poll(c,third_ack_return));return false;}
         if(third_reentry.stage()==19u){third_vector_need(third_reentry.callback_suffix_poll(c,third_ack_suffix));return false;}
@@ -1225,13 +1259,13 @@ int main(int argc,char** argv)try{
     // Extend only the four authenticated third-callback fixtures.
     // Match the complete authenticated base plus suffix, not merely
     // ends_with("-return"), which also matches "-ack-callback-return".
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier","-ack-callback","-ack-callback-time","-ack-callback-frontier","-ack-callback-wireless","-ack-callback-suffix","-ack-callback-return","-ack-callback-handler","-ack-handler-return"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier","-ack-callback","-ack-callback-time","-ack-callback-frontier","-ack-callback-wireless","-ack-callback-suffix","-ack-callback-return","-ack-callback-handler","-ack-handler-return","-ack-callback-rfi"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             const auto candidate=mode.substr(0,mode.size()-tail.size());
             if(candidate!="error-queue-callback"&&candidate!="error-queue-cold-callback"&&
                candidate!="error-queue-due-callback"&&candidate!="error-queue-cold-due-callback")continue;
             mode=candidate;
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_ack_handler_return_route=tail=="-ack-handler-return";third_ack_handler_route=tail=="-ack-callback-handler"||third_ack_handler_return_route;third_ack_return_route=tail=="-ack-callback-return"||third_ack_handler_route;third_ack_suffix_route=tail=="-ack-callback-suffix"||third_ack_return_route;third_ack_wireless_route=tail=="-ack-callback-wireless"||third_ack_suffix_route;third_ack_frontier_route=tail=="-ack-callback-frontier"||third_ack_wireless_route;third_ack_time_route=tail=="-ack-callback-time"||third_ack_frontier_route;third_next_callback_route=tail=="-ack-callback"||third_ack_time_route;third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route||third_next_callback_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_ack_rfi_route=tail=="-ack-callback-rfi";third_ack_handler_return_route=tail=="-ack-handler-return"||third_ack_rfi_route;third_ack_handler_route=tail=="-ack-callback-handler"||third_ack_handler_return_route;third_ack_return_route=tail=="-ack-callback-return"||third_ack_handler_route;third_ack_suffix_route=tail=="-ack-callback-suffix"||third_ack_return_route;third_ack_wireless_route=tail=="-ack-callback-wireless"||third_ack_suffix_route;third_ack_frontier_route=tail=="-ack-callback-frontier"||third_ack_wireless_route;third_ack_time_route=tail=="-ack-callback-time"||third_ack_frontier_route;third_next_callback_route=tail=="-ack-callback"||third_ack_time_route;third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route||third_next_callback_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
