@@ -53,7 +53,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Link once and execute through original third alarm
+      - name: Link once and execute through original third alarm (composed V789 identity)
         env:
           UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
           UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"

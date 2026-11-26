@@ -4,6 +4,7 @@ import argparse,re,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from prepare_v786_alarm_return import render
+from prepare_v789_alarm_suffix import expectations as callback_expectations,patch_private
 from prepare_v668_si_ack import geometry,HANDLER
 from prepare_v667_si_dispatch import exact
 from audit_handler_third_v740 import edge
@@ -42,6 +43,12 @@ def hook(body,pc,w):
     block=LEGACY.sub(lambda m:'    if(!undercover::wii::v958::third_alarm_active()) '+m[1],block)
     return body[:i]+block+body[j:]
 
+def verify_alarm_identity(actual,base,callback):
+    # V789 extends the exact V786 header with the authenticated callback
+    # candidate, words and call sites before this installer runs. Rebuild
+    # the entire expected composed header, not just the V786 prefix.
+    if actual!=patch_private(base,*callback):raise ValueError('third alarm identity')
+
 def install(dol,elf,root,host):
     roots,C,D,R,T,U,K,site,edges,leaves,header=render(dol,elf)
     n,*_=geometry(dol,elf);handler=exact(dol,elf,HANDLER,n);transfer,_,_=edge(HANDLER,handler,4)
@@ -51,7 +58,7 @@ def install(dol,elf,root,host):
     witness=dest/'wii_third_alarm_suffix_v1047.h';prior=dest/'v786_private_alarm.h'
     if dest.is_symlink() or any(x.is_symlink() or not x.is_file() for x in (private,prior)) or witness.exists() or witness.is_symlink():
         raise ValueError('third alarm destination')
-    if prior.read_text()!=header:raise ValueError('third alarm identity')
+    verify_alarm_identity(prior.read_text(),header,callback_expectations(dol,elf))
     old=private.read_text();macro='#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n'
     if old.count(macro)!=1 or 'UNDERCOVER_V1048_PRIVATE_THIRD_ALARM' in old:raise ValueError('third alarm mode')
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
