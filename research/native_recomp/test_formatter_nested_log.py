@@ -50,4 +50,21 @@ class Third(unittest.TestCase):
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(third_log(),second=True)
         with self.assertRaisesRegex(ValueError,'mode'):verify(third_log(),second=True,third=True)
+def control_log():
+    rows=[f'FORMATTER_CONTROL_TRIAL n={i} native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 pre_transfer_stop=1 transfer_executed=0 deferred=1 reply=0 visits=76' for i in range(8)]
+    return rows+['FORMATTER_CONTROL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 pre_transfer_stop=8 transfer_executed=0 deferred=8 reply=0 visits=608 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+class Control(unittest.TestCase):
+    def test_exact(self):self.assertEqual(verify(control_log(),control=True),tuple(control_log()[-1:]))
+    def test_target(self):
+        x=control_log();x[0]=x[0].replace('ctr_match=1','ctr_match=0')
+        with self.assertRaisesRegex(ValueError,'native trial'):verify(x,control=True)
+    def test_transfer(self):
+        x=control_log();x[-1]=x[-1].replace('transfer_executed=0','transfer_executed=1')
+        with self.assertRaisesRegex(ValueError,'native aggregate'):verify(x,control=True)
+    def test_cell(self):
+        with self.assertRaisesRegex(ValueError,'unexpected cell'):verify(control_log()+[log()[1]],control=True)
+    def test_missing(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(control_log()[1:],control=True)
+    def test_mixed(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(control_log(),control=True,third=True)
 if __name__=='__main__':unittest.main(verbosity=2)

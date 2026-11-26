@@ -1,0 +1,27 @@
+name: Wii Formatter Control Source Checks
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+      - 'research/native_recomp/test_formatter_nested_log.py'
+      - '.github/workflows/wii-formatter-control-source.yml'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/prepare_formatter_control_contract.py'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 research/native_recomp/test_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
+          python3 research/native_recomp/test_formatter_control_contract.py
+          python3 research/native_recomp/test_formatter_ctr_target.py
+          python3 research/native_recomp/test_formatter_cli_cache_scope.py

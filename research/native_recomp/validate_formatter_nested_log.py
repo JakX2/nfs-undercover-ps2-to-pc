@@ -18,10 +18,14 @@ def markers(second):
 THIRD_TRIAL=re.compile(r'FORMATTER_THIRD_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=5 stores=13 nonvolatile=([3-9]|1[0-8]) authenticated_loads=([3-5]) conditional_loads=2 pre_load_stop=1 deferred=1 reply=0 visits=74')
 THIRD_TOTAL=re.compile(r'FORMATTER_THIRD_NATIVE owner=1 trials=8 native_prefix=8 loads=40 stores=104 nonvolatile=([0-9]{2,3}) authenticated_loads=([0-9]{2}) conditional_loads=16 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=592 ios_steps=5 fallback=0 complete_image=0 boot_verified=0')
 
-def verify(lines,*,second=False,third=False):
-    if second and third:raise ValueError('native mode')
+CONTROL_TRIAL=re.compile(r'FORMATTER_CONTROL_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 pre_transfer_stop=1 transfer_executed=0 deferred=1 reply=0 visits=76')
+CONTROL_TOTAL='FORMATTER_CONTROL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 pre_transfer_stop=8 transfer_executed=0 deferred=8 reply=0 visits=608 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
+
+def verify(lines,*,second=False,third=False,control=False):
+    if sum((second,third,control))>1:raise ValueError('native mode')
     tag,trial,total=markers(second)
     if third:tag,trial,total='FORMATTER_THIRD',THIRD_TRIAL,None
+    if control:tag,trial,total='FORMATTER_CONTROL',CONTROL_TRIAL,CONTROL_TOTAL
     details=None;third_total=None
     trials=set();cells={};aggregate=None;native=False
     for line in lines:
@@ -35,6 +39,7 @@ def verify(lines,*,second=False,third=False):
                 details=current
             trials.add(int(m[1]))
         elif line.startswith('FORMATTER_NESTED_CELL_TRIAL '):
+            if control:raise ValueError('unexpected cell observation')
             m=CELL.fullmatch(line)
             if not m or int(m[1]) in cells:raise ValueError('cell trial')
             v=tuple(map(int,m.groups()[1:]))
@@ -42,6 +47,7 @@ def verify(lines,*,second=False,third=False):
                 raise ValueError('cell consistency')
             cells[int(m[1])]=v
         elif line.startswith('FORMATTER_NESTED_CELL_NATIVE '):
+            if control:raise ValueError('unexpected cell observation')
             m=CELL_TOTAL.fullmatch(line)
             if not m or aggregate is not None:raise ValueError('cell aggregate')
             aggregate=tuple(map(int,m.groups()))
@@ -56,19 +62,20 @@ def verify(lines,*,second=False,third=False):
             native=True
         elif line.startswith('FORMATTER_NESTED_REFUSAL '):
             raise ValueError('native refusal')
-    if trials!=set(range(8)) or set(cells)!=trials or not native:
+    if trials!=set(range(8)) or not native or (not control and set(cells)!=trials):
         raise ValueError('trial coverage')
+    if control:return (total,)
     if third and third_total!=tuple(8*v for v in details):raise ValueError('native totals')
     if aggregate!=tuple(sum(v[i] for v in cells.values()) for i in range(3)):
         raise ValueError('cell totals')
     return (f'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match={aggregate[0]} live_match={aggregate[1]} sample_equal={aggregate[2]} endpoint_only=1 guest_loads=0 guest_writes=0',total)
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');q=a.parse_args()
-    safe={'native mode','native trial details','native totals','native trial','cell trial','cell consistency','cell aggregate','native aggregate','native refusal','trial coverage','cell totals'}
+    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');m.add_argument('--control',action='store_true');q=a.parse_args()
+    safe={'unexpected cell observation','native mode','native trial details','native totals','native trial','cell trial','cell consistency','cell aggregate','native aggregate','native refusal','trial coverage','cell totals'}
     try:
         if q.log.stat().st_size>16*1024*1024:raise ValueError('log size')
-        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third)
+        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third,control=q.control)
     except (ValueError,OSError) as ex:
         print('FORMATTER_NESTED_LOG verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'input'));return 1
     print(*result,sep='\n');return 0
