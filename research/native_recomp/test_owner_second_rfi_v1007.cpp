@@ -255,7 +255,16 @@ static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint3
          captured.saved_integer(c,Context).ok());
     scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
     if(third_handler_active){third_handler_step(c,owner,pc,w);return;}
-    need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+    const bool dispatcher_resume=third_handler_route&&handler_return.stage()==4u&&owner==Dispatcher&&
+        pc==HandlerReturnExpected.caller&&w==HandlerReturnExpected.caller_word;
+    // The private plan retains the original dispatcher resume guard marker
+    // after installing the exact authenticated instruction. Only the native
+    // handler-return witness may admit this restored boundary.
+    if(std::find(Guard.begin(),Guard.end(),pc)!=Guard.end()&&!dispatcher_resume){
+        std::cout<<std::dec<<"V1068_THIRD_GUARD_REFUSAL handler_stage="<<handler_return.stage()
+                 <<" callback_stage="<<callback_return.stage()<<" dispatcher_owner="<<(owner==Dispatcher)
+                 <<" dispatcher_resume="<<(pc==HandlerReturnExpected.caller)<<std::endl;fail(1);
+    }
     const auto a=PostAckTransferDevice::word_access(c,w);
     const uint32_t phys=a.address&0x3fffffffu;
     need(!PostAckTransferDevice::offset(a.address)&&
@@ -413,7 +422,10 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             // Admit only the authenticated loader's last word here.
             const bool native_rfi=loader!=EpilogueRoots.end()&&!loader->words.empty()&&
                 owner==loader->root&&pc==loader->root+4u*(loader->words.size()-1u)&&w==0x4c000064u&&loader->words.back()==w;
-            need(epilogue.stage()==1u&&(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()||native_rfi));
+            const bool dispatcher_word=owner==Dispatcher&&pc>=SecondEpilogueExpected.dispatcher&&
+                pc-SecondEpilogueExpected.dispatcher<=12u&&!(pc&3u)&&pc>=Dispatcher&&
+                (pc-Dispatcher)/4u<dispatcher_words.size()&&dispatcher_words[(pc-Dispatcher)/4u]==w;
+            need(epilogue.stage()==1u&&(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()||native_rfi||dispatcher_word));
             scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
             third_epilogue_step(c,pc,w);return;
         }
