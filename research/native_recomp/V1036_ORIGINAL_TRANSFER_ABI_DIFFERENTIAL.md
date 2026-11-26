@@ -1,0 +1,5 @@
+# V1036: original lower-level SI transfer argument-tail differential
+
+V1021 reached the real queued direct transfer but V981 refused queue_match=0. V529 verifies queued cold-discovery packets with a nonzero 3948-tick delay. Existing V765 original lower-level transfer executes with arbitrary r9/r10 (only r3-r8 explicitly initialized). This suggests the low-level entry may not consume the two high-level timing arguments, but it is not yet a proof of the live mismatch.
+
+For every identical idle/busy channel fixture, vary only r9/r10 across four pairs (zero, original discovery delay, arbitrary nonzero, all bits set). The real original native transfer must execute the identical instruction-label sequence and ordered MMIO, return the same result, and leave identical observed transfer data and SI state. Reset CR/CTR/XER identically. Raw traces remain private. 32 trials and 24 paired comparisons per translation mode; no original game boot or new admission rule claimed. Pending CI.

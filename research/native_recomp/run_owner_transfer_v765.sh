@@ -36,6 +36,12 @@ for mode in nonsplit split; do
     echo "V765_NATIVE_EXECUTION failed=1";exit 1;
   }
   grep -Fx 'V765_OWNER_TRANSFER_AOT valid=8 idle=4 busy=4 native_requests=4 follow_on=4 fallback=0 continuous_boot=0' "$work/run.log"
+  timeout 30s "$work/probe" abi > "$work/run.log" 2>&1 || {
+    grep -Ex 'V765_TRANSFER_FAULT kind=[1-8] line=[0-9]{1,4} entries=[0-6] visits=[0-9]{1,3} busy=[01] reads=[0-9]{1,3} writes=[0-9]{1,3} follow=[0-3] reason=[0-5]' "$work/run.log" || true
+    echo "V1036_TRANSFER_ABI failed=1";exit 1;
+  }
+  grep -Fx 'V1036_OWNER_TRANSFER_ABI valid=32 paired=24 idle=16 busy=16 identical_labels=1 identical_mmio=1 identical_result=1 fallback=0 continuous_boot=0' "$work/run.log"
+  echo "V1036_TRANSFER_ABI_MODE mode=$mode verified=1"
   rc=0
   timeout 20s "$work/probe" corrupt > "$work/run.log" 2>&1 || rc=$?
   [[ "$rc" == 126 ]]

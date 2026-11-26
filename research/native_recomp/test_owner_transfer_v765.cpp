@@ -10,6 +10,7 @@
 #include <memory>
 #include <source_location>
 #include <string>
+#include <vector>
 using nwii::runtime::CPUContext;
 using namespace undercover::wii;
 constexpr uint32_t Sda=0x8070e8e0u,Data=0x80619a60u,TypeData=Data+24u,Command=Sda-3144u,Callback=0x805327f8u;
@@ -25,6 +26,8 @@ static uint64_t last=0;
 static uint32_t last_pc=0,last_word=0,channel=0;
 static bool busy=false,corrupt=false,pending_poll=false,mmio_accessed=false,returned=false;
 static unsigned resume_visits=0;
+static bool abi_matrix=false;
+static std::vector<uint64_t> trace;
 [[noreturn]]static void fail(unsigned kind,unsigned line=0){
     std::cout<<std::dec<<"V765_TRANSFER_FAULT kind="<<kind<<" line="<<line<<" entries="<<entries<<" visits="<<visits<<" busy="<<busy<<" reads="<<reads<<" writes="<<writes<<" follow="<<follow.stage()<<" reason="<<follow.failure()<<std::endl;std::_Exit(126);
 }
@@ -60,6 +63,7 @@ void before(CPUContext& c,uint32_t pc,uint32_t w){
     need(c.msr==MSR&&!c.in_callback&&!c.dispatch_saved_ctx&&c.mmu.read32(pc)==w&&!pending_poll);
     if(visits)need(c.inst_count-last==1);
     last=c.inst_count;last_pc=pc;last_word=w;mmio_accessed=false;need(++visits<=256);
+    if(abi_matrix)trace.push_back((uint64_t(pc)<<32)|w);
     advance(c.inst_count);
     if(pc==H){need(entries==1&&abi(c));return;}
     if(pc==H+4u){
@@ -105,9 +109,12 @@ void note_null_call(uint32_t,uint32_t){fail(5);}void watch_hit(uint32_t,uint32_t
 void GX_WGPIPE_Write8(uint8_t){fail(6);}void GX_WGPIPE_Write16(uint16_t){fail(6);}void GX_WGPIPE_Write32(uint32_t){fail(6);}
 void GX_WGPIPE_WriteF32(float){fail(6);}void GX_WGPIPE_WriteF64(double){fail(6);}
 uint16_t HW_Reg_Read16(uint32_t){fail(7);}void HW_Reg_Write16(uint32_t,uint16_t){fail(7);}
-uint32_t HW_Reg_Read32(uint32_t a){mmio(false);++reads;return si->read(offset(a));}
+uint32_t HW_Reg_Read32(uint32_t a){mmio(false);++reads;const auto v=si->read(offset(a));
+    if(abi_matrix)trace.push_back((uint64_t(0x100u+offset(a))<<32)|v);
+    return v;}
 void HW_Reg_Write32(uint32_t a,uint32_t v){
     mmio(true);++writes;const auto off=offset(a);
+    if(abi_matrix)trace.push_back((uint64_t(0x200u+off)<<32)|v);
     if(off==SiController::Control&&(v&SiController::TSTART)){
         need(follow.arm(*si,cause,mask,last,v,channel,std::nullopt,8));si->write(off,v);need(follow.started(last));return;
     }
@@ -116,12 +123,16 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 }
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
-    need(argc==2);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt");corrupt=mode=="corrupt";
+    need(argc==2);const std::string mode=argv[1];need(mode=="valid"||mode=="corrupt"||mode=="abi");corrupt=mode=="corrupt";abi_matrix=mode=="abi";
     auto context=std::make_unique<CPUContext>();cpu=context.get();auto& c=*cpu;
     auto put=[&](uint32_t a,const auto& ws){for(auto w:ws){c.mmu.write32(a,w);a+=4;}};
     put(H,caller);put(C,transfer_words);put(D,disable_words);put(Q,irq_restore_words);put(S,save_words);put(R,restore_words);
     using Port=SiTypeScheduler::Port;
-    for(trial=0;trial<(corrupt?1u:8u);++trial){
+    std::array<std::vector<uint64_t>,8> baseline;
+    unsigned paired=0;
+    for(unsigned variant=0;variant<(abi_matrix?4u:1u);++variant){
+      stops=0;
+      for(trial=0;trial<(corrupt?1u:8u);++trial){
         entries=visits=outer=reads=writes=loops=resume_visits=0;returned=pending_poll=false;busy=trial>=4;channel=trial%4;
         scheduler.reset();si.reset();cause=Other;mask=Mask;follow=SiFollowOnWitness{};
         si=std::make_unique<SiController>(cause);
@@ -133,10 +144,27 @@ int main(int argc,char** argv)try{
         c.mmu.write32(TypeData+4*channel,128);
         for(unsigned i=0;i<32;++i)c.gpr[i]=(i+1u)*0x1234567u^(trial*0x9e3779b9u);
         c.gpr[1]=0x80040000u+trial*0x100u;c.gpr[2]=0x80025000u;c.gpr[13]=Sda;
-        c.gpr[3]=channel;c.gpr[4]=Command;c.gpr[5]=1;c.gpr[6]=TypeData+4*channel;c.gpr[7]=3;c.gpr[8]=Callback;gp=c.gpr;
+        c.gpr[3]=channel;c.gpr[4]=Command;c.gpr[5]=1;c.gpr[6]=TypeData+4*channel;c.gpr[7]=3;c.gpr[8]=Callback;
+        if(abi_matrix){
+            constexpr std::array<std::array<uint32_t,2>,4> tails{{{0u,0u},{0u,3948u},{0x89abcdefu,0x12345678u},{0xffffffffu,0xffffffffu}}};
+            c.gpr[9]=tails[variant][0];c.gpr[10]=tails[variant][1];
+            c.cr.fill({});c.ctr=17u;c.xer=0u;trace.clear();
+        }
+        gp=c.gpr;
         c.pc=H;c.lr=0x80006000u;c.msr=MSR;c.srr0=0x80009000u;c.srr1=0x8032u;
         c.is_running=true;c.in_callback=false;c.dispatch_saved_ctx=0;c.inst_count=100;
         run_game(c);need(!corrupt&&!c.is_running&&entries==6&&outer==1&&stops==trial+1&&abi(c)&&resume_visits==16);
+        if(abi_matrix){
+            // Compare the executed native label sequence, ordered MMIO
+            // values, final transfer state, device registers and result.
+            for(unsigned i=0;i<5;++i)trace.push_back(c.mmu.read32(Data+4*i));
+            trace.push_back(si->read(SiController::Control));trace.push_back(si->read(SiController::Status));
+            trace.push_back(si->read(SiController::Buffer));trace.push_back(c.gpr[3]);trace.push_back(si->issued_tokens());
+            if(variant==0)baseline[trial]=trace;
+            else{need(baseline[trial]==trace);++paired;}
+        }
+      }
     }
-    std::cout<<"V765_OWNER_TRANSFER_AOT valid=8 idle=4 busy=4 native_requests=4 follow_on=4 fallback=0 continuous_boot=0\n";
+    if(abi_matrix){need(paired==24u);std::cout<<"V1036_OWNER_TRANSFER_ABI valid=32 paired=24 idle=16 busy=16 identical_labels=1 identical_mmio=1 identical_result=1 fallback=0 continuous_boot=0\n";}
+    else std::cout<<"V765_OWNER_TRANSFER_AOT valid=8 idle=4 busy=4 native_requests=4 follow_on=4 fallback=0 continuous_boot=0\n";
 }catch(...){fail(8);}
