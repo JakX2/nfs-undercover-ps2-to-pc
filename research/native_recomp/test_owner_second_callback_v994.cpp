@@ -199,7 +199,8 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                          <<" pending="<<third.pending()<<" visits="<<ack_visits-transfer_tick<<" reads="<<third.reads()<<" writes="<<third.writes()
                          <<" saved_fields=38 handler_instruction_executed=0"<<std::endl;
                 if(!suffix_route)std::_Exit(0);
-                need(third.token()==3u&&third.follow_stage()==3u&&suffix_guard.start(c,TransferSuffix,pc,256u));
+                need(third.token()==3u&&third.follow_stage()==3u);
+                need(suffix_guard.start(c,TransferSuffix,pc,256u));
                 suffix_tick=ack_visits;suffix_before(c,owner,pc,w);
             }
             return;

@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v994*'
+      - 'research/native_recomp/*v996*'
       - 'research/native_recomp/*v992*'
       - '.github/workflows/wii-v994-second-handler-callback.yml'
 permissions:

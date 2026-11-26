@@ -36,6 +36,10 @@ def plan(dol,elf):
     # Preserve shared-time edge as last for the existing header renderer.
     q=(*q[:-1],(*extra[:-2],extra[-1],extra[-2]))
     tail=list(p[1:]);tail[8]=[r for r in tail[8] if r[0]!=call]
+    # Keep the post-transfer suffix table consistent with the original
+    # instruction now emitted, even when this lane stops at another call.
+    if call not in tail[9] or tail[9][call]!=(0x4e800020,6,2):raise ValueError('callback suffix seam')
+    tail[9][call]=(0x4e800421,6,2)
     return (q,*tail),shared,C,S,call,full,sites
 
 def header(p,shared,C,S,call,full,sites,out):
@@ -63,7 +67,7 @@ def main():
         elif x.patch_analyzer:patch_analyzer(p,x.output)
         else:header(p,shared,C,S,call,full,sites,x.output);print('V994_CALLBACK_GEOMETRY original_indirect=1 original_prefix=1 shared_save=1 execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        allowed=('callback geometry','callback prefix','callback overlap','callback save alias','callback owner','indirect label','indirect LR','indirect dispatch','indirect fallback','native coverage','native owner','hook identity')
+        allowed=('callback geometry','callback prefix','callback overlap','callback save alias','callback owner','callback suffix seam','indirect label','indirect LR','indirect dispatch','indirect fallback','native coverage','native owner','hook identity')
         print('V994_CALLBACK_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
