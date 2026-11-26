@@ -47,7 +47,7 @@ jobs:
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
       - name: Authenticate original synchronous IOS_Open completion geometry
         run: |
-          bash research/native_recomp/run_v1337_combined_preflight.sh "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --completion
+          bash research/native_recomp/run_v1325_combined_preflight.sh "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --completion
       - name: Clean private originals
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
