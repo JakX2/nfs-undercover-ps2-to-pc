@@ -114,6 +114,31 @@ static void indexed(unsigned xo,unsigned n,uint32_t value,unsigned fault){
     if(fault>=3){assert(!ok);return;}
     assert(ok&&w.reached_load_boundary(c,true)&&w.authenticated_loads()==1&&w.loads()==1&&c.gpr[7]==0);
 }
+static void long_prefix(unsigned count,unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;
+    std::vector<IpcDispatchWord> path{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},{R,R+8,ins(36,0,1,52)}};
+    const std::array<ScFormatterAccess,2> accesses{{{R,4,-48,true,true},{R+8,4,4,true,true}}};
+    const std::array<StmFinalSlot,1> slots{{{4,32}}};
+    for(unsigned i=3;i<count;++i)path.push_back({R,R+4*i,ins(14,6,6,1)});
+    const auto target=R+4*count,load=ins(32,7,3,0);
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(target,load);
+    ScFormatterWitness w({R,L,target,load,48,path,accesses,slots,fault==1?ScFormatterBoundary{}:ScFormatterBoundary{A,4}});
+    const bool ok=w.begin(c,true);
+    if(count>128||fault==1){assert(!ok);return;}
+    assert(ok&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        ++c.inst_count;assert(w.before(c,x.pc,x.word,true));
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else ++c.gpr[6];
+    }
+    if(fault==2)++c.gpr[6];
+    ++c.inst_count;const bool stopped=w.stop_before_load(c,target,load,true);
+    if(fault==2){assert(!stopped);return;}
+    assert(stopped&&w.reached_load_boundary(c,true)&&w.visits()==count&&c.gpr[6]==count-3&&c.mmu.data_reads==0);
+}
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
         const unsigned n=xo<=55?4:xo<=119?1:2;
@@ -121,4 +146,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
         indexed(xo,n,v,0);
     }
     for(unsigned i=1;i<=4;++i)indexed(23,4,0x81ff1234u,i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=26 original_execution=0\n";}
+    long_prefix(74,0);long_prefix(128,0);long_prefix(129,0);long_prefix(74,1);long_prefix(74,2);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=31 original_execution=0\n";}

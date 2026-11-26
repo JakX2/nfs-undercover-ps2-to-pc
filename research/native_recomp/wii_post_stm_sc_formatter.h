@@ -30,7 +30,7 @@ public:
     template<class C>bool begin(C& c,bool held){
         if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.root||c.lr!=e_.entry_lr||
            e_.frame_size<32u||e_.frame_size>704u||(e_.frame_size&7u)||(c.gpr[1]&7u)||
-           c.gpr[1]<0x80000000u+e_.frame_size||e_.path.empty()||e_.path.size()>64u||
+           c.gpr[1]<0x80000000u+e_.frame_size||e_.path.empty()||e_.path.size()>(e_.boundary.width?128u:64u)||
            e_.accesses.size()>(e_.boundary.width?24u:8u)||e_.slots.empty()||e_.slots.size()>19u||
            e_.path.front().pc!=e_.root||!word(c,e_.target,e_.target_word))return fail(1);
         frame_={c.gpr[1]-e_.frame_size,e_.frame_size+8u};
