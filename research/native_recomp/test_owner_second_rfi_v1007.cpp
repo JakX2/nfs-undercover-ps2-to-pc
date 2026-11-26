@@ -53,7 +53,7 @@ static unsigned seed_kind=0;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static bool callback_route=false,callback_time_route=false,callback_frontier_route=false;
-static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route=false,error_due=false,error_delay=false;
+static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route=false,error_due=false,error_delay=false,due_execute=false;
 static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
@@ -340,6 +340,10 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                     need(owner==Handler&&alarm_witness.returned(c,pc,w,third.held_now())&&third.token()==3u&&cause==(Other|SiController::PI_SI));
                     std::cout<<std::dec<<"V985_ALARM_RETURN original_return=1 queue=1 lane="<<alarm_witness.lane()<<" timer="<<alarm_witness.timer_required()
                         <<" calls="<<alarm_witness.calls()<<" visits="<<alarm_witness.total()<<" token_held=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
+                    if(due_execute){
+                        need(alarm_witness.lane()==0u&&alarm_witness.total()==33u&&third.token()==3u);
+                        std::cout<<"V1052_DUE_RETURN original_transfer=1 original_alarm=1 token=3 saved_fields=38 boot_verified=0"<<std::endl;
+                    }
                     if(after_alarm_route){
                         need(after_alarm.start(c,AfterThirdAlarm,pc,256u,true));after_alarm_visit=ack_visits;
                         after_alarm_step(c,owner,pc,w);return;
@@ -499,7 +503,11 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 if(error_due||error_delay){
                     std::cout<<"V1039_DELAY_FRONTIER delay="<<error_delay<<" prior_absent="<<error_cold<<" profile="<<trial
                         <<" branch=4 handler_time=1 visits="<<ack_visits-error_helper_visit<<" token=2 call_executed=0"<<std::endl;
-                    std::_Exit(0);
+                    if(!due_execute)std::_Exit(0);
+                    need(error_due&&!error_delay&&ack_visits-error_helper_visit==78u&&
+                         hist.initial_mismatch==128u&&hist.current_mismatch==128u&&!hist.changed&&
+                         si_transfer_admission(inspected,&hist)==2u);
+                    std::cout<<"V1052_DUE_ADMISSION original_queue=1 admission=2 timing_only=1 unchanged=1 token=2"<<std::endl;
                 }
                 std::cout<<"V1022_ERROR_TRANSFER_ENTRY prior_absent="<<error_cold<<" profile="<<trial
                     <<" original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38"<<std::endl;
@@ -647,10 +655,11 @@ int main(int argc,char** argv)try{
     std::string mode=argv[2];
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
     after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm";
-    error_due=mode=="error-queue-due"||mode=="error-queue-cold-due";
+    due_execute=mode=="error-queue-due-execute"||mode=="error-queue-cold-due-execute";
+    error_due=mode=="error-queue-due"||mode=="error-queue-cold-due"||due_execute;
     error_delay=mode=="error-queue-delay"||mode=="error-queue-cold-delay";
     error_queue=mode=="error-queue"||mode=="error-queue-cold"||after_alarm_route||error_due||error_delay;
-    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due"||mode=="error-queue-cold-delay";
+    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due"||mode=="error-queue-cold-delay"||mode=="error-queue-cold-due-execute";
     if(error_rfi||error_queue){need(trial&4u);mode=error_rfi?"second-rfi":"successful-alarm";}
     need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
