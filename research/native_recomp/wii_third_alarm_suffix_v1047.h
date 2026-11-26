@@ -115,6 +115,12 @@ public:
     bool taken()const{return index_.taken();}
     unsigned reads()const{return reads_;}
     unsigned writes()const{return writes_;}
+    template<class C>bool finished_at(C& c,uint32_t pc,uint32_t w,const PostAckTransferDevice& dev,
+            const ExternalReturnWitness& frame,uint32_t context)const{
+        return stage_==2u&&!error_&&cpu_==&c&&dev_==&dev&&frame_==&frame&&context_==context&&
+               site_==pc&&word_==w&&last_==c.inst_count&&dev.held_now()&&dev.token()==3u&&
+               dev.stage()==2u&&dev.follow_stage()==3u&&!dev.pending()&&frame.saved_integer(c,context).ok();
+    }
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,PostAckTransferDevice& dev,
             const ExternalReturnWitness& frame,uint32_t context,std::span<const HandlerSuffixLabel> rows,
             uint32_t rd,uint32_t wr){
@@ -132,7 +138,7 @@ private:
     const void* cpu_=nullptr;PostAckTransferDevice* dev_=nullptr;const ExternalReturnWitness* frame_=nullptr;
     std::span<const HandlerSuffixLabel> rows_{};
     HandlerSuffixGuard guard_;HandlerIndexBranchWitness index_;
-    uint32_t context_=0,rd_=0,wr_=0;
+    uint32_t context_=0,rd_=0,wr_=0,site_=0,word_=0;
     uint64_t last_=0;
     unsigned stage_=0,error_=0,reg_=32u,reads_=0,writes_=0;
     bool write_due_=false;
@@ -165,7 +171,7 @@ private:
         if(row->kind){
             if(row->ordinal!=12u||row->kind!=1u||index_.stage()!=5u||reads_!=1u||writes_!=1u||
                dev_->suffix_status_reads()!=1u||dev_->suffix_status_writes()!=1u)return fail(5);
-            stage_=2;return true;
+            site_=pc;word_=w;stage_=2;return true;
         }
         using Access=PostAckTransferDevice::Access;
         if(rd){
@@ -179,6 +185,57 @@ private:
         }
         return true;
     }
+};
+// Authenticate the original handler ABI before its prologue, then join
+// the same held device at the proven ordinal-12 restore call. The native
+// restore loads, epilogue and outer dispatcher execute normally.
+class HeldHandlerReturnWitness {
+public:
+    explicit HeldHandlerReturnWitness(HandlerReturnExpectation e):e_(e),native_(e){}
+    unsigned stage()const{return stage_;}
+    unsigned failure()const{return error_;}
+    unsigned native_failure()const{return native_.failure();}
+    unsigned visits()const{return native_.visits();}
+    template<class C>bool capture(C& c,uint32_t root,const ExternalReturnWitness& frame,uint32_t context){
+        if(stage_||error_||!safe(c)||root<0x80000000u||root>0x817ffffcu||(root&3u)||
+           c.pc!=root||c.lr!=e_.caller||e_.call<=root||!c.mmu.get_ptr(root)||!c.mmu.get_ptr(root+3u)||
+           c.gpr[1]<0x80000400u||c.gpr[1]>0x817fff00u||(c.gpr[1]&3u)||
+           !frame.saved_integer(c,context).ok())return fail(1);
+        cpu_=&c;frame_=&frame;context_=context;gp_=c.gpr;
+        for(auto f:c.cr)cr_=(cr_<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+        last_=c.inst_count;stage_=1;return true;
+    }
+    template<class C>bool start(C& c,uint32_t pc,uint32_t w,const HeldHandlerSuffixWitness& prior,PostAckTransferDevice& dev){
+        if(stage_!=1u||!same(c)||pc!=e_.call||c.inst_count<=last_||
+           !prior.finished_at(c,pc,w,dev,*frame_,context_)||
+           !native_.start_dispatch(c,pc,w,gp_,cr_,true))return fail(2);
+        dev_=&dev;last_=c.inst_count;stage_=2;return true;
+    }
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=2u||!same(c)||c.inst_count-last_!=1u||!dev_->after_return_at(c.inst_count)||
+           !held()||!native_.before(c,pc,w,true))return fail(3);
+        last_=c.inst_count;if(native_.stage()==5u)stage_=3;return true;
+    }
+    template<class C>bool entry(C& c,uint32_t pc){
+        return stage_==2u&&same(c)&&c.inst_count==last_&&held()&&native_.entry(c,pc,true)?true:fail(4);
+    }
+    template<class C>bool poll(C& c){
+        return stage_==2u&&same(c)&&c.inst_count==last_&&held()&&native_.dispatch_poll(c,true)?true:fail(4);
+    }
+    template<class C>bool dispatch(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=2u||!same(c)||c.inst_count-last_!=1u||
+           !observe_completed_callback_dispatch(*dev_,c.inst_count)||!held()||
+           !native_.dispatch_resume(c,pc,w,true))return fail(5);
+        last_=c.inst_count;return true;
+    }
+private:
+    HandlerReturnExpectation e_;HandlerNativeReturnWitness native_;
+    const void* cpu_=nullptr;const ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;
+    std::array<uint32_t,32> gp_{};uint32_t cr_=0,context_=0;uint64_t last_=0;unsigned stage_=0,error_=0;
+    bool fail(unsigned n){if(!error_)error_=n;return false;}
+    template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
+    template<class C>bool same(C& c)const{return !error_&&cpu_==&c&&safe(c)&&frame_&&frame_->saved_integer(c,context_).ok();}
+    bool held()const{return dev_&&dev_->stage()==2u&&dev_->token()==3u&&dev_->follow_stage()==3u&&!dev_->pending()&&dev_->held_now();}
 };
 // Same held third token across the alarm return and callback prefix.
 // This route does not grant the retired ACK any bus ownership. Its
@@ -370,11 +427,38 @@ public:
         return true;
     }
     const HeldHandlerSuffixWitness* handler_witness()const{return handler_?&*handler_:nullptr;}
+    template<class C>bool capture_handler_entry(C& c,uint32_t root,HandlerReturnExpectation e,
+            const ExternalReturnWitness& frame,uint32_t context){
+        if(stage_||error_||handler_return_)return fail(24);
+        handler_return_.emplace(e);
+        return handler_return_->capture(c,root,frame,context)?true:fail(24);
+    }
+    template<class C>bool start_handler_return(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=15u||!handler_||!handler_return_||!common(c)||!held()||c.inst_count!=last_||
+           !handler_return_->start(c,pc,w,*handler_,*dev_))return fail(25);
+        stage_=16u;return true;
+    }
+    template<class C>bool handler_return_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=16u||!handler_return_||!common(c)||!handler_return_->before(c,pc,w))return fail(26);
+        last_=c.inst_count;if(handler_return_->stage()==3u)stage_=17u;return true;
+    }
+    template<class C>bool handler_return_entry(C& c,uint32_t pc){
+        return stage_==16u&&handler_return_&&common(c)&&handler_return_->entry(c,pc)?true:fail(27);
+    }
+    template<class C>bool handler_return_poll(C& c){
+        return stage_==16u&&handler_return_&&common(c)&&handler_return_->poll(c)?true:fail(27);
+    }
+    template<class C>bool handler_return_dispatch(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=16u||!handler_return_||!common(c)||!handler_return_->dispatch(c,pc,w))return fail(28);
+        last_=c.inst_count;return true;
+    }
+    const HeldHandlerReturnWitness* handler_return_witness()const{return handler_return_?&*handler_return_:nullptr;}
     unsigned callback_return_failure()const{return callback_return_?callback_return_->failure():0u;}
     const CallbackReturnWitness* callback_return_witness()const{return callback_return_?&*callback_return_:nullptr;}
 private:
     std::optional<CallbackReturnWitness> callback_return_;
     std::optional<HeldHandlerSuffixWitness> handler_;
+    std::optional<HeldHandlerReturnWitness> handler_return_;
     std::array<uint32_t,32> callback_gp_{};
     uint32_t callback_cr_=0,callback_site_=0,suffix_site_=0,suffix_word_=0;
     std::optional<CallbackSuffixWitness> callback_suffix_;

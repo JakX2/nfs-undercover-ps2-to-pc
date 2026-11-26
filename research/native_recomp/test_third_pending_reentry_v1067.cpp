@@ -49,7 +49,8 @@ int main(){
     unsigned ep_valid=0,ep_refused=0;
     unsigned rd_valid=0,rd_refused=0;
     unsigned held_valid=0,held_refused=0;
-    for(trial=0;trial<308;++trial){
+    unsigned held_return_valid=0,held_return_refused=0;
+    for(trial=0;trial<328;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -91,7 +92,8 @@ int main(){
         for(unsigned i=0;i<9;++i)step();
         need(dev.finish(c.inst_count,1)&&dev.token()==3u&&dev.held_now());
         if(trial>=288){
-            const unsigned f=trial>=296?trial-295u:0u;
+            const unsigned f=trial>=308?0u:trial>=296?trial-295u:0u;
+            const unsigned hr=trial>=316?trial-315u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -108,6 +110,33 @@ int main(){
             for(unsigned i=0;i<32;++i)c.mmu.words[Context+4u*i]=gp[i];
             c.mmu.words[Context+128]=0;c.mmu.words[Context+132]=lr;c.mmu.words[Context+136]=ctr;
             c.mmu.words[Context+140]=xer;c.mmu.words[Context+408]=H;c.mmu.words[Context+412]=0x8032u;
+            constexpr uint32_t Root=A+128u,Call=A+64u,Dest=0x80038000u;
+            constexpr auto restore=[]{
+                std::array<uint32_t,16> out{};
+                for(unsigned i=0;i<15;++i)out[i]=0x800b0000u|((17u+i)<<21)|((0xffc4u+4u*i)&0xffffu);
+                out.back()=0x4e800020u;return out;
+            }();
+            constexpr std::array<uint32_t,4> tail{0x80010044u,0x7c0803a6u,0x38210040u,0x4e800020u};
+            const HandlerReturnExpectation e{Call,Root,Dest,restore,tail,Nop};
+            HeldHandlerReturnWitness ret(e);
+            const auto original=c.gpr;
+            auto refused_return=[&](bool bad){
+                need(bad&&ctl.issued_tokens()==3u&&cause==(Other|SI)&&dev.stage()==2u);++held_return_refused;
+            };
+            if(trial>=308){
+                for(unsigned i=0;i<restore.size();++i)c.mmu.words[Root+4u*i]=restore[i];
+                for(unsigned i=0;i<tail.size();++i)c.mmu.words[Call+4u+4u*i]=tail[i];
+                c.mmu.words[Dest]=Nop;
+                c.pc=H;c.lr=hr==1?Dest+4u:Dest;
+                bool ok=ret.capture(c,hr==2?H+4u:H,prior,Context);
+                if(hr==1||hr==2){refused_return(!ok);continue;}need(ok);
+                c.gpr[1]=original[1]-64u;c.gpr[11]=original[1];
+                for(unsigned i=17;i<32;++i){
+                    c.mmu.words[original[1]-4u*(32u-i)]=original[i];
+                    if(i!=20u)c.gpr[i]^=0x1234u;
+                }
+                c.mmu.words[original[1]+4u]=Dest;
+            }
             c.pc=A;
             HeldHandlerSuffixWitness held(ix);
             auto refused_held=[&](bool bad){
@@ -145,7 +174,37 @@ int main(){
             if(f==12){refused_held(!ok);continue;}need(ok);
             need(held.stage()==2u&&held.taken()==(datum==7u)&&held.reads()==1u&&held.writes()==1u&&
                  dev.held_now()&&ctl.issued_tokens()==3u&&cause==(Other|SI));
-            ++held_valid;continue;
+            if(trial<308){++held_valid;continue;}
+            if(hr==3)tick();
+            if(hr==4)c.mmu.words[Root]^=1u;
+            ok=ret.start(c,Call,rows.back().word,held,dev);
+            if(hr==3||hr==4){refused_return(!ok);continue;}need(ok);
+            c.pc=Root;c.lr=Call+4u;
+            ok=ret.entry(c,hr==5?Root+4u:Root);
+            if(hr==5){refused_return(!ok);continue;}need(ok);
+            auto at_ret=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ret.before(c,pc,w);};
+            if(hr==6)c.mmu.words[original[1]-60u]^=1u;
+            if(hr==7)c.mmu.words[Context+124u]^=1u;
+            if(hr==8)mask=0;
+            ok=at_ret(Root,restore[0]);
+            if(hr>=6&&hr<=8){refused_return(!ok);continue;}need(ok);
+            c.gpr[17]=original[17];
+            for(unsigned i=1;i<15;++i){need(at_ret(Root+4u*i,restore[i]));c.gpr[17u+i]=original[17u+i];}
+            need(at_ret(Root+60u,restore.back()));
+            need(at_ret(Call+4u,tail[0]));c.gpr[0]=Dest;
+            need(at_ret(Call+8u,tail[1]));c.lr=Dest;
+            need(at_ret(Call+12u,tail[2]));c.gpr[1]=original[1];
+            need(at_ret(Call+16u,tail[3]));c.pc=Dest;
+            if(hr!=9)need(ret.poll(c));
+            if(hr==10){refused_return(!ret.poll(c));continue;}
+            tick();if(hr==11)tick();
+            ok=ret.dispatch(c,Dest,Nop);
+            if(hr==9||hr==11){refused_return(!ok);continue;}need(ok);
+            if(hr==12)c.gpr[31]^=1u;
+            ok=at_ret(Dest,Nop);
+            if(hr==12){refused_return(!ok);continue;}need(ok);
+            need(ret.stage()==3u&&ret.visits()==21u&&dev.held_now()&&ctl.issued_tokens()==3u&&cause==(Other|SI));
+            ++held_return_valid;continue;
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
@@ -794,7 +853,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -811,4 +870,5 @@ int main(){
     std::cout<<"V1130_THIRD_ACK_RFI_JOIN valid=8 refused=12 fresh_context=1 two_polls=1 original_execution=0\n";
     std::cout<<"V1136_THIRD_ACK_RESUME_JOIN valid=8 refused=12 dispatch_ticks=2 resume_instruction_executed=0 original_execution=0\n";
     std::cout<<"V1138_HELD_HANDLER_SUFFIX valid=8 refused=12 actual_w1c=1 token_held=1 original_execution=0\n";
+    std::cout<<"V1144_HELD_HANDLER_RETURN valid=8 refused=12 abi=15 dispatch_tick=1 token_held=1 original_execution=0\n";
 }
