@@ -100,6 +100,20 @@ public:
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
         return true;
     }
+    // A native child may use the caller's reserved LR linkage word at
+    // SP+4. Preserve every other byte, including SC's own saved LR/GPR.
+    template<class C>bool nested_frame_held(C& c,bool held,uint32_t child_sp,uint32_t link_word)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
+           child_sp>frame_.base||frame_.base-child_sp>512u||(child_sp&7u)||
+           !mapped(c,frame_)||c.inst_count<last_||c.inst_count-last_>128u||
+           frame_.size<8u)return false;
+        for(auto s:e_.slots)if(int64_t(incoming_[1])+s.caller_offset==int64_t(frame_.base)+4)return false;
+        for(unsigned i=0;i<shadow_.size();++i){
+            const auto v=(i>=4u&&i<8u)?uint8_t(link_word>>(24u-8u*(i-4u))):shadow_[i];
+            if(c.mmu.read8(frame_.base+i)!=v)return false;
+        }
+        return true;
+    }
 private:
     PostStmScExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
