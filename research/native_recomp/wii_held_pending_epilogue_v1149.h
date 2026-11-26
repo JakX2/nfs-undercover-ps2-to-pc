@@ -30,8 +30,47 @@ inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labe
     return owner;
 }
 struct HeldAckHelperExpectation {uint32_t pc,word;unsigned visits,entries,returns,msr;};
+struct CallbackNestedExpectation{
+    uint32_t site=0,target=0;unsigned call_visit=0;
+    std::span<const unsigned> paths{};
+    constexpr bool valid()const{
+        if(paths.empty())return !site&&!target&&!call_visit;
+        return site>=0x80000000u&&site<=0x817ffffcu&&target>=0x80000000u&&target<=0x817ffffcu&&
+            !((site|target)&3u)&&site!=target&&call_visit==19u&&
+            CallbackVisitBudget{71,paths}.valid()&&paths.front()>call_visit;
+    }
+};
+class CallbackNestedCensus{
+public:
+    constexpr bool used()const{return used_;}
+    constexpr bool before(const CallbackNestedExpectation& e,uint32_t handler,uint32_t owner,uint32_t pc,uint32_t w,
+                          unsigned visit,unsigned depth,unsigned entries,unsigned returns,unsigned msr){
+        if(entries>4u||returns>entries||msr>2u||depth>8u)return false;
+        const bool direct=(w>>26)==18u&&(w&1u);
+        if(owner==handler&&direct){
+            const auto dst=pc+(((w&0x03fffffcu)^0x02000000u)-0x02000000u);
+            if(used_||e.paths.empty()||pc!=e.site||dst!=e.target||visit!=e.call_visit||depth||
+               entries||returns||msr||(w&3u)!=1u)return false;
+            used_=true;return true;
+        }
+        if(!used_)return !depth&&!entries&&!returns&&!msr&&owner==handler;
+        return owner==handler||depth!=0u;
+    }
+    constexpr bool finished(const CallbackNestedExpectation& e,unsigned visit,unsigned depth,
+                            unsigned entries,unsigned returns,unsigned msr)const{
+        if(!used_)return !depth&&!entries&&!returns&&!msr;
+        return !depth&&entries==4u&&returns==4u&&msr==2u&&
+            !e.paths.empty()&&CallbackVisitBudget{71,e.paths}.accepts(visit);
+    }
+private:bool used_=false;
+};
 struct HeldAckCallbackExpectation {uint32_t site,word;unsigned visits,ordinal;std::span<const unsigned> paths{};
+    CallbackNestedExpectation nested{};
     constexpr CallbackVisitBudget budget()const{return {visits,paths};}
+    constexpr unsigned maximum()const{
+        const auto n=nested.paths.empty()?0u:nested.paths.back();
+        return n>budget().maximum()?n:budget().maximum();
+    }
 };
 // Join the actual held handler return to the real scheduler/context loader.
 // Only the existing external-exception entry routine changes CPU state;
@@ -44,8 +83,9 @@ public:
     unsigned failure()const{return error_;}
     unsigned callback_refusal()const{return callback_refusal_;}
     unsigned callback_identity()const{return callback_identity_;}
-    bool callback_path_verified()const{return callback_&&!callback_->paths.empty()&&stage_>=13u&&!error_;}
-    unsigned callback_expected_visits()const{return callback_?callback_->budget().maximum():0u;}
+    bool callback_path_verified()const{return callback_&&(!callback_->paths.empty()||callback_nested_.used())&&stage_>=13u&&!error_;}
+    bool callback_nested_verified()const{return callback_path_verified()&&callback_nested_.used();}
+    unsigned callback_expected_visits()const{return callback_?callback_->maximum():0u;}
     unsigned epilogue_failure()const{return ep_.failure();}
     unsigned reentry_failure()const{return next_.failure();}
     unsigned visits()const{return ep_.visits();}
@@ -150,8 +190,13 @@ public:
         if(stage_==12u){
             if(!callback_)return fail_callback(1);
             if(pc==callback_->site)return fail_callback(2);
-            if(ack_visits_-helper_boundary_visits_>=callback_->budget().maximum())return fail_callback(3);
-            if(next_.ack_calls().depth()!=0u)return fail_callback(8);
+            const auto visit=ack_visits_-helper_boundary_visits_;
+            if(visit>=callback_->maximum())return fail_callback(3);
+            const auto& calls=next_.ack_calls();
+            if(!helper_||calls.entries()<helper_->entries||calls.returns()<helper_->returns||calls.msr_writes()<helper_->msr||
+               !callback_nested_.before(callback_->nested,SiDispatchWitness::Handler,owner,pc,w,visit,calls.depth(),
+                   calls.entries()-helper_->entries,calls.returns()-helper_->returns,calls.msr_writes()-helper_->msr))
+                return fail_callback(8);
         }
         if(!next_.ack_before(c,owner,pc,w))return fail(10);
         if(stage_==12u)return true;
@@ -194,7 +239,7 @@ public:
     template<class C>bool resume_helper(C& c,uint32_t pc,uint32_t w,HeldAckCallbackExpectation e){
         if(!helper_saved(c)||!helper_||callback_||pc!=helper_->pc||w!=helper_->word||
            e.site==pc||(e.site&3u)||e.site<0x80000000u||e.site>0x817ffffcu||
-           e.word!=0x4e800421u||!e.budget().valid()||e.ordinal!=6u||
+           e.word!=0x4e800421u||!e.budget().valid()||!e.nested.valid()||e.ordinal!=6u||
            !next_.ack_calls().can_poll())return fail(15);
         callback_=e;stage_=12u;return true;
     }
@@ -202,11 +247,14 @@ public:
             const std::array<uint32_t,N>& words,const std::array<uint32_t,2>& sites){
         if(stage_!=12u||!same(c)||!callback_||!helper_||pc!=callback_->site||w!=callback_->word||
            owner!=SiDispatchWitness::Handler)return fail_callback(4);
-        if(++ack_visits_>2048u||!callback_->budget().accepts(ack_visits_-helper_boundary_visits_))return fail_callback(5);
+        if(++ack_visits_>2048u||(!callback_nested_.used()&&!callback_->budget().accepts(ack_visits_-helper_boundary_visits_)))return fail_callback(5);
         if(c.gpr[3]>=4u)return fail_callback(6);
         if(c.ctr!=target)return fail_callback(7);
-        if(next_.ack_calls().entries()!=helper_->entries||next_.ack_calls().returns()!=helper_->returns||
-           next_.ack_calls().msr_writes()!=helper_->msr)return fail_callback(8);
+        const auto& calls=next_.ack_calls();
+        if(calls.entries()<helper_->entries||calls.returns()<helper_->returns||calls.msr_writes()<helper_->msr||
+           !callback_nested_.finished(callback_->nested,ack_visits_-helper_boundary_visits_,calls.depth(),
+               calls.entries()-helper_->entries,calls.returns()-helper_->returns,calls.msr_writes()-helper_->msr))
+            return fail_callback(8);
         callback_identity_=classify_callback_identity(c,pc,w,callback_->ordinal,2u,target,words,sites);
         if(callback_identity_!=2u)return fail_callback(9);
         if(!next_.stop_before_callback(c,owner,pc,w))return fail_callback(10);
@@ -479,6 +527,7 @@ private:
     const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
     uint64_t last_=0;unsigned stage_=0,error_=0;
     unsigned callback_refusal_=0,callback_identity_=0;
+    CallbackNestedCensus callback_nested_{};
     bool fail_callback(unsigned n){if(!callback_refusal_)callback_refusal_=n;return fail(16);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     PollResult reject(unsigned n){fail(n);return PollResult::Rejected;}

@@ -909,6 +909,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                        v1175::callback_words,v1175::callback_sites)||!held_epilogue.callback_saved(c))reject_held_epilogue();
                 std::cout<<std::dec<<"V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits="<<held_epilogue.callback_visits()
                          <<(held_epilogue.callback_path_verified()?" path_verified=1":"")
+                         <<(held_epilogue.callback_nested_verified()?" nested_calls=4 nested_msr=2":"")
                          <<" token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0"<<std::endl;
 #ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
                 if(ack_prefix_enabled()){

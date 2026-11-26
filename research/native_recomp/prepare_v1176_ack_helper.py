@@ -4,6 +4,7 @@ import argparse,struct,re
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from derive_ack_callback_paths_v1283 import path_lengths
+from derive_nested_ack_path_v1331 import derive as nested_paths
 from prepare_v667_si_dispatch import HANDLER,DISABLE,TIME,RESTORE,exact
 from prepare_owner_second_time_v966 import plan as time_plan
 from prepare_owner_second_shared_v988 import admit_shared_time
@@ -84,7 +85,7 @@ def metadata(dol,elf):
     compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected)
     return spans,edges,rows,msr,expected,render_ack(old_spans,old_edges,old_rows),prior
 
-def render(spans,edges,rows,msr,expected,callback_guard=True,paths=()):
+def render(spans,edges,rows,msr,expected,callback_guard=True,paths=(),nested=None):
     s=render_ack(spans,edges,rows).replace('namespace undercover::wii::v1167 {','namespace undercover::wii::v1175 {',1)
     old='inline constexpr std::array<AckMsrSite,0> msr{};\n'
     if s.count(old)!=1 or not s.endswith('}\n'):raise ValueError('ACK helper render')
@@ -92,6 +93,12 @@ def render(spans,edges,rows,msr,expected,callback_guard=True,paths=()):
     path_array=('inline constexpr std::array<unsigned,'+str(len(paths))+'> callback_paths{'+
                 ','.join(str(n)+'u' for n in paths)+'};\n') if paths else ''
     path_arg=',callback_paths' if paths else ''
+    if nested:
+        site,dst,counts=nested
+        if not paths or not counts or any(c!=4 or m!=2 for _,c,m in counts):raise ValueError('ACK nested census')
+        visits=tuple(sorted({v for v,_,_ in counts}))
+        path_array+='inline constexpr std::array<unsigned,'+str(len(visits))+'> nested_callback_paths{'+','.join(str(n)+'u' for n in visits)+'};\n'
+        path_arg+=',CallbackNestedExpectation{'+fmt((site,dst))+',19u,nested_callback_paths}'
     return (s[:-2]+'inline constexpr HeldAckHelperExpectation expected{'+fmt(expected)+',130u,6u,6u,2u};\n'
         +'inline constexpr bool callback_guard='+str(callback_guard).lower()+';\n'
         +'inline constexpr auto callback_words=v958::success_callback_words;\n'
@@ -649,6 +656,9 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
         if 'inline constexpr ' in line and old.count(line+'\n')!=1:raise ValueError('ACK helper metadata')
     callback_site=verify_callback_metadata(dol,elf,spans,rows,old) if callback else None
     callback_paths=path_lengths(rows,HANDLER,expected[0],callback_site) if callback else ()
+    nested=nested_paths(rows,edges,msr,HANDLER,expected[0],callback_site) if callback else None
+    if nested and (nested[:2]!=tuple(edges[3]) or nested[1]!=spans[3][0] or any(c!=4 or m!=2 for _,c,m in nested[2])):
+        raise ValueError('ACK nested census')
     if callback and ('UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK' in old or
         (dest/'wii_callback_identity_v796.h').is_symlink() or
         (dest/'wii_callback_identity_v796.h').read_text()!=(host/'wii_callback_identity_v796.h').read_text()):
@@ -717,7 +727,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
         (dest/'v1227_private_ack_leaf.h').write_text(render_leaf(leaf_meta[0],leaf_meta[1],leaf_meta[3]))
         (dest/'wii_irq_leaf_finish_v927.h').write_text((host/'wii_irq_leaf_finish_v927.h').read_text())
     for path,content in ipc_files.items():path.write_text(content)
-    result.write_text(render(spans,edges,rows,msr,expected,callback_guard,callback_paths))
+    result.write_text(render(spans,edges,rows,msr,expected,callback_guard,callback_paths,nested))
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'

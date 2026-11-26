@@ -29,4 +29,8 @@ class Paths(unittest.TestCase):
             self.assertFalse(is_result(RESULT.replace(b'visits=71',f'visits={n} path_verified=1'.encode())))
         self.assertFalse(is_result(RESULT.replace(b'visits=71',b'visits=72')))
         self.assertFalse(is_result(RESULT+b' path_verified=1'))
+        nested=RESULT.replace(b'visits=71',b'visits=82 path_verified=1 nested_calls=4 nested_msr=2')
+        self.assertTrue(is_result(nested));self.assertTrue(public_line(nested,(),(DIAG,)))
+        self.assertFalse(is_result(nested.replace(b'nested_calls=4',b'nested_calls=5')))
+        self.assertFalse(is_result(nested.replace(b' path_verified=1',b'')))
 if __name__=='__main__':unittest.main()

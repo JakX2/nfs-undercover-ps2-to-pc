@@ -1,0 +1,3 @@
+# V1333: admit the single authenticated extra callback helper route
+
+Private V1331 run 45817441011 verified 160 terminal visit counts in [82,256], all with exactly four additional native calls and two MSR writes. Permit only the exact privately authenticated handler edge at visit 19; all callee and return labels still use the existing strict BoundedAckCallRoute, native tick, memory identity and completed-SI witness. At guarded callback frontier require balanced call stack, exact additional call/MSR census and a derived terminal visit count. Keep legacy zero-call route. New audit marker nested_calls=4 nested_msr=2 only on verified route. Source checks pending. No new full-image run enabled until source gate and private fixture verified.

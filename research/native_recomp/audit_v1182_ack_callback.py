@@ -8,8 +8,8 @@ ack=helper.ack;dispatch=helper.dispatch;epilogue=helper.epilogue;returned=helper
 handler=helper.handler;ret=helper.ret;suffix=helper.suffix;wireless=helper.wireless
 frontier=helper.frontier;time=helper.time;prefix=helper.prefix;alarm=helper.alarm
 RESULT=b'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=71 token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0'
-DIAG=rb'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-6])(?: path_verified=1)? token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0'
-PATH_RESULT=DIAG.replace(b'(?: path_verified=1)?',b' path_verified=1')
+DIAG=rb'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-6])(?: path_verified=1(?: nested_calls=4 nested_msr=2)?)? token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0'
+PATH_RESULT=DIAG.replace(b'(?: path_verified=1(?: nested_calls=4 nested_msr=2)?)?',b' path_verified=1(?: nested_calls=4 nested_msr=2)?')
 def is_result(row):return row==RESULT or re.fullmatch(PATH_RESULT,row) is not None
 FAULT=helper.FAULT
 REFUSAL=rb'V1263_ACK_CALLBACK_REFUSAL kind=([1-9]|1[01]) visits=[0-9]{1,4} expected=[0-9]{1,4} identity=[0-4]'
