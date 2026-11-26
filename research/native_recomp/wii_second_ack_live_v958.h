@@ -4,6 +4,10 @@
 #include "v958_private_second_ack.h"
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
 #include "wii_third_si_transfer_v1028.h"
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+#include "wii_third_alarm_suffix_v1047.h"
+#include "v786_private_alarm.h"
+#endif
 #endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 #include "wii_si_transfer_arguments_v981.h"
@@ -32,6 +36,11 @@ inline thread_local uint64_t third_ready_tick=0;
 inline thread_local std::array<uint32_t,8> third_packet{};
 inline bool third_enabled(){const char* v=std::getenv("UNDERCOVER_V1028_THIRD_TRANSFER");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool third_active(){return third_route.stage()==1u;}
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+inline thread_local ThirdAlarmSuffixRoute third_alarm(v786::expected);
+inline bool third_alarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1048_THIRD_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.stage()==2u;}
+#endif
 #endif
 #endif
 inline thread_local BoundedAckCallRoute calls;
@@ -106,6 +115,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 #endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_enabled()&&!error_frontier_enabled())return false;
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+    if(third_alarm_enabled()&&(!third_enabled()||!six_arguments_enabled()))return false;
+#endif
 #endif
 #ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
     if(callback_enabled()&&!success_frontier_enabled())return false;
@@ -149,6 +161,25 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(queue_detail_enabled()&&!queue_history.sample(c))reject(18);
 #endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+    if(third_alarm_active()){
+        if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
+           !third_alarm.before(c,pc,w,next_device)){
+            std::cout<<std::dec<<"V1048_THIRD_ALARM_FAULT route="<<third_alarm.failure()<<" alarm="<<third_alarm.alarm().failure()
+                     <<" queue="<<third_alarm.alarm().queue_failure()<<" stage="<<third_alarm.stage()<<std::endl;
+            reject(19);
+        }
+        if(third_alarm.stage()==3u){
+            const auto& a=third_alarm.alarm();
+            std::cout<<std::dec<<"V1048_THIRD_ALARM_RETURN original_return=1 queue=1 token=3 lane="<<a.lane()
+                     <<" timer="<<a.timer_required()<<" calls="<<a.calls()<<" visits="<<a.total()
+                     <<" suffix_visits="<<third_alarm.suffix_visits()<<" status_reads="<<next_device.suffix_status_reads()
+                     <<" status_writes="<<next_device.suffix_status_writes()<<" token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
     if(third_active()){
         if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
            !third_route.before(c,pc,w,next_device))reject(17);
@@ -157,6 +188,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 <<" visits="<<third_route.visits()<<" entries="<<third_route.entries()<<" returns="<<third_route.returns()
                 <<" reads="<<next_device.reads()<<" writes="<<next_device.writes()
                 <<" saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+            if(third_alarm_enabled()){
+                if(!third_alarm.start(c,pc,third_alarm_suffix,next_device)||!third_alarm.before(c,pc,w,next_device))reject(19);
+                return;
+            }
+#endif
             std::_Exit(0);
         }
         return;
@@ -345,6 +382,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+    if(third_alarm_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.poll(c,next_device))reject(19);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!third_route.poll(c,next_device))reject(17);
@@ -367,6 +410,12 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+    if(third_alarm_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.entry(c,pc,next_device))reject(19);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!third_route.entry(c,pc,next_device))reject(17);

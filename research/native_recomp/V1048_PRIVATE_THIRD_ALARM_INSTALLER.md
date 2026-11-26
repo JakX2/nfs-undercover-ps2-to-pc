@@ -1,0 +1,3 @@
+# V1048: opt-in full-image third-token alarm route
+
+Use the existing authenticated V786 original alarm expectation, the original handler's bounded post-transfer suffix, and the already translated alarm/time/timer leaves. Verify native label ownership and direct return seams; route shared labels through one V958 observer after one scheduler tick. Keep the old observers unchanged except when the new third-alarm witness is active. The runtime requires third-transfer and six-argument modes, preserves the V1028 terminal marker, and checks saved context on every subsequent native boundary. The new private installer is explicitly opt-in and not enabled by any owner launch workflow; first verify V1029 and V1047. No new original execution claim.
