@@ -22,12 +22,16 @@ public:
     // Bounded diagnostic categories only; no guest addresses or values.
     unsigned range_failure()const{return range_error_;}
     unsigned base_class()const{return base_class_;}
-    template<class C>bool begin(C& c,AllocatorRange stack,AllocatorRange heap,AllocatorRange meta={}){
+    template<class C>bool begin(C& c,AllocatorRange stack,AllocatorRange heap,AllocatorRange meta={},AllocatorRange meta_guard={}){
+        if(!meta_guard.size)meta_guard=meta;
         if(cpu_||error_||stack.size<8u||stack.size>2048u||heap.size<64u||heap.size>0x10000u||
            !ram(c,stack.base,stack.size)||!heap.base||!ram(c,heap.base-1u,heap.size+2u)||
            overlap(stack,heap)||(meta.size&&(!ram(c,meta.base,meta.size)||meta.size>64u||
-           overlap(stack,meta)||overlap(heap,meta))))return fail(1);
-        cpu_=&c;stack_=stack;heap_=heap;meta_=meta;
+           overlap(stack,meta)||overlap(heap,meta)))||
+           (meta_guard.size&&(!meta.size||meta_guard.size>64u||!ram(c,meta_guard.base,meta_guard.size)||
+            !meta_guard.contains(meta.base,meta.size)||overlap(stack,meta_guard)||overlap(heap,meta_guard))))return fail(1);
+        cpu_=&c;stack_=stack;heap_=heap;meta_=meta;meta_guard_=meta_guard;
+        for(unsigned i=0;i<meta_guard_.size;++i)meta_shadow_[i]=c.mmu.read8(meta_guard_.base+i);
         lower_=c.mmu.read8(heap.base-1u);upper_=c.mmu.read8(uint32_t(heap.end()));
         heap_shadow_.resize(heap.size);
         for(unsigned i=0;i<heap.size;++i)heap_shadow_[i]=c.mmu.read8(heap.base+i);
@@ -41,6 +45,8 @@ public:
         if(update_&&c.gpr[ra_]!=addr_)return fail(3);
         if(heap_.contains(addr_,width_))
             for(unsigned i=0;i<width_;++i)heap_shadow_[addr_-heap_.base+i]=bytes_[i];
+        if(meta_.contains(addr_,width_))
+            for(unsigned i=0;i<width_;++i)meta_shadow_[addr_-meta_guard_.base+i]=bytes_[i];
         pending_=false;return true;
     }
     template<class C>bool before(C& c,uint32_t w){
@@ -97,10 +103,14 @@ public:
         if(!settled(c)||!heap_stores_||!stores_)return false;
         for(unsigned i=0;i<heap_shadow_.size();++i)
             if(c.mmu.read8(heap_.base+i)!=heap_shadow_[i])return fail(6);
+        if(meta_guard_.size&&!ram(c,meta_guard_.base,meta_guard_.size))return fail(2);
+        for(unsigned i=0;i<meta_guard_.size;++i)
+            if(c.mmu.read8(meta_guard_.base+i)!=meta_shadow_[i])return fail(6);
         return true;
     }
 private:
-    const void* cpu_=nullptr;AllocatorRange stack_{},heap_{},meta_{};
+    const void* cpu_=nullptr;AllocatorRange stack_{},heap_{},meta_{},meta_guard_{};
+    std::array<uint8_t,64> meta_shadow_{};
     std::array<uint8_t,128> bytes_{};std::vector<uint8_t> heap_shadow_;uint8_t lower_=0,upper_=0;
     uint32_t addr_=0;unsigned width_=0,ra_=0,error_=0,stores_=0,heap_stores_=0,stack_stores_=0,metadata_stores_=0;
     unsigned range_error_=0,base_class_=0;

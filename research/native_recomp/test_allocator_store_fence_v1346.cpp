@@ -58,4 +58,18 @@ static void range_trial(unsigned f){
     assert(!w.before(c,d(36,4,5,0))&&w.failure()==5&&w.range_failure()==expect&&w.base_class()==3u);
     assert(!w.stores()&&!w.heap_stores());
 }
-int main(){for(unsigned f=0;f<8;++f)range_trial(f);for(unsigned f=0;f<=9;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1354_ALLOCATOR_STORE_FENCE synthetic=1 valid=1 refused=18 exact_bytes=1 complete_heap_shadow=1 range_diagnostics=8 original_execution=0\n";}
+static void metadata_trial(unsigned f){
+    Cpu c;c.gpr[4]=0x12345678;c.gpr[5]=H;c.gpr[13]=M;
+    AllocatorStoreFence w;
+    bool ok=w.begin(c,{S,128},{H,256},{M+12,4},f==1?AllocatorRange{M,12}:AllocatorRange{M,16});
+    if(f==1){assert(!ok&&w.failure()==1);return;}assert(ok);
+    assert(w.before(c,d(36,4,5,0)));c.mmu.write(H,c.gpr[4]);assert(w.settled(c));
+    if(f==2){assert(!w.before(c,d(36,4,13,8))&&w.failure()==5);return;}
+    assert(w.before(c,d(36,4,13,12)));c.mmu.write(M+12,c.gpr[4]);assert(w.settled(c));
+    if(f==3)c.mmu.write(M+4,1);
+    if(f==4)c.mmu.write(M+12,1);
+    ok=w.finished(c);
+    if(f>=3){assert(!ok&&w.failure()==6);return;}
+    assert(ok&&w.metadata_stores()==1&&w.heap_stores()==1);
+}
+int main(){for(unsigned f=0;f<5;++f)metadata_trial(f);for(unsigned f=0;f<8;++f)range_trial(f);for(unsigned f=0;f<=9;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1355_ALLOCATOR_STORE_FENCE synthetic=1 valid=2 refused=22 exact_bytes=1 complete_heap_shadow=1 range_diagnostics=8 metadata_shadow=1 original_execution=0\n";}

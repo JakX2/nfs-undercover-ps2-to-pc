@@ -1,0 +1,3 @@
+# V1355 allocator metadata shadow
+
+Wii IPC heap descriptors may hold external free-list state (public reference: https://wiibrew.org/wiki/IPC_(SDK)). This is a hypothesis for the V1352 refusal until authenticated owner evidence is available. Extend the existing optional metadata range to admit a separately bounded read-only surrounding guard, compare its full post-return shadow, and update only bytes of admitted native stores. The original owner allocator still receives no metadata write permission. Five synthetic cases cover one valid metadata update, invalid guard containment, a refused adjacent store and two collateral modifications. Owner metadata provenance and original return remain unresolved.
