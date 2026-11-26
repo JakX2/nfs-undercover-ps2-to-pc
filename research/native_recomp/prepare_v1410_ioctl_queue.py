@@ -67,6 +67,10 @@ def main():
                    w>>26==31 and (w>>1)&1023 in (150,151,183,215,247,407,439,661,725,662,918,663,695,727,759,983,1014)
                    for a,w in words.values() if a==SUBMIT)
         print(f'V1410_QUEUE_GEOMETRY verified=1 submit_labels={sum(a==SUBMIT for a,w in words.values())} disable_labels={sum(a==DISABLE for a,w in words.values())} static_stores={stores}')
+        # Count address-base categories at the static sites. Do not expose
+        # original instruction words, displacements or absolute addresses.
+        direct=[w for a,w in words.values() if a==SUBMIT and w>>26 in (36,37,38,39,44,45,47,52,53,54,55,60,61)]
+        print(f'V1412_STORE_STATIC direct={len(direct)} sda={sum((w>>16)&31 in (2,13) for w in direct)} stack={sum((w>>16)&31==1 for w in direct)} other={sum((w>>16)&31 not in (1,2,13) for w in direct)}')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed={'size','queue corridor','queue corridor edges','nested disable shape','queue call owner','queue prior hook','queue resume trace',

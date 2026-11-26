@@ -479,7 +479,13 @@ static bool ioctl_submit_prefix_held(nw::CPUContext& c){return ioctl_build&&ioct
              <<" visits="<<(ioctl_submit_queue?ioctl_submit_queue->visits():0u)
              <<" stores="<<(ioctl_submit_queue?ioctl_submit_queue->stores():0u)
              <<" polls="<<(ioctl_submit_queue?ioctl_submit_queue->polls():0u)
-             <<" ordinal="<<(ioctl_submit_queue?ioctl_submit_queue->ordinal():0u)<<'\n';
+             <<" ordinal="<<(ioctl_submit_queue?ioctl_submit_queue->ordinal():0u)
+             <<" fence="<<(ioctl_submit_queue?ioctl_submit_queue->fence_error():0u)
+             <<" range="<<(ioctl_submit_queue?ioctl_submit_queue->range_error():0u)
+             <<" base="<<(ioctl_submit_queue?ioctl_submit_queue->base_class():0u)
+             <<" dest="<<(ioctl_submit_queue?ioctl_submit_queue->destination_class():0u)
+             <<" value="<<(ioctl_submit_queue?ioctl_submit_queue->value_class():0u)
+             <<" form="<<(ioctl_submit_queue?ioctl_submit_queue->store_form():0u)<<'\n';
     throw WitnessFailure{};
 }
 #endif

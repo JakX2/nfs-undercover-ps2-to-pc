@@ -41,7 +41,7 @@ static void trial(unsigned fault,bool alias){
     ++c.inst_count;assert(w.before(c,S+4,branch,true));
     if(!c.cr[0].eq){
         ++c.inst_count;ok=w.before(c,S+8,st,true);
-        if(fault==9){assert(!ok);return;}assert(ok);
+        if(fault==9){assert(!ok&&w.destination_class()==2u&&w.value_class()==1u&&w.store_form()==1u);return;}assert(ok);
         c.mmu.write32(SP+8,fault==10?1u:0u);
     }
     if(fault==11)c.mmu.write32(R,1u);

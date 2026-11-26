@@ -18,6 +18,12 @@ public:
     unsigned stores()const{return fence_.stores();}
     unsigned polls()const{return polls_;}
     unsigned ordinal()const{return ordinal_;}
+    unsigned fence_error()const{return fence_.failure();}
+    unsigned range_error()const{return fence_.range_failure();}
+    unsigned base_class()const{return fence_.base_class();}
+    unsigned destination_class()const{return dest_class_;}
+    unsigned value_class()const{return value_class_;}
+    unsigned store_form()const{return store_form_;}
     template<class C>bool begin(C& c,bool held,uint32_t request,uint32_t size,uint32_t caller_sp){
         const auto sp=c.gpr[1];
         if(stage_||error_||!held||!safe(c)||!e_.submit||e_.disable.lr<4u||
@@ -35,7 +41,11 @@ public:
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(!live(c,held)||due_||pc!=next_||c.inst_count-last_!=1u||
            !known(c,active_,pc)||c.mmu.read32(pc)!=w||++visits_>256u)return fail(2);
-        if(!fence_.before(c,w)||fence_.heap_stores()){ordinal_=(pc-active_)/4u+1u;return fail(3);}
+        if(!fence_.before(c,w)||fence_.heap_stores()){
+            ordinal_=(pc-active_)/4u+1u;
+            classify_store(c,w);
+            return fail(3);
+        }
         if(!unchanged(c))return fail(3);
         last_=c.inst_count;last_pc_=pc;next_=pc+4u;polled_=false;poll_pc_=0;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
@@ -95,7 +105,37 @@ private:
     uint32_t msr_=0,req_=0,size_=0,active_=0,next_=0,last_pc_=0,poll_pc_=0,helper_cr_=0;
     uint64_t start_=0,last_=0;
     unsigned stage_=0,error_=0,visits_=0,polls_=0,ordinal_=0;
+    unsigned dest_class_=0,value_class_=0,store_form_=0;
     bool due_=false,masked_write_=false,disable_returned_=false,polled_=false;
+    // Report only bounded categories. No guest addresses, values or words.
+    // The classification is diagnostic only and never grants write access.
+    template<class C>void classify_store(C& c,uint32_t w){
+        const unsigned op=w>>26,ra=(w>>16)&31u,rs=(w>>21)&31u,rb=(w>>11)&31u;
+        const unsigned xo=(w>>1)&1023u;
+        const bool indexed=op==31u&&(xo==151u||xo==183u||xo==215u||xo==247u||xo==407u||xo==439u);
+        if(op==36u)store_form_=1;
+        else if(op==37u)store_form_=2;
+        else if(op==38u||op==39u||op==44u||op==45u)store_form_=3;
+        else if(indexed)store_form_=4;
+        else {store_form_=5;return;}
+        const int64_t ea=int64_t(ra?c.gpr[ra]:0u)+(indexed?int64_t(c.gpr[rb]):int64_t(int32_t((w&0xffffu)^0x8000u)-0x8000));
+        if(ea<0||ea>0xffffffffll){dest_class_=1;return;}
+        const uint32_t a=uint32_t(ea),v=c.gpr[rs],ca=OpenCacheRangeTrace::canonical(a);
+        if(AllocatorRange{req_,size_}.contains(ca,1u))dest_class_=2;
+        else if(ra==13u)dest_class_=3;
+        else if(ra==2u)dest_class_=4;
+        else if(ra==1u)dest_class_=5;
+        else if(a>=0x80000000u&&a<0x81800000u)dest_class_=6;
+        else if(a>=0x90000000u&&a<0x94000000u)dest_class_=7;
+        else dest_class_=8;
+        if(!v)value_class_=1;
+        else if(v==req_)value_class_=2;
+        else if(v==(req_&0x3fffffffu))value_class_=3;
+        else if(v==1u)value_class_=4;
+        else if(v<=32u)value_class_=5;
+        else if(OpenCacheRangeTrace::canonical(v)==req_)value_class_=6;
+        else value_class_=7;
+    }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool base(C& c,bool held)const{
