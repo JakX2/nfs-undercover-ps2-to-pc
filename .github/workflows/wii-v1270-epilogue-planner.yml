@@ -1,0 +1,19 @@
+name: Wii V1270 Joined Epilogue Planner
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1270*'
+      - '.github/workflows/wii-v1270-epilogue-planner.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test private fixture composition without originals
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v1270_ipc_epilogue.py -v
