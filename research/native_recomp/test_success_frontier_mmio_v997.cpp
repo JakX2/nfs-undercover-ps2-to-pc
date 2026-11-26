@@ -72,8 +72,19 @@ int main(int argc,char** argv){
         if(mode=="error-abi-core"||mode=="error-abi-live-core")c.mmu.words[v958::transfer_slots+64+4]^=4u;
     }
     c.pc=H;c.msr=0x32u;
+#ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
+    std::array<uint32_t,32> incoming_handler{};
+    const bool handler_return=v958::third_postalarm_handler_return_enabled();
+    if(handler_return){
+        c.gpr[1]+=128u;c.lr=v1145::expected.caller;incoming_handler=c.gpr;
+    }
+#endif
     scheduler.advance(++tick);need(old.after_return_at(tick));
     need(v958::start(c,frame)&&SiBinding::handoff_second_ack(cause,mask,tick));
+#ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
+    // Synthetic prologue effects only, not runtime patches.
+    if(handler_return)c.gpr[1]-=128u;
+#endif
     need(v958::active()&&old.stage()==3u);
     if(mode=="frame")c.mmu.words[v958::context+124]^=1u;
     auto visit=[&](uint32_t pc,uint32_t w,bool guard=false){scheduler.advance(++tick);c.pc=pc;v958::before(c,pc,w,guard);};
@@ -434,6 +445,42 @@ int main(int argc,char** argv){
                                         if(hf=="-branch")c.cr[0].eq=!c.cr[0].eq;
                                         visit(v1139::A+52u,v1139::Branch);
                                         if(datum!=7u)visit(v1139::A+56u,v1139::rows[14].word);
+#ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
+                                        if(handler_return){
+                                            need(hf.starts_with("-return"));
+                                            const auto ff=hf.substr(std::string_view("-return").size());
+                                            const auto& e2=v1145::expected;
+                                            for(unsigned i=0;i<e2.restore.size();++i)c.mmu.words[e2.root+4u*i]=e2.restore[i];
+                                            for(unsigned i=0;i<e2.tail.size();++i)c.mmu.words[e2.call+4u+4u*i]=e2.tail[i];
+                                            c.mmu.words[e2.caller]=e2.caller_word;
+                                            for(unsigned i=17;i<32;++i)c.mmu.words[incoming_handler[1]-4u*(32u-i)]=incoming_handler[i];
+                                            c.mmu.words[incoming_handler[1]+4u]=e2.caller;
+                                            c.gpr[11]=incoming_handler[1];
+                                            if(ff=="-identity")c.mmu.words[e2.root]^=1u;
+                                            visit(e2.call,v1139::rows[15].word);
+                                            c.pc=e2.root;c.lr=e2.call+4u;
+                                            v958::observe(ff=="-entry"?e2.root+4u:e2.root,c);
+                                            if(ff=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                            if(ff=="-tick")scheduler.advance(++tick);
+                                            if(ff=="-device")mask=0;
+                                            if(ff=="-slot")c.mmu.words[incoming_handler[1]-60u]^=1u;
+                                            for(unsigned i=0;i<15;++i){
+                                                visit(e2.root+4u*i,e2.restore[i]);c.gpr[17u+i]=incoming_handler[17u+i];
+                                            }
+                                            visit(e2.root+60u,e2.restore.back());
+                                            visit(e2.call+4u,e2.tail[0]);c.gpr[0]=e2.caller;
+                                            visit(e2.call+8u,e2.tail[1]);c.lr=e2.caller;
+                                            visit(e2.call+12u,e2.tail[2]);c.gpr[1]=incoming_handler[1];
+                                            visit(e2.call+16u,e2.tail[3]);c.pc=e2.caller;
+                                            if(ff!="-poll")v958::poll(c);
+                                            if(ff=="-double-poll")v958::poll(c);
+                                            if(ff!="-dispatch"){
+                                                scheduler.advance(++tick);v958::postalarm_handler_dispatch_resume(c,e2.caller,e2.caller_word);
+                                            }
+                                            if(ff=="-abi")c.gpr[31]^=1u;
+                                            visit(e2.caller,e2.caller_word);need(false);
+                                        }
+#endif
                                         visit(v1139::A+64u,v1139::rows[15].word);need(false);
                                     }
 #endif
