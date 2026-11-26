@@ -318,6 +318,9 @@ static std::unique_ptr<IpcDispatchExecution> ioctl_dispatch;
 static std::unique_ptr<StmDeferredEventGate> ioctl_event_gate;
 static nw::CPUContext* ioctl_dispatch_cpu=nullptr;
 static unsigned ioctl_dispatch_count=0;
+#ifdef UNDERCOVER_IPC_DEFERRED
+static unsigned ioctl_deferred_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -519,13 +522,14 @@ void ipc_profile_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(ioctl_profile&&!ioctl_profile->before(c,pc,w,ioctl_flush_held(c)))ioctl_profile_refuse(2);
 }
 #ifdef UNDERCOVER_IPC_DISPATCH
-static bool ioctl_dispatch_storage_held(nw::CPUContext& c){
+static bool ioctl_dispatch_storage_held(nw::CPUContext& c,bool deferred=false){
     // The device gate owns the third transport. Do not compare the
     // retired second mailbox snapshot after original PPCMSG/PPCCTRL.
     const bool held=ioctl_dispatch_cpu==&c&&ioctl_alloc&&selection_witness&&allocator_descriptor&&
         allocator_descriptor->second_completed()&&allocator_descriptor->identity_after_release(c)&&
         OpenTransactionEpoch(second_irq_kind).acknowledged_descriptors(3u-second_irq_kind)&&
-        !(cause.load()&mask.load())&&selection_witness->selected_storage_after_release(c,raw_device_ok(c));
+        (deferred?(cause.load()&mask.load())==H::PI_HOLLYWOOD:!(cause.load()&mask.load()))&&
+        selection_witness->selected_storage_after_release(c,raw_device_ok(c));
     if(!ioctl_build||!ioctl_build->identity_preserved(c,held)||ioctl_header_shadow.size()!=ioctl_build->allocated_size())return false;
     for(unsigned i=0;i<ioctl_header_shadow.size();++i)
         if(c.mmu.read8(ioctl_build->request()+i)!=ioctl_header_shadow[i])return false;
@@ -2932,6 +2936,27 @@ int main(int argc,char** argv)try{
         std::cout<<"IPC_DISPATCH_TRIAL n="<<trial<<" original_return=1 masked=1 ring_dequeued=1 credit_consumed=1 message=1 control=1 queued=1 serviced=0 visits="
                  <<ioctl_dispatch->visits()<<" stores="<<ioctl_dispatch->stores()<<" calls="<<ioctl_dispatch->calls()
                  <<" writes="<<ioctl_dispatch->writes()<<" reads="<<ioctl_dispatch->reads()<<" polls="<<ioctl_dispatch->polls()<<'\n';
+#ifdef UNDERCOVER_IPC_DEFERRED
+        // At this exact original local return, all preceding native
+        // instructions and both actual mailbox writes have been proved.
+        // Accept at the masked device boundary, not by synthesizing a
+        // guest reply or invoking its callback.
+        const auto pack_cr=[](const auto& cpu){uint32_t v=0;for(auto f:cpu.cr)
+            v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|unsigned(f.eq)<<1|unsigned(f.so);return v;};
+        const auto gp=c.gpr,gqr=c.gqr;
+        const auto pc=c.pc,lr=c.lr,ctr=c.ctr,xer=c.xer,msr=c.msr,srr0=c.srr0,srr1=c.srr1,cr=pack_cr(c);
+        const auto ticks=c.inst_count;
+        if(!ioctl_dispatch->reached(c,ioctl_dispatch_held(c))||ioctl_event_gate->stage()!=3u||
+           !ioctl_event_gate->accept(c.msr,ioctl_dispatch_storage_held(c)))ioctl_dispatch_refuse(8);
+        const auto pending=host.cold_ipc_snapshot();
+        const bool held=ioctl_event_gate->deferred_held(ioctl_dispatch_storage_held(c,true));
+        if(!held||!ioctl_dispatch->reached(c,held)||c.gpr!=gp||c.gqr!=gqr||c.pc!=pc||c.lr!=lr||
+           c.ctr!=ctr||c.xer!=xer||c.msr!=msr||c.srr0!=srr0||c.srr1!=srr1||pack_cr(c)!=cr||
+           c.inst_count!=ticks||host.exception_pending(c.msr)||pending.steps!=5u||pending.queued||
+           !pending.event||pending.replies||!host.services().event_pending())ioctl_dispatch_refuse(8);
+        ++ioctl_deferred_count;
+        std::cout<<"IPC_DEFERRED_TRIAL n="<<trial<<" original_boundary=1 deferred=1 pending_ack=1 masked=1 cpu_preserved=1 ring_preserved=1 request_preserved=1 reply=0 ios_steps=5\n";
+#endif
         ioctl_dispatch.reset();ioctl_event_gate.reset();ioctl_dispatch_cpu=nullptr;
 #endif
         ioctl_profile.reset();
@@ -2966,7 +2991,12 @@ int main(int argc,char** argv)try{
         need(freed2&&allocator2.returned(c,allocator_held(c))&&allocator2.inline_completed()&&
 #endif
              descriptor.second_completed()&&second_release_count==trial+1u&&second_allocator_count==trial+1u&&
+#ifdef UNDERCOVER_IPC_DEFERRED
+             host.serviced_steps()==5u&&epoch.acknowledged_descriptors(3u-kind)&&(cause.load()&mask.load())==H::PI_HOLLYWOOD&&
+             host.services().event_pending()&&ioctl_deferred_count==trial+1u);
+#else
              host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
+#endif
         std::cout<<"V1378_FREE_TRIAL n="<<trial<<" native_free=1 heap_shadow=1 metadata_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator2.stores()<<" heap="<<allocator2.heap_stores()<<'\n';
         submit_resume_active=false;submit_resume=nullptr;second_resume_capture=nullptr;
         allocator_active=false;allocator_release=nullptr;allocator_descriptor=nullptr;
@@ -3082,6 +3112,10 @@ int main(int argc,char** argv)try{
     need(ioctl_profile_return_count==8u);
 #ifdef UNDERCOVER_IPC_DISPATCH
     need(ioctl_dispatch_count==8u);
+#ifdef UNDERCOVER_IPC_DEFERRED
+    need(ioctl_deferred_count==8u);
+    std::cout<<"IPC_DEFERRED_NATIVE owner=1 trials=8 original_boundary=8 deferred=8 pending_ack=8 cpu_preserved=8 request_preserved=8 reply=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"IPC_DISPATCH_NATIVE owner=1 trials=8 original_return=8 ring_dequeued=8 mailbox_submitted=8 queued=8 ios_steps=4 deferred=0 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"IPC_PROFILE_NATIVE owner=1 trials=8 profile_return=8 ring_preserved=8 request_preserved=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
