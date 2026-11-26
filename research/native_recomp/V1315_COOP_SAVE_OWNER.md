@@ -1,0 +1,3 @@
+# V1315: execute original cooperative save provenance
+
+V1312 private owner preflight verified original integer/GQR save provenance, direct MSR save, ten roots and seven direct edges. The opt-in --coop-save mode now checks every actual save instruction and the original return before the previously verified idle enable boundary, without rebuilding the larger IRQ reply fixture. --irq-ready-idle-save also permits the same provenance observation in the later combined lane, but is not automatically run. No extra native roots. Owner prerequisite is pinned to the successful V1312 run. The new source and owner gates are pending. No claim of resumed thread or complete game boot.

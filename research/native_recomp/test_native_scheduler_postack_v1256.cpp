@@ -5,6 +5,9 @@
 #include "wii_post_ack_sleep_join_v1252.h"
 #include "v1252_private_sleep.h"
 #include "v1256_private_scheduler.h"
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+#include "v1314_private_save.h"
+#endif
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
 #include "wii_scheduler_irq_entry_v1259.h"
 #include "v1259_private_vector.h"
@@ -67,6 +70,10 @@ static unsigned sleep_count=0;
 struct SchedulerStop{};
 static PostAckSchedulerJoin* sched_join=nullptr;
 static unsigned scheduler_count=0;
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+static CooperativeSaveLane* coop_save=nullptr;
+static unsigned coop_save_count=0;
+#endif
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
 static unsigned irq_count=0;
 #endif
@@ -158,6 +165,18 @@ static bool device_ok(nw::CPUContext& c){
 // The isolated caller and prior SI transaction are seeded, not original
 // execution. Exercise actual native SI W1C and the same shared guard used
 // by V1235. The subsequent IPC client and all its dependencies are original.
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+[[noreturn]]static void coop_save_refuse(unsigned kind){
+    std::cout<<"V1315_SAVE_REFUSAL kind="<<kind<<" stage="<<coop_save->stage()
+        <<" reason="<<coop_save->failure()<<" abi="<<coop_save->abi_failure()
+        <<" visits="<<coop_save->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1314_save_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    need(coop_save&&sched_join);
+    if(!coop_save->before(c,pc,w,device_ok(c)))coop_save_refuse(1);
+}
+#endif
 static void seed_completed_si(nw::CPUContext& c,SiController& ctl,SecondCompletionAck& ack){
     constexpr uint32_t A=0x80010000u,Base=0xcd006400u;
     constexpr uint32_t Load=(32u<<26)|(4u<<21)|(3u<<16)|0x34u;
@@ -453,6 +472,12 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(!sched_join->observe(c,pc,device_ok(c))){
             last_stage=sched_join->stage();last_reason=sched_join->failure();throw WitnessFailure{};
         }
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+        if(pc==PostAckSchedulerJoin::Save){
+            need(coop_save);
+            if(!coop_save->capture(c,device_ok(c)))coop_save_refuse(2);
+        }
+#endif
         return;
     }
     if(sleep_join){
@@ -913,10 +938,18 @@ int main(int argc,char** argv)try{
         std::cout<<"V1252_SLEEP_TRIAL n="<<trial<<" waiting=1 queue=1 pending_ack=1 reply=0\n";
         PostAckSchedulerJoin sched(v1256::edges,v1256::indirect,v1256::resume,v1256::resume_word);
         need(sched.begin(c,sleep,device_ok(c)));sleep_join=nullptr;sched_join=&sched;
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+        CooperativeSaveLane save_lane(v1314::expected(Q::Thread));coop_save=&save_lane;
+#endif
         bool enabled=false;
         try{run_game(c);}catch(const SchedulerStop&){enabled=true;}
         need(enabled&&sched.stage()==7u&&scheduler_count==trial+1u&&host.serviced_steps()==1u&&device_ok(c));
         need(host.exception_pending(c.msr)&&c.pc==v1256::resume&&(c.msr&0x8000u));
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+        if(!save_lane.preserved(c,device_ok(c))||save_lane.visits()!=v1314::words.size())coop_save_refuse(3);
+        ++coop_save_count;coop_save=nullptr;
+        std::cout<<"V1315_SAVE_TRIAL n="<<trial<<" native_save=1 original_return=1 saved_abi=1 gqr=1 idle_preserved=1\n";
+#endif
         std::cout<<"V1256_SCHED_TRIAL n="<<trial<<" saved=1 idle=1 enabled=1 pending_ack=1 irq_entered=0\n";
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
         const auto before_irq=c.inst_count;
@@ -1093,6 +1126,10 @@ int main(int argc,char** argv)try{
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
     }
     need(callbacks==16&&control_writes==8&&stm_entries==8&&open_entries==8);
+#ifdef UNDERCOVER_V1315_COOP_SAVE
+    need(coop_save_count==8u);
+    std::cout<<"V1315_SAVE_NATIVE owner=1 trials=8 native_save=8 original_return=8 saved_abi=8 gqr=8 idle_preserved=8 fallback=0 thread_resumed=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1256_OPEN_POLLS restore=16 backward="<<loop_polls<<"\n";
     std::cout<<"V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0\n";
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
