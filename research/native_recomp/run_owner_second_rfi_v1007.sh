@@ -89,6 +89,23 @@ for mode in nonsplit split; do
     done
   done
   echo "V1007_OWNER_SECOND_RFI mode=$mode native_rfi=4 handler_return=4 callback_return=4 handler_frontier=4 fallback=0 continuous_boot=0"
+  for lane in error-rfi error-rfi-cold; do
+    prior=0; [[ "$lane" != error-rfi-cold ]] || prior=1
+    for trial in {4..7}; do
+      timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
+        grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+        grep -Ex 'V1020_ERROR_(HELPER_RETURN|CALLBACK_ENTRY) prior_absent=[01] profile=[4-7] (original_return=1 shared_time=0 visits=130|original_indirect=1 visits=71) token_preserved=1 saved_fields=38' "$work/run.log" || true
+        grep -Ex 'V1007_EPILOGUE_(FAULT reason=[0-9]+ stage=[0-9]+ visits=[0-9]+|ENTRY_REFUSAL mask=[0-9]+)' "$work/run.log" || true
+        echo "V1020_ERROR_RFI failed=1 prior_absent=$prior profile=$trial";exit 1;
+      }
+      grep -Fx "V1020_ERROR_HELPER_RETURN prior_absent=$prior profile=$trial original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38" "$work/run.log"
+      grep -Fx "V1020_ERROR_CALLBACK_ENTRY prior_absent=$prior profile=$trial original_indirect=1 visits=71 token_preserved=1 saved_fields=38" "$work/run.log"
+      grep -Ex 'V1003_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits=12 token_preserved=1 saved_fields=38 handler_instruction_executed=0' "$work/run.log"
+      grep -Ex 'V1006_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits=21 token_preserved=1 saved_fields=38 dispatcher_instruction_executed=0' "$work/run.log"
+      grep -Ex 'V1007_SECOND_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 synthetic_resume=1 visits=[1-9][0-9]* token_preserved=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0' "$work/run.log"
+    done
+  done
+  echo "V1020_OWNER_ERROR_RFI mode=$mode native_rfi=8 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

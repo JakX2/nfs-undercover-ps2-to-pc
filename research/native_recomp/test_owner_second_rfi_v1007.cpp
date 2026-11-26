@@ -52,6 +52,8 @@ static unsigned seed_kind=0;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static bool callback_route=false,callback_time_route=false,callback_frontier_route=false;
+static bool error_rfi=false,error_cold=false;
+static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
 static bool wireless_route=false,wireless_changed=false;
@@ -355,9 +357,14 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             return;
         }
         if(pc==CallbackCall){
-            need(owner==Handler&&shared_seen&&post_seen&&ack.stage()==4u&&call_route.depth()==0u&&call_route.can_poll()&&
+            need(owner==Handler&&(shared_seen||error_helper_visit)&&post_seen&&ack.stage()==4u&&call_route.depth()==0u&&call_route.can_poll()&&
                  ack.before(c,pc,w,true)&&ack.postack_held()&&call_route.stop_before_indirect(c,pc,w)&&c.ctr==CallbackRoot&&
                  classify_callback_identity(c,pc,w,6,2,CallbackRoot,callback_full,callback_sites)==2u);
+            if(error_rfi){
+                need(error_helper_visit&&!shared_seen&&!time_seen&&ack_visits-error_helper_visit==71u&&callback_route);
+                std::cout<<"V1020_ERROR_CALLBACK_ENTRY prior_absent="<<error_cold<<" profile="<<trial
+                    <<" original_indirect=1 visits=71 token_preserved=1 saved_fields=38"<<std::endl;
+            }
             if(callback_route){need(c.gpr[3]<4u);callback_channel=c.gpr[3];callback_gp=c.gpr;callback_cr=pack_cr(c);need(callback_witness.start_dispatch(c,pc,w,true,true));return;}
             need(argument_probe&&shared_continue);
             std::cout<<std::dec<<"V992_SUCCESS_FRONTIER seed="<<seed_kind<<" profile="<<trial
@@ -453,7 +460,13 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         if(ack.stage()==4u&&!post_seen&&pc>=Handler&&pc<Handler+4u*handler_words.size()&&call_route.depth()==0u){
             need(call_route.returns()>ack_returns&&ack_visits>ack_boundary_visits&&ack.token()==2u&&cause==Other&&bank_mask==Mask);
             std::cout<<std::dec<<"V962_POST_ACK_RETURN original_helper_return=1 saved_fields=38 token_preserved=1 visits="<<ack_visits-ack_boundary_visits<<" handler_instruction_executed=0"<<std::endl;
-            if(shared_route){
+            if(error_rfi){
+                need((trial&4u)&&(held_control&SiController::COM_ERR)&&!shared_seen&&!shared_tick&&ack.postack_held()&&
+                     call_route.entries()==6u&&call_route.returns()==6u&&call_route.msr_writes()==2u&&ack_visits-ack_boundary_visits==130u);
+                error_helper_visit=ack_visits;
+                std::cout<<"V1020_ERROR_HELPER_RETURN prior_absent="<<error_cold<<" profile="<<trial
+                    <<" original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38"<<std::endl;
+            }else if(shared_route){
                 need(shared_seen&&ack.postack_held());
                 std::cout<<std::dec<<"V988_SUCCESS_HELPER_RETURN seed="<<seed_kind<<" profile="<<trial<<" original_helper_return=1 shared_time=1 visits="
                     <<ack_visits-ack_boundary_visits<<" token_preserved=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
@@ -575,7 +588,10 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
+    std::string mode=argv[2];
+    error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";error_cold=mode=="error-rfi-cold";
+    if(error_rfi){need(trial&4u);mode="second-rfi";}
+    need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
     rfi_route=mode=="second-rfi";handler_return_route=mode=="handler-return"||rfi_route;handler_suffix_route=mode=="handler-frontier"||handler_return_route;callback_return_route=mode=="callback-return"||handler_suffix_route;
     wireless_changed=mode=="wireless-changed";wireless_route=wireless_changed||mode=="wireless-unchanged"||callback_return_route;
@@ -605,11 +621,16 @@ int main(int argc,char** argv)try{
     SiController dev(cause);ctl=&dev;
     const std::array<uint8_t,3> response{9,0,0};
     const uint32_t cfg=SiController::TC_MASK|(1u<<16)|(3u<<8)|((trial%4u)<<1);
-    dev.write(SiController::Control,cfg|SiController::TSTART);dev.complete(dev.pending()->token,response);
-    dev.write(SiController::Control,cfg|SiController::TC_INT);need(cause.load()==Other);
+    const uint32_t first_cfg=error_cold?cfg&~6u:cfg;
+    dev.write(SiController::Control,first_cfg|SiController::TSTART);
+    if(error_cold)dev.complete(dev.pending()->token,{},SiController::ERR_NOREP);
+    else dev.complete(dev.pending()->token,response);
+    dev.write(SiController::Control,first_cfg|SiController::TC_INT);need(cause.load()==Other);
+    if(error_cold)dev.write(SiController::Status,SiController::ERR_NOREP<<24u);
     dev.write(SiController::Control,cfg|SiController::TSTART);
     if(trial&4u)dev.complete(dev.pending()->token,{},SiController::ERR_NOREP);else dev.complete(dev.pending()->token,response);
     held_control=dev.read(SiController::Control);held_status=dev.read(SiController::Status);
+    if(error_rfi)need((held_control&SiController::COM_ERR)&&held_status==(SiController::ERR_NOREP<<((3u-trial%4u)*8u))&&dev.read(SiController::Buffer)==(error_cold?0u:0x09000000u));
     for(unsigned i=0;i<32;++i)held_buffer[i]=dev.read(SiController::Buffer+4*i);
     need(held());
     using Port=SiTypeScheduler::Port;
