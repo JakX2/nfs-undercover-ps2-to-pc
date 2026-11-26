@@ -237,6 +237,10 @@ struct SecondSubmitAcked{};
 #ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
 static bool second_scheduler_lane=false;
 static unsigned second_sleep_count=0,second_scheduler_count=0,second_save_count=0;
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+static unsigned second_irq_kind=0,second_ack_irq_count=0,second_ack_vector_count=0,second_ack_dispatch_count=0,second_ack_return_count=0;
+static unsigned second_reply_rfi_count=0,second_reply_vector2_count=0,second_reply_dispatch2_count=0,second_reply_entry2_count=0,second_wake_entry_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -597,13 +601,18 @@ void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 static bool reply_held(nw::CPUContext& c){
     const auto s=B::cold_snapshot();
     using Q=PostAckSchedulerJoin;
+    const unsigned fd=
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+        second_scheduler_lane?OpenTransactionEpoch(second_irq_kind).result_fd():
+#endif
+        0u;
     return epilogue_host&&s&&same_scheduler_ipc_snapshot(*s,reply_mail)&&device_ok(c)&&
         c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
         c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read32(Q::Physical)==(Q::Idle&0x3fffffffu)&&
         c.mmu.read16(Q::Thread+712u)==4u&&c.mmu.read32(Q::Thread+732u)==reply_queue&&
         c.mmu.read32(reply_queue)==Q::Thread&&c.mmu.read32(reply_queue+4u)==Q::Thread&&
         epilogue_host->physical_ram().read32(reply_request)==StmIos::Reply&&
-        epilogue_host->physical_ram().read32(reply_request+4u)==0u&&
+        epilogue_host->physical_ram().read32(reply_request+4u)==fd&&
         epilogue_host->physical_ram().read32(reply_request+8u)==StmIos::Open;
 }
 [[noreturn]]static void epilogue_refuse(unsigned kind){
@@ -813,14 +822,22 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     if(reply_body){
         if(!reply_body->entry(c,pc,device_ok(c)))body_refuse(2);
-        if(reply_body->stage()==2u){++wake_entry_count;throw WakeEntryReached{};}
+        if(reply_body->stage()==2u){
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+            if(second_scheduler_lane)++second_wake_entry_count;else
+#endif
+            ++wake_entry_count;throw WakeEntryReached{};}
         return;
     }
 #endif
 #ifdef UNDERCOVER_V1275_REPLY_ENTRY
     if(reply_entry){
         if(!reply_entry->entry(c,pc,device_ok(c)))reply_entry_refuse(2);
-        if(reply_entry->stage()==2u){++reply_entry_count;throw ReplyProcessorReached{};}
+        if(reply_entry->stage()==2u){
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+            if(second_scheduler_lane)++second_reply_entry2_count;else
+#endif
+            ++reply_entry_count;throw ReplyProcessorReached{};}
         return;
     }
 #endif
@@ -849,6 +866,9 @@ void trace_call(uint32_t pc,CPUContext& c){
         }else{
             if(!ipc_dispatch->observe(c,pc,*s,device_ok(c)))dispatch_refuse(3);
             if(ipc_dispatch->stage()==6u){
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+                if(second_scheduler_lane){if(second_dispatch)++second_reply_dispatch2_count;else ++second_ack_dispatch_count;}else
+#endif
 #ifdef UNDERCOVER_V1275_REPLY_ENTRY
                 if(second_dispatch)++second_dispatch_count;else
 #endif
@@ -867,6 +887,9 @@ void trace_call(uint32_t pc,CPUContext& c){
         }else{
             if(!ipc_vector.entry(c,pc,cause.load(),mask.load(),vector_held(c)))vector_refuse(3);
             if(ipc_vector.stage()==3u){
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+                if(second_scheduler_lane){if(reply_vector)++second_reply_vector2_count;else ++second_ack_vector_count;}else
+#endif
 #ifdef UNDERCOVER_V1271_IPC_RETURN
                 if(reply_vector)++reply_vector_count;else
 #endif
@@ -1083,9 +1106,16 @@ bool process_pending_callbacks(CPUContext& c){
         }
         if(epilogue->stage()==2u){
             if(!epilogue->pending_rfi_return(c,cause.load(),mask.load()))epilogue_refuse(6);
-            if(!enter_scheduler_reply_irq(c,*epilogue_host,irq_capture,reply_capture,v1259::vector,reply_request))
+            if(!enter_scheduler_reply_irq(c,*epilogue_host,irq_capture,reply_capture,v1259::vector,reply_request
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+                ,second_scheduler_lane?second_irq_kind:0u
+#endif
+                ))
                 epilogue_refuse(7);
             if(!reply_held(c)||c.pc!=ExternalVector)epilogue_refuse(7);
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+            if(second_scheduler_lane)++second_reply_rfi_count;else
+#endif
             ++rfi_count;throw ReplyEntered{};
         }
         if(!epilogue->poll(c,cause.load(),mask.load()))epilogue_refuse(5);
@@ -1953,6 +1983,91 @@ int main(int argc,char** argv)try{
             host.exception_pending(c.msr)&&c.pc==v1256::resume&&(c.msr&0x8000u));
         ++second_save_count;coop_save=nullptr;
         std::cout<<"V1368_SCHED_TRIAL n="<<trial<<" saved=1 idle_reused=1 enabled=1 pending_ack=1\n";
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+        second_irq_kind=kind;coop_saved=&save2;
+        const auto irq_tick2=c.inst_count;
+        irq_capture=ExternalReturnWitness{};ipc_vector=SecondVectorWitness(ipc_vector_expected);
+        need(irq_capture.capture(c,cause.load(),mask.load(),H::PI_HOLLYWOOD));
+        vector_mail=host.cold_ipc_snapshot();vector_tick=c.inst_count;
+        const uint32_t req2=second_submission.request()&0x3fffffffu;
+        need(enter_scheduler_ipc_irq(c,host,v1259::vector,req2,kind));
+        need(c.pc==ExternalVector&&c.srr0==v1256::resume&&c.inst_count==irq_tick2&&
+             c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read16(Q::Thread+712u)==4u&&
+             c.mmu.read32(sleep2.queue())==Q::Thread&&c.mmu.read32(sleep2.queue()+4u)==Q::Thread&&
+             host.serviced_steps()==3u&&device_ok(c));
+        ++second_ack_irq_count;
+        vector_active=true;sched_join=nullptr;
+        bool ack_vector2=false;try{run_game(c);}catch(const VectorStop&){ack_vector2=true;}
+        need(ack_vector2&&ipc_vector.stage()==3u&&second_ack_vector_count==trial+1u&&vector_held(c)&&
+             c.pc==v1260::dispatcher&&irq_capture.saved_integer(c,Q::Idle).ok());
+        vector_active=false;
+        IpcDispatchWitness ack_dispatch2({v1261::code,v1261::handler,Q::Idle,Q::Thread,W::Table,W::IrqGlobal,W::Sda+v1261::counter_disp},kind);
+        ipc_dispatch=&ack_dispatch2;dispatch_queue=sleep2.queue();second_dispatch=false;
+        bool ack_handler2=false;try{run_game(c);}catch(const DispatchStop&){ack_handler2=true;}
+        need(ack_handler2&&ack_dispatch2.stage()==6u&&second_ack_dispatch_count==trial+1u&&
+             ack_dispatch2.cause_reads()&&ack_dispatch2.mask_reads()&&c.pc==v1261::handler&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&device_ok(c));
+        ipc_dispatch=nullptr;
+        JoinedIpcAck ack_join2(v1255::handler,v1255::returned,v1266::return_word,v1266::final_blr,
+            Q::Idle,Q::Thread,v1255::edges,v1255::polls,kind);
+        need(ack_join2.begin(c,ack_dispatch2,irq_capture,sleep2.queue(),req2,3u-kind,device_ok(c)));
+        joined_ack=&ack_join2;joined_cpu=&c;
+        bool ack_ret2=false;try{run_game(c);}catch(const AckReturned&){ack_ret2=true;}
+        need(ack_ret2&&ack_join2.stage()==2u&&host.serviced_steps()==3u);
+        if(!ack_join2.publish(c,device_ok(c)))joined_refuse(7);
+        need(ack_join2.stage()==3u&&host.serviced_steps()==4u&&c.pc==v1255::returned&&
+             irq_capture.saved_integer(c,Q::Idle).ok()&&c.mmu.read16(Q::Thread+712u)==4u&&
+             epoch.acknowledged_descriptors(3u-kind)&&host.physical_ram().read32(req2+4u)==1u);
+        ++second_ack_return_count;joined_ack=nullptr;joined_cpu=nullptr;
+        std::cout<<"V1370_ACK_TRIAL n="<<trial<<" original_vector=1 original_dispatch=1 original_ack_return=1 native_reply=1 fd=1\n";
+        LiveEpilogueWitness live2(v1270::expected(Q::Idle));
+        epilogue=&live2;epilogue_host=&host;reply_mail=host.cold_ipc_snapshot();
+        reply_request=req2;reply_queue=sleep2.queue();epilogue_tick=c.inst_count;reply_capture=ExternalReturnWitness{};
+        bool reply_entered2=false;try{run_game(c);}catch(const ReplyEntered&){reply_entered2=true;}
+        need(reply_entered2&&live2.stage()==3u&&second_reply_rfi_count==trial+1u&&irq_capture.stage()==3u&&
+             reply_capture.stage()==1u&&reply_held(c)&&host.serviced_steps()==4u);
+        epilogue=nullptr;epilogue_host=nullptr;
+        irq_capture=reply_capture;ipc_vector=SecondVectorWitness(ipc_vector_expected);
+        vector_mail=host.cold_ipc_snapshot();vector_tick=c.inst_count;reply_vector=true;vector_active=true;
+        bool reply_vec2=false;try{run_game(c);}catch(const VectorStop&){reply_vec2=true;}
+        need(reply_vec2&&ipc_vector.stage()==3u&&second_reply_vector2_count==trial+1u&&
+             vector_held(c)&&c.pc==v1260::dispatcher&&irq_capture.saved_integer(c,Q::Idle).ok()&&host.serviced_steps()==4u);
+        vector_active=false;reply_vector=false;
+        IpcDispatchWitness reply_dispatch2({v1261::code,v1261::handler,Q::Idle,Q::Thread,W::Table,W::IrqGlobal,W::Sda+v1261::counter_disp},kind);
+        need(c.mmu.read32(W::Sda+v1261::counter_disp)==0u);
+        ipc_dispatch=&reply_dispatch2;dispatch_queue=sleep2.queue();second_dispatch=true;
+        bool reply_handler2=false;try{run_game(c);}catch(const DispatchStop&){reply_handler2=true;}
+        need(reply_handler2&&reply_dispatch2.stage()==6u&&reply_dispatch2.reply_mode()&&second_reply_dispatch2_count==trial+1u&&
+             reply_dispatch2.cause_reads()&&reply_dispatch2.mask_reads()&&c.pc==v1261::handler&&device_ok(c)&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot()));
+        ipc_dispatch=nullptr;second_dispatch=false;
+        constexpr uint32_t Read2=0x8051905cu,Reply2=0x805190c0u,Return2=0x80519354u;
+        auto edge2=[](auto e){return e.pc==Reply2&&e.lr==Return2;};
+        need(std::count_if(v1255::edges.begin(),v1255::edges.end(),edge2)==1);
+        JoinedIpcReplyEntry entry2(v1255::handler,Read2,*std::find_if(v1255::edges.begin(),v1255::edges.end(),edge2),
+            Q::Idle,Q::Thread,v1255::edges,v1255::polls);
+        need(entry2.begin(c,reply_dispatch2,irq_capture,sleep2.queue(),req2,device_ok(c)));
+        reply_entry=&entry2;reply_cpu=&c;
+        bool processor2=false;try{run_game(c);}catch(const ReplyProcessorReached&){processor2=true;}
+        need(processor2&&entry2.stage()==2u&&entry2.reads()&&second_reply_entry2_count==trial+1u&&
+             c.pc==Reply2&&c.lr==Return2&&host.serviced_steps()==4u&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&device_ok(c));
+        reply_entry=nullptr;reply_cpu=nullptr;
+        ReplyProcessorWitness body2(v1281::expected(Q::Idle,Q::Thread),kind);
+        reply_body=&body2;body_cpu=&c;
+        if(!body2.begin(c,entry2,irq_capture,sleep2.queue(),req2,device_ok(c)))body_refuse(6);
+        bool wake2=false;try{run_game(c);}catch(const WakeEntryReached&){wake2=true;}
+        const auto consumed2=host.cold_ipc_snapshot();
+        need(wake2&&body2.stage()==2u&&second_wake_entry_count==trial+1u&&body2.arm_reads()&&body2.invalidations()&&
+             c.pc==0x8052a51cu&&c.lr==0x805192d4u&&c.gpr[3]==sleep2.queue()&&
+             !(consumed2.control&(M::X1|M::Y1|M::Y2))&&consumed2.steps==4u&&!consumed2.replies&&
+             consumed2.ppc==req2&&consumed2.arm==req2&&irq_capture.saved_integer(c,Q::Idle).ok()&&
+             c.mmu.read16(Q::Thread+712u)==4u&&c.mmu.read32(sleep2.queue())==Q::Thread&&
+             c.mmu.read32(sleep2.queue()+4u)==Q::Thread&&epoch.acknowledged_descriptors(3u-kind)&&device_ok(c));
+        reply_body=nullptr;body_cpu=nullptr;coop_saved=nullptr;
+        std::cout<<"V1370_REPLY_TRIAL n="<<trial<<" native_rfi=1 original_vector=1 original_dispatch=1 original_processor=1 native_dcbi=1 wake_entry=1 fd=1\n";
+        second_irq_kind=0;
+#endif
         second_scheduler_lane=false;
 #endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
@@ -2031,6 +2146,11 @@ int main(int argc,char** argv)try{
     need(second_submit_count==8u&&second_submit_vectors==8u&&second_submit_returns==8u);
 #ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
     need(second_sleep_count==8u&&second_scheduler_count==8u&&second_save_count==8u);
+#ifdef UNDERCOVER_V1370_SECOND_REPLY
+    need(second_ack_irq_count==8u&&second_ack_vector_count==8u&&second_ack_dispatch_count==8u&&second_ack_return_count==8u&&
+         second_reply_rfi_count==8u&&second_reply_vector2_count==8u&&second_reply_dispatch2_count==8u&&second_reply_entry2_count==8u&&second_wake_entry_count==8u);
+    std::cout<<"V1370_REPLY_NATIVE owner=1 trials=8 ack_irq=8 original_ack_return=8 native_reply=8 native_rfi=8 reply_irq=8 original_processor=8 wake_entry=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1368_SCHED_NATIVE owner=1 trials=8 second_sleep=8 second_save=8 idle_reused=8 ee=8 pending_ack=8 ios_steps=3 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1366_SUBMIT_NATIVE owner=1 trials=8 submitted=8 ack=8 second_fd=8 first_fd_held=8 native_rfi=8 ios_steps=3 second_reply=0 fallback=0 complete_image=0 boot_verified=0\n";
