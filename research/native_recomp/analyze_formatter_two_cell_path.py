@@ -27,7 +27,7 @@ def check_reads(cells,sites,path=None):
         raise ValueError('two cell read order')
     return reads
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     counts,kind,mapped,equal,entry,record,first=second_frontier(d,e,details=True)
     if counts[:4]!=(44,44,9,48) or (kind,mapped,equal)!=('writable',1,1):
         raise ValueError('two cell predecessor')
@@ -35,17 +35,19 @@ def plan(d,e):
     if n!=4 or blob is None or elf_data(e,addr,n)!=blob:
         raise ValueError('two cell identity')
     cells=second_cell(first,addr,blob,protected_ranges(d,e))
-    missed=[]
-    try:path,frame,sites,words,extra=nested(d,e,candidates=cells,read_refusal=lambda *args:missed.append(args))
+    missed=[];entries=[]
+    try:path,frame,sites,words,extra=nested(d,e,candidates=cells,read_refusal=lambda *args:missed.append(args),entry_observer=lambda *args:entries.append(args))
     except ValueError:
-        if len(missed)!=1:raise
+        if len(missed)!=1 or len(entries)!=1:raise
         at,width,path,frame,sites,*_=missed[0]
         if len(path)<=45 or any(overlap(at,width,a,len(b)) for a,b in cells):
             raise ValueError('two cell next boundary')
         check_reads(cells,sites,path)
-        return 'load',path[:-1],frame,sites,0,width,classify_section(e,at,width)
+        result=('load',path[:-1],frame,sites,0,width,classify_section(e,at,width))
+        return (*result,entries[0],missed[0],cells) if details else result
     check_reads(cells,sites,path)
     if frame!=48 or len(path)<46:raise ValueError('two cell next boundary')
+    if details:raise ValueError('two cell expected load')
     return 'call',path,frame,sites,words,0,'none'
 
 def main():

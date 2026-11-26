@@ -24,10 +24,11 @@ def boundary_width(w):
     else:return 0
     return 0 if rt==1 or (update and (not ra or ra==rt or ra==1)) else width
 
-def contract(entry,record,words,blocks,resolve,*,extended=False):
+def contract(entry,record,words,blocks,resolve,*,extended=False,third=False):
     root,initial,parent,caller,readonly=entry
     at,n,path,frame,sites,gp,mem,cr,ctr,lr,saves=record
-    labels,accesses=(45,14) if extended else (36,13)
+    if third and extended:raise ValueError('nested contract geometry')
+    labels,accesses=(75,18) if third else (45,14) if extended else (36,13)
     if len(path)!=labels or path[0]!=root or len(set(path))!=labels or frame!=48 or len(sites)!=accesses or n!=4:
         raise ValueError('nested contract geometry')
     if initial[1][0]!='stack' or gp[1]!=('stack',initial[1][1]-frame) or lr!=('const',caller):
