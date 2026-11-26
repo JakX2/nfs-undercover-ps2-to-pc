@@ -698,7 +698,7 @@ int main(){
         ok=at_ep(Loader);
         if(ep_fault==9){reject_ep(!ok,50);continue;}need(ok);
         c.pc=H;c.msr=c.srr1;
-        if(ep_fault==10)c.gpr[31]^=1u;
+        if(ep_fault==10){if(ch&1u)c.gqr[0]^=1u;else c.gpr[31]^=1u;}
         if(ep_fault==11)tick();
         ok=route.epilogue_poll(c);
         if(ep_fault==10||ep_fault==11){reject_ep(!ok,52);continue;}need(ok);

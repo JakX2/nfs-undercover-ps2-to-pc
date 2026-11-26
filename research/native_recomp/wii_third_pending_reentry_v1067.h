@@ -359,9 +359,7 @@ public:
            !ack_.poll(c.inst_count)||!ack_.postack_held())return fail(52);
         const unsigned before=epilogue_->stage();
         if(before<1u||before>3u||(before==1u&&!epilogue_frame(c))||
-           (before==3u&&c.gqr!=epilogue_gqr_)||
            !epilogue_->poll(c,cause_->load(),mask_->load()))return fail(52);
-        if(before==2u)epilogue_gqr_=c.gqr;
         if(epilogue_->stage()==4u){
             if(next_.captured().stage()!=4u)return fail(52);
             stage_=28u;
@@ -447,7 +445,6 @@ private:
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
     LiveEpilogueWitness* epilogue_=nullptr;
-    std::array<uint32_t,8> epilogue_gqr_{};
     const void* handler_return_=nullptr;
     std::array<uint32_t,32> handler_gp_{};
     uint32_t handler_cr_=0,handler_site_=0,handler_word_=0,dispatcher_site_=0,dispatcher_word_=0;

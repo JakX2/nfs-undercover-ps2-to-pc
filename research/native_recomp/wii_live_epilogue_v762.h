@@ -113,7 +113,9 @@ public:
     }
     template<class C>bool poll(C& c,uint32_t cause,uint32_t mask){
         if(stage_==2||stage_==3){
-            if(pending_return_||!captured_->poll(c,cause,mask))return fail(8);
+            // GQR state must already be correct at the first RFI poll;
+            // a later resume check cannot excuse an earlier bad restore.
+            if(pending_return_||c.gqr!=gqr_||!captured_->poll(c,cause,mask))return fail(8);
             ++stage_;return true;
         }
         if(stage_!=1||!common(c,cause,mask)||!pending_||c.pc!=poll_pc_||c.inst_count!=last_||
