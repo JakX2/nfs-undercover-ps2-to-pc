@@ -356,6 +356,12 @@ static uint64_t third_vector_tick=0;
 static uint32_t third_context=0,third_wait=0;
 static std::array<uint32_t,8> third_thread_tail{};
 static unsigned third_vector_count=0;
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+static IpcDispatchWitness* third_dispatch=nullptr;
+static unsigned third_dispatch_count=0;
+static uint32_t third_request=0;
+[[noreturn]]static void third_dispatch_refuse(unsigned);
+#endif
 static bool third_irq_held(nw::CPUContext&);
 [[noreturn]]static void third_vector_refuse(unsigned);
 #endif
@@ -648,6 +654,14 @@ static bool third_irq_held(nw::CPUContext& c){
         if(c.mmu.read32(third_context+712u+4u*i)!=third_thread_tail[i])return false;
     return true;
 }
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+[[noreturn]]static void third_dispatch_refuse(unsigned kind){
+    std::cout<<"STM_DEFERRED_DISPATCH_REFUSAL kind="<<kind<<" stage="<<(third_dispatch?third_dispatch->stage():0u)
+             <<" reason="<<(third_dispatch?third_dispatch->failure():0u)<<" detail="<<(third_dispatch?third_dispatch->detail():0u)
+             <<" visits="<<(third_dispatch?third_dispatch->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void third_vector_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_VECTOR_REFUSAL kind="<<kind<<" stage="<<(third_vector?third_vector->stage():0u)
              <<" reason="<<(third_vector?third_vector->failure():0u)
@@ -995,6 +1009,14 @@ static void dispatch_refuse(unsigned kind){
     throw WitnessFailure{};
 }
 void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    if(third_dispatch){
+        auto s=B::cold_snapshot();
+        const bool guard=std::find(v1261::guard.begin(),v1261::guard.end(),pc)!=v1261::guard.end();
+        if(!s||!third_dispatch->before(c,pc,w,guard,*s,third_irq_held(c)))third_dispatch_refuse(1);
+        return;
+    }
+#endif
     if(!ipc_dispatch)return; // shared interrupt helpers run earlier
     auto s=B::cold_snapshot();
     const bool guard=std::find(v1261::guard.begin(),v1261::guard.end(),pc)!=v1261::guard.end();
@@ -1190,6 +1212,20 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    if(third_dispatch){
+        auto s=B::cold_snapshot();
+        if(!s)third_dispatch_refuse(2);
+        if(!third_dispatch->stage()){
+            if(!third_dispatch->begin_deferred(c,*third_frame_ptr,*s,third_wait,third_request,*ioctl_event_gate,third_irq_held(c)))
+                third_dispatch_refuse(2);
+        }else{
+            if(!third_dispatch->observe(c,pc,*s,third_irq_held(c)))third_dispatch_refuse(3);
+            if(third_dispatch->stage()==6u){++third_dispatch_count;throw DispatchStop{};}
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_VECTOR
     if(third_vector){
         if(!third_vector->stage()){
@@ -1710,6 +1746,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    if(third_dispatch){
+        auto s=B::cold_snapshot();
+        if(!s)third_dispatch_refuse(4);
+        if(!third_dispatch->stage()){
+            if(c.pc!=v1260::dispatcher||!third_irq_held(c))third_dispatch_refuse(4);
+        }else if(!third_dispatch->poll(c,*s,third_irq_held(c)))third_dispatch_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_VECTOR
     if(third_vector){
         if(!third_vector->stage()){
@@ -2137,6 +2183,16 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    if(third_dispatch){
+        const auto p=a&0x3fffffffu;
+        if(!ioctl_dispatch_cpu||!third_irq_held(*ioctl_dispatch_cpu)||(p!=IosBus::PI_CAUSE&&p!=IosBus::PI_MASK))
+            third_dispatch_refuse(5);
+        B::refresh_pi(a);const auto value=p==IosBus::PI_CAUSE?cause.load():mask.load();
+        if(!third_dispatch->read(a,value)||!third_irq_held(*ioctl_dispatch_cpu))third_dispatch_refuse(5);
+        return value;
+    }
+#endif
 #ifdef UNDERCOVER_IPC_DISPATCH
     if(ioctl_dispatch){
         if(!ioctl_dispatch_cpu||!ioctl_dispatch->read_allowed(*ioctl_dispatch_cpu,a,ioctl_dispatch_held(*ioctl_dispatch_cpu)))
@@ -2242,6 +2298,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    if(third_dispatch)third_dispatch_refuse(6);
+#endif
 #ifdef UNDERCOVER_IPC_DISPATCH
     if(ioctl_dispatch){
         if(!ioctl_dispatch_cpu||!ioctl_dispatch->write_allowed(*ioctl_dispatch_cpu,a,v,ioctl_dispatch_held(*ioctl_dispatch_cpu)))
@@ -3215,6 +3274,20 @@ int main(int argc,char** argv)try{
         if(!vector3||vec3.stage()!=3u||third_vector_count!=trial+1u||!third_irq_held(c)||
            c.pc!=v1260::dispatcher||!third_frame.saved_integer(c,Q::Thread).ok()||host.serviced_steps()!=5u)third_vector_refuse(5);
         std::cout<<"STM_DEFERRED_VECTOR_TRIAL n="<<trial<<" original_vector=1 original_trampoline=1 active_context=1 saved_fields=38 deferred=1 pending_ack=1 dispatcher_executed=0 visits="<<vec3.vector_visits()+vec3.trampoline_visits()<<'\n';
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+        IpcDispatchWitness dispatch3({v1261::code,v1261::handler,Q::Thread,Q::Thread,W::Table,W::IrqGlobal,
+                                     W::Sda+v1261::counter_disp},second_irq_kind);
+        need(c.mmu.read32(W::Sda+v1261::counter_disp)==0u);
+        third_dispatch=&dispatch3;third_request=req3&0x3fffffffu;
+        bool dispatch_done=false;try{run_game(c);}catch(const DispatchStop&){dispatch_done=true;}
+        const auto third_snap=host.cold_ipc_snapshot();
+        if(!dispatch_done||!dispatch3.deferred_mode()||dispatch3.stage()!=6u||
+           third_dispatch_count!=trial+1u||!dispatch3.handler_ready(c,third_frame,third_snap,third_wait,third_irq_held(c))||
+           !dispatch3.cause_reads()||!dispatch3.mask_reads()||c.pc!=v1261::handler||host.serviced_steps()!=5u)third_dispatch_refuse(7);
+        std::cout<<"STM_DEFERRED_DISPATCH_TRIAL n="<<trial<<" original_dispatch=1 handler_index=27 active_context=1 pending_ack=1 deferred=1 handler_executed=0 visits="
+                 <<dispatch3.visits()<<" reads="<<dispatch3.cause_reads()+dispatch3.mask_reads()<<'\n';
+        third_dispatch=nullptr;third_request=0;
+#endif
         third_vector=nullptr;third_frame_ptr=nullptr;third_memory=nullptr;third_context=third_wait=0;
 #endif
 #else
@@ -3426,6 +3499,10 @@ int main(int argc,char** argv)try{
     need(stm_outer_count==8u&&stm_irq_entry_count==8u);
 #ifdef UNDERCOVER_STM_DEFERRED_VECTOR
     need(third_vector_count==8u);
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    need(third_dispatch_count==8u);
+    std::cout<<"STM_DEFERRED_DISPATCH_NATIVE owner=1 trials=8 original_dispatch=8 handler_index=27 active_context=8 pending_ack=8 deferred=8 handler_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_DEFERRED_VECTOR_NATIVE owner=1 trials=8 original_vector=8 original_trampoline=8 active_context=8 saved_fields=38 deferred=8 pending_ack=8 dispatcher_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_DEFERRED_IRQ_NATIVE owner=1 trials=8 original_mtmsr=8 ee=8 entered=8 active_thread=8 pending_ack=8 deferred=8 ios_steps=5 vector_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
