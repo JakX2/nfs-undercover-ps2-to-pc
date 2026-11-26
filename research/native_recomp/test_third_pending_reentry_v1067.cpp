@@ -303,7 +303,7 @@ int main(){
             constexpr uint32_t Handler=SiDispatchWitness::Handler,Indirect=D+16u;
             SiDispatchExpectations ex{};
             constexpr uint32_t Helper=0x80009000u,Save=Helper+0x100u;
-            constexpr uint32_t CallSave=branch(Handler,Save)|1u,Call=branch(Handler+4,Helper)|1u;
+            constexpr uint32_t CallSave=branch(Handler,Save)|1u,AckCall=branch(Handler+4,Helper)|1u;
             ex.dispatcher_word=Nop;ex.handler_word=trial>=388?CallSave:Nop;ex.indirect_pc=Indirect;ex.indirect_word=0x4e800421u;
             for(unsigned i=0;i<4;++i){
                 const uint32_t site=D+0x20u+4u*i,dst=0x80008000u+0x100u*i;
@@ -347,7 +347,7 @@ int main(){
             if(trial<388){++held_disp_valid;continue;}
             // Original-free ACK instruction effects. The actual SI
             // controller and witness perform the guest W1C transaction.
-            c.mmu.words[Handler+4]=Call;c.mmu.words[Handler+8]=Nop;c.mmu.words[Handler+12]=Blr;
+            c.mmu.words[Handler+4]=AckCall;c.mmu.words[Handler+8]=Nop;c.mmu.words[Handler+12]=Blr;
             c.mmu.words[Save]=Blr;c.mmu.words[Helper]=Nop;c.mmu.words[Helper+4]=Load;
             c.mmu.words[Helper+8]=Nop;c.mmu.words[Helper+12]=Store;c.mmu.words[Helper+16]=Nop;c.mmu.words[Helper+20]=Blr;
             const std::array<AckCallSpan,3> spans{{{Handler,Handler+16},{Save,Save+4},{Helper,Helper+24}}};
@@ -372,7 +372,7 @@ int main(){
             c.pc=Save;c.lr=Handler+4;
             ok=ep.entry(c,ha==7?Save+4:Save);
             if(ha==7){refuse_ack(!ok);continue;}need(ok);
-            need(at_ack(Save,Save,Blr)&&at_ack(Handler,Handler+4,Call));
+            need(at_ack(Save,Save,Blr)&&at_ack(Handler,Handler+4,AckCall));
             c.pc=Helper;c.lr=Handler+8;need(ep.entry(c,Helper)&&at_ack(Helper,Helper,Nop));
             c.gpr[3]=Base;need(at_ack(Helper,Helper+4,Load));
             ok=ep.ack_read(ha==8?foreign:ctl,C,value);
