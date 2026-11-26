@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from test_v1051_third_launch import Launch
 
 class AlarmLaunch(unittest.TestCase):
@@ -703,4 +704,20 @@ class ExactSramObserverLaunch(unittest.TestCase):
         self.assertEqual(script.count('"UNDERCOVER_V1224_SRAM_EXPECT=$sram_profile"'),1)
         self.assertEqual(script.count('--profile "$sram_profile"'),1)
         self.assertIn('V1224_SRAM_EXPECT_PLAN selected=wireless-zero exact_dma=1',script)
+class ColdFailureDiagnostic(unittest.TestCase):
+    def test_bounded_summary(self):
+        from cold_launch_diagnostic_v1225 import diagnostic,SRAM,DISC
+        raw=b'\n'.join((DISC, b'V534_SRAM_STAGE n=1',b'V534_SRAM_STAGE n=2',
+                        b'V534_SRAM_INVALID reason=2 stage=2 completed=0',b'private payload 12345678'))
+        self.assertEqual(diagnostic(raw,108,1), 'V1225_COLD_FAILURE rc=108 audit=1 discovery=1 sram=0 sram_stages=2 sram_reason=2 sram_completed=0 dsp=0 mi=0 report=0 arena=0')
+        self.assertNotIn('12345678',diagnostic(raw,108,1))
+        self.assertIn('sram=1',diagnostic(raw+ b'\n'+SRAM,108,1))
+        for extra in (b'V534_SRAM_INVALID reason=2 stage=2 completed=0', b'V534_SRAM_INVALID reason=2 stage=2 completed=999'):
+            self.assertIn('sram_reason=0',diagnostic(raw+b'\n'+extra,108,1))
+        self.assertIn('sram_reason=0',diagnostic(raw,126,1))
+        self.assertIsNone(diagnostic(raw,0,0))
+    def test_geometry(self):
+        from cold_launch_diagnostic_v1225 import diagnostic,MAX_LOG
+        for raw,rc,audit in ((b'x'*(MAX_LOG+1),1,1),(b'',-1,1),(b'',256,1),(b'',1,-1),(b'',1,256)):
+            with self.assertRaises(ValueError):diagnostic(raw,rc,audit)
 if __name__=='__main__':unittest.main()

@@ -387,6 +387,9 @@ rc=0
 ) > "$work/run-private.log" 2>&1 || rc=$?
 audit_rc=0
 python3 "$here/$audit" "$work/run-private.log" "$rc" || audit_rc=$?
+if [[ "$rc" != 0 || "$audit_rc" != 0 ]]; then
+  python3 "$here/cold_launch_diagnostic_v1225.py" "$work/run-private.log" "$rc" "$audit_rc"
+fi
 if [[ "$rc" == 116 ]]; then
   PYTHONPATH="$here" python3 - "$work/run-private.log" <<'PY'
 import sys
