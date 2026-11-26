@@ -29,4 +29,37 @@ class Audit(unittest.TestCase):
             self.assertFalse(a.inspect(prior+b'\n'+R,126)[1])
             self.assertFalse(a.inspect(b'\n'.join((D,H,T,A,R)),0)[1])
             self.assertFalse(a.inspect(prior+b'\n'+R.replace(b'status_reads=0 status_writes=0',b'status_reads=1 status_writes=1'),0)[1])
+
+class PostAlarmAudit(unittest.TestCase):
+    def test_chain(self):
+        import audit_v1101_postalarm as p
+        hand=p.HANDOFF
+        end=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=2 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        transfer=a.third.third.RESULT
+        prior=(D,H,T,A,transfer)
+        def inspect(*rows,rc=0):return p.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,hand,R,end))
+            self.assertTrue(inspect(*prior,hand,R,end.replace(b'suffix_visits=2',b'suffix_visits=256')))
+            for bad in (end.replace(b'suffix_visits=2',b'suffix_visits=0'),
+                        end.replace(b'suffix_visits=2',b'suffix_visits=257'),
+                        end.replace(b'visits=13',b'visits=12'),
+                        end.replace(b'writes=8',b'writes=7'),
+                        end.replace(b'token=3',b'token=2'),
+                        end.replace(b'held=1',b'held=0'),
+                        end.replace(b'saved_fields=38',b'saved_fields=37'),
+                        end.replace(b'continuation_executed=0',b'continuation_executed=1'),
+                        end.replace(b'boot_verified=0',b'boot_verified=1'),
+                        b'V1095_AFTER_ALARM_FAULT route=2 prefix=0 stage=1'):
+                with self.subTest(bad=bad):self.assertFalse(inspect(*prior,hand,R,bad))
+            for rows in ((*prior,R,end),(*prior,R,hand,end),(*prior,hand,end,R),
+                         (*prior,hand,hand,R,end),(*prior,hand,R,end,end),
+                         (*prior,hand,R,b'V1087_ALARM_SEAM kind=1 stage=2 reason=3',end),
+                         (*prior,hand,R,end,b'V958_ACK_INVALID'),
+                         (*prior,hand,R,end,b'V1101_POSTALARM_CENSUS verified=1'),
+                         (*prior[:-1],hand,R,end),(*prior,hand,end),(*prior,hand,R)):
+                with self.subTest(rows=rows[-3:]):self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,hand,R,end,rc=126))
+            self.assertFalse(inspect(*prior,hand,R.replace(b'token=3',b'token=2'),end))
+
 if __name__=='__main__':unittest.main()

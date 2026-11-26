@@ -1,0 +1,3 @@
+# V1101: continuous held-third-token callback audit
+
+Add the terminal census needed for the later opt-in native full-image callback experiment. Require the exact V1054 alarm result, successful V1087 handoff between original third transfer and alarm return, a unique V1095 callback prefix with 13 visits/eight writes, bounded suffix visits (1–256), all 38 saved fields, the same held token and no further continuation or boot claim. Reject reordered/duplicate results, failures and nonzero exit codes. Test using independently specified source-only log fixtures; the old predecessor audit is reused. No full-image build launched and no private installer enabled. V1100 corrected a V1099 test-edit syntax error; integration verification pending.
