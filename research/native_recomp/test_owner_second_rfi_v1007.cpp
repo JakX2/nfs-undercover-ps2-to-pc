@@ -59,6 +59,7 @@ static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
 static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false,third_callback_return=false;
+static bool third_handler_route=false,third_handler_active=false;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -198,22 +199,82 @@ static bool third_callback_held(){
     return third.stage()==2u&&third.token()==3u&&third.follow_stage()==3u&&!third.pending()&&third.held_now()&&
            ctl->issued_tokens()==3u&&cause==(Other|SiController::PI_SI)&&bank_mask==Mask;
 }
+static void third_handler_step(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
+    need(third_handler_route&&third_handler_active&&owner==Handler&&third_callback_held());
+    // Validate the actual native load result and actual device write before
+    // allowing another instruction. No host write to SI or guest registers.
+    if(resumed_status_reg<32u){
+        const auto value=third.suffix_status_value();
+        need(value&&*value==resumed_status_value&&c.gpr[resumed_status_reg]==*value);
+        resumed_status_reg=32u;++resumed_status_reads;
+    }
+    if(resumed_status_pending){
+        need(third.suffix_status_writes()==1u&&ctl->read(SiController::Status)==resumed_expected_status);
+        resumed_status_pending=false;++resumed_status_writes;
+    }
+    const auto row=std::find_if(v868::after6.begin(),v868::after6.end(),[pc](auto x){return x.pc==pc;});
+    need(row!=v868::after6.end());
+    const bool rd=pc==v868::status_read_site,wr=pc==v868::status_write_site;
+    need(resumed_handler.before(c,pc,w,row->ordinal,row->kind,rd,wr)&&resumed_index.before(c,pc,w));
+    if(row->kind){
+        need(row->kind==1u&&(row->ordinal==7u||row->ordinal==8u||row->ordinal==12u)&&
+             resumed_index.stage()==5u&&resumed_status_reads==1u&&resumed_status_writes==1u&&
+             third.suffix_status_reads()==1u&&third.suffix_status_writes()==1u&&third_callback_held());
+        std::cout<<std::dec<<"V1063_THIRD_HANDLER_FRONTIER ordinal="<<row->ordinal<<" branch_taken="<<resumed_index.taken()
+                 <<" visits="<<resumed_handler.visits()<<" stores="<<resumed_handler.writes()
+                 <<" status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
+        // Do not execute unknown calls (including truncated fixture stubs).
+        need(row->ordinal==12u&&pc==HandlerRestoreCall&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+        need(handler_return.start_dispatch(c,pc,w,handler_gp,handler_cr,true));
+        third_handler_active=false;return;
+    }
+    need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+    const auto a=PostAckTransferDevice::word_access(c,w);
+    const uint32_t phys=a.address&0x3fffffffu;
+    if(rd||wr){
+        need(PostAckTransferDevice::offset(a.address)==SiController::Status);
+        if(rd){
+            need(a.kind==PostAckTransferDevice::Access::Read&&!a.store&&third.arm_suffix_status_read(c.inst_count,a.address));
+            resumed_status_reg=(w>>21)&31u;resumed_status_value=ctl->read(SiController::Status);
+        }else{
+            need(a.kind==PostAckTransferDevice::Access::Write&&a.store&&third.arm_suffix_status_write(c.inst_count,a.address,*a.store));
+            resumed_expected_status=ctl->read(SiController::Status)&~*a.store;resumed_status_pending=true;
+        }
+    }else need(!PostAckTransferDevice::offset(a.address)&&
+         !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
+         !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
+}
 static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     need(third_callback_route&&alarm_witness.stage()==4u&&after_alarm_visit&&ack.stage()==5u&&
-         captured.saved_integer(c,Context).ok()&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+         captured.saved_integer(c,Context).ok());
     scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
+    if(third_handler_active){third_handler_step(c,owner,pc,w);return;}
+    need(std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
     const auto a=PostAckTransferDevice::word_access(c,w);
     const uint32_t phys=a.address&0x3fffffffu;
     need(!PostAckTransferDevice::offset(a.address)&&
          !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
          !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
+    if(handler_return.stage()){
+        need(third_handler_route&&handler_return.before(c,pc,w,true));
+        if(handler_return.stage()==5u){
+            need(owner==Dispatcher&&third_callback_held());
+            std::cout<<std::dec<<"V1063_THIRD_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits="
+                     <<handler_return.visits()<<" token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
     if(callback_return.stage()){
         need(third_callback_return&&callback_return.before(c,pc,w,true));
         if(callback_return.stage()==5u){
             need(owner==Handler&&pc==CallbackCall+4u&&third_callback_held());
             std::cout<<std::dec<<"V1060_THIRD_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits="<<callback_return.visits()
                      <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
-            std::_Exit(0);
+            if(!third_handler_route)std::_Exit(0);
+            need(!third.suffix_status_reads()&&!third.suffix_status_writes()&&
+                 resumed_handler.start(c,v868::after6,pc,64u,true)&&resumed_index.start(c,pc));
+            third_handler_active=true;third_handler_step(c,owner,pc,w);
         }
         return;
     }
@@ -306,6 +367,12 @@ static void resumed_step(CPUContext& c,uint32_t pc,uint32_t w){
 }
 namespace rfi_test {
 void handler_resume(CPUContext& c,uint32_t pc,uint32_t w){
+    if(third_handler_route){
+        need(handler_return.stage()==4u&&captured.saved_integer(c,Context).ok());
+        scheduler->advance(c.inst_count);
+        need(observe_completed_callback_dispatch(third,c.inst_count)&&third_callback_held()&&handler_return.dispatch_resume(c,pc,w,true));
+        return;
+    }
     need(handler_return.stage()==4u&&captured.saved_integer(c,Context).ok()&&ack.accept_dispatch_tick(c)&&
          ack.postack_held()&&handler_return.dispatch_resume(c,pc,w,true));
 }
@@ -659,6 +726,10 @@ bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_callback_route&&callback_witness.stage()){
         need(captured.saved_integer(c,Context).ok());
+        if(handler_return.stage()){
+            need(third_handler_route&&third_callback_held()&&handler_return.entry(c,pc,true));return;
+        }
+        need(!third_handler_active);
         if(callback_return.stage()){
             need(third_callback_return&&third_callback_held()&&callback_return.entry(c,pc,true));return;
         }
@@ -729,6 +800,10 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
     if(third_callback_route&&callback_witness.stage()){
         need(captured.saved_integer(c,Context).ok()&&third_callback_held());
+        if(handler_return.stage()){
+            need(third_handler_route&&handler_return.dispatch_poll(c,true));return false;
+        }
+        need(!third_handler_active);
         if(callback_return.stage()){
             need(third_callback_return&&callback_return.dispatch_poll(c,true));return false;
         }
@@ -787,11 +862,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_callback_return=tail=="-return";break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_handler_route=tail=="-handler";third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
