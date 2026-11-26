@@ -1,6 +1,7 @@
 #include "wii_si_binding_v512.h"
 #include "wii_si_type_scheduler_v514.h"
 #include "wii_third_si_transfer_v1028.h"
+#include "wii_third_alarm_suffix_v1047.h"
 #include <iostream>
 #include <map>
 #include <source_location>
@@ -25,7 +26,8 @@ struct Mmu{
 struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint64_t inst_count=100;
     uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=Resume,srr1=0x8032u;
-    bool is_running=true,in_callback=false;
+    bool is_running=true,in_callback=false,dec_irq_pending=true;
+    uint32_t dec_value=300;uint64_t dec_written_tb=50;
 };
 static void need(bool b,const std::source_location loc=std::source_location::current()){
     if(!b){std::cerr<<"V997_ASSERT line="<<loc.line()<<std::endl;std::_Exit(125);}
@@ -262,6 +264,45 @@ int main(int argc,char** argv){
             }
             need(at(H+24,Nop)&&route.stage()==2u&&route.entries()==4u&&route.returns()==4u&&
                  route.visits()==21u&&third.held_now()&&third.token()==3u&&third.follow_stage()==3u&&scheduler.completed()==3u);
+            if(mode.starts_with("error-third-native-alarm")){
+                constexpr uint32_t A=H+0xb00u,D=H+0xc00u,Q=H+0xd00u,Head=0x8000e000u,Tail=Head+4,Node=Head+0x100u;
+                constexpr uint32_t Rd=0x80830038u,Wr=0x90830038u,Site=H+36;
+                c.mmu.words[H+28]=Rd;c.mmu.words[H+32]=Wr;c.mmu.words[Site]=bl(Site,A);c.mmu.words[Site+4]=Nop;
+                c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Blr;
+                c.mmu.words[D]=Mtmsr;c.mmu.words[D+4]=Blr;c.mmu.words[Q]=Mtmsr;c.mmu.words[Q+4]=Blr;
+                c.mmu.words[Head]=c.mmu.words[Tail]=0;for(unsigned i=0;i<10;++i)c.mmu.words[Node+4*i]=0;
+                AlarmCancelExpectation expectation{};expectation.site=Site;expectation.branch=bl(Site,A);
+                expectation.root=A;expectation.end=A+16;expectation.head=Head;expectation.tail=Tail;
+                expectation.root_calls[0]={A,D,D+8,bl(A,D)};expectation.root_calls[1]={A+8,Q,Q+8,bl(A+8,Q)};
+                const std::array<HandlerSuffixLabel,4> rows{{{H+24,Nop,0,0},{H+28,Rd,0,0},{H+32,Wr,0,0},{Site,bl(Site,A),5,1}}};
+                ThirdAlarmSuffixRoute alarm(expectation);
+                need(alarm.start(c,H+24,rows,third)&&alarm.before(c,H+24,Nop,third));
+                auto alarm_at=[&](uint32_t pc,uint32_t w){scheduler.advance(++tick);c.pc=pc;return alarm.before(c,pc,w,third);};
+                auto refused=[&](bool bad){
+                    need(bad&&alarm.failure()&&ctl.issued_tokens()==3u);
+                    std::cout<<"V1047_THIRD_ALARM refused=1 original_execution=0"<<std::endl;return 0;
+                };
+                c.gpr[3]=Base;
+                if(mode=="error-third-native-alarm-srr"){c.srr0^=4u;return refused(!alarm_at(H+28,Rd));}
+                if(mode=="error-third-native-alarm-skip")return refused(!alarm_at(H+32,Wr));
+                need(alarm_at(H+28,Rd));
+                if(mode=="error-third-native-alarm-missing")return refused(!alarm_at(H+32,Wr));
+                auto status_read=SiBinding::read32(Base+S);need(status_read.has_value());c.gpr[4]=*status_read;
+                if(mode=="error-third-native-alarm-value"){c.gpr[4]^=1u;return refused(!alarm_at(H+32,Wr));}
+                need(alarm_at(H+32,Wr)&&SiBinding::write32(Base+S,c.gpr[4]));
+                c.gpr[3]=Node;need(alarm_at(Site,bl(Site,A))&&alarm.stage()==2u);
+                c.pc=A;c.lr=Site+4;need(alarm.entry(c,A,third));
+                need(alarm_at(A,bl(A,D)));c.pc=D;c.lr=A+4;need(alarm.entry(c,D,third));
+                c.gpr[3]=c.msr;need(alarm_at(D,Mtmsr));c.gpr[3]=0;need(alarm_at(D+4,Blr));
+                need(alarm_at(A+4,Nop)&&alarm_at(A+8,bl(A+8,Q)));
+                c.pc=Q;c.lr=A+12;need(alarm.entry(c,Q,third));
+                c.gpr[3]=c.msr;need(alarm_at(Q,Mtmsr));c.gpr[3]=0;need(alarm_at(Q+4,Blr));
+                c.lr=Site+4;need(alarm_at(A+12,Blr));
+                if(mode=="error-third-native-alarm-queue"){c.mmu.words[Head]=Node;return refused(!alarm_at(Site+4,Nop));}
+                need(alarm_at(Site+4,Nop)&&alarm.stage()==3u&&alarm.alarm().total()==8u&&
+                     alarm.alarm().calls()==3u&&third.held_now()&&third.suffix_status_reads()==1u&&third.suffix_status_writes()==1u&&cause==(Other|SI));
+                std::cout<<"V1047_THIRD_ALARM verified=1 token=3 status_reads=1 status_writes=1 alarm_return=1 original_execution=0"<<std::endl;return 0;
+            }
             std::cout<<"V1030_NATIVE_ROUTE verified=1 entries=4 returns=4 visits=21 token=3 original_execution=0"<<std::endl;
             return 0;
         }
