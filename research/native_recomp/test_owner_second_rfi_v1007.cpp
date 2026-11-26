@@ -407,7 +407,13 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(epilogue.stage()){
         if(third_pending_rfi){
-            need(epilogue.stage()==1u&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+            const auto loader=std::find_if(EpilogueRoots.begin(),EpilogueRoots.end(),[](const auto& x){return x.root==SecondEpilogueExpected.loader;});
+            // The private fixture marks the genuine terminal RFI as a
+            // guard as well as the unsupported scheduler-switch edge.
+            // Admit only the authenticated loader's last word here.
+            const bool native_rfi=loader!=EpilogueRoots.end()&&!loader->words.empty()&&
+                owner==loader->root&&pc==loader->root+4u*(loader->words.size()-1u)&&w==0x4c000064u&&loader->words.back()==w;
+            need(epilogue.stage()==1u&&(std::find(Guard.begin(),Guard.end(),pc)==Guard.end()||native_rfi));
             scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
             third_epilogue_step(c,pc,w);return;
         }

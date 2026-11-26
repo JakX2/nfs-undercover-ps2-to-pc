@@ -118,6 +118,8 @@ for mode in nonsplit split; do
         grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
         grep -Ex 'V1022_ERROR_TRANSFER_ENTRY prior_absent=[01] profile=[4-7] original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38' "$work/run.log" || true
         grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log" || true
+        grep -Ex 'V1063_THIRD_HANDLER_FRONTIER ordinal=[0-9]{1,2} branch_taken=[01] visits=[0-9]{1,3} stores=[0-8] status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log" || true
+        grep -Ex 'V1064_THIRD_EPILOGUE_(FAULT reason=[0-9]{1,2} stage=[0-3] visits=[0-9]{1,3}|ENTRY_REFUSAL mask=[0-9]{1,3})' "$work/run.log" || true
         echo "V1022_ERROR_QUEUE failed=1 prior_absent=$prior profile=$trial";exit 1;
       }
       grep -Fx "V1020_ERROR_HELPER_RETURN prior_absent=$prior profile=$trial original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38" "$work/run.log"
