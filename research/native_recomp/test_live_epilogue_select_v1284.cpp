@@ -21,14 +21,14 @@ struct Cpu{
         srr0=0,srr1=0,dispatch_saved_ctx=0;
     uint64_t inst_count=100u;bool is_running=true,in_callback=false;
 };
-static void trial(uint32_t source,unsigned fault){
+static void trial(uint32_t source,unsigned fault,bool cleared=false){
     Cpu c;auto& m=c.mmu.words;ExternalReturnWitness frame;
     for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u+3u;
     c.gpr[13]=Sda;c.gqr[3]=0x00040004u;c.cr[0].eq=true;
     const auto gp=c.gpr;const auto gq=c.gqr;const auto cr=c.cr;
     const auto lr=c.lr,msr=c.msr,ctr=c.ctr,xer=c.xer;
-    const uint32_t cause=Other|source,mask=source;
-    assert(frame.capture(c,cause,mask,source));
+    const uint32_t cause=cleared?Other:Other|source,mask=source;
+    assert(frame.capture(c,Other|source,mask,source));
     for(unsigned i=0;i<32;++i)m[Context+4u*i]=gp[i];
     m[Context+128u]=0x20000000u;m[Context+132u]=lr;m[Context+136u]=ctr;m[Context+140u]=xer;
     m[Context+408u]=Resume;m[Context+412u]=msr;m[Context+0x1a0u]=2u;
@@ -41,7 +41,8 @@ static void trial(uint32_t source,unsigned fault){
     LiveEpilogueWitness w({J,E,S,D,R,L,G,Context,-8,-4,30,255,Get,G+4u,S});
     if(fault==1)m[Context+124u]^=1;
     if(fault==2)m[Counter]=0;
-    const bool begun=w.begin_pending(c,frame,fault==3?Other:cause,mask);
+    const bool begun=cleared?w.begin_cleared_select(c,frame,fault==3?(Other|source):cause,mask):
+        w.begin_pending(c,frame,fault==3?Other:cause,mask);
     if(fault>=1&&fault<=3){assert(!begun&&w.failure()==1u);return;}
     assert(begun);
     auto step=[&](uint32_t pc){c.pc=pc;++c.inst_count;return w.before(c,pc,m.at(pc),cause,mask);};
@@ -79,13 +80,21 @@ static void trial(uint32_t source,unsigned fault){
     c.pc=Resume;c.msr=msr;
     if(fault==9)++c.inst_count;
     if(fault==10)c.gqr[3]^=1u;
-    ok=w.pending_rfi_return(c,cause,mask);
+    ok=cleared?w.poll(c,cause,mask):w.pending_rfi_return(c,cause,mask);
     if(fault==9||fault==10){assert(!ok&&w.failure()==8u);return;}
-    assert(ok&&w.stage()==3u&&frame.pending_restored(c,cause,mask));
+    assert(ok&&w.stage()==3u);
+    if(cleared){
+        if(fault==15)++c.inst_count;
+        ok=w.poll(c,cause,mask);
+        if(fault==15){assert(!ok&&w.failure()==8u);return;}
+        assert(ok&&w.stage()==4u&&frame.stage()==4u);
+    }else assert(frame.pending_restored(c,cause,mask));
 }
 int main(){
     for(uint32_t source:{8u,HollywoodIrq::PI_HOLLYWOOD}){
         for(unsigned fault=0;fault<=14;++fault)trial(source,fault);
     }
     std::cout<<"V1284_SELECT_EPILOGUE synthetic=1 valid=2 refused=28 tail=1 getter=1 outer_ticks=2 original_rfi=0\n";
+    for(unsigned fault=0;fault<=15;++fault)trial(HollywoodIrq::PI_HOLLYWOOD,fault,true);
+    std::cout<<"V1303_CLEARED_SELECT synthetic=1 valid=1 refused=15 same_idle_rfi=1 original_execution=0\n";
 }

@@ -20,27 +20,35 @@ public:
     unsigned entry_refusal()const{return refusal_;}
     unsigned select_state()const{return select_state_;}
     template<class C>bool begin(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
-        return begin_impl(c,captured,cause,mask,false);
+        return begin_impl(c,captured,cause,mask,false,false);
     }
     template<class C>bool begin_pending(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
-        return begin_impl(c,captured,cause,mask,true);
+        return begin_impl(c,captured,cause,mask,true,false);
+    }
+    // Explicit opt-in for the cleared second IRQ: SelectThread may
+    // legitimately return to the interrupted idle context while a thread
+    // is READY. The caller must separately authenticate that ready queue.
+    template<class C>bool begin_cleared_select(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
+        return begin_impl(c,captured,cause,mask,false,true);
     }
     template<class C>bool pending_rfi_return(C& c,uint32_t cause,uint32_t mask){
         if(stage_!=2u||!pending_return_||!captured_||c.gqr!=gqr_||!captured_->pending_rfi_return(c,cause,mask))return fail(8);
         stage_=3;return true;
     }
 private:
-    template<class C>bool begin_impl(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask,bool pending){
+    template<class C>bool begin_impl(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask,bool pending,bool cleared_select){
         refusal_=0;
         if(stage_||error_||captured.stage()!=1)refusal_|=1u;
         if(!safe(c)||!c.inst_count||c.pc!=e_.dispatcher)refusal_|=2u;
         if(e_.context_reg<14||e_.context_reg>31||c.gpr[e_.context_reg]!=e_.context)refusal_|=4u;
         if(!captured.saved_integer(c,e_.context).ok())refusal_|=8u;
         const uint32_t source=pending?captured.source():0u;
-        if((cause&mask)!=source||(pending&&(!source||!captured.pending_source(c,cause,mask))))refusal_|=16u;
+        if((cause&mask)!=source||(pending&&(!source||!captured.pending_source(c,cause,mask)))||
+           (cleared_select&&(!captured.source()||!(mask&captured.source())||(cause&captured.source()))))refusal_|=16u;
         if(!e_.gqr_mask||e_.gqr_mask>255u)refusal_|=32u;
         if((e_.switch_getter||e_.switch_getter_return||e_.switch_tail)&&
-           (!e_.switch_getter||!e_.switch_getter_return||!e_.switch_tail||!e_.switch_target||!pending))refusal_|=32u;
+           (!e_.switch_getter||!e_.switch_getter_return||!e_.switch_tail||!e_.switch_target||(!pending&&!cleared_select)))refusal_|=32u;
+        if(cleared_select&&(!e_.switch_getter||!e_.switch_getter_return||!e_.switch_tail||!e_.switch_target))refusal_|=32u;
         if(refusal_)return fail(1);
         const int64_t counter=int64_t(c.gpr[13])+e_.counter_disp,hint=int64_t(c.gpr[13])+e_.hint_disp;
         if(counter<0x80000000ll||counter>0x817ffffcll||hint<0x80000000ll||hint>0x817ffffcll||
