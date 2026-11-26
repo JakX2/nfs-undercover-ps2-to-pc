@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_joined_ipc_reply_entry_v1273.h"
 #include "wii_cold_reply_consume_v1278.h"
+#include "wii_word_mmio_v1294.h"
 #include <algorithm>
 #include <span>
 
@@ -23,6 +24,9 @@ public:
     unsigned gate_failure()const{return gate_.failure();}
     unsigned arm_reads()const{return gate_.arm_reads();}
     unsigned invalidations()const{return gate_.invalidations();}
+    unsigned mmio_reason()const{return mmio_reason_;}
+    unsigned mmio_owner()const{return last_owner_==e_.processor?1u:last_owner_==e_.read_leaf?2u:last_owner_==e_.write_leaf?3u:last_owner_==e_.cache?4u:0u;}
+    unsigned mmio_form()const{return mmio_.form;}
     template<class C>bool begin(C& c,const JoinedIpcReplyEntry& entry,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t request,bool held){
         if(stage_||error_||!entry.processor_ready(c,frame,queue,request,e_.processor,held)||
@@ -70,6 +74,7 @@ public:
             cache_return_=false;
         }
         last_=c.inst_count;last_pc_=pc;last_word_=w;next_=pc+4u;
+        last_owner_=active_;mmio_=WordMmioInstruction::decode(c,w);mmio_used_=false;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         if(op==31u&&xo==470u){
             if(active_!=e_.cache)return fail(4);
@@ -106,15 +111,13 @@ public:
         return fail(7);
     }
     template<class C>std::optional<uint32_t> read(C& c,uint32_t a,bool held){
-        const unsigned op=last_word_>>26,xo=(last_word_>>1)&1023u;
-        if(!common(c,held)||active_!=e_.read_leaf||c.inst_count!=last_||
-           !(op==32u||(op==31u&&xo==23u))){fail(8);return {};}
-        auto v=gate_.read(a,c.msr,true);if(!v)fail(8);return v;
+        if(!authorize(c,a,WordMmioInstruction::Kind::Read,held))return {};
+        auto v=gate_.read(a,c.msr,true);if(!v)mmio_fail(8);return v;
     }
     template<class C>bool write(C& c,uint32_t a,uint32_t v,bool held){
-        const unsigned op=last_word_>>26,xo=(last_word_>>1)&1023u;
-        return (common(c,held)&&active_==e_.write_leaf&&c.inst_count==last_&&
-                (op==36u||(op==31u&&xo==151u))&&gate_.write(a,v,c.msr,true))||fail(8);
+        if(!authorize(c,a,WordMmioInstruction::Kind::Write,held))return false;
+        if(v!=mmio_.value)return mmio_fail(6);
+        return gate_.write(a,v,c.msr,true)||mmio_fail(8);
     }
     template<class C>bool wake_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,uint32_t wake,bool held)const{
         return stage_==2u&&live(c,held)&&frame_==&frame&&queue_==queue&&wake==e_.wake&&
@@ -139,6 +142,18 @@ private:
     uint64_t tick_=0,last_=0;
     unsigned stage_=0,error_=0,visits_=0;
     bool entered_=false,entry_due_=false,poll_due_=false,dcbi_due_=false,cache_return_=false;
+    WordMmioInstruction mmio_{};uint32_t last_owner_=0;unsigned mmio_reason_=0;bool mmio_used_=false;
+    bool mmio_fail(unsigned n){if(!mmio_reason_)mmio_reason_=n;return fail(8);}
+    template<class C>bool authorize(C& c,uint32_t a,WordMmioInstruction::Kind kind,bool held){
+        if(!common(c,held))return mmio_fail(1);
+        if(c.inst_count!=last_)return mmio_fail(2);
+        const uint32_t leaf=kind==WordMmioInstruction::Kind::Read?e_.read_leaf:e_.write_leaf;
+        if(last_owner_!=leaf&&last_owner_!=e_.processor)return mmio_fail(3);
+        if(mmio_.kind!=kind||!known(c,last_owner_,last_pc_,last_word_))return mmio_fail(4);
+        if(!mmio_.address(a))return mmio_fail(5);
+        if(mmio_used_)return mmio_fail(7);
+        mmio_used_=true;return true;
+    }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool word(C& c,uint32_t a,uint32_t w){
         return !(a&3u)&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+3u)&&c.mmu.read32(a)==w;

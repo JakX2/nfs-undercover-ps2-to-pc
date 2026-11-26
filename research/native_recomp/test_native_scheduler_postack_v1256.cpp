@@ -215,6 +215,8 @@ void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
         <<" reason="<<reply_body->failure()<<" gate="<<reply_body->gate_failure()
         <<" visits="<<reply_body->visits()<<" reads="<<reply_body->arm_reads()
         <<" invalidations="<<reply_body->invalidations()<<'\n';
+    std::cout<<"V1294_MMIO_REFUSAL reason="<<reply_body->mmio_reason()<<" owner="<<reply_body->mmio_owner()
+             <<" form="<<reply_body->mmio_form()<<'\n';
     throw WitnessFailure{};
 }
 void v1281_before(nw::CPUContext& c,uint32_t pc,uint32_t w){

@@ -241,12 +241,15 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(processor_case==3){reject(step(Reply+4u),5);return;}
         assert(step(Reply)&&step(Reply+4u));
         if(processor_case==4){reject(call(Leaf,Reply+12u),2);return;}
+        c.gpr[4]=Bus::IPC+M::PPCCTRL;
         assert(call(Leaf,Reply+8u)&&step(Leaf));
         if(processor_case==5){assert(!body.read(c,Bus::IPC+M::PPCMSG,true));reject(false,8);return;}
         const auto control=body.read(c,Bus::IPC+M::PPCCTRL,true);assert(control);
+        c.gpr[3]=*control;c.gpr[4]=Bus::IPC+M::PPCCTRL;
         assert(step(Leaf+4u)&&step(Reply+8u)&&call(Writer,Reply+12u)&&step(Writer));
         if(processor_case==6){reject(body.write(c,Bus::IPC+M::PPCCTRL,*control|M::X1,true),8);return;}
         assert(body.write(c,Bus::IPC+M::PPCCTRL,*control,true)&&step(Writer+4u));
+        c.gpr[4]=Bus::IPC+M::ARMMSG;
         assert(step(Reply+12u)&&call(Leaf,Reply+16u)&&step(Leaf));
         assert(body.read(c,Bus::IPC+M::ARMMSG,true)==Request);
         assert(step(Leaf+4u)&&step(Reply+16u));
