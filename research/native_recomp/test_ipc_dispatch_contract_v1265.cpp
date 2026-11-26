@@ -393,7 +393,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             ok=ret.poll(c,true);if(return_case==3){no(ok,6);return;}assert(ok);
             auto rs=[&](uint32_t pc){c.pc=pc;++c.inst_count;return ret.before(c,pc,m.read32(pc),true);};
             if(return_case!=4)++c.inst_count;
-            ok=rs(P);if(return_case==4){no(ok,3);return;}assert(ok);
+            ok=rs(P);if(return_case==4){no(ok,3);assert(ret.instruction_detail()==6u&&ret.instruction_ticks()==1u);return;}assert(ok);
             c.lr=P+4u;c.pc=Writer;
             if(return_case==5)c.lr+=4u;
             ok=ret.entry(c,Writer,true);if(return_case==5){no(ok,2);return;}assert(ok);

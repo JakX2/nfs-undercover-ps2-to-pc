@@ -262,6 +262,9 @@ void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     std::cout<<"V1300_RETURN_REFUSAL kind="<<kind<<" stage="<<reply_return->stage()
              <<" reason="<<reply_return->failure()<<" gate="<<reply_return->gate_failure()
              <<" visits="<<reply_return->visits()<<'\n';
+    if(reply_return->failure()==3u)std::cout<<"V1318_RETURN_INSTRUCTION detail="<<reply_return->instruction_detail()
+        <<" boundary="<<reply_return->instruction_boundary()<<" owner="<<reply_return->instruction_owner()
+        <<" ticks="<<reply_return->instruction_ticks()<<'\n';
     if(reply_return->failure()==4u)std::cout<<"V1313_RETURN_CONTROL detail="<<reply_return->control_detail()
         <<" target="<<reply_return->control_target()<<" owner="<<reply_return->control_owner()
         <<" x2="<<reply_return->x2_writes()<<'\n';

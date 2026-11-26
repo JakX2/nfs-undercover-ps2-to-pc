@@ -38,6 +38,10 @@ public:
     unsigned x2_writes()const{return gate_.x2_writes();}
     unsigned helper_returns()const{return helper_returned_?1u:0u;}
     unsigned control_detail()const{return control_detail_;}
+    unsigned instruction_detail()const{return instruction_detail_;}
+    unsigned instruction_boundary()const{return instruction_boundary_;}
+    unsigned instruction_owner()const{return instruction_owner_;}
+    unsigned instruction_ticks()const{return instruction_ticks_;}
     unsigned control_target()const{return control_target_;}
     unsigned control_owner()const{return owner_class(last_owner_);}
     unsigned write_detail()const{return gate_.write_detail();}
@@ -69,9 +73,20 @@ public:
         return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
-        if(!common(c,held)||entry_due_||outer_due_||poll_due_||pc!=next_||
-           c.inst_count-last_!=(outer_resume_?2u:1u)||!known(c,active_,pc,w)||++visits_>4096u)return fail(3);
-        if(outer_resume_){if(c.pc!=pc)return fail(3);outer_resume_=false;}
+        instruction_owner_=owner_class(active_);
+        instruction_ticks_=c.inst_count>=last_&&c.inst_count-last_<=8u?unsigned(c.inst_count-last_):9u;
+        if(!common(c,held)){
+            instruction_boundary_=!held?1u:stage_!=1u||error_?2u:!gate_.boundary(c,held)?gate_.boundary_class(c,held)+3u:3u;
+            return instruction_fail(1);
+        }
+        if(entry_due_)return instruction_fail(2);
+        if(outer_due_)return instruction_fail(3);
+        if(poll_due_)return instruction_fail(4);
+        if(pc!=next_)return instruction_fail(5);
+        if(c.inst_count-last_!=(outer_resume_?2u:1u))return instruction_fail(6);
+        if(!known(c,active_,pc,w))return instruction_fail(7);
+        if(++visits_>4096u)return instruction_fail(8);
+        if(outer_resume_){if(c.pc!=pc)return instruction_fail(9);outer_resume_=false;}
         if(mmio_window()&&(!used_||!mmio_.completed(c,read_value_)))return fail(7);
         last_=c.inst_count;last_pc_=pc;last_owner_=active_;next_=pc+4u;
         mmio_=WordMmioInstruction::decode(c,w);used_=false;read_value_=0;
@@ -148,7 +163,8 @@ private:
     WordMmioInstruction mmio_{};uint32_t counter_=0,active_=0,caller_=0,next_=0,ret_=0,last_pc_=0,last_owner_=0,read_value_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,outer_due_=0;
     bool entry_due_=false,poll_due_=false,outer_resume_=false,processor_returned_=false,used_=false,helper_returned_=false;
-    unsigned control_detail_=0,control_target_=0;
+    unsigned control_detail_=0,control_target_=0,instruction_detail_=0,instruction_boundary_=0,instruction_owner_=0,instruction_ticks_=0;
+    bool instruction_fail(unsigned d){if(!instruction_detail_)instruction_detail_=d;return fail(3);}
     unsigned owner_class(uint32_t a)const{
         return a==e_.processor?1u:a==e_.handler?2u:a==e_.read_leaf?3u:a==e_.write_leaf?4u:(e_.helper&&a==e_.helper)?5u:0u;
     }

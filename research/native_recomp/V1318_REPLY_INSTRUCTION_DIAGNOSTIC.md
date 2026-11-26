@@ -1,0 +1,3 @@
+# V1318: classify original helper instruction rejection
+
+V1316 run 45813903016 authenticated all 31 original helper labels and 296 reply-route labels. The native run accepted the direct helper entry and advanced to visit 18 before reason=3, gate=0. The earlier hook-overlap hypothesis is not established: existing installers do not appear to own this helper. Separate actual instruction failures into device/ready/wire boundary class, pending entry/outer/poll, next-PC, tick, authenticated word, visit cap and outer PC categories. Report only bounded numeric categories, not private words or addresses. Preserve all existing behavior; strengthen a regression assertion. Retry the pinned owner route. No claim of helper or handler return.

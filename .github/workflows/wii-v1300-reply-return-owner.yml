@@ -9,6 +9,7 @@ on:
       - 'research/native_recomp/V1308_REPLY_X2.md'
       - 'research/native_recomp/V1313_REPLY_CONTROL.md'
       - 'research/native_recomp/V1316_REPLY_HELPER.md'
+      - 'research/native_recomp/V1318_REPLY_INSTRUCTION_DIAGNOSTIC.md'
       - '.github/workflows/wii-v1300-reply-return-owner.yml'
 permissions:
   contents: read

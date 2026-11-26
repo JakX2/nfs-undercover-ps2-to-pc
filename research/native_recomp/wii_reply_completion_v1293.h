@@ -34,14 +34,17 @@ public:
         cpu_=&c;ready_=&ready;mail_=*s;request_=request;tick_=c.inst_count;
         stage_=pending?1u:2u;return true;
     }
-    template<class C>bool boundary(C& c,bool authorized)const{
+    template<class C>unsigned boundary_class(C& c,bool authorized)const{
+        if(!authorized||!stage_||stage_>3u||error_||cpu_!=&c||!ready_)return 1u;
+        if(!ready_->ready_context_held(c,true))return 2u;
         auto s=B::cold_snapshot();
-        if(!authorized||!stage_||stage_>3u||error_||cpu_!=&c||!ready_||
-           !ready_->ready_context_held(c,true)||!s||!same_scheduler_ipc_snapshot(*s,mail_)||
-           c.inst_count<tick_||c.inst_count-tick_>2048u)return false;
-        for(unsigned i=0;i<words_.size();++i)if(B::read_physical_word(request_+4u*i)!=words_[i])return false;
-        return true;
+        if(!s)return 3u;
+        if(!same_scheduler_ipc_snapshot(*s,mail_))return 4u;
+        if(c.inst_count<tick_||c.inst_count-tick_>2048u)return 5u;
+        for(unsigned i=0;i<words_.size();++i)if(B::read_physical_word(request_+4u*i)!=words_[i])return 6u;
+        return 0u;
     }
+    template<class C>bool boundary(C& c,bool authorized)const{return boundary_class(c,authorized)==0u;}
     template<class C>std::optional<uint32_t> read(C& c,uint32_t address,bool authorized){
         if(!boundary(c,authorized)||bad_alias(address)||reads_>=64u){fail(2);return {};}
         const auto p=address&0x3fffffffu;uint32_t want=0;
