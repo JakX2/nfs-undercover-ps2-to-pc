@@ -1588,7 +1588,7 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
-    if(async_wrapper)async_wrapper_refuse(5);
+    if(async_wrapper){if(!async_wrapper->poll(c,async_held(c),ioctl_prefix->caller_abi(c)))async_wrapper_refuse(5);return false;}
 #endif
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
     if(async_return){if(!async_return->poll(c,async_held(c)))async_refuse(5);return false;}
@@ -3038,7 +3038,7 @@ int main(int argc,char** argv)try{
         need(async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&host.serviced_steps()==5u&&
              host.services().event_pending()&&!host.exception_pending(c.msr));
         std::cout<<"ASYNC_WRAPPER_TRIAL n="<<trial<<" original_return=1 masked=1 abi=1 deferred=1 visits="<<async_wrapper->visits()
-                 <<" loads="<<async_wrapper->loads()<<" restored="<<async_wrapper->restored()<<'\n';
+                 <<" loads="<<async_wrapper->loads()<<" restored="<<async_wrapper->restored()<<" polls="<<async_wrapper->polls()<<'\n';
         async_wrapper.reset();
 #else
         need(async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&host.serviced_steps()==5u&&

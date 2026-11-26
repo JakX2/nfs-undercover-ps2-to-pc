@@ -29,6 +29,7 @@ static void trial(unsigned fault){
     bool ok=w.begin(c,fault!=1,Sp+64);if(fault==1){assert(!ok);return;}assert(ok);
     auto step=[&](uint32_t pc,uint32_t ins){++c.inst_count;return w.before(c,pc,ins,true);};
     ok=step(S,words[0].word);if(fault==2){assert(!ok);return;}assert(ok);
+    if(fault==11){assert(!w.poll(c,true,true));return;}
     assert(step(S+4,bl(S+4,R)));c.pc=R;c.lr=fault==4?S:S+8;
     ok=w.entry(c,R,true);if(fault==4){assert(!ok);return;}assert(ok);
     if(fault==5)c.gpr[11]=Sp+128;
@@ -41,8 +42,13 @@ static void trial(unsigned fault){
     assert(step(S+8,words[2].word));c.gpr[0]=C;
     assert(step(S+12,MTLR));c.lr=C;assert(step(S+16,N));c.gpr[1]=fault==8?Sp:Sp+64;
     ok=step(S+20,Ret);if(fault==8){assert(!ok);return;}assert(ok);
-    c.pc=C;ok=w.returned(c,C,true,fault!=9);if(fault==9){assert(!ok);return;}assert(ok);
-    assert(w.reached(c,true,true)&&w.visits()==9&&w.loads()==3&&w.restored()==2);
+    c.pc=C;
+    if(fault==12){assert(!w.poll(c,true,false));return;}
+    if(fault==13){++c.inst_count;assert(!w.poll(c,true,true));return;}
+    assert(w.poll(c,true,true));
+    if(fault==14){assert(!w.poll(c,true,true));return;}
+    ok=w.returned(c,C,true,fault!=9);if(fault==9){assert(!ok);return;}assert(ok);
+    assert(w.reached(c,true,true)&&w.visits()==9&&w.loads()==3&&w.restored()==2&&w.polls()==1);
     if(fault==10){c.msr|=0x8000;assert(!w.reached(c,true,true));}
 }
-int main(){for(unsigned f=0;f<=10;++f)trial(f);std::cout<<"ASYNC_WRAPPER_RETURN_TEST cases=11 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=14;++f)trial(f);std::cout<<"ASYNC_WRAPPER_RETURN_TEST cases=15 original_execution=0\n";}

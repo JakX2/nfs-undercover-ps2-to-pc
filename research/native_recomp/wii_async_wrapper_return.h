@@ -17,6 +17,7 @@ public:
     unsigned loads()const{return loads_;}
     unsigned restored()const{return restored_;}
     unsigned ordinal()const{return ordinal_;}
+    unsigned polls()const{return polls_;}
     template<class C>bool begin(C& c,bool held,uint32_t caller_sp){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.start||c.gpr[3]!=0u||
            !known(c,e_.wrapper,e_.start)||!word(c,e_.caller,e_.caller_word)||
@@ -72,6 +73,14 @@ public:
            c.lr!=e_.restore.call+4u||c.inst_count!=last_||!settled(c))return fail(5);
         owner_=pc;entry_due_=false;entered_=true;helper_=c.gpr;return true;
     }
+    // The pinned emitter may poll at the local return after the final
+    // BLR. Admit only the exact not-yet-executed STM continuation.
+    template<class C>bool poll(C& c,bool held,bool caller_abi){
+        if(stage_!=1u||!live(c,held)||!return_due_||polls_||!caller_abi||
+           c.pc!=e_.caller||c.lr!=e_.caller||c.inst_count!=last_||
+           c.gpr[1]!=caller_sp_||c.gpr[3]!=0u||!word(c,c.pc,e_.caller_word)||!settled(c))return fail(7);
+        ++polls_;return true;
+    }
     template<class C>bool returned(C& c,uint32_t pc,bool held,bool caller_abi){
         if(stage_!=1u||!live(c,held)||!return_due_||!caller_abi||pc!=e_.caller||c.pc!=pc||c.lr!=pc||
            c.inst_count!=last_||!word(c,pc,e_.caller_word)||c.gpr[1]!=caller_sp_||c.gpr[3]!=0u||!settled(c))return fail(6);
@@ -89,7 +98,7 @@ private:
     std::array<uint32_t,32> helper_{};
     uint32_t sp_=0,caller_sp_=0,msr_=0,r2_=0,r13_=0,owner_=0,next_=0,load_reg_=0,load_value_=0;
     uint64_t tick_=0,last_=0;
-    unsigned stage_=0,error_=0,visits_=0,loads_=0,restored_=0,ordinal_=0;
+    unsigned stage_=0,error_=0,visits_=0,loads_=0,restored_=0,ordinal_=0,polls_=0;
     bool entry_due_=false,entered_=false,return_due_=false,pending_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
