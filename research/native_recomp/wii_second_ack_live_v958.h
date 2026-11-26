@@ -29,6 +29,8 @@ inline thread_local unsigned shared_tick=0,shared_entries=0,shared_returns=0,sha
 inline thread_local bool shared_seen=false;
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
 inline thread_local unsigned helper_return_visits=0;
+inline thread_local bool error_helper_seen=false;
+inline bool error_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1021_ERROR_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
 #ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
 inline thread_local CallbackPrefixWitness<second_callback_prefix.size(),second_callback_save.size()> callback_prefix(transfer_callback,second_callback_save_root,second_callback_prefix,second_callback_save);
 inline bool callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1009_SECOND_CALLBACK");return v&&v[0]=='1'&&v[1]=='\0';}
@@ -93,7 +95,13 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frontier_enabled()&&(!time_enabled()||!post_enabled()))return false;
 #endif
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
-    if(error_completion_enabled()&&(!shared_enabled()||time_enabled()))return false;
+    if(error_completion_enabled()&&!shared_enabled())return false;
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+    if(error_frontier_enabled()&&(!error_completion_enabled()||!success_frontier_enabled()||!time_enabled()||!frontier_enabled()))return false;
+    if(error_completion_enabled()&&time_enabled()&&!error_frontier_enabled())return false;
+#else
+    if(error_completion_enabled()&&time_enabled())return false;
+#endif
     if(shared_enabled()){
         if(!post_enabled()||!calls.begin(c,time_spans,shared_edges,msr_sites))return false;
     }else
@@ -144,9 +152,14 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #endif
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
     if(success_frontier_enabled()&&pc==success_callback_sites[0]){
-        if(!guard||!shared_seen||!post_seen||!helper_return_visits||time_seen||w!=0x4e800421u||
+        if(!guard||(!shared_seen&&!error_helper_seen)||!post_seen||!helper_return_visits||time_seen||w!=0x4e800421u||
            !frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
            !ack.before(c,pc,w,true)||!ack.postack_held()||!calls.stop_before_indirect(c,pc,w))reject(13);
+        if(error_frontier_enabled()){
+            if(!error_helper_seen||!ack.no_response_verified()||shared_seen||shared_tick||
+               visits-helper_return_visits!=71u)reject(16);
+            std::cout<<"V1021_ERROR_FRONTIER branch=6 visits=71 handler_time=0 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+        }
         const auto category=classify_callback_identity(c,pc,w,6u,2u,transfer_callback,success_callback_words,success_callback_sites);
         std::cout<<std::dec<<"V995_CALLBACK_FRONTIER target_class="<<category<<" aligned="<<(!(c.ctr&3u))
                  <<" visits="<<visits-helper_return_visits<<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
@@ -163,6 +176,13 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(frontier_enabled()&&time_seen&&pc==transfer_call){
         if(!guard||w!=transfer_branch||!frame||!frame->saved_integer(c,context).ok()||
            ++visits>8192u||!ack.before(c,pc,w,true)||!ack.postack_held()||!calls.stop_before_direct(c,pc,w))reject(11);
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+        if(error_frontier_enabled()){
+            if(!error_helper_seen||!ack.no_response_verified()||shared_seen||shared_tick||
+               visits-helper_return_visits!=78u)reject(16);
+            std::cout<<"V1021_ERROR_FRONTIER branch=4 visits=78 handler_time=1 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+        }
+#endif
         const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
@@ -232,9 +252,17 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
             std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                      <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
             std::cout<<"V1015_ERROR_HELPER_RETURN original_helper_return=1 no_response=1 shared_time=0 entries=6 returns=6 msr=2 visits=130 token_preserved=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+            if(error_frontier_enabled()){
+                error_helper_seen=true;helper_return_visits=visits;post_seen=true;return;
+            }
+#endif
             std::_Exit(0);
         }
         if(error_completion_enabled()&&ack.no_response_verified())reject_shared(3);
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+        if(error_frontier_enabled())reject(16);
+#endif
 #endif
         std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                  <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;

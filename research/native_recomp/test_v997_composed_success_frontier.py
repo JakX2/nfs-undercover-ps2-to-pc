@@ -32,15 +32,37 @@ class ComposedSuccessFrontier(unittest.TestCase):
             shared=b'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=12 token_preserved=1 saved_fields=38 boot_verified=0'
             post=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=15 handler_instruction_executed=0 boot_verified=0'
             time=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=12 handler_instruction_executed=0 boot_verified=0'
-            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only'):
+            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only','error-callback','error-callback-short','error-direct','error-success'):
                 with self.subTest(mode=mode):
                     runenv=env.copy()
                     runenv['UNDERCOVER_V967_POST_ACK']='1';runenv['UNDERCOVER_V989_SHARED_COMPLETION']='1'
                     for k in ('UNDERCOVER_V975_SECOND_TIME','UNDERCOVER_V981_SECOND_FRONTIER','UNDERCOVER_V995_SUCCESS_FRONTIER'):
                         runenv.pop(k,None)
                         if mode!='shared-only':runenv[k]='1'
+                    if mode.startswith('error-'):
+                        runenv['UNDERCOVER_V1015_ERROR_COMPLETION']='1'
+                        runenv['UNDERCOVER_V1021_ERROR_FRONTIER']='1'
                     got=subprocess.run([str(exe),mode],env=runenv,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
+                    if mode.startswith('error-'):
+                        from audit_v1015_error_completion import RESULT as ERROR
+                        from audit_v1021_error_frontier import DIRECT,INDIRECT
+                        if mode=='error-success':
+                            self.assertEqual(got.returncode,126,(got.stdout+got.stderr).decode(errors='replace'))
+                            self.assertNotIn(ERROR,rows)
+                        else:
+                            self.assertEqual(rows[:3],[RESULT,post.replace(b'visits=15',b'visits=130'),ERROR],(got.stdout+got.stderr).decode(errors='replace'))
+                            if mode=='error-callback-short':
+                                self.assertEqual(got.returncode,126)
+                                self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=16 stage=4 reason=0 call_reason=0 visits=[0-9]+$')
+                            elif mode=='error-callback':
+                                self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                                self.assertEqual(rows[3:],[INDIRECT,b'V995_CALLBACK_FRONTIER target_class=2 aligned=1 visits=71 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0'])
+                            else:
+                                self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                                self.assertEqual(rows[3:],[time,DIRECT,b'V981_TRANSFER_FRONTIER type=1 idle=1 queue_match=1 callback_known=1 admitted=1 visits=1 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0'])
+                        self.assertEqual(got.stderr,b'')
+                        continue
                     self.assertEqual(rows[:3],[RESULT,shared,post],(got.stdout+got.stderr).decode(errors='replace'))
                     if mode=='shared-only':
                         self.assertEqual(got.returncode,0);self.assertEqual(len(rows),3)

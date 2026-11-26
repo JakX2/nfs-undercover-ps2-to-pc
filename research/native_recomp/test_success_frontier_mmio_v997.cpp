@@ -35,7 +35,8 @@ int main(int argc,char** argv){
     need(v958::enabled()&&!v958::active());
     std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SiBinding binding(ctl);
     using Port=SiTypeScheduler::Port;
-    const SiTypeScheduler::Profile ports{Port::absent(),Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
+    const bool error=mode.starts_with("error-")&&mode!="error-success";
+    const SiTypeScheduler::Profile ports{Port::absent(),error?Port::absent():Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
     SiTypeScheduler scheduler(ctl,ports,8);
     SiTickBinding ticks(scheduler);
     need(SiBinding::write32(Base+C,0xc0010301u));scheduler.advance(1);scheduler.advance(9);
@@ -85,8 +86,14 @@ int main(int argc,char** argv){
         visit(Completion+20,Blr);visit(H+8,Nop);need(false);
     }
     if(mode=="frame-after-ack")c.mmu.words[v958::context+124]^=1u;
-    visit(Completion+12,bl(Completion+12,Nested),mode=="guard-shared");
-    c.pc=Nested;c.lr=Completion+16;v958::observe(c.pc,c);
+    const bool error_route=mode.starts_with("error-")&&mode!="error-success";
+    const uint32_t shared_site=error_route?Completion+24:Completion+12;
+    if(error_route){
+        c.mmu.words[shared_site]=bl(shared_site,Nested);c.mmu.words[shared_site+4]=Nop;
+        for(unsigned i=0;i<115u;++i)visit(Completion+16,Nop);
+    }
+    visit(shared_site,bl(shared_site,Nested),mode=="guard-shared");
+    c.pc=Nested;c.lr=shared_site+4;v958::observe(c.pc,c);
     visit(Nested,bl(Nested,Disable));c.pc=mode=="wrong-leaf"?Time:Disable;c.lr=Nested+4;v958::observe(c.pc,c);
     c.gpr[3]=c.msr|(mode=="changed-msr"?0x8000u:0u);
     visit(Disable,Mtmsr);visit(Disable+4,Blr);
@@ -95,14 +102,15 @@ int main(int argc,char** argv){
     visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
     c.gpr[3]=c.msr;visit(Restore,Mtmsr);
     visit(Restore+4,Blr);visit(Nested+12,Nop);
-    c.lr=Completion+16;visit(Nested+16,Blr);visit(Completion+16,Nop);
-    need(v958::shared_seen&&v958::ack.postack_held());
+    c.lr=shared_site+4;visit(Nested+16,Blr);visit(shared_site+4,Nop);
+    need(v958::shared_seen==!error_route&&v958::ack.postack_held());
     c.lr=H+8;visit(Completion+20,Blr);
     if(mode=="corrupt-abi")c.gpr[31]^=1u;
     visit(H+8,Nop);
     need(v958::post_seen&&v958::success_frontier_enabled()&&v958::ack.postack_held());
     for(unsigned i=0;i<v958::success_callback_words.size();++i)c.mmu.words[v958::transfer_callback+4*i]=v958::success_callback_words[i];
-    if(mode.starts_with("callback")){
+    if(mode.starts_with("callback")||mode.starts_with("error-callback")){
+        if(error_route)for(unsigned i=0;i<(mode=="error-callback-short"?69u:70u);++i)visit(H+8,Nop);
         c.ctr=v958::transfer_callback;
         if(mode=="callback-unknown"){c.ctr+=0x100;c.mmu.words[c.ctr]=Nop;}
         if(mode=="callback-unmapped")c.ctr+=0x200;
@@ -111,6 +119,7 @@ int main(int argc,char** argv){
         if(mode=="callback-frame")c.mmu.words[v958::context+124]^=1u;
         visit(H+24,0x4e800421u,mode!="callback-unguarded");need(false);
     }
+    if(error_route)for(unsigned i=0;i<64u;++i)visit(H+8,Nop);
     visit(H+12,bl(H+12,Nested));c.pc=Nested;c.lr=H+16;v958::observe(c.pc,c);
     visit(Nested,bl(Nested,Disable));c.pc=Disable;c.lr=Nested+4;v958::observe(c.pc,c);
     c.gpr[3]=c.msr;visit(Disable,Mtmsr);visit(Disable+4,Blr);
