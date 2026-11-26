@@ -1,0 +1,3 @@
+# V1123: held callback suffix after wireless return
+
+V1115 verified 32 focused original callback suffixes (37 visits, no stores, four polls, ordinal 13). The continuous held-token binding can now enter a separate bounded suffix witness at the already charged wireless return label. Retain the real third transfer ownership and captured exception frame, verify branch and stack-store effects and one poll per native backward branch; stop before either original call boundary. Ten new live-binding source-only cases, including nine refusal controls. The synthetic getter alternative is placed beyond the setter suffix so it cannot masquerade as its resume instruction. Private installer and launcher activation not yet wired. No continuous result claimed.

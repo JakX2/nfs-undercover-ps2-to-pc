@@ -13,6 +13,9 @@
 #include "v831_private_callback_frontier.h"
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
 #include "v847_private_wireless_wrapper.h"
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+#include "v1123_private_postalarm_suffix.h"
+#endif
 #endif
 #endif
 #endif
@@ -53,7 +56,7 @@ inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.sta
 inline thread_local ThirdAlarmCallbackRoute<third_postalarm_prefix.size(),third_postalarm_save.size(),third_postalarm_words.size()>
     third_postalarm(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save,third_postalarm_words,third_postalarm_sites);
 inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1095_AFTER_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
-inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u||third_postalarm.stage()==6u||third_postalarm.stage()==8u;}
+inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u||third_postalarm.stage()==6u||third_postalarm.stage()==8u||third_postalarm.stage()==10u;}
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
 inline bool third_postalarm_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1103_POSTALARM_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
 #ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
@@ -65,6 +68,14 @@ inline bool third_postalarm_frontier_enabled(){const char* v=std::getenv("UNDERC
 }
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
 inline bool third_postalarm_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1118_POSTALARM_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+inline bool third_postalarm_suffix_enabled(){const char* v=std::getenv("UNDERCOVER_V1123_POSTALARM_SUFFIX");return v&&v[0]=='1'&&v[1]==0;}
+[[noreturn]]inline void reject_postalarm_suffix(){
+    std::cout<<std::dec<<"V1123_POSTALARM_SUFFIX_FAULT route="<<third_postalarm.failure()
+             <<" witness="<<third_postalarm.callback_suffix_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
+    std::_Exit(126);
+}
+#endif
 [[noreturn]]inline void reject_postalarm_wireless(){
     std::cout<<std::dec<<"V1118_POSTALARM_WIRELESS_FAULT route="<<third_postalarm.failure()
              <<" witness="<<third_postalarm.wireless_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
@@ -99,6 +110,19 @@ template<class C>void finish_postalarm_frontier(C& c,uint32_t pc,uint32_t w){
     std::_Exit(126);
 }
 template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+    if(third_postalarm.stage()==10u){
+        if(guard||!third_postalarm.callback_suffix_before(c,pc,w))reject_postalarm_suffix();
+        if(third_postalarm.stage()==11u){
+            const auto& t=*third_postalarm.callback_suffix_witness();
+            std::cout<<std::dec<<"V1123_POSTALARM_SUFFIX ordinal="<<t.ordinal()<<" target_class="<<t.target_class()
+                     <<" visits="<<t.visits()<<" writes="<<t.writes()<<" polls="<<t.polls()
+                     <<" token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
     if(third_postalarm.stage()==8u){
         if(guard||!third_postalarm.wireless_before(c,pc,w))reject_postalarm_wireless();
@@ -106,6 +130,13 @@ template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
             const auto& t=*third_postalarm.wireless_witness();
             std::cout<<std::dec<<"V1118_POSTALARM_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits="<<t.visits()
                      <<" stores="<<t.writes()<<" token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+            if(third_postalarm_suffix_enabled()){
+                if(!third_postalarm.start_callback_suffix(c,pc,w,v1123::expected)||third_postalarm.stage()!=10u)
+                    reject_postalarm_suffix();
+                return;
+            }
+#endif
             std::_Exit(0);
         }
         return;
@@ -240,6 +271,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_postalarm_frontier_enabled()&&!third_postalarm_time_enabled())return false;
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
     if(third_postalarm_wireless_enabled()&&!third_postalarm_frontier_enabled())return false;
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+    if(third_postalarm_suffix_enabled()&&!third_postalarm_wireless_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -522,6 +556,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+    if(third_postalarm.stage()==10u){if(!third_postalarm.callback_suffix_poll(c))reject_postalarm_suffix();return false;}
+#endif
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
     if(third_postalarm.stage()==8u)reject_postalarm_wireless();
 #endif
@@ -565,6 +602,9 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+    if(third_postalarm.stage()==10u)reject_postalarm_suffix();
+#endif
 #ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
     if(third_postalarm.stage()==8u){if(!third_postalarm.wireless_entry(c,pc))reject_postalarm_wireless();return;}
 #endif

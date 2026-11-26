@@ -316,7 +316,7 @@ int main(int argc,char** argv){
                             const auto wf=fault.substr(std::string_view("-frontier-wireless").size());
                             put(v847::A,v847::setter);put(v847::B,v847::getter);put(v847::U,v847::unlock);
                             put(v847::D,v847::disable);put(v847::R,v847::restore);
-                            c.mmu.words[v847::L]=Nop;c.mmu.words[Root+48u]=Nop;
+                            c.mmu.words[v847::L]=Nop;c.mmu.words[Root+44u]=Nop;c.mmu.words[Root+72u]=Nop;
                             for(unsigned i=0;i<20u;++i)c.mmu.words[v847::SRAM+4u*i]=0;
                             c.mmu.words[v847::SRAM+64u]=64u;c.mmu.words[v847::SRAM+76u]=1u;
                             if(wf=="-changed")c.mmu.words[v847::SRAM+52u]=0x01000100u;
@@ -339,7 +339,29 @@ int main(int argc,char** argv){
                             visit(v847::R,Blr);visit(v847::U+12u,Nop);c.lr=v847::A+4u;
                             visit(v847::U+16u,Blr);visit(v847::A+4u,Nop);c.lr=Root+44u;
                             if(wf=="-abi")c.gpr[31]^=1u;
-                            visit(v847::A+8u,Blr);visit(Root+44u,v831::words[4].word);need(false);
+                            visit(v847::A+8u,Blr);
+#ifdef UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX
+                            if(wf.starts_with("-suffix")){
+                                const auto sf=wf.substr(std::string_view("-suffix").size());
+                                for(const auto& row:v1123::rows)c.mmu.words[row.pc]=row.word;
+                                if(sf=="-identity")c.mmu.words[Root+52u]^=1u;
+                                visit(Root+44u,Nop);
+                                need(v958::third_postalarm.stage()==10u&&v958::third_postalarm.callback_suffix_witness()->visits()==1u);
+                                if(sf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                if(sf=="-tick")scheduler.advance(++tick);
+                                if(sf=="-device")mask=0;
+                                if(sf=="-entry")v958::observe(Root+48u,c);
+                                if(sf=="-early-poll")v958::poll(c);
+                                c.gpr[4]=0x12345678u;
+                                visit(Root+48u,v1123::rows[1].word);
+                                if(sf!="-store")c.mmu.words[c.gpr[1]+8u]=c.gpr[4];
+                                c.cr[0].eq=false;visit(Root+52u,v1123::rows[2].word);
+                                if(sf!="-missing-poll")v958::poll(c);
+                                if(sf=="-double-poll")v958::poll(c);
+                                visit(Root+56u,v1123::rows[3].word);need(false);
+                            }
+#endif
+                            visit(Root+44u,Nop);need(false);
                         }
 #endif
                         visit(Root+40,v831::words[3].word);need(false);

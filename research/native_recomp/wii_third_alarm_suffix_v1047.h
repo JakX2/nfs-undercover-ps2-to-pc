@@ -8,6 +8,7 @@
 #include "wii_callback_time_v810.h"
 #include "wii_callback_frontier_v829.h"
 #include "wii_wireless_wrapper_v844.h"
+#include "wii_callback_suffix_v841.h"
 #include <optional>
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
@@ -218,7 +219,29 @@ public:
     }
     unsigned wireless_failure()const{return wireless_?wireless_->failure():0u;}
     const WirelessWrapperWitness* wireless_witness()const{return wireless_?&*wireless_:nullptr;}
+    // The unchanged setter returned to the original callback label.
+    // No new device tick is charged until the next native instruction.
+    template<class C>bool start_callback_suffix(C& c,uint32_t pc,uint32_t w,CallbackSuffixExpectation e){
+        if(stage_!=9u||callback_suffix_||!wireless_||wireless_->stage()!=2u||wireless_->changed()||
+           !common(c)||!held()||c.inst_count!=last_||pc!=wireless_resume_||w!=wireless_word_||
+           e.root!=root_||e.resume!=pc)return fail(15);
+        callback_suffix_.emplace(e);
+        if(!callback_suffix_->start(c,pc,w,true,true)||!callback_suffix_->before(c,pc,w,true))return fail(15);
+        stage_=callback_suffix_->stage()==2u?11u:10u;return true;
+    }
+    template<class C>bool callback_suffix_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=10u||!callback_suffix_||!common(c)||c.inst_count-last_!=1u||
+           !dev_->after_return_at(c.inst_count)||!held()||!callback_suffix_->before(c,pc,w,true))return fail(16);
+        last_=c.inst_count;if(callback_suffix_->stage()==2u)stage_=11u;return true;
+    }
+    template<class C>bool callback_suffix_poll(C& c){
+        return stage_==10u&&callback_suffix_&&common(c)&&c.inst_count==last_&&held()&&
+               callback_suffix_->poll(c,true)?true:fail(17);
+    }
+    unsigned callback_suffix_failure()const{return callback_suffix_?callback_suffix_->failure():0u;}
+    const CallbackSuffixWitness* callback_suffix_witness()const{return callback_suffix_?&*callback_suffix_:nullptr;}
 private:
+    std::optional<CallbackSuffixWitness> callback_suffix_;
     std::optional<WirelessWrapperWitness> wireless_;
     uint32_t frontier_site_=0,frontier_word_=0,wireless_resume_=0,wireless_word_=0;
     std::optional<CallbackTimeWitness> time_;

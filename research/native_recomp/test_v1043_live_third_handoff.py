@@ -14,8 +14,9 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_callback_time_expectations_v1014.h',root/'v813_private_callback_time.h')
             shutil.copyfile(HOST/'synthetic_callback_frontier_v1111.h',root/'v831_private_callback_frontier.h')
             shutil.copyfile(HOST/'synthetic_wireless_wrapper_v1118.h',root/'v847_private_wireless_wrapper.h')
+            shutil.copyfile(HOST/'synthetic_postalarm_suffix_v1123.h',root/'v1123_private_postalarm_suffix.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
@@ -138,4 +139,17 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1118_POSTALARM_WIRELESS_FAULT route=(0|12|13|14) witness=[0-7] stage=[78]$')
+            env['UNDERCOVER_V1123_POSTALARM_SUFFIX']='1'
+            for fault in ('','-identity','-frame','-tick','-device','-entry','-early-poll','-store','-missing-poll','-double-poll'):
+                with self.subTest(postalarm_suffix=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1118_POSTALARM_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=11 stores=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1123_POSTALARM_SUFFIX ordinal=13 target_class=0 visits=4 writes=1 polls=1 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1123_POSTALARM_SUFFIX_FAULT route=(0|15|16|17) witness=[0-7] stage=(9|10)$')
 if __name__=='__main__':unittest.main()
