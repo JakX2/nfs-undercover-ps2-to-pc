@@ -15,7 +15,10 @@ from prepare_ipc_profile_geometry import layout
 from prepare_v1414_ipc_ring import ring_object
 from prepare_v1383_stm_ioctl_entry import CALL
 
-def object_at(dol,elf,addr,width):
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def _object_at_cached(dol,elf,addr,width):
     if len(dol)<256 or len(elf)<HEADER.size or width not in (1,2,4) or addr%width:
         raise ValueError('STM data request')
     h=HEADER.unpack_from(elf);off,unit,n=h[6],h[11],h[12]
@@ -52,6 +55,13 @@ def object_at(dol,elf,addr,width):
         data=True
     if not data and not u32(0xd8)<=a<a+n<=u32(0xd8)+u32(0xdc):raise ValueError('STM DOL span')
     return a,n
+
+def object_at(dol,elf,addr,width):
+    # Mutable synthetic fixtures must always be revalidated, while private
+    # immutable owner bytes may reuse the fully validated object identity.
+    if type(dol) is bytes and type(elf) is bytes:
+        return _object_at_cached(dol,elf,addr,width)
+    return _object_at_cached.__wrapped__(dol,elf,addr,width)
 
 def stores(root,body,labels,bases):
     out=[]

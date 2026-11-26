@@ -2,7 +2,7 @@
 import struct
 import unittest
 from make_private_elf_symbol_map import HEADER,SECTION,SYMBOL
-from prepare_stm_event_return_geometry import stores,object_at
+from prepare_stm_event_return_geometry import stores,object_at,_object_at_cached
 S=0x80010000
 A=0x80020000
 B={13:A+16}
@@ -29,6 +29,17 @@ class Geometry(unittest.TestCase):
     def test_refusals(self):
         for w in (op(36,3,1,0),op(37,3,13,0),op(36,3,13,-1),op(31,3,13,151<<1)):
             with self.subTest(w=w),self.assertRaises(ValueError):stores(S,(w,),[S],B)
+    def test_immutable_cache(self):
+        _object_at_cached.cache_clear()
+        d,e=fixture();raw=bytes(d);elf=bytes(e)
+        self.assertEqual(object_at(raw,elf,A+4,4),(A,16))
+        self.assertEqual(object_at(raw,elf,A+4,4),(A,16))
+        self.assertEqual(_object_at_cached.cache_info().hits,1)
+        struct.pack_into('>I',d,0xdc,8)
+        with self.assertRaises(ValueError):object_at(bytes(d),elf,A+4,4)
+        self.assertEqual(object_at(raw,elf,A+4,4),(A,16))
+        _object_at_cached.cache_clear()
+
     def test_object(self):
         d,e=fixture()
         self.assertEqual(object_at(d,e,A+4,4),(A,16))

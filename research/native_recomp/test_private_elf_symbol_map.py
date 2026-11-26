@@ -5,7 +5,7 @@ from pathlib import Path
 import struct
 import unittest
 
-from make_private_elf_symbol_map import HEADER, SECTION, SYMBOL, ENTRY, parse_functions, csv_lines
+from make_private_elf_symbol_map import HEADER, SECTION, SYMBOL, ENTRY, parse_functions, csv_lines, _parse_function_items
 
 
 def make_mock_elf(*, machine=20, duplicate=False, truncated=False):
@@ -32,6 +32,20 @@ class ElfFunctionMapTests(unittest.TestCase):
 
     def test_duplicate_chooses_largest_span(self):
         self.assertEqual(parse_functions(make_mock_elf(duplicate=True))[ENTRY],12)
+
+    def test_cache_identity_and_mutation(self):
+        _parse_function_items.cache_clear()
+        raw=make_mock_elf()
+        first=parse_functions(raw);first[ENTRY]=999
+        self.assertEqual(parse_functions(raw)[ENTRY],8)
+        self.assertEqual(_parse_function_items.cache_info().hits,1)
+        self.assertEqual(parse_functions(make_mock_elf(duplicate=True))[ENTRY],12)
+        mutable=bytearray(raw)
+        self.assertEqual(parse_functions(mutable)[ENTRY],8)
+        mutable[5]=1
+        with self.assertRaises(ValueError):parse_functions(mutable)
+        self.assertEqual(_parse_function_items.cache_info().currsize,2)
+        _parse_function_items.cache_clear()
 
     def test_invalid_machine_rejected(self):
         with self.assertRaisesRegex(ValueError,"PowerPC"):

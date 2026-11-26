@@ -17,7 +17,10 @@ SYMBOL = struct.Struct(">IIIBBH")
 ENTRY = 0x8000403C
 
 
-def parse_functions(data: bytes) -> dict[int, int]:
+from functools import lru_cache
+
+@lru_cache(maxsize=2)
+def _parse_function_items(data: bytes) -> tuple[tuple[int,int], ...]:
     if len(data) < HEADER.size:
         raise ValueError("ELF header truncated")
     head = HEADER.unpack_from(data)
@@ -47,7 +50,15 @@ def parse_functions(data: bytes) -> dict[int, int]:
             result[addr] = max(result.get(addr, 0), nbytes)
     if not symtab_count or ENTRY not in result:
         raise ValueError("missing original function symbol table or startup")
-    return dict(sorted(result.items()))
+    return tuple(sorted(result.items()))
+
+
+def parse_functions(data: bytes) -> dict[int, int]:
+    # Cache only immutable bytes, and never expose the cached result to a
+    # caller that may modify a map. Cache lifetime is the private process.
+    if type(data) is bytes:
+        return dict(_parse_function_items(data))
+    return dict(_parse_function_items.__wrapped__(data))
 
 
 def csv_lines(functions: dict[int, int]) -> str:
