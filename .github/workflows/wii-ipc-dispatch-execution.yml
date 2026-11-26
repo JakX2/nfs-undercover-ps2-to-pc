@@ -1,0 +1,21 @@
+name: Wii Native IPC Dispatch Execution Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ipc_dispatch_execution.h'
+      - 'research/native_recomp/test_ipc_dispatch_execution.cpp'
+      - '.github/workflows/wii-ipc-dispatch-execution.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_ipc_dispatch_execution.cpp -o /tmp/ipc_dispatch_execution
+          /tmp/ipc_dispatch_execution
