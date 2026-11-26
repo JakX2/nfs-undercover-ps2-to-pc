@@ -28,6 +28,15 @@ class Test(unittest.TestCase):
         self.assertIn('slots,{0x00000000u,0x00000000u},{0x80010190u,0x60000000u,0x000005fcu}',s)
         with self.assertRaisesRegex(ValueError,'control contract'):
             render(({},fields[:5]+(A,4)+fields[7:],rows,(),((4,32),),()))
+    def test_post_ctr_header(self):
+        rows=tuple((R+4*i,N) for i in range(84))
+        c=({},(R,L,R+336,0x80610000,48,-20,4),rows,(),((4,32),),())
+        s=render(c,stack_boundary=True)
+        self.assertIn('namespace formatter_post_ctr_private',s)
+        self.assertIn('slots,{0u,4u,true,-20}',s)
+        self.assertIn('IpcDispatchWord,84> path',s)
+        with self.assertRaisesRegex(ValueError,'stack boundary'):
+            render(({},(R,L,R+336,0x80610000,48,0,4),rows,(),((4,32),),()),stack_boundary=True)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)

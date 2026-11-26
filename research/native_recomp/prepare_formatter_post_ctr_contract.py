@@ -22,7 +22,7 @@ def compare(old,new):
         raise ValueError('post CTR contract access')
     if sum(x[4] for x in na)!=13 or sum(not x[4] for x in na)!=8 or len(nk)!=sum(not x[3] and not x[4] for x in na):
         raise ValueError('post CTR contract census')
-    if not set(os)<=set(ns) or len(ns)>19:
+    if os!=ns:
         raise ValueError('post CTR contract slots')
     if len(nf)!=7 or nf[6]!=4 or nf[5]%4 or not -44<=nf[5]<=-4 or nf[2] in {pc for pc,w in nrp}:
         raise ValueError('post CTR contract boundary')
