@@ -75,6 +75,10 @@ jobs:
           set -euo pipefail
           umask 077
           python3 research/native_recomp/prepare_post_stm_sc_disable.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Independently classify SC decision region
+        continue-on-error: true
+        run: |
+          python3 research/native_recomp/prepare_post_stm_sc_disable.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --decision
       - name: Clean private originals
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
