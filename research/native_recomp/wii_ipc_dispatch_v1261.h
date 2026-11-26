@@ -127,7 +127,9 @@ private:
     }
     template<class C>bool deferred_wire(C& c,const ColdIpcSnapshot& s)const{
         using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
-        if(!deferred_gate_||!deferred_gate_->deferred_held(true)||!deferred_request_||
+        const auto bound=NativeIosBinding::cold_snapshot();
+        if(!bound||!same_scheduler_ipc_snapshot(s,*bound)||
+           !deferred_gate_||!deferred_gate_->deferred_held(true)||!deferred_request_||
            (deferred_request_&31u)||deferred_request_>0x13ffffc0u||s.ppc!=deferred_request_||
            (s.control&(M::X1|M::Y1|M::Y2))!=M::Y2||!(s.control&M::IY2)||
            !(s.flags&H::IPC_PPC)||!(s.irq_mask&H::IPC_PPC)||s.steps!=5u||s.replies||s.queued||!s.event)return false;

@@ -67,9 +67,10 @@ static void trial(unsigned first,unsigned fault){
     if(fault==3)m.write32(0x800000e4u,Context+8);
     if(fault==4)observed.event=false;
     if(fault==5)observed.replies=1;
+    if(fault==11)observed.arm^=32u;
     IpcDispatchWitness w({Code,Handler,Context,Context,Table,Global,Counter},first);
     bool ok=w.begin_deferred(c,frame,observed,Queue,fault==6?Req+32:Req,gate,fault!=7);
-    if(fault>=1&&fault<=7){assert(!ok&&w.failure()==1);return;}assert(ok&&w.deferred_mode()&&!w.reply_mode());
+    if((fault>=1&&fault<=7)||fault==11){assert(!ok&&w.failure()==1);return;}assert(ok&&w.deferred_mode()&&!w.reply_mode());
     if(fault==8){++c.inst_count;ram.write32(Req+60,1);assert(!w.before(c,c.pc,Code.dispatcher_word,false,snap,true));return;}
     ++c.inst_count;assert(w.before(c,c.pc,Code.dispatcher_word,false,snap,true));
     assert(w.read(Bus::PI_CAUSE,cause.load())&&w.read(Bus::PI_MASK,mask.load()));
@@ -85,5 +86,5 @@ static void trial(unsigned first,unsigned fault){
     if(fault==10){m.write32(Context+140,0);assert(!w.handler_ready(c,frame,snap,Queue,true));return;}
     assert(host.serviced_steps()==5&&gate.deferred_held(true)&&host.services().event_pending()&&ram.read32(Req)==S::Ioctl);
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=10;++f)trial(first,f);
-    std::cout<<"IPC_DEFERRED_ACTIVE_DISPATCH_TEST cases=22 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=11;++f)trial(first,f);
+    std::cout<<"IPC_DEFERRED_ACTIVE_DISPATCH_TEST cases=24 original_execution=0\n";}
