@@ -202,7 +202,8 @@ int main(int argc,char** argv){
                 c.mmu.words[Site+8]=0x4e800421u;
                 for(unsigned i=0;i<v958::third_postalarm_prefix.size();++i)c.mmu.words[v958::transfer_callback+4u*i]=v958::third_postalarm_prefix[i];
                 for(unsigned i=0;i<v958::third_postalarm_save.size();++i)c.mmu.words[v958::third_postalarm_save_root+4u*i]=v958::third_postalarm_save[i];
-                constexpr uint32_t Stack=0x80020000u;
+                constexpr uint32_t Stack=0x8000b000u;
+                need(c.gpr[1]==Stack);
                 for(uint32_t p=Stack-0x400u;p<Stack+0x100u;p+=4u)c.mmu.words[p]=p^0xdeadbeefu;
             }
 #endif
@@ -237,14 +238,14 @@ int main(int argc,char** argv){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
             const bool callback_mode=mode.starts_with("error-abi-live-alarm-callback");
             if(callback_mode){
-                c.gpr[1]=0x80020000u;c.gpr[3]=2u;c.ctr=v958::transfer_callback;
+                need(c.gpr[1]==0x8000b000u);c.gpr[3]=2u;c.ctr=v958::transfer_callback;
                 if(mode=="error-abi-live-alarm-callback-word")c.mmu.words[Site+8]^=1u;
             }
 #endif
             visit(Site+4,Nop); // production observer owns terminal result
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
             if(callback_mode){
-                constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root,Stack=0x80020000u;
+                constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root,Stack=0x8000b000u;
                 if(mode=="error-abi-live-alarm-callback-frame")c.mmu.words[v958::context+124]^=1u;
                 if(mode=="error-abi-live-alarm-callback-target")c.ctr=Leaf;
                 visit(Site+8,0x4e800421u);c.pc=Root;c.lr=Site+12;
