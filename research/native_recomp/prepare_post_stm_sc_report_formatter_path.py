@@ -29,25 +29,36 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
     seen,bounds,_=closure(root,ws)
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
     for r,v in args.items():gp[r]=v
-    mem=dict(stack_slots);cr={};ctr=None;lr=('lr',0);path=[];accesses=[];frame=0;saves=set()
+    mem={};cr={};ctr=None;lr=('lr',0);path=[];accesses=[];frame=0;saves=set()
+    def bytes_of(v,n):
+        if v[0]=='const':return tuple(('byte',(v[1]>>(8*(n-1-i)))&255) for i in range(n))
+        return tuple(('part',v,n,i) for i in range(n))
+    for at,v in stack_slots.items():
+        for i,x in enumerate(bytes_of(v,4)):mem[at+i]=x
+    def stack_read(at,n):
+        cells=tuple(mem.get(at+i) for i in range(n))
+        if all(x is not None and x[0]=='byte' for x in cells):
+            return const(int.from_bytes(bytes(x[1] for x in cells),'big'))
+        if all(x is not None and x[0]=='part' and x[1]==cells[0][1] and x[2:]==(n,i) for i,x in enumerate(cells)):
+            return cells[0][1]
+        raise ValueError('formatter stack read provenance')
     def read(a,n):
         k,at=a
-        if k=='stack':
-            if n==4 and at in mem:return mem[at]
-            for base,v in mem.items():
-                if base<=at and at+n<=base+4 and v[0]=='const':
-                    return const((v[1]>>(8*(base+4-at-n)))&((1<<(8*n))-1))
-            raise ValueError('formatter stack read provenance')
+        if k=='stack':return stack_read(at,n)
         if k!='const':raise ValueError('formatter pointer provenance')
         matches=[blob[at-base:at-base+n] for base,blob in readonly if base<=at<at+n<=base+len(blob)]
         if len(matches)!=1:raise ValueError('formatter data read provenance')
         return const(int.from_bytes(matches[0],'big'))
-    def write(a,v):
+    def write(a,v,n=4):
         k,at=a
-        if k!='stack' or not frame or not caller_sp-frame<=at<=caller_sp+4 or at&3 or at in mem:
+        if k!='stack' or not frame or n not in (1,2,4) or at%n or not caller_sp-frame<=at<at+n<=caller_sp+8:
             raise ValueError('formatter stack write provenance')
-        mem[at]=v
-        if v[0]=='reg' and 14<=v[1]<=31:saves.add(v[1])
+        if at>=caller_sp and (at!=caller_sp+4 or n!=4 or v!=('lr',0)):
+            raise ValueError('formatter caller linkage provenance')
+        if any(at+i in mem for i in range(n)):
+            raise ValueError('formatter duplicate stack write')
+        for i,x in enumerate(bytes_of(v,n)):mem[at+i]=x
+        if n==4 and v[0]=='reg' and 14<=v[1]<=31:saves.add(v[1])
     def cmp(f,a,b):
         cr[f*4]=a<b;cr[f*4+1]=a>b;cr[f*4+2]=a==b
         cr.pop(f*4+3,None)
@@ -59,17 +70,32 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
         imm=((w&0xffff)^0x8000)-0x8000;nxt=pc+4
         if pc in bounds:
             if w>>26==18 and w&3==1:
-                if not frame or mem.get(caller_sp-frame)!=('stack',caller_sp) or mem.get(caller_sp+4)!=('lr',0):
+                if not frame or stack_read(caller_sp-frame,4)!=('stack',caller_sp) or stack_read(caller_sp+4,4)!=('lr',0):
                     raise ValueError('formatter frame identity')
                 return path,frame,accesses,len(saves),direct_bl(w,pc),tuple(gp),dict(mem)
             raise ValueError('formatter other boundary')
         if op==37 and rs==ra==1:
             if frame or not -4096<=imm<=-8 or imm%8:raise ValueError('formatter frame identity')
             frame=-imm;write(add(gp[1],imm),gp[1]);gp[1]=add(gp[1],imm);accesses.append((pc,'stack_write',4))
-        elif op in (36,47) and ra==1:
-            for j in range(32-rs if op==47 else 1):
-                write(add(gp[1],imm+4*j),gp[rs+j])
-            accesses.append((pc,'stack_write',4*(32-rs if op==47 else 1)))
+        elif op in (36,37,38,39,44,45,47):
+            n={36:4,37:4,38:1,39:1,44:2,45:2,47:4}[op]
+            addr=add(gp[ra] if ra else const(0),imm)
+            count=32-rs if op==47 else 1
+            for j in range(count):write(add(addr,n*j),gp[rs+j],n)
+            accesses.append((pc,'stack_write',n*count))
+            if op in (37,39,45):
+                if not ra or ra==1:raise ValueError('formatter update store')
+                gp[ra]=addr
+        elif op==31 and xo in (151,183,215,247,407,439):
+            n={151:4,183:4,215:1,247:1,407:2,439:2}[xo]
+            a,b=gp[ra] if ra else const(0),gp[rb]
+            if b[0]=='const':addr=add(a,signed(b[1]))
+            elif a[0]=='const':addr=add(b,signed(a[1]))
+            else:raise ValueError('formatter indexed store provenance')
+            write(addr,gp[rs],n);accesses.append((pc,'stack_write',n))
+            if xo in (183,247,439):
+                if not ra or ra==1:raise ValueError('formatter update store')
+                gp[ra]=addr
         elif op in (32,33,34,35,40,41,42,43):
             n={32:4,33:4,34:1,35:1,40:2,41:2,42:2,43:2}[op]
             a=add(gp[ra] if ra else const(0),imm)
@@ -141,7 +167,7 @@ def plan(d,e):
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','formatter unknown arithmetic','formatter unknown value','formatter stack read provenance','formatter pointer provenance','formatter data read provenance','formatter stack write provenance','formatter path bound','formatter frame identity','formatter other boundary','formatter update load','formatter compare','formatter branch','formatter CTR provenance','formatter CR provenance','formatter first dependency'}
+    safe={'size','formatter unknown arithmetic','formatter unknown value','formatter stack read provenance','formatter pointer provenance','formatter data read provenance','formatter stack write provenance','formatter caller linkage provenance','formatter duplicate stack write','formatter update store','formatter indexed store provenance','formatter path bound','formatter frame identity','formatter other boundary','formatter update load','formatter compare','formatter branch','formatter CTR provenance','formatter CR provenance','formatter first dependency'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         path,frame,accesses,saved,dst,gp,mem,ws=plan(q.dol.read_bytes(),q.elf.read_bytes())

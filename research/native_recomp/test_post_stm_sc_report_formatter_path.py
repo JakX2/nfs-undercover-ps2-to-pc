@@ -10,4 +10,13 @@ class Path(unittest.TestCase):
         self.assertEqual((len(path),frame,len(accesses),saved,dst),(8,32,4,1,T))
         for bad in ((0x9421fffc,*ws[1:]),(*ws[:2],0x90010004,*ws[3:]),(*ws[:4],0x88830004,*ws[5:])):
             with self.assertRaises(ValueError):first_path(B,bad,{3:const(A)},{},((A,b'A\0'),))
+    def test_partial_local_store(self):
+        ws=(0x9421ffe0,0x7c0802a6,0x90010024,0x3860007f,0x98610008,
+            0x88810008,0x2c04007f,0x40820008,bl(B+32,T),0x4e800020)
+        path,frame,accesses,saved,dst,*_=first_path(B,ws,{},{},())
+        self.assertEqual((len(path),frame,len(accesses),saved,dst),(9,32,4,0,T))
+        for bad in ((*ws[:4],0x98610004,*ws[5:]),(*ws[:4],0x98610024,*ws[5:]),(*ws[:4],0x98610020,*ws[5:])):
+            # The first slot is a legal local byte, so use a separate
+            # unknown-read check rather than requiring it to be forbidden.
+            with self.assertRaises(ValueError):first_path(B,bad,{},{},())
 if __name__=='__main__':unittest.main(verbosity=2)
