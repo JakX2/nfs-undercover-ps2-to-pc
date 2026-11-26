@@ -192,7 +192,7 @@ static void mixed_third(unsigned fault){
            w.stores()==13&&w.authenticated_loads()==4&&c.gpr[7]==0x55555555u&&c.gpr[9]==0&&c.mmu.data_reads==0);
 }
 // An authenticated local CTR transfer is observed before its body executes.
-static void control_stop(unsigned fault){
+static void control_stop(unsigned fault,unsigned arrival=0){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[14]=0x1234;
     const auto target=R+20u,dst=R+0x100u;
     const uint32_t branch=0x4e800420u,body=ins(14,7,7,1);
@@ -229,7 +229,23 @@ static void control_stop(unsigned fault){
     if(fault){assert(!stopped);return;}
     assert(stopped&&w.reached_control_boundary(c,true)&&!w.reached_load_boundary(c,true)&&!w.reached(c,true));
     assert(w.visits()==5&&w.authenticated_loads()==1&&c.ctr==dst&&c.gpr[7]==0&&c.lr==L);
-    ++c.inst_count;assert(!w.reached_control_boundary(c,true));
+    if(!arrival){++c.inst_count;assert(!w.reached_control_boundary(c,true));return;}
+    c.pc=arrival==2?dst+4:dst; // synthetic execution of native transfer body
+    if(arrival==3)++c.inst_count;
+    if(arrival==4)c.gpr[7]=1;
+    const bool polled=w.control_transfer_poll(c,true);
+    if(arrival>=2&&arrival<=4){assert(!polled);return;}assert(polled);
+    if(arrival==5){assert(!w.control_transfer_poll(c,true));return;}
+    if(arrival!=6)++c.inst_count;
+    const bool entered=w.control_destination_entry(c,arrival==7?dst+4:dst,true);
+    if(arrival==6||arrival==7){assert(!entered);return;}assert(entered);
+    if(arrival!=8)++c.inst_count;
+    if(arrival==9)c.mmu.write32(dst,body^1u);
+    const bool landed=w.stop_before_control_destination(c,dst,body,arrival!=10);
+    if(arrival>=8){assert(!landed);return;}
+    assert(landed&&w.reached_control_destination(c,true)&&!w.reached_control_boundary(c,true));
+    assert(c.gpr[7]==0&&c.ctr==dst&&c.lr==L&&w.visits()==5);
+    ++c.inst_count;assert(!w.reached_control_destination(c,true));
 }
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
@@ -241,4 +257,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
     long_prefix(74,0);long_prefix(128,0);long_prefix(129,0);long_prefix(74,1);long_prefix(74,2);
     for(unsigned i=0;i<=4;++i)mixed_third(i);
     for(unsigned i=0;i<=10;++i)control_stop(i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=47 original_execution=0\n";}
+    for(unsigned i=1;i<=10;++i)control_stop(0,i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=57 original_execution=0\n";}

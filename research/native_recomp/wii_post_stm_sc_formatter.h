@@ -199,6 +199,27 @@ public:
             common(c,held)&&c.inst_count==last_&&abi(c)&&ctr_==e_.control.destination&&
             word(c,e_.target,e_.target_word)&&word(c,e_.control.destination,e_.control.word);
     }
+    // Optional continuation of the verified pre-transfer stop. The native
+    // bctr body must perform the PC change; these observers never set it.
+    // The pinned run_game polls before its dispatcher tick, then the
+    // translated interior label ticks once before executing its body.
+    template<class C>bool control_transfer_poll(C& c,bool held){
+        if(!reached_control_boundary(c,held)||c.pc!=e_.control.destination)return fail(6);
+        stage_=3u;return true;
+    }
+    template<class C>bool control_destination_entry(C& c,uint32_t pc,bool held){
+        if(stage_!=3u||pc!=e_.control.destination||c.pc!=pc||
+           c.inst_count-last_!=1u||!control_storage(c,held))return fail(6);
+        stage_=4u;return true;
+    }
+    template<class C>bool stop_before_control_destination(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=4u||pc!=e_.control.destination||c.pc!=pc||w!=e_.control.word||
+           c.inst_count-last_!=2u||!control_storage(c,held))return fail(6);
+        last_=c.inst_count;stage_=5u;return true;
+    }
+    template<class C>bool reached_control_destination(C& c,bool held)const{
+        return stage_==5u&&c.pc==e_.control.destination&&c.inst_count==last_&&control_storage(c,held);
+    }
     template<class C>bool reached(C& c,bool held)const{
         return stage_==2u&&!local_stop()&&due_&&common(c,held)&&c.pc==e_.target&&c.inst_count==last_&&abi(c);
     }
@@ -248,6 +269,10 @@ private:
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0,seen_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
+    template<class C>bool control_storage(C& c,bool held)const{
+        return e_.control.destination&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&abi(c)&&
+            ctr_==e_.control.destination&&word(c,e_.target,e_.target_word)&&word(c,e_.control.destination,e_.control.word);
+    }
     bool local_stop()const{return e_.boundary.width||e_.control.destination;}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t mask(unsigned mb,unsigned me){
