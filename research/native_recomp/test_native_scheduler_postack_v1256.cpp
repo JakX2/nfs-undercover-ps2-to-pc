@@ -53,6 +53,9 @@
 #include "wii_idle_route_v1327.h"
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
 #include "wii_sleep_resume_v1335.h"
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+#include "wii_sleep_exit_v1339.h"
+#endif
 #endif
 #endif
 #endif
@@ -176,6 +179,12 @@ static SleepResumeWitness* sleep_resume=nullptr;
 static bool sleep_active=false;
 static unsigned resumed_sleep_count=0;
 struct SleepRestoreReached{};
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+static SleepExitWitness* sleep_exit=nullptr;
+static bool exit_active=false;
+static unsigned sleep_exit_count=0;
+struct SleepExited{};
+#endif
 #endif
 #endif
 #endif
@@ -228,7 +237,17 @@ static bool load_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 #endif
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+[[noreturn]]static void sleep_exit_refuse(unsigned kind){
+    std::cout<<"V1340_EXIT_REFUSAL kind="<<kind<<" stage="<<sleep_exit->stage()
+        <<" reason="<<sleep_exit->failure()<<" visits="<<sleep_exit->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active){if(!sleep_exit->before(c,pc,w,load_held(c)))sleep_exit_refuse(1);return;}
+#endif
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active){
         if(!sleep_resume->before(c,pc,w,load_held(c)))sleep_resume_refuse(1);
@@ -433,6 +452,9 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active){if(!sleep_exit->before(c,pc,w,load_held(c)))sleep_exit_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
     if(load_active){
         if(!coop_load->before(c,pc,w,load_held(c)))load_refuse(1);
@@ -479,10 +501,19 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active)sleep_exit_refuse(3);
+#endif
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active){
         if(!sleep_resume->entry(c,pc,load_held(c))||!sleep_resume->restored_sleep_at(c,load_held(c)))sleep_resume_refuse(2);
-        ++resumed_sleep_count;throw SleepRestoreReached{};
+        ++resumed_sleep_count;
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+        if(!sleep_exit->begin(c,*sleep_resume,load_held(c)))sleep_exit_refuse(4);
+        sleep_active=false;exit_active=true;return;
+#else
+        throw SleepRestoreReached{};
+#endif
     }
 #endif
 #ifdef UNDERCOVER_V1334_COOP_LOAD
@@ -641,6 +672,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active){
+        if(!sleep_exit->poll(c,load_held(c)))sleep_exit_refuse(5);
+        if(sleep_exit->stage()==3u){
+            if(!sleep_exit->returned(c,load_held(c)))sleep_exit_refuse(5);
+            ++sleep_exit_count;throw SleepExited{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active){if(!sleep_resume->poll(c,load_held(c)))sleep_resume_refuse(3);return false;}
 #endif
@@ -839,6 +880,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active)sleep_exit_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active)sleep_resume_refuse(5);
 #endif
@@ -899,6 +943,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    if(exit_active)sleep_exit_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active)sleep_resume_refuse(6);
 #endif
@@ -1109,6 +1156,14 @@ int main(int argc,char** argv)try{
         need(acked&&submit_stage==9&&submit_acks==trial+1&&submit_vectors==trial+1&&host.serviced_steps()==1&&device_ok(c));
         need(ctl.issued_tokens()==3u&&!ctl.pending());
         std::cout<<"V1256_SUBMIT_TRIAL n="<<trial<<" path="<<kind<<" ack=1 reply=0 si_quiescent=1\n";
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+        constexpr uint32_t SubmitResume=0x805197d8u;
+        const auto submit_word=std::find_if(v626::words.begin(),v626::words.end(),[](auto w){return w.pc==SubmitResume;});
+        need(submit_word!=v626::words.end());
+        SleepExitWitness exited({PostAckSleepJoin::Sleep,SubmitResume,submit_word->word,v1252::edges[2],v1321::ram_words});
+        sleep_exit=&exited;
+        if(!exited.capture(c,device_ok(c)))sleep_exit_refuse(7);
+#endif
         PostAckSleepJoin sleep(v1252::edges);
         need(sleep.begin(c,next,device_ok(c)));
         submit_host=nullptr;submit_join=nullptr;submit_cpu=nullptr;
@@ -1316,10 +1371,19 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1334_COOP_LOAD
         CooperativeLoadLane load(v1321::load());coop_load=&load;load_save=&save_lane;
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+        bool sleep_exited=false;try{run_game(c);}catch(const SleepExited&){sleep_exited=true;}
+        need(sleep_exited&&exited.returned(c,load_held(c))&&selection_count==trial+1u&&
+            load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&
+            host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+        exit_active=false;sleep_exit=nullptr;
+        std::cout<<"V1340_EXIT_TRIAL n="<<trial<<" nested_restore=1 sleep_return=1 submit_resume=1 caller_abi=1\n";
+#else
         bool sleep_reached=false;try{run_game(c);}catch(const SleepRestoreReached&){sleep_reached=true;}
         need(sleep_reached&&resumed.restored_sleep_at(c,load_held(c))&&selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&host.serviced_steps()==2u&&
             !(cause.load()&mask.load()));
+#endif
         sleep_active=false;sleep_resume=nullptr;
         std::cout<<"V1336_SLEEP_TRIAL n="<<trial<<" native_rfi=1 select_return=1 sleep_stack=1 saved_abi=1 restore_entry=1\n";
 #else
@@ -1408,6 +1472,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     need(resumed_sleep_count==8u);
     std::cout<<"V1336_SLEEP_NATIVE owner=1 trials=8 native_rfi=8 select_return=8 sleep_stack=8 saved_abi=8 restore_entry=8 sleep_return=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1340_SLEEP_EXIT
+    need(sleep_exit_count==8u);
+    std::cout<<"V1340_SLEEP_EXIT_NATIVE owner=1 trials=8 nested_restore=8 sleep_return=8 submit_resume=8 caller_abi=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
