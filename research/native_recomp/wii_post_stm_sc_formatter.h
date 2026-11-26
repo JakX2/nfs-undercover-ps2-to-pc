@@ -22,6 +22,7 @@ public:
     explicit ScFormatterWitness(ScFormatterExpectation e):e_(e){}
     unsigned stage()const{return stage_;}unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}unsigned back_polls()const{return back_polls_;}unsigned loads()const{return loads_;}unsigned stores()const{return stores_;}
+    unsigned authenticated_loads()const{return authenticated_loads_;}
     uint32_t expected_sp()const{return gp_[1];}
     uint32_t linkage_word()const{
         uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|shadow_[e_.frame_size+4+i];return v;
@@ -104,7 +105,10 @@ public:
             if(rs==1u||!access(pc,ea,n,false)||!mapped(c,{ea,n})||(ea%n))return fail(5);
             uint32_t v=0;for(unsigned i=0;i<n;++i)v=(v<<8)|c.mmu.read8(ea+i);
             const auto site=std::find_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==pc;});
-            if(site->expected_value&&v!=*site->expected_value)return fail(5);
+            if(site->expected_value){
+                if(v!=*site->expected_value)return fail(5);
+                ++authenticated_loads_;
+            }
             gp_[rs]=op>=42u&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
             if(op&1u){if(!ra||ra==rs||ra==1u)return fail(5);gp_[ra]=ea;}
         }else if(op==31u&&xo==339u&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
@@ -196,7 +200,7 @@ private:
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
     std::vector<uint8_t> shadow_,written_;
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0;
-    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,seen_=0;
+    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0,seen_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
@@ -226,7 +230,8 @@ private:
         return true;
     }
     template<class C>bool abi(C& c)const{
-        if(stores_+loads_!=e_.accesses.size()||gp_[1]!=frame_.base||c.mmu.read32(frame_.base)!=incoming_[1]||
+        if(stores_+loads_!=e_.accesses.size()||authenticated_loads_!=unsigned(std::count_if(e_.accesses.begin(),e_.accesses.end(),[](auto a){return a.expected_value.has_value();}))||
+           gp_[1]!=frame_.base||c.mmu.read32(frame_.base)!=incoming_[1]||
            gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return false;
         for(auto s:e_.slots){
             const auto a=uint32_t(int64_t(incoming_[1])+s.caller_offset);

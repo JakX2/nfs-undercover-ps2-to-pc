@@ -45,7 +45,7 @@ static void trial(unsigned fault){
     ok=w.stop_before_load(c,target,load,fault!=8);
     if(fault){assert(!ok);return;}
     assert(ok&&w.reached_load_boundary(c,true)&&!w.reached(c,true));
-    assert(w.visits()==4&&w.stores()==3&&w.loads()==0&&c.gpr[4]==0&&c.mmu.data_reads==0);
+    assert(w.visits()==4&&w.stores()==3&&w.loads()==0&&w.authenticated_loads()==0&&c.gpr[4]==0&&c.mmu.data_reads==0);
     ++c.inst_count;assert(!w.reached_load_boundary(c,true));
 }
 static void many_accesses(unsigned fault){
@@ -56,10 +56,13 @@ static void many_accesses(unsigned fault){
         const auto pc=R+12+i*4;path.push_back({R,pc,ins(38,5,1,8+i)});
         access.push_back({pc,1,int64_t(i)-40,true,true});
     }
-    const auto rd=R+52,target=R+56;
+    const auto rd=R+52,target=R+60;
     path.push_back({R,rd,ins(32,6,3,8)});
+    path.push_back({R,rd+4,ins(32,7,3,12)});
     access.push_back({rd,4,A+8,false,false,fault==1?0u:0x12345678u});
+    access.push_back({rd+4,4,A+12,false,false,fault==3?1u:0u});
     if(fault==2)access.back().write=true;
+    if(fault==4)access.back().expected_value.reset();
     for(auto x:path)c.mmu.write32(x.pc,x.word);
     const auto load=ins(32,4,3,0);c.mmu.write32(target,load);
     const std::array<StmFinalSlot,1> slots{{{4,32}}};
@@ -69,16 +72,18 @@ static void many_accesses(unsigned fault){
     assert(w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
     for(auto x:path){
         ++c.inst_count;const bool ok=w.before(c,x.pc,x.word,true);
-        if(fault==1&&x.pc==rd){assert(!ok);return;}assert(ok);
+        if(fault==1&&x.pc==rd){assert(!ok&&w.authenticated_loads()==0);return;}
+        if(fault==3&&x.pc==rd+4){assert(!ok&&w.authenticated_loads()==1);return;}assert(ok);
         if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
         else if(x.pc==R+4)c.gpr[0]=L;
         else if(x.pc==R+8)c.mmu.write32(SP+4,L);
         else if(x.pc==rd)c.gpr[6]=0x12345678;
+        else if(x.pc==rd+4)c.gpr[7]=0;
         else *c.mmu.get_ptr(SP-40+(x.pc-R-12)/4)=0x55;
     }
     ++c.inst_count;
     assert(w.stop_before_load(c,target,load,true)&&w.reached_load_boundary(c,true));
-    assert(w.loads()==1&&w.stores()==12&&c.mmu.data_reads==0);
+    assert(w.loads()==2&&w.authenticated_loads()==(fault==4?1u:2u)&&w.stores()==12&&c.mmu.data_reads==0);
 }
-int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=2;++i)many_accesses(i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=12 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=14 original_execution=0\n";}

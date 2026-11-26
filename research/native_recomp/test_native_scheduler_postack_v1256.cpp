@@ -4503,7 +4503,7 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             if(!nested_done||formatter_nested_count!=trial+1u||!nested.reached_load_boundary(c,formatter_nested_held(c))||
-               nested.visits()!=nested_visits||nested.loads()!=nested_loads||nested.stores()!=12u||
+               nested.visits()!=nested_visits||nested.loads()!=nested_loads||nested.authenticated_loads()!=nested_loads||nested.stores()!=12u||
                host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
                host.cold_ipc_snapshot().replies)formatter_nested_refuse(5);
             const auto observed=nested_cell.finish(c,nested.reached_load_boundary(c,formatter_nested_held(c)));

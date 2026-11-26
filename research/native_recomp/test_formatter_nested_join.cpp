@@ -72,6 +72,6 @@ static void trial(unsigned fault){
     ++c.inst_count;const bool ok=child.stop_before_load(c,stop,load,held(fault!=6));
     if(fault>=5){assert(!ok);return;}
     assert(ok&&child.reached_load_boundary(c,held())&&!parent.frame_held(c,true));
-    assert(child.visits()==6&&child.loads()==1&&child.stores()==3&&c.mmu.unresolved_reads==0);
+    assert(child.visits()==6&&child.loads()==1&&child.authenticated_loads()==1&&child.stores()==3&&c.mmu.unresolved_reads==0);
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=8 original_execution=0\n";}
