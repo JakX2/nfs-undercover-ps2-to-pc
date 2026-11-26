@@ -161,6 +161,10 @@ third_postalarm="${UNDERCOVER_RUN_V1102_AFTER_ALARM-0}"
 [[ "$third_postalarm" == 0 || "$third_postalarm" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1097_AFTER_ALARM-0}" == "$third_postalarm" ]] || exit 2
 [[ "$third_postalarm" == 0 || ( "$third_alarm" == 1 && "$third" == 1 && "${UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX:-0}" == 0 ) ]] || exit 2
+third_postalarm_time="${UNDERCOVER_RUN_V1107_POSTALARM_TIME-0}"
+[[ "$third_postalarm_time" == 0 || "$third_postalarm_time" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1106_POSTALARM_TIME-0}" == "$third_postalarm_time" ]] || exit 2
+[[ "$third_postalarm_time" == 0 || "$third_postalarm" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -179,6 +183,9 @@ if [[ "$third" == 1 ]]; then
 fi
 if [[ "$third_postalarm" == 1 ]]; then
   echo 'V1102_POSTALARM_BUILD_PLAN links=1 private_installer=1 alarm_predecessor=1'
+  if [[ "$third_postalarm_time" == 1 ]]; then
+    echo 'V1107_POSTALARM_TIME_BUILD_PLAN links=1 private_installer=1 prefix_predecessor=1'
+  fi
 fi
 if [[ "$matrix" == 1 ]]; then
   lanes=3;[[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" != 1 ]] || lanes=4
@@ -323,6 +330,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                     python3 "$here/prepare_v1048_third_alarm.py" "$dol" "$elf" "$work/generated"
                     if [[ "$third_postalarm" == 1 ]]; then
                         python3 "$here/prepare_v1097_after_alarm.py" "$dol" "$elf" "$work/generated"
+                        if [[ "$third_postalarm_time" == 1 ]]; then
+                            python3 "$here/prepare_v1106_postalarm_time.py" "$dol" "$elf" "$work/generated"
+                        fi
                     fi
                 fi
             elif [[ "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" == 1 ]]; then exit 2

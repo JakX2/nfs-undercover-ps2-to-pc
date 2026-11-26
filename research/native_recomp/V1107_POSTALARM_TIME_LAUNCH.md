@@ -1,0 +1,3 @@
+# V1107: full-image held callback time launch contract
+
+V1105 verified 32/32 focused original third-ACK callback time trials, split and nonsplit, with no interpreter fallback. V1106 verified its 58-label private installer and eight refusal controls (source-only). Add matched, explicit V1107 run and V1106 prepare flags to the existing continuous launch, requiring the complete V1102 predecessor and retaining the old alarm and callback-only plans. The strict terminal audit requires the complete original alarm, callback-prefix and system-time proofs in order, no contradictory markers, exact counts, held third token and zero exit status. No owner full-image workflow enabled; existing run 45753506495 remains active. New source-only tests pending.
