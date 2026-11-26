@@ -1,6 +1,6 @@
 #pragma once
 #include "native_external_irq.h"
-#include "wii_native_ios_transport.h"
+#include "wii_open_epoch_v1361.h"
 namespace undercover::wii {
 // Called only at an authenticated scheduler mtmsr continuation.
 inline bool same_scheduler_ipc_snapshot(const ColdIpcSnapshot& a,const ColdIpcSnapshot& b){
@@ -10,14 +10,16 @@ inline bool same_scheduler_ipc_snapshot(const ColdIpcSnapshot& a,const ColdIpcSn
 }
 template<class C,size_t N>
 bool enter_scheduler_ipc_irq(C& c,NativeIosTransport& host,
-        const std::array<uint8_t,N>& installed,uint32_t request){
+        const std::array<uint8_t,N>& installed,uint32_t request,unsigned first_kind=0){
     using M=IpcMailbox;using H=HollywoodIrq;
+    const OpenTransactionEpoch epoch(first_kind);
+    if(!epoch.valid()||(epoch.second()&&!epoch.acknowledged_descriptors(3u-first_kind,[&](unsigned fd,auto d){return host.services().is_open(fd,d); })))return false;
     const auto before=host.cold_ipc_snapshot();
     if(!c.is_running||c.in_callback||c.dispatch_saved_ctx||!(c.msr&IosBus::MSR_EE)||
        (before.pi_cause&before.pi_mask)!=H::PI_HOLLYWOOD||
        !(before.control&M::Y2)||(before.control&(M::Y1|M::X1))||
        !(before.control&M::IY2)||!(before.flags&H::IPC_PPC)||
-       !(before.irq_mask&H::IPC_PPC)||before.steps!=1u||before.replies!=1u||
+       !(before.irq_mask&H::IPC_PPC)||before.steps!=epoch.ack_steps()||before.replies!=1u||
        before.queued||before.event||before.ppc!=request||(request&31u)||
        !host.physical_ram().valid(request,32u)||
        host.physical_ram().read32(request)!=StmIos::Open)return false;

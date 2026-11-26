@@ -11,8 +11,8 @@ namespace undercover::wii {
 class JoinedIpcAck {
 public:
     JoinedIpcAck(uint32_t handler,uint32_t returned,uint32_t return_word,uint32_t final_blr,uint32_t context,
-                 uint32_t thread,std::span<const VectorEdge> edges,std::span<const uint32_t> polls)
-        :handler_(handler),returned_(returned),word_(return_word),final_blr_(final_blr),context_(context),thread_(thread),edges_(edges),polls_(polls){}
+                 uint32_t thread,std::span<const VectorEdge> edges,std::span<const uint32_t> polls,unsigned first_kind=0)
+        :handler_(handler),returned_(returned),word_(return_word),final_blr_(final_blr),context_(context),thread_(thread),edges_(edges),polls_(polls),gate_(first_kind){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}

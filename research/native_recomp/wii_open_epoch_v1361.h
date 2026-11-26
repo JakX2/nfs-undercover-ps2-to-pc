@@ -11,6 +11,9 @@ public:
     constexpr bool second()const{return first_kind_!=0u;}
     constexpr unsigned first_kind()const{return first_kind_;}
     constexpr uint64_t steps()const{return second()?2u:0u;}
+    constexpr uint64_t ack_steps()const{return steps()+1u;}
+    constexpr uint64_t reply_steps()const{return steps()+2u;}
+    constexpr uint32_t result_fd()const{return second()?1u:0u;}
     constexpr bool admits(unsigned kind)const{
         return valid()&&(kind==1u||kind==2u)&&(!second()||kind==3u-first_kind_);
     }
@@ -25,15 +28,18 @@ public:
         return true;
     }
     bool acknowledged_descriptors(unsigned kind)const{
+        return acknowledged_descriptors(kind,[](unsigned fd,auto d){return NativeIosBinding::is_open(fd,d);});
+    }
+    template<class IsOpen>bool acknowledged_descriptors(unsigned kind,IsOpen is_open)const{
         using D=StmIos::Device;
         if(!admits(kind))return false;
         const auto next=kind==1u?D::Immediate:D::Event;
-        if(!second())return NativeIosBinding::is_open(0u,next);
-        if(!NativeIosBinding::is_open(0u,first_kind_==1u?D::Immediate:D::Event)||
-           !NativeIosBinding::is_open(1u,next))return false;
+        if(!second())return is_open(0u,next);
+        if(!is_open(0u,first_kind_==1u?D::Immediate:D::Event)||
+           !is_open(1u,next))return false;
         for(unsigned fd=2;fd<StmIos::DescriptorCount;++fd)
             for(auto d:{D::Immediate,D::Event,D::Fs,D::File,D::Es})
-                if(NativeIosBinding::is_open(fd,d))return false;
+                if(is_open(fd,d))return false;
         return true;
     }
     bool quiet(const ColdIpcSnapshot& s)const{

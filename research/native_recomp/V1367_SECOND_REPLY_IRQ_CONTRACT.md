@@ -1,0 +1,3 @@
+# V1367 second reply and hardware IRQ source contract
+
+Prepare second ACK-handler gate and external exception entry. Explicit second transaction epoch requires both descriptor identities and service counters 3/4; only the second descriptor result (1) is accepted. Keep first transaction defaults, original native handler authorization, exact W1C order, full request snapshot, RFI provenance and no extra service on IRQ entry. Test with actual native broker, reused physical request and synthetic CPU/vector/handler boundaries in both device orders. JoinedIpcAck can receive the second epoch. Original second sleep, dispatcher, wakeup, allocator return and final STM return are not integrated by this commit; this is only their next host boundary. V1366 owner ACK pending.
