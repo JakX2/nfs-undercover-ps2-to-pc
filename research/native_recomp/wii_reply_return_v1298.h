@@ -35,6 +35,9 @@ public:
     unsigned visits()const{return visits_;}
     unsigned writes()const{return gate_.writes();}
     unsigned x2_writes()const{return gate_.x2_writes();}
+    unsigned control_detail()const{return control_detail_;}
+    unsigned control_target()const{return control_target_;}
+    unsigned control_owner()const{return owner_class(last_owner_);}
     unsigned write_detail()const{return gate_.write_detail();}
     unsigned write_register()const{return gate_.write_register();}
     unsigned write_control_bits()const{return gate_.write_control_bits();}
@@ -69,15 +72,19 @@ public:
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         if(op==18u&&(w&1u)){
             const auto dst=target(pc,w);
-            if((w&2u)||ret_||(active_!=e_.processor&&active_!=e_.handler)||
-               (dst!=e_.read_leaf&&dst!=e_.write_leaf)||!edge(c,pc,w,dst))return fail(4);
+            if(w&2u)return control_fail(1,dst);
+            if(ret_)return control_fail(2,dst);
+            if(active_!=e_.processor&&active_!=e_.handler)return control_fail(3,dst);
+            if(dst!=e_.read_leaf&&dst!=e_.write_leaf)return control_fail(4,dst);
+            if(!edge(c,pc,w,dst))return control_fail(5,dst);
             caller_=active_;ret_=next_;next_=dst;entry_due_=true;return true;
         }
         if(op==19u&&xo==16u){
-            if(w&1u)return fail(4);
+            if(w&1u)return control_fail(6);
             if(!taken(c,w))return true;
             if(ret_){
-                if((active_!=e_.read_leaf&&active_!=e_.write_leaf)||c.lr!=ret_)return fail(4);
+                if(active_!=e_.read_leaf&&active_!=e_.write_leaf)return control_fail(7);
+                if(c.lr!=ret_)return control_fail(8);
                 active_=caller_;next_=ret_;ret_=0;return true;
             }
             if(active_==e_.processor){
@@ -87,10 +94,15 @@ public:
             if(active_!=e_.handler||!processor_returned_||!handler_.restored(c)||!finished(c,held))return fail(5);
             next_=e_.dispatcher_return;outer_due_=3;return true;
         }
-        if(op==17u||(op==19u&&(xo==528u||xo==50u))||(op==31u&&xo==146u)||(op==16u&&(w&1u)))return fail(4);
+        if(op==17u)return control_fail(9);
+        if(op==19u&&xo==528u)return control_fail(10);
+        if(op==19u&&xo==50u)return control_fail(11);
+        if(op==31u&&xo==146u)return control_fail(12);
+        if(op==16u&&(w&1u))return control_fail(13);
         if(op==16u||op==18u){
             const auto dst=target(pc,w);
-            if((w&3u)||!known(c,active_,dst))return fail(4);
+            if(w&3u)return control_fail(14,dst);
+            if(!known(c,active_,dst))return control_fail(15,dst);
             if(dst<=pc)poll_due_=true;
             if(op==18u||taken(c,w))next_=dst;
         }
@@ -126,6 +138,27 @@ private:
     WordMmioInstruction mmio_{};uint32_t counter_=0,active_=0,caller_=0,next_=0,ret_=0,last_pc_=0,last_owner_=0,read_value_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,outer_due_=0;
     bool entry_due_=false,poll_due_=false,outer_resume_=false,processor_returned_=false,used_=false;
+    unsigned control_detail_=0,control_target_=0;
+    unsigned owner_class(uint32_t a)const{
+        return a==e_.processor?1u:a==e_.handler?2u:a==e_.read_leaf?3u:a==e_.write_leaf?4u:0u;
+    }
+    // Fixed categories for the already-known candidate helper roots.
+    // Never publish a guest address or the original opcode.
+    unsigned target_class(uint32_t a)const{
+        const auto k=owner_class(a);if(k)return k;
+        if(a==0x8051b060u)return 5u;
+        if(a==0x8051b070u)return 6u;
+        if(a==0x8051ad3cu)return 7u;
+        if(a==0x80522af4u)return 8u;
+        if(a==0x805228ccu)return 9u;
+        if(a==0x80522294u)return 10u;
+        if(a==0x8052a51cu)return 11u;
+        return a?12u:0u;
+    }
+    bool control_fail(unsigned detail,uint32_t dst=0){
+        if(!control_detail_){control_detail_=detail;control_target_=target_class(dst);}
+        return fail(4);
+    }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>bool finished(C& c,bool held)const{
         return gate_.finished(c,held)&&(!e_.require_x2||gate_.x2_writes()==1u);

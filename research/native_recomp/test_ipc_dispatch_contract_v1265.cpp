@@ -377,7 +377,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(return_case){
             constexpr uint32_t P=Reply+24u,Hret=Handler+12u,Dret=Code.indirect_pc+4u;
             const std::array<ReplyNativeWord,7> rw{{
-                {Reply,P,bl(P,Writer)},{Reply,P+4u,Stw},{Reply,P+8u,Blr},
+                {Reply,P,bl(P,Writer)},{Reply,P+4u,Stw},{Reply,P+8u,return_case==13?bl(P+8u,0x8051b070u):Blr},
                 {Writer,Writer,Stw},{Writer,Writer+4u,Blr},{Leaf,Leaf,Lwz},{Handler,Hret,Blr}}};
             const std::array<VectorEdge,1> re{{{Writer,P+4u,rw[0].word,Stw}}};
             for(auto x:rw)m.write32(x.pc,x.word);
@@ -404,7 +404,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             assert(rs(P+4u)&&ret.write(c,Bus::IPC+M::PPCCTRL,c.gpr[3],true));
             c.gpr[1]=processor_abi.gp[1];c.lr=Hret;
             if(return_case==9)c.gpr[31]^=1u;
-            ok=rs(P+8u);if(return_case==9){no(ok,5);return;}assert(ok);
+            ok=rs(P+8u);if(return_case==9){no(ok,5);return;}
+            if(return_case==13){no(ok,4);assert(ret.control_detail()==4u&&ret.control_target()==6u&&ret.control_owner()==1u&&ret.x2_writes()==1u);return;}
+            assert(ok);
             c.pc=Hret;
             if(return_case==10)c.mmu.write32(Counter,0u);
             ok=ret.poll(c,true);if(return_case==10){no(ok,6);return;}assert(ok);
@@ -570,8 +572,8 @@ int main(){
     for(unsigned i=1;i<=19;++i)trial(0,0,true,0,0,0,i);
     std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=2 refused=17 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
-    for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
-    std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
+    for(unsigned i=1;i<=13;++i)trial(0,0,true,0,0,0,0,i);
+    std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=12 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
     std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";
