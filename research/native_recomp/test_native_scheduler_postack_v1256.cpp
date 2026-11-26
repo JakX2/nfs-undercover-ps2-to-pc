@@ -103,6 +103,9 @@
 #include "private_deferred_ack_execution.h"
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
 #include "wii_deferred_active_return.h"
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+#include "wii_stm_resumed_restore.h"
+#endif
 #endif
 #endif
 #endif
@@ -380,6 +383,13 @@ static uint64_t third_return_tick=0;
 struct DeferredActiveRfiStop{};
 static bool third_return_storage(nw::CPUContext&);
 [[noreturn]]static void third_return_refuse(unsigned);
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+static StmResumedRestoreWitness* third_resume=nullptr;
+static unsigned third_resume_count=0;
+struct StmResumedRestoreStop{};
+static bool third_resume_held(nw::CPUContext&);
+[[noreturn]]static void third_resume_refuse(unsigned);
+#endif
 #endif
 #endif
 [[noreturn]]static void third_dispatch_refuse(unsigned);
@@ -698,6 +708,17 @@ static bool third_return_storage(nw::CPUContext& c){
         stm_event_return&&stm_event_return->flag_preserved(c)&&
         allocator_descriptor&&allocator_descriptor->identity_after_release(c);
 }
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+static bool third_resume_held(nw::CPUContext& c){
+    return third_resume&&third_return_join&&third_return_join->continuation_held(c,third_return_storage(c));
+}
+[[noreturn]]static void third_resume_refuse(unsigned kind){
+    std::cout<<"STM_RESUMED_RESTORE_REFUSAL kind="<<kind<<" stage="<<(third_resume?third_resume->stage():0u)
+        <<" reason="<<(third_resume?third_resume->failure():0u)<<" visits="<<(third_resume?third_resume->visits():0u)
+        <<" rfi="<<(third_return_route?third_return_route->stage():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void third_return_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_ACTIVE_RETURN_REFUSAL kind="<<kind
         <<" stage="<<(third_return_route?third_return_route->stage():0u)
@@ -1250,6 +1271,14 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+    if(third_resume){
+        const bool first=third_resume->visits()==0u;
+        if(!third_resume_held(c)||(first&&!third_return_route->resume(c,pc,w,cause.load(),mask.load()))||
+           !third_resume->before(c,pc,w,third_resume_held(c),first))third_resume_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
     if(third_return_route){
         if(!third_return_join->held(c,third_return_storage(c)))third_return_refuse(1);
@@ -1318,6 +1347,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+    if(third_resume){
+        if(!third_resume->entry(c,pc,third_resume_held(c)))third_resume_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
     if(third_return_route){
         if(!third_return_join->held(c,third_return_storage(c))||
@@ -1862,6 +1897,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+    if(third_resume){
+        if(!third_resume->poll(c,third_resume_held(c)))third_resume_refuse(4);
+        if(third_resume->stage()==2u){++third_resume_count;throw StmResumedRestoreStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
     if(third_return_route){
         if(!third_return_join->held(c,third_return_storage(c)))third_return_refuse(5);
@@ -3470,6 +3512,20 @@ int main(int argc,char** argv)try{
         std::cout<<"STM_DEFERRED_ACTIVE_RETURN_TRIAL n="<<trial
             <<" native_rfi=1 original_epilogue=1 active_context=1 deferred=1 reply=0 resume_instruction_executed=0 visits="
             <<active_route.visits()<<'\n';
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+        StmResumedRestoreWitness resumed_restore(ex);
+        third_resume=&resumed_restore;
+        if(!resumed_restore.begin(c,active_join.resumed(c,third_return_storage(c))))third_resume_refuse(1);
+        bool stm_resumed=false;try{run_game(c);}catch(const StmResumedRestoreStop&){stm_resumed=true;}
+        if(!stm_resumed||third_resume_count!=trial+1u||active_route.stage()!=5u||
+           !resumed_restore.reached(c,third_resume_held(c))||c.pc!=ex.caller||c.lr!=ex.caller||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)third_resume_refuse(5);
+        std::cout<<"STM_RESUMED_RESTORE_TRIAL n="<<trial
+            <<" native_resume=1 original_restore_return=1 stm_caller=1 deferred=1 reply=0 stm_instruction_executed=0 visits="
+            <<resumed_restore.visits()<<'\n';
+        third_resume=nullptr;
+#endif
         third_return_route=nullptr;third_return_join=nullptr;
 #endif
 #endif
@@ -3696,6 +3752,10 @@ int main(int argc,char** argv)try{
     need(third_ack_count==8u);
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
     need(third_return_count==8u);
+#ifdef UNDERCOVER_STM_RESUMED_RESTORE
+    need(third_resume_count==8u);
+    std::cout<<"STM_RESUMED_RESTORE_NATIVE owner=1 trials=8 native_resume=8 original_restore_return=8 stm_caller=8 deferred=8 reply=0 stm_instruction_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_DEFERRED_ACTIVE_RETURN_NATIVE owner=1 trials=8 native_rfi=8 original_epilogue=8 active_context=8 deferred=8 reply=0 resume_instruction_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_DEFERRED_ACK_NATIVE owner=1 trials=8 original_return=8 guest_w1c=8 credit=8 unissued=8 deferred=8 reply=0 active_context=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

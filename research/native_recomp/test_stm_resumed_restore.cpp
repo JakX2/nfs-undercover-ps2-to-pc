@@ -29,7 +29,14 @@ static void trial(bool old_ee,unsigned fault){
     bool ok=w.begin(c,fault!=2);
     if(fault==1||fault==2){assert(!ok);return;}assert(ok);
     if(fault==3){++c.inst_count;assert(!w.poll(c,true));return;}
-    assert(w.poll(c,true));c.inst_count+=fault==4?1u:2u;
+    assert(w.poll(c,true));
+    if(fault>=16){
+        c.inst_count+=fault==19?2u:1u;
+        ok=w.entry(c,fault==17?Resume+4:Resume,true);
+        if(fault==17||fault==19){assert(!ok);return;}assert(ok);
+        if(fault==18){assert(!w.entry(c,Resume,true));return;}
+        ++c.inst_count;
+    }else c.inst_count+=fault==4?1u:2u;
     ok=w.before(c,Resume,fault==5?Nop:first,true,fault!=6);
     if(fault>=4&&fault<=9){assert(!ok);return;}assert(ok);
     c.gpr[3]=fault==10?unsigned(!old_ee):unsigned(old_ee);
@@ -44,5 +51,5 @@ static void trial(bool old_ee,unsigned fault){
     if(fault==13||fault==14){assert(!ok);return;}assert(ok&&w.reached(c,true)&&w.visits()==3);
     if(fault==15){++c.inst_count;assert(!w.reached(c,true));}
 }
-int main(){for(bool ee:{false,true})for(unsigned f=0;f<=15;++f)trial(ee,f);
-    std::cout<<"STM_RESUMED_RESTORE_TEST cases=32 original_execution=0\n";}
+int main(){for(bool ee:{false,true})for(unsigned f=0;f<=19;++f)trial(ee,f);
+    std::cout<<"STM_RESUMED_RESTORE_TEST cases=40 original_execution=0\n";}

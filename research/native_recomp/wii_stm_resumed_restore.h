@@ -18,6 +18,11 @@ public:
         cpu_=&c;gp_=c.gpr;gqr_=c.gqr;msr_=c.msr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
         srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;next_=e_.resume;stage_=1;return true;
     }
+    template<class C>bool entry(C& c,uint32_t pc,bool held){
+        if(stage_!=1u||!common(c,held)||visits_||!initial_poll_||entry_seen_||
+           pc!=e_.resume||c.pc!=pc||c.inst_count-last_!=1u)return fail(2);
+        entry_seen_=true;return true;
+    }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held,bool rfi_label){
         if(stage_!=1u||!common(c,held)||return_due_||pc!=next_||
            c.inst_count-last_!=(visits_?1u:2u)||rfi_label!=(visits_==0u)||
@@ -37,7 +42,8 @@ public:
         }else if(op==31u&&xo==444u&&!(w&1u)&&volatile_reg(ra)){
             gp_[ra]=gp_[rs]|gp_[rb];
         }else return fail(3);
-        if(!known(c,next_,c.mmu.get_ptr(next_)&&c.mmu.get_ptr(next_+3u)?c.mmu.read32(next_):0u))return fail(3);
+        if(std::count_if(e_.words.begin(),e_.words.end(),
+             [&](auto x){return x.owner==e_.root&&x.pc==next_&&word(c,next_,x.word);})!=1)return fail(3);
         return true;
     }
     template<class C>bool poll(C& c,bool held){
@@ -55,7 +61,7 @@ private:
     std::array<uint32_t,32> gp_{};std::array<uint32_t,8> gqr_{};
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0,next_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0;
-    bool initial_poll_=false,return_due_=false;
+    bool initial_poll_=false,return_due_=false,entry_seen_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool volatile_reg(unsigned r){return r==0u||(r>=3u&&r<=12u);}
     static uint32_t mask(unsigned mb,unsigned me){
