@@ -37,6 +37,9 @@
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
 #include "v1292_private_nested.h"
 #endif
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+#include "v1299_private_return.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -120,6 +123,12 @@ struct ReadyReached{};
 static NestedWakeReturnWitness* nested_wake=nullptr;
 static unsigned nested_count=0;
 struct NestedReturned{};
+#endif
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+static ReplyReturnWitness* reply_return=nullptr;
+static nw::CPUContext* return_cpu=nullptr;
+static unsigned return_count=0;
+struct ReplyHandlerReturned{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -219,7 +228,18 @@ void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
              <<" form="<<reply_body->mmio_form()<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+[[noreturn]]static void return_refuse(unsigned kind){
+    std::cout<<"V1300_RETURN_REFUSAL kind="<<kind<<" stage="<<reply_return->stage()
+             <<" reason="<<reply_return->failure()<<" gate="<<reply_return->gate_failure()
+             <<" visits="<<reply_return->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1281_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){if(!reply_return->before(c,pc,w,device_ok(c)))return_refuse(1);return;}
+#endif
     if(reply_body&&!reply_body->before(c,pc,w,device_ok(c)))body_refuse(1);
 }
 #endif
@@ -238,6 +258,15 @@ static void joined_refuse(unsigned kind){
     throw WitnessFailure{};
 }
 void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){
+        const auto i=std::find_if(v1299::words.begin(),v1299::words.end(),[&](auto x){return x.pc==pc;});
+        if(i==v1299::words.end())return_refuse(1);
+        // IPC leaves and processor entry have already been observed by v1281.
+        if(i->owner==v1255::handler&&!reply_return->before(c,pc,w,device_ok(c)))return_refuse(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1275_REPLY_ENTRY
     if(reply_entry){
         const bool guard=pc==0x805190c0u||pc==0x8052a51cu||pc==v1255::returned;
@@ -300,6 +329,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){if(!reply_return->entry(c,pc,device_ok(c)))return_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){if(!nested_wake->entry(c,pc,device_ok(c)))nested_refuse(2);return;}
 #endif
@@ -422,6 +454,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){
+        if(!reply_return->poll(c,device_ok(c)))return_refuse(3);
+        if(reply_return->stage()==2u){++return_count;throw ReplyHandlerReturned{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){
         if(!nested_wake->poll(c,device_ok(c)))nested_refuse(3);
@@ -572,6 +611,9 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){auto v=reply_return->read(*return_cpu,a,device_ok(*return_cpu));if(!v)return_refuse(4);return *v;}
+#endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){nested_wake->refuse_mmio();nested_refuse(4);}
 #endif
@@ -616,6 +658,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    if(reply_return){if(!reply_return->write(*return_cpu,a,v,device_ok(*return_cpu)))return_refuse(5);return;}
+#endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){nested_wake->refuse_mmio();nested_refuse(5);}
 #endif
@@ -898,6 +943,9 @@ int main(int argc,char** argv)try{
         auto match=[](const auto& e){return e.pc==Reply&&e.lr==ReplyReturn;};
         need(std::count_if(v1255::edges.begin(),v1255::edges.end(),match)==1);
         const auto reply_edge=*std::find_if(v1255::edges.begin(),v1255::edges.end(),match);
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+        const auto handler_abi=ReplyReturnAbi::capture(c);
+#endif
         JoinedIpcReplyEntry entry(v1255::handler,ReadLeaf,reply_edge,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
         need(entry.begin(c,second,irq_capture,sleep.queue(),reply_request,device_ok(c)));
         reply_entry=&entry;reply_cpu=&c;bool processor_reached=false;
@@ -912,6 +960,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
         // Continue the live processor call. No scheduler registers,
         // request buffer or queue links are changed by the host.
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+        const auto processor_abi=ReplyReturnAbi::capture(c);
+#endif
         ReplyProcessorWitness body(v1281::expected(Q::Idle,Q::Thread));
         reply_body=&body;body_cpu=&c;
         if(!body.begin(c,entry,irq_capture,sleep.queue(),reply_request,device_ok(c)))body_refuse(6);
@@ -947,6 +998,17 @@ int main(int argc,char** argv)try{
              c.lr==c.pc&&ready.ready_held(c,device_ok(c))&&host.serviced_steps()==2u);
         nested_wake=nullptr;
         std::cout<<"V1292_NESTED_TRIAL n="<<trial<<" original_select_return=1 original_restore=1 original_wake_return=1 ready=1\n";
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+        ReplyReturnWitness completed(v1299::expected(uint32_t(nested_counter)));
+        reply_return=&completed;return_cpu=&c;
+        if(!completed.begin(c,body,ready,nested,irq_capture,sleep.queue(),reply_request,handler_abi,processor_abi,device_ok(c)))return_refuse(6);
+        bool handler_returned=false;try{run_game(c);}catch(const ReplyHandlerReturned&){handler_returned=true;}
+        need(handler_returned&&completed.returned(c,device_ok(c))&&return_count==trial+1u&&
+             c.pc==v1255::returned&&c.lr==c.pc&&host.serviced_steps()==2u&&
+             !(cause.load()&mask.load())&&ready.ready_context_held(c,device_ok(c)));
+        reply_return=nullptr;return_cpu=nullptr;
+        std::cout<<"V1300_RETURN_TRIAL n="<<trial<<" original_processor_return=1 original_handler_return=1 latch_clear=1 ready=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -988,6 +1050,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     need(nested_count==8u);
     std::cout<<"V1292_NESTED_NATIVE owner=1 trials=8 original_select_return=8 original_restore=8 original_wake_return=8 ready=8 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1300_REPLY_RETURN
+    need(return_count==8u);
+    std::cout<<"V1300_REPLY_RETURN_NATIVE owner=1 trials=8 original_processor_return=8 original_handler_return=8 latch_clear=8 ready=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
