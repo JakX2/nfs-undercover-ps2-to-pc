@@ -41,7 +41,7 @@ def plan(d,e,*,previous=None,third=None):
         raise ValueError('control contract audit')
     if previous is None:previous=continuation(d,e)
     if third is None:third=third_contract(d,e,previous=previous)
-    root=entry[0];dst=record[9]
+    root=entry[0];_,_,_,_,_,_,_,_,dst,_,_=record
     words=exact_words(d,e,root,383)
     boundary=(dst,exact_words(d,e,dst,1)[0],len(words)*4)
     values={(a,len(blob)):blob for a,blob in cells}
