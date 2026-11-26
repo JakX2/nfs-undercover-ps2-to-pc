@@ -1,0 +1,5 @@
+# V1415 independent IPC profiling enqueue contract
+
+The cross-version Wii SDK reconstruction in zeldaret/tp (libs/revolution/src/ipc/ipcProfile.c, pre-August-2010 conditional path) suggests the post-ring helper increments two profiling counters and records the request and its file descriptor in the first eligible paired slot. With no eligible slot, only the counters change. This is a hypothesis, not an Undercover symbol or instruction identification.
+
+The independent V1415 witness is read-only and accepts only exact counter increments and the first free paired-slot updates, with the entire four-object shadow verified between stores. It rejects duplicate/partial stores, unrelated mutation, incorrect descriptor, nonmatching CPU, overlapping regions and invalid widths; it does not fabricate a free profiling slot or initialize any memory. 136 synthetic trials cover both descriptor orders, normal/wrapped counters and available/unavailable slots. Source CI pending. No owner integration or original execution is claimed until the actual private ELF symbols and native helper geometry are verified.
