@@ -153,11 +153,14 @@ fi
 # Require a complete, explicit private preparation path before accepting
 # a third-transfer execution plan, including describe-only requests.
 third="${UNDERCOVER_RUN_V1051_THIRD_TRANSFER:-0}"
+third_alarm="${UNDERCOVER_RUN_V1055_THIRD_ALARM:-0}"
 [[ "$third" == 0 || "$third" == 1 ]] || exit 2
+[[ "$third_alarm" == 0 || "$third_alarm" == 1 ]] || exit 2
+[[ "$third_alarm" == 0 || "$third" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
-       "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" != 1 &&
+       "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" == "$third_alarm" &&
        "${UNDERCOVER_RUN_V1012_SI_PROFILE:-absent}" == absent ]] || exit 2
     # Reuse the actual launch planner to validate every predecessor and
     # conflicting callback flag before private inputs are opened.
@@ -168,7 +171,7 @@ fi
 echo "V875_TRANSLATION_PLAN requested=$requested_mode base=$mode target=$target wrapper=$si_wireless_wrapper write=$si_wireless_write callback=$si_callback_return combined=$si_combined_callback handler=$si_handler_suffix"
 if [[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" == 1 && "$matrix" != 1 ]]; then exit 2;fi
 if [[ "$third" == 1 ]]; then
-  echo "V1051_THIRD_BUILD_PLAN links=1 private_transfer=1 abi_proof_required=1 alarm=0"
+  echo "V1051_THIRD_BUILD_PLAN links=1 private_transfer=1 abi_proof_required=1 alarm=$third_alarm"
 fi
 if [[ "$matrix" == 1 ]]; then
   lanes=3;[[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" != 1 ]] || lanes=4
