@@ -46,4 +46,41 @@ class AlarmLaunch(unittest.TestCase):
             self.assertIn('alarm=0' if build else 'audit=audit_v1045_third_transfer_abi.py',p.stdout)
             self.assertNotIn('UNDERCOVER_V1048_THIRD_ALARM=1',p.stdout)
 
+class PostAlarmLaunch(unittest.TestCase):
+    def setUp(self):
+        self.launch=Launch()
+        self.env=self.launch.setup_env()
+        self.env.update(UNDERCOVER_RUN_V1055_THIRD_ALARM='1',UNDERCOVER_PREPARE_V1048_THIRD_ALARM='1',
+                        UNDERCOVER_RUN_V1102_AFTER_ALARM='1',UNDERCOVER_PREPARE_V1097_AFTER_ALARM='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1102_POSTALARM_BUILD_PLAN links=1 private_installer=1 alarm_predecessor=1' if build else 'audit=audit_v1101_postalarm.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1095_AFTER_ALARM=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1102_AFTER_ALARM','UNDERCOVER_PREPARE_V1097_AFTER_ALARM',
+                    'UNDERCOVER_RUN_V1055_THIRD_ALARM','UNDERCOVER_PREPARE_V1048_THIRD_ALARM',
+                    'UNDERCOVER_RUN_V1051_THIRD_TRANSFER','UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER',
+                    'UNDERCOVER_RUN_V1040_SIX_ARGS','UNDERCOVER_RUN_V1034_QUEUE_DETAIL'):
+            env=self.env.copy();env.pop(key)
+            for build in (False,True):
+                with self.subTest(key=key,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+        for key,val in (('UNDERCOVER_RUN_V1102_AFTER_ALARM','2'),('UNDERCOVER_RUN_V1102_AFTER_ALARM',''),
+                        ('UNDERCOVER_PREPARE_V1097_AFTER_ALARM','2'),('UNDERCOVER_PREPARE_V1097_AFTER_ALARM',''),
+                        ('UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX','1'),('UNDERCOVER_RUN_V1012_SI_PROFILE','port1-present'),
+                        ('UNDERCOVER_RUN_V1009_SECOND_CALLBACK','1')):
+            env=self.env.copy();env[key]=val
+            for build in (False,True):
+                with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+        self.assertEqual(self.launch.plan(self.env,True,'--prepare-si-handler-suffix').returncode,2)
+        self.assertEqual(self.launch.plan(self.env,False,'irq-si-alarm').returncode,2)
+    def test_alarm_only_unchanged(self):
+        env=self.env.copy();env.pop('UNDERCOVER_RUN_V1102_AFTER_ALARM');env.pop('UNDERCOVER_PREPARE_V1097_AFTER_ALARM')
+        for build in (False,True):
+            p=self.launch.plan(env,build);self.assertEqual(p.returncode,0,p.stderr)
+            self.assertNotIn('V1102_POSTALARM_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1095_AFTER_ALARM=1',p.stdout)
+            self.assertIn('alarm=1' if build else 'audit=audit_v1054_third_alarm.py',p.stdout)
+
 if __name__=='__main__':unittest.main()

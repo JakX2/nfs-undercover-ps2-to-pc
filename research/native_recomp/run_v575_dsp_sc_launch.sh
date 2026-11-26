@@ -169,6 +169,10 @@ third_alarm="${UNDERCOVER_RUN_V1055_THIRD_ALARM:-0}"
 [[ "$third" == 0 || "$third" == 1 ]] || exit 2
 [[ "$third_alarm" == 0 || "$third_alarm" == 1 ]] || exit 2
 [[ "$third_alarm" == 0 || "$third" == 1 ]] || exit 2
+third_postalarm="${UNDERCOVER_RUN_V1102_AFTER_ALARM-0}"
+[[ "$third_postalarm" == 0 || "$third_postalarm" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1097_AFTER_ALARM-0}" == "$third_postalarm" ]] || exit 2
+[[ "$third_postalarm" == 0 || ( "$third_alarm" == 1 && "$third" == 1 && "${UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX:-0}" == 0 ) ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -176,6 +180,9 @@ if [[ "$third" == 1 ]]; then
   extra+=(UNDERCOVER_V1028_THIRD_TRANSFER=1);audit=audit_v1045_third_transfer_abi.py
   if [[ "$third_alarm" == 1 ]]; then
     extra+=(UNDERCOVER_V1048_THIRD_ALARM=1);audit=audit_v1054_third_alarm.py
+    if [[ "$third_postalarm" == 1 ]]; then
+      extra+=(UNDERCOVER_V1095_AFTER_ALARM=1);audit=audit_v1101_postalarm.py
+    fi
   fi
 fi
 # Only the second-callback experiment may change the fixed cold SI profile.

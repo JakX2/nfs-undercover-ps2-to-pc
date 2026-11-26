@@ -157,6 +157,10 @@ third_alarm="${UNDERCOVER_RUN_V1055_THIRD_ALARM:-0}"
 [[ "$third" == 0 || "$third" == 1 ]] || exit 2
 [[ "$third_alarm" == 0 || "$third_alarm" == 1 ]] || exit 2
 [[ "$third_alarm" == 0 || "$third" == 1 ]] || exit 2
+third_postalarm="${UNDERCOVER_RUN_V1102_AFTER_ALARM-0}"
+[[ "$third_postalarm" == 0 || "$third_postalarm" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1097_AFTER_ALARM-0}" == "$third_postalarm" ]] || exit 2
+[[ "$third_postalarm" == 0 || ( "$third_alarm" == 1 && "$third" == 1 && "${UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX:-0}" == 0 ) ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -172,6 +176,9 @@ echo "V875_TRANSLATION_PLAN requested=$requested_mode base=$mode target=$target 
 if [[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" == 1 && "$matrix" != 1 ]]; then exit 2;fi
 if [[ "$third" == 1 ]]; then
   echo "V1051_THIRD_BUILD_PLAN links=1 private_transfer=1 abi_proof_required=1 alarm=$third_alarm"
+fi
+if [[ "$third_postalarm" == 1 ]]; then
+  echo 'V1102_POSTALARM_BUILD_PLAN links=1 private_installer=1 alarm_predecessor=1'
 fi
 if [[ "$matrix" == 1 ]]; then
   lanes=3;[[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" != 1 ]] || lanes=4
@@ -314,6 +321,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                 python3 "$here/prepare_v1029_third_transfer.py" "$dol" "$elf" "$work/generated"
                 if [[ "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" == 1 ]]; then
                     python3 "$here/prepare_v1048_third_alarm.py" "$dol" "$elf" "$work/generated"
+                    if [[ "$third_postalarm" == 1 ]]; then
+                        python3 "$here/prepare_v1097_after_alarm.py" "$dol" "$elf" "$work/generated"
+                    fi
                 fi
             elif [[ "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" == 1 ]]; then exit 2
             fi
