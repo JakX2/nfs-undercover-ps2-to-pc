@@ -328,4 +328,18 @@ class AckCallbackAudit(unittest.TestCase):
             for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,h.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,h.RESULT,c.RESULT),(*prior,h.FAULT,c.RESULT),(*prior,c.RESULT,b'V1182_ACK_CALLBACK_CENSUS verified=1')):
                 self.assertFalse(inspect(*rows))
             self.assertFalse(inspect(*prior,c.RESULT,rc=126))
+class AckPrefixAudit(unittest.TestCase):
+    def test_exact_prefix(self):
+        import audit_v1187_ack_prefix as c
+        h=c.helper;r=h.ret;p=r.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=11 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,r.time.RESULT,r.frontier.RESULT,r.wireless.RESULT,r.suffix.RESULT,r.RESULT,h.handler.RESULT,h.returned.RESULT,h.epilogue.RFI,h.epilogue.RESULT,h.dispatch.RESULT,h.ack.RESULT,h.RESULT,c.callback.RESULT)
+        def inspect(*rows,rc=0):return c.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,c.RESULT))
+            for old,new in ((b'visits=13',b'visits=9'),(b'writes=8',b'writes=4'),(b'original_indirect=1',b'original_indirect=0'),(b'original_prologue=1',b'original_prologue=0'),(b'save_return=1',b'save_return=0'),(b'token=3',b'token=4'),(b'saved_fields=38',b'saved_fields=37'),(b'pi_cleared=1',b'pi_cleared=0'),(b'continuation_executed=0',b'continuation_executed=1'),(b'boot_verified=0',b'boot_verified=1')):
+                self.assertFalse(inspect(*prior,c.RESULT.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.callback.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.callback.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=14 reason=18 epilogue=0 reentry=22',c.RESULT),(*prior,c.RESULT,b'V1187_ACK_PREFIX_CENSUS verified=1')):
+                self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,c.RESULT,rc=126))
 if __name__=='__main__':unittest.main()
