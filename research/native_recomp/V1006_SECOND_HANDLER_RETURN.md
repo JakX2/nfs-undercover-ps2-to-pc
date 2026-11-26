@@ -1,0 +1,3 @@
+# V1006: genuine second handler epilogue and dispatcher resume
+
+V1004 owner run 45727614096 passed eight original resumed-handler frontiers. All profiles executed the SI status load/W1C store, indexed compare and taken original conditional; after 20 visits they reached the original ordinal-12 restore call. V1006 admits the exact 15-register restore alias and original four-word handler tail, with shared suffix identity checked. Capture the real handler entry GPRs and CR, verify original stack loads, LR and stack unwind, then authenticate the real dispatcher resume label and pre-label outer dispatch tick. Stop before executing that dispatcher instruction. V1005 strict suffix mode is retained. No claim of RFI or complete native startup; private owner run pending.
