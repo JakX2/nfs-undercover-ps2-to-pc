@@ -1,0 +1,21 @@
+name: Wii V1403 Async Submit Prefix Contract
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ioctl_submit_prefix_v1403.h'
+      - 'research/native_recomp/test_ioctl_submit_prefix_v1403.cpp'
+      - '.github/workflows/wii-v1403-submit-prefix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_ioctl_submit_prefix_v1403.cpp -o /tmp/v1403
+          /tmp/v1403
