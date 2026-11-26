@@ -76,13 +76,13 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
             raise ValueError('formatter other boundary')
         if op==37 and rs==ra==1:
             if frame or not -4096<=imm<=-8 or imm%8:raise ValueError('formatter frame identity')
-            frame=-imm;write(add(gp[1],imm),gp[1]);gp[1]=add(gp[1],imm);accesses.append((pc,'stack_write',4))
+            frame=-imm;write(add(gp[1],imm),gp[1]);gp[1]=add(gp[1],imm);accesses.append((pc,'stack_write',4,caller_sp-frame))
         elif op in (36,37,38,39,44,45,47):
             n={36:4,37:4,38:1,39:1,44:2,45:2,47:4}[op]
             addr=add(gp[ra] if ra else const(0),imm)
             count=32-rs if op==47 else 1
             for j in range(count):write(add(addr,n*j),gp[rs+j],n)
-            accesses.append((pc,'stack_write',n*count))
+            accesses.append((pc,'stack_write',n*count,addr[1]))
             if op in (37,39,45):
                 if not ra or ra==1:raise ValueError('formatter update store')
                 gp[ra]=addr
@@ -92,7 +92,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
             if b[0]=='const':addr=add(a,signed(b[1]))
             elif a[0]=='const':addr=add(b,signed(a[1]))
             else:raise ValueError('formatter indexed store provenance')
-            write(addr,gp[rs],n);accesses.append((pc,'stack_write',n))
+            write(addr,gp[rs],n);accesses.append((pc,'stack_write',n,addr[1]))
             if xo in (183,247,439):
                 if not ra or ra==1:raise ValueError('formatter update store')
                 gp[ra]=addr
@@ -101,7 +101,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
             a=add(gp[ra] if ra else const(0),imm)
             v=read(a,n)
             if op in (42,43):v=const((val(v)^0x8000)-0x8000)
-            gp[rs]=v;accesses.append((pc,a[0]+'_read',n))
+            gp[rs]=v;accesses.append((pc,a[0]+'_read',n,a[1]))
             if op&1:
                 if not ra or ra==rs:raise ValueError('formatter update load')
                 gp[ra]=a
@@ -179,6 +179,6 @@ def main():
                 print(f'POST_STM_SC_REPORT_FORMATTER_PATH verified=0 reason=opcode category={kind} ordinal={n}');return 1
         print('POST_STM_SC_REPORT_FORMATTER_PATH verified=0 reason='+(reason.replace(' ','_') if reason in safe else 'private_input'))
         return 1
-    print(f'POST_STM_SC_REPORT_FORMATTER_PATH verified=1 visits={len(path)} unique={len(set(path))} frame_bytes={frame} stack_store_sites={sum(k=="stack_write" for _,k,_ in accesses)} loads={sum(k.endswith("_read") for _,k,_ in accesses)} nonvolatile_saves={saved} first_dependency=1 original_execution=0')
+    print(f'POST_STM_SC_REPORT_FORMATTER_PATH verified=1 visits={len(path)} unique={len(set(path))} frame_bytes={frame} stack_store_sites={sum(k=="stack_write" for _,k,_,_ in accesses)} loads={sum(k.endswith("_read") for _,k,_,_ in accesses)} nonvolatile_saves={saved} first_dependency=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

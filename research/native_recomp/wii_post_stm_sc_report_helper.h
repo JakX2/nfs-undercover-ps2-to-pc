@@ -84,6 +84,17 @@ public:
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
         return true;
     }
+    template<class C>bool child_frame_held(C& c,bool held,uint32_t child_sp,uint32_t child_link,uint32_t depth)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
+           depth>704u||child_sp>frame_.base||frame_.base-child_sp>depth||(child_sp&7u)||
+           c.inst_count<last_||c.inst_count-last_>256u||!mapped(c,frame_))return false;
+        for(unsigned i=0;i<shadow_.size();++i){
+            if(i>=4u&&i<8u&&written_[i])return false;
+            const auto v=(i>=4u&&i<8u)?uint8_t(child_link>>(24u-8u*(i-4u))):shadow_[i];
+            if(c.mmu.read8(frame_.base+i)!=v)return false;
+        }
+        return true;
+    }
 private:
     ScReportHelperExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
