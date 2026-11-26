@@ -100,7 +100,7 @@ python3 "$here/patch_sc_trace_v570.py" "$work/generated"
 python3 "$here/patch_sc_trace_v640.py" "$work/generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --vector "$work/input/vector.bin"
 g++ -std=c++20 -O1 "${extra[@]}" -fsanitize=address,undefined -fno-pie -no-pie -I"$here" -I"$work/input" -I"$work/generated" -I"$work/generated/nWiiRuntime/include" \
-  "$here/test_native_scheduler_postack_v1256.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { python3 "$here/classify_open_compile_v654.py" "$work/compile.log";echo 'V1256 compile failed';exit 1; }
+  "$here/test_native_scheduler_postack_v1256.cpp" "$work/generated"/*.cpp -o "$work/native" > "$work/compile.log" 2>&1 || { python3 "$here/classify_open_compile_v654.py" "$work/compile.log";python3 "$here/classify_reply_compile_v1290.py" "$work/compile.log";echo 'V1256 compile failed';exit 1; }
 rc=0;native_args=()
 if [[ "${4-}" == --irq-dispatch || "${4-}" == --irq-ack || "${4-}" == --irq-return ]];then native_args=("$2");fi
 ASAN_OPTIONS=abort_on_error=1 UBSAN_OPTIONS=halt_on_error=1 timeout 30s "$work/native" "${native_args[@]}" > "$work/run.log" 2>&1 || rc=$?

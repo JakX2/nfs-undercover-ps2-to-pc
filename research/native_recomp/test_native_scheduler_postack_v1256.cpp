@@ -858,8 +858,8 @@ int main(int argc,char** argv)try{
         constexpr uint32_t ReadLeaf=0x8051905cu,Reply=0x805190c0u,ReplyReturn=0x80519354u;
         auto match=[](const auto& e){return e.pc==Reply&&e.lr==ReplyReturn;};
         need(std::count_if(v1255::edges.begin(),v1255::edges.end(),match)==1);
-        auto e=*std::find_if(v1255::edges.begin(),v1255::edges.end(),match);
-        JoinedIpcReplyEntry entry(v1255::handler,ReadLeaf,e,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
+        const auto reply_edge=*std::find_if(v1255::edges.begin(),v1255::edges.end(),match);
+        JoinedIpcReplyEntry entry(v1255::handler,ReadLeaf,reply_edge,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
         need(entry.begin(c,second,irq_capture,sleep.queue(),reply_request,device_ok(c)));
         reply_entry=&entry;reply_cpu=&c;bool processor_reached=false;
         try{run_game(c);}catch(const ReplyProcessorReached&){processor_reached=true;}
