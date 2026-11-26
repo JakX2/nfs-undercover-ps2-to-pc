@@ -157,8 +157,32 @@ public:
     template<class C,class W>bool callback_before(C& c,W& witness,uint32_t pc,uint32_t w){
         if(!callback_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
            !witness.before(c,pc,w,true))return fail(22);
-        if(witness.stage()==6u)stage_=12u;
+        if(witness.stage()==6u){callback_resume_=pc;callback_resume_word_=w;stage_=12u;}
         return true;
+    }
+    // The exact resume label was consumed by the fresh ACK and prefix
+    // witness. Transfer to a new time witness without replaying that tick.
+    template<class C,class P,class W>bool begin_callback_time(C& c,P& prefix,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=12u||error_||cpu_!=&c||callback_!=&prefix||prefix.stage()!=6u||
+           pc!=callback_resume_||w!=callback_resume_word_||pc!=prefix.resume()||time_||
+           !dev_||dev_->stage()!=3u||!ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start(c,pc,w,true,true)||!witness.before(c,pc,w,true))return fail(23);
+        time_=&witness;stage_=13u;return true;
+    }
+    template<class C,class W>bool callback_time_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!time_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(24);
+        if(witness.stage()==5u)stage_=14u;
+        return true;
+    }
+    template<class C,class W>bool callback_time_entry(C& c,W& witness,uint32_t pc){
+        return time_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.entry(c,pc,true)?true:fail(25);
+    }
+    template<class C,class W>bool callback_time_poll(C& c,W& witness){
+        return time_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.poll(c,true)?true:fail(26);
     }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -175,6 +199,12 @@ private:
         return stage_==11u&&!error_&&cpu_==&c&&callback_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C,class W>bool time_frame(C& c,W& witness)const{
+        return stage_==13u&&!error_&&cpu_==&c&&time_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* time_=nullptr;
+    uint32_t callback_resume_=0,callback_resume_word_=0;
     const void* callback_=nullptr;
     uint32_t callback_site_=0,callback_word_=0,ack_successor_=0,ack_successor_word_=0;
     unsigned ack_read_reg_=32u;bool ack_read_reverse_=false;

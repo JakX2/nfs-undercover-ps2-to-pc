@@ -1,5 +1,6 @@
 #include "wii_third_pending_reentry_v1067.h"
 #include "wii_callback_prefix_v800.h"
+#include "synthetic_callback_time_expectations_v1014.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -24,6 +25,7 @@ struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};std::array<uint32_t,8> gqr{};std::array<Cr,8> cr{};
     uint32_t pc=H,lr=0x80007000u,ctr=17,xer=0x80000000u,msr=0x8032u,srr0=0,srr1=0,dispatch_saved_ctx=0;
     uint64_t inst_count=100;bool is_running=true,in_callback=false;
+    uint64_t read_timebase()const{return 0x100000020ull;}
 };
 static unsigned trial=0;
 static void need(bool ok,const std::source_location loc=std::source_location::current()){
@@ -31,8 +33,10 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
 }
 int main(){
     unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0,frontier_valid=0,frontier_refused=0,callback_valid=0,callback_refused=0;
-    for(trial=0;trial<108;++trial){
-        const unsigned fault=trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
+    unsigned time_valid=0,time_refused=0;
+    for(trial=0;trial<128;++trial){
+        const unsigned time_fault=trial>=116?trial-115u:0u;
+        const unsigned fault=trial>=108?0u:trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
         using Port=SiTypeScheduler::Port;
@@ -299,14 +303,69 @@ int main(){
         need(ok&&route.stage()==12u&&witness.stage()==6u&&witness.visits()==9u&&witness.writes()==4u&&
              route.completion_ack().postack_held()&&route.completion_ack().writes()==1u&&
              ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&ack.stage()==5u&&dev.stage()==3u);
-        ++callback_valid;
+        if(trial<108){++callback_valid;continue;}
+        constexpr std::array<uint32_t,3> continuation{Nop,branch(Resume+4,v813::T)|1u,Nop};
+        auto e=v813::expected;e.callback=Root;e.callback_end=Root+688u;e.resume=Resume;e.time_site=Resume+4u;e.continuation=continuation;
+        CallbackTimeWitness time(e),foreign_time(e);
+        auto put=[&](uint32_t base,const auto& words){for(auto word:words){c.mmu.words[base]=word;base+=4;}};
+        put(Resume,continuation);put(v813::T,v813::system_words);put(v813::D,v813::disable);
+        put(v813::U,v813::timebase);put(v813::R,v813::restore);
+        if(time_fault!=5){c.mmu.words[v813::Offset]=0;c.mmu.words[v813::Offset+4]=0x1234u;}
+        auto reject_time=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++time_refused;
+        };
+        if(time_fault==4)tick();
+        ok=route.begin_callback_time(c,time_fault==1?foreign_witness:witness,time,
+                                    Resume+(time_fault==2?4u:0u),time_fault==3?Blr:Nop);
+        if(time_fault>=1&&time_fault<=5){reject_time(!ok,23);continue;}need(ok);
+        need(route.stage()==13u&&time.visits()==1u&&route.completion_ack().postack_held());
+        if(time_fault==7)c.mmu.words[Context+124]^=1u;
+        if(time_fault==12)mask=0;
+        auto at_time=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.callback_time_before(c,time,pc,w);};
+        if(time_fault==6){tick();reject_time(!route.callback_time_before(c,foreign_time,Resume+4,continuation[1]),24);continue;}
+        ok=at_time(Resume+4,continuation[1]);
+        if(time_fault==7||time_fault==12){reject_time(!ok,24);continue;}need(ok);
+        c.pc=v813::T;c.lr=Resume+8;
+        ok=route.callback_time_entry(c,time,time_fault==8?v813::D:c.pc);
+        if(time_fault==8){reject_time(!ok,25);continue;}need(ok);
+        bool missing_poll=false;
+        for(unsigned i=0;i<25&&!missing_poll;++i){
+            const uint32_t pc=v813::T+4*i;need(at_time(pc,v813::system_words[i]));
+            if(i==1||i==4||i==7){
+                const uint32_t root=i==1?v813::D:i==4?v813::U:v813::R;
+                const auto& words=i==1?v813::disable:i==4?v813::timebase:v813::restore;
+                c.pc=root;c.lr=pc+4;need(route.callback_time_entry(c,time,root));
+                for(unsigned j=0;j<words.size();++j){
+                    ok=at_time(root+4*j,words[j]);
+                    if(time_fault==9&&i==4&&j==4){reject_time(!ok,24);missing_poll=true;break;}need(ok);
+                    if(i==4){
+                        if(j==0)c.gpr[3]=uint32_t(c.read_timebase()>>32);
+                        if(j==1)c.gpr[4]=uint32_t(c.read_timebase());
+                        if(j==2)c.gpr[5]=uint32_t(c.read_timebase()>>32);
+                        if(j==3&&time_fault!=9)need(route.callback_time_poll(c,time));
+                    }else if(j==0){c.gpr[6]=c.msr;c.gpr[3]=0;}
+                }
+            }
+            if(i==5)c.gpr[3]=0;
+            if(i==23){c.gpr[3]=1;c.gpr[4]=time_fault==10?0x1255u:0x1254u;c.lr=Resume+8;}
+        }
+        if(missing_poll)continue;
+        if(time_fault==11)c.mmu.words[v813::Offset+4]^=1u;
+        ok=at_time(Resume+8,Nop);
+        if(time_fault==10||time_fault==11){reject_time(!ok,24);continue;}need(ok);
+        need(route.stage()==14u&&time.stage()==5u&&time.cursor()==3u&&time.time_visits()==25u&&
+             time.leaf_visits()==18u&&time.polls()==1u&&time.reads()==3u&&
+             route.completion_ack().postack_held()&&route.completion_ack().writes()==1u&&
+             ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+        ++time_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
     std::cout<<"V1085_THIRD_ACK_RESUME valid=8 refused=6 same_tick=1 no_w1c_replay=1 helper_return=1 original_execution=0\n";
     std::cout<<"V1088_THIRD_CALLBACK_STOP valid=8 refused=5 original_call_executed=0 original_execution=0\n";
     std::cout<<"V1093_THIRD_ACK_CALLBACK_JOIN valid=8 refused=12 actual_device=1 fresh_witness=1 original_execution=0\n";
+    std::cout<<"V1104_THIRD_ACK_TIME_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
 }
