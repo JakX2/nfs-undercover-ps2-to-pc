@@ -47,7 +47,9 @@ static void trial(unsigned fd,bool available,bool wrap,unsigned fault){
     if(fault==16)c.mmu.write32(A+28,R);
     assert(w.complete(c)==(fault!=16));
 }
-int main(){for(unsigned fd:{0u,1u})for(bool available:{false,true})for(bool wrap:{false,true})
-    for(unsigned f=0;f<=16;++f)trial(fd,available,wrap,f);
+int main(){
+    for(unsigned fd:{0u,1u})for(bool available:{false,true})for(bool wrap:{false,true}){
+        for(unsigned f=0;f<=16;++f)trial(fd,available,wrap,f);
+    }
     std::cout<<"V1415_PROFILE_TEST cases=136 original_execution=0\n";
 }
