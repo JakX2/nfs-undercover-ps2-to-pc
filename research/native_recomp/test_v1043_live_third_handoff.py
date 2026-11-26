@@ -262,4 +262,18 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=10 reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
+            env['UNDERCOVER_V1180_ACK_CALLBACK']='1'
+            for fault in ('','-target','-unaligned','-channel','-frame','-word','-siteword','-tick','-bus','-guard'):
+                with self.subTest(ack_callback=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1175_ACK_HELPER_RETURN original_helper=1 visits=15 entries=6 returns=6 msr=2 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=1 token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=12 reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+
+)
 if __name__=='__main__':unittest.main()

@@ -88,9 +88,10 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u;}
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1180_ACK_CALLBACK");return v&&v[0]=='1'&&v[1]==0;}
 #endif
 #endif
 #endif
@@ -427,6 +428,7 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_ack_enabled()&&!held_dispatch_enabled())return false;
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
     if(ack_helper_enabled()&&!third_ack_enabled())return false;
+    if(ack_callback_enabled()&&!ack_helper_enabled())return false;
 #endif
 #endif
 #endif
@@ -488,7 +490,16 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         if(third_ack_active()){
             auto owner=third_ack_native_owner(v1167::labels,pc,w);
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
-            if(held_epilogue.stage()==10u)owner=third_ack_native_owner(v1175::labels,pc,w);
+            if(held_epilogue.stage()==10u||held_epilogue.stage()==12u)owner=third_ack_native_owner(v1175::labels,pc,w);
+            if(held_epilogue.stage()==12u&&pc==v1175::callback_expected.site){
+                const auto callback_owner=third_ack_native_owner(v1175::labels,pc,w,true);
+                if(!ack_callback_enabled()||!guard||!callback_owner||second_dispatch_mmio||ack.stage()!=5u||
+                   next_device.stage()!=3u||!held_epilogue.callback_frontier(c,callback_owner,pc,w,transfer_callback,
+                       success_callback_words,v1175::callback_sites)||!held_epilogue.callback_saved(c))reject_held_epilogue();
+                std::cout<<std::dec<<"V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits="<<held_epilogue.callback_visits()
+                         <<" token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
 #endif
             if(!owner||second_dispatch_mmio||!held_epilogue.ack_before(c,owner,pc,w,guard))reject_held_epilogue();
             if(held_epilogue.stage()==9u){
@@ -512,6 +523,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 std::cout<<std::dec<<"V1175_ACK_HELPER_RETURN original_helper=1 visits="<<held_epilogue.helper_visits()
                          <<" entries="<<calls3.entries()<<" returns="<<calls3.returns()<<" msr="<<calls3.msr_writes()
                          <<" token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+                if(ack_callback_enabled()){
+                    if(!held_epilogue.resume_helper(c,pc,w,v1175::callback_expected))reject_held_epilogue();
+                    return;
+                }
                 std::_Exit(0);
             }
 #endif

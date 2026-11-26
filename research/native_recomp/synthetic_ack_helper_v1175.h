@@ -10,11 +10,13 @@ inline constexpr std::array<AckCallSpan,7> spans{{{Handler,Handler+16u},{Save,Sa
 inline constexpr std::array<AckCallEdge,6> edges{{{Handler,Save},{Handler+4u,Helper},{Helper+20u,Nested},
  {Nested,Disable},{Nested+4u,Time},{Nested+8u,Restore}}};
 inline constexpr std::array<AckMsrSite,2> msr{{{Disable,Mtmsr},{Restore,Mtmsr}}};
-inline constexpr std::array<ThirdAckNativeLabel,15> labels{{
+inline constexpr std::array<ThirdAckNativeLabel,16> labels{{
  {Helper+20u,link(Helper+20u,Nested),Helper,false},{Nested,link(Nested,Disable),Nested,false},
  {Disable,Mtmsr,Disable,false},{Disable+4u,Blr,Disable,false},{Nested+4u,link(Nested+4u,Time),Nested,false},
  {Time,Nop,Time,false},{Time+4u,Blr,Time,false},{Nested+8u,link(Nested+8u,Restore),Nested,false},
  {Restore,Mtmsr,Restore,false},{Restore+4u,Blr,Restore,false},{Nested+12u,Nop,Nested,false},
- {Nested+16u,Blr,Nested,false},{Helper+24u,Nop,Helper,false},{Helper+28u,Blr,Helper,false},{Handler+8u,Nop,Handler,false}}};
+ {Nested+16u,Blr,Nested,false},{Helper+24u,Nop,Helper,false},{Helper+28u,Blr,Helper,false},{Handler+8u,Nop,Handler,false},{Handler+12u,0x4e800421u,Handler,true}}};
 inline constexpr HeldAckHelperExpectation expected{Handler+8u,Nop,15,6,6,2};
+inline constexpr std::array<uint32_t,2> callback_sites{Handler+12u,Handler+16u};
+inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,1u,6u};
 }

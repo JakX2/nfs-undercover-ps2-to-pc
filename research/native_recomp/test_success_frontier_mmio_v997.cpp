@@ -624,7 +624,23 @@ int main(int argc,char** argv){
                                                             visit(q4::Nested+12,Nop);c.lr=q3::Helper+24;visit(q4::Nested+16,Blr);
                                                             visit(q3::Helper+24,Nop);c.lr=Handler+8;visit(q3::Helper+28,Blr);
                                                             if(hf=="-abi")c.gpr[31]^=1u;
-                                                            visit(Handler+8,Nop);need(false);
+                                                            visit(Handler+8,Nop);
+                                                            if(v958::ack_callback_enabled()){
+                                                                need(hf.starts_with("-callback"));
+                                                                const auto cf=hf.substr(std::string_view("-callback").size());
+                                                                need(v958::held_epilogue.stage()==12u);
+                                                                for(unsigned i=0;i<v958::success_callback_words.size();++i)
+                                                                    c.mmu.words[v958::transfer_callback+4u*i]=v958::success_callback_words[i];
+                                                                c.ctr=v958::transfer_callback+(cf=="-target"?4u:cf=="-unaligned"?1u:0u);
+                                                                c.gpr[3]=cf=="-channel"?4u:2u;
+                                                                if(cf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                if(cf=="-word")c.mmu.words[v958::transfer_callback+4u]^=1u;
+                                                                if(cf=="-siteword")c.mmu.words[q4::callback_sites[0]]^=1u;
+                                                                if(cf=="-tick")scheduler.advance(++tick);
+                                                                if(cf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                visit(q4::callback_sites[0],0x4e800421u,cf!="-guard");
+                                                            }
+                                                            need(false);
                                                         }
 #endif
                                                         need(false);

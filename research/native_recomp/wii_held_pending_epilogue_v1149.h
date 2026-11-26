@@ -4,10 +4,10 @@
 #include "wii_callback_identity_v796.h"
 namespace undercover::wii {
 struct ThirdAckNativeLabel {uint32_t pc,word,owner;bool guard;};
-inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labels,uint32_t pc,uint32_t w){
+inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labels,uint32_t pc,uint32_t w,bool expected_guard=false){
     uint32_t owner=0;unsigned hits=0;
     for(const auto& label:labels)if(label.pc==pc){
-        if(++hits!=1u||label.guard||label.word!=w||!label.owner)return 0;
+        if(++hits!=1u||label.guard!=expected_guard||label.word!=w||!label.owner)return 0;
         owner=label.owner;
     }
     return owner;
