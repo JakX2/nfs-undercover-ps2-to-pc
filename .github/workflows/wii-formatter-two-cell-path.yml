@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/analyze_formatter_two_cell_path.py'
       - 'research/native_recomp/test_formatter_two_cell_path.py'
+      - 'research/native_recomp/prepare_post_stm_sc_report_formatter_path.py'
       - '.github/workflows/wii-formatter-two-cell-path.yml'
 permissions:
   contents: read
@@ -24,6 +25,7 @@ jobs:
           python3 -m py_compile research/native_recomp/analyze_formatter_two_cell_path.py
           python3 research/native_recomp/test_stm_outer_restore.py
           python3 research/native_recomp/test_formatter_two_cell_path.py
+          python3 research/native_recomp/test_post_stm_sc_report_formatter_path.py
   owner-geometry:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
