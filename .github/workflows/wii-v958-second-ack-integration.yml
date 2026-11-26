@@ -39,6 +39,7 @@ on:
       - 'research/native_recomp/*v1141*'
       - 'research/native_recomp/*v1146*'
       - 'research/native_recomp/*v1149*'
+      - 'research/native_recomp/*v1152*'
       - 'research/native_recomp/prepare_v868_handler_suffix.py'
       - 'research/native_recomp/prepare_v1134_postalarm_return.py'
       - 'research/native_recomp/wii_external_return_v706.h'
@@ -80,6 +81,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v1097_after_alarm_installer.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1141_postalarm_handler.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1146_postalarm_handler_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1152_held_epilogue.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v868_handler_suffix.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1051_third_launch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1054_third_alarm_audit.py -v
