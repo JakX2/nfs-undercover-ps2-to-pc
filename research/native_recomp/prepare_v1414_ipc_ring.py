@@ -6,7 +6,7 @@ import struct
 def ring_object(dol,elf):
     if len(elf)<HEADER.size or len(dol)<256:raise ValueError('ring image')
     h=HEADER.unpack_from(elf);off,unit,n=h[6],h[11],h[12]
-    if h[0][:7]!=b'\x7fELF\x01\x02\x01' or h[2]!=20 or unit!=SECTION.size or not 1<=n<10000 or off+n*unit>len(elf):
+    if h[0][:7]!=b'\x7fELF\x01\x02\x01' or h[2]!=20 or h[3]!=1 or h[8]!=HEADER.size or off<HEADER.size or unit!=SECTION.size or not 1<=n<10000 or off+n*unit>len(elf):
         raise ValueError('ring ELF sections')
     rows=[SECTION.unpack_from(elf,off+i*unit) for i in range(n)]
     found=set()
@@ -34,7 +34,13 @@ def ring_object(dol,elf):
     def overlap(base,size):return size and base<addr+length and addr<base+size
     if any(overlap(u32(0x48+4*i),u32(0x90+4*i)) for i in range(7)):
         raise ValueError('ring text overlap')
-    in_data=any(contains(u32(0x64+4*i),u32(0xac+4*i)) for i in range(11))
+    in_data=False
+    for i in range(11):
+        base,size,offset=u32(0x64+4*i),u32(0xac+4*i),u32(0x1c+4*i)
+        if not overlap(base,size):continue
+        if not contains(base,size) or offset<256 or offset+size>len(dol):raise ValueError('ring DOL range')
+        if in_data:raise ValueError('ring DOL range')
+        in_data=True
     if not in_data and not contains(u32(0xd8),u32(0xdc)):raise ValueError('ring DOL range')
     return addr,length,(length-16)//4
 

@@ -38,6 +38,27 @@ class Geometry(unittest.TestCase):
         with self.assertRaises(ValueError):ring_object(d,e)
         d,e=fixture();struct.pack_into('>I',d,0x48,BASE);struct.pack_into('>I',d,0x90,80)
         with self.assertRaises(ValueError):ring_object(d,e)
+    def test_initialized_data_geometry(self):
+        def data_fixture():
+            d,e=fixture(kind=1)
+            for off,value in ((0x1c,256),(0x64,BASE),(0xac,256)):
+                struct.pack_into('>I',d,off,value)
+            return d,e
+        d,e=data_fixture()
+        self.assertEqual(ring_object(d,e),(BASE,80,16))
+        for changes in (((0x1c,0),),((0x1c,900),),((0xac,32),),
+                        ((0x20,256),(0x68,BASE),(0xb0,256)),
+                        ((0x64,BASE+64),(0xac,64))):
+            with self.subTest(changes=changes):
+                d,e=data_fixture()
+                for off,value in changes:struct.pack_into('>I',d,off,value)
+                with self.assertRaisesRegex(ValueError,'ring DOL range'):ring_object(d,e)
+    def test_elf_header_geometry(self):
+        for off,fmt,value in ((20,'I',2),(32,'I',0),(40,'H',0),(46,'H',0),(48,'H',0)):
+            with self.subTest(off=off):
+                d,e=fixture()
+                struct.pack_into('>'+fmt,e,off,value)
+                with self.assertRaisesRegex(ValueError,'ring ELF sections'):ring_object(d,e)
     def test_bad_elf(self):
         d,e=fixture();e[5]=1
         with self.assertRaises(ValueError):ring_object(d,e)

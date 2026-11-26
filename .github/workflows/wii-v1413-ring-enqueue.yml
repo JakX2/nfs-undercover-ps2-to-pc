@@ -7,6 +7,7 @@ on:
       - 'research/native_recomp/wii_ipc_ring_enqueue_v1413.h'
       - 'research/native_recomp/test_ipc_ring_enqueue_v1413.cpp'
       - 'research/native_recomp/test_v1414_ring_geometry.py'
+      - 'research/native_recomp/prepare_v1414_ipc_ring.py'
       - '.github/workflows/wii-v1413-ring-enqueue.yml'
 permissions:
   contents: read
