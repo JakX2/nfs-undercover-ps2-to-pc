@@ -1,0 +1,3 @@
+# V1039: classify rather than force original delay-dependent branches
+
+The zero-delay V1022 baseline must still return the native third transfer and alarm. The new nonzero-delay fixtures are diagnostic: the original handler may select the transfer or the known callback, depending on its own timing calculation. Stop before either authenticated boundary, retain token two and saved context, and publish the original branch and visit count. If the direct transfer is selected, require both queue-history and argument-mismatch censuses. No timestamp fixture is allowed to force a queued transfer or bypass the original branch. Pending owner CI.

@@ -388,6 +388,12 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             need(owner==Handler&&(shared_seen||error_helper_visit)&&post_seen&&ack.stage()==4u&&call_route.depth()==0u&&call_route.can_poll()&&
                  ack.before(c,pc,w,true)&&ack.postack_held()&&call_route.stop_before_indirect(c,pc,w)&&c.ctr==CallbackRoot&&
                  classify_callback_identity(c,pc,w,6,2,CallbackRoot,callback_full,callback_sites)==2u);
+            if(error_due||error_delay){
+                need(error_helper_visit&&!shared_seen&&ack_visits>error_helper_visit&&cause==Other&&ctl->issued_tokens()==2u);
+                std::cout<<"V1039_DELAY_FRONTIER delay="<<error_delay<<" prior_absent="<<error_cold<<" profile="<<trial
+                    <<" branch=6 handler_time="<<time_seen<<" visits="<<ack_visits-error_helper_visit<<" token=2 call_executed=0"<<std::endl;
+                std::_Exit(0);
+            }
             if(error_rfi){
                 need(error_helper_visit&&!shared_seen&&!time_seen&&ack_visits-error_helper_visit==71u&&callback_route);
                 std::cout<<"V1020_ERROR_CALLBACK_ENTRY prior_absent="<<error_cold<<" profile="<<trial
@@ -478,7 +484,8 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             }
             need(type);
             if(error_queue){
-                need(error_helper_visit&&!shared_seen&&time_seen&&ack_visits-error_helper_visit==78u&&c.mmu.read32(TransferData)==0xffffffffu);
+                need(error_helper_visit&&!shared_seen&&time_seen&&ack_visits>error_helper_visit&&c.mmu.read32(TransferData)==0xffffffffu);
+                if(!error_due&&!error_delay)need(ack_visits-error_helper_visit==78u);
                 const auto inspected=inspect_si_transfer_arguments(c,TransferData,0x806fe340u,CallbackRoot);
                 need(inspected.type&&inspected.idle&&inspected.callback_known);
                 const auto hist=queue_history.finish(c,inspected);need(hist.valid);
@@ -489,6 +496,11 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                     <<" mismatch_mask="<<inspected.mismatch_mask<<" slot_kind="<<inspected.slot_kind
                     <<" arg_time_zero="<<inspected.argument_time_zero<<" queue_time_zero="<<inspected.queued_time_zero
                     <<" admitted="<<inspected.admitted()<<std::endl;
+                if(error_due||error_delay){
+                    std::cout<<"V1039_DELAY_FRONTIER delay="<<error_delay<<" prior_absent="<<error_cold<<" profile="<<trial
+                        <<" branch=4 handler_time=1 visits="<<ack_visits-error_helper_visit<<" token=2 call_executed=0"<<std::endl;
+                    std::_Exit(0);
+                }
                 std::cout<<"V1022_ERROR_TRANSFER_ENTRY prior_absent="<<error_cold<<" profile="<<trial
                     <<" original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38"<<std::endl;
             }

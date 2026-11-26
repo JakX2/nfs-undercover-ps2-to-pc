@@ -116,9 +116,17 @@ for mode in nonsplit split; do
         echo "V1022_ERROR_QUEUE failed=1 prior_absent=$prior profile=$trial";exit 1;
       }
       grep -Fx "V1020_ERROR_HELPER_RETURN prior_absent=$prior profile=$trial original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38" "$work/run.log"
-      grep -Fx "V1022_ERROR_TRANSFER_ENTRY prior_absent=$prior profile=$trial original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38" "$work/run.log"
       due=0; [[ "$lane" != *due ]] || due=1
       delay=0; [[ "$lane" != *delay ]] || delay=1
+      if [[ "$due" == 1 || "$delay" == 1 ]]; then
+        grep -Ex "V1039_DELAY_FRONTIER delay=$delay prior_absent=$prior profile=$trial branch=[46] handler_time=[01] visits=[1-9][0-9]{0,3} token=2 call_executed=0" "$work/run.log"
+        if grep -Eq "^V1039_DELAY_FRONTIER .* branch=4 " "$work/run.log"; then
+          grep -Ex "V1037_OWNER_QUEUE_HISTORY delay=$delay due=$due prior_absent=$prior profile=$trial initial_mismatch=[0-9]{1,3} current_mismatch=[0-9]{1,3} changed=[0-9]{1,3} initial_slot_kind=[0-2] samples=[1-9][0-9]{0,3}" "$work/run.log"
+          grep -Ex "V1034_OWNER_QUEUE_DETAIL due=$due prior_absent=$prior profile=$trial mismatch_mask=[0-9]{1,3} slot_kind=[0-2] arg_time_zero=[01] queue_time_zero=[01] admitted=[01]" "$work/run.log"
+        fi
+        continue
+      fi
+      grep -Fx "V1022_ERROR_TRANSFER_ENTRY prior_absent=$prior profile=$trial original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38" "$work/run.log"
       grep -Ex "V1037_OWNER_QUEUE_HISTORY delay=$delay due=$due prior_absent=$prior profile=$trial initial_mismatch=[0-9]{1,3} current_mismatch=[0-9]{1,3} changed=[0-9]{1,3} initial_slot_kind=[0-2] samples=[1-9][0-9]{0,3}" "$work/run.log"
       grep -Ex "V1034_OWNER_QUEUE_DETAIL due=$due prior_absent=$prior profile=$trial mismatch_mask=[0-9]{1,3} slot_kind=[0-2] arg_time_zero=[01] queue_time_zero=[01] admitted=[01]" "$work/run.log"
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
@@ -131,8 +139,9 @@ for mode in nonsplit split; do
   done
   echo "V1022_OWNER_ERROR_QUEUE mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
   echo "V1032_OWNER_AFTER_ALARM mode=$mode classified=8 fallback=0 continuous_boot=0"
-  echo "V1034_OWNER_QUEUE_DETAIL_CENSUS mode=$mode classified=32 nonzero_due=8 fallback=0 continuous_boot=0"
-  echo "V1037_OWNER_HISTORY mode=$mode classified=32 discovery_delay=8 fallback=0 continuous_boot=0"
+  echo "V1034_OWNER_QUEUE_DETAIL_CENSUS mode=$mode baseline=16 nonzero_due=8 fallback=0 continuous_boot=0"
+  echo "V1037_OWNER_HISTORY mode=$mode baseline=16 discovery_delay=8 fallback=0 continuous_boot=0"
+  echo "V1039_OWNER_DELAY_FRONTIERS mode=$mode classified=16 call_executed=0 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done
