@@ -21,6 +21,8 @@ from prepare_v847_wireless_wrapper import render as wireless_render
 from audit_callback_frontiers_v799 import call_sites as wireless_calls
 from prepare_owner_callback_after_setter_v842 import plan as suffix_plan
 from prepare_v1124_postalarm_suffix import render as suffix_render
+from prepare_v1134_postalarm_return import derive as return_derive,render as return_render
+from prepare_v726_handler_return import verify_resume_dispatch
 from prepare_owner_scheduler_v722 import reachable as callback_reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
@@ -278,12 +280,48 @@ def verify_suffix_native(src,outer,meta):
         else:verify_indirect(body,pc)
     for pc,w in rows.items():verify_label(body,pc,w,False)
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False):
+def verify_return_metadata(dol,elf,old,dest,host,suffix_meta,callback_site):
+    C,resume,rows,stops,words,call,R,caller,restore,tail,caller_word,callers=return_derive(dol,elf)
+    if (C,rows,stops)!=suffix_meta or caller!=callback_site+4 or callers[0][:3]!=(callback_site,0x4e800421,6):
+        raise ValueError('ACK return predecessor')
+    if len(restore)!=7 or len(tail)!=4 or len(words)!=172 or restore[-1]!=0x4e800020 or tail[-1]!=0x4e800020:
+        raise ValueError('ACK return geometry')
+    if old.splitlines().count('#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1')!=1 or 'UNDERCOVER_V1205_PRIVATE_ACK_RETURN' in old:
+        raise ValueError('ACK return mode')
+    expected={'v1132_private_postalarm_return.h':return_render(call,R,caller,restore,tail,caller_word),
+              'wii_callback_return_v846.h':(host/'wii_callback_return_v846.h').read_text()}
+    for n,s in expected.items():
+        h=dest/n
+        if h.is_symlink() or not h.is_file() or h.read_text()!=s:raise ValueError('ACK return metadata')
+    return C,call,R,caller,restore,tail,caller_word,words[(call-C)//4]
+
+def verify_return_native(src,outer,meta):
+    C,call,R,caller,restore,tail,caller_word,call_word=meta
+    for addr,rows in ((C,{call+4+4*i:w for i,w in enumerate(tail)}),
+                      (R,{R+4*i:w for i,w in enumerate(restore)}),(HANDLER,{caller:caller_word})):
+        hits=[s for s in src.values() if owns_root(s,addr)]
+        if len(hits)!=1 or sum(entry_count(s,addr) for s in src.values())!=1:raise ValueError('ACK return owner')
+        body=exact_function(hits[0],addr)
+        checked={pc:(addr,w) for pc,w in rows.items()}
+        if addr==C:
+            verify_direct(body,call,R);verify_label(body,call,call_word,False);checked[call]=(addr,call_word)
+        if addr==HANDLER:
+            verify_resume_dispatch(outer,HANDLER,caller)
+            block=block_at(body,caller,caller_word)
+            hook=f'    undercover::wii::v958::postalarm_dispatch_resume(ctx,0x{caller:08x}u,0x{caller_word:08x}u);\n'
+            tick='    ++ctx.inst_count;\n'
+            if block.count(hook)!=1 or block.count(tick)!=1 or block.index(hook)>block.index(tick):
+                raise ValueError('ACK return dispatch')
+        if audit_native([body],outer,checked)!=len(checked):raise ValueError('ACK return coverage')
+        for pc,w in rows.items():verify_label(body,pc,w,False)
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
     if frontier and not time:raise ValueError('ACK frontier mode')
     if wireless and not frontier:raise ValueError('ACK wireless mode')
     if suffix and not wireless:raise ValueError('ACK suffix mode')
+    if returned and not suffix:raise ValueError('ACK return mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -314,6 +352,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     frontier_meta=verify_frontier_metadata(dol,elf,old,dest,host,time_meta) if frontier else None
     wireless_meta=verify_wireless_metadata(dol,elf,old,dest,host,time_meta,frontier_meta) if wireless else None
     suffix_meta=verify_suffix_metadata(dol,elf,old,dest,host,wireless_meta) if suffix else None
+    return_meta=verify_return_metadata(dol,elf,old,dest,host,suffix_meta,callback_site) if returned else None
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
@@ -324,6 +363,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if frontier_meta:verify_frontier_native(src,outer,frontier_meta)
     if wireless_meta:verify_wireless_native(src,outer,wireless_meta)
     if suffix_meta:verify_suffix_native(src,outer,suffix_meta)
+    if return_meta:verify_return_native(src,outer,return_meta)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -351,6 +391,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if frontier:extra+='#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n'
     if wireless:extra+='#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n'
     if suffix:extra+='#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n'
+    if returned:extra+='#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
@@ -358,13 +399,14 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if frontier:print('V1194_ACK_FRONTIER_METADATA installed=1 callback_labels=27 native_edges=2 execution=0')
     if wireless:print('V1198_ACK_WIRELESS_METADATA installed=1 wrapper_labels=267 shared_labels=14 direct_edges=18 callback_returns=2 execution=0')
     if suffix:print('V1203_ACK_SUFFIX_METADATA installed=1 callback_labels=21 direct_edges=1 indirect_edges=1 execution=0')
+    if returned:print('V1207_ACK_RETURN_METADATA installed=1 restore_labels=7 tail_labels=4 handler_resume=1 outer_tick=1 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
@@ -373,6 +415,7 @@ def main():
         safe|={'ACK frontier '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
         safe|={'ACK wireless '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode','edge')}
         safe|={'ACK suffix '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
+        safe|={'ACK return '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode','dispatch')}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1

@@ -231,4 +231,26 @@ class AckSuffixMetadata(unittest.TestCase):
     def test_requires_wireless(self):
         with self.assertRaisesRegex(ValueError,'ACK suffix mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,False,True)
+class AckReturnMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;call=C+144;R=C+0x1000;site=H+12;caller=site+4
+        resume=C+64;words=[W]*172;rows={resume:W,call:W};stops={call:(13,1,R)}
+        restore=[W]*6+[BLR];tail=[W]*3+[BLR];callers=[(site,0x4e800421,6,W)]
+        derive=(C,resume,rows,stops,words,call,R,caller,restore,tail,W,callers)
+        old='#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v1132_private_postalarm_return.h'
+            h.write_text(ins.return_render(call,R,caller,restore,tail,W))
+            n='wii_callback_return_v846.h';(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'return_derive',return_value=derive):
+                self.assertEqual(ins.verify_return_metadata(b'',b'',old,dest,HOST,(C,rows,stops),site),(C,call,R,caller,restore,tail,W,W))
+                for bad in (old+old,old.replace('RETURN 1','RETURN 0'),old+'#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_return_metadata(b'',b'',bad,dest,HOST,(C,rows,stops),site)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_return_metadata(b'',b'',old,dest,HOST,(C,rows,stops),site+4)
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_return_metadata(b'',b'',old,dest,HOST,(C,rows,stops),site)
+    def test_requires_suffix(self):
+        with self.assertRaisesRegex(ValueError,'ACK return mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()
