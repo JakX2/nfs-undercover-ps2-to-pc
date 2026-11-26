@@ -6,8 +6,8 @@ from make_v624_ipc_geometry import geometry,render,exact_words,ROOT,CALL,RETURN,
 from make_private_elf_symbol_map import parse_functions
 from prepare_v419_full_start import MAX_DOL,direct_bl
 NOP=0x60000000
-def assemble(blocks,entry):
-    if not blocks or len(blocks)>32 or entry not in blocks:raise ValueError('fixture geometry')
+def assemble(blocks,entry,*,max_roots=32):
+    if not 1<=max_roots<=48 or not blocks or len(blocks)>max_roots or entry not in blocks:raise ValueError('fixture geometry')
     lo=min(blocks);hi=max(pc+4*len(ws) for pc,ws in blocks.items())
     if lo&3 or hi-lo>0x40000 or lo<0x80004000 or hi>0x81800000:raise ValueError('fixture range')
     raw=bytearray(struct.pack('>I',NOP)*((hi-lo)//4));occupied=set()
