@@ -13,6 +13,9 @@ from prepare_v1097_after_alarm import fmt
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
+from prepare_v789_alarm_suffix import expectations as callback_expectations
+from prepare_v1141_postalarm_handler import block_at
+from audit_handler_third_v740 import edge as handler_edge
 
 def compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected):
     if len(spans)!=7 or len(edges)!=8 or len(msr)!=2 or spans[:3]!=old_spans or edges[:2]!=old_edges:
@@ -61,7 +64,29 @@ def render(spans,edges,rows,msr,expected):
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
         +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n}\n')
 
-def install(dol,elf,root,host):
+def verify_callback_metadata(dol,elf,spans,rows,old):
+    candidate,words,sites=callback_expectations(dol,elf)
+    if len(words)!=172 or len(sites)!=2 or sites[0]==sites[1]:
+        raise ValueError('ACK callback geometry')
+    call,_,w=handler_edge(HANDLER,exact(dol,elf,HANDLER,(spans[0][1]-HANDLER)//4),4)
+    if [x for x in rows if x[0]==sites[0]]!=[(sites[0],0x4e800421,HANDLER,True)]:
+        raise ValueError('ACK callback geometry')
+    expected=(
+        '#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1',
+        f'inline constexpr uint32_t transfer_call=0x{call:08x}u,transfer_branch=0x{w:08x}u,transfer_callback=0x{candidate:08x}u;',
+        'inline constexpr std::array<uint32_t,172> success_callback_words{'+fmt(words)+'};',
+        'inline constexpr std::array<uint32_t,2> success_callback_sites{'+fmt(sites)+'};')
+    if any(old.splitlines().count(line)!=1 for line in expected):
+        raise ValueError('ACK callback metadata')
+    return sites[0]
+
+def verify_callback_guard(body,pc):
+    block=block_at(body,pc,0x4e800421)
+    guard=f'    undercover::wii::v958::before(ctx,0x{pc:08x}u,0x4e800421u,true);\n'
+    if block.count(guard)!=1:
+        raise ValueError('ACK callback guard')
+
+def install(dol,elf,root,host,callback=False):
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -78,6 +103,11 @@ def install(dol,elf,root,host):
     if old.count(macro)!=1 or 'UNDERCOVER_V1175_PRIVATE_ACK_HELPER' in old:raise ValueError('ACK helper mode')
     for line in prior.splitlines():
         if 'inline constexpr ' in line and old.count(line+'\n')!=1:raise ValueError('ACK helper metadata')
+    callback_site=verify_callback_metadata(dol,elf,spans,rows,old) if callback else None
+    if callback and ('UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK' in old or
+        (dest/'wii_callback_identity_v796.h').is_symlink() or
+        (dest/'wii_callback_identity_v796.h').read_text()!=(host/'wii_callback_identity_v796.h').read_text()):
+        raise ValueError('ACK callback metadata')
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
@@ -86,6 +116,7 @@ def install(dol,elf,root,host):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
         body=exact_function(src[hits[0]],a)
+        if callback_site is not None and a==HANDLER:verify_callback_guard(body,callback_site)
         expected_rows={pc:(a,w) for pc,w,owner,_ in rows if owner==a}
         if audit_native([body],outer,expected_rows)!=len(expected_rows):raise ValueError('ACK helper coverage')
         for pc,dst in edges:
@@ -99,16 +130,20 @@ def install(dol,elf,root,host):
     # No new emitted hook or instruction. The existing generated V958
     # observer owns all authenticated roots at the original scheduler tick.
     result.write_text(render(spans,edges,rows,msr,expected))
-    private.write_text(old.replace(macro,macro+'#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n',1))
+    extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
+    if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
+    private.write_text(old.replace(macro,macro+extra,1))
+    if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
+        safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0

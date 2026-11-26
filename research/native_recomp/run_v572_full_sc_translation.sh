@@ -205,6 +205,10 @@ ack_helper="${UNDERCOVER_RUN_V1177_ACK_HELPER-0}"
 [[ "$ack_helper" == 0 || "$ack_helper" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1176_ACK_HELPER-0}" == "$ack_helper" ]] || exit 2
 [[ "$ack_helper" == 0 || "$third_ack" == 1 ]] || exit 2
+ack_callback="${UNDERCOVER_RUN_V1182_ACK_CALLBACK-0}"
+[[ "$ack_callback" == 0 || "$ack_callback" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1182_ACK_CALLBACK-0}" == "$ack_callback" ]] || exit 2
+[[ "$ack_callback" == 0 || "$ack_helper" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -245,6 +249,9 @@ if [[ "$third_postalarm" == 1 ]]; then
                       echo 'V1171_THIRD_ACK_BUILD_PLAN links=1 private_installer=1 dispatch_predecessor=1'
                       if [[ "$ack_helper" == 1 ]]; then
                         echo 'V1177_ACK_HELPER_BUILD_PLAN links=1 private_installer=1 ack_predecessor=1'
+                        if [[ "$ack_callback" == 1 ]]; then
+                          echo 'V1182_ACK_CALLBACK_BUILD_PLAN links=1 private_installer=1 helper_predecessor=1'
+                        fi
                       fi
                     fi
                   fi
@@ -421,7 +428,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                             if [[ "$third_ack" == 1 ]]; then
                                                                 python3 "$here/prepare_v1169_third_ack.py" "$dol" "$elf" "$work/generated"
                                                                 if [[ "$ack_helper" == 1 ]]; then
-                                                                    python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated"
+                                                                    callback_args=()
+                                                                    if [[ "$ack_callback" == 1 ]]; then callback_args+=(--callback); fi
+                                                                    python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi
                                                         fi

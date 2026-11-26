@@ -429,6 +429,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
     if(ack_helper_enabled()&&!third_ack_enabled())return false;
     if(ack_callback_enabled()&&!ack_helper_enabled())return false;
+#ifndef UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK
+    if(ack_callback_enabled())return false;
+#endif
 #endif
 #endif
 #endif

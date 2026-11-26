@@ -89,4 +89,25 @@ class AckHelperTree(unittest.TestCase):
                       (6,[(a,w^1) for a,w in args[6]]),(7,(args[7][0]+4,W))):
             vals=list(args);vals[i]=bad
             with self.subTest(i=i),self.assertRaises(ValueError):ins.compatible(*vals)
+class AckCallbackMetadata(unittest.TestCase):
+    def test_metadata(self):
+        h=ins.HANDLER;site=h+12;target=H+0x800
+        words=[W]*172;sites=(site,h+16);spans=[(h,h+20,0)]
+        rows=[(site,0x4e800421,h,True)]
+        old='\n'.join(('#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1',
+            f'inline constexpr uint32_t transfer_call=0x{h:08x}u,transfer_branch=0x48000101u,transfer_callback=0x{target:08x}u;',
+            'inline constexpr std::array<uint32_t,172> success_callback_words{'+ins.fmt(words)+'};',
+            'inline constexpr std::array<uint32_t,2> success_callback_sites{'+ins.fmt(sites)+'};'))
+        with patch.object(ins,'callback_expectations',return_value=(target,words,sites)),patch.object(ins,'exact',return_value=[W]*5),patch.object(ins,'handler_edge',return_value=(h,target,0x48000101)):
+            self.assertEqual(ins.verify_callback_metadata(b'',b'',spans,rows,old),site)
+            for bad in (old.replace('172','171'),old+'\n'+old,old.replace('0x48000101','0x48000100'),old.replace('0x60000000','0x60000001'),old.replace('SUCCESS_FRONTIER 1','SUCCESS_FRONTIER 0')):
+                with self.assertRaises(ValueError):ins.verify_callback_metadata(b'',b'',spans,rows,bad)
+            for bad in ([],rows+rows,[(site,0x4e800421,h,False)],[(site,0x4e800421,h+4,True)]):
+                with self.assertRaises(ValueError):ins.verify_callback_metadata(b'',b'',spans,bad,old)
+    def test_guard(self):
+        pc=ins.HANDLER+12
+        guard=f'    undercover::wii::v958::before(ctx,0x{pc:08x}u,0x4e800421u,true);\n'
+        with patch.object(ins,'block_at',return_value=guard):ins.verify_callback_guard('',pc)
+        for bad in (guard.replace('true','false'),guard+guard,''):
+            with patch.object(ins,'block_at',return_value=bad),self.assertRaises(ValueError):ins.verify_callback_guard('',pc)
 if __name__=='__main__':unittest.main()
