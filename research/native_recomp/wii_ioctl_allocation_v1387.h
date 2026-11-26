@@ -21,6 +21,7 @@ public:
     unsigned store_ordinal()const{return ordinal_;}
     unsigned control()const{return control_;}
     uint32_t request()const{return request_;}
+    uint32_t allocated_size()const{return size_;}
     template<class C>bool begin(C& c,bool held,AllocatorRange heap,AllocatorRange meta,AllocatorRange guard){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.veneer||c.lr!=e_.resume||
            (c.msr&0x8000u)||c.gpr[4]<64u||c.gpr[4]>4096u||c.gpr[1]<0x80000200u||

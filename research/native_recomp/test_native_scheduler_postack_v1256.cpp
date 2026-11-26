@@ -73,6 +73,9 @@
 #include "v1386_private_ioctl_prefix.h"
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 #include "v1387_private_ioctl_allocation.h"
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+#include "v1392_private_ioctl_construction.h"
+#endif
 #endif
 #endif
 #endif
@@ -270,6 +273,10 @@ static unsigned ioctl_prefix_count=0;
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 static IoctlAllocationWitness* ioctl_alloc=nullptr;
 static unsigned ioctl_alloc_count=0;
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+static IoctlConstructionWitness* ioctl_build=nullptr;
+static unsigned ioctl_build_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -385,6 +392,18 @@ static bool ioctl_alloc_held(nw::CPUContext& c){
         OpenTransactionEpoch(second_irq_kind).acknowledged_descriptors(3u-second_irq_kind)&&!(cause.load()&mask.load())&&
         selection_witness->selected_after_release(c,raw_device_ok(c));
 }
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+[[noreturn]]static void ioctl_build_refuse(unsigned kind){
+    std::cout<<"V1392_CONSTRUCTION_REFUSAL kind="<<kind<<" stage="<<ioctl_build->stage()<<" reason="<<ioctl_build->failure()
+        <<" visits="<<ioctl_build->visits()<<" stores="<<ioctl_build->stores()<<" request="<<ioctl_build->request_stores()
+        <<" fence="<<ioctl_build->store_failure()<<" range="<<ioctl_build->range_failure()
+        <<" ordinal="<<ioctl_build->ordinal()<<" wire="<<ioctl_build->wire_failure()<<'\n';
+    throw WitnessFailure{};
+}
+void v1392_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!ioctl_build||!ioctl_build->before(c,pc,w,ioctl_alloc_held(c)))ioctl_build_refuse(2);
+}
+#endif
 [[noreturn]]static void ioctl_alloc_refuse(unsigned kind){
     std::cout<<"V1387_ALLOCATION_REFUSAL kind="<<kind<<" stage="<<ioctl_alloc->stage()<<" reason="<<ioctl_alloc->failure()
         <<" visits="<<ioctl_alloc->visits()<<" stores="<<ioctl_alloc->stores()<<" heap="<<ioctl_alloc->heap_stores()
@@ -393,6 +412,9 @@ static bool ioctl_alloc_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 void v1387_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+    if(ioctl_build&&ioctl_build->stage()==2u){v1392_before(c,pc,w);return;}
+#endif
     // Shared veneer/body hooks also execute in the two earlier Opens.
     if(!ioctl_alloc||ioctl_alloc->stage()!=1u)return;
     if(pc==v1387::expected.resume){
@@ -802,6 +824,12 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+    if(ioctl_build&&ioctl_build->stage()==2u){
+        if(!ioctl_build->entry(c,pc,ioctl_alloc_held(c)))ioctl_build_refuse(3);
+        ++ioctl_build_count;throw StmIoctlReached{};
+    }
+#endif
     if(ioctl_alloc&&ioctl_alloc->stage()==1u){
         if(!ioctl_alloc->entry(c,pc,ioctl_alloc_held(c)))ioctl_alloc_refuse(3);
         return;
@@ -827,6 +855,9 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(!stm_ioctl->entry(c,pc,stm_ioctl_held(c)))stm_ioctl_refuse(3);
         if(stm_ioctl->stage()==2u){
             ++stm_ioctl_count;
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+            if(!ioctl_build->capture(c,stm_ioctl_held(c),second_irq_kind))ioctl_build_refuse(1);
+#endif
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
             if(!ioctl_prefix||!stm_ioctl->reached(c,stm_ioctl_held(c))||
                !ioctl_prefix->begin(c,stm_ioctl_held(c)))ioctl_prefix_refuse(1);
@@ -1151,9 +1182,24 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+    if(ioctl_build&&ioctl_build->stage()==2u){
+        if(!ioctl_build->poll(c,ioctl_alloc_held(c)))ioctl_build_refuse(4);
+        return false;
+    }
+#endif
     if(ioctl_alloc&&ioctl_alloc->stage()==1u){
         if(!ioctl_alloc->poll(c,ioctl_alloc_held(c)))ioctl_alloc_refuse(4);
-        if(ioctl_alloc->stage()==2u){++ioctl_alloc_count;throw StmIoctlReached{};}
+        if(ioctl_alloc->stage()==2u){
+            ++ioctl_alloc_count;
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+            if(!ioctl_alloc->returned(c,ioctl_alloc_held(c))||!allocator_descriptor->identity_after_release(c)||
+               !ioctl_build->begin(c,ioctl_alloc_held(c),ioctl_alloc->request(),ioctl_alloc->allocated_size(),
+                                  allocator_heap,allocator_descriptor->guard()))ioctl_build_refuse(1);
+#else
+            throw StmIoctlReached{};
+#endif
+        }
         return false;
     }
 #endif
@@ -2414,12 +2460,19 @@ int main(int argc,char** argv)try{
         IoctlPrefixWitness prefix(v1386::expected);ioctl_prefix=&prefix;
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
         IoctlAllocationWitness alloc3(v1387::expected);ioctl_alloc=&alloc3;
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+        IoctlConstructionWitness build3(v1392::expected);ioctl_build=&build3;
+#endif
 #endif
 #endif
         bool ioctl_reached=false;try{run_game(c);}catch(const StmIoctlReached&){ioctl_reached=true;}
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+        need(ioctl_reached&&build3.reached(c,ioctl_alloc_held(c))&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&alloc3.returned(c,ioctl_alloc_held(c))&&descriptor.identity_after_release(c)&&
+#endif
              ioctl_alloc_count==trial+1u&&ioctl_prefix_count==trial+1u&&
 #else
         need(ioctl_reached&&prefix.reached(c,stm_ioctl_held(c))&&ioctl_prefix_count==trial+1u&&
@@ -2435,6 +2488,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
         std::cout<<"V1387_ALLOCATION_TRIAL n="<<trial<<" original_return=1 heap_shadow=1 metadata_shadow=1 masked=1 stores="
                  <<alloc3.stores()<<" heap="<<alloc3.heap_stores()<<" metadata="<<alloc3.metadata_stores()<<'\n';
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+        std::cout<<"V1392_CONSTRUCTION_TRIAL n="<<trial<<" original_request=1 callback=1 first_flush=1 flush_kind="<<build3.flush_kind()
+                 <<" stores="<<build3.stores()<<" request="<<build3.request_stores()<<'\n';
+        ioctl_build=nullptr;
+#endif
         ioctl_alloc=nullptr;
 #endif
         ioctl_prefix=nullptr;
@@ -2548,6 +2606,10 @@ int main(int argc,char** argv)try{
     need(ioctl_prefix_count==8u);
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
     need(ioctl_alloc_count==8u);
+#ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+    need(ioctl_build_count==8u);
+    std::cout<<"V1392_CONSTRUCTION_NATIVE owner=1 trials=8 request=8 first_flush_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1387_ALLOCATION_NATIVE owner=1 trials=8 allocation_return=8 heap_shadow=8 metadata_shadow=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1386_PREFIX_NATIVE owner=1 trials=8 allocator_entry=8 original_save=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
