@@ -1,0 +1,3 @@
+# V1312: cooperative save provenance preflight
+
+V1311 corrected planner tests passed; V1310 mapping gate passed. V1308 X2 source gate passed, native owner retry executing. Add independent symbolic tracking of a bounded straight-line PPC save leaf: register sources, SPRs, CR, MSR, saved one and live zero, nonvolatile integer registers and GQR provenance. Reject unknown instructions, stores with wrong bases/values, duplicates and branches. Five synthetic unittest groups passed locally (including ten mutation subtests). Private owner geometry only, no extra native translation or execution. The source audit assumes a direct MSR save and will fail closed if original code requires additional semantics. No private words published.
