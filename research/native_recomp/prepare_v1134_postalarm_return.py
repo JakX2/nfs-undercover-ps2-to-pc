@@ -104,7 +104,7 @@ def install(dol,elf,root,host):
         p=owner(a);source=changes.get(p,src[p]);body=exact_function(source,a);out=body
         expected={pc:(a,w) for pc,w in rows.items()}
         if a==C:
-            verify_direct(body,call,R);verify_resume(body,call,original[(call-C)//4]);expected[call]=(a,original[(call-C)//4])
+            verify_direct(body,call,R);verify_resume(body,call,words[(call-C)//4]);expected[call]=(a,words[(call-C)//4])
         if a==HANDLER:
             verify_indirect(body,site);verify_resume_dispatch(outer,HANDLER,caller);expected[site]=(a,word)
         if audit_native([body],outer,expected)!=len(expected):raise ValueError('postalarm return coverage')
