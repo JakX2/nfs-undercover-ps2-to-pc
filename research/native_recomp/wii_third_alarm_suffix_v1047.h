@@ -196,6 +196,11 @@ public:
     unsigned failure()const{return error_;}
     unsigned native_failure()const{return native_.failure();}
     unsigned visits()const{return native_.visits();}
+    template<class C>bool finished_at(C& c,uint32_t pc,uint32_t w,const PostAckTransferDevice& dev,
+            const ExternalReturnWitness& frame,uint32_t context)const{
+        return stage_==3u&&native_.stage()==5u&&same(c)&&dev_==&dev&&frame_==&frame&&context_==context&&
+               last_==c.inst_count&&pc==e_.caller&&w==e_.caller_word&&held();
+    }
     template<class C>bool capture(C& c,uint32_t root,const ExternalReturnWitness& frame,uint32_t context){
         if(stage_||error_||!safe(c)||root<0x80000000u||root>0x817ffffcu||(root&3u)||
            c.pc!=root||c.lr!=e_.caller||e_.call<=root||!c.mmu.get_ptr(root)||!c.mmu.get_ptr(root+3u)||

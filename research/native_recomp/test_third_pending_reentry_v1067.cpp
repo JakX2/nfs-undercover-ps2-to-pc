@@ -1,5 +1,6 @@
 #include "wii_third_pending_reentry_v1067.h"
 #include "wii_third_alarm_suffix_v1047.h"
+#include "wii_held_pending_epilogue_v1149.h"
 #include "wii_callback_prefix_v800.h"
 #include "synthetic_callback_time_expectations_v1014.h"
 #include "wii_callback_frontier_v829.h"
@@ -50,7 +51,8 @@ int main(){
     unsigned rd_valid=0,rd_refused=0;
     unsigned held_valid=0,held_refused=0;
     unsigned held_return_valid=0,held_return_refused=0;
-    for(trial=0;trial<328;++trial){
+    unsigned held_ep_valid=0,held_ep_refused=0;
+    for(trial=0;trial<348;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -73,6 +75,7 @@ int main(){
         for(unsigned i=0;i<32;++i)c.gpr[i]=17u*i+3u;
         c.gpr[3]=Base;
         if(trial>=288){c.gpr[1]=0x80035000u;c.gpr[20]=ch;}
+        if(trial>=328){c.gpr[13]=0x80039000u;c.gpr[21]=Context;}
         const auto gp=c.gpr;const auto lr=c.lr,ctr=c.ctr,xer=c.xer;
         ExternalReturnWitness prior;need(prior.capture(c,cause,mask));
         c.msr=0x32u;c.srr0=H;c.srr1=0x8032u;
@@ -93,7 +96,8 @@ int main(){
         need(dev.finish(c.inst_count,1)&&dev.token()==3u&&dev.held_now());
         if(trial>=288){
             const unsigned f=trial>=308?0u:trial>=296?trial-295u:0u;
-            const unsigned hr=trial>=316?trial-315u:0u;
+            const unsigned hr=trial>=328?0u:trial>=316?trial-315u:0u;
+            const unsigned he=trial>=336?trial-335u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -117,7 +121,9 @@ int main(){
                 out.back()=0x4e800020u;return out;
             }();
             constexpr std::array<uint32_t,4> tail{0x80010044u,0x7c0803a6u,0x38210040u,0x4e800020u};
-            const HandlerReturnExpectation e{Call,Root,Dest,restore,tail,Nop};
+            constexpr uint32_t En=0x8003b000u,Re=0x8003b100u,Di=0x8003b200u,Rs=0x8003b300u,Lo=0x8003b400u;
+            const uint32_t dest_word=trial>=328?(branch(Dest,En)|1u):Nop;
+            const HandlerReturnExpectation e{Call,Root,Dest,restore,tail,dest_word};
             HeldHandlerReturnWitness ret(e);
             const auto original=c.gpr;
             auto refused_return=[&](bool bad){
@@ -126,7 +132,7 @@ int main(){
             if(trial>=308){
                 for(unsigned i=0;i<restore.size();++i)c.mmu.words[Root+4u*i]=restore[i];
                 for(unsigned i=0;i<tail.size();++i)c.mmu.words[Call+4u+4u*i]=tail[i];
-                c.mmu.words[Dest]=Nop;
+                c.mmu.words[Dest]=dest_word;
                 c.pc=H;c.lr=hr==1?Dest+4u:Dest;
                 bool ok=ret.capture(c,hr==2?H+4u:H,prior,Context);
                 if(hr==1||hr==2){refused_return(!ok);continue;}need(ok);
@@ -198,13 +204,61 @@ int main(){
             if(hr!=9)need(ret.poll(c));
             if(hr==10){refused_return(!ret.poll(c));continue;}
             tick();if(hr==11)tick();
-            ok=ret.dispatch(c,Dest,Nop);
+            ok=ret.dispatch(c,Dest,dest_word);
             if(hr==9||hr==11){refused_return(!ok);continue;}need(ok);
             if(hr==12)c.gpr[31]^=1u;
-            ok=at_ret(Dest,Nop);
+            ok=at_ret(Dest,dest_word);
             if(hr==12){refused_return(!ok);continue;}need(ok);
             need(ret.stage()==3u&&ret.visits()==21u&&dev.held_now()&&ctl.issued_tokens()==3u&&cause==(Other|SI));
-            ++held_return_valid;continue;
+            if(trial<328){++held_return_valid;continue;}
+            // Original-free effects; actual witness, device and scheduler.
+            constexpr uint32_t Blr=0x4e800020u;
+            const uint32_t counter=c.gpr[13]+4u,hint=c.gpr[13]+8u;
+            c.mmu.words[counter]=2;c.mmu.words[hint]=0;
+            for(unsigned i=0;i<8;++i)c.mmu.words[Context+0x1a4u+4*i]=0;
+            c.mmu.words[Context+0x1a0u]=0;
+            c.mmu.words[En]=branch(En,Di)|1u;c.mmu.words[En+4]=branch(En+4,Rs)|1u;
+            c.mmu.words[En+8]=Blr;c.mmu.words[Di]=Blr;c.mmu.words[Rs]=Blr;c.mmu.words[Re]=Blr;
+            c.mmu.words[Dest+4]=branch(Dest+4,Re)|1u;c.mmu.words[Dest+8]=Nop;
+            c.mmu.words[Dest+12]=branch(Dest+12,Lo)|1u;c.mmu.words[Lo]=Rfi;
+            HeldPendingEpilogueWitness ep({Dest,En,Re,Di,Rs,Lo,Lo+4,Context,4,8,21,255},{T,D,Context,Nop,Vec,Tramp});
+            using Poll=HeldPendingEpilogueWitness::PollResult;
+            auto refused_ep=[&](bool bad){
+                need(bad&&ctl.issued_tokens()==3u&&cause==(Other|SI)&&dev.stage()==2u);++held_ep_refused;
+            };
+            if(he==1)tick();
+            if(he==2)c.mmu.words[Context+124]^=1u;
+            if(he==3)c.gpr[21]^=4u;
+            ok=ep.begin(c,Dest,dest_word,ret,prior,dev,he==4?foreign:ctl,cause,mask);
+            if(he>=1&&he<=4){refused_ep(!ok);continue;}need(ok);
+            auto enter=[&](uint32_t pc,uint32_t link){c.pc=pc;c.lr=link;return ep.entry(c,pc);};
+            auto at_ep=[&](uint32_t pc){c.pc=pc;tick();return ep.before(c,pc,c.mmu.words.at(pc));};
+            ok=enter(he==5?Di:En,Dest+4);
+            if(he==5){refused_ep(!ok);continue;}need(ok);
+            if(he==6){refused_ep(!at_ep(En+4));continue;}
+            need(at_ep(En)&&enter(Di,En+4)&&at_ep(Di));
+            need(at_ep(En+4)&&enter(Rs,En+8)&&at_ep(Rs));
+            c.lr=Dest+4;c.gpr[3]=2;c.mmu.words[counter]=1;
+            need(at_ep(En+8)&&at_ep(Dest+4)&&enter(Re,Dest+8)&&at_ep(Re));
+            need(at_ep(Dest+8));c.gpr[3]=Context;
+            need(at_ep(Dest+12)&&enter(Lo,Dest+16));
+            c.gpr=gp;c.lr=lr;c.ctr=ctr;c.xer=xer;c.cr.fill({});c.srr0=H;c.srr1=0x8032u;
+            if(he==7)c.gpr[31]^=1u;
+            ok=at_ep(Lo);
+            if(he==7){refused_ep(!ok);continue;}need(ok&&ep.stage()==2u);
+            c.pc=H;c.msr=c.srr1;
+            if(he==8)c.gqr[0]^=1u;
+            if(he==9)c.mmu.words[V]^=1u;
+            if(he==10)tick();
+            auto polled=ep.poll(c,Image);
+            if(he>=8&&he<=10){refused_ep(polled==Poll::Rejected);continue;}
+            need(polled==Poll::Entered&&ep.stage()==3u&&c.pc==V);
+            if(he!=11)need(ep.poll(c,Image)==Poll::Continue);
+            tick();if(he==12)tick();
+            ok=ep.entry(c,V);
+            if(he==11||he==12){refused_ep(!ok);continue;}
+            need(ok&&ep.stage()==4u&&ep.next().stage()==3u&&dev.held_now());
+            ++held_ep_valid;continue;
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
@@ -853,7 +907,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -871,4 +925,5 @@ int main(){
     std::cout<<"V1136_THIRD_ACK_RESUME_JOIN valid=8 refused=12 dispatch_ticks=2 resume_instruction_executed=0 original_execution=0\n";
     std::cout<<"V1138_HELD_HANDLER_SUFFIX valid=8 refused=12 actual_w1c=1 token_held=1 original_execution=0\n";
     std::cout<<"V1144_HELD_HANDLER_RETURN valid=8 refused=12 abi=15 dispatch_tick=1 token_held=1 original_execution=0\n";
+    std::cout<<"V1149_HELD_PENDING_EPILOGUE valid=8 refused=12 native_rfi_model=1 same_token=1 third_vector_entry=1 original_execution=0\n";
 }

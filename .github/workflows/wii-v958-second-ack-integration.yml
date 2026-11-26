@@ -38,6 +38,7 @@ on:
       - 'research/native_recomp/*v1097*'
       - 'research/native_recomp/*v1141*'
       - 'research/native_recomp/*v1146*'
+      - 'research/native_recomp/*v1149*'
       - 'research/native_recomp/prepare_v868_handler_suffix.py'
       - 'research/native_recomp/prepare_v1134_postalarm_return.py'
       - 'research/native_recomp/wii_external_return_v706.h'
