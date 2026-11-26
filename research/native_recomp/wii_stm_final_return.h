@@ -89,7 +89,7 @@ public:
         }else if(op==31u&&xo==467u&&(ra|(rb<<5))==8u){
             if(!lr_loaded_||lr_source_!=rs||gp_[rs]!=e_.caller||lr_==e_.caller)return fail(3);
             lr_=gp_[rs];
-        }else if(op==14u&&rs==ra==1u){
+        }else if(op==14u&&rs==1u&&ra==1u){
             if(gp_[1]!=frame_.base||imm!=int32_t(e_.frame_size))return fail(3);
             gp_[1]=caller_[1];
         }else if((op==14u||op==15u)&&volatile_reg(rs)){
