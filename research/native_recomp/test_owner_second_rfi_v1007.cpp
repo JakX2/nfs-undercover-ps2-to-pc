@@ -441,6 +441,15 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             need(third_ack_route&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&++third_ack_visits<=2048u);
             scheduler->advance(c.inst_count);
             if(third_frontier_route)need(fourth_queue_history.sample(c));
+            if(third_reentry.stage()==9u&&third_helper_return&&pc==CallbackCall){
+                need(third_time_route&&owner==Handler&&w==0x4e800421u&&c.gpr[3]<4u);
+                third_vector_need(third_reentry.stop_before_callback(c,owner,pc,w));
+                const unsigned category=classify_callback_identity(c,pc,w,6u,2u,CallbackRoot,callback_full,callback_sites);
+                std::cout<<std::dec<<"V1088_THIRD_CALLBACK_FRONTIER ordinal=6 target_class="<<category
+                         <<" visits="<<third_ack_visits-third_helper_return<<" handler_time="<<unsigned(third_time_return!=0)
+                         <<" token=3 saved_fields=38 pi_cleared=1 original_call_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
             third_vector_need(third_reentry.ack_before(c,owner,pc,w));
             if(third_reentry.stage()==8u){
                 const auto& a=third_reentry.completion_ack();const auto& calls3=third_reentry.ack_calls();

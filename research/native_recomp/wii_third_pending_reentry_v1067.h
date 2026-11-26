@@ -130,6 +130,13 @@ public:
     bool ack_write(unsigned off,uint32_t v){
         return ack_active()&&!error_&&ack_.write(*ctl_,off,v)?true:fail(15);
     }
+    // Observe the original alternate indirect-call frontier without executing it.
+    template<class C>bool stop_before_callback(C& c,uint32_t owner,uint32_t pc,uint32_t w){
+        if(stage_!=9u||!ack_frame(c)||owner!=SiDispatchWitness::Handler||ack_read_reg_!=32u||
+           w!=0x4e800421u||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !ack_calls_.stop_before_indirect(c,pc,w))return fail(18);
+        stage_=10u;return true;
+    }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
