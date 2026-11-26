@@ -244,7 +244,11 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         c.gpr[4]=Bus::IPC+M::PPCCTRL;
         assert(call(Leaf,Reply+8u)&&step(Leaf));
         if(processor_case==5){assert(!body.read(c,Bus::IPC+M::PPCMSG,true));reject(false,8);return;}
+        if(processor_case==12){reject(step(Leaf+4u),8);assert(body.mmio_reason()==9u);return;}
+        if(processor_case==15){++c.inst_count;assert(!body.read(c,Bus::IPC+M::PPCCTRL,true));reject(false,8);assert(body.mmio_reason()==2u);return;}
         const auto control=body.read(c,Bus::IPC+M::PPCCTRL,true);assert(control);
+        if(processor_case==13){c.gpr[3]=*control^1u;reject(step(Leaf+4u),8);assert(body.mmio_reason()==10u);return;}
+        if(processor_case==14){assert(!body.read(c,Bus::IPC+M::PPCCTRL,true));reject(false,8);assert(body.mmio_reason()==7u);return;}
         c.gpr[3]=*control;c.gpr[4]=Bus::IPC+M::PPCCTRL;
         assert(step(Leaf+4u)&&step(Reply+8u)&&call(Writer,Reply+12u)&&step(Writer));
         if(processor_case==6){reject(body.write(c,Bus::IPC+M::PPCCTRL,*control|M::X1,true),8);return;}
@@ -252,6 +256,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         c.gpr[4]=Bus::IPC+M::ARMMSG;
         assert(step(Reply+12u)&&call(Leaf,Reply+16u)&&step(Leaf));
         assert(body.read(c,Bus::IPC+M::ARMMSG,true)==Request);
+        c.gpr[3]=Request;
         assert(step(Leaf+4u)&&step(Reply+16u));
         c.gpr[3]=Request|0x80000000u;c.gpr[4]=processor_case==7?8u:64u;c.gpr[5]=32u;
         ok=call(Cache,Reply+20u);
@@ -434,8 +439,8 @@ int main(){
     std::cout<<"V1273_REPLY_ENTRY_CONTRACT synthetic=1 valid=1 refused=10 native_reply=1 wakeup=0 original_execution=0\n";
     std::cout<<"V1267_JOINED_ACK_CONTRACT synthetic=1 valid=1 refused=13 native_reply=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
-    for(unsigned i=1;i<=11;++i)trial(0,0,true,i);
-    std::cout<<"V1280_REPLY_BODY synthetic=1 valid=1 refused=11 native_mmio=1 modeled_instructions=1 wakeup=0 original_execution=0\n";
+    for(unsigned i=1;i<=15;++i)trial(0,0,true,i);
+    std::cout<<"V1280_REPLY_BODY synthetic=1 valid=1 refused=15 native_mmio=1 modeled_instructions=1 wakeup=0 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_WAKE_READY
     for(unsigned i=1;i<=10;++i)trial(0,0,true,0,i);
     std::cout<<"V1288_WAKE_READY synthetic=1 valid=1 refused=10 ready_queue=1 modeled_stores=1 original_execution=0\n";

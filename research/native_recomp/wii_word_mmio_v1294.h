@@ -7,10 +7,20 @@ namespace undercover::wii {
 struct WordMmioInstruction {
     enum class Kind:unsigned{None,Read,Write};
     Kind kind=Kind::None;unsigned form=0;uint32_t ea=0,value=0;
+    unsigned reg=0,base_reg=0;
     bool address(uint32_t a)const{
         return kind!=Kind::None&&!(ea&3u)&&!(a&3u)&&
             (ea&0xc0000000u)!=0x40000000u&&(a&0xc0000000u)!=0x40000000u&&
             (ea&0x3fffffffu)==(a&0x3fffffffu);
+    }
+    bool targets_window(uint32_t base,uint32_t size)const{
+        const uint32_t p=ea&0x3fffffffu;
+        return kind!=Kind::None&&uint64_t(p)<uint64_t(base)+size&&uint64_t(p)+4u>base;
+    }
+    template<class C>bool completed(const C& c,uint32_t read_value)const{
+        if(kind==Kind::None)return false;
+        if(kind==Kind::Read&&c.gpr[reg]!=(form==4u?swap(read_value):read_value))return false;
+        return form!=3u||c.gpr[base_reg]==ea;
     }
     static constexpr uint32_t swap(uint32_t v){
         return (v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24);
@@ -26,6 +36,7 @@ struct WordMmioInstruction {
             q.form=reverse?4u:update?3u:2u;
         }else return q;
         if(update&&(!ra||(q.kind==Kind::Read&&ra==rs)))return {};
+        q.reg=rs;q.base_reg=ra;
         const uint32_t base=ra?c.gpr[ra]:0u;
         const uint32_t d=(w&0xffffu);q.ea=base+(index?c.gpr[rb]:((d^0x8000u)-0x8000u));
         if(q.kind==Kind::Write)q.value=reverse?swap(c.gpr[rs]):c.gpr[rs];

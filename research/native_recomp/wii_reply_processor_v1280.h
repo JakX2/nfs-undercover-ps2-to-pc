@@ -63,6 +63,12 @@ public:
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(!common(c,held)||!entered_||entry_due_||poll_due_||pc!=next_||
            c.inst_count-last_!=1u||!known(c,active_,pc,w)||++visits_>4096u)return fail(5);
+        // Require the actual native bus access and its architectural
+        // register results before accepting the next guest instruction.
+        if(mmio_.targets_window(IosBus::IPC,0x40u)||mmio_.targets_window(IosBus::MIRROR,0x40u)){
+            if(!mmio_used_)return mmio_fail(9);
+            if(!mmio_.completed(c,mmio_read_value_))return mmio_fail(10);
+        }
         // The previous instruction really executed: the native emitter
         // incremented its cache counter and recorded the effective address.
         if(dcbi_due_){
@@ -74,7 +80,7 @@ public:
             cache_return_=false;
         }
         last_=c.inst_count;last_pc_=pc;last_word_=w;next_=pc+4u;
-        last_owner_=active_;mmio_=WordMmioInstruction::decode(c,w);mmio_used_=false;
+        last_owner_=active_;mmio_=WordMmioInstruction::decode(c,w);mmio_used_=false;mmio_read_value_=0;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         if(op==31u&&xo==470u){
             if(active_!=e_.cache)return fail(4);
@@ -112,7 +118,7 @@ public:
     }
     template<class C>std::optional<uint32_t> read(C& c,uint32_t a,bool held){
         if(!authorize(c,a,WordMmioInstruction::Kind::Read,held))return {};
-        auto v=gate_.read(a,c.msr,true);if(!v)mmio_fail(8);return v;
+        auto v=gate_.read(a,c.msr,true);if(!v)mmio_fail(8);else mmio_read_value_=*v;return v;
     }
     template<class C>bool write(C& c,uint32_t a,uint32_t v,bool held){
         if(!authorize(c,a,WordMmioInstruction::Kind::Write,held))return false;
@@ -142,7 +148,7 @@ private:
     uint64_t tick_=0,last_=0;
     unsigned stage_=0,error_=0,visits_=0;
     bool entered_=false,entry_due_=false,poll_due_=false,dcbi_due_=false,cache_return_=false;
-    WordMmioInstruction mmio_{};uint32_t last_owner_=0;unsigned mmio_reason_=0;bool mmio_used_=false;
+    WordMmioInstruction mmio_{};uint32_t last_owner_=0,mmio_read_value_=0;unsigned mmio_reason_=0;bool mmio_used_=false;
     bool mmio_fail(unsigned n){if(!mmio_reason_)mmio_reason_=n;return fail(8);}
     template<class C>bool authorize(C& c,uint32_t a,WordMmioInstruction::Kind kind,bool held){
         if(!common(c,held))return mmio_fail(1);
