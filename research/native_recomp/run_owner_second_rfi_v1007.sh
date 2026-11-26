@@ -119,7 +119,8 @@ for mode in nonsplit split; do
     error-queue-callback-ack-post error-queue-cold-callback-ack-post error-queue-due-callback-ack-post error-queue-cold-due-callback-ack-post \
     error-queue-callback-ack-time error-queue-cold-callback-ack-time error-queue-due-callback-ack-time error-queue-cold-due-callback-ack-time \
     error-queue-cold-due-callback-ack-frontier \
-    error-queue-callback-ack-callback error-queue-cold-callback-ack-callback error-queue-due-callback-ack-callback error-queue-cold-due-callback-ack-callback; do
+    error-queue-callback-ack-callback error-queue-cold-callback-ack-callback error-queue-due-callback-ack-callback error-queue-cold-due-callback-ack-callback \
+    error-queue-callback-ack-callback-time error-queue-cold-callback-ack-callback-time error-queue-due-callback-ack-callback-time error-queue-cold-due-callback-ack-callback-time; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -129,7 +130,7 @@ for mode in nonsplit split; do
         grep -Ex 'V1063_THIRD_HANDLER_FRONTIER ordinal=[0-9]{1,2} branch_taken=[01] visits=[0-9]{1,3} stores=[0-8] status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log" || true
         grep -Ex 'V1064_THIRD_EPILOGUE_(FAULT reason=[0-9]{1,2} stage=[0-3] visits=[0-9]{1,3}|ENTRY_REFUSAL mask=[0-9]{1,3})' "$work/run.log" || true
         grep -Ex 'V1068_THIRD_GUARD_REFUSAL handler_stage=[0-5] callback_stage=[0-5] dispatcher_owner=[01] dispatcher_resume=[01]' "$work/run.log" || true
-        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=([0-9]|1[0-2]) reason=[0-9]{1,2} vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
+        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=([0-9]|1[0-4]) reason=[0-9]{1,2} vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
         grep -Ex 'V1086_THIRD_ACK_REFUSAL route=[0-9]{1,2} ack=[0-5] calls=[0-5] ack_stage=[0-5] visits=[0-9]{1,4} helper_return=[01] time_return=[01]' "$work/run.log" || true
         echo "V1022_ERROR_QUEUE failed=1 prior_absent=$prior profile=$trial";exit 1;
       }
@@ -185,18 +186,21 @@ for mode in nonsplit split; do
             fi
             if [[ "$lane" == *callback-ack* ]]; then
               grep -Fx 'V1079_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response=1 visits=48 entries=2 returns=1 reads=3 writes=1 saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0' "$work/run.log"
-              if [[ "$lane" == *ack-post || "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback ]]; then
+              if [[ "$lane" == *ack-post || "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* ]]; then
                 grep -Fx 'V1084_THIRD_HELPER_RETURN original_helper=1 visits=130 entries=6 returns=6 msr=2 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
               fi
-              if [[ "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback ]]; then
+              if [[ "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* ]]; then
                 if grep -q '^V1088_THIRD_CALLBACK_FRONTIER ' "$work/run.log"; then
                   grep -Ex 'V1088_THIRD_CALLBACK_FRONTIER ordinal=6 target_class=[0-4] visits=71 handler_time=0 token=3 saved_fields=38 pi_cleared=1 original_call_executed=0 boot_verified=0' "$work/run.log"
                   ! grep -Eq '^V1084_THIRD_TIME_RETURN |^V1086_FOURTH_FRONTIER ' "$work/run.log"
-                  if [[ "$lane" == *ack-callback ]]; then
+                  if [[ "$lane" == *ack-callback* ]]; then
                     grep -Fx 'V1092_THIRD_ACK_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=13 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
+                    if [[ "$lane" == *ack-callback-time ]]; then
+                      grep -Fx 'V1105_THIRD_ACK_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
+                    fi
                   fi
                 else
-                  [[ "$lane" != *ack-callback ]]
+                  [[ "$lane" != *ack-callback* ]]
                   grep -Fx 'V1084_THIRD_TIME_RETURN original_time=1 leaves=3 visits=44 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
                   if [[ "$lane" == *ack-frontier ]]; then
                     grep -Ex 'V1086_FOURTH_FRONTIER type=[01] idle=[01] callback=[01] channel=[0-3] mismatch=[0-9]{1,3} slot_kind=[0-2] initial_mismatch=[0-9]{1,3} changed=[0-9]{1,3} samples=[1-9][0-9]{0,3} admission=[0-2] visits=[1-9][0-9]{0,3} token=3 saved_fields=38 original_call_executed=0 boot_verified=0' "$work/run.log"
@@ -228,6 +232,7 @@ for mode in nonsplit split; do
   echo "V1079_OWNER_THIRD_ACK mode=$mode original_w1c=16 next_label=16 retired_transfer=16 fallback=0 continuous_boot=0"
   echo "V1088_OWNER_THIRD_POSTACK mode=$mode helper_return=16 classified_branch=20 fallback=0 continuous_boot=0"
   echo "V1092_OWNER_THIRD_ACK_CALLBACK mode=$mode original_prefix=16 save_return=16 fallback=0 continuous_boot=0"
+  echo "V1105_OWNER_THIRD_ACK_TIME mode=$mode original_time=16 pi_cleared=16 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

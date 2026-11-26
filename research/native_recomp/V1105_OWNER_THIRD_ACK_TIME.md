@@ -1,0 +1,3 @@
+# V1105: focused original third acknowledged callback time experiment
+
+Extend the four existing third-ACK callback fixture families through the native original time helper (32 new trials across split and nonsplit modes). Use the new V1104 join and a separate time witness; retain original prefix, saved frame, retired transfer and cleared PI checks. Gate the private owner job on the expanded source-only sanitizer fixture. Require three OS leaves, 25 system visits, 18 leaf visits, one poll and three timebase reads. These are expected counts from previously verified earlier callbacks, not yet measured on this new acknowledged route. No full-image build duplicated.
