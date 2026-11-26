@@ -677,7 +677,7 @@ static bool third_ack_held(nw::CPUContext& c){return third_storage_held(c,true);
 [[noreturn]]static void third_ack_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_ACK_REFUSAL kind="<<kind<<" stage="<<(third_ack?third_ack->stage():0u)
              <<" reason="<<(third_ack?third_ack->failure():0u)<<" visits="<<(third_ack?third_ack->visits():0u)
-             <<" ordinal="<<(third_ack?third_ack->ordinal():0u)<<" reads="<<(third_ack?third_ack->reads():0u)
+             <<" ordinal="<<(third_ack?third_ack->ordinal():0u)<<" detail="<<(third_ack?third_ack->detail():0u)<<" reads="<<(third_ack?third_ack->reads():0u)
              <<" writes="<<(third_ack?third_ack->writes():0u)<<" memory="<<(third_memory?third_memory->failure():0u)
              <<" gate="<<(ioctl_event_gate?ioctl_event_gate->stage():0u)<<" gate_reason="<<(ioctl_event_gate?ioctl_event_gate->failure():0u)<<'\n';
     throw WitnessFailure{};

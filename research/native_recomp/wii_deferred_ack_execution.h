@@ -22,6 +22,7 @@ public:
     unsigned calls()const{return calls_;}
     unsigned polls()const{return polls_;}
     unsigned ordinal()const{return ordinal_;}
+    unsigned detail()const{return detail_;}
     template<class C>bool begin(C& c,StmDeferredEventGate& gate,IpcDeferredAckMemory& mem,bool held){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.handler||c.lr!=e_.returned||
            !known(c,e_.handler,e_.handler)||!word(c,e_.returned,e_.return_word)||
@@ -56,20 +57,25 @@ public:
             access_due_=st?2u:1u;access_seen_=true;
         }else if(st){
             auto a=ea(c,w);
-            if(a>0xffffffffull||(a&3u))return fail(4);
+            if(a>0xffffffffull||(a&3u))return store_fail(1);
             if((owner_==e_.handler&&pc==e_.credit_site)||(owner_==e_.profile_root&&pc==e_.profile_site)){
-                if(op!=36u||!gate_->ack_latch_cleared(true)||!mem_->authorize(c,uint32_t(a),c.gpr[rs],4u,true))return fail(4);
+                if(op!=36u)return store_fail(2);
+                if(!gate_->ack_latch_cleared(true))return store_fail(3);
+                if(!mem_->authorize(c,uint32_t(a),c.gpr[rs],4u,true))return store_fail(4);
             }else{
                 const unsigned count=op==47u?32u-rs:1u;
-                if(owner_!=e_.handler||ra!=1u||!frame_.contains(uint32_t(a),4u*count)||++stack_stores_>32u||
-                   (op==37u&&(rs!=1u||a>=c.gpr[1])))return fail(4);
+                if(owner_!=e_.handler)return store_fail(5);
+                if(ra!=1u)return store_fail(6);
+                if(!frame_.contains(uint32_t(a),4u*count))return store_fail(7);
+                if(++stack_stores_>32u)return store_fail(8);
+                if(op==37u&&(rs!=1u||a>=c.gpr[1]))return store_fail(9);
                 for(unsigned j=0;j<count;++j)for(unsigned i=0;i<4;++i)
                     stack_[uint32_t(a)-frame_.base+j*4u+i]=uint8_t(c.gpr[rs+j]>>(24u-i*8u));
                 if(op==37u){sp_due_=true;sp_expected_=uint32_t(a);}
             }
         }else if(op==38u||op==39u||op==44u||op==45u||op==52u||op==53u||op==54u||op==55u||op==60u||op==61u||
                  (op==31u&&(xo==150u||xo==183u||xo==215u||xo==247u||xo==407u||xo==439u||xo==661u||xo==662u||
-                    xo==725u||xo==918u||xo==663u||xo==695u||xo==727u||xo==759u||xo==983u||xo==1014u)))return fail(4);
+                    xo==725u||xo==918u||xo==663u||xo==695u||xo==727u||xo==759u||xo==983u||xo==1014u)))return store_fail(10);
         if(op==17u||(op==19u&&(xo==50u||xo==528u))||(op==31u&&xo==146u))return fail(5);
         if(op==31u&&xo==467u){
             const auto spr=ra|(rb<<5);
@@ -157,9 +163,10 @@ private:
     uint32_t msr_=0,cr_=0,owner_=0,next_=0,poll_pc_=0,helper_return_=0,helper_cr_=0,
              access_addr_=0,access_value_=0,load_value_=0,sp_expected_=0,ctr_expected_=0;
     uint64_t start_=0,last_=0;
-    unsigned stage_=0,error_=0,visits_=0,ordinal_=0,reads_=0,writes_=0,calls_=0,stack_stores_=0,polls_=0,
+    unsigned stage_=0,error_=0,detail_=0,visits_=0,ordinal_=0,reads_=0,writes_=0,calls_=0,stack_stores_=0,polls_=0,
              access_due_=0,access_reg_=0;
     bool entry_due_=false,return_due_=false,access_seen_=false,load_due_=false,sp_due_=false,ctr_due_=false,polled_=false,initial_poll_=false,resumed_=false;
+    bool store_fail(unsigned d){if(!error_)detail_=d;return fail(4);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool admitted(uint32_t pc)const{return pc==e_.read_root||pc==e_.write_root||pc==e_.profile_root;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
