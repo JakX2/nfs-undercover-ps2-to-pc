@@ -15,11 +15,20 @@ public:
         cpu_=&c;tick_=c.inst_count;request_=submit.request();return true;
     }
     template<class C>bool preserved(C& c,bool held)const{
+        return scheduler_detail(c,held,false)==0u;
+    }
+    // A native SelectThread transition can remove the current-thread
+    // pointer after saving the waiting thread but before setting idle.
+    // The active OSContext and its physical alias must still be the
+    // previous thread, and the inactive idle image remains exact.
+    template<class C>unsigned scheduler_detail(C& c,bool held,bool saved)const{
         if(!cpu_||cpu_!=&c||!held||!c.is_running||c.in_callback||c.dispatch_saved_ctx||
-           c.inst_count<tick_||c.inst_count-tick_>8192u||
-           !active_thread(c)||!mapped(c,Idle,0x2c8u))return false;
-        for(unsigned i=0;i<image_.size();++i)if(c.mmu.read8(Idle+i)!=image_[i])return false;
-        return true;
+           c.inst_count<tick_||c.inst_count-tick_>8192u)return 1u;
+        if(!word(c,0x800000d4u,Thread)||!word(c,0x800000c0u,Thread&0x3fffffffu))return 2u;
+        if(!word(c,0x800000e4u,Thread)&&!(saved&&word(c,0x800000e4u,0u)))return 3u;
+        if(!mapped(c,Idle,0x2c8u))return 4u;
+        for(unsigned i=0;i<image_.size();++i)if(c.mmu.read8(Idle+i)!=image_[i])return 5u;
+        return 0u;
     }
     template<class C>bool select_at(C& c,const PostAckSleepJoin& sleep,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();

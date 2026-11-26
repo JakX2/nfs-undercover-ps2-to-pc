@@ -34,13 +34,20 @@ private:
         r2_=c.gpr[2];r13_=c.gpr[13];stage_=1;return true;
     }
 public:
-    template<class C>bool boundary(C& c,bool device_ok)const{
+    template<class C>unsigned boundary_detail(C& c,bool device_ok)const{
         auto s=NativeIosBinding::cold_snapshot();
-        return stage_>=1u&&stage_<=6u&&!error_&&cpu_==&c&&device_ok&&c.is_running&&
-           !c.in_callback&&!c.dispatch_saved_ctx&&c.inst_count>=tick_&&c.inst_count-tick_<=32768u&&
-           (stage_==6u||!(c.msr&0x8000u))&&c.gpr[2]==r2_&&c.gpr[13]==r13_&&s&&same(*s,ack_)&&
-           waiting(c)&&equal(c,CallbackPtr,Callback)&&(!reuse_||stage_>=5u||reuse_->preserved(c,device_ok));
+        if(stage_<1u||stage_>6u||error_||cpu_!=&c||!device_ok||!c.is_running||
+           c.in_callback||c.dispatch_saved_ctx||c.inst_count<tick_||c.inst_count-tick_>32768u)return 1u;
+        if((stage_!=6u&&(c.msr&0x8000u))||c.gpr[2]!=r2_||c.gpr[13]!=r13_)return 2u;
+        if(!s||!same(*s,ack_))return 3u;
+        if(!waiting(c)||!equal(c,CallbackPtr,Callback))return 4u;
+        if(reuse_&&stage_<=4u){
+            const auto d=reuse_->scheduler_detail(c,device_ok,stage_==4u&&saved(c));
+            if(d)return 4u+d;
+        }
+        return 0u;
     }
+    template<class C>bool boundary(C& c,bool device_ok)const{return boundary_detail(c,device_ok)==0u;}
     // bctrl and blr re-enter run_game. Only admit the authenticated edge
     // and its exact, single-use continuation.
     template<class C>bool indirect_poll(C& c){

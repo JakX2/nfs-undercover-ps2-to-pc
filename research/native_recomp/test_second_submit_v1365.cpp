@@ -91,8 +91,12 @@ static bool second_submit(Cpu& c,PostAckOpenJoin& w,NativeIosTransport& host,uns
     c.mmu.write32(U::Idle+4u,0x80701000u);need(valid.preserved(c,true));
     c.mmu.write32(0x800000d4u,U::Idle);need(!valid.preserved(c,true));
     c.mmu.write32(0x800000d4u,U::Thread);need(valid.preserved(c,true)&&!valid.preserved(c,false));
+    c.mmu.write32(0x800000e4u,0u);
+    need(valid.scheduler_detail(c,true,false)==3u&&valid.scheduler_detail(c,true,true)==0u);
+    c.mmu.write32(0x800000e4u,U::Idle);need(valid.scheduler_detail(c,true,true)==3u);
+    c.mmu.write32(0x800000e4u,U::Thread);
     c.inst_count+=8193u;need(!valid.preserved(c,true));c.inst_count-=8193u;
-    std::cout<<"V1368_REUSE_TEST valid=1 refused=6\n";
+    std::cout<<"V1371_REUSE_TEST valid=2 refused=8\n";
     // Complete a second synthetic reply through the actual broker.
     // The guest IRQ/scheduler path is not represented by this source test.
     need(host.write32(IosBus::IPC+M::PPCCTRL,(initial.control&(M::IY1|M::IY2|M::X2))|M::Y2));

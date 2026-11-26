@@ -901,6 +901,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     }
 #endif
     if(sched_join){
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+        if(second_scheduler_lane){
+            const auto d=sched_join->boundary_detail(c,device_ok(c));
+            if(d){std::cout<<"V1371_SCHED_BOUNDARY detail="<<d<<" stage="<<sched_join->stage()<<'\n';throw WitnessFailure{};}
+        }
+#endif
         if(!sched_join->observe(c,pc,device_ok(c))){
             last_stage=sched_join->stage();last_reason=sched_join->failure();throw WitnessFailure{};
         }
@@ -1159,6 +1165,12 @@ bool process_pending_callbacks(CPUContext& c){
 #endif
             ++scheduler_count;throw SchedulerStop{};
         }
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+        if(second_scheduler_lane){
+            const auto d=sched_join->boundary_detail(c,device_ok(c));
+            if(d){std::cout<<"V1371_SCHED_BOUNDARY detail="<<d<<" stage="<<sched_join->stage()<<'\n';throw WitnessFailure{};}
+        }
+#endif
         need(sched_join->boundary(c,device_ok(c)));
         const bool allowed=(c.pc==PostAckSchedulerJoin::Select&&sched_join->stage()==1u)||
             sched_join->indirect_poll(c)||
