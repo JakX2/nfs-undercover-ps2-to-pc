@@ -274,6 +274,5 @@ inline constexpr AlarmCancelExpectation expected{
                         self.assertEqual(rows[-1],b'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=1 token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0')
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
-                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=12 reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+
-)
+                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=12 reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
 if __name__=='__main__':unittest.main()
