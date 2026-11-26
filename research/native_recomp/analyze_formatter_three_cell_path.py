@@ -44,11 +44,11 @@ def target_size(d,e,kind,dst):
     exact_words(d,e,dst,1)
     return size//4
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     audit,addr,data,cells,previous,prior_sites=third_audit(d,e,details=True)
     cells=admitted(audit,addr,data,cells)
-    missed=[];controls=[]
-    try:path,frame,sites,words,_=nested(d,e,candidates=cells,third=True,read_refusal=lambda *args:missed.append(args),control_refusal=lambda *args:controls.append(args))
+    missed=[];controls=[];entries=[]
+    try:path,frame,sites,words,_=nested(d,e,candidates=cells,third=True,read_refusal=lambda *args:missed.append(args),control_refusal=lambda *args:controls.append(args),entry_observer=lambda *args:entries.append(args))
     except ValueError:
         if len(controls)==1 and not missed:
             pc,w,path,frame,sites,gp,mem,cr,ctr,lr,saves=controls[0]
@@ -56,15 +56,21 @@ def plan(d,e):
             validate(path[:-1],sites,previous,prior_sites,cells)
             kind,dst=control_kind(w,ctr,lr)
             words=target_size(d,e,kind,dst)
-            return kind,path[:-1],frame,sites,words,0,'none'
+            result=(kind,path[:-1],frame,sites,words,0,'none')
+            if details:
+                if len(entries)!=1:raise ValueError('three cell entry')
+                return (*result,entries[0],controls[0],cells)
+            return result
         if len(missed)!=1 or controls:raise
         at,width,path,frame,sites,*_=missed[0]
         if len(path)<=75 or any(overlap(at,width,a,len(b)) for a,b in cells):
             raise ValueError('three cell next boundary')
         validate(path[:-1],sites,previous,prior_sites,cells)
+        if details:raise ValueError('three cell expected control')
         return 'load',path[:-1],frame,sites,0,width,classify_section(e,at,width)
     validate(path,sites,previous,prior_sites,cells)
     if frame!=48:raise ValueError('three cell frame')
+    if details:raise ValueError('three cell expected control')
     return 'call',path,frame,sites,words,0,'none'
 
 def main():
