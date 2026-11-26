@@ -20,8 +20,9 @@ public:
         if(!frame.saved_integer(c,context).ok())return bad(4);
         for(unsigned i=0;i<8;++i)if(c.gqr[i]!=interrupted_gqr[i])gqr_mismatch_|=1u<<i;
         if(gqr_mismatch_)return bad(5);
-        if(!mapped(c,context,744u)||!mapped(c,wait,8u)||!mapped(c,counter,4u)||
-           (context&7u)||(wait&3u)||(counter&3u))return bad(6);
+        if(!mapped(c,context,744u)||(context&7u))return bad(6);
+        if(!mapped(c,wait,8u,true)||(wait&3u))return bad(12);
+        if(!mapped(c,counter,4u)||(counter&3u))return bad(13);
         if(c.mmu.read16(context+712u)!=2u)return bad(7);
         if(c.mmu.read32(wait)||c.mmu.read32(wait+4u))return bad(8);
         if(c.mmu.read32(counter)!=1u)return bad(9);
@@ -57,12 +58,14 @@ private:
     bool bad(unsigned d){if(!error_)detail_=d;return fail(1);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
-    template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
-        if(!n||a<0x80000000u||uint64_t(a)+n>0x81800000ull)return false;
+    template<class C>static bool mapped(C& c,uint32_t a,unsigned n,bool mem2=false){
+        const auto end=uint64_t(a)+n;
+        if(!n||!((a>=0x80000000u&&end<=0x81800000ull)||
+                 (mem2&&a>=0x90000000u&&end<=0x94000000ull)))return false;
         auto p=c.mmu.get_ptr(a),q=c.mmu.get_ptr(a+n-1u);
         return p&&q&&reinterpret_cast<uintptr_t>(q)==reinterpret_cast<uintptr_t>(p)+n-1u;
     }
-    template<class C>static bool word(C& c,uint32_t a,uint32_t w){return !(a&3u)&&mapped(c,a,4)&&c.mmu.read32(a)==w;}
+    template<class C>static bool word(C& c,uint32_t a,uint32_t w,bool mem2=false){return !(a&3u)&&mapped(c,a,4,mem2)&&c.mmu.read32(a)==w;}
     static bool same(const ColdIpcSnapshot& a,const ColdIpcSnapshot& b){
         return a.control==b.control&&a.ppc==b.ppc&&a.arm==b.arm&&a.flags==b.flags&&a.irq_mask==b.irq_mask&&
             a.pi_cause==b.pi_cause&&a.pi_mask==b.pi_mask&&a.steps==b.steps&&a.replies==b.replies&&a.queued==b.queued&&a.event==b.event;
@@ -72,7 +75,8 @@ private:
         if(!held||error_||cpu_!=&c||!safe(c)||!s||!same(*s,snapshot_)||!gate_||!gate_->completed(true)||
            !mem_||!mem_->preserved(c)||!frame_||c.inst_count<tick_||c.inst_count-tick_>2048u||
            !word(c,0x800000c0u,ctx_&0x3fffffffu)||!word(c,0x800000d4u,ctx_)||!word(c,0x800000e4u,ctx_)||
-           !word(c,wait_,0u)||!word(c,wait_+4u,0u)||!mapped(c,ctx_,744u)||!mapped(c,counter_,4u)||
+           !mapped(c,wait_,8u,true)||!word(c,wait_,0u,true)||!word(c,wait_+4u,0u,true)||
+           !mapped(c,ctx_,744u)||!mapped(c,counter_,4u)||
            c.mmu.read32(counter_)>1u)return false;
         for(unsigned i=0;i<tail_.size();++i)if(c.mmu.read32(ctx_+712u+4u*i)!=tail_[i])return false;
         return true;

@@ -8,8 +8,12 @@ using B=NativeIosBinding;using I=IosBus;using M=IpcMailbox;using H=HollywoodIrq;
 constexpr uint32_t Base=0x80000000u,Req=0x100u,Path=0x400u,Out=0x800u,Resume=Base+0x900u,
     Context=Base+0x1000u,en=M::IY1|M::IY2;
 struct Mem{
-    std::array<uint8_t,8192> ram{};
-    uint8_t* get_ptr(uint32_t a){return a>=Base&&a-Base<ram.size()?ram.data()+a-Base:nullptr;}
+    std::array<uint8_t,8192> ram{},ram2{};
+    uint8_t* get_ptr(uint32_t a){
+        if(a>=Base&&a-Base<ram.size())return ram.data()+a-Base;
+        if(a>=0x90000000u&&a-0x90000000u<ram2.size())return ram2.data()+a-0x90000000u;
+        return nullptr;
+    }
     uint8_t read8(uint32_t a){auto p=get_ptr(a);assert(p);return *p;}
     uint16_t read16(uint32_t a){return uint16_t((read8(a)<<8)|read8(a+1));}
     uint32_t read32(uint32_t a){uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|read8(a+i);return v;}
@@ -33,8 +37,8 @@ static void open(Cpu& c,std::string_view path,unsigned fd){
 constexpr uint32_t Wait=Base+0x1400u,Count=Base+0x1410u,Ring=Base+0x1500u,Credit=Base+0x1580u,
     P=Credit+4u,U=P+4u,A=Base+0x1600u,F=Base+0x1680u,Rfi=Base+0x1800u,Sp=Base+0x1e00u;
 static void trial(unsigned first,unsigned fault){
-    Cpu c;std::array<uint8_t,8192> two{};std::atomic<uint32_t> cause{0},mask{H::PI_HOLLYWOOD};
-    NativeIosTransport host(c.mmu.ram,two,cause,mask);B bind(host);
+    Cpu c;std::atomic<uint32_t> cause{0},mask{H::PI_HOLLYWOOD};
+    NativeIosTransport host(c.mmu.ram,c.mmu.ram2,cause,mask);B bind(host);
     wr(H::PPC_MASK,H::IPC_PPC);wr(M::PPCCTRL,en);
     open(c,first==1?"/dev/stm/immediate":"/dev/stm/eventhook",0);
     open(c,first==1?"/dev/stm/eventhook":"/dev/stm/immediate",1);
@@ -66,13 +70,16 @@ static void trial(unsigned first,unsigned fault){
     if(fault==2)c.mmu.write32(Context+712,4u<<16);
     if(fault==3)c.mmu.write32(Count,0);
     if(fault==4)c.gqr[3]^=1;
-    bool ok=join.begin(c,frame,gate,mem,Context,Wait,Count,gqr,fault!=1);
+    const uint32_t wait=fault==15?0x90000101u:fault==16?0x90002000u:
+        fault==17?0xd0000100u:fault==18?0x90001ffcu:fault>=13?0x90000100u:Wait;
+    bool ok=join.begin(c,frame,gate,mem,Context,wait,Count,gqr,fault!=1);
+    if(fault>=15&&fault<=18){assert(!ok&&join.detail()==12);return;}
     if(fault>=1&&fault<=4){
         constexpr unsigned details[]={0,1,7,9,5};
         assert(!ok&&join.failure()==1&&join.detail()==details[fault]);
         assert(join.gqr_mismatch_mask()==(fault==4?8u:0u));return;
     }assert(ok);
-    if(fault==5){c.mmu.write32(Wait,Context);assert(!join.held(c,true));return;}
+    if(fault==5||fault==14){c.mmu.write32(wait,Context);assert(!join.held(c,true));return;}
     if(fault==6){c.mmu.write32(Context+736,1);assert(!join.held(c,true));return;}
     if(fault==7){c.mmu.write32(Base+0xe4,Context+8);assert(!join.held(c,true));return;}
     if(fault==8){c.mmu.write32(Base+Req+60,1);assert(!join.held(c,true));return;}
@@ -88,5 +95,5 @@ static void trial(unsigned first,unsigned fault){
     if(fault==9||fault==11){assert(!ok);return;}assert(ok&&join.resumed(c,true));
     if(fault==12){++c.inst_count;assert(!join.resumed(c,true));}
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=12;++f)trial(first,f);
-    std::cout<<"DEFERRED_ACTIVE_RETURN_TEST cases=26 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=18;++f)trial(first,f);
+    std::cout<<"DEFERRED_ACTIVE_RETURN_TEST cases=38 original_execution=0\n";}
