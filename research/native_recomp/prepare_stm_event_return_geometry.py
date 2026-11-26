@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Private STM post-IOCTL corridor to the outer interrupt restore call."""
 import argparse
+import re
 import struct
 from pathlib import Path
 from prepare_v629_stm_open import geometry,STM,EDGES
-from prepare_v1337_open_completion import corridor,RESTORE
+from prepare_v1337_open_completion import corridor,RESTORE,hook_submit
+from prepare_v625_ipc_client import audit_native
+from prepare_v680_si_helper import verify_direct
 from prepare_v419_full_start import MAX_DOL,EXPECTED_GPRS
 from make_private_elf_symbol_map import HEADER,SECTION,SYMBOL
 from prepare_ipc_dispatch_geometry import credit_object
@@ -84,14 +87,75 @@ def plan(d,e):
         if any(a<b+m and b<a+n for b,m in protected):raise ValueError('STM IPC object overlap')
     return labels,exits,rows,objects
 
+def native_plan(d,e):
+    labels,exits,sites,objects=plan(d,e)
+    _,body,_,_,_,_=geometry(d,e)
+    call,dst=EDGES[-1]
+    if exits or len(sites)!=2 or len(set(objects))!=1 or any(n!=4 for _,_,n,_ in sites) or len({a for _,a,_,_ in sites})!=1:
+        raise ValueError('STM success geometry')
+    words={pc:(STM,body[(pc-STM)//4]) for pc in labels}
+    return CALL+4,(call,dst,body[(call-STM)//4]),words,sites,objects[0]
+
+def render(p):
+    start,edge,words,sites,flag=p
+    fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    def arr(name,typ,rows):
+        return f'inline constexpr std::array<undercover::wii::{typ},{len(rows)}> {name}'+'{'+','.join('undercover::wii::'+typ+'{'+fmt(row)+'}' for row in rows)+'};\n'
+    return ('#pragma once\n#include "wii_stm_event_return.h"\nnamespace stm_event_return_private {\n'+
+        arr('words','IpcDispatchWord',[(owner,pc,w) for pc,(owner,w) in sorted(words.items())])+
+        arr('sites','StmEventStore',sites)+
+        'inline constexpr undercover::wii::StmEventReturnExpectation expected{'+fmt((STM,start))+
+        ',undercover::wii::IpcDispatchEdge{'+fmt(edge)+'},words,sites,undercover::wii::AllocatorRange{'+fmt(flag)+'}};\n}\n')
+
+def install(root,p):
+    start,edge,words,sites,flag=p
+    sources={x:x.read_text() for x in sorted(root.glob('output_*.cpp'))}
+    audit_native(sources.values(),(root/'main_output.cpp').read_text(),words)
+    hits=[s for s in sources.values() if f'loc_{edge[0]:X}: ;' in s]
+    if len(hits)!=1:raise ValueError('STM native edge')
+    verify_direct(hits[0],edge[0],edge[1])
+    done=set();changed={}
+    for path,s in sources.items():
+        old=s
+        for pc,(_,word) in words.items():
+            raw=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;$',s)
+            if not raw:continue
+            if len(raw)!=1 or pc in done:raise ValueError('STM duplicate hook')
+            if pc==start:
+                a=(f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n'
+                   f'    async_wrapper_return(ctx,0x{pc:08x}u);\n    ++ctx.inst_count;\n')
+                if s.count(a)!=1:raise ValueError('STM prior return hook')
+                s=s.replace(a,a+f'    stm_event_before(ctx,0x{pc:08x}u,0x{word:08x}u);\n')
+            else:
+                s,found=hook_submit(s,pc,word)
+                if not found:raise ValueError('STM native hook')
+                a=f'    v1344_before(ctx,0x{pc:08x}u,0x{word:08x}u);'
+                if s.count(a)!=1:raise ValueError('STM native hook')
+                s=s.replace(a,a.replace('v1344_before','stm_event_before'))
+            done.add(pc)
+        if s!=old:
+            a='#include "runtime/cpu_context.h"'
+            if s.count(a)!=1:raise ValueError('STM native include')
+            changed[path]=s.replace(a,a+'\nvoid stm_event_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
+    if done!=set(words):raise ValueError('STM native coverage')
+    for path,s in changed.items():path.write_text(s)
+    print(f'STM_EVENT_RETURN_TRANSLATION verified=1 labels={len(done)} direct_edges=1')
+
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--out',type=Path);a.add_argument('--install',type=Path);q=a.parse_args()
     allowed={'size','STM data request','STM ELF sections','STM symbol table','STM strings','STM object section','STM object range',
              'STM object span','STM object identity','STM text overlap','STM DOL span','STM store base','STM store alignment',
-             'STM store form','STM store count','STM restore edge','STM predecessor','STM IPC object overlap'}
+             'STM store form','STM store count','STM restore edge','STM predecessor','STM IPC object overlap',
+             'STM success geometry','STM native edge','STM duplicate hook','STM prior return hook','STM native hook','STM native include','STM native coverage',
+             'completion hook label','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not HEADER.size<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        labels,exits,rows,objects=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        if q.install:install(q.install,native_plan(d,e));return 0
+        if q.out:
+            p=native_plan(d,e)
+            with (q.out/'private_stm_event_return.h').open('x') as f:f.write(render(p))
+        labels,exits,rows,objects=plan(d,e)
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('STM_EVENT_RETURN_GEOMETRY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input'))
         return 1
