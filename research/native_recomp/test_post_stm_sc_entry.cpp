@@ -47,6 +47,11 @@ static void trial(unsigned fault){
     ok=step(5);if(fault==11){assert(!ok);return;}assert(ok);
     c.lr=Root+20;c.pc=fault==12?Disable+4:Disable;
     ok=w.entry(c,c.pc,fault!=13);if(fault==12||fault==13){assert(!ok);return;}assert(ok&&w.reached(c,true)&&w.visits()==6&&w.stores()==3);
+    assert(w.frame_held(c,true));
     if(fault==14){++c.inst_count;assert(!w.reached(c,true));}
+    if(fault==15){c.msr&=~0x8000u;c.gpr[3]=1;assert(w.frame_held(c,true));}
+    if(fault==16){c.mmu.write32(Sp-16,1);assert(!w.frame_held(c,true));}
+    if(fault==17){c.gpr[1]+=4;assert(!w.frame_held(c,true));}
+    if(fault==18){c.inst_count+=129;assert(!w.frame_held(c,true));}
 }
-int main(){for(unsigned i=0;i<=14;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=15 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=18;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=19 original_execution=0\n";}

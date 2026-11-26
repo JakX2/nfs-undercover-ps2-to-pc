@@ -94,6 +94,18 @@ static void trial(unsigned first,unsigned fault){
     ok=join.finish(c,true);
     if(fault==9||fault==11){assert(!ok);return;}assert(ok&&join.resumed(c,true));
     if(fault==12){++c.inst_count;assert(!join.resumed(c,true));}
+    if(fault>=19){
+        assert(!join.post_resume_storage_held(c,true,msr));
+        c.mmu.write32(Resume,0x60000000u);c.inst_count+=2;
+        assert(frame.resume(c,Resume,0x60000000u,cause.load(),mask.load()));
+        assert(join.post_resume_storage_held(c,true,msr));
+        c.msr&=~0x8000u;
+        assert(!join.continuation_held(c,true)&&join.post_resume_storage_held(c,true,msr&~0x8000u));
+        assert(!join.post_resume_storage_held(c,true,msr));
+        if(fault==20){c.gqr[4]^=1;assert(!join.post_resume_storage_held(c,true,c.msr));}
+        if(fault==21){c.mmu.write32(wait,Context);assert(!join.post_resume_storage_held(c,true,c.msr));}
+        if(fault==22){c.mmu.write32(Count,1);assert(!join.post_resume_storage_held(c,true,c.msr));}
+    }
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=18;++f)trial(first,f);
-    std::cout<<"DEFERRED_ACTIVE_RETURN_TEST cases=38 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=22;++f)trial(first,f);
+    std::cout<<"DEFERRED_ACTIVE_RETURN_TEST cases=46 original_execution=0\n";}

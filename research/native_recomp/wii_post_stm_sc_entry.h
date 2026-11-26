@@ -92,6 +92,14 @@ public:
         return stage_==2u&&common(c,held)&&c.pc==e_.disable&&c.inst_count==last_&&
             visits_==e_.words.size()&&stores_==3u&&word(c,e_.disable,e_.disable_word);
     }
+    // The next original leaf owns its register/MSR effects, but the
+    // SC frame remains immutable until another explicit witness takes over.
+    template<class C>bool frame_held(C& c,bool held)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=frame_.base||
+           !mapped(c,frame_)||c.inst_count<last_||c.inst_count-last_>128u)return false;
+        for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
+        return true;
+    }
 private:
     PostStmScExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};

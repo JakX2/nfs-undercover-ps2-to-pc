@@ -55,6 +55,13 @@ public:
         return stage_==2u&&storage(c,authorized)&&c.gqr==gqr_&&
             word(c,counter_,0u)&&(c.msr&0x8000u)&&(frame_->stage()==4u||frame_->stage()==5u);
     }
+    // A later original OSDisableInterrupts leaf may change EE only.
+    // The independently checked leaf supplies the exact current MSR.
+    // Do not admit this path until the actual RFI resume was witnessed.
+    template<class C>bool post_resume_storage_held(C& c,bool authorized,uint32_t expected_msr){
+        return stage_==2u&&storage(c,authorized)&&c.gqr==gqr_&&
+            word(c,counter_,0u)&&c.msr==expected_msr&&frame_->stage()==5u;
+    }
 private:
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;StmDeferredEventGate* gate_=nullptr;IpcDeferredAckMemory* mem_=nullptr;
     ColdIpcSnapshot snapshot_{};std::array<uint32_t,8> tail_{},gqr_{};
