@@ -115,6 +115,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 #endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_enabled()&&!error_frontier_enabled())return false;
+#ifndef UNDERCOVER_V1049_PRIVATE_ABI_PROVEN
+    if(third_enabled()&&six_arguments_enabled())return false;
+#endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_enabled()&&(!third_enabled()||!six_arguments_enabled()))return false;
 #endif

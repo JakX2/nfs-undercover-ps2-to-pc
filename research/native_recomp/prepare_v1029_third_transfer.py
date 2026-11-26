@@ -4,6 +4,7 @@ import argparse,re,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL,replace_exact
 from prepare_owner_transfer_v765 import plan
+from audit_transfer_abi_liveness_v1042 import analyze as prove_transfer_abi
 from prepare_v668_si_ack import geometry,HANDLER
 from prepare_v667_si_dispatch import exact
 from audit_handler_third_v740 import edge
@@ -65,8 +66,15 @@ def hook(body,pc,w,kind):
         block=legacy.sub(lambda m:'    if(!undercover::wii::v958::third_active()) '+m[1],block)
     return body[:i]+block+body[j:]
 
+def verify_abi(roots,C,edges):
+    ok,states,killed,returns,unknown,read=prove_transfer_abi(roots,C,edges)
+    if not ok or unknown or read or not (killed or returns) or not 1<=states<=16384:
+        raise ValueError('third ABI proof')
+    return states
+
 def install(dol,elf,root,host):
     roots,C,D,Q,S,R,edges=plan(dol,elf)
+    abi_states=verify_abi({a:roots[a] for a in (C,D,Q,S,R)},C,edges)
     n,*_=geometry(dol,elf);handler=exact(dol,elf,HANDLER,n)
     call,target,w=edge(HANDLER,handler,4)
     if target!=C or len(edges)!=5 or len(roots[R])!=7:raise ValueError('third geometry')
@@ -105,12 +113,13 @@ def install(dol,elf,root,host):
     fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
     spans=[(HANDLER,HANDLER+4*n,0,0),*((a,a+4*len(roots[a]),int(a==S),26 if a==R else 0) for a in (C,S,D,Q,R))]
     old=replace_stage(old,'#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n',
-        '#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n','third private seam')
+        '#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n','third private seam')
     old+='namespace undercover::wii::v958 {\n'
     old+='inline constexpr std::array<AckCallSpan,6> third_spans{{'+','.join('{'+fmt(row)+'}' for row in spans)+'}};\n'
     old+='inline constexpr std::array<AckCallEdge,6> third_edges{{'+','.join('{'+fmt(row)+'}' for row in [(call,C),*edges])+'}};\n}\n'
     changes[private]=old;changes[header]=(host/header.name).read_text()
     for path,text in changes.items():path.write_text(text)
+    print(f'V1049_PRIVATE_ABI_PROOF verified=1 states={abi_states} incoming_reads=0 execution=0')
     print(f'V1029_THIRD_ROUTE installed=1 native_labels={count} direct_edges=6 exclusive_device=1 execution=0')
 
 def main():
@@ -119,7 +128,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        safe=('third label','third tick','third frontier','third duplicate hook','third guard','third shared hook','third geometry','third destination','third mode','third tree','third owner','third coverage','third body seam','third include seam','third frontier seam','third resume seam','third private seam','source seam','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        safe=('third label','third tick','third frontier','third duplicate hook','third guard','third shared hook','third geometry','third destination','third mode','third tree','third owner','third coverage','third body seam','third include seam','third frontier seam','third resume seam','third private seam','third ABI proof','source seam','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V1029_THIRD_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

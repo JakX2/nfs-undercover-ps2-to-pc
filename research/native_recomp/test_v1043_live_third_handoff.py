@@ -12,7 +12,7 @@ class LiveThird(unittest.TestCase):
                 if h.is_file() and not h.is_symlink():shutil.copyfile(h,root/h.name)
             shutil.copyfile(HOST/'test_success_frontier_mmio_v997.cpp',root/'probe.cpp')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
