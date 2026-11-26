@@ -245,6 +245,10 @@ ack_final="${UNDERCOVER_RUN_V1218_ACK_FINAL-0}"
 [[ "$ack_final" == 0 || "$ack_final" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1218_ACK_FINAL-0}" == "$ack_final" ]] || exit 2
 [[ "$ack_final" == 0 || "$ack_handler_return" == 1 ]] || exit 2
+ack_resumed="${UNDERCOVER_RUN_V1221_ACK_RESUME-0}"
+[[ "$ack_resumed" == 0 || "$ack_resumed" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1221_ACK_RESUME-0}" == "$ack_resumed" ]] || exit 2
+[[ "$ack_resumed" == 0 || "$ack_final" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -305,6 +309,9 @@ if [[ "$third_postalarm" == 1 ]]; then
                                           echo 'V1215_ACK_HANDLER_RETURN_BUILD_PLAN links=1 private_installer=1 handler_predecessor=1'
                                           if [[ "$ack_final" == 1 ]]; then
                                             echo 'V1218_ACK_FINAL_BUILD_PLAN links=1 private_installer=1 handler_return_predecessor=1'
+                                            if [[ "$ack_resumed" == 1 ]]; then
+                                              echo 'V1221_ACK_RESUME_BUILD_PLAN links=1 private_installer=1 final_predecessor=1'
+                                            fi
                                           fi
                                         fi
                                       fi
@@ -502,6 +509,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                                     if [[ "$ack_handler" == 1 ]]; then callback_args+=(--handler); fi
                                                                     if [[ "$ack_handler_return" == 1 ]]; then callback_args+=(--handler-return); fi
                                                                     if [[ "$ack_final" == 1 ]]; then callback_args+=(--final); fi
+                                                                    if [[ "$ack_resumed" == 1 ]]; then callback_args+=(--resumed); fi
                                                                     python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi

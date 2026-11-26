@@ -354,4 +354,36 @@ class AckFinalMetadata(unittest.TestCase):
     def test_requires_handler_return(self):
         with self.assertRaisesRegex(ValueError,'ACK final mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,False,True)
+class AckResumeMetadata(unittest.TestCase):
+    def test_metadata(self):
+        j=ins.DISPATCH+64;pc=ins.ENTRY+12
+        ep={j:(ins.DISPATCH,W),pc:(ins.ENTRY,W)}
+        header='namespace undercover::wii::v767 {}\n'
+        geo=(ep,j,pc,header,(),())
+        prior=({j:(ins.DISPATCH,W)},j,(),())
+        old='#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v922_private_irq_return.h';h.write_text(header.replace('::v767','::v922'))
+            with patch.object(ins,'final_geometry',return_value=geo):
+                self.assertEqual(ins.verify_resume_metadata(b'',b'',old,dest,prior),(pc,W))
+                for bad in (old+old,old.replace('EPILOGUE 1','EPILOGUE 0'),old+'#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_resume_metadata(b'',b'',bad,dest,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_resume_metadata(b'',b'',old,dest,({j:(ins.DISPATCH,BLR)},j,(),()))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_resume_metadata(b'',b'',old,dest,prior)
+    def test_hook(self):
+        pc=H+16;arg=f'ctx,0x{pc:08x}u,0x{W:08x}u'
+        trace=f'    if (nwii::runtime::g_trace_calls) nwii::runtime::trace_call(0x{pc:X}, ctx); // V616 native IRQ resume\n'
+        hook=f'    undercover::wii::v922::resume({arg});\n'
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {W:08X}\n'
+        source=label+trace+T+SI+hook
+        out=ins.patch_final_resume(source,pc,W)
+        self.assertEqual(out,source.replace(hook,f'    if({ins.FINAL_ACTIVE}) undercover::wii::v958::before({arg},false);\n    else '+hook.lstrip()))
+        for bad in (T+SI+hook,trace+T+hook+SI,trace+T+SI+hook+hook,trace+T+T+SI+hook,trace+T+SI,trace+T+SI+hook.replace('resume','before')):
+            with self.assertRaisesRegex(ValueError,'ACK resume hook'):ins.patch_final_resume(label+bad,pc,W)
+        with self.assertRaisesRegex(ValueError,'ACK resume hook'):ins.patch_final_resume(out,pc,W)
+    def test_requires_final(self):
+        with self.assertRaisesRegex(ValueError,'ACK resume mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()

@@ -257,6 +257,10 @@ ack_final="${UNDERCOVER_RUN_V1218_ACK_FINAL-0}"
 [[ "$ack_final" == 0 || "$ack_final" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1218_ACK_FINAL-0}" == "$ack_final" ]] || exit 2
 [[ "$ack_final" == 0 || "$ack_handler_return" == 1 ]] || exit 2
+ack_resumed="${UNDERCOVER_RUN_V1221_ACK_RESUME-0}"
+[[ "$ack_resumed" == 0 || "$ack_resumed" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1221_ACK_RESUME-0}" == "$ack_resumed" ]] || exit 2
+[[ "$ack_resumed" == 0 || "$ack_final" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -308,6 +312,9 @@ if [[ "$third" == 1 ]]; then
                                               extra+=(UNDERCOVER_V1214_ACK_HANDLER_RETURN=1);audit=audit_v1215_ack_handler_return.py
                                               if [[ "$ack_final" == 1 ]]; then
                                                 extra+=(UNDERCOVER_V1217_ACK_FINAL=1);audit=audit_v1218_ack_final.py
+                                                if [[ "$ack_resumed" == 1 ]]; then
+                                                  extra+=(UNDERCOVER_V1220_ACK_RESUME=1);audit=audit_v1221_ack_resume.py
+                                                fi
                                               fi
                                             fi
                                           fi
