@@ -29,6 +29,10 @@ REQUIREMENTS = (
                 '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
     Requirement(45757000670, 'cd1d4467e51f1ee962246e00b90b153d7640aa6c',
                 '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
+    Requirement(45760011993, 'c3eebcda7f7e81b5cbd87013900ebef13eedf74d',
+                '.github/workflows/wii-v1059-continuous-third-alarm.yml', 'owner-execution'),
+    Requirement(45762664292, 'e4de29eed7305d2245c6a702bbfff148b881c43b',
+                '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
 )
 
 
@@ -82,6 +86,7 @@ def main():
             print(f'V1062_OWNER_GATE verified=0 gate={index} reason=unavailable')
             return 1
     print('V1116_PREREQUISITES verified=1 historical_installer=1 queue=1 focused_alarm=1 continuous_alarm=1 focused_wireless=1 focused_setter=1')
+    print('V1140_PREREQUISITES verified=1 continuous_frontier=1 focused_callback_return=1')
     return 0
 
 

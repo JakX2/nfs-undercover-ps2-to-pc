@@ -25,10 +25,11 @@ class OwnerGate(unittest.TestCase):
 
     def test_new_pinned_requirements(self):
         expected = [(45753506495, 'owner-execution'), (45756409951, 'owner-context'),
-                    (45757000670, 'owner-context')]
-        self.assertEqual([(r.run_id, r.owner) for r in REQUIREMENTS[-3:]], expected)
+                    (45757000670, 'owner-context'), (45760011993, 'owner-execution'),
+                    (45762664292, 'owner-context')]
+        self.assertEqual([(r.run_id, r.owner) for r in REQUIREMENTS[-5:]], expected)
         self.assertEqual(len({r.run_id for r in REQUIREMENTS}), len(REQUIREMENTS))
-        for req in REQUIREMENTS[-3:]:
+        for req in REQUIREMENTS[-5:]:
             self.req = req
             self.run.update(id=req.run_id, head_sha=req.head, path=req.path)
             self.owner.update(name=req.owner, run_id=req.run_id)
