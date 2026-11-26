@@ -33,6 +33,7 @@ jobs:
           python3 -m py_compile research/native_recomp/prepare_v1266_joined_ack.py
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1267-ack
           /tmp/v1267-ack
+          python3 -m py_compile research/native_recomp/prepare_v1270_ipc_epilogue.py research/native_recomp/test_v1270_ipc_epilogue.py
           python3 -m unittest discover -s research/native_recomp -p test_v1270_ipc_epilogue.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_live_epilogue_source_v1269.cpp -o /tmp/v1269
           /tmp/v1269

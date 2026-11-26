@@ -1,4 +1,6 @@
-import unittest
+import unittest,subprocess
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from prepare_v1270_ipc_epilogue import merge_blocks,analyzer,render,scope,DISPATCH,DISPATCH_RETURN,L,SELECT,E,S,DISABLE,RESTORE,BLR,ANALYZE_ROOT,READ,SCANNER
 class Merge(unittest.TestCase):
     def setup(self):
@@ -36,6 +38,16 @@ class Merge(unittest.TestCase):
         self.assertIn('context,-8,-4,30u,255u};}',text)
         self.assertIn('Word{0x80522a88u,0x4c000064u}',text)
         self.assertEqual(text,render(p))
+        # Compile the actual independently generated header against the
+        # real public witness interface, not just a string comparison.
+        with TemporaryDirectory() as td:
+            d=Path(td)
+            (d/'v1270_private_epilogue.h').write_text(text)
+            (d/'test.cpp').write_text('#include "v1270_private_epilogue.h"\n'
+                'static_assert(v1270::expected(7).context==7);\n'
+                'static_assert(v1270::words.size()==62);\n')
+            subprocess.run(['g++','-std=c++20','-Wall','-Wextra','-Werror',
+                '-I'+str(Path(__file__).resolve().parent),'-fsyntax-only',str(d/'test.cpp')],check=True)
         self.assertIn((L,216),scope(p,{SELECT:(BLR,)},{L:(a[L][0],)}))
     def test_ownership(self):
         s=ANALYZE_ROOT+'\n'+READ+'\n'+SCANNER

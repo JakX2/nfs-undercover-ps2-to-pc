@@ -87,9 +87,9 @@ def scope(p,sched_native,sched_stop):
     return spans
 
 def analyzer(s,spans):
-    owner=ANALYZE_ROOT+'\n    const auto ipc_return_owner=[](uint32_t a)->uint32_t {\n'+''.join(
-        f'      if(a>=0x{pc:08x}u&&a<0x{pc+n:08x}u)return 0x{pc:08x}u;\n' for pc,n in spans)+
-        '      return 0;\n    };\n    if(ipc_return_owner(func_start)&&ipc_return_owner(func_start)!=func_start)continue;'
+    rows=''.join(f'      if(a>=0x{pc:08x}u&&a<0x{pc+n:08x}u)return 0x{pc:08x}u;\n' for pc,n in spans)
+    owner=''.join((ANALYZE_ROOT,'\n    const auto ipc_return_owner=[](uint32_t a)->uint32_t {\n',rows,
+        '      return 0;\n    };\n    if(ipc_return_owner(func_start)&&ipc_return_owner(func_start)!=func_start)continue;'))
     read='        const auto ipc_return_root=ipc_return_owner(current_pc);\n        if((ipc_return_root&&ipc_return_root!=func_start)||(ipc_return_owner(func_start)&&ipc_return_root!=func_start))break;\n'+READ
     scan=SCANNER+'\n    if('+'||'.join(f'func.start_address==0x{pc:08x}u' for pc,_ in spans)+')func.hle_hook_name.clear();'
     return rewrite(s,((ANALYZE_ROOT,owner),(READ,read),(SCANNER,scan)))
@@ -99,11 +99,11 @@ def render(p):
     words={j+4*i:w for i,w in enumerate(code)}
     words.update({pc+4*i:w for pc,ws in additions.items() for i,w in enumerate(ws)})
     f=lambda x:f'0x{x:08x}u'
-    return ('#pragma once\n#include "wii_live_epilogue_v762.h"\n#include <array>\nnamespace v1270 {\n'
-        'inline constexpr undercover::wii::LiveEpilogueExpectation expected(uint32_t context){return {'
-        +','.join(map(f,(j,E,S,d,r,L,switch)))+f',context,{counter},{hint},{reg}u,{gqr}u'+'};}\n'
-        +'struct Word{uint32_t pc,word;};\ninline constexpr std::array<Word,'+str(len(words))+'> words{'
-        +','.join('Word{'+f(a)+','+f(w)+'}' for a,w in sorted(words.items()))+'};\n}\n')
+    fields=','.join(map(f,(j,E,S,d,r,L,switch)))
+    entries=','.join('Word{'+f(a)+','+f(w)+'}' for a,w in sorted(words.items()))
+    return '\n'.join(('#pragma once','#include "wii_live_epilogue_v762.h"','#include <array>','namespace v1270 {',
+        'inline constexpr undercover::wii::LiveEpilogueExpectation expected(uint32_t context){return {'+fields+f',context,{counter},{hint},{reg}u,{gqr}u'+'};}',
+        'struct Word{uint32_t pc,word;};',f'inline constexpr std::array<Word,{len(words)}> words'+'{'+entries+'};','}',''))
 
 def install(root,p):
     _,_,_,additions,j,code,*rest=p

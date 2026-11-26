@@ -1,0 +1,3 @@
+# V1277: robust planner string generation
+
+V1274 corrected private header generation but left an invalid multiline analyzer expression (CI 45797611555). Replace both functions with explicit joined strings. Independently ran the exact replacement analyzer and header renderer locally with synthetic geometry: patch roundtrip/idempotence passed and generated header compiled with g++ C++20 -Wall -Wextra -Werror using a matching synthetic declaration. The new repository regression compiles the actual generated header against the real witness type, and the owner workflow explicitly checks Python syntax before original-free tests. This is not owner validation. V1269 and V1272/V1273 source contracts passed previously; full original RFI remains pending.
