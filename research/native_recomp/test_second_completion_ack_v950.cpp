@@ -21,7 +21,49 @@ struct Cpu{
 static void need(bool b,const std::source_location loc=std::source_location::current()){
     if(!b){std::cerr<<"V950_ASSERT line="<<loc.line()<<std::endl;throw std::runtime_error("second ACK");}
 }
+static void response_provenance(){
+    unsigned verified=0,unknown=0,refused=0;
+    for(unsigned profile=0;profile<8;++profile){
+        const unsigned ch=profile%4u;const bool absent=(profile&4u)!=0;
+        for(unsigned lane=0;lane<3;++lane){
+            std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SecondCompletionAck w;Cpu c;
+            const uint32_t cfg=SiController::TC_MASK|0x00010300u|(ch<<1);
+            const std::array<uint8_t,3> response{9,0,0};
+            ctl.write(SiController::Control,cfg|SiController::TSTART);ctl.complete(ctl.pending()->token,response);
+            ctl.write(SiController::Control,cfg|SiController::TC_INT);
+            ctl.write(SiController::Control,cfg|SiController::TSTART);
+            if(absent)ctl.complete(ctl.pending()->token,{},SiController::ERR_NOREP);
+            else ctl.complete(ctl.pending()->token,response);
+            c.gpr[3]=Base;c.mmu.words={{A,Status},{A+4,Load},{A+8,Store},{A+12,Nop}};
+            const auto snapshot=ctl.read(SiController::Control),status=ctl.read(SiController::Status);
+            const std::optional<bool> claim=lane==0?std::optional<bool>{absent}:lane==1?std::optional<bool>{!absent}:std::nullopt;
+            const bool ok=w.arm(ctl,cause,mask,c.inst_count,2,true,claim);
+            if(lane==1){
+                need(!ok&&w.failure()==1&&!w.response_class_verified()&&!w.no_response_verified());
+                need(ctl.read(SiController::Control)==snapshot&&ctl.read(SiController::Status)==status&&cause==(Other|SI));
+                ++refused;continue;
+            }
+            need(ok&&w.response_class_verified()==(lane==0)&&w.no_response_verified()==(lane==0&&absent));
+            // The guest clears its per-port error nibble before the ACK.
+            // The immutable completion class is independent of that register.
+            auto step=[&](uint32_t pc,uint32_t word){++c.inst_count;return w.before(c,pc,word,true);};
+            c.gpr[4]=0xfu<<((3u-ch)*8u);
+            need(step(A,Status)&&w.write(ctl,SiController::Status,c.gpr[4])&&ctl.read(SiController::Status)==0u);
+            uint32_t value=0;
+            need(step(A+4,Load)&&w.read(ctl,SiController::Control,value)&&value==snapshot);
+            c.gpr[4]=value|SiController::TC_INT;
+            need(step(A+8,Store)&&w.write(ctl,SiController::Control,c.gpr[4]));
+            need(step(A+12,Nop)&&w.resume_after_ack(c,A+12,Nop)&&w.postack_held());
+            need(w.response_class_verified()==(lane==0)&&w.no_response_verified()==(lane==0&&absent));
+            need(cause==Other&&mask==SI&&!ctl.pending()&&ctl.issued_tokens()==2u);
+            if(lane==0)++verified;else ++unknown;
+        }
+    }
+    need(verified==8&&unknown==8&&refused==8);
+    std::cout<<"V1019_COMPLETION_PROVENANCE verified=8 unknown=8 refused=8 status_clear=1 token_preserved=1 original_execution=0\n";
+}
 int main(){
+    response_provenance();
     unsigned valid=0,refused=0;
     for(unsigned i=0;i<36;++i){
         const unsigned ch=i%4;const bool absent=(i&4u)!=0;

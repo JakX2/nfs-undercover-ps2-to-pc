@@ -56,6 +56,7 @@ int main(){
             ++refused;continue;
         }
         CHECK(ok&&old.stage()==3&&!old.held_now()&&next.stage()==1&&next.token()==2);
+        CHECK(next.response_class_verified()&&next.no_response_verified()==!ports[ch].type.has_value());
         CHECK(!old.handoff_second_ack(next,ctl,cause,mask,tick)&&ctl.read(C)==snapshot&&cause==(Other|SI));
         c.gpr[3]=Base;
         scheduler.advance(++tick);CHECK(next.before(c,H,Load,true)&&next.read(ctl,C,result)&&result==snapshot);
@@ -63,6 +64,7 @@ int main(){
         scheduler.advance(++tick);CHECK(next.before(c,H+4,Store,true)&&next.write(ctl,C,c.gpr[4]));
         scheduler.advance(++tick);CHECK(next.before(c,H+8,Nop,true)&&next.stage()==3);
         CHECK(cause==Other&&mask==SI&&ctl.issued_tokens()==2&&scheduler.completed()==2&&ctl.read(B)==buffer&&ctl.read(S)==status);
+        CHECK(next.response_class_verified()&&next.no_response_verified()==!ports[ch].type.has_value());
         ++valid;
     }
     CHECK(valid==8&&refused==12);
