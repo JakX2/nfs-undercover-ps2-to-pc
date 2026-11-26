@@ -68,6 +68,11 @@ static void trial(unsigned first,unsigned fault){
     DeferredAckExecution w({Handler,Caller,N,Handler+32,Read,Write,Prof,Handler+16,Prof,words,edges});
     bool ok=w.begin(c,gate,mem,fault!=1);if(fault==1){assert(!ok);return;}assert(ok);
     auto step=[&](uint32_t pc,uint32_t ins){++c.inst_count;return w.before(c,pc,ins,true);};
+    if(fault>=15){
+        assert(w.poll(c,true));c.inst_count+=fault==16?2u:1u;
+        ok=w.entry(c,fault==17?Handler+4:Handler,true);
+        if(fault==16||fault==17){assert(!ok);return;}assert(ok);
+    }
     ok=step(Handler,fault==2?N:words[0].word);
     if(fault==2||fault==3){assert(!ok);return;}assert(ok);
     c.mmu.write32(Sp-32,Sp);c.gpr[1]=Sp-32;
@@ -106,5 +111,5 @@ static void trial(unsigned first,unsigned fault){
     assert(w.reached(c,true)&&w.reads()==1&&w.writes()==2&&w.calls()==4&&w.stack_stores()==1&&
            host.serviced_steps()==5&&host.services().event_pending()&&mem.preserved(c));
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=14;++f)trial(first,f);
-    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=30 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=17;++f)trial(first,f);
+    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=36 original_execution=0\n";}

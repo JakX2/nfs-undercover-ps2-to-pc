@@ -41,7 +41,7 @@ public:
         owner_=e_.handler;next_=c.pc;start_=last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=1u||!live(c,held)||entry_due_||return_due_||pc!=next_||
+        if(stage_!=1u||!live(c,held)||entry_due_||return_due_||(initial_poll_&&!resumed_)||pc!=next_||
            c.inst_count-last_!=1u||!known(c,owner_,pc,w)||++visits_>1024u||!settled(c))return fail(2);
         last_=c.inst_count;ordinal_=(pc-owner_)/4u+1u;next_=pc+4u;poll_pc_=0;polled_=false;
         const unsigned op=w>>26,xo=(w>>1)&1023u,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u;
@@ -104,6 +104,13 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
+        // A stopped dispatcher checkpoint is resumed by the authentic
+        // outer dispatcher, adding one dispatch tick before root entry.
+        if(!visits_&&!entry_due_&&initial_poll_&&!resumed_){
+            if(!live(c,held)||pc!=e_.handler||c.pc!=pc||c.lr!=e_.returned||
+               c.inst_count-last_!=1u||c.gpr!=gp_||!settled(c))return fail(6);
+            resumed_=true;last_=c.inst_count;return true;
+        }
         if(!live(c,held)||!entry_due_||c.pc!=pc||pc!=next_||c.lr!=helper_return_||
            c.inst_count!=last_||!settled(c)||!admitted(pc))return fail(6);
         owner_=pc;entry_due_=false;access_seen_=false;helper_=c.gpr;helper_cr_=pack(c)&0x00fff000u;++calls_;return true;
@@ -122,7 +129,14 @@ public:
         return true;
     }
     template<class C>bool poll(C& c,bool held){
-        if(!live(c,held)||c.inst_count!=last_||!settled(c)||++polls_>128u)return fail(8);
+        if(!live(c,held)||c.inst_count!=last_||++polls_>128u)return fail(8);
+        // Backward-edge callbacks occur before the emitter's CTR update.
+        const bool ctr_pending=ctr_due_;ctr_due_=false;
+        const bool stable=settled(c);ctr_due_=ctr_pending;
+        if(!stable)return fail(8);
+        if(!visits_&&!initial_poll_&&c.pc==e_.handler&&c.lr==e_.returned&&c.gpr==gp_){
+            initial_poll_=true;return true;
+        }
         if(return_due_&&c.pc==e_.returned&&c.lr==e_.returned&&caller_abi(c)&&
            mem_->preserved(c)&&gate_->completed(true)){
             stage_=2;return true;
@@ -143,7 +157,7 @@ private:
     uint64_t start_=0,last_=0;
     unsigned stage_=0,error_=0,visits_=0,ordinal_=0,reads_=0,writes_=0,calls_=0,stack_stores_=0,polls_=0,
              access_due_=0,access_reg_=0;
-    bool entry_due_=false,return_due_=false,access_seen_=false,load_due_=false,sp_due_=false,ctr_due_=false,polled_=false;
+    bool entry_due_=false,return_due_=false,access_seen_=false,load_due_=false,sp_due_=false,ctr_due_=false,polled_=false,initial_poll_=false,resumed_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool admitted(uint32_t pc)const{return pc==e_.read_root||pc==e_.write_root||pc==e_.profile_root;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
