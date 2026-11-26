@@ -1,0 +1,3 @@
+# V1265: independent dispatcher witness regression
+
+Original-free contract uses a real native IOS request/ACK, real native hardware external entry and the same RAM for the synthetic saved context. Model original vector stores and dispatcher instruction observations explicitly; do not claim owner PPC execution. Validate a complete admitted route and twenty refusal cases (wrong frame, handler table, queue, PI observations, instruction guard/word/ticks, leaf edges, scheduler counter and indirect IPC target). Every trial requires the real pending ACK and unmodified request to remain intact. Dedicated lightweight source-only CI avoids launching another private owner fixture before V1264 completes.
