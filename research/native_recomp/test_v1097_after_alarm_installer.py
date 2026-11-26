@@ -53,7 +53,7 @@ class Tree(unittest.TestCase):
         bl=self.branch
         # Independently authored call census: four calls, transfer resume,
         # fifth alarm call, then the sixth and eleventh indirect sites.
-        handler=[bl(H+4*i,A) for i in range(4)]+[self.NOP,bl(H+20,A),self.NOP,self.BCTRL]
+        handler=[bl(H+4*i,A) for i in range(4)]+[0x90010008,bl(H+20,A),self.NOP,self.BCTRL]
         handler += [bl(H+4*i,A) for i in range(8,12)]+[self.BCTRL,self.BLR]
         prefix=[0x9421ffc0,0x7c0802a6,0x90010044,0x39610040,bl(C+16,S),self.NOP]
         save=[self.NOP]*6+[self.BLR]
@@ -117,7 +117,12 @@ class Tree(unittest.TestCase):
             for p in (root/'output_0.cpp',root/'output_1.cpp',root/'output_2.cpp'):
                 self.assertEqual(p.read_text().count('++ctx.inst_count;'),before[p.relative_to(root)].count(b'++ctx.inst_count;'))
     def test_fail_closed(self):
-        for fault in ('header','callback','metadata','owner','label','tick','edge','indirect','dispatch'):
+        reasons={'header':'third alarm identity','callback':'postalarm identity',
+                 'metadata':'postalarm mode','owner':'postalarm owner',
+                 'label':'native IPC label identity','tick':'postalarm tick',
+                 'edge':'helper direct native call','indirect':'indirect dispatch',
+                 'dispatch':'native IPC dispatch'}
+        for fault,reason in reasons.items():
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
                 root=Path(td);f=self.fixture(root);private=f[-1]
                 if fault=='header':p=private.parent/'v786_private_alarm.h';p.write_text(p.read_text()+'// tamper\n')
@@ -135,7 +140,11 @@ class Tree(unittest.TestCase):
                     else:s=s.replace('fn_80006000(ctx);','fn_80006004(ctx);')
                     p.write_text(s)
                 before=self.snapshot(root)
-                with self.assertRaises(ValueError):self.install(root,f)
+                with self.assertRaisesRegex(ValueError,'^'+reason+'
+                self.assertEqual(self.snapshot(root),before)
+if __name__=='__main__':unittest.main()
+
+):self.install(root,f)
                 self.assertEqual(self.snapshot(root),before)
 if __name__=='__main__':unittest.main()
 
