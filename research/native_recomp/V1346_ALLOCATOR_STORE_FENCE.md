@@ -1,0 +1,3 @@
+# V1346: allocator store effective-address and byte-value fence
+
+Source-only observer predicts native integer scalar/indexed/multiple stores from the authenticated instruction and pre-instruction CPU state, verifies post-store bytes and update addressing, rejects MMIO, range crossing, unsupported store forms, mapping failures and modified heap sentinels. Accepts only explicitly bounded stack, actual IPC heap and optional separately authenticated metadata range. No guest writes. Nine synthetic cases; no assumption yet about actual free function store base or metadata range. Owner integration depends on V1345 original census and V1344 actual free entry.
