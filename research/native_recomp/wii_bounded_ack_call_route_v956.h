@@ -16,9 +16,14 @@ public:
     unsigned returns()const{return returns_;}
     unsigned depth()const{return depth_;}
     unsigned msr_writes()const{return msr_writes_;}
-    template<class C>bool begin(C& c,std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr_sites={},bool strict=false){
+    template<class C>bool begin(C& c,std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr_sites={},bool strict=false,uint32_t entry_site=0){
         if(cpu_||error_||spans.empty()||spans.size()>12||edges.empty()||edges.size()>16||msr_sites.size()>4||
-           c.pc!=spans[0].root||!safe(c))return fail(1);
+           (!entry_site&&c.pc!=spans[0].root)||!safe(c))return fail(1);
+        if(entry_site){
+            bool exact=false;
+            for(const auto e:edges)if(e.site==entry_site)exact=true;
+            if(!strict||!exact||(entry_site&3u)||entry_site<spans[0].root||entry_site>=spans[0].end)return fail(1);
+        }
         for(unsigned i=0;i<spans.size();++i){
             const auto s=spans[i];
             if((s.root|s.end)&3u||s.root<0x80000000u||s.end>0x81800000u||s.end<=s.root||
@@ -44,7 +49,7 @@ public:
             for(unsigned j=0;j<i;++j)if(msr_sites[j].pc==m.pc)return fail(1);
         }
         if(strict){if constexpr(!requires{c.ctr;c.cr[0].lt;c.cr[0].gt;c.cr[0].eq;c.cr[0].so;})return fail(1);}
-        cpu_=&c;spans_=spans;edges_=edges;msr_sites_=msr_sites;msr_=c.msr;active_=0;next_=spans[0].root;strict_=strict;return true;
+        cpu_=&c;spans_=spans;edges_=edges;msr_sites_=msr_sites;msr_=c.msr;active_=0;next_=entry_site?entry_site:spans[0].root;strict_=strict;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,uint32_t native_owner=0){
         if(!same(c)||pending_entry_||(pc&3u))return fail(2);

@@ -1,0 +1,3 @@
+# V1028: strict live third SI transfer route
+
+V1022 verified 16/16 focused original queued transfer and alarm returns. V1025 verified exclusive third device ownership using the actual composed binding. Introduce a separate strict call route beginning at the authenticated direct-call frontier, with independent native entry/return census, exact instruction words, real MMIO device ticks, queue argument/data invariants and saved-frame checks. The route terminates before the resumed handler instruction. The private route macro is not installed yet; the next installer must authenticate all native labels and suppress retired legacy observers. No owner execution claim.

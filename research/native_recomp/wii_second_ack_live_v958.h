@@ -2,6 +2,9 @@
 #include "wii_second_completion_ack_v950.h"
 #include "wii_external_return_v706.h"
 #include "v958_private_second_ack.h"
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+#include "wii_third_si_transfer_v1028.h"
+#endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 #include "wii_si_transfer_arguments_v981.h"
 #endif
@@ -21,6 +24,12 @@ inline thread_local SecondCompletionAck ack;
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
 // Only an independently authenticated third-transfer installer may enable this.
 inline thread_local PostAckTransferDevice next_device;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+inline thread_local ThirdSiTransferRoute third_route;
+inline thread_local bool third_ready=false;
+inline bool third_enabled(){const char* v=std::getenv("UNDERCOVER_V1028_THIRD_TRANSFER");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool third_active(){return third_route.stage()==1u;}
+#endif
 #endif
 inline thread_local BoundedAckCallRoute calls;
 inline thread_local ExternalReturnWitness* frame=nullptr;
@@ -120,6 +129,20 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+    if(third_active()){
+        if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
+           !third_route.before(c,pc,w,next_device))reject(17);
+        if(third_route.stage()==2u){
+            std::cout<<std::dec<<"V1028_THIRD_RETURN original_transfer=1 token=3 pending="<<next_device.pending()
+                <<" visits="<<third_route.visits()<<" entries="<<third_route.entries()<<" returns="<<third_route.returns()
+                <<" reads="<<next_device.reads()<<" writes="<<next_device.writes()
+                <<" saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME
     if(callback_time_active()){
         if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
@@ -191,6 +214,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
             <<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+        if(third_enabled()&&a.admitted()){third_ready=true;return;}
+#endif
         std::_Exit(0);
     }
 #endif
@@ -282,6 +308,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+    if(third_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_route.poll(c,next_device))reject(17);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME
     if(callback_time_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!ack.postack_held()||!callback_time.poll(c,true))reject(15);
@@ -298,6 +330,12 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+    if(third_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||!third_route.entry(c,pc,next_device))reject(17);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME
     if(callback_time_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!ack.postack_held()||!callback_time.entry(c,pc,true))reject(15);

@@ -43,14 +43,18 @@ def patch_si(s):
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
     // Same CPU, same native frontier, actual guest queue and scheduler
     // configuration. No register mutation or synthetic transfer start.
-    template<class C>static bool handoff_second_transfer(C& c,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask){
+    template<class C>static bool handoff_second_transfer(C& c,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,uint32_t site=0){
+        const uint32_t pc=site?site:c.pc;
         if(!active_||v958::next_device.stage()||!v958::frontier_enabled()||!v958::time_seen||!v958::post_seen||
            !v958::frame||!v958::frame->saved_integer(c,v958::context).ok()||
-           c.pc!=v958::transfer_call||!c.mmu.get_ptr(c.pc)||!c.mmu.get_ptr(c.pc+3u)||
-           c.mmu.read32(c.pc)!=v958::transfer_branch||
+           pc!=v958::transfer_call||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+           c.mmu.read32(pc)!=v958::transfer_branch||
            !v958::ack.owns_postack(active_->controller_,cause,mask,c.inst_count))return false;
         const auto a=inspect_si_transfer_arguments(c,v958::transfer_data,v958::transfer_slots,v958::transfer_callback);
-        if(!a.admitted()||!v958::calls.stop_before_direct(c,c.pc,v958::transfer_branch))return false;
+        if(!a.admitted()||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch))return false;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+        if(!v958::third_ready||!v958::third_route.start(c,pc,v958::transfer_branch,a,v958::third_spans,v958::third_edges,v958::msr_sites,v958::transfer_data))return false;
+#endif
         const auto cfg=SiTickBinding::configuration(active_->controller_,a.channel,c.inst_count);
         return cfg&&v958::ack.handoff_follow_on(v958::next_device,active_->controller_,cause,mask,c.inst_count,a.channel,a.idle,cfg->response,cfg->latency);
     }
