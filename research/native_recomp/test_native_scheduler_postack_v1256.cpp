@@ -113,6 +113,9 @@
 #include "private_post_stm_sc_disable.h"
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
 #include "private_post_stm_sc_decision.h"
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+#include "private_post_stm_sc_restore.h"
+#endif
 #endif
 #endif
 #endif
@@ -426,6 +429,15 @@ static unsigned post_stm_decision_count=0;
 struct PostStmDecisionStop{};
 static bool post_stm_decision_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_decision_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+static ScQuietRestoreWitness* post_stm_restore=nullptr;
+static ScDecisionWitness* post_stm_objects=nullptr;
+static unsigned post_stm_restore_count=0;
+struct PostStmRestoreEnableStop{};
+struct PostStmRestoreStop{};
+static bool post_stm_restore_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_restore_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -773,6 +785,20 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+static bool post_stm_restore_held(nw::CPUContext& c){
+    return post_stm_restore&&post_stm_objects&&post_stm_frame&&third_return_join&&
+        post_stm_objects->objects_held(c,post_stm_frame->frame_held(c,
+        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_restore->expected_msr())));
+}
+[[noreturn]]static void post_stm_restore_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_RESTORE_REFUSAL kind="<<kind<<" stage="<<(post_stm_restore?post_stm_restore->stage():0u)
+        <<" reason="<<(post_stm_restore?post_stm_restore->failure():0u)
+        <<" ordinal="<<(post_stm_restore?post_stm_restore->ordinal():0u)
+        <<" visits="<<(post_stm_restore?post_stm_restore->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
 static bool post_stm_decision_held(nw::CPUContext& c){
     return post_stm_decision&&post_stm_frame&&third_return_join&&
@@ -1382,6 +1408,12 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore){
+        if(!post_stm_restore->before(c,pc,w,post_stm_restore_held(c)))post_stm_restore_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable){
         if(!post_stm_disable->before(c,pc,w,post_stm_disable_held(c)))post_stm_disable_refuse(2);
@@ -1464,6 +1496,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore){
+        if(!post_stm_restore->entry(c,pc,post_stm_restore_held(c)))post_stm_restore_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     if(post_stm_decision){
         if(!post_stm_decision->entry(c,pc,post_stm_decision_held(c)))post_stm_decision_refuse(3);
@@ -2037,6 +2075,15 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore){
+        const unsigned prior=post_stm_restore->stage();
+        if(!post_stm_restore->poll(c,post_stm_restore_held(c)))post_stm_restore_refuse(4);
+        if(prior==1u&&post_stm_restore->stage()==2u)throw PostStmRestoreEnableStop{};
+        if(post_stm_restore->stage()==3u){++post_stm_restore_count;throw PostStmRestoreStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     if(post_stm_decision){if(!post_stm_decision->poll(c,post_stm_decision_held(c)))post_stm_decision_refuse(4);return false;}
 #endif
@@ -2460,6 +2507,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore)post_stm_restore_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     if(post_stm_decision)post_stm_decision_refuse(7);
 #endif
@@ -2532,6 +2582,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore)post_stm_restore_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     if(post_stm_decision)post_stm_decision_refuse(6);
 #endif
@@ -2666,6 +2719,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    if(post_stm_restore)post_stm_restore_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     if(post_stm_decision)post_stm_decision_refuse(6);
 #endif
@@ -2837,6 +2893,10 @@ int main(int argc,char** argv)try{
         for(auto w:post_stm_sc_decision_private::words)c.mmu.write32(w.pc,w.word);
         need(c.mmu.read32(post_stm_sc_decision_private::expected.restore)==post_stm_sc_decision_private::expected.restore_word);
         // No SC data is seeded here. The cold flag must already be zero.
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+        // Original next instruction is a stop guard, not executed.
+        c.mmu.write32(post_stm_sc_restore_private::expected.caller,post_stm_sc_restore_private::expected.caller_word);
+#endif
 #endif
 #endif
 #endif
@@ -3793,6 +3853,26 @@ int main(int argc,char** argv)try{
             <<" cold_bss=1 original_branch=1 native_load=1 native_stores=2 restore_entry=1 deferred=1 reply=0 restore_executed=0 visits="
             <<sc_decision.visits()<<'\n';
         post_stm_decision=nullptr;
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+        ScQuietRestoreWitness sc_restore(post_stm_sc_restore_private::expected);
+        post_stm_objects=&sc_decision;
+        if(!sc_restore.begin(c,sc_decision.reached(c,sc_entry.frame_held(c,
+             third_return_join->post_resume_storage_held(c,third_return_storage(c),sc_decision.expected_msr())))))
+            post_stm_restore_refuse(1);
+        post_stm_restore=&sc_restore;
+        bool sc_enabled=false;try{run_game(c);}catch(const PostStmRestoreEnableStop&){sc_enabled=true;}
+        if(!sc_enabled||!sc_restore.enabled(c,post_stm_restore_held(c))||(cause.load()&mask.load())||
+           host.serviced_steps()!=5u||!host.services().event_pending()||host.cold_ipc_snapshot().replies)
+            post_stm_restore_refuse(5);
+        bool sc_restored=false;try{run_game(c);}catch(const PostStmRestoreStop&){sc_restored=true;}
+        if(!sc_restored||post_stm_restore_count!=trial+1u||!sc_restore.reached(c,post_stm_restore_held(c))||
+           !(c.msr&0x8000u)||host.serviced_steps()!=5u||!host.services().event_pending()||
+           (cause.load()&mask.load())||host.cold_ipc_snapshot().replies)post_stm_restore_refuse(5);
+        std::cout<<"POST_STM_SC_RESTORE_TRIAL n="<<trial
+            <<" native_msr=1 quiet_poll=1 original_suffix=1 original_return=1 deferred=1 reply=0 version_executed=0 visits="
+            <<sc_restore.visits()<<'\n';
+        post_stm_restore=nullptr;post_stm_objects=nullptr;
+#endif
 #endif
         post_stm_frame=nullptr;
 #endif
@@ -4035,6 +4115,10 @@ int main(int argc,char** argv)try{
     need(post_stm_disable_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_DECISION
     need(post_stm_decision_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_RESTORE
+    need(post_stm_restore_count==8u);
+    std::cout<<"POST_STM_SC_RESTORE_NATIVE owner=1 trials=8 native_msr=8 quiet_poll=8 original_suffix=8 original_return=8 deferred=8 reply=0 version_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_DECISION_NATIVE owner=1 trials=8 cold_bss=8 original_branch=8 native_load=8 native_stores=16 restore_entry=8 deferred=8 reply=0 restore_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_DISABLE_NATIVE owner=1 trials=8 original_disable=8 native_msr=8 previous_ee=8 sc_return=8 deferred=8 reply=0 decision_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
