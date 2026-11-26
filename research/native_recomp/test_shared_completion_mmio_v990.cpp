@@ -94,6 +94,14 @@ int main(int argc,char** argv){
     visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
     c.gpr[3]=c.msr;visit(Restore,Mtmsr);
     visit(Restore+4,Blr);visit(Nested+12,Nop);
+    if(mode=="extra-shared"){
+        // The synthetic call witness is not strict about intra-root flow;
+        // deliberately repeat two leaf calls to exercise the census refusal.
+        visit(Nested+4,bl(Nested+4,Time));c.pc=Time;c.lr=Nested+8;v958::observe(c.pc,c);
+        visit(Time,Nop);visit(Time+4,Blr);
+        visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
+        c.gpr[3]=c.msr;visit(Restore,Mtmsr);visit(Restore+4,Blr);visit(Nested+12,Nop);
+    }
     c.lr=Completion+16;visit(Nested+16,Blr);visit(Completion+16,Nop);
     need(v958::shared_seen&&v958::ack.postack_held());
     c.lr=H+8;visit(Completion+20,Blr);

@@ -35,7 +35,7 @@ def main():
     # Reuse the existing sanitized predecessor output without publishing
     # any raw guest address, register value or original instruction word.
     for l in raw.splitlines():
-        if l in (shared.old.old.BEGIN,shared.old.old.old.BEGIN,*shared.old.old.old.EDGES,shared.old.old.old.old.TRAMP,shared.old.old.old.old.old.SOURCE,shared.old.old.old.old.old.RFI,shared.old.old.old.old.old.POLL,*shared.old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,transfer.RESULT,time.RESULT,shared.RESULT,shared.DIAG,shared.old.RESULT,shared.old.old.RESULT,shared.old.old.old.RESULT,shared.old.old.old.FAULT,shared.old.old.old.old.RESULT,shared.old.old.old.old.FAULT,shared.old.old.old.old.old.RESULT,shared.old.old.old.old.old.DIAG,shared.old.old.old.old.old.old.FAULT)):
+        if l in (shared.old.old.BEGIN,shared.old.old.old.BEGIN,*shared.old.old.old.EDGES,shared.old.old.old.old.TRAMP,shared.old.old.old.old.old.SOURCE,shared.old.old.old.old.old.RFI,shared.old.old.old.old.old.POLL,*shared.old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,transfer.RESULT,time.RESULT,shared.RESULT,shared.DIAG,shared.DETAIL,shared.old.RESULT,shared.old.old.RESULT,shared.old.old.old.RESULT,shared.old.old.old.FAULT,shared.old.old.old.old.RESULT,shared.old.old.old.old.FAULT,shared.old.old.old.old.old.RESULT,shared.old.old.old.old.old.DIAG,shared.old.old.old.old.old.old.FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

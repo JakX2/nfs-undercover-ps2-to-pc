@@ -6,6 +6,7 @@ import audit_v967_post_ack as old
 RESULT=rb'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=([0-9]{1,4}) token_preserved=1 saved_fields=38 boot_verified=0'
 FAULT=rb'V958_ACK_INVALID kind=(?:[1-9]|1[0-2]) stage=[0-4] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}'
 DIAG=rb'V989_SHARED_REFUSAL guard=[01] frame=[01] depth=[0-8] visits=[0-9]{1,4}'
+DETAIL=rb'V989_SHARED_DETAIL phase=[1-3] depth=[0-8] started=[01] seen=[01] post=[01] held=[01] entries=[0-9]{1,4} returns=[0-9]{1,4} msr=[0-9]{1,4} visits=[0-9]{1,4}'
 def inspect(raw,rc):
     if len(raw)>old.old.old.capture.MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
     rows=raw.splitlines();_,base=old.inspect(raw,rc)
@@ -24,7 +25,7 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V989_SHARED_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if l in (old.old.BEGIN,old.old.old.BEGIN,*old.old.old.EDGES,old.old.old.old.TRAMP,old.old.old.old.old.SOURCE,old.old.old.old.old.RFI,old.old.old.old.old.POLL,*old.old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,DIAG,old.RESULT,old.old.RESULT,old.old.old.RESULT,old.old.old.FAULT,old.old.old.old.RESULT,old.old.old.old.FAULT,old.old.old.old.old.RESULT,old.old.old.old.old.DIAG,old.old.old.old.old.old.FAULT)):
+        if l in (old.old.BEGIN,old.old.old.BEGIN,*old.old.old.EDGES,old.old.old.old.TRAMP,old.old.old.old.old.SOURCE,old.old.old.old.old.RFI,old.old.old.old.old.POLL,*old.old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,DIAG,DETAIL,old.RESULT,old.old.RESULT,old.old.old.RESULT,old.old.old.FAULT,old.old.old.old.RESULT,old.old.old.old.FAULT,old.old.old.old.old.RESULT,old.old.old.old.old.DIAG,old.old.old.old.old.old.FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

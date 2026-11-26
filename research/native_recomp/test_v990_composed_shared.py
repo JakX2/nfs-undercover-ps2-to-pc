@@ -31,7 +31,7 @@ class ComposedShared(unittest.TestCase):
             env=os.environ.copy();env['UNDERCOVER_V958_SECOND_ACK']='1'
             shared=b'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=12 token_preserved=1 saved_fields=38 boot_verified=0'
             post=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=15 handler_instruction_executed=0 boot_verified=0'
-            modes=('valid','wrong-leaf','changed-msr','missing-shared','corrupt-abi','frame-after-ack','guard-shared','ack-only','not-enabled')
+            modes=('valid','wrong-leaf','changed-msr','missing-shared','extra-shared','corrupt-abi','frame-after-ack','guard-shared','ack-only','not-enabled')
             for mode in modes:
                 with self.subTest(mode=mode):
                     runenv=env.copy()
@@ -51,6 +51,20 @@ class ComposedShared(unittest.TestCase):
                         self.assertEqual(rows[0],RESULT)
                         self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=(?:[1-9]|1[0-2]) stage=4 reason=[0-5] call_reason=[0-5] visits=[0-9]+$')
                         self.assertEqual(shared in rows,mode=='corrupt-abi')
+                        if mode=='missing-shared':
+                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=3 depth=0 started=0 seen=0 post=0 held=1 entries=2 returns=2 msr=0 visits=[0-9]+
+                        if mode in ('guard-shared','frame-after-ack'):
+                            self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
+                    self.assertEqual(got.stderr,b'')
+if __name__=='__main__':unittest.main()
+)
+                        elif mode=='extra-shared':
+                            self.assertRegex(rows[-2],rb'^V989_SHARED_DETAIL phase=2 depth=1 started=1 seen=0 post=0 held=1 entries=6 returns=6 msr=3 visits=[0-9]+
+                        if mode in ('guard-shared','frame-after-ack'):
+                            self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
+                    self.assertEqual(got.stderr,b'')
+if __name__=='__main__':unittest.main()
+)
                         if mode in ('guard-shared','frame-after-ack'):
                             self.assertRegex(rows[1],rb'^V989_SHARED_REFUSAL guard=[01] frame=[01] depth=1 visits=6$')
                     self.assertEqual(got.stderr,b'')

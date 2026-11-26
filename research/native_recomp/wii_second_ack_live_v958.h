@@ -49,6 +49,20 @@ inline bool active(){return ack.stage()!=0u;}
     std::cout<<std::dec<<"V958_ACK_INVALID kind="<<kind<<" stage="<<ack.stage()<<" reason="<<ack.failure()
              <<" call_reason="<<calls.failure()<<" visits="<<visits<<std::endl;std::_Exit(126);
 }
+#ifdef UNDERCOVER_V989_PRIVATE_SHARED
+// Distinguish the three fail-closed shared-time checks without exposing
+// guest addresses, register values, original words, or raw traces.
+[[noreturn]]inline void reject_shared(unsigned phase){
+    const bool started=shared_tick!=0u;
+    std::cout<<std::dec<<"V989_SHARED_DETAIL phase="<<phase<<" depth="<<calls.depth()
+             <<" started="<<started<<" seen="<<shared_seen<<" post="<<post_seen
+             <<" held="<<ack.postack_held()<<" entries="<<calls.entries()-(started?shared_entries:0u)
+             <<" returns="<<calls.returns()-(started?shared_returns:0u)
+             <<" msr="<<calls.msr_writes()-(started?shared_msr:0u)
+             <<" visits="<<visits<<std::endl;
+    reject(12);
+}
+#endif
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
 #ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
@@ -134,12 +148,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
     if(shared_enabled()&&pc==completion_time_call){
-        if(shared_tick||post_seen||ack.stage()!=4u||calls.depth()!=2u||!ack.postack_held())reject(12);
+        if(shared_tick||post_seen||ack.stage()!=4u||calls.depth()!=2u||!ack.postack_held())reject_shared(1);
         shared_tick=visits;shared_entries=calls.entries();shared_returns=calls.returns();shared_msr=calls.msr_writes();
     }
     if(shared_enabled()&&shared_tick&&pc==completion_time_call+4u){
         if(shared_seen||calls.depth()!=1u||calls.entries()-shared_entries!=4u||calls.returns()-shared_returns!=4u||
-           calls.msr_writes()-shared_msr!=2u||!ack.postack_held()||visits<=shared_tick)reject(12);
+           calls.msr_writes()-shared_msr!=2u||!ack.postack_held()||visits<=shared_tick)reject_shared(2);
         shared_seen=true;
         std::cout<<std::dec<<"V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits="<<visits-shared_tick
                  <<" token_preserved=1 saved_fields=38 boot_verified=0"<<std::endl;
@@ -168,7 +182,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(ack.stage()==4u&&pc>=spans[0].root&&pc<spans[0].end&&calls.depth()==0u){
         if(!post_visits||visits<=post_visits||calls.returns()<=post_returns||!ack.postack_held())reject(9);
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
-        if(shared_enabled()&&!shared_seen)reject(12);
+        if(shared_enabled()&&!shared_seen)reject_shared(3);
 #endif
         std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                  <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
