@@ -1,5 +1,5 @@
 #pragma once
-#include "wii_native_ios_binding.h"
+#include "wii_open_epoch_v1361.h"
 #include <array>
 namespace undercover::wii {
 // Device-side witness for the actual second IPC handler. Every read/write
@@ -8,15 +8,17 @@ namespace undercover::wii {
 class ColdReplyConsumeGate {
 public:
     using B=NativeIosBinding;using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
+    explicit ColdReplyConsumeGate(unsigned first_kind=0):epoch_(first_kind){}
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned failure()const{return error_;}
     unsigned arm_reads()const{return arm_reads_;}
     unsigned control_reads()const{return control_reads_;}
     unsigned invalidations()const{return invalidations_;}
     bool begin(uint32_t request,bool authorized){
         const auto s=B::cold_snapshot();
-        if(stage_||error_||!authorized||!s||!request||(request&31u)||
-           s->ppc!=request||s->arm!=request||s->steps!=2u||s->replies||s->queued||s->event||
+        if(stage_||error_||!authorized||!epoch_held()||!s||!request||(request&31u)||
+           s->ppc!=request||s->arm!=request||s->steps!=epoch_.reply_steps()||s->replies||s->queued||s->event||
            (s->control&(M::X1|M::Y1|M::Y2))!=M::Y1||
            !(s->control&M::IY1)||!(s->control&M::IY2)||
            !(s->flags&H::IPC_PPC)||!(s->irq_mask&H::IPC_PPC)||
@@ -27,12 +29,12 @@ public:
             auto v=B::read_physical_word(request+4u*i);if(!v)return fail(1);
             words_[i]=*v;
         }
-        if(words_[0]!=S::Reply||words_[1]!=0u||words_[2]!=S::Open)return fail(1);
+        if(words_[0]!=S::Reply||words_[1]!=epoch_.result_fd()||words_[2]!=S::Open)return fail(1);
         stage_=1;return true;
     }
     bool boundary(bool authorized)const{
         const auto s=B::cold_snapshot();
-        if(!authorized||!stage_||stage_>3u||error_||!s||!same(*s,expected()))return false;
+        if(!authorized||!stage_||stage_>3u||error_||!epoch_held()||!s||!same(*s,expected()))return false;
         for(unsigned i=0;i<8u;++i)if(B::read_physical_word(request_+4u*i)!=words_[i])return false;
         return true;
     }
@@ -102,6 +104,8 @@ public:
             cache_cpu_==&c&&c.guest_data_invalidate_count==cache_count_&&!(c.msr&0x8000u);
     }
 private:
+    OpenTransactionEpoch epoch_;
+    bool epoch_held()const{return epoch_.valid()&&(!epoch_.second()||epoch_.acknowledged_descriptors(3u-epoch_.first_kind()));}
     ColdIpcSnapshot initial_{};std::array<uint32_t,8> words_{};
     const void* cache_cpu_=nullptr;uint32_t request_=0,next_line_=0,stop_line_=0,cache_count_=0;
     unsigned stage_=0,error_=0,arm_reads_=0,control_reads_=0,flag_reads_=0,invalidations_=0;

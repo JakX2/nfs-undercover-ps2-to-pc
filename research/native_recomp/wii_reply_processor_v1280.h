@@ -17,7 +17,7 @@ struct ReplyProcessorExpectation{
 // waiting queue. This witness does not execute instructions or wake it.
 class ReplyProcessorWitness{
 public:
-    explicit ReplyProcessorWitness(ReplyProcessorExpectation e):e_(e){}
+    explicit ReplyProcessorWitness(ReplyProcessorExpectation e,unsigned first_kind=0):e_(e),gate_(first_kind){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
@@ -29,7 +29,7 @@ public:
     unsigned mmio_form()const{return mmio_.form;}
     template<class C>bool begin(C& c,const JoinedIpcReplyEntry& entry,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t request,bool held){
-        if(stage_||error_||!entry.processor_ready(c,frame,queue,request,e_.processor,held)||
+        if(stage_||error_||entry.first_kind()!=gate_.first_kind()||!entry.processor_ready(c,frame,queue,request,e_.processor,held)||
            e_.words.empty()||e_.words.size()>1024u||e_.edges.empty()||e_.edges.size()>64u||
            !known(c,e_.processor,e_.processor)||!known(c,e_.wake,e_.wake)||
            !known(c,e_.read_leaf,e_.read_leaf)||!known(c,e_.write_leaf,e_.write_leaf)||

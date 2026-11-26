@@ -64,7 +64,7 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0,unsigned return_case=0,unsigned idle_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0,unsigned return_case=0,unsigned idle_case=0,unsigned first_kind=0){
 #ifndef UNDERCOVER_TEST_READY_IDLE_RETURN
     (void)idle_case;
 #endif
@@ -94,7 +94,21 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
 #endif
     Cpu c{{one,ram,two}};
     const uint32_t Queue=idle_case>=22u?0x90000100u:undercover_queue_default;
-    constexpr std::string_view name="/dev/stm/immediate";
+    const OpenTransactionEpoch epoch(first_kind);
+    const unsigned kind=first_kind?3u-first_kind:1u;
+    if(first_kind){
+        const std::string_view old=first_kind==1u?"/dev/stm/immediate":"/dev/stm/eventhook";
+        for(unsigned i=0;i<old.size();++i)ram.write8(Path+i,uint8_t(old[i]));
+        ram.write8(Path+old.size(),0);ram.write32(Request,S::Open);ram.write32(Request+12u,Path);
+        assert(host.write32(Bus::IPC+H::PPC_MASK,H::IPC_PPC));
+        assert(host.write32(Bus::IPC+M::PPCMSG,Request)&&host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1));
+        auto a=host.service_at_guest_boundary(0);assert(a&&a->progress==S::Pump::Ack);
+        assert(host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::Y2)&&host.write32(Bus::IPC+H::PPC_FLAG,H::IPC_PPC));
+        auto b=host.service_at_guest_boundary(0);assert(b&&b->progress==S::Pump::Replied&&ram.read32(Request+4u)==0u);
+        assert(host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::Y1)&&host.write32(Bus::IPC+H::PPC_FLAG,H::IPC_PPC));
+        assert(host.serviced_steps()==2u);
+    }
+    const std::string_view name=kind==1u?"/dev/stm/immediate":"/dev/stm/eventhook";
     for(unsigned i=0;i<name.size();++i)ram.write8(Path+i,uint8_t(name[i]));
     ram.write8(Path+name.size(),0);ram.write32(Request,S::Open);ram.write32(Request+12u,Path);
     assert(host.write32(Bus::IPC+H::PPC_MASK,H::IPC_PPC));
@@ -108,7 +122,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
     assert(frame.capture(c,cause.load(),mask.load(),H::PI_HOLLYWOOD));
     constexpr std::array<uint8_t,4> vector{0x60,0,0,0};
     for(unsigned i=0;i<vector.size();++i)ram.write8(0x500u+i,vector[i]);
-    assert(enter_scheduler_ipc_irq(c,host,vector,Request));
+    assert(enter_scheduler_ipc_irq(c,host,vector,Request,first_kind));
     if(reply_lane){
         assert(host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::Y2));
         assert(host.write32(Bus::IPC+H::PPC_FLAG,H::IPC_PPC));
@@ -121,7 +135,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         c.pc=c.srr0;c.msr=c.srr1;
         assert(frame.pending_rfi_return(c,cause.load(),mask.load()));
         ExternalReturnWitness second;
-        assert(enter_scheduler_reply_irq(c,host,frame,second,vector,Request));
+        assert(enter_scheduler_reply_irq(c,host,frame,second,vector,Request,first_kind));
         frame=second;
     }
     const auto snap=host.cold_ipc_snapshot();
@@ -140,9 +154,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
     m.write32(Code.indirect_pc,Code.indirect_word);m.write32(Handler,Code.handler_word);
     for(auto e:Code.edges){m.write32(e.pc,e.entry_word);m.write32(e.lr-4u,e.branch_word);}
     c.pc=SiDispatchWitness::Dispatcher;c.gpr[3]=4;c.gpr[4]=Context;c.msr=0x32u;c.inst_count+=50u;
-    IpcDispatchWitness w({Code,Handler,Context,Thread,Table,Global,Counter});
+    IpcDispatchWitness w({Code,Handler,Context,Thread,Table,Global,Counter},first_kind);
     auto unchanged=[&]{
-        assert(host.serviced_steps()==(reply_lane?2u:1u)&&ram.read32(Request)==(reply_lane?S::Reply:S::Open)&&
+        assert(host.serviced_steps()==(reply_lane?epoch.reply_steps():epoch.ack_steps())&&ram.read32(Request)==(reply_lane?S::Reply:S::Open)&&
                same_scheduler_ipc_snapshot(snap,host.cold_ipc_snapshot()));
     };
     auto rejected=[&](bool ok,unsigned reason,unsigned detail=0){
@@ -157,7 +171,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
     // response must be rejected before any dispatcher instruction runs.
     if(reply_lane&&n==21)observed.arm+=32u;
     if(reply_lane&&n==22)observed.steps=1u;
-    if(reply_lane&&n==23)ram.write32(Request+4u,1u);
+    if(reply_lane&&n==23)ram.write32(Request+4u,epoch.result_fd()^1u);
     bool ok=reply_lane?w.begin_reply(c,frame,observed,Queue,n==24?Request+32u:Request,n!=5):
                        w.begin(c,frame,observed,Queue,n!=5);
     if(reply_lane&&n>=21&&n<=24){rejected(ok,1);return;}
@@ -229,7 +243,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         c.pc=Handler+8u;++c.inst_count;assert(j.before(c,c.pc,reply_edge.branch_word,false,true));
         c.pc=Reply;c.lr=reply_edge.lr;
         if(join_case==9)m.write32(Context+124u,0u);
-        if(join_case==10)ram.write32(Request+4u,1u);
+        if(join_case==10)ram.write32(Request+4u,epoch.result_fd()^1u);
         ok=j.entry(c,Reply,true);
         if(join_case>=8){refuse(ok,join_case==8?3u:2u);return;}
         assert(ok&&j.stage()==2u&&j.reads()==1u&&j.visits()==4u);
@@ -253,8 +267,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
         const auto processor_abi=ReplyReturnAbi::capture(c);
 #endif
-        ReplyProcessorWitness body({Reply,Leaf,Writer,Cache,Wake,Reply+24u,Context,Thread,words,calls});
-        auto reject=[&](bool ok,unsigned reason){assert(!ok&&body.failure()==reason&&host.serviced_steps()==2u);};
+        ReplyProcessorWitness body({Reply,Leaf,Writer,Cache,Wake,Reply+24u,Context,Thread,words,calls},first_kind);
+        auto reject=[&](bool ok,unsigned reason){assert(!ok&&body.failure()==reason&&host.serviced_steps()==epoch.reply_steps());};
         if(processor_case==1)++c.inst_count;
         ok=body.begin(c,j,frame,Queue,processor_case==2?Request+32u:Request,true);
         if(processor_case==1||processor_case==2){reject(ok,1);return;}assert(ok);
@@ -293,7 +307,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         c.gpr[3]=processor_case==11?Queue+4u:Queue;ok=call(Wake,Reply+24u);
         if(processor_case==11){reject(ok,3);return;}
         assert(ok&&body.stage()==2u&&body.arm_reads()==1u&&body.invalidations()==2u&&
-            host.serviced_steps()==2u&&m.read16(Thread+712u)==4u&&m.read32(Queue)==Thread);
+            host.serviced_steps()==epoch.reply_steps()&&m.read16(Thread+712u)==4u&&m.read32(Queue)==Thread);
 #ifdef UNDERCOVER_TEST_WAKE_READY
         constexpr uint32_t Disable=0x805265acu,Select=0x80529718u,Ready=0x8000b000u;
         constexpr std::array<ReplyNativeWord,8> wake_words{{
@@ -583,14 +597,14 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
     m.write32(Leaf,0x4e800020u);m.write32(Handler+4u,0x48000001u);
     constexpr std::array<VectorEdge,1> edges{{{Leaf,Handler+8u,0x48000001u,0x4e800020u}}};
     constexpr std::array<uint32_t,0> polls{};
-    JoinedIpcAck j(Handler,returned,ret_word,final_blr,Context,Thread,edges,polls);
+    JoinedIpcAck j(Handler,returned,ret_word,final_blr,Context,Thread,edges,polls,first_kind);
     auto refuse=[&](bool value,unsigned reason){
-        assert(!value&&j.failure()==reason&&host.serviced_steps()==1u&&ram.read32(Request)==S::Open);
+        assert(!value&&j.failure()==reason&&host.serviced_steps()==epoch.ack_steps()&&ram.read32(Request)==S::Open);
     };
     if(join_case==1)++c.inst_count;
     if(join_case==2)m.write32(returned,0);
     if(join_case==3)m.write32(final_blr,0);
-    ok=j.begin(c,w,frame,Queue,Request,1u,true);
+    ok=j.begin(c,w,frame,Queue,Request,kind,true);
     if(join_case>=1&&join_case<=3){refuse(ok,1);return;}
     assert(ok&&j.poll(c,true));
     if(join_case==4){refuse(j.publish(c,true),8);return;}
@@ -616,13 +630,27 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
     if(join_case==13)++c.inst_count;
     ok=j.finish(c,true);
     if(join_case>=11&&join_case<=13){refuse(ok,7);return;}
-    assert(ok&&j.stage()==2u&&host.serviced_steps()==1u);
-    assert(j.publish(c,true)&&j.stage()==3u&&host.serviced_steps()==2u);
-    assert(ram.read32(Request)==S::Reply&&ram.read32(Request+4u)==0u&&ram.read32(Request+8u)==S::Open);
-    assert(!j.publish(c,true)&&host.serviced_steps()==2u);
+    assert(ok&&j.stage()==2u&&host.serviced_steps()==epoch.ack_steps());
+    assert(j.publish(c,true)&&j.stage()==3u&&host.serviced_steps()==epoch.reply_steps());
+    assert(ram.read32(Request)==S::Reply&&ram.read32(Request+4u)==epoch.result_fd()&&ram.read32(Request+8u)==S::Open);
+    assert(!j.publish(c,true)&&host.serviced_steps()==epoch.reply_steps());
 #endif
 }
 int main(){
+#ifdef UNDERCOVER_TEST_SECOND_EPOCH
+#if !defined(UNDERCOVER_TEST_JOINED_ACK) || !defined(UNDERCOVER_TEST_REPLY_PROCESSOR) || defined(UNDERCOVER_TEST_WAKE_READY)
+#error Second epoch test covers dispatcher through reply-processor entry only
+#endif
+    for(unsigned first=1;first<=2;++first){
+        for(unsigned i=0;i<21;++i)trial(i,0,false,0,0,0,0,0,0,first);
+        for(unsigned i=0;i<=25;++i)trial(i,0,true,0,0,0,0,0,0,first);
+        for(unsigned i=1;i<=13;++i)trial(0,i,false,0,0,0,0,0,0,first);
+        for(unsigned i=1;i<=10;++i)trial(0,i,true,0,0,0,0,0,0,first);
+        for(unsigned i=1;i<=15;++i)trial(0,0,true,i,0,0,0,0,0,first);
+    }
+    std::cout<<"V1369_SECOND_DISPATCH_BODY synthetic=1 valid=4 refused=166 native_broker=1 second_fd=1 steps=4 original_execution=0\n";
+    return 0;
+#endif
     for(unsigned i=0;i<21;++i)trial(i);
     std::cout<<"V1265_IPC_DISPATCH_CONTRACT synthetic=1 valid=1 refused=20 native_ack=1 original_execution=0\n";
     for(unsigned i=0;i<=25;++i)trial(i,0,true);

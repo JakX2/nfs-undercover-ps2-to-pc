@@ -1,0 +1,3 @@
+# V1369 second dispatcher and reply processor contracts
+
+Apply the explicit transaction epoch to the native IPC dispatcher, joined ACK and reply entry, and reply-consumption gate. Preserve the cold default and exact original instruction, mailbox, queue, context, ABI and cache constraints. The second epoch requires both descriptor identities, steps 3/4, and reply result 1; reject mismatched epochs at observer handoffs. Test the existing synthetic dispatcher/ACK/processor cases in both device orders with real native transport and reused request storage, keeping later first-transaction wake/return tests unchanged. This prepares second reply consumption through original wake entry; no original second IRQ execution or boot claimed. V1368 owner scheduler pending.

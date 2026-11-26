@@ -1,0 +1,22 @@
+name: Wii V1369 Second Dispatcher and Reply Body
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/V1369_SECOND_DISPATCH_BODY.md'
+      - '.github/workflows/wii-v1369-second-dispatch.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for flags in "-DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR" "-DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_SECOND_EPOCH"; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie $flags -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1369
+            /tmp/v1369
+          done

@@ -11,7 +11,8 @@ struct IpcDispatchExpectations {
 // native IOS ACK or reply, not the earlier SI transfer. Never service or acknowledge it.
 class IpcDispatchWitness {
 public:
-    explicit IpcDispatchWitness(IpcDispatchExpectations e):e_(e){}
+    explicit IpcDispatchWitness(IpcDispatchExpectations e,unsigned first_kind=0):e_(e),epoch_(first_kind){}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned detail()const{return detail_;}
@@ -34,12 +35,12 @@ private:
     template<class C>bool begin_impl(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
                                      uint32_t queue,bool held,uint32_t physical_request){
         using M=IpcMailbox;using H=HollywoodIrq;
-        if(stage_||error_||!held||!safe(c)||c.pc!=SiDispatchWitness::Dispatcher||
+        if(stage_||error_||!held||!safe(c)||!epoch_held()||c.pc!=SiDispatchWitness::Dispatcher||
            c.gpr[3]!=4u||c.gpr[4]!=e_.context||frame.source()!=H::PI_HOLLYWOOD||
            !frame.pending_source(c,s.pi_cause,s.pi_mask)||!frame.saved_integer(c,e_.context).ok()||
            !(s.flags&H::IPC_PPC)||s.queued||s.event||
            (physical_request?!reply_wire(c,s,physical_request):
-            (!(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||s.steps!=1u||s.replies!=1u))||
+            (!(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||s.steps!=epoch_.ack_steps()||s.replies!=1u))||
            !word(c,c.pc,e_.code.dispatcher_word)||!mapped(c,e_.counter,4u))return fail(1);
         reply_request_=physical_request;queue_=queue;cpu_=&c;frame_=&frame;s_=s;counter_=c.mmu.read32(e_.counter);
         if(counter_==0xffffffffu||!tables(c))return fail(1);
@@ -79,7 +80,7 @@ public:
     // Transfer the admitted handler entry to a follow-on witness only on
     // the very same CPU, saved frame, queue and observation tick.
     template<class C>bool handler_ready(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,uint32_t queue,bool held)const{
-        return stage_==6u&&!error_&&held&&cpu_==&c&&frame_==&frame&&queue_==queue&&safe(c)&&
+        return stage_==6u&&!error_&&held&&epoch_held()&&cpu_==&c&&frame_==&frame&&queue_==queue&&safe(c)&&
             c.inst_count==last_entry_&&same_scheduler_ipc_snapshot(s_,s)&&frame.pending_source(c,s.pi_cause,s.pi_mask)&&
             frame.saved_integer(c,e_.context).ok()&&tables(c)&&(!reply_request_||reply_wire(c,s,reply_request_))&&
             c.pc==e_.handler&&c.ctr==e_.handler&&
@@ -88,7 +89,7 @@ public:
             word(c,e_.counter,counter_+1u);
     }
 private:
-    IpcDispatchExpectations e_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
+    IpcDispatchExpectations e_;OpenTransactionEpoch epoch_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
     ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0,reply_request_=0;
     uint64_t start_=0,last_=0,last_entry_=0;unsigned stage_=0,error_=0,visits_=0,cause_reads_=0,mask_reads_=0;
     unsigned detail_=0;
@@ -101,14 +102,15 @@ private:
             c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+n-1u);
     }
     template<class C>static bool word(C& c,uint32_t a,uint32_t w){return !(a&3u)&&mapped(c,a,4u)&&c.mmu.read32(a)==w;}
-    template<class C>static bool reply_wire(C& c,const ColdIpcSnapshot& s,uint32_t request){
+    bool epoch_held()const{return epoch_.valid()&&(!epoch_.second()||epoch_.acknowledged_descriptors(3u-epoch_.first_kind()));}
+    template<class C>bool reply_wire(C& c,const ColdIpcSnapshot& s,uint32_t request)const{
         using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
         if(!request||(request&31u)||request>0x13ffffc0u||s.ppc!=request||s.arm!=request||
            (s.control&(M::X1|M::Y1|M::Y2))!=M::Y1||!(s.control&M::IY1)||
            !(s.flags&H::IPC_PPC)||!(s.irq_mask&H::IPC_PPC)||
-           s.steps!=2u||s.replies||s.queued||s.event)return false;
+           s.steps!=epoch_.reply_steps()||s.replies||s.queued||s.event)return false;
         const uint32_t a=request|0x80000000u;
-        return mapped(c,a,64u)&&word(c,a,S::Reply)&&word(c,a+4u,0u)&&word(c,a+8u,S::Open);
+        return mapped(c,a,64u)&&word(c,a,S::Reply)&&word(c,a+4u,epoch_.result_fd())&&word(c,a+8u,S::Open);
     }
     template<class C>bool tables(C& c)const{
         return mapped(c,e_.thread+712u,2u)&&c.mmu.read16(e_.thread+712u)==4u&&
@@ -122,7 +124,7 @@ private:
     template<class C>unsigned common_detail(C& c,const ColdIpcSnapshot& s,bool held)const{
         if(stage_<1u||stage_>5u||error_||!held||cpu_!=&c||!safe(c)||
            c.inst_count<start_||c.inst_count-start_>8192u)return 2;
-        if(!same_scheduler_ipc_snapshot(s_,s))return 3;
+        if(!epoch_held()||!same_scheduler_ipc_snapshot(s_,s))return 3;
         if(!frame_||!frame_->pending_source(c,s.pi_cause,s.pi_mask))return 4;
         if(!frame_->saved_integer(c,e_.context).ok())return 5;
         if(!tables(c))return 6;

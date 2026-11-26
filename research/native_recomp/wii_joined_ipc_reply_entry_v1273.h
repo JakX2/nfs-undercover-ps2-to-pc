@@ -15,6 +15,7 @@ public:
                         std::span<const uint32_t> polls)
         :handler_(handler),read_leaf_(read_leaf),reply_(reply_edge),context_(context),thread_(thread),edges_(edges),polls_(polls){}
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned failure()const{return error_;}
     unsigned reads()const{return reads_;}
     unsigned visits()const{return visits_;}
@@ -28,6 +29,7 @@ public:
            std::count_if(edges_.begin(),edges_.end(),[&](auto e){
                return e.pc==reply_.pc&&e.lr==reply_.lr&&e.entry_word==reply_.entry_word&&e.branch_word==reply_.branch_word;
            })!=1)return fail(1);
+        epoch_=OpenTransactionEpoch(dispatch.first_kind());
         cpu_=&c;frame_=&frame;queue_=queue;request_=physical;mail_=*s;tick_=last_=c.inst_count;
         if(!common(c,held))return fail(1);
         stage_=1;return true;
@@ -84,7 +86,7 @@ public:
 private:
     uint32_t handler_,read_leaf_;VectorEdge reply_;
     uint32_t context_,thread_,queue_=0,request_=0,last_pc_=0,last_word_=0;
-    std::span<const VectorEdge> edges_;std::span<const uint32_t> polls_;
+    std::span<const VectorEdge> edges_;std::span<const uint32_t> polls_;OpenTransactionEpoch epoch_{};
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;ColdIpcSnapshot mail_{};
     uint64_t tick_=0,last_=0;unsigned stage_=0,error_=0,entries_=0,reads_=0,visits_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
@@ -94,13 +96,13 @@ private:
     template<class C>bool common(C& c,bool held)const{
         using B=NativeIosBinding;
         const auto s=B::cold_snapshot();
-        return !error_&&held&&cpu_==&c&&frame_&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
+        return !error_&&held&&epoch_.valid()&&(!epoch_.second()||epoch_.acknowledged_descriptors(3u-epoch_.first_kind()))&&cpu_==&c&&frame_&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
             !(c.msr&0x8000u)&&c.inst_count>=tick_&&c.inst_count-tick_<=2048u&&s&&
             same_scheduler_ipc_snapshot(mail_,*s)&&frame_->pending_source(c,s->pi_cause,s->pi_mask)&&
             frame_->saved_integer(c,context_).ok()&&word(c,0x800000d4u,context_)&&
             word(c,0x800000c0u,context_&0x3fffffffu)&&c.mmu.read16(thread_+712u)==4u&&
             word(c,thread_+732u,queue_)&&word(c,queue_,thread_)&&word(c,queue_+4u,thread_)&&
-            B::read_physical_word(request_)==StmIos::Reply&&B::read_physical_word(request_+4u)==0u&&
+            B::read_physical_word(request_)==StmIos::Reply&&B::read_physical_word(request_+4u)==epoch_.result_fd()&&
             B::read_physical_word(request_+8u)==StmIos::Open;
     }
 };

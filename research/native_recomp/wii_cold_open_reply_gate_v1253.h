@@ -11,6 +11,7 @@ public:
     using B=NativeIosBinding;using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
     explicit ColdOpenReplyGate(unsigned first_kind=0):epoch_(first_kind){}
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned failure()const{return error_;}
     bool begin(uint32_t physical_request,unsigned kind,bool authorized){
         const auto s=B::cold_snapshot();

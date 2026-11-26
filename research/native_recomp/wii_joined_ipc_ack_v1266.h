@@ -22,7 +22,7 @@ public:
     template<class C>bool begin(C& c,IpcDispatchWitness& dispatch,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t physical,unsigned kind,bool held){
         const auto snapshot=NativeIosBinding::cold_snapshot();
-        if(stage_||error_||!snapshot||!dispatch.handler_ready(c,frame,*snapshot,queue,held)||c.pc!=handler_||
+        if(stage_||error_||dispatch.first_kind()!=gate_.first_kind()||!snapshot||!dispatch.handler_ready(c,frame,*snapshot,queue,held)||c.pc!=handler_||
            c.lr!=returned_||c.ctr!=handler_||c.gpr[3]!=27u||c.gpr[4]!=context_||
            !equal(c,returned_,word_)||!equal(c,returned_-4u,0x4e800421u)||!equal(c,final_blr_,0x4e800020u))return fail(1);
         cpu_=&c;frame_=&frame;queue_=queue;gp_=c.gpr;msr_=c.msr;tick_=last_=c.inst_count;
