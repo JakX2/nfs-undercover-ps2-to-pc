@@ -14,9 +14,9 @@ public:
     unsigned returns()const{return route_.returns();}
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,const SiTransferArguments& a,
                                 std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,
-                                std::span<const AckMsrSite> msr,uint32_t data){
+                                std::span<const AckMsrSite> msr,uint32_t data,const SiQueueHistoryResult* history=nullptr){
         for(unsigned i=0;i<a.packet.size();++i)if(a.packet[i]!=c.gpr[3+i])return fail(1);
-        if(stage_||error_||!a.admitted()||a.channel>=4u||a.packet[0]!=a.channel||
+        if(stage_||error_||!si_transfer_admission(a,history)||a.channel>=4u||a.packet[0]!=a.channel||
            c.inst_count>UINT64_MAX-2048u||!word(c,pc,w)||
            !route_.begin(c,spans,edges,msr,true,pc)||!route_.before(c,pc,w))return fail(1);
         cpu_=&c;args_=a.packet;data_=data;site_=pc;srr0_=c.srr0;srr1_=c.srr1;

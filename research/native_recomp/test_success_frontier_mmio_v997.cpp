@@ -60,6 +60,14 @@ int main(int argc,char** argv){
     c.mmu.words[v958::context+128]=0;
     c.mmu.words[v958::context+132]=c.lr;c.mmu.words[v958::context+136]=c.ctr;c.mmu.words[v958::context+140]=c.xer;
     c.mmu.words[v958::context+408]=c.pc;c.mmu.words[v958::context+412]=c.msr;
+    const bool abi_probe=mode.starts_with("error-abi");
+    constexpr uint32_t Cmd=0x8000d100u,Resp=0x8000d200u;
+    const std::array<uint32_t,8> args{2,Cmd,1,Resp,3,v958::transfer_callback,0,3948};
+    if(abi_probe){
+        for(unsigned i=0;i<32;++i)c.mmu.words[v958::transfer_slots+4*i]=0;
+        for(unsigned i=0;i<8;++i)c.mmu.words[v958::transfer_slots+64+4*i]=args[i];
+        if(mode=="error-abi-core")c.mmu.words[v958::transfer_slots+64+4]^=4u;
+    }
     c.pc=H;c.msr=0x32u;
     scheduler.advance(++tick);need(old.after_return_at(tick));
     need(v958::start(c,frame)&&SiBinding::handoff_second_ack(cause,mask,tick));
@@ -129,12 +137,12 @@ int main(int argc,char** argv){
     visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
     c.gpr[3]=c.msr;visit(Restore,Mtmsr);visit(Restore+4,Blr);visit(Nested+12,Nop);
     c.lr=H+16;visit(Nested+16,Blr);visit(H+16,Nop);
-    constexpr uint32_t Cmd=0x8000d100u,Resp=0x8000d200u;
-    for(unsigned i=0;i<32;++i)c.mmu.words[v958::transfer_slots+4*i]=0;
+    if(!abi_probe)for(unsigned i=0;i<32;++i)c.mmu.words[v958::transfer_slots+4*i]=0;
     for(unsigned i=0;i<5;++i)c.mmu.words[v958::transfer_data+4*i]=0xffffffffu;
     c.mmu.words[Cmd]=0;c.mmu.words[Resp]=0;
-    const std::array<uint32_t,8> args{2,Cmd,1,Resp,3,v958::transfer_callback,0,3948};
-    for(unsigned i=0;i<8;++i){c.gpr[3+i]=args[i];c.mmu.words[v958::transfer_slots+64+4*i]=args[i];}
+    for(unsigned i=0;i<8;++i){c.gpr[3+i]=args[i];if(!abi_probe)c.mmu.words[v958::transfer_slots+64+4*i]=args[i];}
+    if(abi_probe&&mode!="error-abi-exact")c.gpr[10]=0u;
+    if(mode=="error-abi-changed")c.mmu.words[v958::transfer_slots+64+28]^=1u;
     if(mode=="direct-mismatch")c.mmu.words[v958::transfer_slots+64+28]^=1;
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
     if(mode.starts_with("error-third")){

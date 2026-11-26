@@ -70,6 +70,7 @@ inline thread_local bool time_seen=false;
 inline thread_local unsigned time_return_visits=0;
 inline thread_local SiQueueHistory queue_history;
 inline bool queue_detail_enabled(){const char* v=std::getenv("UNDERCOVER_V1034_QUEUE_DETAIL");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool six_arguments_enabled(){const char* v=std::getenv("UNDERCOVER_V1040_SIX_ARGS");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V981_SECOND_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 inline bool time_enabled(){const char* v=std::getenv("UNDERCOVER_V975_SECOND_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
@@ -97,6 +98,9 @@ inline bool active(){return ack.stage()!=0u;}
 #endif
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+    if(six_arguments_enabled()&&!queue_detail_enabled())return false;
+#endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_enabled()&&!error_frontier_enabled())return false;
 #endif
@@ -223,8 +227,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         }
 #endif
         const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
+        SiQueueHistoryResult hist;
         if(queue_detail_enabled()){
-            const auto hist=queue_history.finish(c,a);
+            hist=queue_history.finish(c,a);
             if(!hist.valid)reject(18);
             std::cout<<std::dec<<"V1034_QUEUE_DETAIL mismatch_mask="<<a.mismatch_mask<<" slot_kind="<<a.slot_kind
                 <<" arg_time_zero="<<a.argument_time_zero<<" queue_time_zero="<<a.queued_time_zero<<std::endl;
@@ -234,8 +239,14 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
             <<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+        if(six_arguments_enabled()){
+            const auto admission=si_transfer_admission(a,&hist);
+            std::cout<<"V1040_TRANSFER_ABI admission="<<admission<<" timing_only="<<bool(admission==2u)
+                <<" unchanged_slot="<<bool(hist.valid&&!hist.changed&&hist.initial_slot_kind==1u)
+                <<" call_executed=0 boot_verified=0"<<std::endl;
+        }
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
-        if(third_enabled()&&a.admitted()){third_ready=true;return;}
+        if(third_enabled()&&si_transfer_admission(a,six_arguments_enabled()?&hist:nullptr)){third_ready=true;return;}
 #endif
         std::_Exit(0);
     }

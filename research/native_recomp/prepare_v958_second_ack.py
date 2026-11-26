@@ -51,9 +51,14 @@ def patch_si(s):
            c.mmu.read32(pc)!=v958::transfer_branch||
            !v958::ack.owns_postack(active_->controller_,cause,mask,c.inst_count))return false;
         const auto a=inspect_si_transfer_arguments(c,v958::transfer_data,v958::transfer_slots,v958::transfer_callback);
-        if(!a.admitted()||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch))return false;
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
-        if(!v958::third_ready||!v958::third_route.start(c,pc,v958::transfer_branch,a,v958::third_spans,v958::third_edges,v958::msr_sites,v958::transfer_data))return false;
+        SiQueueHistoryResult history;
+        if(v958::six_arguments_enabled())history=v958::queue_history.finish(c,a);
+        const auto* evidence=v958::six_arguments_enabled()?&history:nullptr;
+        if(!si_transfer_admission(a,evidence)||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch)||
+           !v958::third_ready||!v958::third_route.start(c,pc,v958::transfer_branch,a,v958::third_spans,v958::third_edges,v958::msr_sites,v958::transfer_data,evidence))return false;
+#else
+        if(!a.admitted()||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch))return false;
 #endif
         const auto cfg=SiTickBinding::configuration(active_->controller_,a.channel,c.inst_count);
         return cfg&&v958::ack.handoff_follow_on(v958::next_device,active_->controller_,cause,mask,c.inst_count,a.channel,a.idle,cfg->response,cfg->latency);

@@ -66,6 +66,46 @@ int main(){
         Cpu other;need(!hist.sample(other));
         c.mmu.mem.erase(Slots+127);++c.inst_count;need(!hist.sample(c));
     }
+    unsigned exact=0,tail=0,rejected=0;
+    for(unsigned ch=0;ch<4;++ch)for(unsigned mask=0;mask<256;++mask){
+        Cpu c;
+        for(unsigned i=0;i<5;++i)c.mmu.write(Data+4*i,0xffffffffu);
+        for(unsigned i=0;i<32;++i)c.mmu.write(Slots+4*i,0);
+        c.mmu.write(Cmd,0);c.mmu.write(Resp,0);c.mmu.write(Callback,0x60000000u);
+        const std::array<uint32_t,8> req{ch,Cmd,1,Resp,3,Callback,0,3948};
+        for(unsigned i=0;i<8;++i){c.gpr[3+i]=req[i];c.mmu.write(Slots+32u*ch+4*i,req[i]);}
+        SiQueueHistory hist;need(hist.begin(c,Slots));++c.inst_count;
+        // Exercise every bitmask with a valid six-argument register set:
+        // synthesize mismatching queue words before handler observation.
+        if(mask&63u){
+            SiTransferArguments a=inspect_si_transfer_arguments(c,Data,Slots,Callback);
+            a.queue_match=false;a.mismatch_mask=mask;
+            SiQueueHistoryResult proof{mask,mask,0u,1u,1u,true};
+            need(!si_transfer_admission(a,&proof));++rejected;continue;
+        }
+        if(mask&64u)c.gpr[9]^=1u;
+        if(mask&128u)c.gpr[10]^=1u;
+        const auto a=inspect_si_transfer_arguments(c,Data,Slots,Callback);const auto proof=hist.finish(c,a);
+        const auto admitted=si_transfer_admission(a,&proof);
+        need(proof.valid&&admitted==(mask?2u:1u));
+        if(!mask){++exact;continue;}
+        ++tail;
+        need(!si_transfer_admission(a));
+        for(unsigned f=0;f<8;++f){
+            auto q=proof;auto b=a;
+            if(f==0)q.valid=false;
+            if(f==1)q.changed=128u;
+            if(f==2)q.initial_slot_kind=2;
+            if(f==3)q.current_mismatch^=64u;
+            if(f==4)q.samples=0;
+            if(f==5)b.callback_known=false;
+            if(f==6)b.idle=false;
+            if(f==7)b.type=false;
+            need(!si_transfer_admission(b,&q));
+        }
+    }
+    need(exact==4u&&tail==12u&&rejected==1008u);
+    std::cout<<"V1040_ARGUMENT_ABI exact=4 tail_only=12 core_refused=1008 invalid_proof_refused=96 original_execution=0\n";
     std::cout<<"V1037_QUEUE_HISTORY channels=4 register_only=4 consumed=4 restored=4 read_only=1 original_execution=0\n";
     std::cout<<"V981_TRANSFER_ARGUMENTS valid=4 refused=12 read_only=1 original_execution=0\n";
 }

@@ -17,6 +17,18 @@ struct SiQueueHistoryResult{
     unsigned initial_mismatch=255u,current_mismatch=255u,changed=0u,initial_slot_kind=0u,samples=0u;
     bool valid=false;
 };
+// V1036 original differential: the lower-level transfer consumes the
+// six device arguments independently of the two high-level timing words.
+// Keep the exact legacy rule. The optional ABI-specific rule accepts
+// only a tail mismatch with an unchanged, originally occupied slot.
+inline unsigned si_transfer_admission(const SiTransferArguments& a,const SiQueueHistoryResult* h=nullptr){
+    if(a.admitted())return 1u;
+    if(!a.type||!a.idle||!a.callback_known||a.channel>=4u||a.slot_kind!=1u||
+       !a.mismatch_mask||a.mismatch_mask>255u||(a.mismatch_mask&63u)||
+       !h||!h->valid||!h->samples||h->samples>8192u||h->initial_slot_kind!=1u||
+       h->changed||h->initial_mismatch!=a.mismatch_mask||h->current_mismatch!=a.mismatch_mask)return 0u;
+    return 2u;
+}
 class SiQueueHistory{
 public:
     template<class C>bool begin(C& c,uint32_t slots){
