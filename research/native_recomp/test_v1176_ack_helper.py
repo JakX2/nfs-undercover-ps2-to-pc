@@ -183,4 +183,29 @@ class AckFrontierMetadata(unittest.TestCase):
     def test_requires_time(self):
         with self.assertRaisesRegex(ValueError,'ACK frontier mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,False,True)
+class AckWirelessMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;T=C+0x400;D=ins.DISABLE;R=ins.RESTORE;TB=C+0x600
+        A=C+0x1000;B=A+0x100;U=B+0x100;L=U+0x400
+        original=[W]*172;stops={C+64:(3,A),C+100:(5,B)}
+        rows={pc:(C,W) for pc in stops}
+        roots={A:[W]*39,B:[W]*30,U:[W]*184,D:[W]*5,R:[W]*9}
+        order=(A,B,U,D,R);edges=[(pc,W,W,o) for pc,(o,_) in sorted(stops.items())]
+        prior=({D:roots[D],R:roots[R]},C,T,D,TB,R,C+20,C+60,[])
+        old='#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v847_private_wireless_wrapper.h'
+            h.write_text(ins.wireless_render(roots,order,edges,L,W))
+            n='wii_wireless_wrapper_v844.h';(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'wireless_plan',return_value=(roots,A,B,U,L,[])),patch.object(ins,'exact',side_effect=lambda d,e,a,n:original if n==172 else [W]):
+                self.assertEqual(ins.verify_wireless_metadata(b'',b'',old,dest,HOST,prior,(C,rows,stops)),(roots,order,L,W,C,original,stops))
+                for bad in (old+old,old.replace('WIRELESS 1','WIRELESS 0'),old+'#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_wireless_metadata(b'',b'',bad,dest,HOST,prior,(C,rows,stops))
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_wireless_metadata(b'',b'',old,dest,HOST,prior,(C+4,rows,stops))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_wireless_metadata(b'',b'',old,dest,HOST,prior,(C,rows,stops))
+    def test_requires_frontier(self):
+        with self.assertRaisesRegex(ValueError,'ACK wireless mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,False,True)
 if __name__=='__main__':unittest.main()

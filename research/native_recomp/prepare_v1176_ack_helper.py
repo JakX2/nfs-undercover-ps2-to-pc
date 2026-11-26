@@ -16,6 +16,9 @@ from prepare_owner_callback_time_v802 import plan as callback_time_plan
 from prepare_v813_callback_time import render as time_render
 from prepare_owner_callback_frontier_v820 import plan as callback_frontier_plan
 from prepare_v831_callback_frontier import render as frontier_render
+from prepare_owner_wireless_v816 import plan as wireless_plan
+from prepare_v847_wireless_wrapper import render as wireless_render
+from audit_callback_frontiers_v799 import call_sites as wireless_calls
 from prepare_owner_scheduler_v722 import reachable as callback_reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
@@ -199,10 +202,55 @@ def verify_frontier_native(src,outer,meta):
     for pc,(_,dst) in stops.items():verify_direct(body,pc,dst)
     for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False):
+def verify_wireless_metadata(dol,elf,old,dest,host,time_meta,frontier_meta):
+    C,rows,stops=frontier_meta
+    time_roots,old_C,T,D,TB,R,resume,ts,leaves=time_meta
+    roots,A,B,U,L,guards=wireless_plan(dol,elf)
+    if C!=old_C or (D,R)!=(DISABLE,RESTORE) or {o:dst for o,dst in stops.values()}!={3:A,5:B}:
+        raise ValueError('ACK wireless predecessor')
+    order=(A,B,U,D,R)
+    if len(set(order))!=5 or L in order or [len(roots[x]) for x in order]!=[39,30,184,5,9] or any(tuple(roots[x])!=tuple(time_roots[x]) for x in (D,R)):
+        raise ValueError('ACK wireless geometry')
+    original=exact(dol,elf,C,172);lw=exact(dol,elf,L,1)[0]
+    if len(original)!=172 or any(rows[pc]!=(C,original[(pc-C)//4]) for pc in stops):
+        raise ValueError('ACK wireless geometry')
+    edges=[(pc,original[(pc-C)//4],original[(pc+4-C)//4],o) for pc,(o,_) in sorted(stops.items())]
+    if old.splitlines().count('#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1')!=1 or 'UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS' in old:
+        raise ValueError('ACK wireless mode')
+    expected={'v847_private_wireless_wrapper.h':wireless_render(roots,order,edges,L,lw),
+              'wii_wireless_wrapper_v844.h':(host/'wii_wireless_wrapper_v844.h').read_text()}
+    for n,s in expected.items():
+        h=dest/n
+        if h.is_symlink() or not h.is_file() or h.read_text()!=s:raise ValueError('ACK wireless metadata')
+    return roots,order,L,lw,C,original,stops
+
+def verify_wireless_native(src,outer,meta):
+    roots,order,L,lw,C,original,stops=meta
+    def owner(addr):
+        hits=[s for s in src.values() if owns_root(s,addr)]
+        if len(hits)!=1 or sum(entry_count(s,addr) for s in src.values())!=1:raise ValueError('ACK wireless owner')
+        return exact_function(hits[0],addr)
+    def verify(addr,rows,edges):
+        body=owner(addr)
+        if audit_native([body],outer,rows)!=len(rows):raise ValueError('ACK wireless coverage')
+        for pc,dst in edges:verify_direct(body,pc,dst)
+        for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
+    labels=shared=direct=0
+    for addr in order:
+        rows={pc:(addr,roots[addr][(pc-addr)//4]) for pc in callback_reachable(addr,roots[addr])}
+        calls=wireless_calls(addr,roots[addr])
+        if any(k!=1 or dst not in roots for _,k,dst in calls):raise ValueError('ACK wireless edge')
+        verify(addr,rows,[(pc,dst) for pc,_,dst in calls])
+        labels+=len(rows);shared+=len(rows) if addr in order[-2:] else 0;direct+=len(calls)
+    if audit_native([owner(L)],outer,{L:(L,lw)})!=1:raise ValueError('ACK wireless coverage')
+    verify(C,{pc:(C,original[(pc-C)//4]) for pc in set(stops)|{pc+4 for pc in stops}},[(pc,dst) for pc,(_,dst) in stops.items()])
+    if (labels,shared,direct+2)!=(267,14,18):raise ValueError('ACK wireless geometry')
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
     if frontier and not time:raise ValueError('ACK frontier mode')
+    if wireless and not frontier:raise ValueError('ACK wireless mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -231,6 +279,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
             raise ValueError('ACK prefix metadata')
     time_meta=verify_time_metadata(dol,elf,old,dest,host,prefix_meta) if time else None
     frontier_meta=verify_frontier_metadata(dol,elf,old,dest,host,time_meta) if frontier else None
+    wireless_meta=verify_wireless_metadata(dol,elf,old,dest,host,time_meta,frontier_meta) if wireless else None
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
@@ -239,6 +288,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if prefix_meta:verify_prefix_native(src,outer,prefix_meta)
     if time_meta:verify_time_native(src,outer,time_meta)
     if frontier_meta:verify_frontier_native(src,outer,frontier_meta)
+    if wireless_meta:verify_wireless_native(src,outer,wireless_meta)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -264,24 +314,27 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'
     if time:extra+='#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n'
     if frontier:extra+='#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n'
+    if wireless:extra+='#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
     if time:print('V1190_ACK_TIME_METADATA installed=1 callback_labels=13 shared_labels=45 native_edges=4 execution=0')
     if frontier:print('V1194_ACK_FRONTIER_METADATA installed=1 callback_labels=27 native_edges=2 execution=0')
+    if wireless:print('V1198_ACK_WIRELESS_METADATA installed=1 wrapper_labels=267 shared_labels=14 direct_edges=18 callback_returns=2 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
         safe|={'ACK prefix '+s for s in ('geometry','metadata','owner','coverage','mode')}
         safe|={'ACK time '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
         safe|={'ACK frontier '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
+        safe|={'ACK wireless '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode','edge')}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1

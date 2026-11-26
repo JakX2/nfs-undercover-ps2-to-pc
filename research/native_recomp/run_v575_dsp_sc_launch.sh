@@ -233,6 +233,10 @@ ack_frontier="${UNDERCOVER_RUN_V1194_ACK_FRONTIER-0}"
 [[ "$ack_frontier" == 0 || "$ack_frontier" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1194_ACK_FRONTIER-0}" == "$ack_frontier" ]] || exit 2
 [[ "$ack_frontier" == 0 || "$ack_time" == 1 ]] || exit 2
+ack_wireless="${UNDERCOVER_RUN_V1198_ACK_WIRELESS-0}"
+[[ "$ack_wireless" == 0 || "$ack_wireless" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1198_ACK_WIRELESS-0}" == "$ack_wireless" ]] || exit 2
+[[ "$ack_wireless" == 0 || "$ack_frontier" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -272,6 +276,9 @@ if [[ "$third" == 1 ]]; then
                                   extra+=(UNDERCOVER_V1189_ACK_TIME=1);audit=audit_v1191_ack_time.py
                                   if [[ "$ack_frontier" == 1 ]]; then
                                     extra+=(UNDERCOVER_V1193_ACK_FRONTIER=1);audit=audit_v1194_ack_frontier.py
+                                    if [[ "$ack_wireless" == 1 ]]; then
+                                      extra+=(UNDERCOVER_V1197_ACK_WIRELESS=1);audit=audit_v1198_ack_wireless.py
+                                    fi
                                   fi
                                 fi
                               fi
