@@ -22,7 +22,7 @@ public:
     template<class C>bool begin(C& c,AllocatorRange object,bool held){
         if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.root||c.lr!=e_.caller||
            e_.words.empty()||e_.words.size()>128u||e_.accesses.size()>8u||
-           !object.size||object.size>256u||!mapped(c,object)||!known(c,e_.root)||!word(c,e_.caller,e_.caller_word))return fail(1);
+           !object.size||object.size>4096u||!mapped(c,object)||!known(c,e_.root)||!word(c,e_.caller,e_.caller_word))return fail(1);
         for(auto x:e_.words)if(x.owner!=e_.root||!word(c,x.pc,x.word)||
             std::count_if(e_.words.begin(),e_.words.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(1);
         for(auto a:e_.accesses)if((a.width!=1u&&a.width!=2u&&a.width!=4u)||a.offset>object.size||

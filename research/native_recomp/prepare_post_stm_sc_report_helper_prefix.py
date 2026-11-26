@@ -21,6 +21,7 @@ def prefix(root,words,*,details=False):
     def add(v,imm):
         if v[0] in ('stack','const'):return (v[0],v[1]+imm if v[0]=='stack' else (v[1]+imm)&0xffffffff)
         if not imm:return v
+        if v[0] in ('reg','expr'):return ('expr',(v,imm))
         return ('computed',0)
     def write(at,v):
         if not frame or at%4 or not -frame<=at<=4 or at in mem:
