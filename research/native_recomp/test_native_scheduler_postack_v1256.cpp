@@ -129,6 +129,9 @@
 #include "private_post_stm_sc_formatter.h"
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
 #include "private_post_stm_sc_formatter_leaf.h"
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+#include "private_formatter_continuation.h"
+#endif
 #endif
 #endif
 #endif
@@ -498,6 +501,11 @@ struct PostStmFormatterStop{};
 static ScLeafShadow* post_stm_formatter_leaf=nullptr;
 static unsigned post_stm_formatter_leaf_count=0;
 struct PostStmFormatterLeafStop{};
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+static RegisterContinuationWitness* formatter_continuation=nullptr;
+static unsigned formatter_continuation_count=0;
+struct FormatterContinuationStop{};
+#endif
 #endif
 static bool post_stm_formatter_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_formatter_refuse(unsigned);
@@ -894,6 +902,20 @@ static bool post_stm_formatter_leaf_held(nw::CPUContext& c){
 void post_stm_sc_formatter_leaf_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!post_stm_formatter_leaf||!post_stm_formatter_leaf->before(c,pc,w,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(2);
 }
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+static bool formatter_continuation_held(nw::CPUContext& c){
+    return post_stm_formatter_leaf&&post_stm_formatter_leaf->object_held(c,post_stm_formatter_leaf_held(c));
+}
+[[noreturn]]static void formatter_continuation_refuse(unsigned kind){
+    std::cout<<"FORMATTER_CONTINUATION_REFUSAL kind="<<kind<<" stage="<<(formatter_continuation?formatter_continuation->stage():0u)
+        <<" reason="<<(formatter_continuation?formatter_continuation->failure():0u)
+        <<" visits="<<(formatter_continuation?formatter_continuation->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void formatter_continuation_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!formatter_continuation||!formatter_continuation->before(c,pc,w,formatter_continuation_held(c)))formatter_continuation_refuse(2);
+}
+#endif
 #endif
 #endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
@@ -1693,6 +1715,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+    if(formatter_continuation){
+        if(!formatter_continuation->entry(c,pc,formatter_continuation_held(c)))formatter_continuation_refuse(3);
+        if(formatter_continuation->stage()==2u){++formatter_continuation_count;throw FormatterContinuationStop{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
     if(post_stm_formatter_leaf){
         if(!post_stm_formatter_leaf->entry(c,pc,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(3);
@@ -2318,6 +2347,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+    if(formatter_continuation){
+        if(!formatter_continuation->poll(c,formatter_continuation_held(c)))formatter_continuation_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
     if(post_stm_formatter_leaf){
         if(!post_stm_formatter_leaf->poll(c,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(4);
@@ -3259,6 +3294,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
         for(auto w:post_stm_sc_formatter_leaf_private::words)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(post_stm_sc_formatter_leaf_private::expected.caller,post_stm_sc_formatter_leaf_private::expected.caller_word);
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+        for(auto w:formatter_continuation_private::path)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(formatter_continuation_private::expected.target,formatter_continuation_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4374,6 +4413,18 @@ int main(int argc,char** argv)try{
                host.cold_ipc_snapshot().replies)post_stm_formatter_leaf_refuse(5);
             std::cout<<"POST_STM_SC_FORMATTER_LEAF_TRIAL n="<<trial
                 <<" native_leaf=1 original_return=1 exact_value=1 loads=1 stores=0 frame_held=1 deferred=1 reply=0 visits=8\n";
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+            RegisterContinuationWitness continuation(formatter_continuation_private::expected);
+            if(!continuation.begin(c,sc_leaf.reached(c,formatter_continuation_held(c))))formatter_continuation_refuse(1);
+            formatter_continuation=&continuation;
+            bool next_done=false;try{run_game(c);}catch(const FormatterContinuationStop&){next_done=true;}
+            if(!next_done||formatter_continuation_count!=trial+1u||!continuation.reached(c,formatter_continuation_held(c))||
+               continuation.visits()!=10u||host.serviced_steps()!=5u||!host.services().event_pending()||
+               (cause.load()&mask.load())||host.cold_ipc_snapshot().replies)formatter_continuation_refuse(5);
+            std::cout<<"FORMATTER_CONTINUATION_TRIAL n="<<trial
+                <<" native_resume=1 next_entry=1 arguments=4 frame_held=1 deferred=1 reply=0 visits=10\n";
+            formatter_continuation=nullptr;
+#endif
             post_stm_formatter_leaf=nullptr;
         }
 #endif
@@ -4649,6 +4700,10 @@ int main(int argc,char** argv)try{
     need(post_stm_formatter_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
     need(post_stm_formatter_leaf_count==8u);
+#ifdef UNDERCOVER_FORMATTER_CONTINUATION
+    need(formatter_continuation_count==8u);
+    std::cout<<"FORMATTER_CONTINUATION_NATIVE owner=1 trials=8 native_resume=8 next_entry=8 arguments=32 frame_held=8 deferred=8 reply=0 visits=80 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_FORMATTER_LEAF_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 exact_value=8 loads=8 stores=0 frame_held=8 deferred=8 reply=0 visits=64 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_FORMATTER_NATIVE owner=1 trials=8 original_formatter=8 native_stores=32 native_loads=8 saved_nonvolatile=128 original_dependency_entry=8 deferred=8 reply=0 dependency_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
