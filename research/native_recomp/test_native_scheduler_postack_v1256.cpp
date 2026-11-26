@@ -428,7 +428,8 @@ static bool ioctl_alloc_held(nw::CPUContext& c){
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
 static bool ioctl_flush_held(nw::CPUContext& c){
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
-    if(ioctl_submit_prefix){
+    // Prefix construction still needs the old wrapper-frame guard.
+    if(ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u){
         if(!ioctl_build||!ioctl_build->identity_preserved(c,ioctl_alloc_held(c))||
            ioctl_header_shadow.size()!=ioctl_build->allocated_size())return false;
         for(unsigned i=0;i<ioctl_header_shadow.size();++i)

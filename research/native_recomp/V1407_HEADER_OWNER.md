@@ -5,3 +5,5 @@ V1406 owner run 45843920121 verified eight original asynchronous submit paths, a
 V1407 adds a distinct opt-in owner mode, preserving all prior stops. It reuses the full submit-body word audit and previously installed return trace, the third-caller masked cache observer, and a fresh exact allocation-byte shadow. The original submit return is the stop, before executing the return-site instruction. Both STM descriptors and four prior IOS service steps must remain unchanged. No request enqueue or event registration is claimed. Owner validation pending.
 
 The new workflow gates on the successful V1406 owner run; original files and generated code stay in the private runner. Logs contain only bounded counts and result flags.
+
+V1408: V1407 owner run 45844668707 refused before any prefix instruction (kind=1, stage=0). The new header guard was selected too early, when the prefix object existed but the request shadow was not captured. Select the new guard only at completed prefix stage 2, retaining the existing wrapper-frame guard for prefix begin. Owner retry pending.
