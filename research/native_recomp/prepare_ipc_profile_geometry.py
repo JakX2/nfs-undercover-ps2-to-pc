@@ -79,11 +79,19 @@ def inspect_leaf(root,words):
         if not root<=pc<end or pc&3:raise ValueError('helper edge')
         seen.add(pc);w=words[(pc-root)//4];op=w>>26;xo=(w>>1)&1023
         if op==19 and xo==16:
-            if w&1 or ((w>>21)&20)!=20:raise ValueError('helper control')
+            if w&1:raise ValueError('helper linked return')
             returns+=1
+            # A conditional bclr may return via the untouched LR or fall through.
+            if ((w>>21)&20)==20:continue
+            work.append(pc+4)
             continue
         if op==17 or (op==19 and xo in (50,528)):raise ValueError('helper control')
-        if op==31 and xo in (146,467,150,1014):raise ValueError('helper control')
+        if op==31 and xo==467:
+            # CTR is a volatile register and may implement a bounded loop.
+            # LR and every other SPR write remain outside this contract.
+            spr=((w>>16)&31)|(((w>>11)&31)<<5)
+            if spr!=9:raise ValueError('helper SPR write')
+        if op==31 and xo in (146,150,1014):raise ValueError('helper privileged or atomic')
         if op in (16,18):
             if w&3:raise ValueError('helper edge')
             mask,sign=(0xfffc,0x8000) if op==16 else (0x03fffffc,0x02000000)
@@ -115,7 +123,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);a=p.parse_args()
     allowed={'size','identity','image','ELF header','symbol table','strings','object type','object shape',
              'object ELF span','object range','object text overlap','object DOL span','object overlap','array shape',
-             'call identity','helper extent','helper edge','helper control','helper store form','helper store count',
+             'call identity','helper extent','helper edge','helper control','helper store form','helper store count','helper linked return','helper SPR write','helper privileged or atomic',
              'word identity','linked branch'}|{'object identity '+str(i) for i in range(4)}
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not HEADER.size<=a.elf.stat().st_size<=64*1024*1024:raise ValueError('size')

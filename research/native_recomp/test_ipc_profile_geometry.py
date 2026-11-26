@@ -64,6 +64,14 @@ class TestLeaf(unittest.TestCase):
     def test_paths(self):
         self.assertEqual(inspect_leaf(P,(self.ST,self.ST,self.BC,self.STX,self.ST,self.BLR)),(6,1,1,0))
         self.assertEqual(inspect_leaf(P,(self.ST,self.ST,self.ST,self.STX,self.BDNZ,self.BLR)),(6,1,1,1))
+    def test_ctr_and_conditional_return(self):
+        mtctr=0x7c0903a6
+        beqlr=0x4d820020
+        self.assertEqual(inspect_leaf(P,(mtctr,self.ST,self.ST,beqlr,self.ST,self.STX,self.BLR)),(7,1,2,0))
+        for w,why in ((0x7c0803a6,'SPR write'),(0x7c800124,'privileged or atomic'),
+                      (0x4e800021,'linked return')):
+            with self.subTest(w=w),self.assertRaisesRegex(ValueError,why):
+                inspect_leaf(P,(w,self.ST,self.ST,self.ST,self.ST,self.BLR))
     def test_refusals(self):
         for word,why in ((0x44000002,'control'),(0x4e800420,'control'),(0x48000001,'edge'),
                          (0x48001000,'edge'),(37<<26,'store form')):
