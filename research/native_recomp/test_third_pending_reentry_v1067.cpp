@@ -162,8 +162,8 @@ int main(){
         constexpr uint32_t Lwbrx=(31u<<26)|(4u<<21)|(3u<<16)|(534u<<1);
         const uint32_t load=reversed?Lwbrx:Load;
         c.mmu.words[Helper]=Nop;c.mmu.words[Helper+4]=load;c.mmu.words[Helper+8]=Nop;
-        c.mmu.words[Helper+12]=Store;c.mmu.words[Helper+16]=Nop;
-        const std::array<AckCallSpan,3> spans{{{Handler,Handler+12},{Save,Save+4},{Helper,Helper+20}}};
+        c.mmu.words[Helper+12]=Store;c.mmu.words[Helper+16]=Nop;c.mmu.words[Helper+20]=Blr;
+        const std::array<AckCallSpan,3> spans{{{Handler,Handler+12},{Save,Save+4},{Helper,Helper+24}}};
         const std::array<AckCallEdge,2> edges{{{Handler,Save},{Handler+4,Helper}}};
         auto ack_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason);++ack_refused;
@@ -188,7 +188,7 @@ int main(){
         if(fault==29){ack_reject(!route.ack_entry(c,Helper+4),12);continue;}
         need(route.ack_entry(c,Helper));
         tick();need(route.ack_before(c,Helper,Helper,Nop));
-        c.gpr[3]=Base;c.gpr[0]=0;tick();need(route.ack_before(c,Helper,Helper+4,load));
+        c.gpr[3]=Base;c.gpr[0]=C;tick();need(route.ack_before(c,Helper,Helper+4,load));
         if(fault==37){tick();ack_reject(!route.ack_before(c,Helper,Helper+8,Nop),16);need(cause==(Other|SI));continue;}
         need(route.ack_read(C,value));
         auto swap=[](uint32_t v){return (v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24);};
@@ -205,11 +205,14 @@ int main(){
         if(fault==31){ack_reject(!route.ack_write(C,c.gpr[4]^2u),15);need(cause==(Other|SI));continue;}
         need(route.ack_write(C,c.gpr[4])&&cause==Other);
         if(fault==32){c.mmu.words[Context+124]^=1u;tick();ack_reject(!route.ack_before(c,Helper,Helper+16,Nop),11);continue;}
-        tick();need(route.ack_before(c,Helper,Helper+16,Nop)&&route.stage()==8u&&
-                    route.completion_ack().stage()==3u&&route.completion_ack().reads()==1u&&route.completion_ack().writes()==1u&&
-                    route.ack_calls().entries()==2u&&route.ack_calls().returns()==1u&&
-                    ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&
-                    ctl.read(S)==status&&ctl.read(B)==buffer&&sched.completed()==3u&&ack.stage()==5u);
+        tick();ok=route.ack_before(c,Helper,Helper+16,Nop);
+        if(!ok)std::cerr<<"V1083_ACK_REFUSAL route="<<route.failure()<<" ack="<<route.completion_ack().failure()
+                         <<" calls="<<route.ack_calls().failure()<<" stage="<<route.stage()<<'\n';
+        need(ok&&route.stage()==8u);
+        need(route.completion_ack().stage()==3u&&route.completion_ack().reads()==1u&&route.completion_ack().writes()==1u);
+        need(route.ack_calls().entries()==2u&&route.ack_calls().returns()==1u);
+        need(ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&
+             ctl.read(S)==status&&ctl.read(B)==buffer&&sched.completed()==3u&&ack.stage()==5u);
         ++ack_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13);

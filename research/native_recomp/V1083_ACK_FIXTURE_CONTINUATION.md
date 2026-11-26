@@ -1,0 +1,3 @@
+# V1083: repair synthetic ACK continuation and reversed MMIO address
+
+V1080 and V1082 synthetic runs 45748016827 and 45748110270 failed on the first positive ACK terminal assertion, not at the preceding W1C. The synthetic terminal NOP had no in-span continuation, which the strict BoundedAckCallRoute correctly requires. Add an unexecuted trailing return instruction to model the actual helper extent. The byte-reversed load also used zero index rather than the control register offset; use the correct index. Separate the terminal assertions and add bounded witness-failure diagnostics. No production runtime checks relaxed. CI pending.
