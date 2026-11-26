@@ -1,0 +1,3 @@
+# V1321: combined helper and cooperative scheduler fixture
+
+Retain the V1316 original 31-word helper while expanding only the authenticated idle-context clear guard. Rebuild the fixture and verify exact roundtrip of all other function roots and words; preserve the existing 48-root cap. Compose the two ownership scopes instead of letting either expansion replace the other. Produce a private expectation header for the four original direct scheduler selection edges, authenticated callback and 54-word cooperative loader; require saved and restored GQR masks to match. Two new synthetic test groups. No new native owner job or claim of original restoration. Integrate after the V1318 helper/handler and V1320 idle return gates pass.
