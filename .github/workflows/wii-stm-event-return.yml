@@ -1,0 +1,21 @@
+name: Wii STM Event Return Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_stm_event_return.h'
+      - 'research/native_recomp/test_stm_event_return.cpp'
+      - '.github/workflows/wii-stm-event-return.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_stm_event_return.cpp -o /tmp/stm_event_return
+          /tmp/stm_event_return
