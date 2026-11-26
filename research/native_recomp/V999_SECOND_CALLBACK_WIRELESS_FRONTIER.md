@@ -1,0 +1,3 @@
+# V999: continue the second callback after its original time return
+
+V998 privately composes the original callback prologue and time helper; its owner test is pending. V999 uses the existing 27-label authenticated wireless frontier and byte-store witness after the time return. Capture the actual channel from the original indirect call. Retain the exact same second token and saved frame, verify branch sequence and guest stores, stop before either original wireless call. Two synthetic terminal guard roots exist only to satisfy native linking, never execute. Preserve the prior focused profiles. This is a gated continuation, not a claim of verified execution or boot.
