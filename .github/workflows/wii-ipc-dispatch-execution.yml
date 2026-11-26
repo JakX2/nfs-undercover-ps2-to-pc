@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/wii_ipc_dispatch_execution.h'
       - 'research/native_recomp/test_ipc_dispatch_execution.cpp'
+      - 'research/native_recomp/prepare_ipc_dispatch_native.py'
+      - 'research/native_recomp/test_ipc_dispatch_native.py'
       - '.github/workflows/wii-ipc-dispatch-execution.yml'
 permissions:
   contents: read
@@ -19,3 +21,4 @@ jobs:
           cd research/native_recomp
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_ipc_dispatch_execution.cpp -o /tmp/ipc_dispatch_execution
           /tmp/ipc_dispatch_execution
+          python3 test_ipc_dispatch_native.py
