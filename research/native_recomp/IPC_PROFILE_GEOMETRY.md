@@ -1,0 +1,5 @@
+# Private IPC profile geometry preflight
+
+The previous owner run 45848283031 proved the ring's three native stores and the subsequent helper entry, eight times. The independent profiling memory witness passed 136 synthetic cases in run 45848705833. The next preflight derives the helper from the existing submit call edge and checks exact original DOL/ELF code agreement, reachable bounded leaf control flow, and four uniquely named writable objects. Both original input hashes are verified. No private addresses, words or data are printed, and nothing in this preflight executes or authorizes guest instructions.
+
+The four-object layout and four-store leaf shape are hypotheses until the owner run succeeds. The test corpus is synthetic. A successful preflight is necessary but not sufficient for native integration: runtime effective addresses, values, request integrity, ABI and return edge still need validation.
