@@ -140,11 +140,7 @@ class Tree(unittest.TestCase):
                     else:s=s.replace('fn_80006000(ctx);','fn_80006004(ctx);')
                     p.write_text(s)
                 before=self.snapshot(root)
-                with self.assertRaisesRegex(ValueError,'^'+reason+'
+                with self.assertRaises(ValueError) as caught:self.install(root,f)
+                self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(self.snapshot(root),before)
 if __name__=='__main__':unittest.main()
-
-):self.install(root,f)
-                self.assertEqual(self.snapshot(root),before)
-if __name__=='__main__':unittest.main()
-
