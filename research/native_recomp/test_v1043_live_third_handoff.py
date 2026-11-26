@@ -72,7 +72,6 @@ inline constexpr AlarmCancelExpectation expected{
                         self.assertEqual(rows[-1],b'V1048_THIRD_ALARM_RETURN original_return=1 queue=1 token=3 lane=0 timer=0 calls=3 visits=9 suffix_visits=4 status_reads=1 status_writes=1 token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0')
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
-                        self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=19 stage=5 reason=0 call_reason=0 visits=[0-9]+=='__main__':unittest.main()
-)
+                        self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=19 stage=5 reason=0 call_reason=0 visits=[0-9]+$')
                         self.assertFalse(any(x.startswith(b'V1048_THIRD_ALARM_RETURN') for x in rows))
 if __name__=='__main__':unittest.main()
