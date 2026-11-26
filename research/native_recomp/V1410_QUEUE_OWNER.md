@@ -1,3 +1,5 @@
 # V1410 original post-header nested disable and queue-entry mode
 
 V1409 source run 45845821864 passed 32/32 synthetic cases under ASan/UBSan. V1410 adds a private geometry derivation and read-only native label/hook audit. The original submit-body and shared interrupt leaf are already instrumented, so no additional generated code is required. The new mode keeps the exact request shadow, both completed descriptor identities, prior storage guards and four IOS steps intact. It continues at the authentic cache return, observes nested masked interrupt disable, and stops before the queue routine executes. No queue enqueue, mailbox write, deferred IOS acceptance or native boot is claimed. Owner validation remains pending; do not activate the mode until V1408 is verified.
+
+V1408 prerequisite is now verified by owner run 45845615479. Activate the dedicated V1410 owner workflow gated on that run and V1409 source CI. The original queue pointer and corridor remain unverified until owner execution.

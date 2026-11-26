@@ -7,3 +7,5 @@ V1407 adds a distinct opt-in owner mode, preserving all prior stops. It reuses t
 The new workflow gates on the successful V1406 owner run; original files and generated code stay in the private runner. Logs contain only bounded counts and result flags.
 
 V1408: V1407 owner run 45844668707 refused before any prefix instruction (kind=1, stage=0). The new header guard was selected too early, when the prefix object existed but the request shadow was not captured. Select the new guard only at completed prefix stage 2, retaining the existing wrapper-frame guard for prefix begin. Owner retry pending.
+
+V1408 verified: owner run 45845615479 passed 8/8 original third-flush returns; one cache line per trial, exact request preserved, masked native RFI, four IOS steps and zero fallback. No third service occurred.
