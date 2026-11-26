@@ -123,6 +123,9 @@
 #include "private_post_stm_sc_report_helper.h"
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
 #include "private_post_stm_sc_report_dependency.h"
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+#include "private_post_stm_sc_report_resume.h"
+#endif
 #endif
 #endif
 #endif
@@ -475,6 +478,13 @@ static unsigned post_stm_dependency_count=0;
 struct PostStmDependencyStop{};
 static bool post_stm_dependency_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_dependency_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+static ScLeafShadow* post_stm_resume=nullptr;
+static unsigned post_stm_resume_count=0;
+struct PostStmResumeStop{};
+static bool post_stm_resume_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_resume_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -827,6 +837,20 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+static bool post_stm_resume_held(nw::CPUContext& c){
+    return post_stm_resume&&post_stm_dependency&&post_stm_dependency->object_held(c,post_stm_dependency_held(c));
+}
+[[noreturn]]static void post_stm_resume_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_REPORT_RESUME_REFUSAL kind="<<kind<<" stage="<<(post_stm_resume?post_stm_resume->stage():0u)
+        <<" reason="<<(post_stm_resume?post_stm_resume->failure():0u)
+        <<" visits="<<(post_stm_resume?post_stm_resume->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_report_resume_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_resume||!post_stm_resume->before(c,pc,w,post_stm_resume_held(c)))post_stm_resume_refuse(2);
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
 static bool post_stm_dependency_held(nw::CPUContext& c){
     return post_stm_dependency&&post_stm_helper&&post_stm_helper->frame_held(c,post_stm_helper_held(c));
@@ -1610,6 +1634,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    if(post_stm_resume){
+        if(!post_stm_resume->entry(c,pc,post_stm_resume_held(c)))post_stm_resume_refuse(3);
+        if(post_stm_resume->stage()==2u){++post_stm_resume_count;throw PostStmResumeStop{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     if(post_stm_dependency){
         if(!post_stm_dependency->entry(c,pc,post_stm_dependency_held(c)))post_stm_dependency_refuse(3);
@@ -2215,6 +2246,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    if(post_stm_resume){
+        if(!post_stm_resume->poll(c,post_stm_resume_held(c)))post_stm_resume_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     if(post_stm_dependency){
         if(!post_stm_dependency->poll(c,post_stm_dependency_held(c)))post_stm_dependency_refuse(4);
@@ -2673,6 +2710,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    if(post_stm_resume)post_stm_resume_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     if(post_stm_dependency)post_stm_dependency_refuse(7);
 #endif
@@ -2760,6 +2800,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    if(post_stm_resume)post_stm_resume_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     if(post_stm_dependency)post_stm_dependency_refuse(6);
 #endif
@@ -2909,6 +2952,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    if(post_stm_resume)post_stm_resume_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     if(post_stm_dependency)post_stm_dependency_refuse(6);
 #endif
@@ -3110,6 +3156,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
         for(auto w:post_stm_sc_report_dependency_private::words)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(post_stm_sc_report_dependency_private::expected.caller,post_stm_sc_report_dependency_private::expected.caller_word);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+        for(auto w:post_stm_sc_report_resume_private::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(post_stm_sc_report_resume_private::expected.call_target,post_stm_sc_report_resume_private::expected.call_word);
+#endif
 #endif
 #endif
 #endif
@@ -4177,6 +4227,24 @@ int main(int argc,char** argv)try{
         std::cout<<"POST_STM_SC_REPORT_DEPENDENCY_TRIAL n="<<trial
             <<" native_leaf=1 original_return=1 loads="<<sc_dependency.loads()<<" stores="<<sc_dependency.stores()
             <<" deferred=1 reply=0 caller_executed=0 visits="<<sc_dependency.visits()<<'\n';
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+        ScLeafShadow sc_resume(post_stm_sc_report_resume_private::expected);
+        if(!sc_resume.begin(c,post_stm_sc_report_dependency_private::object,
+             sc_dependency.reached(c,post_stm_dependency_held(c))))post_stm_resume_refuse(1);
+        post_stm_resume=&sc_resume;
+        bool resume_done=false;try{run_game(c);}catch(const PostStmResumeStop&){resume_done=true;}
+        if(!resume_done||post_stm_resume_count!=trial+1u||!sc_resume.reached(c,post_stm_resume_held(c))||
+           sc_resume.visits()!=8u||sc_resume.loads()||sc_resume.stores()||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)post_stm_resume_refuse(5);
+        for(unsigned i=0;i<3u;++i)if(c.gpr[3u+i]!=post_stm_sc_report_resume_private::args[i])post_stm_resume_refuse(5);
+        const auto va=uint32_t(int64_t(sc_report.incoming_gprs()[1])+post_stm_sc_report_resume_private::va_offset);
+        if(c.gpr[6]!=va||c.mmu.read32(va)!=0x01000000u||
+           c.mmu.read32(va+4u)!=sc_report.incoming_gprs()[1]+8u)post_stm_resume_refuse(5);
+        std::cout<<"POST_STM_SC_REPORT_RESUME_TRIAL n="<<trial
+            <<" original_resume=1 formatter_entry=1 arguments=4 deferred=1 reply=0 formatter_executed=0 visits=8\n";
+        post_stm_resume=nullptr;
+#endif
         post_stm_dependency=nullptr;
 #endif
         post_stm_helper=nullptr;
@@ -4439,6 +4507,10 @@ int main(int argc,char** argv)try{
     need(post_stm_helper_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY
     need(post_stm_dependency_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
+    need(post_stm_resume_count==8u);
+    std::cout<<"POST_STM_SC_REPORT_RESUME_NATIVE owner=1 trials=8 original_resume=8 formatter_entry=8 arguments=32 deferred=8 reply=0 formatter_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_REPORT_DEPENDENCY_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 deferred=8 reply=0 caller_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_REPORT_HELPER_NATIVE owner=1 trials=8 original_prefix=8 native_stores=40 saved_nonvolatile=24 original_next_entry=8 deferred=8 reply=0 next_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
