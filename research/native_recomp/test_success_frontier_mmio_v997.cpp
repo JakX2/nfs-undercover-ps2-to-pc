@@ -673,7 +673,51 @@ int main(int argc,char** argv){
                                                                     visit(Leaf2+4u,v958::third_postalarm_save[1]);c.mmu.words[stack-4u]=c.gpr[31];
                                                                     visit(Leaf2+8u,Blr);
                                                                     if(pf=="-slot")c.mmu.words[stack-8u]^=1u;
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+                                                                    const bool time_mode=v958::ack_time_enabled();
+                                                                    const auto tf=pf.starts_with("-time")?pf.substr(std::string_view("-time").size()):std::string_view{};
+                                                                    if(time_mode){
+                                                                        need(pf.starts_with("-time"));
+                                                                        auto put2=[&](uint32_t base,const auto& ws){for(auto word:ws){c.mmu.words[base]=word;base+=4;}};
+                                                                        put2(Root2+20u,v813::continuation);put2(v813::T,v813::system_words);
+                                                                        put2(v813::D,v813::disable);put2(v813::U,v813::timebase);put2(v813::R,v813::restore);
+                                                                        c.mmu.words[v813::Offset]=0;c.mmu.words[v813::Offset+4u]=0x1234u;
+                                                                        if(tf=="-identity")c.mmu.words[Root2+24u]^=4u;
+                                                                    }
+#endif
                                                                     visit(Root2+20u,v958::third_postalarm_prefix[5]);
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+                                                                    if(time_mode){
+                                                                        need(v958::held_epilogue.stage()==16u&&v958::ack_time.visits()==1u);
+                                                                        if(tf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                        if(tf=="-tick")scheduler.advance(++tick);
+                                                                        if(tf=="-device")mask=0;
+                                                                        if(tf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                        visit(Root2+24u,v813::continuation[1],tf=="-guard");
+                                                                        c.pc=v813::T;c.lr=Root2+28u;v958::observe(tf=="-entry"?v813::D:c.pc,c);
+                                                                        for(unsigned i=0;i<25;++i){
+                                                                            const uint32_t pc=v813::T+4u*i;visit(pc,v813::system_words[i]);
+                                                                            if(i==1||i==4||i==7){
+                                                                                const uint32_t leaf=i==1?v813::D:i==4?v813::U:v813::R;
+                                                                                const auto& ws=i==1?v813::disable:i==4?v813::timebase:v813::restore;
+                                                                                c.pc=leaf;c.lr=pc+4u;v958::observe(leaf,c);
+                                                                                for(unsigned j=0;j<ws.size();++j){
+                                                                                    visit(leaf+4u*j,ws[j]);
+                                                                                    if(i==4){
+                                                                                        if(j==0)c.gpr[3]=uint32_t(c.read_timebase()>>32);
+                                                                                        if(j==1)c.gpr[4]=uint32_t(c.read_timebase());
+                                                                                        if(j==2)c.gpr[5]=uint32_t(c.read_timebase()>>32);
+                                                                                        if(j==3&&tf!="-poll")v958::poll(c);
+                                                                                    }else if(j==0){c.gpr[6]=c.msr;c.gpr[3]=0;}
+                                                                                }
+                                                                            }
+                                                                            if(i==5)c.gpr[3]=0;
+                                                                            if(i==23){c.gpr[3]=1;c.gpr[4]=tf=="-result"?0x1255u:0x1254u;c.lr=Root2+28u;}
+                                                                        }
+                                                                        if(tf=="-offset")c.mmu.words[v813::Offset+4u]^=1u;
+                                                                        visit(Root2+28u,v813::continuation.back());
+                                                                    }
+#endif
                                                                 }
 #endif
                                                             }

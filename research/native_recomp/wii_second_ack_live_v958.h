@@ -88,11 +88,15 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u;}
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1180_ACK_CALLBACK");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_prefix_enabled(){const char* v=std::getenv("UNDERCOVER_V1184_ACK_PREFIX");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_TIME");return v&&v[0]=='1'&&v[1]==0;}
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+inline thread_local CallbackTimeWitness ack_time(v813::expected);
+#endif
 #ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
 inline thread_local CallbackPrefixWitness<third_postalarm_prefix.size(),third_postalarm_save.size()> ack_prefix(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save);
 #endif
@@ -434,6 +438,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_helper_enabled()&&!third_ack_enabled())return false;
     if(ack_callback_enabled()&&!ack_helper_enabled())return false;
     if(ack_prefix_enabled()&&!ack_callback_enabled())return false;
+    if(ack_time_enabled()&&!ack_prefix_enabled())return false;
+#ifndef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+    if(ack_time_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
     if(ack_prefix_enabled())return false;
 #endif
@@ -499,6 +507,21 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+            if(held_epilogue.stage()==16u){
+                if(!ack_time_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
+                   !held_epilogue.prefix_time_before(c,ack_time,pc,w,guard))reject_held_epilogue();
+                if(held_epilogue.stage()==17u){
+                    if(!held_epilogue.prefix_time_saved(c,ack_time))reject_held_epilogue();
+                    std::cout<<std::dec<<"V1189_ACK_TIME_RETURN original_time=1 leaves="<<ack_time.cursor()
+                             <<" system_visits="<<ack_time.time_visits()<<" leaf_visits="<<ack_time.leaf_visits()
+                             <<" polls="<<ack_time.polls()<<" reads="<<ack_time.reads()
+                             <<" offset=1 token=3 saved_fields=38 pi_cleared=1 continuation_executed=0 boot_verified=0"<<std::endl;
+                    std::_Exit(0);
+                }
+                return;
+            }
+#endif
 #ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
             if(held_epilogue.stage()==14u){
                 if(!ack_prefix_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
@@ -508,6 +531,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                     std::cout<<std::dec<<"V1184_ACK_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes="
                              <<ack_prefix.writes()<<" visits="<<ack_prefix.visits()
                              <<" token=3 saved_fields=38 pi_cleared=1 continuation_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+                    if(ack_time_enabled()){
+                        if(!held_epilogue.begin_prefix_time(c,ack_prefix,ack_time,pc,w))reject_held_epilogue();
+                        return;
+                    }
+#endif
                     std::_Exit(0);
                 }
                 return;
@@ -827,6 +856,12 @@ template<class C>bool poll(C& c){
             return false;
         }
 #endif
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+        if(held_epilogue.stage()==16u){
+            if(!held_epilogue.prefix_time_poll(c,ack_time))reject_held_epilogue();
+            return false;
+        }
+#endif
         const auto p=held_epilogue.poll(c,v1151::image);
         if(p==Poll::Rejected)reject_held_epilogue();
         if(p==Poll::Entered){
@@ -903,6 +938,12 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
         if(held_epilogue.stage()==14u){
             if(!held_epilogue.prefix_entry(c,ack_prefix,pc))reject_held_epilogue();
+            return;
+        }
+#endif
+#ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
+        if(held_epilogue.stage()==16u){
+            if(!held_epilogue.prefix_time_entry(c,ack_time,pc))reject_held_epilogue();
             return;
         }
 #endif
