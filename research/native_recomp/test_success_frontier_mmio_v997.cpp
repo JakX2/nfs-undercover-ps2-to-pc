@@ -296,6 +296,24 @@ int main(int argc,char** argv){
                         if(i==23){c.gpr[3]=1;c.gpr[4]=fault=="-result"?0x1255u:0x1254u;c.lr=Root+28;}
                     }
                     if(fault=="-changed-offset")c.mmu.words[v813::Offset+4]^=1u;
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+                    if(fault.starts_with("-frontier")){
+                        for(const auto& row:v831::words)c.mmu.words[row.pc]=row.word;
+                        if(fault=="-frontier-identity")c.mmu.words[Root+36]^=1u;
+                        visit(Root+28,v813::continuation.back());
+                        need(v958::third_postalarm.stage()==6u&&v958::third_postalarm.frontier_witness()->visits()==1u);
+                        if(fault=="-frontier-frame")c.mmu.words[v958::context+124]^=1u;
+                        if(fault=="-frontier-tick")scheduler.advance(++tick);
+                        if(fault=="-frontier-device")mask=0;
+                        if(fault=="-frontier-entry")v958::observe(Root+32,c);
+                        if(fault=="-frontier-poll")v958::poll(c);
+                        visit(Root+32,v831::words[1].word);
+                        c.gpr[3]=fault=="-frontier-channel"?1u:2u;c.gpr[4]=0u;
+                        visit(Root+36,v831::words[2].word);
+                        if(fault!="-frontier-store")c.mmu.words[c.gpr[1]+8u]=0;
+                        visit(Root+40,v831::words[3].word);need(false);
+                    }
+#endif
                     visit(Root+28,v813::continuation.back());need(false);
                 }
 #endif

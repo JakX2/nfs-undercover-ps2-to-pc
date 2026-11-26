@@ -9,6 +9,9 @@
 #include "v786_private_alarm.h"
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
 #include "v813_private_callback_time.h"
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+#include "v831_private_callback_frontier.h"
+#endif
 #endif
 #endif
 #endif
@@ -47,9 +50,25 @@ inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.sta
 inline thread_local ThirdAlarmCallbackRoute<third_postalarm_prefix.size(),third_postalarm_save.size(),third_postalarm_words.size()>
     third_postalarm(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save,third_postalarm_words,third_postalarm_sites);
 inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1095_AFTER_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
-inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u;}
+inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u||third_postalarm.stage()==6u;}
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
 inline bool third_postalarm_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1103_POSTALARM_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+inline bool third_postalarm_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1111_POSTALARM_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
+[[noreturn]]inline void reject_postalarm_frontier(){
+    std::cout<<std::dec<<"V1111_POSTALARM_FRONTIER_FAULT route="<<third_postalarm.failure()
+             <<" witness="<<third_postalarm.frontier_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
+    std::_Exit(126);
+}
+inline void finish_postalarm_frontier(){
+    if(third_postalarm.stage()!=7u)return;
+    const auto& f=*third_postalarm.frontier_witness();
+    std::cout<<std::dec<<"V1111_POSTALARM_FRONTIER ordinal="<<f.ordinal()<<" visits="<<f.visits()
+             <<" writes="<<f.writes()<<" zero_id="<<f.zero_id()
+             <<" token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+    std::_Exit(0);
+}
+#endif
 [[noreturn]]inline void reject_postalarm_time(){
     std::cout<<std::dec<<"V1103_POSTALARM_TIME_FAULT route="<<third_postalarm.failure()
              <<" witness="<<third_postalarm.time_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
@@ -62,6 +81,12 @@ inline bool third_postalarm_time_enabled(){const char* v=std::getenv("UNDERCOVER
     std::_Exit(126);
 }
 template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+    if(third_postalarm.stage()==6u){
+        if(guard||!third_postalarm.frontier_before(c,pc,w))reject_postalarm_frontier();
+        finish_postalarm_frontier();return;
+    }
+#endif
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
     if(third_postalarm.stage()==4u){
         if(guard||!third_postalarm.time_before(c,pc,w))reject_postalarm_time();
@@ -71,6 +96,12 @@ template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
                      <<" system_visits="<<t.time_visits()<<" leaf_visits="<<t.leaf_visits()
                      <<" polls="<<t.polls()<<" reads="<<t.reads()
                      <<" offset=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+            if(third_postalarm_frontier_enabled()){
+                if(!third_postalarm.start_frontier(c,pc,w,v831::expected))reject_postalarm_frontier();
+                finish_postalarm_frontier();return;
+            }
+#endif
             std::_Exit(0);
         }
         return;
@@ -175,6 +206,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_postalarm_enabled()&&!third_alarm_enabled())return false;
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
     if(third_postalarm_time_enabled()&&!third_postalarm_enabled())return false;
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+    if(third_postalarm_frontier_enabled()&&!third_postalarm_time_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -458,6 +492,9 @@ template<class C>bool poll(C& c){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
     if(third_postalarm.stage()==4u){if(!third_postalarm.time_poll(c))reject_postalarm_time();return false;}
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+    if(third_postalarm.stage()==6u)reject_postalarm_frontier();
+#endif
 #endif
     if(third_postalarm_active()){if(!third_postalarm.poll(c))reject_postalarm();return false;}
 #endif
@@ -495,6 +532,9 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
     if(third_postalarm.stage()==4u){if(!third_postalarm.time_entry(c,pc))reject_postalarm_time();return;}
+#ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
+    if(third_postalarm.stage()==6u)reject_postalarm_frontier();
+#endif
 #endif
     if(third_postalarm_active()){if(!third_postalarm.entry(c,pc))reject_postalarm();return;}
 #endif

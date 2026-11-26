@@ -12,8 +12,9 @@ class LiveThird(unittest.TestCase):
                 if h.is_file() and not h.is_symlink():shutil.copyfile(h,root/h.name)
             shutil.copyfile(HOST/'test_success_frontier_mmio_v997.cpp',root/'probe.cpp')
             shutil.copyfile(HOST/'synthetic_callback_time_expectations_v1014.h',root/'v813_private_callback_time.h')
+            shutil.copyfile(HOST/'synthetic_callback_frontier_v1111.h',root/'v831_private_callback_frontier.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
@@ -110,4 +111,17 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1103_POSTALARM_TIME_FAULT route=[7-9] witness=[0-7] stage=[34]$')
+            env['UNDERCOVER_V1111_POSTALARM_FRONTIER']='1'
+            for fault in ('','-identity','-frame','-tick','-device','-entry','-poll','-channel','-store'):
+                with self.subTest(postalarm_frontier=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1103_POSTALARM_TIME_RETURN original_return=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 offset=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1111_POSTALARM_FRONTIER ordinal=3 visits=4 writes=1 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1111_POSTALARM_FRONTIER_FAULT route=(0|10|11) witness=[0-7] stage=[56]$')
 if __name__=='__main__':unittest.main()

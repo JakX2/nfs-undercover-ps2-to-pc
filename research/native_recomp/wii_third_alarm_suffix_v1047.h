@@ -6,6 +6,7 @@
 #include "wii_callback_prefix_v800.h"
 #include "wii_callback_identity_v796.h"
 #include "wii_callback_time_v810.h"
+#include "wii_callback_frontier_v829.h"
 #include <optional>
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
@@ -140,7 +141,7 @@ public:
             if(row->ordinal!=6u||row->kind!=2u||c.gpr[3]>=4u||
                classify_callback_identity(c,pc,w,row->ordinal,row->kind,root_,words_,sites_)!=2u||
                !prefix_.start_dispatch(c,pc,w,true,true))return fail(4);
-            stage_=2u;
+            channel_=c.gpr[3];stage_=2u;
         }
         return true;
     }
@@ -169,7 +170,7 @@ public:
         if(stage_!=4u||!time_||!common(c)||c.inst_count-last_!=1u||
            !dev_->after_return_at(c.inst_count)||!held()||!time_->before(c,pc,w,true))return fail(8);
         last_=c.inst_count;
-        if(time_->stage()==5u)stage_=5u;
+        if(time_->stage()==5u){time_resume_=pc;time_word_=w;stage_=5u;}
         return true;
     }
     template<class C>bool time_poll(C& c){
@@ -178,8 +179,26 @@ public:
     template<class C>bool time_entry(C& c,uint32_t pc){
         return stage_==4u&&time_&&common(c)&&c.inst_count==last_&&held()&&time_->entry(c,pc,true)?true:fail(9);
     }
+    // The time return label has already advanced the held device.
+    template<class C>bool start_frontier(C& c,uint32_t pc,uint32_t w,CallbackFrontierExpectation e){
+        if(stage_!=5u||frontier_||!time_||time_->stage()!=5u||!common(c)||!held()||
+           c.inst_count!=last_||pc!=time_resume_||w!=time_word_||e.root!=root_||e.resume!=pc||channel_>=4u)
+            return fail(10);
+        frontier_.emplace(e);
+        if(!frontier_->start(c,pc,w,channel_,true,true)||!frontier_->before(c,pc,w,true))return fail(10);
+        stage_=frontier_->stage()==2u?7u:6u;return true;
+    }
+    template<class C>bool frontier_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=6u||!frontier_||!common(c)||c.inst_count-last_!=1u||
+           !dev_->after_return_at(c.inst_count)||!held()||!frontier_->before(c,pc,w,true))return fail(11);
+        last_=c.inst_count;if(frontier_->stage()==2u)stage_=7u;return true;
+    }
+    unsigned frontier_failure()const{return frontier_?frontier_->failure():0u;}
+    const CallbackFrontierWitness* frontier_witness()const{return frontier_?&*frontier_:nullptr;}
 private:
     std::optional<CallbackTimeWitness> time_;
+    std::optional<CallbackFrontierWitness> frontier_;
+    uint32_t channel_=4u,time_resume_=0,time_word_=0;
     uint32_t root_,context_=0;std::array<uint32_t,N> words_;std::array<uint32_t,2> sites_;
     CallbackPrefixWitness<P,S> prefix_;HandlerSuffixGuard suffix_;
     std::span<const HandlerSuffixLabel> rows_{};const void* cpu_=nullptr;
