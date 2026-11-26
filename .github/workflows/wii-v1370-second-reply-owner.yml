@@ -70,7 +70,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           reqs=(
-              Requirement(45829397189,'a8cc8a6a7c081fa3e6339035ed3d91cc279a5186',
+              Requirement(45830062325,'deb927955f9a5886f17be73223f6d9baeb25c38e',
                           '.github/workflows/wii-v1368-second-scheduler-owner.yml','owner-scheduler'),
               Requirement(45829570012,'7e5052b7350a3c50b8a4e9dfcbe99f6fba0ee6ff',
                           '.github/workflows/wii-v1369-second-dispatch.yml','original-free'),
