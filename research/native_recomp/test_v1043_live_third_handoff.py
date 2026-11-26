@@ -12,14 +12,29 @@ class LiveThird(unittest.TestCase):
                 if h.is_file() and not h.is_symlink():shutil.copyfile(h,root/h.name)
             shutil.copyfile(HOST/'test_success_frontier_mmio_v997.cpp',root/'probe.cpp')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
 inline constexpr std::array<AckCallSpan,5> third_spans{{{0x80004000u,0x80004020u},{0x80004700u,0x80004750u},{0x80004800u,0x80004804u},{0x80004900u,0x80004904u},{0x80004a00u,0x80004a04u}}};
 inline constexpr std::array<AckCallEdge,4> third_edges{{{0x80004014u,0x80004700u},{0x80004700u,0x80004800u},{0x80004704u,0x80004900u},{0x80004708u,0x80004a00u}}};
 }
+#include "wii_handler_suffix_guard_v868.h"
+namespace undercover::wii::v958 {
+inline constexpr std::array<HandlerSuffixLabel,4> third_alarm_suffix{{{0x80004018u,0x60000000u,0,0},{0x8000401cu,0x80830038u,0,0},{0x80004020u,0x90830038u,0,0},{0x80004024u,0x48000addu,5,1}}};
+}
 ''')
+            # Independent synthetic alarm, never copied from the owner image.
+            (root/'v786_private_alarm.h').write_text("""
+#pragma once
+#include "wii_alarm_cancel_return_v782.h"
+namespace undercover::wii::v786 {
+inline constexpr AlarmCancelExpectation expected{
+0x80004024u,0x48000addu,0x80004b00u,0x80004b14u,0,0,0x8000e000u,0x8000e004u,
+{{{0x80004b00u,0x80004c00u,0x80004c08u,0x48000101u},{0x80004b08u,0x80004d00u,0x80004d08u,0x480001f9u}}},{}
+};
+}
+""")
             # These two private MSR sites belong only to the preceding
             # time route; the synthetic third route reuses neither. Use
             # real shared-leaf spans, just as the owner installer does.
@@ -45,4 +60,19 @@ inline constexpr std::array<AckCallEdge,4> third_edges{{{0x80004014u,0x80004700u
                     elif mode in ('core','changed'):
                         self.assertTrue(rows[-1].startswith(b'V1040_TRANSFER_ABI admission=0 '),rows[-1])
                     else:self.assertEqual(rows[-1],b'V1043_LIVE_HANDOFF refused=1 unchanged_device=1 original_execution=0')
+            env['UNDERCOVER_V1048_THIRD_ALARM']='1'
+            for fault in ('','-label','-skip','-frame','-missing','-value','-queue'):
+                with self.subTest(alarm=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'')
+                    self.assertIn(b'V1028_THIRD_RETURN original_transfer=1 token=3 pending=0 visits=21 entries=4 returns=4 reads=1 writes=3 saved_fields=38 handler_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1048_THIRD_ALARM_RETURN original_return=1 queue=1 token=3 lane=0 timer=0 calls=3 visits=9 suffix_visits=4 status_reads=1 status_writes=1 token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=19 stage=5 reason=0 call_reason=0 visits=[0-9]+=='__main__':unittest.main()
+)
+                        self.assertFalse(any(x.startswith(b'V1048_THIRD_ALARM_RETURN') for x in rows))
 if __name__=='__main__':unittest.main()

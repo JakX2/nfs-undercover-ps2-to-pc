@@ -188,7 +188,47 @@ int main(int argc,char** argv){
         c.gpr[3]=1;c.lr=H+24;
         c.mmu.words[v958::transfer_data]=2u;c.mmu.words[v958::transfer_data+8]=3u;
         c.mmu.words[v958::transfer_data+12]=Resp;c.mmu.words[v958::transfer_data+16]=v958::transfer_callback;
-        visit(Root+64,Blr);visit(H+24,Nop);need(false);
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+        const bool alarm_mode=mode.starts_with("error-abi-live-alarm");
+        if(alarm_mode){
+            constexpr uint32_t A=H+0xb00u,D=H+0xc00u,Q=H+0xd00u,Head=0x8000e000u,Tail=Head+4,Node=Head+0x100u;
+            constexpr uint32_t Rd=0x80830038u,Wr=0x90830038u,Site=H+36;
+            c.mmu.words[H+28]=Rd;c.mmu.words[H+32]=Wr;c.mmu.words[Site]=bl(Site,A);c.mmu.words[Site+4]=Nop;
+            c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Nop;c.mmu.words[A+16]=Blr;
+            c.mmu.words[D]=Mtmsr;c.mmu.words[D+4]=Blr;c.mmu.words[Q]=Mtmsr;c.mmu.words[Q+4]=Blr;
+            c.mmu.words[Head]=c.mmu.words[Tail]=0;for(unsigned i=0;i<10;++i)c.mmu.words[Node+4*i]=0;
+            if(mode=="error-abi-live-alarm-label")c.mmu.words[H+32]^=1u;
+        }
+#endif
+        visit(Root+64,Blr);visit(H+24,Nop);
+#ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+        if(alarm_mode){
+            constexpr uint32_t A=H+0xb00u,D=H+0xc00u,Q=H+0xd00u,Head=0x8000e000u,Node=Head+0x100u;
+            constexpr uint32_t Rd=0x80830038u,Wr=0x90830038u,Site=H+36;
+            need(v958::third_alarm_active()&&v958::ack.stage()==5u&&v958::next_device.held_now());
+            c.gpr[3]=Base;
+            if(mode=="error-abi-live-alarm-skip")visit(H+32,Wr);
+            if(mode=="error-abi-live-alarm-frame")c.mmu.words[v958::context+124]^=1u;
+            visit(H+28,Rd);
+            if(mode!="error-abi-live-alarm-missing"){
+                auto status_read=SiBinding::read32(Base+S);need(status_read.has_value());c.gpr[4]=*status_read;
+            }
+            if(mode=="error-abi-live-alarm-value")c.gpr[4]^=1u;
+            visit(H+32,Wr);
+            need(SiBinding::write32(Base+S,c.gpr[4]));
+            c.gpr[3]=Node;visit(Site,bl(Site,A));
+            c.pc=A;c.lr=Site+4;v958::observe(c.pc,c);
+            visit(A,bl(A,D));c.pc=D;c.lr=A+4;v958::observe(c.pc,c);
+            c.gpr[3]=c.msr;visit(D,Mtmsr);c.gpr[3]=0;visit(D+4,Blr);
+            visit(A+4,Nop);visit(A+8,bl(A+8,Q));
+            c.pc=Q;c.lr=A+12;v958::observe(c.pc,c);
+            c.gpr[3]=c.msr;visit(Q,Mtmsr);c.gpr[3]=0;visit(Q+4,Blr);
+            visit(A+12,Nop);c.lr=Site+4;visit(A+16,Blr);
+            if(mode=="error-abi-live-alarm-queue")c.mmu.words[Head]=Node;
+            visit(Site+4,Nop); // production observer owns terminal result
+        }
+#endif
+        need(false);
     }
 #endif
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
