@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v1007*'
+      - 'research/native_recomp/test_third_pending_reentry_v1067.cpp'
+      - 'research/native_recomp/wii_third_pending_reentry_v1067.h'
       - '.github/workflows/wii-v1007-second-rfi.yml'
 permissions:
   contents: read
