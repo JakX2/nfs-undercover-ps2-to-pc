@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $# == 2 ]] || exit 2
+[[ $# == 2 || ( $# == 3 && "$3" == --completion ) ]] || exit 2
 umask 077
 ulimit -c 0
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -16,3 +16,7 @@ python3 "$here/prepare_v1299_reply_return.py" "$d" "$e" "$out" --helper
 python3 "$here/prepare_v1314_save_lane.py" "$d" "$e" "$out"
 python3 "$here/prepare_v1321_combined_resume.py" "$d" "$e" "$out"
 PYTHONPATH="$here" python3 "$here/verify_v1325_combined_preflight.py" "$d" "$e" "$out"
+
+if [[ "${3-}" == --completion ]];then
+  python3 "$here/prepare_v1337_open_completion.py" "$d" "$e" "$out"
+fi
