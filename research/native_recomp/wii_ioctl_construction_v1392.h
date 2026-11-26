@@ -17,6 +17,7 @@ public:
     unsigned request_stores()const{return fence_.heap_stores();}
     unsigned store_failure()const{return fence_.failure();}
     unsigned range_failure()const{return fence_.range_failure();}
+    unsigned base_class()const{return fence_.base_class();}
     unsigned ordinal()const{return ordinal_;}
     unsigned flush_kind()const{return flush_kind_;}
     unsigned wire_failure()const{return wire_error_;}
@@ -38,8 +39,10 @@ public:
            overlap({request,size},{input_,in_size_})||overlap({request,size},{output_,out_size_})||
            c.gpr[1]>=sp0_||sp0_-c.gpr[1]>512u||c.gpr[1]<0x80000200u||!known(c,e_.resume)||
            !direct(c,e_.input_flush)||!direct(c,e_.output_flush)||
-           !fence_.begin(c,{c.gpr[1]-512u,520u},{request,size}))return fail(2);
+           !fence_.begin(c,{c.gpr[1],sp0_-c.gpr[1]},{request,size}))return fail(2);
         heap_=heap;meta_=meta;request_=request;size_=size;sp_=c.gpr[1];
+        // The wrapper owns only its current frame. The caller linkage and
+        // memory below the frame are no longer writable by this lane.
         for(unsigned i=0;i<heap.size;++i)heap_shadow_.push_back(c.mmu.read8(heap.base+i));
         for(unsigned i=0;i<meta.size;++i)metadata_.push_back(c.mmu.read8(meta.base+i));
         last_=c.inst_count;next_=c.pc;stage_=2;return true;

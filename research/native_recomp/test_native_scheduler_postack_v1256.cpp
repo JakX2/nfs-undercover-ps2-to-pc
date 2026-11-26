@@ -396,7 +396,7 @@ static bool ioctl_alloc_held(nw::CPUContext& c){
 [[noreturn]]static void ioctl_build_refuse(unsigned kind){
     std::cout<<"V1392_CONSTRUCTION_REFUSAL kind="<<kind<<" stage="<<ioctl_build->stage()<<" reason="<<ioctl_build->failure()
         <<" visits="<<ioctl_build->visits()<<" stores="<<ioctl_build->stores()<<" request="<<ioctl_build->request_stores()
-        <<" fence="<<ioctl_build->store_failure()<<" range="<<ioctl_build->range_failure()
+        <<" fence="<<ioctl_build->store_failure()<<" range="<<ioctl_build->range_failure()<<" base_class="<<ioctl_build->base_class()
         <<" ordinal="<<ioctl_build->ordinal()<<" wire="<<ioctl_build->wire_failure()<<'\n';
     throw WitnessFailure{};
 }

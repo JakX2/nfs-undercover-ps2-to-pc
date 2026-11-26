@@ -18,12 +18,14 @@ struct Cpu{Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint32_t 
 static void trial(unsigned fault,unsigned first,bool input){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=first==2?0:1;c.gpr[4]=StmIos::EventHook;
     c.gpr[5]=input?O+64:0;c.gpr[6]=input?32:0;c.gpr[7]=O;c.gpr[8]=32;c.gpr[9]=CB;
-    constexpr uint32_t I=U+32,V=U+36;
+    constexpr uint32_t I=U+36,V=U+40;
+    constexpr uint32_t local_store=(36u<<26)|(5u<<21)|(1u<<16)|16u;
     const std::array<unsigned,8> off{0,8,12,16,20,24,28,32};
     const std::array<uint32_t,8> val{StmIos::Ioctl,c.gpr[3],StmIos::EventHook,c.gpr[5]&0x3fffffffu,c.gpr[6],O&0x3fffffffu,32u,CB};
-    std::array<ReplyNativeWord,10> words{};
-    for(unsigned i=0;i<off.size();++i)words[i]={W,U+4*i,st(off[i])};
-    words[8]={W,I,b(I,F)};words[9]={W,V,b(V,F)};
+    std::array<ReplyNativeWord,11> words{};
+    words[0]={W,U,local_store};
+    for(unsigned i=0;i<off.size();++i)words[i+1]={W,U+4*(i+1),st(off[i])};
+    words[9]={W,I,b(I,F)};words[10]={W,V,b(V,F)};
     for(auto w:words)c.mmu.write32(w.pc,w.word);
     c.mmu.write32(F,Nop);
     IoctlConstructionWitness w({W,U,{F,I+4,b(I,F),Nop},{F,V+4,b(V,F),Nop},words});
@@ -31,12 +33,17 @@ static void trial(unsigned fault,unsigned first,bool input){
     c.pc=c.lr=U;c.gpr[1]=SP-64;c.gpr[3]=Q;
     assert(w.begin(c,true,Q,64,{H,256},{M,16}));
     c.gpr[6]=Q;
+    c.gpr[5]=0x12345678u;c.inst_count+=2u;
+    if(fault==9)c.gpr[1]+=64u;
+    bool local_ok=w.before(c,U,local_store,true);
+    if(fault==9){assert(!local_ok);return;}assert(local_ok);
+    c.mmu.write32(c.gpr[1]+16u,c.gpr[5]);
     for(unsigned i=0;i<off.size();++i){
         c.gpr[5]=val[i];if(fault==1&&i==7)c.gpr[5]=0;
         if(fault==2&&i==3)c.gpr[5]^=1;
         if(fault==3&&i==0)c.gpr[6]=H;
-        c.inst_count+=i?1u:2u;
-        bool ok=w.before(c,U+4*i,st(off[i]),true);
+        ++c.inst_count;
+        bool ok=w.before(c,U+4*(i+1),st(off[i]),true);
         if(fault==3&&i==0){assert(!ok);return;}assert(ok);
         c.mmu.write32(Q+off[i],c.gpr[5]);
     }
@@ -52,5 +59,5 @@ static void trial(unsigned fault,unsigned first,bool input){
     ok=w.entry(c,F,true);if(fault==8){assert(!ok);return;}assert(ok);
     assert(w.reached(c,true)&&w.request_stores()==8&&w.flush_kind()==1);
 }
-int main(){for(unsigned first:{1u,2u})for(bool input:{false,true})for(unsigned f=0;f<=8;++f)trial(f,first,input);
-    std::cout<<"V1392_CONSTRUCTION_TEST cases=36 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(bool input:{false,true})for(unsigned f=0;f<=9;++f)trial(f,first,input);
+    std::cout<<"V1392_CONSTRUCTION_TEST cases=40 original_execution=0\n";}
