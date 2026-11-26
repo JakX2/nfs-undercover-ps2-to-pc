@@ -27,7 +27,10 @@ def patch_label(body,pc,w,vector=False,shared=False):
         raise ValueError('held epilogue tick')
     legacy=f'undercover::wii::v922::{"second_before" if vector else "before"}({args});'
     plain='    '+legacy+'\n';gated=f'    if(!{ACK}) '+legacy+'\n'
-    legacy_lines=[s for s in block.splitlines(keepends=True) if 'v922::' in s and ('::before(' in s or '::second_before(' in s or '::second_dispatch_before(' in s)]
+    # Match the owner call, not a v922::active() predicate on an
+    # independent V709 observer. The real shared leaves contain both.
+    legacy_lines=[s for s in block.splitlines(keepends=True) if any(
+        name in s for name in ('v922::before(','v922::second_before(','v922::second_dispatch_before('))]
     if legacy_lines not in ([plain],[gated]) or (vector and legacy_lines!=[plain]) or (shared and legacy_lines!=[gated]):
         raise ValueError('held epilogue legacy')
     old=legacy_lines[0]
@@ -125,7 +128,15 @@ def install(dol,elf,root,host):
     for a in sorted({a for a,_ in labels.values()}):
         p=owner(a);source=changes.get(p,src[p]);body=exact_function(source,a);out=body
         for pc,(rootpc,w) in sorted(labels.items()):
-            if rootpc==a:out=patch_label(out,pc,w,pc in vectors,a in (DISABLE,RESTORE))
+            if rootpc==a:
+                try:out=patch_label(out,pc,w,pc in vectors,a in (DISABLE,RESTORE))
+                except ValueError as e:
+                    # Bounded role/index and hook counts; no original PCs or words.
+                    block=block_at(out,pc,w)
+                    role='vector' if a==VECTOR else 'trampoline' if a==TRAMP else 'disable' if a==DISABLE else 'restore' if a==RESTORE else 'dispatcher' if a==DISPATCH else 'epilogue'
+                    n=sum(block.count(x) for x in ('v922::before(','v922::second_before(','v922::second_dispatch_before('))
+                    print(f'V1244_EPILOGUE_HOOK_REFUSAL role={role} index={(pc-a)//4} legacy={min(n,9)} predicate={min(block.count("v922::active()"),9)} reason={str(e).replace(" ","_") if str(e) in ("held epilogue tick","held epilogue legacy","held epilogue shared","held epilogue block") else "other"}')
+                    raise
         changes[p]=include_once(replace_body(source,body,out),'#include "undercover/wii_second_ack_live_v958.h"')
     changes[private]=old.replace(macro,macro+'#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n',1)
     changes[result]=render()

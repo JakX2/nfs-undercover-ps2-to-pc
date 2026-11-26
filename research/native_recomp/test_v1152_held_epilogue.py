@@ -31,6 +31,23 @@ class HeldEpilogueHooks(unittest.TestCase):
             for bad in (body,shared.replace('false);','true);'),shared.replace(f'if(!{ACK}) ',''),
                         shared+f'    undercover::wii::v922::before({A});\n'):
                 with self.assertRaises(ValueError):patch_label(bad,H,W,False,True)
+    def test_real_shared_leaf_composition(self):
+        # V922 explicitly gates an already-present V709 observer, then
+        # V975 gates V922 and inserts the one admitted V958 hook.
+        for role,root in ((1,DISABLE),(3,RESTORE)):
+            legacy=f'    undercover::wii::v709::before({A},{role}u);\n'
+            body=ep(L+T+SI+legacy,H,W,shared=role)
+            shared=shared_label(body,H,W,root,False)
+            self.assertIn('if(!undercover::wii::v922::active()) undercover::wii::v709::before(',shared)
+            self.assertEqual(patch_label(shared,H,W,False,True),shared)
+            # Also exercise the V1097 suppression wrapper around V709.
+            from prepare_v1097_after_alarm import patch_label as postalarm
+            wrapped=postalarm(shared,H,W)
+            self.assertEqual(patch_label(wrapped,H,W,False,True),wrapped)
+            for bad in (shared.replace('v922::before(', 'v922::wrong('),
+                        shared+f'    undercover::wii::v922::second_dispatch_before({A},false);\n',
+                        shared.replace(f'if(!{ACK}) undercover::wii::v922::before', 'undercover::wii::v922::before')):
+                with self.assertRaises(ValueError):patch_label(bad,H,W,False,True)
     def test_metadata(self):
         h=render()
         self.assertIn('epilogue=v922::expected;',h)
