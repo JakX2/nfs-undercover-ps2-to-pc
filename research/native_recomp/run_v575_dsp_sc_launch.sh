@@ -269,6 +269,9 @@ ack_ipc="${UNDERCOVER_RUN_V1230_ACK_IPC-0}"
 [[ "$ack_ipc" == 0 || "$ack_ipc" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1230_ACK_IPC-0}" == "$ack_ipc" ]] || exit 2
 [[ "$ack_ipc" == 0 || "$ack_leaf" == 1 ]] || exit 2
+private_preflight="${UNDERCOVER_PREPARE_V1232_ONLY-0}"
+[[ "$private_preflight" == 0 || "$private_preflight" == 1 ]] || exit 2
+[[ "$private_preflight" == 0 || ( "$describe" == 1 && "$ack_ipc" == 1 && "$third" == 1 ) ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&

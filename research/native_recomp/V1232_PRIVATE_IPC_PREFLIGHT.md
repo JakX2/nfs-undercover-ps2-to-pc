@@ -1,0 +1,3 @@
+# V1232: authenticate the complete post-ACK route before linking
+
+Keep the existing continuous callback-return owner run independent. The explicit preflight switch requires the complete V1230 IPC predecessor chain, runs the same private original authentication, generated source installation, and CPU-context observer syntax check as the full run, then exits before native linking or execution. The direct launcher rejects this switch outside describe-only validation. No proprietary data is uploaded. The separate owner job validates exact metadata and zero execution. Results pending. No new original execution or boot claimed.

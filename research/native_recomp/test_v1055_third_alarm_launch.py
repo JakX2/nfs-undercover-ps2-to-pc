@@ -768,4 +768,30 @@ class AckIpcLaunch(unittest.TestCase):
             self.assertNotIn('V1230_ACK_IPC_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1230_ACK_IPC=1',p.stdout)
             self.assertIn('V1228_ACK_LEAF_BUILD_PLAN' if build else 'audit=audit_v1228_ack_leaf.py',p.stdout)
+class AckIpcPrivatePreflight(unittest.TestCase):
+    def setUp(self):
+        base=AckIpcLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.prior.copy();self.env=base.env.copy()
+    def test_enabled(self):
+        env=dict(self.env,UNDERCOVER_PREPARE_V1232_ONLY='1')
+        p=self.launch.plan(env,True)
+        self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+        self.assertIn('V1232_PRIVATE_PREFLIGHT_PLAN translation=1 syntax=1 link=0 execution=0',p.stdout)
+        self.assertEqual(self.launch.plan(env,False).returncode,0)
+        import subprocess
+        from test_v1051_third_launch import HERE
+        p=subprocess.run(['bash',str(HERE/'run_v575_dsp_sc_launch.sh'),'missing','missing','missing','irq-si-handler-suffix'],env=env,capture_output=True,timeout=5)
+        self.assertEqual(p.returncode,2,p.stderr+p.stdout)
+    def test_invalid(self):
+        for val in ('','2','true'):
+            env=dict(self.env,UNDERCOVER_PREPARE_V1232_ONLY=val)
+            for build in (False,True):
+                self.assertEqual(self.launch.plan(env,build).returncode,2)
+        env=dict(self.prior,UNDERCOVER_PREPARE_V1232_ONLY='1')
+        for build in (False,True):
+            self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_default(self):
+        p=self.launch.plan(self.env,True)
+        self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+        self.assertNotIn('V1232_PRIVATE_PREFLIGHT_PLAN',p.stdout)
 if __name__=='__main__':unittest.main()

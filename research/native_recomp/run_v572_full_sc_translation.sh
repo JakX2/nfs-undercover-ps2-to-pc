@@ -257,6 +257,9 @@ ack_ipc="${UNDERCOVER_RUN_V1230_ACK_IPC-0}"
 [[ "$ack_ipc" == 0 || "$ack_ipc" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1230_ACK_IPC-0}" == "$ack_ipc" ]] || exit 2
 [[ "$ack_ipc" == 0 || "$ack_leaf" == 1 ]] || exit 2
+private_preflight="${UNDERCOVER_PREPARE_V1232_ONLY-0}"
+[[ "$private_preflight" == 0 || "$private_preflight" == 1 ]] || exit 2
+[[ "$private_preflight" == 0 || ( "$ack_ipc" == 1 && "$third" == 1 && "$requested_mode" == --run-si-handler-suffix ) ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -349,6 +352,9 @@ fi
 if [[ "$matrix" == 1 ]]; then
   lanes=3;[[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" != 1 ]] || lanes=4
   echo "V1018_BUILD_PLAN links=1 isolated_launches=$lanes callback_time_installed=1"
+fi
+if [[ "$private_preflight" == 1 ]]; then
+  echo 'V1232_PRIVATE_PREFLIGHT_PLAN translation=1 syntax=1 link=0 execution=0'
 fi
 if [[ "$describe" == 1 ]]; then exit 0;fi
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
@@ -653,6 +659,11 @@ if [[ "$mode" == --prepare-report || "$mode" == --prepare-report-observer || "$m
 fi
 if [[ "$mode" == --prepare-mi || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
   python3 "$here/audit_v584_bat_translation.py" "$dol" "$work/generated"
+fi
+
+if [[ "$private_preflight" == 1 ]]; then
+  echo 'V1232_PRIVATE_PREFLIGHT verified=1 translation=1 syntax=1 link=0 execution=0 boot_verified=0'
+  exit 0
 fi
 
 if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --run-report || "$mode" == --run-arena || "$mode" == --run-irq-enable || "$mode" == --run-ipc-client || "$mode" == --run-stm-open ]]; then
