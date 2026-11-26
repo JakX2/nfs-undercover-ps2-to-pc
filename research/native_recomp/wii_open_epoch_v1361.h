@@ -24,6 +24,18 @@ public:
                 if(NativeIosBinding::is_open(fd,d))return false;
         return true;
     }
+    bool acknowledged_descriptors(unsigned kind)const{
+        using D=StmIos::Device;
+        if(!admits(kind))return false;
+        const auto next=kind==1u?D::Immediate:D::Event;
+        if(!second())return NativeIosBinding::is_open(0u,next);
+        if(!NativeIosBinding::is_open(0u,first_kind_==1u?D::Immediate:D::Event)||
+           !NativeIosBinding::is_open(1u,next))return false;
+        for(unsigned fd=2;fd<StmIos::DescriptorCount;++fd)
+            for(auto d:{D::Immediate,D::Event,D::Fs,D::File,D::Es})
+                if(NativeIosBinding::is_open(fd,d))return false;
+        return true;
+    }
     bool quiet(const ColdIpcSnapshot& s)const{
         using M=IpcMailbox;using H=HollywoodIrq;
         return valid()&&descriptor_held()&&!s.queued&&!s.replies&&!s.event&&s.steps==steps()&&

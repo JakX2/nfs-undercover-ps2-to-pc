@@ -11,8 +11,8 @@ public:
     static constexpr uint32_t Submit=OpenRequestWitness::Submit,
         Convert=0x805293b0u,Queue=0x8051afe0u,Read=0x8051905cu,
         Write=0x8051906cu,Sleep=0x8052a430u;
-    PostAckSubmitJoin(std::span<const VectorEdge> edges,const std::array<uint8_t,28>& vector)
-        :edges_(edges),sc_(vector,OpenScRoute::SubmitCaller){}
+    PostAckSubmitJoin(std::span<const VectorEdge> edges,const std::array<uint8_t,28>& vector,unsigned first_kind=0)
+        :edges_(edges),sc_(vector,OpenScRoute::SubmitCaller,first_kind),epoch_(first_kind){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned writes()const{return writes_;}
@@ -31,7 +31,7 @@ public:
     uint32_t request()const{return req_;}
     template<class C>bool begin(C& c,const PostAckOpenJoin& open,bool device_ok){
         const auto s=NativeIosBinding::cold_snapshot();
-        if(stage_||error_||!device_ok||!open.submit_at(c,true)||!s||!idle(*s))return fail(1);
+        if(stage_||error_||!device_ok||!open.submit_at(c,true)||!s||!epoch_.admits(open.path_kind())||!idle(*s))return fail(1);
         req_=open.request();kind_=open.path_kind();
         if((req_&31u)||!mapped(c,req_,64u))return fail(1);
         path_=c.mmu.read32(req_+12u);
@@ -69,7 +69,9 @@ public:
         if(pc==OpenRequestWitness::Flush&&stage_==2u&&c.lr==R::SubmitCaller&&(c.msr&0x8000u)){
             const uint32_t a=c.gpr[3]&0x3fffffffu,n=c.gpr[4],r=req_&0x3fffffffu;
             if(n<32u||n>0x1000u||a>r||uint64_t(a)+n<uint64_t(r)+32u)return fail(3);
-            c.open_cache_range=OpenCacheRangeTrace{};
+            if(epoch_.second()){
+                if(!c.open_cache_range.rearm(c))return fail(3);
+            }else c.open_cache_range=OpenCacheRangeTrace{};
             if(!c.open_cache_range.begin(c,c.gpr[3],n))return fail(3);
             stage_=3;return true;
         }
@@ -116,24 +118,24 @@ public:
            c.inst_count!=sleep_tick_||(c.msr&0x8000u)||!valid_request(c))return fail(5);
         const auto ack=NativeIosBinding::service_at_guest_boundary(c.msr);
         auto after=NativeIosBinding::cold_snapshot();
-        const auto device=kind_==1u?S::Device::Immediate:S::Device::Event;
         if(!ack||ack->progress!=S::Pump::Ack||!ack->broadway_irq_level||ack->guest_exception_ready||
            !after||after->queued||after->event||after->steps!=initial_.steps+1u||after->replies!=1u||
            after->ppc!=before->ppc||after->arm!=before->arm||after->irq_mask!=before->irq_mask||
            after->pi_mask!=before->pi_mask||after->control!=((sent_control_&~M::X1)|M::Y2)||
            after->flags!=(before->flags|H::IPC_PPC)||after->pi_cause!=(before->pi_cause|H::PI_HOLLYWOOD)||
-           !NativeIosBinding::is_open(0u,device)||!valid_request(c))return fail(5);
+           !epoch_.acknowledged_descriptors(kind_)||!valid_request(c))return fail(5);
         ack_=*after;stage_=9;return true;
     }
     template<class C>bool ack_at(C& c,bool device_ok)const{
         auto s=NativeIosBinding::cold_snapshot();
-        return stage_==9u&&!error_&&context(c,device_ok)&&s&&same(*s,ack_)&&
+        return stage_==9u&&!error_&&context(c,device_ok)&&s&&same(*s,ack_)&&epoch_.acknowledged_descriptors(kind_)&&
             c.pc==Sleep&&c.lr==sleep_lr_&&c.gpr[1]==sleep_sp_&&c.gpr[3]==sleep_queue_&&
             c.inst_count==sleep_tick_&&!(c.msr&0x8000u)&&valid_request(c);
     }
 private:
     std::span<const VectorEdge> edges_;
     OpenScRoute sc_;
+    OpenTransactionEpoch epoch_;
     const void* cpu_=nullptr;ColdIpcSnapshot initial_{},ack_{};
     unsigned stage_=0,error_=0,writes_=0,kind_=0,write_error_=0;
     uint32_t sent_control_=0;
@@ -146,9 +148,9 @@ private:
         return cpu_==&c&&device_ok&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
             c.inst_count>=tick_&&c.inst_count-tick_<=200000u;
     }
-    static bool idle(const ColdIpcSnapshot& s){
+    bool idle(const ColdIpcSnapshot& s)const{
         using M=IpcMailbox;using H=HollywoodIrq;
-        return !s.queued&&!s.replies&&!s.event&&!s.steps&&!(s.control&(M::X1|M::Y1|M::Y2))&&
+        return epoch_.valid()&&epoch_.descriptor_held()&&!s.queued&&!s.replies&&!s.event&&s.steps==epoch_.steps()&&!(s.control&(M::X1|M::Y1|M::Y2))&&
             (s.control&M::IY2)&&s.irq_mask==H::IPC_PPC&&!(s.flags&H::IPC_PPC)&&
             (s.pi_mask&H::PI_HOLLYWOOD)&&!(s.pi_cause&s.pi_mask);
     }
@@ -161,7 +163,7 @@ private:
         auto e=initial_;
         if(n)e.ppc=req_&0x3fffffffu;
         if(n==2u){e.control=sent_control_;e.queued=true;}
-        return same(s,e);
+        return epoch_.descriptor_held()&&same(s,e);
     }
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
         const auto end=uint64_t(a)+n;
