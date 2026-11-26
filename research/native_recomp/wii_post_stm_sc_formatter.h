@@ -1,11 +1,13 @@
 #pragma once
 #include "wii_post_stm_sc_report_helper.h"
 #include <bit>
+#include <optional>
 namespace undercover::wii {
 struct ScFormatterAccess {
     uint32_t pc,width;
     int64_t address; // caller-relative for stack sites; absolute otherwise
     bool stack,write;
+    std::optional<uint32_t> expected_value{}; // independently authenticated raw load value
 };
 struct ScFormatterBoundary {uint32_t address=0,width=0;};
 struct ScFormatterExpectation {
@@ -28,7 +30,7 @@ public:
         if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.root||c.lr!=e_.entry_lr||
            e_.frame_size<32u||e_.frame_size>704u||(e_.frame_size&7u)||(c.gpr[1]&7u)||
            c.gpr[1]<0x80000000u+e_.frame_size||e_.path.empty()||e_.path.size()>64u||
-           e_.accesses.size()>8u||e_.slots.empty()||e_.slots.size()>19u||
+           e_.accesses.size()>(e_.boundary.width?24u:8u)||e_.slots.empty()||e_.slots.size()>19u||
            e_.path.front().pc!=e_.root||!word(c,e_.target,e_.target_word))return fail(1);
         frame_={c.gpr[1]-e_.frame_size,e_.frame_size+8u};
         if(!mapped(c,frame_))return fail(1);
@@ -48,6 +50,7 @@ public:
                std::any_of(e_.path.begin(),e_.path.end(),[&](auto x){return x.pc==e_.target;}))return fail(1);
         }
         for(auto a:e_.accesses)if(!a.width||a.width>128u||(a.write&&!a.stack)||
+            (a.expected_value&&(a.write||(a.width!=1u&&a.width!=2u&&a.width!=4u)))||
             std::count_if(e_.path.begin(),e_.path.end(),[&](auto x){return x.pc==a.pc;})!=1||
             std::count_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==a.pc;})!=1)return fail(1);
         for(unsigned i=0;i<frame_.size;++i)shadow_.push_back(c.mmu.read8(frame_.base+i));
@@ -100,6 +103,8 @@ public:
             const unsigned n=op<=33u?4u:op<=35u?1u:2u;
             if(rs==1u||!access(pc,ea,n,false)||!mapped(c,{ea,n})||(ea%n))return fail(5);
             uint32_t v=0;for(unsigned i=0;i<n;++i)v=(v<<8)|c.mmu.read8(ea+i);
+            const auto site=std::find_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==pc;});
+            if(site->expected_value&&v!=*site->expected_value)return fail(5);
             gp_[rs]=op>=42u&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
             if(op&1u){if(!ra||ra==rs||ra==1u)return fail(5);gp_[ra]=ea;}
         }else if(op==31u&&xo==339u&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
@@ -168,8 +173,22 @@ public:
     // A frameless descendant may change volatile registers but must not
     // alter any byte of this completed formatter prologue frame.
     template<class C>bool frame_held(C& c,bool held)const{
-        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||!mapped(c,frame_))return false;
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=frame_.base||
+           c.inst_count<last_||c.inst_count-last_>128u||!mapped(c,frame_))return false;
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
+        return true;
+    }
+    // One bounded 48-byte nested frame may use the ABI's linkage word.
+    // The child's own shadow supplies the expected current linkage value.
+    template<class C>bool child_frame_held(C& c,bool held,uint32_t child_sp,uint32_t child_link)const{
+        if(stage_!=2u||!due_||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
+           (child_sp!=frame_.base&&child_sp!=frame_.base-48u)||c.inst_count<last_||
+           c.inst_count-last_>128u||!mapped(c,frame_))return false;
+        for(unsigned i=0;i<shadow_.size();++i){
+            if(i>=4u&&i<8u&&written_[i])return false;
+            const auto v=(i>=4u&&i<8u)?uint8_t(child_link>>(24u-8u*(i-4u))):shadow_[i];
+            if(c.mmu.read8(frame_.base+i)!=v)return false;
+        }
         return true;
     }
 private:

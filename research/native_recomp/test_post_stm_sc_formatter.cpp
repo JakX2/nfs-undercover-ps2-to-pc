@@ -59,7 +59,16 @@ static void trial(unsigned fault){
     assert(ok&&w.reached(c,true)&&w.visits()==9&&w.stores()==4&&w.loads()==1&&w.linkage_word()==L);
     assert(c.gpr[31]==incoming[31]&&c.mmu.read32(Sp-4)==incoming[31]);
     c.gpr[3]^=0x100u;assert(w.frame_held(c,true)&&!w.reached(c,true));
-    assert(!w.frame_held(c,false));c.mmu.write32(Sp-16,0);assert(!w.frame_held(c,true));
+    assert(!w.frame_held(c,false));
+    const auto parent=c.gpr[1];c.gpr[1]=parent-48;
+    assert(!w.frame_held(c,true));
+    const auto link=R+36;c.mmu.write32(parent+4,link);
+    assert(w.child_frame_held(c,true,c.gpr[1],link));
+    assert(!w.child_frame_held(c,true,c.gpr[1],link+4));
+    assert(!w.child_frame_held(c,false,c.gpr[1],link));
+    c.gpr[1]-=8;assert(!w.child_frame_held(c,true,c.gpr[1],link));c.gpr[1]+=8;
+    c.mmu.write32(Sp-16,0);assert(!w.child_frame_held(c,true,c.gpr[1],link));
+    c.gpr[1]=parent;assert(!w.frame_held(c,true));
 }
 static void backward(unsigned fault,bool taken){
     Cpu c;c.gpr[1]=Sp;c.ctr=taken?2u:1u;

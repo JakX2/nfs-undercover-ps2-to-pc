@@ -48,4 +48,37 @@ static void trial(unsigned fault){
     assert(w.visits()==4&&w.stores()==3&&w.loads()==0&&c.gpr[4]==0&&c.mmu.data_reads==0);
     ++c.inst_count;assert(!w.reached_load_boundary(c,true));
 }
-int main(){for(unsigned i=0;i<=8;++i)trial(i);std::cout<<"FORMATTER_BOUNDARY_TEST cases=9 original_execution=0\n";}
+static void many_accesses(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[5]=0x55;c.mmu.write32(A+8,0x12345678);
+    std::vector<IpcDispatchWord> path{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},{R,R+8,ins(36,0,1,52)}};
+    std::vector<ScFormatterAccess> access{{R,4,-48,true,true},{R+8,4,4,true,true}};
+    for(unsigned i=0;i<10;++i){
+        const auto pc=R+12+i*4;path.push_back({R,pc,ins(38,5,1,8+i)});
+        access.push_back({pc,1,int64_t(i)-40,true,true});
+    }
+    const auto rd=R+52,target=R+56;
+    path.push_back({R,rd,ins(32,6,3,8)});
+    access.push_back({rd,4,A+8,false,false,fault==1?0u:0x12345678u});
+    if(fault==2)access.back().write=true;
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    const auto load=ins(32,4,3,0);c.mmu.write32(target,load);
+    const std::array<StmFinalSlot,1> slots{{{4,32}}};
+    ScFormatterWitness w({R,L,target,load,48,path,access,slots,{A,4}});
+    const bool started=w.begin(c,true);
+    if(fault==2){assert(!started);return;}assert(started);
+    assert(w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        ++c.inst_count;const bool ok=w.before(c,x.pc,x.word,true);
+        if(fault==1&&x.pc==rd){assert(!ok);return;}assert(ok);
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else if(x.pc==rd)c.gpr[6]=0x12345678;
+        else *c.mmu.get_ptr(SP-40+(x.pc-R-12)/4)=0x55;
+    }
+    ++c.inst_count;
+    assert(w.stop_before_load(c,target,load,true)&&w.reached_load_boundary(c,true));
+    assert(w.loads()==1&&w.stores()==12&&c.mmu.data_reads==0);
+}
+int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=2;++i)many_accesses(i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=12 original_execution=0\n";}
