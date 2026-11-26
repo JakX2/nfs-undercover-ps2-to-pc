@@ -24,7 +24,7 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_third_ack_v1167.h',root/'v1167_private_third_ack.h')
             shutil.copyfile(HOST/'synthetic_ack_helper_v1175.h',root/'v1175_private_ack_helper.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
@@ -89,7 +89,9 @@ inline const IpcClientExpectations expected_client=[]{
     IpcClientExpectations e{};
     if(v1227::ipc_fixture()){
         e.edges[0]={IpcClientWitness::Root,IpcClientWitness::Return,v1227::ipc_bl,0x60000000u};
-        e.handler=0x80519094u;e.handler_word=0x1234u;
+        // Remaining edges are independently chosen synthetic locations.
+        for(unsigned i=1;i<17;++i)e.edges[i]={0x80540000u+16u*i,0x80550004u+16u*i,0x48000001u,0x60000000u};
+        e.handler=0x80519094u;e.handler_word=0x1234u;e.return_word=0x60000000u;
     }
     return e;
 }();
@@ -465,4 +467,19 @@ inline const IpcEntryJoinExpectation expected=v1227::ipc_fixture()?
             self.assertEqual(got.returncode,0,got.stdout+got.stderr)
             self.assertEqual(got.stderr,b'')
             self.assertEqual(got.stdout.splitlines()[-1],b'V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0')
+            env['UNDERCOVER_V1235_ACK_IPC_COMPLETE']='1'
+            mode='error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback-prefix-time-frontier-wireless-suffix-return-handler-return-final-resume-leaf-ipc-valid'
+            for fault in ('','-ipc-pending','-ipc-si','-ipc-heap','-ipc-mask','-ipc-missing-control'):
+                with self.subTest(ipc_complete=fault):
+                    got=subprocess.run([str(exe),mode+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-18:-1],[f'V1235_ACK_IPC_STAGE n={n}'.encode() for n in range(3,20)])
+                        self.assertEqual(rows[-1],b'V1235_ACK_IPC_RETURN calls=17 heap=1 handler=1 mailbox=1 returned=1 token=3 si_quiescent=1 queued=0 serviced=0 actual_ios=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertTrue(rows[-1].startswith(b'V1235_ACK_IPC_INVALID '),rows[-1])
 if __name__=='__main__':unittest.main()

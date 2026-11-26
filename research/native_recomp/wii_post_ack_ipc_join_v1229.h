@@ -33,6 +33,17 @@ public:
            !join_.entry(c,pc,true)||!cold_.observe(pc,c)||cold_.stage()!=2u)return fail(3);
         stage_=3;return true;
     }
+    // Boundary checks are pure; do not service IOS or consume a call entry.
+    template<class C>bool boundary(C& c,bool device_ok)const{
+        const auto snap=NativeIosBinding::cold_snapshot();
+        using M=IpcMailbox;
+        return (stage_==3u||stage_==4u)&&!error_&&cpu_==&c&&device_ok&&
+            c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
+            c.inst_count>=tick_+1u&&c.inst_count-tick_<=2000000u&&snap&&
+            !snap->queued&&!snap->replies&&!snap->event&&!snap->steps&&
+            !(snap->control&(M::X1|M::Y1|M::Y2))&&
+            !(snap->flags&HollywoodIrq::IPC_PPC)&&!(snap->pi_cause&snap->pi_mask);
+    }
     // The direct callee entry is already consumed. Never replay it or
     // restart the heap witness. Later original call entries advance the
     // same V623 witness, and the final caller return is its terminal seam.

@@ -81,7 +81,7 @@ int main(int argc,char** argv){
     for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u;
     uint32_t fixture_stack=0x8000b000u;
 #ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
-    const bool ipc_fixture=mode.ends_with("-ipc-valid");
+    const bool ipc_fixture=mode.find("-ipc-valid")!=std::string_view::npos;
     std::unique_ptr<NativeIosTransport> ipc_transport;
     std::unique_ptr<NativeIosBinding> ipc_binding;
     if(ipc_fixture){
@@ -1054,6 +1054,10 @@ int main(int argc,char** argv){
                                                                                                             if(ipc_fixture){
                                                                                                                 using W=IpcClientWitness;
                                                                                                                 constexpr uint32_t Heap=0x93380000u,Hi=0x93400000u;
+                                                                                                                for(const auto e:v624::expected_client.edges){
+                                                                                                                    c.mmu.words[e.pc]=e.entry_word;c.mmu.words[e.lr-4u]=e.branch_word;
+                                                                                                                }
+                                                                                                                c.mmu.words[W::Return]=v624::expected_client.return_word;
                                                                                                                 c.mmu.words[W::Root]=Nop;
                                                                                                                 c.mmu.words[v624::expected_client.handler]=v624::expected_client.handler_word;
                                                                                                                 c.mmu.words[W::Lo]=Heap;c.mmu.words[W::Hi]=Hi;
@@ -1071,6 +1075,39 @@ int main(int argc,char** argv){
                                                                                                                 need(v958::ack_ipc.stage()==2u);
                                                                                                                 c.pc=IpcClientWitness::Root;c.lr=IpcClientWitness::Return;
                                                                                                                 v958::observe(c.pc,c);
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+                                                                                                                using W=IpcClientWitness;using I=NativeIosBinding;using Hq=HollywoodIrq;using M=IpcMailbox;
+                                                                                                                constexpr uint32_t Heap=0x93380000u;
+                                                                                                                need(v958::ack_ipc.stage()==3u);
+                                                                                                                if(mode.ends_with("-ipc-pending"))cause.fetch_or(SI);
+                                                                                                                if(mode.ends_with("-ipc-si"))ctl.write(SiController::Buffer,0xfeedu);
+                                                                                                                need(!v958::poll(c));
+                                                                                                                for(unsigned i=1;i<17;++i){
+                                                                                                                    const auto e=v624::expected_client.edges[i];
+                                                                                                                    scheduler.advance(++tick);c.pc=e.pc;c.lr=e.lr;
+                                                                                                                    c.msr=(i==8||i==13||i==14)?0x32u:0x8032u;
+                                                                                                                    if(i==5)c.gpr[3]=Heap;
+                                                                                                                    if(i==6){c.gpr[3]=Heap;c.gpr[4]=64;}
+                                                                                                                    if(i==8||i==14)c.gpr[3]=1;
+                                                                                                                    if(i==9){c.gpr[3]=Heap+64;c.mmu.words[Heap]=0x12345678u;if(mode.ends_with("-ipc-heap"))c.mmu.words[Heap+64]=1;}
+                                                                                                                    if(i==10){c.gpr[3]=27;c.gpr[4]=v624::expected_client.handler;}
+                                                                                                                    if(i==11){c.gpr[3]=0x10;c.mmu.words[W::Table+108u]=v624::expected_client.handler;}
+                                                                                                                    if(i==13)c.gpr[3]=0x10;
+                                                                                                                    if(i==15){
+                                                                                                                        mask.fetch_or(Hq::PI_HOLLYWOOD);
+                                                                                                                        if(mode.ends_with("-ipc-mask"))mask.fetch_and(~SI);
+                                                                                                                        c.mmu.words[W::MaskA]=0xf7fff7e0u;
+                                                                                                                        need(I::write32(IosBus::IPC+Hq::PPC_MASK,Hq::IPC_PPC));
+                                                                                                                        c.gpr[3]=1;c.gpr[4]=0x36;
+                                                                                                                    }
+                                                                                                                    if(i==16&&!mode.ends_with("-ipc-missing-control"))need(I::write32(IosBus::IPC+M::PPCCTRL,0x36));
+                                                                                                                    v958::observe(c.pc,c);
+                                                                                                                    visit(e.pc,e.entry_word);
+                                                                                                                    need(!v958::poll(c));
+                                                                                                                }
+                                                                                                                scheduler.advance(++tick);c.pc=c.lr=W::Return;c.gpr[3]=0;c.msr=0x8032u;
+                                                                                                                v958::observe(c.pc,c);
+#endif
                                                                                                             }
 #endif
                                                                                                         }

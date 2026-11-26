@@ -103,12 +103,22 @@ inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_T
 inline bool ack_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1193_ACK_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1197_ACK_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_suffix_enabled(){const char* v=std::getenv("UNDERCOVER_V1201_ACK_SUFFIX");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_ipc_complete_enabled(){const char* v=std::getenv("UNDERCOVER_V1235_ACK_IPC_COMPLETE");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_ipc_enabled(){const char* v=std::getenv("UNDERCOVER_V1230_ACK_IPC");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_leaf_enabled(){const char* v=std::getenv("UNDERCOVER_V1227_ACK_LEAF");return v&&v[0]=='1'&&v[1]==0;}
 #ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
 inline thread_local IrqLeafFinishWitness ack_leaf(v1227::expected);
 #ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
 inline thread_local PostAckIpcJoin ack_ipc(v624::expected_client,v1230::expected);
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+inline bool ack_ipc_continuing(){return ack_ipc_complete_enabled()&&(ack_ipc.stage()==3u||ack_ipc.stage()==4u);}
+[[noreturn]]inline void reject_ack_ipc_complete(unsigned kind){
+    std::cout<<std::dec<<"V1235_ACK_IPC_INVALID kind="<<kind<<" stage="<<ack_ipc.stage()
+             <<" client="<<ack_ipc.client_stage()<<" reason="<<ack_ipc.failure()
+             <<" cold="<<ack_ipc.cold_failure()<<std::endl;std::_Exit(126);
+}
+template<class C>bool ack_ipc_device(C& c);
+#endif
 [[noreturn]]inline void reject_ack_ipc(){
     std::cout<<std::dec<<"V1230_ACK_IPC_INVALID stage="<<ack_ipc.stage()<<" reason="<<ack_ipc.failure()
              <<" cold="<<ack_ipc.cold_failure()<<" refusal="<<ack_ipc.cold_refusal()
@@ -503,6 +513,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_resume_enabled()&&!ack_final_enabled())return false;
     if(ack_leaf_enabled()&&!ack_resume_enabled())return false;
     if(ack_ipc_enabled()&&!ack_leaf_enabled())return false;
+    if(ack_ipc_complete_enabled()&&!ack_ipc_enabled())return false;
+#ifndef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+    if(ack_ipc_complete_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1230_PRIVATE_ACK_IPC
     if(ack_ipc_enabled())return false;
 #endif
@@ -631,8 +645,23 @@ template<class C>void finish_ack_suffix(C& c,uint32_t pc,uint32_t w){
     std::_Exit(0);
 }
 #endif
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+template<class C>bool ack_ipc_device(C& c){
+    return held_epilogue.stage()==35u&&ack.stage()==5u&&next_device.stage()==3u&&
+           !second_dispatch_mmio&&held_epilogue.completion_ack().token()==3u&&
+           held_epilogue.completion_ack().postack_device_quiescent(c.inst_count);
+}
+#endif
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+    // Shared OS leaves still execute their original translated instructions.
+    // Their old IRQ-route hooks must not reenter the retired frame proof.
+    if(ack_ipc_continuing()){
+        if(guard||!ack_ipc.boundary(c,ack_ipc_device(c)))reject_ack_ipc_complete(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
@@ -1112,6 +1141,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+    if(ack_ipc_continuing()){
+        if(!ack_ipc.boundary(c,ack_ipc_device(c)))reject_ack_ipc_complete(2);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
         using Poll=HeldPendingEpilogueWitness::PollResult;
@@ -1238,6 +1273,17 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+    if(ack_ipc_continuing()){
+        if(!ack_ipc.continuation(c,pc,ack_ipc_device(c)))reject_ack_ipc_complete(3);
+        std::cout<<std::dec<<"V1235_ACK_IPC_STAGE n="<<ack_ipc.client_stage()<<std::endl;
+        if(ack_ipc.stage()==5u){
+            std::cout<<"V1235_ACK_IPC_RETURN calls=17 heap=1 handler=1 mailbox=1 returned=1 token=3 si_quiescent=1 queued=0 serviced=0 actual_ios=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
@@ -1295,6 +1341,12 @@ template<class C>void observe(uint32_t pc,C& c){
                ack.stage()!=5u||next_device.stage()!=3u)reject_held_epilogue();
             if(!ack_ipc.target_entry(c,pc,true))reject_ack_ipc();
             std::cout<<"V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE
+            if(ack_ipc_complete_enabled()){
+                if(!ack_ipc.boundary(c,ack_ipc_device(c)))reject_ack_ipc_complete(1);
+                return;
+            }
+#endif
             std::_Exit(0);
         }
 #endif

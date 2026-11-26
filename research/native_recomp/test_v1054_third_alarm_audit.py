@@ -496,4 +496,17 @@ class AckIpcAudit(unittest.TestCase):
             for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.prior_resume.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.prior_leaf.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=34 reason=38 epilogue=0 reentry=56',c.RESULT)):
                 self.assertFalse(inspect(*rows))
             self.assertFalse(inspect(*prior,c.RESULT,rc=126))
+class AckIpcCompleteAudit(unittest.TestCase):
+    def test_exact_chain(self):
+        import audit_v1235_ack_ipc_complete as c
+        with patch.object(c.prior_ipc,'inspect',return_value=('verified=1',True)) as prior:
+            prefix=b'\n'.join((b'private',c.prior_ipc.RESULT))
+            def inspect(*rows,rc=0):return c.inspect(prefix+b'\n'+b'\n'.join(rows),rc)[1]
+            self.assertTrue(inspect(*c.STAGES,c.RESULT))
+            prior.assert_called_once_with(prefix,0)
+            for rows in ((*c.STAGES[:-1],c.RESULT),(*c.STAGES,c.RESULT,c.RESULT),(c.STAGES[1],c.STAGES[0],*c.STAGES[2:],c.RESULT),(*c.STAGES,b'V1235_ACK_IPC_INVALID kind=3 stage=4 client=18 reason=4 cold=7',c.RESULT),(*c.STAGES,c.prior_ipc.RESULT,c.RESULT)):
+                self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*c.STAGES,c.RESULT,rc=126))
+        with patch.object(c.prior_ipc,'inspect',return_value=('verified=0',False)):
+            self.assertFalse(inspect(*c.STAGES,c.RESULT))
 if __name__=='__main__':unittest.main()

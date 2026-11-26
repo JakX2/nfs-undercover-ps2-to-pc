@@ -257,6 +257,10 @@ ack_ipc="${UNDERCOVER_RUN_V1230_ACK_IPC-0}"
 [[ "$ack_ipc" == 0 || "$ack_ipc" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1230_ACK_IPC-0}" == "$ack_ipc" ]] || exit 2
 [[ "$ack_ipc" == 0 || "$ack_leaf" == 1 ]] || exit 2
+ipc_complete="${UNDERCOVER_RUN_V1235_ACK_IPC_COMPLETE-0}"
+[[ "$ipc_complete" == 0 || "$ipc_complete" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1235_ACK_IPC_COMPLETE-0}" == "$ipc_complete" ]] || exit 2
+[[ "$ipc_complete" == 0 || "$ack_ipc" == 1 ]] || exit 2
 private_preflight="${UNDERCOVER_PREPARE_V1232_ONLY-0}"
 [[ "$private_preflight" == 0 || "$private_preflight" == 1 ]] || exit 2
 [[ "$private_preflight" == 0 || ( "$ack_ipc" == 1 && "$third" == 1 && "$requested_mode" == --run-si-handler-suffix ) ]] || exit 2
@@ -325,6 +329,7 @@ if [[ "$third_postalarm" == 1 ]]; then
                                               if [[ "$ack_leaf" == 1 ]]; then
                                                 echo 'V1228_ACK_LEAF_BUILD_PLAN links=1 private_installer=1 resume_predecessor=1'
                                                 if [[ "$ack_ipc" == 1 ]]; then echo 'V1230_ACK_IPC_BUILD_PLAN links=1 private_installer=1 leaf_predecessor=1'; fi
+                                                if [[ "$ipc_complete" == 1 ]]; then echo 'V1235_ACK_IPC_COMPLETE_BUILD_PLAN links=1 private_installer=1 ipc_predecessor=1'; fi
                                               fi
                                             fi
                                           fi
@@ -530,6 +535,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                                     if [[ "$ack_resumed" == 1 ]]; then callback_args+=(--resumed); fi
                                                                     if [[ "$ack_leaf" == 1 ]]; then callback_args+=(--leaf); fi
                                                                     if [[ "$ack_ipc" == 1 ]]; then callback_args+=(--ipc); fi
+                                                                    if [[ "$ipc_complete" == 1 ]]; then callback_args+=(--ipc-complete); fi
                                                                     python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi

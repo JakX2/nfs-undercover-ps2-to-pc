@@ -24,7 +24,7 @@ from prepare_v1124_postalarm_suffix import render as suffix_render
 from prepare_v1134_postalarm_return import derive as return_derive,render as return_render
 from prepare_v726_handler_return import verify_resume_dispatch
 from prepare_owner_scheduler_v722 import reachable as callback_reachable
-from prepare_v625_ipc_client import audit_native
+from prepare_v625_ipc_client import audit_native,patch_return as patch_ipc_return
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
 from prepare_v789_alarm_suffix import expectations as callback_expectations
@@ -40,7 +40,7 @@ from prepare_v767_live_epilogue import geometry as final_geometry,ENTRY
 from prepare_v1029_third_transfer import replace_body,include_once
 from prepare_v928_leaf_finish import plan as leaf_plan,RETURN
 from prepare_v922_irq_return import patch_label as legacy_leaf_patch
-from make_v624_ipc_geometry import geometry as ipc_geometry,render as ipc_render,CALL as IPC_CALL,ROOT as IPC_ROOT,SPANS as IPC_SPANS
+from make_v624_ipc_geometry import geometry as ipc_geometry,render as ipc_render,CALL as IPC_CALL,ROOT as IPC_ROOT,SPANS as IPC_SPANS,RETURN as IPC_RETURN
 from audit_handler_third_v740 import edge as handler_edge
 
 def compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected):
@@ -558,7 +558,27 @@ def prepare_ipc_native(dol,elf,src,outer,leaf_meta,dest,host,old):
         if not path.exists():files[path]=data
     return files
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False,leaf=False,ipc=False):
+def prepare_ipc_complete_native(dol,elf,src,outer,leaf_meta,edits):
+    _,_,caller,_=leaf_meta
+    rows,_,_,ret=ipc_geometry(dol,elf)
+    expected={pc+4*i:(pc,w) for pc,n in IPC_SPANS for i,w in enumerate(exact(dol,elf,pc,n//4))}
+    expected[IPC_RETURN]=(caller,ret)
+    if audit_native(src.values(),outer,expected)!=len(expected):raise ValueError('ACK IPC complete coverage')
+    targets={r[0] for r in rows}
+    if any(sum(entry_count(t,pc) for t in src.values())!=1 for pc in targets):raise ValueError('ACK IPC complete entry')
+    # All seventeen direct edges must remain native, including shared OS leaves.
+    for target,lr,_,_ in rows:
+        site=lr-4
+        hits=[t for t in src.values() if re.search(r'(?mi)^loc_'+f'{site:X}'+r': ;$',t)]
+        if len(hits)!=1:raise ValueError('ACK IPC complete edge')
+        verify_direct(hits[0],site,target)
+    hits=[p for p,t in src.items() if owns_root(t,caller)]
+    if len(hits)!=1:raise ValueError('ACK IPC complete owner')
+    p=hits[0];s=edits.get(p,src[p]);body=exact_function(s,caller)
+    new=patch_ipc_return(body,ret,IPC_RETURN)
+    return {**edits,p:replace_body(s,body,new)}
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False,leaf=False,ipc=False,ipc_complete=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
     if frontier and not time:raise ValueError('ACK frontier mode')
@@ -571,6 +591,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if resumed and not final:raise ValueError('ACK resume mode')
     if leaf and not resumed:raise ValueError('ACK leaf mode')
     if ipc and not leaf:raise ValueError('ACK IPC mode')
+    if ipc_complete and not ipc:raise ValueError('ACK IPC complete mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -624,6 +645,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     resume_edit=prepare_resume_native(src,outer,resume_meta) if resume_meta else None
     resume_edits=prepare_leaf_native(src,outer,leaf_meta,resume_edit) if leaf_meta else dict([resume_edit]) if resume_edit else {}
     ipc_files=prepare_ipc_native(dol,elf,src,outer,leaf_meta,dest,host,old) if ipc else {}
+    if ipc_complete:resume_edits=prepare_ipc_complete_native(dol,elf,src,outer,leaf_meta,resume_edits)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -663,6 +685,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if resumed:extra+='#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n'
     if leaf:extra+='#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n'
     if ipc:extra+='#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n'
+    if ipc_complete:extra+='#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
@@ -677,13 +700,14 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if resumed:print('V1221_ACK_RESUME_METADATA installed=1 original_label=1 outer_dispatch=1 legacy_preserved=1 execution=0')
     if leaf:print('V1228_ACK_LEAF_METADATA installed=1 original_labels=3 caller_dispatch=1 original_extract=1 execution=0')
     if ipc:print('V1230_ACK_IPC_METADATA installed=1 original_call=1 root_labels=45 entry_trace=1 cold_witness=1 execution=0')
+    if ipc_complete:print('V1235_ACK_IPC_COMPLETE_METADATA installed=1 calls=17 spans=10 return_trace=1 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');p.add_argument('--leaf',action='store_true');p.add_argument('--ipc',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');p.add_argument('--leaf',action='store_true');p.add_argument('--ipc',action='store_true');p.add_argument('--ipc-complete',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed,a.leaf,a.ipc)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed,a.leaf,a.ipc,a.ipc_complete)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
@@ -699,6 +723,8 @@ def main():
         safe|={'ACK resume '+s for s in ('predecessor','metadata','owner','coverage','mode','hook')}
         safe|={'ACK leaf '+s for s in ('predecessor','destination','owner','coverage','mode','hook')}
         safe|={'ACK IPC '+s for s in ('predecessor','extent','identity','coverage','owner','entry trace','destination','mode')}
+        safe|={'ACK IPC complete '+s for s in ('coverage','entry','edge','owner','mode')}
+        safe.add('native IPC return label')
         safe|={'IRQ leaf shape','caller owner','IRQ return label','IRQ return tick','IRQ return scheduler'}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}

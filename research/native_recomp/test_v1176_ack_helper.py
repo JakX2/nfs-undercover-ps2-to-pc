@@ -425,4 +425,12 @@ class AckIpcMetadata(unittest.TestCase):
             with patch.object(ins,'ipc_geometry',return_value=([(ins.IPC_ROOT,ins.IPC_CALL+4,W,BLR)],0,0,0)):
                 with self.assertRaisesRegex(ValueError,'ACK IPC predecessor'):
                     ins.prepare_ipc_native(b'',b'',{},'',(H,W,H,BLR),Path(td),Path(td),'')
+class AckIpcCompleteMetadata(unittest.TestCase):
+    def test_requires_ipc(self):
+        with self.assertRaisesRegex(ValueError,'ACK IPC complete mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,True,True,True,False,True)
+    def test_missing_entries(self):
+        with patch.object(ins,'ipc_geometry',return_value=([(ins.IPC_ROOT,ins.IPC_CALL+4,W,BLR)],0,0,BLR)),patch.object(ins,'exact',return_value=(W,)),patch.object(ins,'audit_native',side_effect=lambda a,b,c:len(c)):
+            with self.assertRaisesRegex(ValueError,'ACK IPC complete entry'):
+                ins.prepare_ipc_complete_native(b'',b'',{},'',(H,W,H,BLR),{})
 if __name__=='__main__':unittest.main()
