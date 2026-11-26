@@ -135,5 +135,43 @@ int main(int argc,char** argv){
     const std::array<uint32_t,8> args{2,Cmd,1,Resp,3,v958::transfer_callback,0,3948};
     for(unsigned i=0;i<8;++i){c.gpr[3+i]=args[i];c.mmu.words[v958::transfer_slots+64+4*i]=args[i];}
     if(mode=="direct-mismatch")c.mmu.words[v958::transfer_slots+64+28]^=1;
+#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+    if(mode.starts_with("error-third")){
+        // Synthetic frontier: native call admission and the next device's
+        // MMIO are tested independently of the not-yet-installed labels.
+        scheduler.advance(++tick);c.pc=H+20;
+        need(v958::ack.before(c,c.pc,v958::transfer_branch,true));
+        if(mode=="error-third-mismatch")c.mmu.words[v958::transfer_slots+64+28]^=1;
+        if(mode=="error-third-frame")c.mmu.words[v958::context+124]^=1;
+        if(mode=="error-third-stale")++tick;
+        if(mode=="error-third-word")c.mmu.words[c.pc]^=4u;
+        std::atomic<uint32_t> wrong_mask{SI};
+        const auto ctrl=ctl.read(C),status=ctl.read(S),buffer=ctl.read(B);
+        const bool good=SiBinding::handoff_second_transfer(c,cause,mode=="error-third-mask"?wrong_mask:mask);
+        const bool refused=mode=="error-third-mismatch"||mode=="error-third-frame"||mode=="error-third-stale"||mode=="error-third-word"||mode=="error-third-mask";
+        need(good!=refused&&ctl.read(C)==ctrl&&ctl.read(S)==status&&ctl.read(B)==buffer&&ctl.issued_tokens()==2u&&cause==Other);
+        if(refused){
+            need(v958::ack.stage()==4u&&!v958::next_device.stage());
+            std::cout<<"V1025_THIRD_HANDOFF refused=1 mutation=0 token=2 original_execution=0"<<std::endl;return 0;
+        }
+        auto& third=v958::next_device;
+        need(v958::ack.stage()==5u&&third.stage()==1u&&!v958::ack.postack_held());
+        need(!SiBinding::handoff_second_transfer(c,cause,mask)&&third.stage()==1u&&ctl.issued_tokens()==2u);
+        const auto before=[&](Access access=Access::None,uint32_t a=0,std::optional<uint32_t> v=std::nullopt){
+            scheduler.advance(++tick);need(third.before(tick,access,a,v));
+        };
+        if(mode=="error-third-unarmed"){SiBinding::read32(Base+C);need(false);}
+        before(Access::Read,Base+C);read=SiBinding::read32(Base+C);need(read&&*read==ctrl);
+        before(Access::Write,Base+B,0x00000000u);need(SiBinding::write32(Base+B,0u));
+        before(Access::Write,Base+S,0x00000800u);need(SiBinding::write32(Base+S,0x00000800u));
+        before(Access::Write,Base+C,0xc0010305u);need(SiBinding::write32(Base+C,0xc0010305u));
+        for(unsigned i=0;i<9;++i)before();
+        need(third.finish(tick,1u)&&third.held_now()&&third.token()==3u&&third.follow_stage()==3u&&
+             ctl.issued_tokens()==3u&&scheduler.completed()==3u&&cause==(Other|SI)&&!ctl.pending()&&
+             (ctl.read(C)&SiController::COM_ERR)&&v958::ack.stage()==5u);
+        std::cout<<"V1025_THIRD_HANDOFF original_execution=0 token=3 completed=1 exclusive_device=1 duplicate_refused=1 reads="<<third.reads()<<" writes="<<third.writes()<<std::endl;
+        return 0;
+    }
+#endif
     visit(H+20,v958::transfer_branch,true);need(false);
 }

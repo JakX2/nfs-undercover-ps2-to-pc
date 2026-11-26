@@ -39,18 +39,45 @@ def patch_si(s):
     s=replace_exact(s,a,a+'''
     static bool handoff_second_ack(const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,const uint64_t& tick){
         return active_&&si_transfer_device.handoff_second_ack(v958::ack,active_->controller_,cause,mask,tick);
-    }''')
+    }
+#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+    // Same CPU, same native frontier, actual guest queue and scheduler
+    // configuration. No register mutation or synthetic transfer start.
+    template<class C>static bool handoff_second_transfer(C& c,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask){
+        if(!active_||v958::next_device.stage()||!v958::frontier_enabled()||!v958::time_seen||!v958::post_seen||
+           !v958::frame||!v958::frame->saved_integer(c,v958::context).ok()||
+           c.pc!=v958::transfer_call||!c.mmu.get_ptr(c.pc)||!c.mmu.get_ptr(c.pc+3u)||
+           c.mmu.read32(c.pc)!=v958::transfer_branch||
+           !v958::ack.owns_postack(active_->controller_,cause,mask,c.inst_count))return false;
+        const auto a=inspect_si_transfer_arguments(c,v958::transfer_data,v958::transfer_slots,v958::transfer_callback);
+        if(!a.admitted()||!v958::calls.stop_before_direct(c,c.pc,v958::transfer_branch))return false;
+        const auto cfg=SiTickBinding::configuration(active_->controller_,a.channel,c.inst_count);
+        return cfg&&v958::ack.handoff_follow_on(v958::next_device,active_->controller_,cause,mask,c.inst_count,a.channel,a.idle,cfg->response,cfg->latency);
+    }
+#endif''')
     a='            if(si_completion_ack_trace.phase()!=SiCompletionAckTrace::Phase::Idle){'
     s=replace_exact(s,a,'            if(v958::active())v958::reject(8);\n'+a)
     a='        if(si_transfer_device.stage()){\n            uint32_t value=0;'
-    s=replace_exact(s,a,'''        if(v958::active()){
+    s=replace_exact(s,a,'''#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+        if(v958::next_device.stage()){
+            uint32_t value=0;
+            if(v958::ack.stage()!=5u||!v958::next_device.read(active_->controller_,off,value))v958::reject(17);
+            return value;
+        }
+#endif
+        if(v958::active()){
             uint32_t value=0;
             if(!v958::ack.read(active_->controller_,off,value))v958::reject(5);
             return value;
         }
 '''+a)
     a='            if(si_transfer_device.stage()){\n                if(!si_transfer_device.write'
-    return replace_exact(s,a,'''            if(v958::active()){
+    return replace_exact(s,a,'''#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+            if(v958::next_device.stage()){
+                if(v958::ack.stage()!=5u||!v958::next_device.write(active_->controller_,*off,value))v958::reject(17);
+            }else
+#endif
+            if(v958::active()){
                 if(!v958::ack.write(active_->controller_,*off,value))v958::reject(6);
             }else if(si_transfer_device.stage()){
                 if(!si_transfer_device.write''')

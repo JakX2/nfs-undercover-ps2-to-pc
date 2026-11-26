@@ -18,6 +18,10 @@
 #include <iostream>
 namespace undercover::wii::v958 {
 inline thread_local SecondCompletionAck ack;
+#ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
+// Only an independently authenticated third-transfer installer may enable this.
+inline thread_local PostAckTransferDevice next_device;
+#endif
 inline thread_local BoundedAckCallRoute calls;
 inline thread_local ExternalReturnWitness* frame=nullptr;
 inline thread_local unsigned visits=0,post_visits=0,post_returns=0;

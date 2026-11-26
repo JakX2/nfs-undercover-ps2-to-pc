@@ -18,7 +18,7 @@ class ComposedSuccessFrontier(unittest.TestCase):
             for p in HOST.glob('*.h'):
                 if p.is_file() and not p.is_symlink():shutil.copyfile(p,root/p.name)
             shutil.copyfile(HOST/'test_success_frontier_mmio_v997.cpp',root/'probe.cpp')
-            shutil.copyfile(HOST/'synthetic_success_frontier_expectations_v997.h',root/'v958_private_second_ack.h')
+            (root/'v958_private_second_ack.h').write_text('#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n'+(HOST/'synthetic_success_frontier_expectations_v997.h').read_text())
             source=(HOST/'wii_si_binding_v512.h').read_text()
             (root/'wii_si_binding_v512.h').write_text(second(transfer(first(discovery(sampling(source))))))
             h=root/'wii_postack_transfer_device_v771.h';s=h.read_text()
@@ -32,7 +32,7 @@ class ComposedSuccessFrontier(unittest.TestCase):
             shared=b'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=12 token_preserved=1 saved_fields=38 boot_verified=0'
             post=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=15 handler_instruction_executed=0 boot_verified=0'
             time=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=12 handler_instruction_executed=0 boot_verified=0'
-            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only','error-callback','error-callback-short','error-direct','error-success'):
+            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only','error-callback','error-callback-short','error-direct','error-success','error-third','error-third-mismatch','error-third-frame','error-third-stale','error-third-word','error-third-mask','error-third-unarmed'):
                 with self.subTest(mode=mode):
                     runenv=env.copy()
                     runenv['UNDERCOVER_V967_POST_ACK']='1';runenv['UNDERCOVER_V989_SHARED_COMPLETION']='1'
@@ -44,6 +44,20 @@ class ComposedSuccessFrontier(unittest.TestCase):
                         runenv['UNDERCOVER_V1021_ERROR_FRONTIER']='1'
                     got=subprocess.run([str(exe),mode],env=runenv,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
+                    if mode.startswith('error-third'):
+                        from audit_v1015_error_completion import RESULT as ERROR
+                        self.assertIn(ERROR,rows)
+                        if mode=='error-third':
+                            self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                            self.assertEqual(rows[-1],b'V1025_THIRD_HANDOFF original_execution=0 token=3 completed=1 exclusive_device=1 duplicate_refused=1 reads=1 writes=3')
+                        elif mode=='error-third-unarmed':
+                            self.assertEqual(got.returncode,126,got.stdout)
+                            self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=17 stage=5 reason=0 call_reason=0 visits=[0-9]+$')
+                        else:
+                            self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                            self.assertEqual(rows[-1],b'V1025_THIRD_HANDOFF refused=1 mutation=0 token=2 original_execution=0')
+                        self.assertEqual(got.stderr,b'')
+                        continue
                     if mode.startswith('error-'):
                         from audit_v1015_error_completion import RESULT as ERROR
                         from audit_v1021_error_frontier import DIRECT,INDIRECT
