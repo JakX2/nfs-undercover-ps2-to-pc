@@ -416,4 +416,13 @@ class AckLeafMetadata(unittest.TestCase):
     def test_requires_resume(self):
         with self.assertRaisesRegex(ValueError,'ACK leaf mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,True,False,True)
+class AckIpcMetadata(unittest.TestCase):
+    def test_requires_leaf(self):
+        with self.assertRaisesRegex(ValueError,'ACK IPC mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,True,True,False,True)
+    def test_wrong_predecessor(self):
+        with tempfile.TemporaryDirectory() as td:
+            with patch.object(ins,'ipc_geometry',return_value=([(ins.IPC_ROOT,ins.IPC_CALL+4,W,BLR)],0,0,0)):
+                with self.assertRaisesRegex(ValueError,'ACK IPC predecessor'):
+                    ins.prepare_ipc_native(b'',b'',{},'',(H,W,H,BLR),Path(td),Path(td),'')
 if __name__=='__main__':unittest.main()

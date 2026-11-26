@@ -32,6 +32,9 @@
 #include "v1175_private_ack_helper.h"
 #ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
 #include "v1227_private_ack_leaf.h"
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+#include "v1230_private_ack_ipc.h"
+#endif
 #endif
 #endif
 #endif
@@ -100,9 +103,18 @@ inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_T
 inline bool ack_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1193_ACK_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1197_ACK_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_suffix_enabled(){const char* v=std::getenv("UNDERCOVER_V1201_ACK_SUFFIX");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_ipc_enabled(){const char* v=std::getenv("UNDERCOVER_V1230_ACK_IPC");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_leaf_enabled(){const char* v=std::getenv("UNDERCOVER_V1227_ACK_LEAF");return v&&v[0]=='1'&&v[1]==0;}
 #ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
 inline thread_local IrqLeafFinishWitness ack_leaf(v1227::expected);
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+inline thread_local PostAckIpcJoin ack_ipc(v624::expected_client,v1230::expected);
+[[noreturn]]inline void reject_ack_ipc(){
+    std::cout<<std::dec<<"V1230_ACK_IPC_INVALID stage="<<ack_ipc.stage()<<" reason="<<ack_ipc.failure()
+             <<" cold="<<ack_ipc.cold_failure()<<" refusal="<<ack_ipc.cold_refusal()
+             <<" join="<<ack_ipc.join_failure()<<std::endl;std::_Exit(126);
+}
+#endif
 #endif
 inline bool ack_resume_enabled(){const char* v=std::getenv("UNDERCOVER_V1220_ACK_RESUME");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_final_enabled(){const char* v=std::getenv("UNDERCOVER_V1217_ACK_FINAL");return v&&v[0]=='1'&&v[1]==0;}
@@ -490,6 +502,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_final_enabled()&&!ack_handler_return_enabled())return false;
     if(ack_resume_enabled()&&!ack_final_enabled())return false;
     if(ack_leaf_enabled()&&!ack_resume_enabled())return false;
+    if(ack_ipc_enabled()&&!ack_leaf_enabled())return false;
+#ifndef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+    if(ack_ipc_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
     if(ack_leaf_enabled())return false;
 #endif
@@ -629,6 +645,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 }else{
                     if(!held_epilogue.prefix_leaf_return(c,ack_leaf,pc,w,guard)||!held_epilogue.prefix_leaf_saved(c,ack_leaf))reject_held_epilogue();
                     std::cout<<"V1227_ACK_LEAF_RETURN original_extract=1 original_blr=1 osinit_resume=1 previous_ee=0 integer_state=1 gqr=1 token=3 pi_cleared=1 caller_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+                    if(ack_ipc_enabled()){
+                        if(!ack_ipc.before_call(c,pc,w,true,true))reject_ack_ipc();
+                        return;
+                    }
+#endif
                     std::_Exit(0);
                 }
                 return;
@@ -1267,8 +1289,22 @@ template<class C>void observe(uint32_t pc,C& c){
         }
 #endif
 #ifdef UNDERCOVER_V1227_PRIVATE_ACK_LEAF
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+        if(held_epilogue.stage()==35u&&ack_ipc_enabled()){
+            if(!held_epilogue.prefix_leaf_saved(c,ack_leaf)||second_dispatch_mmio||
+               ack.stage()!=5u||next_device.stage()!=3u)reject_held_epilogue();
+            if(!ack_ipc.target_entry(c,pc,true))reject_ack_ipc();
+            std::cout<<"V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+#endif
         if(held_epilogue.stage()==34u){
             if(!ack_leaf_enabled()||!held_epilogue.prefix_leaf_dispatch(c,ack_leaf,pc))reject_held_epilogue();
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+            if(ack_ipc_enabled()&&ack_leaf.stage()==4u){
+                if(!ack_ipc.pre_dispatch(c,pc,true,true))reject_ack_ipc();
+            }
+#endif
             return;
         }
 #endif

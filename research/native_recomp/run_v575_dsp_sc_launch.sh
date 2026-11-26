@@ -265,6 +265,10 @@ ack_leaf="${UNDERCOVER_RUN_V1228_ACK_LEAF-0}"
 [[ "$ack_leaf" == 0 || "$ack_leaf" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1228_ACK_LEAF-0}" == "$ack_leaf" ]] || exit 2
 [[ "$ack_leaf" == 0 || "$ack_resumed" == 1 ]] || exit 2
+ack_ipc="${UNDERCOVER_RUN_V1230_ACK_IPC-0}"
+[[ "$ack_ipc" == 0 || "$ack_ipc" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1230_ACK_IPC-0}" == "$ack_ipc" ]] || exit 2
+[[ "$ack_ipc" == 0 || "$ack_leaf" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -320,6 +324,7 @@ if [[ "$third" == 1 ]]; then
                                                   extra+=(UNDERCOVER_V1220_ACK_RESUME=1);audit=audit_v1221_ack_resume.py
                                                   if [[ "$ack_leaf" == 1 ]]; then
                                                     extra+=(UNDERCOVER_V1227_ACK_LEAF=1);audit=audit_v1228_ack_leaf.py
+                                                    if [[ "$ack_ipc" == 1 ]]; then extra+=(UNDERCOVER_V1230_ACK_IPC=1);audit=audit_v1230_ack_ipc.py; fi
                                                   fi
                                                 fi
                                               fi
