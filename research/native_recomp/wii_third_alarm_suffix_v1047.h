@@ -2,6 +2,9 @@
 #include "wii_handler_suffix_guard_v868.h"
 #include "wii_alarm_cancel_return_v782.h"
 #include "wii_postack_transfer_device_v771.h"
+#include "wii_external_return_v706.h"
+#include "wii_callback_prefix_v800.h"
+#include "wii_callback_identity_v796.h"
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
 // source or granting the retired second ACK any MMIO ownership.
@@ -15,11 +18,11 @@ public:
     template<class C>bool start(C& c,uint32_t resume,std::span<const HandlerSuffixLabel> rows,PostAckTransferDevice& dev){
         if(stage_||error_||!safe(c)||!held(dev)||c.pc!=resume||
            !suffix_.start(c,rows,resume,256u,true))return fail(1);
-        cpu_=&c;rows_=rows;last_=c.inst_count;msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;stage_=1;
+        cpu_=&c;device_=&dev;rows_=rows;last_=c.inst_count;msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;stage_=1;
         return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,PostAckTransferDevice& dev){
-        if(!same(c)||stage_>2u||c.inst_count-last_!=unsigned(seen_))return fail(2);
+        if(!same(c)||device_!=&dev||stage_>2u||c.inst_count-last_!=unsigned(seen_))return fail(2);
         if(seen_&&!dev.after_return_at(c.inst_count))return fail(2);
         last_=c.inst_count;seen_=true;
         if(!held(dev))return fail(2);
@@ -38,7 +41,7 @@ public:
             if(off||overlaps_si(a.address))return fail(4);
             if(alarm_.stage()==3u){
                 if(!alarm_.returned(c,pc,w,true))return fail(5);
-                stage_=3u;return true;
+                return_pc_=pc;return_word_=w;stage_=3u;return true;
             }
             return alarm_.native_before(c,pc,w,true)?true:fail(5);
         }
@@ -66,12 +69,18 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,const PostAckTransferDevice& dev){
-        return same(c)&&stage_==2u&&c.inst_count==last_&&held(dev)&&alarm_.entry(c,pc,true)?true:fail(6);
+        return same(c)&&device_==&dev&&stage_==2u&&c.inst_count==last_&&held(dev)&&alarm_.entry(c,pc,true)?true:fail(6);
     }
     template<class C>bool poll(C& c,const PostAckTransferDevice& dev){
-        return same(c)&&stage_==2u&&c.inst_count==last_&&held(dev)&&alarm_.poll(c,true)?true:fail(6);
+        return same(c)&&device_==&dev&&stage_==2u&&c.inst_count==last_&&held(dev)&&alarm_.poll(c,true)?true:fail(6);
+    }
+    template<class C>bool finished_at(C& c,uint32_t pc,uint32_t w,const PostAckTransferDevice& dev)const{
+        return stage_==3u&&same(c)&&device_==&dev&&held(dev)&&c.inst_count==last_&&
+               c.pc==pc&&pc==return_pc_&&w==return_word_&&alarm_.stage()==4u;
     }
 private:
+    const PostAckTransferDevice* device_=nullptr;
+    uint32_t return_pc_=0,return_word_=0;
     AlarmCancelExpectation expected_;AlarmCancelReturnWitness alarm_;HandlerSuffixGuard suffix_;
     std::span<const HandlerSuffixLabel> rows_{};const void* cpu_=nullptr;
     uint64_t last_=0;uint32_t msr_=0,srr0_=0,srr1_=0;
@@ -84,5 +93,75 @@ private:
     }
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool same(C& c)const{return cpu_==&c&&stage_&&!error_&&safe(c)&&c.msr==msr_&&c.srr0==srr0_&&c.srr1==srr1_;}
+};
+// Same held third token across the alarm return and callback prefix.
+// This route does not grant the retired ACK any bus ownership. Its
+// exact rows and full callback identity must come from the private
+// native installer, not a guest-provided address or arbitrary target.
+template<std::size_t P,std::size_t S,std::size_t N>
+class ThirdAlarmCallbackRoute {
+public:
+    ThirdAlarmCallbackRoute(uint32_t root,uint32_t save,std::array<uint32_t,P> prefix,
+            std::array<uint32_t,S> leaf,std::array<uint32_t,N> words,std::array<uint32_t,2> sites):
+        root_(root),words_(words),sites_(sites),prefix_(root,save,prefix,leaf){}
+    unsigned stage()const{return stage_;}
+    unsigned failure()const{return error_;}
+    unsigned suffix_visits()const{return suffix_.visits();}
+    unsigned prefix_visits()const{return prefix_.visits();}
+    unsigned writes()const{return prefix_.writes();}
+    unsigned prefix_failure()const{return prefix_.failure();}
+    template<class C>bool start(C& c,uint32_t pc,uint32_t w,const ThirdAlarmSuffixRoute& alarm,
+            PostAckTransferDevice& dev,const ExternalReturnWitness& frame,uint32_t context,
+            std::span<const HandlerSuffixLabel> rows){
+        if(stage_||error_||!alarm.finished_at(c,pc,w,dev)||!frame.saved_integer(c,context).ok()||
+           !suffix_.start(c,rows,pc,256u,true))return fail(1);
+        cpu_=&c;dev_=&dev;frame_=&frame;context_=context;rows_=rows;last_=c.inst_count;stage_=1;
+        return true;
+    }
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+        if(!common(c)||(stage_!=1u&&stage_!=2u)||c.inst_count-last_!=unsigned(seen_)||
+           (seen_&&!dev_->after_return_at(c.inst_count))||!held())return fail(2);
+        last_=c.inst_count;seen_=true;
+        const auto a=PostAckTransferDevice::word_access(c,w);const uint32_t p=a.address&0x3fffffffu;
+        if(PostAckTransferDevice::offset(a.address)||
+           (p<0x0d006500u&&uint64_t(p)+4u>0x0d006400u)||
+           (p<0x0d806500u&&uint64_t(p)+4u>0x0d806400u))return fail(3);
+        if(stage_==2u){
+            if(!prefix_.before(c,pc,w,true))return fail(5);
+            if(prefix_.stage()==6u)stage_=3u;
+            return true;
+        }
+        const HandlerSuffixLabel* row=nullptr;
+        for(const auto& x:rows_)if(x.pc==pc){row=&x;break;}
+        if(!row||!suffix_.before(c,pc,w,row->ordinal,row->kind))return fail(3);
+        if(row->kind||w==0x4e800020u){
+            if(row->ordinal!=6u||row->kind!=2u||c.gpr[3]>=4u||
+               classify_callback_identity(c,pc,w,row->ordinal,row->kind,root_,words_,sites_)!=2u||
+               !prefix_.start_dispatch(c,pc,w,true,true))return fail(4);
+            stage_=2u;
+        }
+        return true;
+    }
+    template<class C>bool poll(C& c){
+        return stage_==2u&&common(c)&&c.inst_count==last_&&held()&&prefix_.dispatch_poll(c,true)?true:fail(6);
+    }
+    template<class C>bool entry(C& c,uint32_t pc){
+        const bool outer=prefix_.stage()==1u;
+        if(stage_!=2u||!common(c)||c.inst_count-last_!=unsigned(outer)||
+           (outer&&!dev_->after_return_at(c.inst_count))||!held()||!prefix_.entry(c,pc,true))return fail(6);
+        last_=c.inst_count;return true;
+    }
+private:
+    uint32_t root_,context_=0;std::array<uint32_t,N> words_;std::array<uint32_t,2> sites_;
+    CallbackPrefixWitness<P,S> prefix_;HandlerSuffixGuard suffix_;
+    std::span<const HandlerSuffixLabel> rows_{};const void* cpu_=nullptr;
+    PostAckTransferDevice* dev_=nullptr;const ExternalReturnWitness* frame_=nullptr;
+    uint64_t last_=0;unsigned stage_=0,error_=0;bool seen_=false;
+    bool fail(unsigned n){if(!error_)error_=n;return false;}
+    bool held()const{return dev_&&dev_->stage()==2u&&dev_->token()==3u&&dev_->follow_stage()==3u&&!dev_->pending()&&dev_->held_now();}
+    template<class C>bool common(C& c)const{
+        return cpu_==&c&&!error_&&frame_&&dev_&&frame_->saved_integer(c,context_).ok()&&
+               c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);
+    }
 };
 }

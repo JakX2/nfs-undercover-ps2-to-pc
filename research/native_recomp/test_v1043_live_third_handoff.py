@@ -12,7 +12,7 @@ class LiveThird(unittest.TestCase):
                 if h.is_file() and not h.is_symlink():shutil.copyfile(h,root/h.name)
             shutil.copyfile(HOST/'test_success_frontier_mmio_v997.cpp',root/'probe.cpp')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
@@ -22,6 +22,12 @@ inline constexpr std::array<AckCallEdge,4> third_edges{{{0x80004014u,0x80004700u
 #include "wii_handler_suffix_guard_v868.h"
 namespace undercover::wii::v958 {
 inline constexpr std::array<HandlerSuffixLabel,4> third_alarm_suffix{{{0x80004018u,0x60000000u,0,0},{0x8000401cu,0x80830038u,0,0},{0x80004020u,0x90830038u,0,0},{0x80004024u,0x48000addu,5,1}}};
+inline constexpr std::array<HandlerSuffixLabel,2> third_postalarm_suffix{{{0x80004028u,0x60000000u,0,0},{0x8000402cu,0x4e800421u,6,2}}};
+inline constexpr uint32_t third_postalarm_save_root=0x8000d100u;
+inline constexpr std::array<uint32_t,6> third_postalarm_prefix{0x9421ffc0u,0x7c0802a6u,0x90010044u,0x39610040u,0x480000f1u,0x60000000u};
+inline constexpr std::array<uint32_t,3> third_postalarm_save{0x93cbfff8u,0x93ebfffcu,0x4e800020u};
+inline constexpr auto third_postalarm_words=third_postalarm_prefix;
+inline constexpr std::array<uint32_t,2> third_postalarm_sites{0x8000402cu,0x80004030u};
 }
 ''')
             # Independent synthetic alarm, never copied from the owner image.
@@ -77,4 +83,17 @@ inline constexpr AlarmCancelExpectation expected{
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=19 stage=5 reason=0 call_reason=0 visits=[0-9]+$')
                         self.assertFalse(any(x.startswith(b'V1048_THIRD_ALARM_RETURN') for x in rows))
+            env['UNDERCOVER_V1095_AFTER_ALARM']='1'
+            for fault in ('','-word','-frame','-target','-poll','-stack'):
+                with self.subTest(after_alarm=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'')
+                    self.assertTrue(any(x.startswith(b'V1048_THIRD_ALARM_RETURN ') for x in rows),rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=2 visits=9 writes=4 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1095_AFTER_ALARM_FAULT route=[1-6] prefix=[0-4] stage=[0-2]$')
 if __name__=='__main__':unittest.main()

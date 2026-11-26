@@ -197,6 +197,15 @@ int main(int argc,char** argv){
             c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Nop;c.mmu.words[A+16]=Blr;
             c.mmu.words[D]=Mtmsr;c.mmu.words[D+4]=Blr;c.mmu.words[Q]=Mtmsr;c.mmu.words[Q+4]=Blr;
             c.mmu.words[Head]=c.mmu.words[Tail]=0;for(unsigned i=0;i<10;++i)c.mmu.words[Node+4*i]=0;
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+            if(mode.starts_with("error-abi-live-alarm-callback")){
+                c.mmu.words[Site+8]=0x4e800421u;
+                for(unsigned i=0;i<v958::third_postalarm_prefix.size();++i)c.mmu.words[v958::transfer_callback+4u*i]=v958::third_postalarm_prefix[i];
+                for(unsigned i=0;i<v958::third_postalarm_save.size();++i)c.mmu.words[v958::third_postalarm_save_root+4u*i]=v958::third_postalarm_save[i];
+                constexpr uint32_t Stack=0x80020000u;
+                for(uint32_t p=Stack-0x400u;p<Stack+0x100u;p+=4u)c.mmu.words[p]=p^0xdeadbeefu;
+            }
+#endif
             if(mode=="error-abi-live-alarm-label")c.mmu.words[H+32]^=1u;
         }
 #endif
@@ -225,7 +234,33 @@ int main(int argc,char** argv){
             c.gpr[3]=c.msr;visit(Q,Mtmsr);c.gpr[3]=0;visit(Q+4,Blr);
             visit(A+12,Nop);c.lr=Site+4;visit(A+16,Blr);
             if(mode=="error-abi-live-alarm-queue")c.mmu.words[Head]=Node;
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+            const bool callback_mode=mode.starts_with("error-abi-live-alarm-callback");
+            if(callback_mode){
+                c.gpr[1]=0x80020000u;c.gpr[3]=2u;c.ctr=v958::transfer_callback;
+                if(mode=="error-abi-live-alarm-callback-word")c.mmu.words[Site+8]^=1u;
+            }
+#endif
             visit(Site+4,Nop); // production observer owns terminal result
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+            if(callback_mode){
+                constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root,Stack=0x80020000u;
+                if(mode=="error-abi-live-alarm-callback-frame")c.mmu.words[v958::context+124]^=1u;
+                if(mode=="error-abi-live-alarm-callback-target")c.ctr=Leaf;
+                visit(Site+8,0x4e800421u);c.pc=Root;c.lr=Site+12;
+                if(mode!="error-abi-live-alarm-callback-poll")need(!v958::poll(c));
+                scheduler.advance(++tick);v958::observe(Root,c);
+                visit(Root,v958::third_postalarm_prefix[0]);c.gpr[1]=Stack-64;c.mmu.words[Stack-64]=Stack;
+                if(mode=="error-abi-live-alarm-callback-stack")c.mmu.words[Stack-64]^=1u;
+                visit(Root+4,v958::third_postalarm_prefix[1]);c.gpr[0]=c.lr;
+                visit(Root+8,v958::third_postalarm_prefix[2]);c.mmu.words[Stack+4]=c.gpr[0];
+                visit(Root+12,v958::third_postalarm_prefix[3]);c.gpr[11]=Stack;
+                visit(Root+16,v958::third_postalarm_prefix[4]);c.pc=Leaf;c.lr=Root+20;
+                v958::observe(Leaf,c);visit(Leaf,v958::third_postalarm_save[0]);c.mmu.words[Stack-8]=c.gpr[30];
+                visit(Leaf+4,v958::third_postalarm_save[1]);c.mmu.words[Stack-4]=c.gpr[31];
+                visit(Leaf+8,Blr);visit(Root+20,Nop);
+            }
+#endif
         }
 #endif
         need(false);

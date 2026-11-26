@@ -40,6 +40,26 @@ inline bool third_active(){return third_route.stage()==1u;}
 inline thread_local ThirdAlarmSuffixRoute third_alarm(v786::expected);
 inline bool third_alarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1048_THIRD_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.stage()==2u;}
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+inline thread_local ThirdAlarmCallbackRoute<third_postalarm_prefix.size(),third_postalarm_save.size(),third_postalarm_words.size()>
+    third_postalarm(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save,third_postalarm_words,third_postalarm_sites);
+inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1095_AFTER_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u;}
+[[noreturn]]inline void reject_postalarm(){
+    std::cout<<std::dec<<"V1095_AFTER_ALARM_FAULT route="<<third_postalarm.failure()
+             <<" prefix="<<third_postalarm.prefix_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
+    std::_Exit(126);
+}
+template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
+    if(guard||!third_postalarm.before(c,pc,w))reject_postalarm();
+    if(third_postalarm.stage()==3u){
+        std::cout<<std::dec<<"V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits="
+                 <<third_postalarm.suffix_visits()<<" visits="<<third_postalarm.prefix_visits()<<" writes="<<third_postalarm.writes()
+                 <<" token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+        std::_Exit(0);
+    }
+}
+#endif
 #endif
 #endif
 #endif
@@ -120,6 +140,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 #endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_enabled()&&(!third_enabled()||!six_arguments_enabled()))return false;
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+    if(third_postalarm_enabled()&&!third_alarm_enabled())return false;
+#endif
 #endif
 #endif
 #ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
@@ -165,6 +188,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+    if(third_postalarm_active()){postalarm_before(c,pc,w,guard);return;}
+#endif
     if(third_alarm_active()){
         if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
            !third_alarm.before(c,pc,w,next_device)){
@@ -178,6 +204,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                      <<" timer="<<a.timer_required()<<" calls="<<a.calls()<<" visits="<<a.total()
                      <<" suffix_visits="<<third_alarm.suffix_visits()<<" status_reads="<<next_device.suffix_status_reads()
                      <<" status_writes="<<next_device.suffix_status_writes()<<" token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+            if(third_postalarm_enabled()){
+                if(!third_postalarm.start(c,pc,w,third_alarm,next_device,*frame,context,third_postalarm_suffix))reject_postalarm();
+                postalarm_before(c,pc,w,false);return;
+            }
+#endif
             std::_Exit(0);
         }
         return;
@@ -389,6 +421,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+    if(third_postalarm_active()){if(!third_postalarm.poll(c))reject_postalarm();return false;}
+#endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.poll(c,next_device)){
@@ -420,6 +455,9 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+    if(third_postalarm_active()){if(!third_postalarm.entry(c,pc))reject_postalarm();return;}
+#endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
     if(third_alarm_active()){
         if(!frame||!frame->saved_integer(c,context).ok()||!third_alarm.entry(c,pc,next_device)){
