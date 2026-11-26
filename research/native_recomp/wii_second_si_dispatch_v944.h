@@ -37,6 +37,14 @@ public:
         }
         last_=c.inst_count;++stage_;return true;
     }
+    // Re-authenticate the terminal indirect target at the very same tick.
+    template<class C>bool handler_ready(C& c,uint32_t cause,uint32_t mask)const{
+        return stage_==6u&&!error_&&cpu_==&c&&safe(c)&&c.inst_count==last_&&
+               cause==cause_&&mask==mask_&&captured_&&captured_->pending_source(c,cause,mask)&&
+               captured_->saved_integer(c,SiDispatchWitness::Thread).ok()&&tables(c)&&
+               c.pc==SiDispatchWitness::Handler&&c.gpr[3]==20u&&c.gpr[4]==SiDispatchWitness::Thread&&
+               c.ctr==c.pc&&c.lr==e_.indirect_pc+4u&&word(c,c.pc,e_.handler_word)&&word(c,e_.indirect_pc,e_.indirect_word);
+    }
 private:
     SiDispatchExpectations e_;SiDispatchPiReads pi_;ExternalReturnWitness* captured_=nullptr;
     const void* cpu_=nullptr;unsigned stage_=0,error_=0;uint32_t cause_=0,mask_=0;uint64_t start_=0,last_=0;

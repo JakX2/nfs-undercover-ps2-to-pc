@@ -74,7 +74,7 @@ public:
     // previous transfer observer is retired, never reset or reused.
     template<class C>bool begin_ack(C& c,std::span<const AckCallSpan> spans,
             std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr={}){
-        if(stage_!=6u||!held(c)||!dispatch_||dispatch_->stage()!=6u||
+        if(stage_!=6u||!held(c)||!dispatch_||!dispatch_->handler_ready(c,cause_->load(),mask_->load())||
            c.pc!=SiDispatchWitness::Handler||c.gpr[3]!=20u||c.gpr[4]!=SiDispatchWitness::Thread||
            !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
            spans.empty()||spans.front().root!=SiDispatchWitness::Handler||

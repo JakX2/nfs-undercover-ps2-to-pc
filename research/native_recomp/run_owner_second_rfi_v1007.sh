@@ -114,7 +114,8 @@ for mode in nonsplit split; do
     error-queue-callback-rfi error-queue-cold-callback-rfi error-queue-due-callback-rfi error-queue-cold-due-callback-rfi \
     error-queue-callback-vector error-queue-cold-callback-vector error-queue-due-callback-vector error-queue-cold-due-callback-vector \
     error-queue-cold-due-callback-vector-poison \
-    error-queue-callback-dispatch error-queue-cold-callback-dispatch error-queue-due-callback-dispatch error-queue-cold-due-callback-dispatch; do
+    error-queue-callback-dispatch error-queue-cold-callback-dispatch error-queue-due-callback-dispatch error-queue-cold-due-callback-dispatch \
+    error-queue-callback-ack error-queue-cold-callback-ack error-queue-due-callback-ack error-queue-cold-due-callback-ack; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -124,7 +125,7 @@ for mode in nonsplit split; do
         grep -Ex 'V1063_THIRD_HANDLER_FRONTIER ordinal=[0-9]{1,2} branch_taken=[01] visits=[0-9]{1,3} stores=[0-8] status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log" || true
         grep -Ex 'V1064_THIRD_EPILOGUE_(FAULT reason=[0-9]{1,2} stage=[0-3] visits=[0-9]{1,3}|ENTRY_REFUSAL mask=[0-9]{1,3})' "$work/run.log" || true
         grep -Ex 'V1068_THIRD_GUARD_REFUSAL handler_stage=[0-5] callback_stage=[0-5] dispatcher_owner=[01] dispatcher_resume=[01]' "$work/run.log" || true
-        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=[0-6] reason=[0-9] vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
+        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=[0-8] reason=[0-9]{1,2} vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
         echo "V1022_ERROR_QUEUE failed=1 prior_absent=$prior profile=$trial";exit 1;
       }
       grep -Fx "V1020_ERROR_HELPER_RETURN prior_absent=$prior profile=$trial original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38" "$work/run.log"
@@ -155,27 +156,30 @@ for mode in nonsplit split; do
         grep -Fx 'V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
         grep -Fx 'V1053_THIRD_CALLBACK_FRONTIER ordinal=3 visits=17 writes=3 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
       fi
-      if [[ "$lane" == *wireless-same || "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch ]]; then
+      if [[ "$lane" == *wireless-same || "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
         grep -Fx 'V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=66 stores=12 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
-        if [[ "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch ]]; then
+        if [[ "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
           grep -Fx 'V1060_THIRD_CALLBACK_SUFFIX ordinal=13 target_class=0 visits=37 writes=0 polls=4 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
           grep -Fx 'V1060_THIRD_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits=12 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
-        if [[ "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch ]]; then
+        if [[ "$lane" == *callback-handler || "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
           grep -Fx 'V1063_THIRD_HANDLER_FRONTIER ordinal=12 branch_taken=1 visits=20 stores=0 status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
           grep -Fx 'V1063_THIRD_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits=21 token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
-        if [[ "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch ]]; then
+        if [[ "$lane" == *callback-rfi || "$lane" == *callback-vector* || "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
           grep -Fx 'V1064_THIRD_PENDING_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 token=3 held=1 visits=82 saved_fields=38 third_vector_executed=0 resume_instruction_executed=0 boot_verified=0' "$work/run.log"
-          if [[ "$lane" == *callback-vector* || "$lane" == *callback-dispatch ]]; then
+          if [[ "$lane" == *callback-vector* || "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
             grep -Fx 'V1069_THIRD_VECTOR original_vector=1 original_trampoline=1 vector_visits=34 trampoline_visits=20 token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0' "$work/run.log"
             if [[ "$lane" == *vector-poison ]]; then
               grep -Fx 'V1070_THIRD_VECTOR_FRAME poisoned=38 verified=38 fixture_only=1 original_dispatcher_instruction_executed=0' "$work/run.log"
             else
               grep -Fx 'V1070_THIRD_VECTOR_FRAME poisoned=0 verified=38 fixture_only=0 original_dispatcher_instruction_executed=0' "$work/run.log"
             fi
-            if [[ "$lane" == *callback-dispatch ]]; then
+            if [[ "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
               grep -Ex 'V1076_THIRD_DISPATCH original_dispatcher=1 original_leaves=4 original_indirect=1 visits=[1-9][0-9]{0,3} entries=5 pi_reads=2 polls=[0-9]{1,3} token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
+            fi
+            if [[ "$lane" == *callback-ack ]]; then
+              grep -Ex 'V1079_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response=[01] visits=[1-9][0-9]{0,3} entries=[1-9][0-9]? returns=[1-9][0-9]? reads=[1-9][0-9]? writes=[1-9][0-9]? saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0' "$work/run.log"
             fi
           fi
         fi
@@ -198,6 +202,7 @@ for mode in nonsplit split; do
   echo "V1069_OWNER_THIRD_VECTOR mode=$mode original_vector=16 original_trampoline=16 held_token=16 fallback=0 continuous_boot=0"
   echo "V1070_OWNER_THIRD_VECTOR_FRAME mode=$mode stale_frame_rewritten=4 fields=38 fallback=0 continuous_boot=0"
   echo "V1076_OWNER_THIRD_DISPATCH mode=$mode original_handler_entry=16 pi_reads=32 held_token=16 fallback=0 continuous_boot=0"
+  echo "V1079_OWNER_THIRD_ACK mode=$mode original_w1c=16 next_label=16 retired_transfer=16 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

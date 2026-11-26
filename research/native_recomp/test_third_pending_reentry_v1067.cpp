@@ -30,8 +30,8 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
 }
 int main(){
     unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0;
-    for(trial=0;trial<56;++trial){
-        const unsigned fault=trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
+    for(trial=0;trial<59;++trial){
+        const unsigned fault=trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
         using Port=SiTypeScheduler::Port;
@@ -167,8 +167,11 @@ int main(){
         if(fault==25)c.mmu.words[Context+124]^=1u;
         if(fault==26)c.pc=Handler+4;
         if(fault==27)tick();
+        if(fault==33)c.mmu.words[Handler]^=4u;
+        if(fault==34)c.mmu.words[0x80003090u]^=4u;
+        if(fault==35)c.lr^=4u;
         ok=route.begin_ack(c,spans,edges);
-        if(fault>=25&&fault<=27){
+        if((fault>=25&&fault<=27)||fault>=33){
             ack_reject(!ok,10);need(dev.stage()==2u&&ctl.read(C)==control&&cause==(Other|SI));continue;
         }
         need(ok&&dev.stage()==3u&&route.completion_ack().token()==3u&&
@@ -195,8 +198,8 @@ int main(){
                     ctl.read(S)==status&&ctl.read(B)==buffer&&sched.completed()==3u&&ack.stage()==5u);
         ++ack_valid;
     }
-    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==8);
+    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==11);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
-    std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=8 actual_w1c=1 retired_transfer=1 original_execution=0\n";
+    std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=11 actual_w1c=1 retired_transfer=1 original_execution=0\n";
 }
