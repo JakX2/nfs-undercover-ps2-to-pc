@@ -53,7 +53,8 @@ int main(){
     unsigned held_return_valid=0,held_return_refused=0;
     unsigned held_ep_valid=0,held_ep_refused=0;
     unsigned held_vec_valid=0,held_vec_refused=0;
-    for(trial=0;trial<368;++trial){
+    unsigned held_disp_valid=0,held_disp_refused=0;
+    for(trial=0;trial<388;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -99,7 +100,8 @@ int main(){
             const unsigned f=trial>=308?0u:trial>=296?trial-295u:0u;
             const unsigned hr=trial>=328?0u:trial>=316?trial-315u:0u;
             const unsigned he=trial>=348?0u:trial>=336?trial-335u:0u;
-            const unsigned hv=trial>=356?trial-355u:0u;
+            const unsigned hv=trial>=368?0u:trial>=356?trial-355u:0u;
+            const unsigned hd=trial>=376?trial-375u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -295,7 +297,50 @@ int main(){
             if(hv>=9){refused_vec(!ok);continue;}need(ok);
             need(ep.stage()==5u&&ep.saved(c)&&ep.vector_visits()==2u&&ep.trampoline_visits()==2u&&
                  dev.held_now()&&ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==(Other|SI));
-            ++held_vec_valid;continue;
+            if(trial<368){++held_vec_valid;continue;}
+            constexpr uint32_t Handler=SiDispatchWitness::Handler,Indirect=D+16u;
+            SiDispatchExpectations ex{};
+            ex.dispatcher_word=Nop;ex.handler_word=Nop;ex.indirect_pc=Indirect;ex.indirect_word=0x4e800421u;
+            for(unsigned i=0;i<4;++i){
+                const uint32_t site=D+0x20u+4u*i,dst=0x80008000u+0x100u*i;
+                ex.edges[i]={dst,site+4u,branch(site,dst)|1u,Nop};
+                c.mmu.words[site]=ex.edges[i].branch_word;c.mmu.words[dst]=Nop;
+            }
+            c.mmu.words[Indirect]=ex.indirect_word;c.mmu.words[Handler]=ex.handler_word;
+            c.mmu.words[0x80003090u]=Handler;c.mmu.words[0x800000d4u]=Context;c.mmu.words[0x800000e4u]=Context;
+            auto refuse_disp=[&](bool bad){
+                need(bad&&ctl.issued_tokens()==3u&&cause==(Other|SI)&&dev.stage()==2u);++held_disp_refused;
+            };
+            if(hd==1)c.mmu.words[0x80003090u]^=4u;
+            ok=ep.begin_dispatch(c,ex);
+            if(hd==1){refuse_disp(!ok);continue;}need(ok);
+            if(hd==2){refuse_disp(!ep.begin_dispatch(c,ex));continue;}
+            auto* witness=ep.dispatch_witness();need(witness);
+            if(hd==3)tick();
+            if(hd==4)c.mmu.words[Context+124]^=1u;
+            tick();ok=ep.dispatch_before(c,D,hd==5?Rfi:Nop,hd==6);
+            if(hd>=3&&hd<=6){refuse_disp(!ok);continue;}need(ok);
+            witness->record(false,0x0c003000u,32,hd==7?cause.load()^SI:cause.load(),false);
+            if(hd!=8)witness->record(false,0x0c003004u,32,mask.load(),false);
+            if(hd==9)witness->record(false,0x0c003000u,32,cause.load(),false);
+            if(hd==10)witness->record(false,0x0c003004u,32,mask.load(),true);
+            for(unsigned i=0;i<4;++i){
+                c.pc=ex.edges[i].lr-4u;tick();ok=ep.dispatch_before(c,c.pc,ex.edges[i].branch_word,false);
+                if(i==0&&(hd==7||hd==10)){refuse_disp(!ok);break;}
+                need(ok);c.pc=ex.edges[i].pc;c.lr=ex.edges[i].lr;
+                ok=ep.entry(c,hd==11&&i==0?c.pc+4u:c.pc);
+                if(hd==11&&i==0){refuse_disp(!ok);break;}need(ok);
+                tick();need(ep.before(c,c.pc,Nop));
+                need(ep.poll(c,Image)==Poll::Continue);
+            }
+            if(hd==7||hd==10||hd==11)continue;
+            c.pc=Indirect;tick();need(ep.before(c,Indirect,ex.indirect_word));
+            c.pc=Handler;c.ctr=Handler;c.lr=Indirect+4u;c.gpr[3]=hd==12?19u:20u;c.gpr[4]=Context;
+            ok=ep.entry(c,Handler);
+            if(hd==8||hd==9||hd==12){refuse_disp(!ok);continue;}need(ok);
+            need(ep.stage()==7u&&ep.dispatch_saved(c)&&ep.dispatch_visits()==10u&&ep.dispatch_entries()==5u&&
+                 ep.dispatch_reads()==2u&&ep.dispatch_polls()==4u&&dev.held_now()&&ctl.issued_tokens()==3u);
+            ++held_disp_valid;continue;
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
@@ -944,7 +989,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -964,4 +1009,5 @@ int main(){
     std::cout<<"V1144_HELD_HANDLER_RETURN valid=8 refused=12 abi=15 dispatch_tick=1 token_held=1 original_execution=0\n";
     std::cout<<"V1149_HELD_PENDING_EPILOGUE valid=8 refused=12 native_rfi_model=1 same_token=1 third_vector_entry=1 original_execution=0\n";
     std::cout<<"V1150_HELD_VECTOR_JOIN valid=8 refused=12 vector_visits=2 trampoline_visits=2 saved_fields=38 token_held=1 original_execution=0\n";
+    std::cout<<"V1157_HELD_DISPATCH_JOIN valid=8 refused=12 pi_reads=2 entries=5 token_held=1 original_execution=0\n";
 }

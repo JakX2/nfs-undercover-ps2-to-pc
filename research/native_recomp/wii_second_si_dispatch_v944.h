@@ -10,6 +10,8 @@ public:
     explicit SecondSiDispatchWitness(SiDispatchExpectations e):e_(e){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    unsigned cause_reads()const{return pi_.cause_reads();}
+    unsigned mask_reads()const{return pi_.mask_reads();}
     template<class C>bool begin(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask,bool held){
         if(stage_||error_||!safe(c)||!held||c.pc!=SiDispatchWitness::Dispatcher||
            c.gpr[3]!=4u||c.gpr[4]!=SiDispatchWitness::Thread||

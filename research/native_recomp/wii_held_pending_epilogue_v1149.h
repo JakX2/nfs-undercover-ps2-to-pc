@@ -33,6 +33,7 @@ public:
         cpu_=&c;frame_=&frame;dev_=&dev;ctl_=&ctl;cause_=&cause;mask_=&mask;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+        if(stage_==6u)return dispatch_before(c,pc,w,false);
         if(stage_==4u)return same(c)&&no_si(c,w)&&next_.before(c,pc,w)?true:fail(5);
         if(stage_!=1u||!same(c)||!no_si(c,w)||c.inst_count-last_!=1u||
            !dev_->after_return_at(c.inst_count)||!frame_->saved_integer(c,expected_.context).ok())return fail(2);
@@ -42,6 +43,15 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc){
+        if(stage_==6u){
+            if(!same(c)||!dispatch_||!next_.dispatch_entry(c,pc)||++dispatch_entries_>5u)return fail(7);
+            if(next_.stage()==6u){
+                if(dispatch_entries_!=5u||dispatch_->cause_reads()!=1u||dispatch_->mask_reads()!=1u||
+                   !next_.dispatch_saved(c,expected_.context)||!dispatch_->handler_ready(c,cause_->load(),mask_->load()))return fail(7);
+                stage_=7u;
+            }
+            return true;
+        }
         if(stage_==3u){
             if(!same(c)||!next_.vector_entry(c,pc))return fail(5);
             stage_=4u;return true;
@@ -55,6 +65,7 @@ public:
                ep_.entry(c,pc,cause_->load(),mask_->load())?true:fail(3);
     }
     template<class C,size_t N>PollResult poll(C& c,const std::array<uint8_t,N>& image){
+        if(stage_==6u)return same(c)&&dispatch_&&++dispatch_polls_<=256u&&next_.dispatch_poll(c)?PollResult::Continue:reject(8);
         if(stage_==4u)return same(c)&&next_.poll(c)?PollResult::Continue:reject(5);
         if(stage_==3u)return same(c)&&next_.outer_poll(c)?PollResult::Continue:reject(5);
         if(!held(c))return reject(4);
@@ -66,8 +77,33 @@ public:
     }
     template<class C>bool saved(C& c){return stage_==5u&&same(c)&&next_.saved(c,expected_.context);}
     ThirdPendingReentry& next(){return next_;}
+    // Only the freshly completed vector may bind the dispatcher. The
+    // existing PI trace must record the actual bus results into this witness.
+    template<class C>bool begin_dispatch(C& c,SiDispatchExpectations e){
+        if(stage_!=5u||dispatch_||!saved(c))return fail(6);
+        dispatch_.emplace(e);
+        if(!next_.begin_dispatch(c,*dispatch_))return fail(6);
+        stage_=6u;return true;
+    }
+    template<class C>bool dispatch_before(C& c,uint32_t pc,uint32_t w,bool guard){
+        if(stage_!=6u||guard||!same(c)||!dispatch_||!no_si(c,w)||pc<0x80000000u||pc>0x817ffffcu||
+           (pc&3u)||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w||
+           ++dispatch_visits_>2048u||!next_.dispatch_tick(c))return fail(7);
+        return true;
+    }
+    SecondSiDispatchWitness* dispatch_witness(){return dispatch_?&*dispatch_:nullptr;}
+    unsigned dispatch_visits()const{return dispatch_visits_;}
+    unsigned dispatch_entries()const{return dispatch_entries_;}
+    unsigned dispatch_polls()const{return dispatch_polls_;}
+    unsigned dispatch_reads()const{return dispatch_?dispatch_->cause_reads()+dispatch_->mask_reads():0u;}
+    template<class C>bool dispatch_saved(C& c){
+        return stage_==7u&&same(c)&&next_.dispatch_saved(c,expected_.context)&&
+            dispatch_&&dispatch_->handler_ready(c,cause_->load(),mask_->load());
+    }
 private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
+    std::optional<SecondSiDispatchWitness> dispatch_;
+    unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
     const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
     uint64_t last_=0;unsigned stage_=0,error_=0;

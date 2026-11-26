@@ -18,6 +18,8 @@ public:
         if(++count>16u)fail();
     }
     bool good()const noexcept{return active_&&!bad_;}
+    unsigned cause_reads()const noexcept{return cause_reads_;}
+    unsigned mask_reads()const noexcept{return mask_reads_;}
     bool finish()noexcept{
         if(!good()||!cause_reads_||!mask_reads_)return fail();
         active_=false;done_=true;return true;
