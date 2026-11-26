@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_contract import contract,byte_cells
+from prepare_formatter_nested_contract import contract,byte_cells,boundary_width
 from guarded_continuation import GUARD
 R=0x80010000;A=0x80020000;L=0x80030000;N=0x60000000
 class Tests(unittest.TestCase):
@@ -21,6 +21,20 @@ class Tests(unittest.TestCase):
         self.assertEqual((len(rows),len(access),slots), (35,13,((4,32),)))
         self.assertEqual(blocks[R][-2:],(self.ws[-1],GUARD))
         self.assertEqual(known,((R+48,A,b'abcd'),))
+    def test_indexed_boundary(self):
+        self.ws=self.ws[:-1]+((31<<26)|(4<<21)|(3<<16)|(5<<11)|(23<<1),)
+        _,fields,*_=self.run_contract()
+        self.assertEqual(fields[3],self.ws[-1])
+        for bad in ((31<<26)|(4<<21)|(3<<16)|(5<<11)|(87<<1),0x60000000):
+            self.ws=self.ws[:-1]+(bad,)
+            with self.assertRaisesRegex(ValueError,'boundary'):self.run_contract()
+    def test_load_form(self):
+        for xo,n in ((23,4),(55,4),(87,1),(119,1),(279,2),(311,2),(343,2),(375,2)):
+            w=(31<<26)|(4<<21)|(3<<16)|(5<<11)|(xo<<1)
+            self.assertEqual(boundary_width(w),n)
+            self.assertEqual(boundary_width(w|1),0)
+        self.assertEqual(boundary_width((31<<26)|(4<<21)|(4<<16)|(5<<11)|(55<<1)),0)
+        self.assertEqual(boundary_width((31<<26)|(4<<21)|(5<<11)|(55<<1)),0)
     def test_linkage(self):
         self.mem[-860]=('byte',0)
         with self.assertRaisesRegex(ValueError,'linkage'):self.run_contract()

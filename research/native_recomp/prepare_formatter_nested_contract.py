@@ -13,6 +13,17 @@ def byte_cells(v,n):
     if v[0]=='const':return tuple(('byte',(v[1]>>(8*(n-1-i)))&255) for i in range(n))
     return tuple(('part',v,n,i) for i in range(n))
 
+def boundary_width(w):
+    op,rt,ra,xo=w>>26,(w>>21)&31,(w>>16)&31,(w>>1)&1023
+    if op in (32,33,34,35,40,41,42,43):
+        width=4 if op<=33 else 1 if op<=35 else 2
+        update=bool(op&1)
+    elif op==31 and not w&1 and xo in (23,55,87,119,279,311,343,375):
+        width=4 if xo in (23,55) else 1 if xo in (87,119) else 2
+        update=xo in (55,119,311,375)
+    else:return 0
+    return 0 if rt==1 or (update and (not ra or ra==rt or ra==1)) else width
+
 def contract(entry,record,words,blocks,resolve,*,extended=False):
     root,initial,parent,caller,readonly=entry
     at,n,path,frame,sites,gp,mem,cr,ctr,lr,saves=record
@@ -44,7 +55,7 @@ def contract(entry,record,words,blocks,resolve,*,extended=False):
         raise ValueError('nested contract path')
     rows=tuple((pc,words[(pc-root)//4]) for pc in path[:-1])
     target=path[-1];w=words[(target-root)//4]
-    if w>>26 not in (32,33) or blocks.get(root)!=(words[0],GUARD):
+    if boundary_width(w)!=n or blocks.get(root)!=(words[0],GUARD):
         raise ValueError('nested contract boundary')
     known=[]
     for pc,k,width,address in sites:
