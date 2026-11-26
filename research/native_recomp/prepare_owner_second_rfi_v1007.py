@@ -16,6 +16,10 @@ from prepare_v709_os_leaves import owns_root
 from verify_callback_resume_v853 import verify_callback_resume
 from collect_third_alarm_suffix_v1044 import collect_after_alarm
 from audit_handler_third_v740 import edge as handler_edge
+from audit_v662_external_overlay import expected as installed_vector
+from prepare_v663_external_entry import TRAMP
+from make_private_elf_symbol_map import parse_functions
+from prepare_v709_os_leaves import entry_count
 
 def plan(dol,elf):
     q=list(base_plan(dol,elf));result=q[0];p=list(result[0])
@@ -110,17 +114,69 @@ def install(q,site,root,tr,tail,resume,word,added,added_roots,code,reg,counter,h
     print('V1006_HANDLER_RESUME_ROUTE original_dispatcher=1 original_restore=1 pre_tick_hook=1 execution=0')
     print(f'V1032_ALARM_SUFFIX_GEOMETRY labels={len(after)} original_call=6 execution=0')
 
+def vector_plan(dol,elf,q):
+    roots=q[0][0][0][0][0]
+    if parse_functions(elf).get(TRAMP)!=80:raise ValueError('third trampoline extent')
+    words=list(exact(dol,elf,TRAMP,20))
+    if words[-1]>>26!=18 or words[-1]&3 or target(TRAMP+76,words[-1])!=DISPATCH:
+        raise ValueError('third trampoline tail')
+    added={0x80000500:list(installed_vector(dol)),TRAMP:words}
+    if len(added[0x80000500])!=38 or any(a<b+4*len(v) and b<a+4*len(ws) for a,ws in added.items() for b,v in roots.items()):
+        raise ValueError('third vector ownership')
+    return added
+
+def vector_header(q,added,out):
+    header(*q,out)
+    fmt=lambda ws:','.join(f'0x{w:08x}u' for w in ws)
+    with out.open('a') as f:
+        f.write('\n#include "wii_second_vector_v939.h"\n')
+        f.write(f'inline constexpr uint32_t ThirdVectorRoot=0x80000500u,ThirdTrampolineRoot=0x{TRAMP:08x}u;\n')
+        for name,ws in zip(('ThirdVectorWords','ThirdTrampolineWords'),added.values()):
+            f.write(f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+fmt(ws)+'};\n')
+        f.write('inline constexpr undercover::wii::SecondVectorExpectation ThirdVectorExpected{ThirdTrampolineRoot,Dispatcher,0x806f5318u,dispatcher_words[0],ThirdVectorWords,ThirdTrampolineWords};\n')
+
+def vector_analyzer(q,added,root):
+    # Extend analyzer ownership without making the legacy bounded call
+    # traversal follow the vector's cross-root exception return.
+    p=q[0][0][0]
+    old=p[0]
+    joined={**old[0],**added}
+    patch_analyzer(((joined,*old[1:]),*p[1:]),root)
+
+def vector_install(q,added,tree):
+    install(*q,tree)
+    paths=sorted(tree.glob('*.cpp'));main=tree/('main_output.cpp' if (tree/'main_output.cpp').is_file() else 'output.cpp')
+    outer=main.read_text().split('extern "C" void run_game(',1)[1]
+    changes={}
+    for a,ws in added.items():
+        found=[p for p in paths if owns_root(p.read_text(),a)]
+        if len(found)!=1 or sum(entry_count(p.read_text(),a) for p in paths)!=1:raise ValueError('third vector owner')
+        path=found[0];s=changes.get(path,path.read_text());body=exact_function(s,a);out=body
+        expected={a+4*i:(a,w) for i,w in enumerate(ws)}
+        if audit_native([body],outer,expected)!=len(ws):raise ValueError('third vector coverage')
+        for pc,(_,w) in expected.items():
+            pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
+            if len(pat.findall(out))!=1:raise ValueError('third vector hook')
+            out=pat.sub(lambda m:m[0]+f'    rfi_test::before_owned(ctx,0x{a:08x}u,0x{pc:08x}u,0x{w:08x}u);\n',out,count=1)
+        s=replace_exact(s,body,out)
+        decl='namespace rfi_test {void before_owned(nwii::runtime::CPUContext&,uint32_t,uint32_t,uint32_t);}'
+        if decl not in s:s=replace_exact(s,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+decl)
+        changes[path]=s
+    for path,s in changes.items():path.write_text(s)
+    print('V1069_THIRD_VECTOR_ROUTE installed=1 vector_labels=38 trampoline_labels=20 original_dispatcher=1 execution=0')
+
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('output',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--install',action='store_true');m.add_argument('--patch-analyzer',action='store_true');x=a.parse_args()
     try:
         if x.dol.stat().st_size>MAX_DOL or x.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         q=plan(x.dol.read_bytes(),x.elf.read_bytes())
-        if x.install:install(*q,x.output)
-        elif x.patch_analyzer:patch_analyzer(q[0][0][0],x.output)
-        else:header(*q,x.output);print('V1007_EPILOGUE_GEOMETRY dispatcher_words=4 loader_words=54 scheduler_enable=1 reschedule=1 execution=0')
+        added=vector_plan(x.dol.read_bytes(),x.elf.read_bytes(),q)
+        if x.install:vector_install(q,added,x.output)
+        elif x.patch_analyzer:vector_analyzer(q,added,x.output)
+        else:vector_header(q,added,x.output);print('V1007_EPILOGUE_GEOMETRY dispatcher_words=4 loader_words=54 scheduler_enable=1 reschedule=1 execution=0')
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        allowed=('handler tail geometry','handler tail words','handler restore overlap','handler suffix seam','dispatcher resume geometry','dispatcher owner','dispatcher resume coverage','dispatcher resume label','resume dispatcher identity','local resume dispatcher identity','native coverage','native owner','hook identity','third alarm suffix extent','third alarm suffix call','third alarm suffix boundary','third alarm suffix word','third alarm suffix geometry','third alarm suffix guard')
+        allowed=('handler tail geometry','handler tail words','handler restore overlap','handler suffix seam','dispatcher resume geometry','dispatcher owner','dispatcher resume coverage','dispatcher resume label','resume dispatcher identity','local resume dispatcher identity','native coverage','native owner','hook identity','third alarm suffix extent','third alarm suffix call','third alarm suffix boundary','third alarm suffix word','third alarm suffix geometry','third alarm suffix guard','third trampoline extent','third trampoline tail','third vector ownership','third vector owner','third vector coverage','third vector hook')
         print('V1007_EPILOGUE_PREP verified=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

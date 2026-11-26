@@ -23,6 +23,7 @@ int main(int argc,char** argv){
     if(CallbackRestore!=TransferRestore)add(CallbackRestore,CallbackRestoreWords);
     if(HandlerRestoreAdded)add(HandlerRestore,HandlerRestoreWords);
     for(auto root:EpilogueRoots)add(root.root,root.words);
+    add(ThirdVectorRoot,ThirdVectorWords);add(ThirdTrampolineRoot,ThirdTrampolineWords);
     // Store overlapping aliases once in memory; their native function
     // entries are nevertheless independently analyzed and emitted.
     for(auto i=words.begin();i!=words.end();){
@@ -40,10 +41,11 @@ int main(int argc,char** argv){
     if(CallbackRestore!=TransferRestore)roots.push_back(CallbackRestore);
     if(HandlerRestoreAdded)roots.push_back(HandlerRestore);
     for(auto root:EpilogueRoots)roots.push_back(root.root);
+    roots.push_back(ThirdVectorRoot);roots.push_back(ThirdTrampolineRoot);
     a.analyze(roots);
-    assert(a.get_functions().size()==TransferRootCount);
+    assert(a.get_functions().size()==TransferRootCount+2u);
     for(const auto& [pc,fn]:a.get_functions()){(void)pc;assert(fn.hle_hook_name.empty());}
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=argv[1];cfg.split_output=std::string(argv[2])=="split";
     nwii::recomp::Recompiler recomp(a,nullptr,cfg);assert(!recomp.generate_cpp(Dispatcher).empty());
-    std::cout<<"V971_TRANSFER_TRANSLATION roots="<<TransferRootCount<<" split="<<cfg.split_output<<"\n";
+    std::cout<<"V971_TRANSFER_TRANSLATION roots="<<TransferRootCount+2u<<" split="<<cfg.split_output<<"\n";
 }
