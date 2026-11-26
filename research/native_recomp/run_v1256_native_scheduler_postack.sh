@@ -733,9 +733,6 @@ if [[ "$post_stm_helper_mode" == 1 ]];then
 fi
 
 if [[ "$post_stm_dependency_mode" == 1 ]];then
-  [[ "$(grep -Ec '^POST_STM_SC_REPORT_DEPENDENCY_TRIAL n=[0-7] native_leaf=1 original_return=1 loads=1 stores=1 deferred=1 reply=0 caller_executed=0 visits=20
-  grep -Fx 'POST_STM_SC_REPORT_DEPENDENCY_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 deferred=8 reply=0 caller_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
-fi
- "$work/run.log")" == 8 ]]
+  [[ "$(grep -Ec '^POST_STM_SC_REPORT_DEPENDENCY_TRIAL n=[0-7] native_leaf=1 original_return=1 loads=1 stores=1 deferred=1 reply=0 caller_executed=0 visits=20$' "$work/run.log")" == 8 ]]
   grep -Fx 'POST_STM_SC_REPORT_DEPENDENCY_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 deferred=8 reply=0 caller_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 fi
