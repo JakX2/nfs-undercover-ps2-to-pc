@@ -1,0 +1,3 @@
+# V1323: seed authenticated original helper in focused guest RAM
+
+V1318 owner run 45814479244 classified the failure at visit 18 as detail=7 owner=5 ticks=1 boundary=0. Source inspection confirms V1281 seeded only the original guard entry while V1316 expanded the generated native function to 31 instructions. Seed exactly that authenticated body before any native execution, require complete unique contiguous mapped extent and matching predecessor entry before writes, then verify all 296 route words. Never seed on a runtime refusal. Nine synthetic initialization cases; original owner retry required. No game-derived bytes published, no native execution contract relaxed.

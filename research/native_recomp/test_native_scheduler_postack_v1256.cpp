@@ -42,6 +42,9 @@
 #endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
 #include "v1299_private_return.h"
+#ifdef UNDERCOVER_V1316_REPLY_HELPER
+#include "wii_private_expansion_seed_v1323.h"
+#endif
 #endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
 #include "wii_ready_idle_return_v1304.h"
@@ -892,6 +895,15 @@ int main(int argc,char** argv)try{
 #endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
         for(auto w:v1289::words)c.mmu.write32(w.pc,w.word);
+#endif
+#ifdef UNDERCOVER_V1316_REPLY_HELPER
+        // The old reply fixture only seeded the guard's entry word.
+        // Populate the authenticated expanded body before execution,
+        // not at the failing instruction boundary.
+        const auto helper=v1299::expected(W::Sda+v1292::counter_disp).helper;
+        need(seed_private_expansion(c.mmu,v1299::words,helper,31u));
+        for(auto w:v1299::words)need(c.mmu.read32(w.pc)==w.word);
+        std::cout<<"V1323_HELPER_RAM_TRIAL n="<<trial<<" seeded_words=31 verified_route_words="<<v1299::words.size()<<"\n";
 #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;

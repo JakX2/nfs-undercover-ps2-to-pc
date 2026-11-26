@@ -10,6 +10,7 @@ on:
       - 'research/native_recomp/V1313_REPLY_CONTROL.md'
       - 'research/native_recomp/V1316_REPLY_HELPER.md'
       - 'research/native_recomp/V1318_REPLY_INSTRUCTION_DIAGNOSTIC.md'
+      - 'research/native_recomp/V1323_HELPER_RAM.md'
       - '.github/workflows/wii-v1300-reply-return-owner.yml'
 permissions:
   contents: read
@@ -66,6 +67,8 @@ jobs:
           /tmp/v1298
           python3 -m unittest discover -s research/native_recomp -p test_v1299_reply_return.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1316_reply_helper.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_private_expansion_seed_v1323.cpp -o /tmp/v1323
+          /tmp/v1323
           printf '#include "wii_joined_ipc_ack_v1266.h"\nint main(){}\n' | g++ -x c++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp -fsyntax-only -
   owner-reply-return:
     needs: original-free
