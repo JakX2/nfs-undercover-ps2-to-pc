@@ -1,5 +1,6 @@
 #include "wii_si_binding_v512.h"
 #include "wii_si_type_scheduler_v514.h"
+#include "wii_third_si_transfer_v1028.h"
 #include <iostream>
 #include <map>
 #include <source_location>
@@ -157,6 +158,59 @@ int main(int argc,char** argv){
         auto& third=v958::next_device;
         need(v958::ack.stage()==5u&&third.stage()==1u&&!v958::ack.postack_held());
         need(!SiBinding::handoff_second_transfer(c,cause,mask)&&third.stage()==1u&&ctl.issued_tokens()==2u);
+        if(mode.starts_with("error-third-native")){
+            // Independently authored instruction fixture, not game code.
+            constexpr uint32_t Root=H+0x700u,L1=H+0x800u,L2=H+0x900u,L3=H+0xa00u;
+            constexpr std::array<AckCallSpan,5> spans{{{H,H+32},{Root,Root+80},{L1,L1+4},{L2,L2+4},{L3,L3+4}}};
+            constexpr std::array<AckCallEdge,4> edges{{{H+20,Root},{Root,L1},{Root+4,L2},{Root+8,L3}}};
+            c.mmu.words[H+24]=Nop;
+            for(auto e:edges)c.mmu.words[e.site]=bl(e.site,e.target);
+            for(auto leaf:{L1,L2,L3})c.mmu.words[leaf]=Blr;
+            c.mmu.words[Root+12]=Load;
+            c.mmu.words[Root+16]=0x90830000u|B;
+            c.mmu.words[Root+20]=0x90830000u|S;
+            c.mmu.words[Root+24]=Store;
+            for(unsigned i=0;i<9;++i)c.mmu.words[Root+28+4*i]=Nop;
+            c.mmu.words[Root+64]=Blr;
+            ThirdSiTransferRoute route;
+            const auto admitted=inspect_si_transfer_arguments(c,v958::transfer_data,v958::transfer_slots,v958::transfer_callback);
+            need(route.start(c,H+20,c.mmu.words[H+20],admitted,spans,edges,{},v958::transfer_data));
+            auto refusal=[&](bool rejected){
+                need(rejected&&route.failure()!=0u);
+                std::cout<<"V1030_NATIVE_ROUTE refused=1 original_execution=0"<<std::endl;
+            };
+            auto at=[&](uint32_t pc,uint32_t word){scheduler.advance(++tick);c.pc=pc;return route.before(c,pc,word,third);};
+            c.pc=Root;c.lr=H+24;
+            if(mode=="error-third-native-entry"){refusal(!route.entry(c,L1,third));return 0;}
+            need(route.entry(c,Root,third));
+            if(mode=="error-third-native-skip"){refusal(!at(Root+4,c.mmu.words[Root+4]));return 0;}
+            if(mode=="error-third-native-word"){refusal(!at(Root,Nop));return 0;}
+            for(unsigned i=1;i<edges.size();++i){
+                const auto e=edges[i];
+                need(at(e.site,c.mmu.words[e.site]));
+                c.pc=e.target;c.lr=e.site+4;need(route.entry(c,c.pc,third));
+                need(at(e.target,Blr));
+                if(i==1&&mode=="error-third-native-abi"){
+                    c.gpr[31]^=1u;refusal(!at(e.site+4,c.mmu.words[e.site+4]));return 0;
+                }
+            }
+            c.gpr[3]=Base;need(at(Root+12,Load));read=SiBinding::read32(Base+C);need(read&&*read==ctrl);
+            c.gpr[4]=0;need(at(Root+16,c.mmu.words[Root+16])&&SiBinding::write32(Base+B,0));
+            c.gpr[4]=0x00000800u;need(at(Root+20,c.mmu.words[Root+20])&&SiBinding::write32(Base+S,c.gpr[4]));
+            c.gpr[4]=0xc0010305u;need(at(Root+24,Store)&&SiBinding::write32(Base+C,c.gpr[4]));
+            for(unsigned i=0;i<9;++i){need(at(Root+28+4*i,Nop));need(route.poll(c,third));}
+            c.gpr[3]=1;c.lr=H+24;
+            c.mmu.words[v958::transfer_data]=2u;c.mmu.words[v958::transfer_data+8]=3u;
+            c.mmu.words[v958::transfer_data+12]=Resp;c.mmu.words[v958::transfer_data+16]=v958::transfer_callback;
+            need(at(Root+64,Blr));
+            if(mode=="error-third-native-data"){
+                c.mmu.words[v958::transfer_data+12]^=4u;refusal(!at(H+24,Nop));return 0;
+            }
+            need(at(H+24,Nop)&&route.stage()==2u&&route.entries()==4u&&route.returns()==4u&&
+                 route.visits()==21u&&third.held_now()&&third.token()==3u&&third.follow_stage()==3u&&scheduler.completed()==3u);
+            std::cout<<"V1030_NATIVE_ROUTE verified=1 entries=4 returns=4 visits=21 token=3 original_execution=0"<<std::endl;
+            return 0;
+        }
         const auto before=[&](Access access=Access::None,uint32_t a=0,std::optional<uint32_t> v=std::nullopt){
             scheduler.advance(++tick);need(third.before(tick,access,a,v));
         };

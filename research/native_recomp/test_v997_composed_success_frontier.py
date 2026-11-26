@@ -32,7 +32,7 @@ class ComposedSuccessFrontier(unittest.TestCase):
             shared=b'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=12 token_preserved=1 saved_fields=38 boot_verified=0'
             post=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=15 handler_instruction_executed=0 boot_verified=0'
             time=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=12 handler_instruction_executed=0 boot_verified=0'
-            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only','error-callback','error-callback-short','error-direct','error-success','error-third','error-third-mismatch','error-third-frame','error-third-stale','error-third-word','error-third-mask','error-third-unarmed'):
+            for mode in ('callback','callback-unknown','callback-unmapped','callback-corrupt','callback-unaligned','callback-unguarded','callback-frame','direct','direct-mismatch','shared-only','error-callback','error-callback-short','error-direct','error-success','error-third','error-third-mismatch','error-third-frame','error-third-stale','error-third-word','error-third-mask','error-third-unarmed','error-third-native','error-third-native-entry','error-third-native-skip','error-third-native-word','error-third-native-abi','error-third-native-data'):
                 with self.subTest(mode=mode):
                     runenv=env.copy()
                     runenv['UNDERCOVER_V967_POST_ACK']='1';runenv['UNDERCOVER_V989_SHARED_COMPLETION']='1'
@@ -47,7 +47,11 @@ class ComposedSuccessFrontier(unittest.TestCase):
                     if mode.startswith('error-third'):
                         from audit_v1015_error_completion import RESULT as ERROR
                         self.assertIn(ERROR,rows)
-                        if mode=='error-third':
+                        if mode.startswith('error-third-native'):
+                            self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                            expected=b'V1030_NATIVE_ROUTE verified=1 entries=4 returns=4 visits=21 token=3 original_execution=0' if mode=='error-third-native' else b'V1030_NATIVE_ROUTE refused=1 original_execution=0'
+                            self.assertEqual(rows[-1],expected)
+                        elif mode=='error-third':
                             self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
                             self.assertEqual(rows[-1],b'V1025_THIRD_HANDOFF original_execution=0 token=3 completed=1 exclusive_device=1 duplicate_refused=1 reads=1 writes=3')
                         elif mode=='error-third-unarmed':

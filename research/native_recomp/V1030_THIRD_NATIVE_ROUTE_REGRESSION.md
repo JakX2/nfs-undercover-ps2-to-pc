@@ -1,0 +1,3 @@
+# V1030: strict third-transfer synthetic native-label regression
+
+Exercise the V1028 strict route with an independent synthetic PPC label fixture, actual composed SI binding, scheduler and third-device handoff. Validate four entries/returns, a completed third no-response token, restored ABI and queue state. Refuse wrong entry, skipped branch, mismatched word, corrupted nonvolatile register, and wrong returned transfer data. The fixture manually models PPC register and memory effects; it is not translated game execution. The V1029 private owner preflight remains a separate gate. Pending CI.
