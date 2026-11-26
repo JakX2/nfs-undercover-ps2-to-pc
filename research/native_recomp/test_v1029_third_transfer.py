@@ -1,5 +1,5 @@
 import unittest
-from prepare_v1029_third_transfer import hook,SI
+from prepare_v1029_third_transfer import hook,SI,replace_body,include_once,replace_stage
 P=0x80004000;W=0x48000101
 L=f'loc_{P:X}: ;\n    // 0x{P:08X}: {W:08X}\n    ++ctx.inst_count;\n'+SI
 CALL=f'undercover::wii::v958::before(ctx,0x{P:08x}u,0x{W:08x}u,'
@@ -18,6 +18,18 @@ class Hooks(unittest.TestCase):
         out=hook(L+'    '+CALL+'true);\n',P,W,'resume')
         self.assertIn('third_active()) '+CALL+'false);',out)
         self.assertIn('else '+CALL+'true);',out)
+    def test_unchanged_shared_leaf(self):
+        body=L+'    '+CALL+'false);\n'
+        self.assertEqual(hook(body,P,W,'body'),body)
+        src='#include "runtime/cpu_context.h"\n'+body
+        self.assertEqual(replace_body(src,body,body),src)
+        with self.assertRaisesRegex(ValueError,'third body seam'):
+            replace_body(src+body,body,body)
+        inc='#include "undercover/wii_second_ack_live_v958.h"'
+        once=include_once(src,inc)
+        self.assertEqual(include_once(once,inc),once)
+        with self.assertRaisesRegex(ValueError,'third include seam'):include_once(once+inc,inc)
+        with self.assertRaisesRegex(ValueError,'third private seam'):replace_stage('a','b','c','third private seam')
     def test_refusals(self):
         for bad in (L,L+SI,L.replace(SI,''),L+'    '+CALL+'false);\n'):
             with self.assertRaises(ValueError):hook(bad,P,W,'frontier')

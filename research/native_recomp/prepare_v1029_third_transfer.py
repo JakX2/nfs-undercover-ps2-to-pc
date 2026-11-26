@@ -14,6 +14,21 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v850_callback_return import BLOCK_END
 from prepare_v807_callback_prefix import SI
 
+def replace_stage(source,old,new,phase):
+    try:return replace_exact(source,old,new)
+    except ValueError:raise ValueError(phase) from None
+
+def replace_body(source,body,out):
+    # Shared original leaves may already carry the complete V958 hook.
+    # An unchanged exact body is a verified no-op, not a failed insertion.
+    if not body or source.count(body)!=1:raise ValueError('third body seam')
+    return source if out==body else replace_stage(source,body,out,'third body seam')
+
+def include_once(source,inc):
+    if source.count(inc)>1:raise ValueError('third include seam')
+    if inc in source:return source
+    return replace_stage(source,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc,'third include seam')
+
 def hook(body,pc,w,kind):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
     hits=list(pat.finditer(body))
@@ -28,7 +43,7 @@ def hook(body,pc,w,kind):
     if kind=='frontier':
         if block.count(guard)!=1 or block.index(guard)<block.index(SI):raise ValueError('third frontier')
         line=f'    if(undercover::wii::v958::third_ready && !undercover::wii::SiBinding::handoff_second_transfer(ctx,nwii::runtime::hw::pi_intsr,nwii::runtime::hw::pi_intmr,0x{pc:08x}u)) undercover::wii::v958::reject(17);\n'
-        block=replace_exact(block,guard,guard+line)
+        block=replace_stage(block,guard,guard+line,'third frontier seam')
     else:
         # Shared disable/restore labels already route to v958. The
         # compiler save may also have a conditional callback hook.
@@ -38,7 +53,7 @@ def hook(body,pc,w,kind):
             if block.index(current)<block.index(SI):raise ValueError('third tick')
         elif hits and hits[0]==guard:
             if kind!='resume':raise ValueError('third guard')
-            block=replace_exact(block,guard,'    if(undercover::wii::v958::third_active()) '+current.lstrip()+'    else '+guard.lstrip())
+            block=replace_stage(block,guard,'    if(undercover::wii::v958::third_active()) '+current.lstrip()+'    else '+guard.lstrip(),'third resume seam')
         else:
             if hits and ('callback_active()' not in hits[0] or current.lstrip() not in hits[0]):
                 raise ValueError('third shared hook')
@@ -81,17 +96,16 @@ def install(dol,elf,root,host):
         for pc,(_,word) in expected.items():
             kind='frontier' if pc==call else 'resume' if pc==call+4 else 'body'
             out=hook(out,pc,word,kind)
-        text=replace_exact(changes.get(path,src[path]),body,out)
-        inc='#include "undercover/wii_second_ack_live_v958.h"'
-        if inc not in text:text=replace_exact(text,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
+        text=replace_body(changes.get(path,src[path]),body,out)
+        text=include_once(text,'#include "undercover/wii_second_ack_live_v958.h"')
         if addr==HANDLER:
             for inc in ('#include "undercover/wii_si_binding_v512.h"','#include "runtime/hw/hw.h"'):
-                if inc not in text:text=replace_exact(text,'#include "runtime/cpu_context.h"','#include "runtime/cpu_context.h"\n'+inc)
+                text=include_once(text,inc)
         changes[path]=text;count+=len(expected)
     fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
     spans=[(HANDLER,HANDLER+4*n,0,0),*((a,a+4*len(roots[a]),int(a==S),26 if a==R else 0) for a in (C,S,D,Q,R))]
-    old=replace_exact(old,'#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n',
-        '#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n')
+    old=replace_stage(old,'#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n',
+        '#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n','third private seam')
     old+='namespace undercover::wii::v958 {\n'
     old+='inline constexpr std::array<AckCallSpan,6> third_spans{{'+','.join('{'+fmt(row)+'}' for row in spans)+'}};\n'
     old+='inline constexpr std::array<AckCallEdge,6> third_edges{{'+','.join('{'+fmt(row)+'}' for row in [(call,C),*edges])+'}};\n}\n'
@@ -105,7 +119,7 @@ def main():
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,StopIteration) as e:
-        safe=('third label','third tick','third frontier','third duplicate hook','third guard','third shared hook','third geometry','third destination','third mode','third tree','third owner','third coverage','source seam','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        safe=('third label','third tick','third frontier','third duplicate hook','third guard','third shared hook','third geometry','third destination','third mode','third tree','third owner','third coverage','third body seam','third include seam','third frontier seam','third resume seam','third private seam','source seam','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V1029_THIRD_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())
