@@ -1,0 +1,3 @@
+# V1003: original callback return into actual second handler
+
+V1002 owner run 45727119377 verified eight unchanged wireless setter/UnlockSram returns (66 visits, 12 stores) and eight changed-ID genuine EXILock entries (69 visits, 13 stores). 1050 authenticated labels, 25 roots, 46 direct edges. V1003 composes the previously verified callback suffix and six-register restore with the real second handler's indirect resume label. Capture the actual entry GPRs/CR, observe the outer return poll and pre-label dispatch tick, then verify full ABI and saved frame. Only unchanged SRAM fixture profiles are continued. Other indirect dependencies stop before execution. No completed handler, RFI or full-image boot claim. Pending private validation.
