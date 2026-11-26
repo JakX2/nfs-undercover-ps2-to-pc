@@ -17,7 +17,7 @@ class ScFormatterWitness {
 public:
     explicit ScFormatterWitness(ScFormatterExpectation e):e_(e){}
     unsigned stage()const{return stage_;}unsigned failure()const{return error_;}
-    unsigned visits()const{return visits_;}unsigned loads()const{return loads_;}unsigned stores()const{return stores_;}
+    unsigned visits()const{return visits_;}unsigned back_polls()const{return back_polls_;}unsigned loads()const{return loads_;}unsigned stores()const{return stores_;}
     uint32_t expected_sp()const{return gp_[1];}
     uint32_t linkage_word()const{
         uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|shadow_[e_.frame_size+4+i];return v;
@@ -47,11 +47,17 @@ public:
         cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool poll(C& c,bool held){
-        if(stage_!=1u||!common(c,held)||visits_||initial_poll_||c.pc!=e_.root||c.inst_count!=last_)return fail(2);
-        initial_poll_=true;return true;
+        if(stage_!=1u||c.inst_count!=last_)return fail(2);
+        if(!visits_&&!initial_poll_&&c.pc==e_.root&&common(c,held)){
+            initial_poll_=true;return true;
+        }
+        // NWiiRecomp polls at the source PC of a local backward branch
+        // after its instruction tick, but BEFORE CTR decrement or branch.
+        if(!back_poll_due_||c.pc!=poll_pc_||!common(c,held,true))return fail(2);
+        back_poll_due_=false;++back_polls_;return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
-        if(stage_!=1u||!common(c,held)||c.pc!=pc)return fail(3);
+        if(stage_!=1u||back_poll_due_||!common(c,held)||c.pc!=pc)return fail(3);
         if(!visits_){
             if(!initial_poll_||entry_seen_||pc!=e_.root||c.inst_count-last_!=1u)return fail(3);
             entry_seen_=true;return true;
@@ -60,7 +66,7 @@ public:
         stage_=2;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=1u||!common(c,held)||due_||visits_>=e_.path.size()||
+        if(stage_!=1u||!common(c,held)||due_||back_poll_due_||visits_>=e_.path.size()||
            c.inst_count-last_!=(visits_?1u:2u)||(!visits_&&(!initial_poll_||!entry_seen_||c.pc!=pc))||
            e_.path[visits_].pc!=pc||e_.path[visits_].word!=w||!word(c,pc,w))return fail(4);
         ++visits_;last_=c.inst_count;uint32_t next=pc+4u;
@@ -118,6 +124,10 @@ public:
             lr_=pc+4u;due_=true;return true;
         }else if(op==16u||op==18u){
             if(w&3u)return fail(6);
+            const auto dst=target(pc,w);
+            if(dst>=e_.root&&dst<=pc){
+                back_poll_due_=true;poll_pc_=pc;poll_ctr_=ctr_;
+            }
             const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;bool ct=true;
             if(op==16u&&!(bo&4u)){--ctr_;ct=bool(ctr_)!=bool(bo&2u);}
             if(op==18u||(ct&&((bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u))))next=target(pc,w);
@@ -141,7 +151,8 @@ private:
     std::vector<uint8_t> shadow_,written_;
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,seen_=0;
-    bool initial_poll_=false,entry_seen_=false,due_=false;
+    bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false;
+    uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t mask(unsigned mb,unsigned me){
         uint32_t v=0;for(unsigned i=0;i<32u;++i)if(mb<=me?(i>=mb&&i<=me):(i>=mb||i<=me))v|=1u<<(31u-i);return v;
@@ -187,9 +198,9 @@ private:
         return p&&q&&reinterpret_cast<uintptr_t>(q)==reinterpret_cast<uintptr_t>(p)+a.size-1u;
     }
     template<class C>static bool word(C& c,uint32_t a,uint32_t w){return !(a&3u)&&mapped(c,{a,4})&&c.mmu.read32(a)==w;}
-    template<class C>bool common(C& c,bool held)const{
+    template<class C>bool common(C& c,bool held,bool pre_branch=false)const{
         if(error_||!held||cpu_!=&c||!safe(c)||c.gpr!=gp_||c.gqr!=gqr_||c.msr!=msr_||
-           pack(c)!=cr_||c.lr!=lr_||c.ctr!=ctr_||c.xer!=xer_||c.srr0!=srr0_||c.srr1!=srr1_||!mapped(c,frame_))return false;
+           pack(c)!=cr_||c.lr!=lr_||c.ctr!=(pre_branch?poll_ctr_:ctr_)||c.xer!=xer_||c.srr0!=srr0_||c.srr1!=srr1_||!mapped(c,frame_))return false;
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
         return true;
     }

@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/prepare_post_stm_sc_formatter_leaf_fixture.py'
       - 'research/native_recomp/test_post_stm_sc_formatter_leaf_fixture.py'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/wii_post_stm_sc_leaf_shadow.h'
       - '.github/workflows/wii-post-stm-sc-formatter-leaf-owner.yml'
 permissions:
   contents: read

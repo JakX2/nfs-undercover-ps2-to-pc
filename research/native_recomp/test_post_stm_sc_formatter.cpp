@@ -61,4 +61,41 @@ static void trial(unsigned fault){
     c.gpr[3]^=0x100u;assert(w.frame_held(c,true)&&!w.reached(c,true));
     assert(!w.frame_held(c,false));c.mmu.write32(Sp-16,0);assert(!w.frame_held(c,true));
 }
-int main(){for(unsigned i=0;i<=15;++i)trial(i);std::cout<<"POST_STM_SC_FORMATTER_TEST cases=16 original_execution=0\n";}
+static void backward(unsigned fault,bool taken){
+    Cpu c;c.gpr[1]=Sp;c.ctr=taken?2u:1u;
+    for(unsigned i=14;i<32;++i)c.gpr[i]=0x100u+i;
+    std::array<StmFinalSlot,17> slots{};slots[0]={4,32};
+    for(unsigned i=16;i<32;++i)slots[i-15]={int32_t(4*(int(i)-32)),i};
+    const auto b=[](uint32_t a,uint32_t z){return 0x48000000u|((z-a)&0x03fffffcu);};
+    const uint32_t branch=0x42000000u|((R+20u-(R+28u))&0xfffcu);
+    const std::array<uint32_t,9> ops{{ins(37,1,1,-704),0x7c0802a6,ins(36,0,1,708),
+        ins(47,16,1,640),b(R+16,R+28),ins(14,3,0,7),b(R+24,R+32),branch,bl(R+32,T)}};
+    for(unsigned i=0;i<ops.size();++i)c.mmu.write32(R+4*i,ops[i]);
+    c.mmu.write32(T,Nop);
+    std::vector<IpcDispatchWord> path;
+    for(unsigned i:std::array<unsigned,6>{0,1,2,3,4,7})path.push_back({R,R+4*i,ops[i]});
+    if(taken)for(unsigned i:std::array<unsigned,2>{5,6})path.push_back({R,R+4*i,ops[i]});
+    path.push_back({R,R+32,ops[8]});
+    const std::array<ScFormatterAccess,3> access{{{R,4,-704,true,true},{R+8,4,4,true,true},{R+12,64,-64,true,true}}};
+    ScFormatterWitness w({R,L,T,Nop,704u,path,access,slots});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        ++c.inst_count;const bool ok=w.before(c,x.pc,x.word,true);
+        if(fault==1&&x.pc==(taken?R+20:R+32)){assert(!ok);return;}assert(ok);
+        if(x.pc==R){c.gpr[1]=Sp-704;c.mmu.write32(c.gpr[1],Sp);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(Sp+4,L);
+        else if(x.pc==R+12){for(unsigned j=16;j<32;++j)c.mmu.write32(Sp-64+4*(j-16),c.gpr[j]);}
+        else if(x.pc==R+28){
+            c.pc=fault==2?R+24:R+28;
+            if(fault==3)--c.ctr;
+            if(fault==6)c.mmu.write32(Sp-4,0);
+            if(fault!=1){const bool polled=w.poll(c,fault!=5);if(fault==2||fault==3||fault==5||fault==6){assert(!polled);return;}assert(polled);}
+            if(fault==4){assert(!w.poll(c,true));return;}--c.ctr;
+        }else if(x.pc==R+20)c.gpr[3]=7;
+        else if(x.pc==R+32){c.pc=T;c.lr=R+36;}
+    }
+    assert(w.entry(c,T,true)&&w.reached(c,true)&&w.back_polls()==1&&w.visits()==path.size());
+    assert(c.ctr==(taken?1u:0u));
+}
+int main(){for(unsigned i=0;i<=15;++i)trial(i);backward(0,false);for(unsigned i=0;i<=6;++i)backward(i,true);std::cout<<"POST_STM_SC_FORMATTER_TEST cases=24 original_execution=0\n";}
