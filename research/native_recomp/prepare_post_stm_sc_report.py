@@ -59,7 +59,7 @@ def report_prefix(root,words):
     rows,seen,slots,fp,frame,dst=report_trace(root,words)
     return len(rows),len(seen),len(slots),fp,frame,dst
 
-def queue_plan(d,e):
+def queue_geometry(d,e):
     caller=EDGES[3][0]+4;site,root=EDGES[4]
     body=exact_words(d,e,ROOT,SIZE//4)
     rows,backs,stores,stops=first_region(ROOT,body,caller)
@@ -91,7 +91,11 @@ def queue_plan(d,e):
         elif op==36 and ra==3 and known.get(rs)==0 and disp in (0,4):cells.add(disp)
         else:raise ValueError('SC queue opcode')
     if cells!={0,4}:raise ValueError('SC queue stores')
-    return len(rows),len(ws),len(cells)
+    return rows,ws,addr,obj,(caller,site,root)
+
+def queue_plan(d,e):
+    rows,ws,_,_,_=queue_geometry(d,e)
+    return len(rows),len(ws),2
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--queue',action='store_true');q=a.parse_args()
