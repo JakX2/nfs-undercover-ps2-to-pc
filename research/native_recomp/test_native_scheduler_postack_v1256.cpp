@@ -105,6 +105,9 @@
 #include "wii_deferred_active_return.h"
 #ifdef UNDERCOVER_STM_RESUMED_RESTORE
 #include "wii_stm_resumed_restore.h"
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+#include "private_stm_final_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -389,6 +392,13 @@ static unsigned third_resume_count=0;
 struct StmResumedRestoreStop{};
 static bool third_resume_held(nw::CPUContext&);
 [[noreturn]]static void third_resume_refuse(unsigned);
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+static StmFinalReturnWitness* stm_final=nullptr;
+static unsigned stm_final_count=0;
+struct StmFinalReturnStop{};
+static bool stm_final_held(nw::CPUContext&);
+[[noreturn]]static void stm_final_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -712,6 +722,20 @@ static bool third_return_storage(nw::CPUContext& c){
 static bool third_resume_held(nw::CPUContext& c){
     return third_resume&&third_return_join&&third_return_join->continuation_held(c,third_return_storage(c));
 }
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+static bool stm_final_held(nw::CPUContext& c){
+    return stm_final&&third_return_join&&third_return_join->continuation_held(c,third_return_storage(c));
+}
+[[noreturn]]static void stm_final_refuse(unsigned kind){
+    std::cout<<"STM_FINAL_RETURN_REFUSAL kind="<<kind<<" stage="<<(stm_final?stm_final->stage():0u)
+        <<" reason="<<(stm_final?stm_final->failure():0u)<<" visits="<<(stm_final?stm_final->visits():0u)
+        <<" loads="<<(stm_final?stm_final->loads():0u)<<" stores="<<(stm_final?stm_final->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void stm_final_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!stm_final||!stm_final->before(c,pc,w,stm_final_held(c)))stm_final_refuse(2);
+}
+#endif
 [[noreturn]]static void third_resume_refuse(unsigned kind){
     std::cout<<"STM_RESUMED_RESTORE_REFUSAL kind="<<kind<<" stage="<<(third_resume?third_resume->stage():0u)
         <<" reason="<<(third_resume?third_resume->failure():0u)<<" visits="<<(third_resume?third_resume->visits():0u)
@@ -1347,6 +1371,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+    if(stm_final){if(!stm_final->entry(c,pc,stm_final_held(c)))stm_final_refuse(3);return;}
+#endif
 #ifdef UNDERCOVER_STM_RESUMED_RESTORE
     if(third_resume){
         if(!third_resume->entry(c,pc,third_resume_held(c)))third_resume_refuse(3);
@@ -1897,6 +1924,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+    if(stm_final){
+        if(!stm_final->poll(c,stm_final_held(c)))stm_final_refuse(4);
+        if(stm_final->stage()==2u){++stm_final_count;throw StmFinalReturnStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_RESUMED_RESTORE
     if(third_resume){
         if(!third_resume->poll(c,third_resume_held(c)))third_resume_refuse(4);
@@ -2363,6 +2397,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+    if(stm_final)stm_final_refuse(6);
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){
         if(!ioctl_dispatch_cpu)third_ack_refuse(5);
@@ -2485,6 +2522,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+    if(stm_final)stm_final_refuse(6);
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){
         if(!ioctl_dispatch_cpu||!third_ack->write(*ioctl_dispatch_cpu,a,v,third_ack_held(*ioctl_dispatch_cpu)))third_ack_refuse(6);
@@ -2628,6 +2668,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(v1379::expected.stm_resume,v1379::expected.stm_resume_word);
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
         for(auto w:v1383::words)c.mmu.write32(w.pc,w.word);
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+        // Authenticated original caller word, used only as a stop guard.
+        // The modeled OSInit bridge is not executed in this focused mode.
+        need(stm_final_private::expected.caller==v629::expected_stm.stm.lr);
+        c.mmu.write32(stm_final_private::expected.caller,stm_final_private::expected.caller_word);
+#endif
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
         for(auto w:v1386::words)c.mmu.write32(w.pc,w.word);
 #endif
@@ -2750,6 +2796,10 @@ int main(int argc,char** argv)try{
 #endif
 #endif
         need(stm.begin(c,w,device_ok(c)));
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+        const auto stm_caller_gp=c.gpr;
+        const auto stm_caller_cr=StmFinalReturnWitness::abi_cr(c);
+#endif
         // Focused proof: model the caller bridge after the verified IPC
         // return. Execute the original STM prefix, not a synthetic
         // pathname selection. Do not claim the OSInit bridge executed.
@@ -3525,6 +3575,19 @@ int main(int argc,char** argv)try{
             <<" native_resume=1 original_restore_return=1 stm_caller=1 deferred=1 reply=0 stm_instruction_executed=0 visits="
             <<resumed_restore.visits()<<'\n';
         third_resume=nullptr;
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+        StmFinalReturnWitness final_stm(stm_final_private::expected);stm_final=&final_stm;
+        if(!final_stm.begin(c,stm_caller_gp,stm_caller_cr,stm_final_held(c)))stm_final_refuse(1);
+        bool stm_returned=false;try{run_game(c);}catch(const StmFinalReturnStop&){stm_returned=true;}
+        if(!stm_returned||stm_final_count!=trial+1u||!final_stm.reached(c,stm_final_held(c))||
+           c.pc!=stm_final_private::expected.caller||c.lr!=c.pc||final_stm.loads()!=3u||final_stm.stores()!=1u||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)stm_final_refuse(5);
+        std::cout<<"STM_FINAL_RETURN_TRIAL n="<<trial
+            <<" original_stm_return=1 state_store=1 caller_abi=1 deferred=1 reply=0 osinit_instruction_executed=0 visits="
+            <<final_stm.visits()<<" loads="<<final_stm.loads()<<'\n';
+        stm_final=nullptr;
+#endif
 #endif
         third_return_route=nullptr;third_return_join=nullptr;
 #endif
@@ -3754,6 +3817,10 @@ int main(int argc,char** argv)try{
     need(third_return_count==8u);
 #ifdef UNDERCOVER_STM_RESUMED_RESTORE
     need(third_resume_count==8u);
+#ifdef UNDERCOVER_STM_FINAL_RETURN
+    need(stm_final_count==8u);
+    std::cout<<"STM_FINAL_RETURN_NATIVE owner=1 trials=8 original_stm_return=8 state_store=8 caller_abi=8 deferred=8 reply=0 osinit_instruction_executed=0 modeled_osinit_bridge=1 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_RESUMED_RESTORE_NATIVE owner=1 trials=8 native_resume=8 original_restore_return=8 stm_caller=8 deferred=8 reply=0 stm_instruction_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_DEFERRED_ACTIVE_RETURN_NATIVE owner=1 trials=8 native_rfi=8 original_epilogue=8 active_context=8 deferred=8 reply=0 resume_instruction_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
