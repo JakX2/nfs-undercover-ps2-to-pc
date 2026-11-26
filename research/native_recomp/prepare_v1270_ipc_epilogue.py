@@ -26,9 +26,10 @@ from apply_irq_bootstrap_v475 import rewrite
 def geometry(dol,elf):
     g,native,stop,edges,branch,ret=ack_geometry(dol,elf)
     roots,j,reg,gqr,counter,hint,d,r,switch,calls=epilogue_plan(dol,elf)
-    if j!=DISPATCH_RETURN or g[2]+4!=j or g[6]&{j}==set() or roots[j][0]!=ret:
+    prefix,_,indirect,_,_,_,_,guards,dispatch_counter=g
+    if j!=DISPATCH_RETURN or indirect+4!=j or j not in guards or roots[j][0]!=ret:
         raise ValueError('epilogue predecessor')
-    if switch!=SELECT or d!=DISABLE or r!=RESTORE or counter!=g[-1]:
+    if switch!=SELECT or d!=DISABLE or r!=RESTORE or counter!=dispatch_counter:
         raise ValueError('epilogue scheduler identity')
     if len(roots[L])!=54 or roots[L][-1]!=0x4c000064 or roots[j][-1]!=BLR:
         raise ValueError('epilogue extent')
@@ -37,7 +38,7 @@ def geometry(dol,elf):
     additions={pc:tuple(roots[pc]) for pc in (E,S,d,r,L)}
     for pc,ws in additions.items():
         if tuple(exact_words(dol,elf,pc,len(ws)))!=ws:raise ValueError('epilogue word identity')
-    if any(tuple(g[0][pc])!=additions[pc] for pc in (d,r)):
+    if any(tuple(prefix[pc])!=additions[pc] for pc in (d,r)):
         raise ValueError('epilogue shared leaf')
     return (g,native,stop,additions,j,tuple(roots[j][:4]),reg,gqr,counter,hint,d,r,switch,tuple(calls))
 
@@ -101,7 +102,7 @@ def render(p):
     return ('#pragma once\n#include "wii_live_epilogue_v762.h"\n#include <array>\nnamespace v1270 {\n'
         'inline constexpr undercover::wii::LiveEpilogueExpectation expected(uint32_t context){return {'
         +','.join(map(f,(j,E,S,d,r,L,switch)))+f',context,{counter},{hint},{reg}u,{gqr}u'+'};}\n'
-        'struct Word{uint32_t pc,word;};\ninline constexpr std::array<Word,'+str(len(words))+'> words{'
+        +'struct Word{uint32_t pc,word;};\ninline constexpr std::array<Word,'+str(len(words))+'> words{'
         +','.join('Word{'+f(a)+','+f(w)+'}' for a,w in sorted(words.items()))+'};\n}\n')
 
 def install(root,p):
@@ -151,7 +152,15 @@ def main():
         with (x.out/'v1270_private_epilogue.h').open('x') as f:f.write(render(p))
         image.write_bytes(raw);symbols.write_text(csv)
         print('V1270_EPILOGUE_FIXTURE accepted=1 dispatcher_suffix=4 original_loader=54')
-    except (OSError,ValueError,struct.error,IndexError,KeyError):
-        print('V1270_EPILOGUE_PREP accepted=0');return 1
+    except (OSError,ValueError,struct.error,IndexError,KeyError,TypeError) as e:
+        # Publish only independently authored fixed categories.
+        categories=('epilogue predecessor','epilogue scheduler identity','epilogue extent',
+                    'epilogue word identity','epilogue shared leaf','dispatcher span',
+                    'dispatcher guard','loader predecessor','switch root','shared epilogue span',
+                    'epilogue ownership','epilogue native coverage','epilogue direct owner',
+                    'epilogue hook identity','epilogue hook include','epilogue hook coverage',
+                    'size','symbols','source shape','roundtrip','ambiguous patch')
+        reason=str(e) if str(e) in categories else 'other'
+        print('V1270_EPILOGUE_PREP accepted=0 reason='+reason.replace(' ','_'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

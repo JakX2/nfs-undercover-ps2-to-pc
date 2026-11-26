@@ -1,5 +1,5 @@
 import unittest
-from prepare_v1270_ipc_epilogue import merge_blocks,analyzer,DISPATCH,DISPATCH_RETURN,L,SELECT,E,S,DISABLE,RESTORE,BLR,ANALYZE_ROOT,READ,SCANNER
+from prepare_v1270_ipc_epilogue import merge_blocks,analyzer,render,scope,DISPATCH,DISPATCH_RETURN,L,SELECT,E,S,DISABLE,RESTORE,BLR,ANALYZE_ROOT,READ,SCANNER
 class Merge(unittest.TestCase):
     def setup(self):
         cut=(DISPATCH_RETURN-DISPATCH)//4
@@ -28,6 +28,15 @@ class Merge(unittest.TestCase):
             if i==4:b[E]=(0,)
             if i==5:b[DISPATCH]=b[DISPATCH][:-1]+(0,)
             with self.assertRaises(ValueError):merge_blocks(b,g,a,j,c)
+    def test_private_header(self):
+        b,g,a,j,c=self.setup()
+        p=(g,{}, {},a,j,c,30,255,-8,-4,DISABLE,RESTORE,SELECT,())
+        text=render(p)
+        self.assertIn('LiveEpilogueExpectation expected',text)
+        self.assertIn('context,-8,-4,30u,255u};}',text)
+        self.assertIn('Word{0x80522a88u,0x4c000064u}',text)
+        self.assertEqual(text,render(p))
+        self.assertIn((L,216),scope(p,{SELECT:(BLR,)},{L:(a[L][0],)}))
     def test_ownership(self):
         s=ANALYZE_ROOT+'\n'+READ+'\n'+SCANNER
         spans=((DISPATCH,0x2a4),(L,216))

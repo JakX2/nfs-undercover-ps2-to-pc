@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v1271*'
+      - 'research/native_recomp/prepare_v1270_ipc_epilogue.py'
+      - 'research/native_recomp/test_v1270_ipc_epilogue.py'
       - '.github/workflows/wii-v1271-ipc-return.yml'
 permissions:
   contents: read
