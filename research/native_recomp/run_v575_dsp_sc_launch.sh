@@ -155,7 +155,7 @@ si_profile="${UNDERCOVER_RUN_V1012_SI_PROFILE-absent}"
 case "$si_profile" in
   absent) ;;
   port1-present)
-    [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1009_second_callback.py ]] || exit 2
+    [[ "$requested_mode" == irq-si-handler-suffix && ( "$audit" == audit_v1009_second_callback.py || "$audit" == audit_v1014_second_callback_time.py ) ]] || exit 2
     ;;
   *) exit 2 ;;
 esac

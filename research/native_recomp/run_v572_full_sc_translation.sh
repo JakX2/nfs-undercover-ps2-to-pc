@@ -134,9 +134,26 @@ elif [[ "$mode" == --run-* ]]; then
     [[ "$si_combined_callback" != 1 ]] || target=irq-si-combined-callback
     [[ "$si_handler_suffix" != 1 ]] || target=irq-si-handler-suffix
 fi
+# The matrix must be installed as the full callback-time superset, even
+# though its separate runtime launches activate different subsets.
+matrix="${UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX:-0}"
+if [[ "$matrix" == 1 ]]; then
+    [[ "$requested_mode" == --run-si-handler-suffix &&
+       "${UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V1009_SECOND_CALLBACK:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 &&
+       "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" != 1 ]] || exit 2
+elif [[ "$matrix" != 0 ]]; then exit 2
+fi
 # Derive the actual target before touching private inputs; use it unchanged
 # after the native build. Public plan contains flags only, never source paths.
 echo "V875_TRANSLATION_PLAN requested=$requested_mode base=$mode target=$target wrapper=$si_wireless_wrapper write=$si_wireless_write callback=$si_callback_return combined=$si_combined_callback handler=$si_handler_suffix"
+if [[ "$matrix" == 1 ]]; then echo 'V1018_BUILD_PLAN links=1 isolated_launches=3 callback_time_installed=1';fi
 if [[ "$describe" == 1 ]]; then exit 0;fi
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -386,7 +403,9 @@ fi
 
 if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --run-report || "$mode" == --run-arena || "$mode" == --run-irq-enable || "$mode" == --run-ipc-client || "$mode" == --run-stm-open ]]; then
   bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
-  if [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
+  if [[ "$matrix" == 1 ]]; then
+    bash "$here/run_v1018_second_irq_matrix.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/irq-matrix"
+  elif [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run" "$target"
   else
     bash "$here/run_v575_dsp_sc_launch.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/startup-run"
