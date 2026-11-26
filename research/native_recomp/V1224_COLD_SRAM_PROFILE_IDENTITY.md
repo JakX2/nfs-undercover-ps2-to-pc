@@ -1,0 +1,3 @@
+# V1224: cold SRAM profile identity repair
+
+V1196 owner execution linked 411/411 units but emitted no second-IRQ markers after the explicit zero-ID profile. Cold V534 had a fixed pattern comparison at both EXI completion and guest payload checks. This contradicts the zero-ID fixture. Make the selected synthetic profile an explicit immutable expectation at SRAM read admission, retain exact byte comparison, reject unknown/cross-profile selection and corrupted guest bytes. No runtime guest write is introduced. Two valid and 40 refusal controls use the actual EXI scheduler/DMA; CI pending. The diagnosis is a concrete code mismatch, not yet an owner-confirmed sole cause.

@@ -36,8 +36,12 @@ int main(){
         {0x804eed9c,0x8052883c,15,12},{0x804ef51c,0x80528850,17,18},
         {0x804efc7c,0x80528864,19,20},{0x80528954,0x805288bc,21,22},
         {0x80528954,0x80528928,23,22}}},25};
-    for(unsigned fault=0;fault<=18;++fault){
-        trial=fault;checkpoint=0;exi_id_completion={};sram_completion={};
+    need(sram_read_profile(nullptr)==SramReadProfile::Pattern&&sram_read_profile("pattern")==SramReadProfile::Pattern&&
+         sram_read_profile("wireless-zero")==SramReadProfile::WirelessZero&&!sram_read_profile("")&&!sram_read_profile("other"));
+    constexpr auto pat=sram_read_fixture(SramReadProfile::Pattern),zero=sram_read_fixture(SramReadProfile::WirelessZero);
+    for(unsigned i=0;i<64;++i)need(zero[i]==(i>=48&&i<56?0:pat[i]));
+    for(auto profile:{SramReadProfile::Pattern,SramReadProfile::WirelessZero})for(unsigned fault=0;fault<=20;++fault){
+        trial=fault+(profile==SramReadProfile::WirelessZero?21:0);checkpoint=0;exi_id_completion={};sram_completion={};
         need(exi_id_completion.begin(true));
         exi_id_completion.record({1,0,2,2,1,0},0);exi_id_completion.record({2,0,2,4,0,0},device_id);
         need(exi_id_completion.finish());
@@ -47,10 +51,11 @@ int main(){
         set_edge(e.entry);for(auto x:e.edges)set_edge(x);m.write32(e.entry.lr,e.return_word);
         auto enter=[&](VectorEdge x){c.pc=x.pc;c.lr=x.lr;c.inst_count+=100;};
         enter(e.entry);if(fault==1)m.write32(SramGuest,1);
-        SramReadWitness w(e);need(w.begin(c,fault!=2)==(fault!=1&&fault!=2));
+        SramReadWitness w(e);need(w.begin(c,fault!=2,profile)==(fault!=1&&fault!=2));
         if(fault==1||fault==2)continue;
         std::atomic<uint32_t> pi{0};WiiIrqBanks banks(pi);ExiController exi(banks,&ram);
-        auto fixture=sram_read_fixture();if(fault==6)fixture[0]^=1;
+        auto fixture=sram_read_fixture(fault==19?(profile==SramReadProfile::Pattern?SramReadProfile::WirelessZero:SramReadProfile::Pattern):profile);
+        if(fault==6)fixture[0]^=1;
         ExiMxDevice mx(fixture,[]{return 1u;});ExiIdEndpoint id(device_id);
         ExiEndpointScheduler sched(exi,mx,id,8);uint64_t tick=1;
         auto complete=[&](uint32_t ctrl){
@@ -76,11 +81,12 @@ int main(){
             case 5:m.write32(meta,0x16);break;
             case 6:
                 c.gpr[4]=SramGuest;c.gpr[5]=64;m.write32(meta,0x14);
-                bad=fault==6||fault==7;if(fault==7)m.write32(SramGuest,1);break;
+                bad=fault==6||fault==7||fault==19;if(fault==7)m.write32(SramGuest,1);break;
             case 7:m.write32(meta,0x15);break;
             case 8:
                 m.write32(meta,0x14);if(fault==9)m.write32(SramGuest,0);
-                bad=fault==8||fault==9;break;
+                if(fault==20)ram.write8((SramGuest+48u)&0x3fffffffu,uint8_t(fixture[48]^1u));
+                bad=fault==8||fault==9||fault==20;break;
             case 9:m.write32(meta,0x10);break;
             case 10:case 11:
                 c.gpr[4]=20;m.write32(meta,0);m.write32(SramGuest+72,1);m.write32(SramGuest+76,1);
@@ -110,5 +116,6 @@ int main(){
         need(w.observe(c.pc,c)==(fault==0));
         if(!fault)need(w.stage()==13&&sched.completed()==2&&pi.load()==0);
     }
-    std::cout<<"PASS: original-free SRAM read witness with actual EXI scheduler and DMA, 18 negative controls\n";
+    std::cout<<"V1224_SRAM_PROFILE_READ valid=2 refused=40 profiles=2 exact_dma=1 cross_profile_refused=1 original_execution=0\n";
+    std::cout<<"PASS: original-free SRAM read witness with actual EXI scheduler and DMA, 40 negative controls\n";
 }

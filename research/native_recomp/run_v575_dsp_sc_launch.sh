@@ -356,6 +356,7 @@ if [[ "$third_postalarm_wireless" == 1 ]]; then sram_profile=wireless-zero;fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
 if [[ "$sram_profile" == wireless-zero ]]; then
   echo 'V1196_SRAM_PLAN selected=wireless-zero unchanged_setter=1 synthetic=1'
+  echo 'V1224_SRAM_EXPECT_PLAN selected=wireless-zero exact_dma=1'
 fi
 if [[ "$si_profile" != absent ]]; then
   echo "V1012_SI_PROFILE selected=port1-present cold_port0_absent=1 synthetic=1"
@@ -379,7 +380,7 @@ rc=0
     NWII_HEADLESS=1 NWII_TRACE_CALLS=1 UNDERCOVER_V419_START=1 \
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
     UNDERCOVER_V475_IRQ_MMIO=1 UNDERCOVER_V481_IRQ_BANKS=1 UNDERCOVER_V490_EXI_CONTROLLER=1 \
-    "UNDERCOVER_V501_EXI_PROFILE=$work/exi-test-profile.txt" \
+    "UNDERCOVER_V501_EXI_PROFILE=$work/exi-test-profile.txt" "UNDERCOVER_V1224_SRAM_EXPECT=$sram_profile" \
     UNDERCOVER_V512_SI=1 "UNDERCOVER_V518_SI_PROFILE=$work/si-test-profile.txt" \
     UNDERCOVER_V522_VICLK=0 UNDERCOVER_V537_ACR=1 UNDERCOVER_V574_SC=1 \
     "${extra[@]}" "$exe" "$dol" "$work/config.toml"

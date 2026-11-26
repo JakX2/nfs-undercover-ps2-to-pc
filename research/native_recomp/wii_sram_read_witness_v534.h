@@ -1,6 +1,9 @@
 #pragma once
 #include "wii_si_discovery_witness_v529.h"
 #include "wii_exi_mx_device_v494.h"
+#include <cstdlib>
+#include <string_view>
+#include <optional>
 namespace undercover::wii {
 // Independent deterministic nonzero SRAM profile. This is not a real console
 // dump, identity, or persistent configuration. GBS uses the V60 no-write path.
@@ -10,17 +13,28 @@ inline constexpr ExiMxDevice::Sram sram_read_fixture(){
     for(unsigned i=0;i<bytes.size();++i)bytes[i]=uint8_t(17u*i+7u);
     bytes[60]=0x12;bytes[61]=0;return bytes;
 }
+enum class SramReadProfile { Pattern, WirelessZero };
+inline constexpr ExiMxDevice::Sram sram_read_fixture(SramReadProfile profile){
+    auto bytes=sram_read_fixture();
+    if(profile==SramReadProfile::WirelessZero)for(unsigned i=48;i<56;++i)bytes[i]=0;
+    return bytes;
+}
+inline std::optional<SramReadProfile> sram_read_profile(const char* mode){
+    if(!mode||std::string_view(mode)=="pattern")return SramReadProfile::Pattern;
+    if(std::string_view(mode)=="wireless-zero")return SramReadProfile::WirelessZero;
+    return std::nullopt;
+}
 class SramCompletionTrace{
 public:
-    bool begin(bool bound){
-        if(!bound||active_||bad_||count_)return false;
-        active_=true;return true;
+    bool begin(bool bound,SramReadProfile profile=SramReadProfile::Pattern){
+        if(!bound||active_||bad_||count_||(profile!=SramReadProfile::Pattern&&profile!=SramReadProfile::WirelessZero))return false;
+        expected_=sram_read_fixture(profile);active_=true;return true;
     }
     void record(const ExiController::Request& q,const ExiController& ctl,
                 const ExiMxDevice& mx) {
         if(!active_)return;
         if(count_>=2||q.channel!=0||q.device!=1||!q.token||q.token<=token_||
-           mx.dirty()||mx.sram()!=sram_read_fixture()||ctl.pending(0)||
+           mx.dirty()||mx.sram()!=expected_||ctl.pending(0)||
            (ctl.read(0,0)&0x380u)!=0x100u||
            !(ctl.read(0,0)&WiiIrqBanks::TC_INT)){bad_=true;return;}
         const auto epoch=ctl.selection_epoch(0);
@@ -36,7 +50,7 @@ public:
     unsigned count()const noexcept{return count_;}
     bool good()const noexcept{return active_&&!bad_;}
     bool finish()noexcept{const bool ok=good()&&count_==2;active_=false;return ok;}
-private:unsigned count_=0;uint64_t token_=0,epoch_=0;bool active_=false,bad_=false;
+private:ExiMxDevice::Sram expected_{};unsigned count_=0;uint64_t token_=0,epoch_=0;bool active_=false,bad_=false;
 };
 inline thread_local SramCompletionTrace sram_completion{};
 struct SramReadExpectations{VectorEdge entry;std::array<VectorEdge,11> edges;uint32_t return_word;};
@@ -48,12 +62,18 @@ public:
     unsigned stage()const noexcept{return stage_;}
     unsigned failure()const noexcept{return error_;}
     template<class Cpu>bool begin(Cpu& c,bool bound){
+        const auto profile=sram_read_profile(std::getenv("UNDERCOVER_V1224_SRAM_EXPECT"));
+        if(!profile)return fail(1);
+        return begin(c,bound,*profile);
+    }
+    template<class Cpu>bool begin(Cpu& c,bool bound,SramReadProfile profile){
         if(stage_||error_||!c.is_running||!matches(c,e_.entry)||
            c.gpr[1]<0x80001000u||(c.msr&0x8000u)||
            !equal(c,c.gpr[13]-3824u,exi_id_completion.id())||
            !equal(c,0x806f156cu,0)||!mapped(c,SramGuest,80)||
            c.guest_data_invalidate_count>c.guest_data_invalidate_lines.size()-2||
-           !sram_completion.begin(bound))return fail(1);
+           !sram_completion.begin(bound,profile))return fail(1);
+        expected_=sram_read_fixture(profile);
         for(unsigned i=0;i<80;++i)if(c.mmu.read8(SramGuest+i))return fail(1);
         sp_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;last_=c.inst_count;
         cache_=c.guest_data_invalidate_count;
@@ -124,7 +144,7 @@ public:
     }
 private:
     static constexpr uint32_t Return=0x805208d0u;
-    SramReadExpectations e_;unsigned stage_=0,error_=0,extra_=0,cache_=0;
+    SramReadExpectations e_;ExiMxDevice::Sram expected_{};unsigned stage_=0,error_=0,extra_=0,cache_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,command_=0;uint64_t last_=0;
     std::array<uint32_t,18> nv_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
@@ -137,10 +157,9 @@ private:
         return c.guest_data_invalidate_count==cache_+2&&c.guest_data_invalidate_lines[cache_]==SramGuest&&
                c.guest_data_invalidate_lines[cache_+1]==SramGuest+32;
     }
-    template<class Cpu>static bool payload(Cpu& c){
+    template<class Cpu>bool payload(Cpu& c)const{
         if(!mapped(c,SramGuest,64))return false;
-        constexpr auto bytes=sram_read_fixture();
-        for(unsigned i=0;i<bytes.size();++i)if(c.mmu.read8(SramGuest+i)!=bytes[i])return false;
+        for(unsigned i=0;i<expected_.size();++i)if(c.mmu.read8(SramGuest+i)!=expected_[i])return false;
         return true;
     }
 };

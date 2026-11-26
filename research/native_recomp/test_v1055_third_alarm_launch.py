@@ -697,4 +697,10 @@ class AckResumeLaunch(unittest.TestCase):
             self.assertNotIn('V1221_ACK_RESUME_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1220_ACK_RESUME=1',p.stdout)
             self.assertIn('V1218_ACK_FINAL_BUILD_PLAN' if build else 'audit=audit_v1218_ack_final.py',p.stdout)
+class ExactSramObserverLaunch(unittest.TestCase):
+    def test_profile_bound_to_observer(self):
+        script=(Path(__file__).parent/'run_v575_dsp_sc_launch.sh').read_text()
+        self.assertEqual(script.count('"UNDERCOVER_V1224_SRAM_EXPECT=$sram_profile"'),1)
+        self.assertEqual(script.count('--profile "$sram_profile"'),1)
+        self.assertIn('V1224_SRAM_EXPECT_PLAN selected=wireless-zero exact_dma=1',script)
 if __name__=='__main__':unittest.main()
