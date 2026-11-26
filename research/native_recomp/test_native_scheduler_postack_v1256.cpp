@@ -63,6 +63,9 @@
 #endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
 #include "v1358_private_open_return.h"
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+#include "v1359_private_second.h"
+#endif
 #endif
 #endif
 #endif
@@ -215,6 +218,12 @@ static bool open_return_active=false;
 static StmIos::Device open_return_device=StmIos::Device::None;
 static unsigned open_return_count=0;
 struct OpenReturned{};
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+static StmSecondWitness* second_open=nullptr;
+static bool second_open_active=false;
+static unsigned second_open_count=0;
+struct SecondOpenReached{};
+#endif
 #endif
 #endif
 #endif
@@ -300,6 +309,11 @@ static bool open_return_held(nw::CPUContext& c){
 static bool open_descriptor(nw::CPUContext& c){
     return allocator_descriptor&&allocator_release&&allocator_descriptor->returned(c,allocator_release->metadata_stores())&&B::is_open(0u,open_return_device);
 }
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+[[noreturn]]static void second_open_refuse(unsigned kind){
+    std::cout<<"V1359_SECOND_REFUSAL kind="<<kind<<" stage="<<second_open->stage()<<" reason="<<second_open->failure()<<" visits="<<second_open->visits()<<" stores="<<second_open->stores()<<'\n';throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void open_return_refuse(unsigned kind){
     std::cout<<"V1358_OPEN_REFUSAL kind="<<kind<<" stage="<<(open_return?open_return->stage():0u)
         <<" reason="<<(open_return?open_return->failure():0u)<<" visits="<<(open_return?open_return->visits():0u)<<'\n';
@@ -322,6 +336,9 @@ static bool open_descriptor(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    if(second_open_active){if(!second_open->before(c,pc,w,open_return_held(c),open_descriptor(c)))second_open_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active){
         if(!open_return->before(c,pc,w,open_return_held(c),open_descriptor(c)))open_return_refuse(4);
@@ -614,6 +631,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    if(second_open_active){
+        if(!second_open->entry(c,pc,open_return_held(c),open_descriptor(c)))second_open_refuse(3);
+        ++second_open_count;throw SecondOpenReached{};
+    }
+#endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active)open_return_refuse(5);
 #endif
@@ -820,12 +843,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    if(second_open_active){if(!second_open->poll(c,open_return_held(c),open_descriptor(c)))second_open_refuse(4);return false;}
+#endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active){
         if(!open_return->poll(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
         if(open_return->stage()==5u){
             if(!open_return->returned(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
-            ++open_return_count;throw OpenReturned{};
+            ++open_return_count;
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+            if(!second_open->begin(c,*open_return,open_return_held(c),open_descriptor(c),open_return_device==StmIos::Device::Immediate?1u:2u))second_open_refuse(1);
+            open_return_active=false;second_open_active=true;return false;
+#else
+            throw OpenReturned{};
+#endif
         }
         return false;
     }
@@ -1053,6 +1085,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    if(second_open_active)second_open_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active)open_return_refuse(7);
 #endif
@@ -1125,6 +1160,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    if(second_open_active)second_open_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     if(open_return_active)open_return_refuse(7);
 #endif
@@ -1336,6 +1374,9 @@ int main(int argc,char** argv)try{
         PostAckOpenJoin open(v639::expected_open,v626::vector);open_witness=&open;open_polls=0;
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
         OpenReturnWitness open_tail(v1358::expected);open_return=&open_tail;
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+        StmSecondWitness second(v1359::expected);second_open=&second;
+#endif
 #endif
         need(stm.begin(c,w,device_ok(c)));
         // Focused proof: model the caller bridge after the verified IPC
@@ -1594,8 +1635,15 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
         bool allocator_returned=false;
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+        try{run_game(c);}catch(const SecondOpenReached&){allocator_returned=true;}
+        need(allocator_returned&&second.reached(c,open_return_held(c),open_descriptor(c))&&second_open_count==trial+1u&&open_return_count==trial+1u);
+        std::cout<<"V1359_SECOND_TRIAL n="<<trial<<" second_entry=1 opposite_path=1 descriptor_store=1 first_fd_held=1\n";
+        second_open_active=false;second_open=nullptr;
+#else
         try{run_game(c);}catch(const OpenReturned&){allocator_returned=true;}
         need(allocator_returned&&open_tail.returned(c,open_return_held(c),open_descriptor(c))&&open_return_count==trial+1u);
+#endif
         std::cout<<"V1358_OPEN_TRIAL n="<<trial<<" submit_return=1 open_return=1 stm_resume=1 descriptor=1\n";
         open_return_active=false;open_return=nullptr;open_return_device=StmIos::Device::None;
 #else
@@ -1733,6 +1781,10 @@ int main(int argc,char** argv)try{
     std::cout<<"V1352_ALLOCATOR_NATIVE owner=1 trials=8 native_free=8 heap_shadow=8 caller_abi=8 inline_return=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
     need(open_return_count==8u);
+#ifdef UNDERCOVER_V1359_SECOND_OPEN
+    need(second_open_count==8u);
+    std::cout<<"V1359_SECOND_NATIVE owner=1 trials=8 second_entry=8 opposite_path=8 descriptor_store=8 first_fd_held=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1358_OPEN_NATIVE owner=1 trials=8 submit_return=8 open_return=8 stm_resume=8 descriptor=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
 #endif

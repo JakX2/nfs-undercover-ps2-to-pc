@@ -1,0 +1,3 @@
+# V1359 original second STM Open entry
+
+V1358 owner job 139926469367 passed all eight original synchronous submit/Open returns and verified descriptor 0. Continue through the ten original STM corridor instructions authenticated by V1337, with exact native labels, direct second call and dispatcher resume. Require the original successful descriptor store (SDA word, value 0), opposite authenticated STM path, mode 0, same selected thread and transport snapshot, unchanged allocator heap and metadata, and exact original second call LR. Stop before executing the second Open, not before its caller. The SDA store form/count is a strict hypothesis to be checked by the owner run; alternate error exit may not execute. Prior lane remains unchanged. No full boot claim.
