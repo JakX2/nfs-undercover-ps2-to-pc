@@ -193,6 +193,14 @@ static SubmitResumeWitness* submit_resume=nullptr;
 static bool submit_resume_active=false;
 static unsigned release_count=0;
 struct ReleaseReached{};
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+static AllocatorReleaseWitness* allocator_release=nullptr;
+static bool allocator_active=false;
+static AllocatorRange allocator_heap{};
+static uint32_t allocator_request=0;
+static unsigned allocator_count=0;
+struct AllocatorReturned{};
+#endif
 #endif
 #endif
 #endif
@@ -264,7 +272,31 @@ static bool submit_held(nw::CPUContext& c){
         <<" reason="<<submit_resume->failure()<<" visits="<<submit_resume->visits()<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+static bool allocator_held(nw::CPUContext& c){
+    return selection_witness&&allocator_release&&!(cause.load()&mask.load())&&
+        selection_witness->selected_response_held(c,raw_device_ok(c),allocator_release->expected_msr());
+}
+[[noreturn]]static void allocator_refuse(unsigned kind){
+    std::cout<<"V1352_ALLOCATOR_REFUSAL kind="<<kind<<" stage="<<allocator_release->stage()
+        <<" reason="<<allocator_release->failure()<<" store="<<allocator_release->store_failure()
+        <<" visits="<<allocator_release->visits()<<" writes="<<allocator_release->stores()
+        <<" heap="<<allocator_release->heap_stores()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active){
+        if(pc==v1344::release_expected.resume){
+            if(!allocator_release->inline_return(c,pc,w,allocator_held(c))||
+               !allocator_release->returned(c,allocator_held(c)))allocator_refuse(1);
+            ++allocator_count;throw AllocatorReturned{};
+        }
+        if(!allocator_release->before(c,pc,w,allocator_held(c)))allocator_refuse(2);
+        return;
+    }
+#endif
     if(submit_resume_active&&!submit_resume->before(c,pc,w,submit_held(c)))submit_resume_refuse(1);
 }
 #endif
@@ -476,6 +508,9 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active){v1344_before(c,pc,w);return;}
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     if(submit_resume_active){v1344_before(c,pc,w);return;}
 #endif
@@ -528,12 +563,24 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active){
+        if(!allocator_release->entry(c,pc,allocator_held(c)))allocator_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     if(submit_resume_active){
         if(!submit_resume->entry(c,pc,submit_held(c)))submit_resume_refuse(2);
         if(submit_resume->stage()==3u){
             if(!submit_resume->release_at(c,submit_held(c)))submit_resume_refuse(2);
-            ++release_count;throw ReleaseReached{};
+            ++release_count;
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+            if(!allocator_release->begin(c,*submit_resume,submit_held(c),allocator_heap,allocator_request))allocator_refuse(4);
+            submit_resume_active=false;allocator_active=true;return;
+#else
+            throw ReleaseReached{};
+#endif
         }
         return;
     }
@@ -709,6 +756,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active){
+        if(!allocator_release->poll(c,allocator_held(c))||allocator_release->stage()!=1u)allocator_refuse(5);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     if(submit_resume_active){if(!submit_resume->poll(c,submit_held(c)))submit_resume_refuse(3);return false;}
 #endif
@@ -926,6 +979,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active)allocator_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     if(submit_resume_active)submit_resume_refuse(5);
 #endif
@@ -992,6 +1048,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    if(allocator_active)allocator_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     if(submit_resume_active)submit_resume_refuse(5);
 #endif
@@ -1206,6 +1265,10 @@ int main(int argc,char** argv)try{
 #endif
         PostAckSubmitJoin next(edges,v626::vector);
         need(next.begin(c,open,device_ok(c)));
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+        AllocatorReleaseWitness allocator(v1344::release_expected);allocator_release=&allocator;
+        allocator_heap={lo,w.heap_size()};allocator_request=next.request();
+#endif
         open_witness=nullptr;stm_witness=nullptr;
         submit_host=&host;submit_join=&next;submit_cpu=&c;submit_stage=1;submit_polls=0;
         bool acked=false;
@@ -1430,10 +1493,19 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+        bool allocator_returned=false;try{run_game(c);}catch(const AllocatorReturned&){allocator_returned=true;}
+        need(allocator_returned&&allocator.returned(c,allocator_held(c))&&selection_count==trial+1u&&
+            load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
+            allocator_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+        allocator_active=false;allocator_release=nullptr;
+        std::cout<<"V1352_ALLOCATOR_TRIAL n="<<trial<<" native_free=1 heap_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator.stores()<<" heap="<<allocator.heap_stores()<<'\n';
+#else
         bool release_reached=false;try{run_game(c);}catch(const ReleaseReached&){release_reached=true;}
         need(release_reached&&submit_cont.release_at(c,submit_held(c))&&selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
             host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+#endif
         submit_resume_active=false;submit_resume=nullptr;
         std::cout<<"V1344_SUBMIT_TRIAL n="<<trial<<" sleep_return=1 outer_restore=1 reply_held=1 free_entry=1\n";
 #else
@@ -1544,6 +1616,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
     need(release_count==8u);
     std::cout<<"V1344_SUBMIT_NATIVE owner=1 trials=8 outer_restore=8 reply_held=8 free_entry=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
+    need(allocator_count==8u);
+    std::cout<<"V1352_ALLOCATOR_NATIVE owner=1 trials=8 native_free=8 heap_shadow=8 caller_abi=8 inline_return=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

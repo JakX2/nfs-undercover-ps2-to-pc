@@ -94,6 +94,14 @@ public:
         }
         return fail(7);
     }
+    // Direct native BL invokes the free body on the host stack. On its
+    // normal return, the next submit label owns one native instruction tick.
+    template<class C>bool inline_return(C& c,uint32_t pc,uint32_t w,bool held){
+        if(!live(c,held)||!outer_||poll_due_||entry_due_||pc!=e_.resume||c.pc!=pc||
+           c.lr!=pc||w!=e_.resume_word||!word(c,pc,w)||c.inst_count-last_!=1u||
+           !abi(c)||!restore_returned_||!fence_.finished(c))return fail(8);
+        last_=c.inst_count;stage_=2;outer_=false;return true;
+    }
     template<class C>bool returned(C& c,bool held){
         return stage_==2u&&base(c,held)&&c.pc==e_.resume&&c.lr==e_.resume&&c.inst_count==last_&&
             c.msr==msr_&&abi(c)&&restore_returned_&&word(c,c.pc,e_.resume_word)&&fence_.finished(c);

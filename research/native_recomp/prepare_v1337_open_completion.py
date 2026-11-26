@@ -133,14 +133,15 @@ def hook_submit(s,pc,w):
     i=hits[0].end()
     return s[:i]+f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:],True
 
-def install_submit(root,p):
+def install_submit(root,p,allocator=False):
     from prepare_v625_ipc_client import audit_native
     from prepare_owner_scheduler_v722 import reachable
     from prepare_v680_si_helper import verify_direct,exact_function
     shared,edges,*_=p
     resume=0x805197d8
-    expected={pc:(a,ws[(pc-a)//4]) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE)
-              for pc in (reachable(a,ws) if a==RESTORE else range(a,a+4*len(ws),4))}
+    admitted=(SUBMIT,RESTORE,FREE,DISABLE) if allocator else (SUBMIT,RESTORE,FREE)
+    expected={pc:(a,ws[(pc-a)//4]) for a,ws in shared.items() if a in admitted
+              for pc in (reachable(a,ws) if a in (RESTORE,DISABLE) else range(a,a+4*len(ws),4))}
     sources={f:f.read_text() for f in sorted(root.glob('output_*.cpp'))}
     main=(root/'main_output.cpp').read_text()
     audit_native(sources.values(),main,expected)
@@ -149,12 +150,21 @@ def install_submit(root,p):
     if len(bodies)!=1:raise ValueError('completion local resume')
     main,added=ensure_resume(main,bodies[0],SUBMIT,resume)
     print(f'V1348_SUBMIT_RESUME verified=1 added={int(added)}')
-    for dst,lr,_,_ in edges[1:3]:
+    for dst,lr,_,_ in edges[1:5 if allocator else 3]:
         owners=[s for s in sources.values() if f'loc_{lr-4:X}: ;' in s]
         if len(owners)!=1:raise ValueError('completion call')
         verify_direct(owners[0],lr-4,dst)
     print('V1348_SUBMIT_EDGES verified=1 direct_edges=2')
-    wanted={pc:w for pc,(a,w) in expected.items() if a==SUBMIT}
+    if allocator:
+        from derive_allocator_census_v1345 import census
+        calls=tuple((lr-4,dst) for dst,lr,_,_ in edges[3:5])
+        n,ret,stores=census(FREE,shared[FREE],calls)
+        if n!=123 or ret!=1 or sum(stores.values())!=20:raise ValueError('completion allocator census')
+        for pc,(owner,w) in expected.items():
+            if owner not in (DISABLE,RESTORE):continue
+            hook=f'    v1270_before(ctx,0x{pc:08x}u,0x{w:08x}u);'
+            if sum(s.count(hook) for s in sources.values())!=1:raise ValueError('completion allocator shared hook')
+    wanted={pc:w for pc,(a,w) in expected.items() if a==SUBMIT or (allocator and a==FREE)}
     seen=set();changes={}
     for f,s in sources.items():
         old=s
@@ -169,23 +179,28 @@ def install_submit(root,p):
             changes[f]=s.replace(anchor,anchor+'\nvoid v1344_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
     if seen!=set(wanted):raise ValueError('completion hook coverage')
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
-    rows=[(a,a+4*i,w) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE) for i,w in enumerate(ws)]
+    rows=[(a,a+4*i,w) for a,ws in shared.items() if a in admitted for i,w in enumerate(ws)]
     header='#pragma once\n#include "wii_submit_resume_v1342.h"\nnamespace v1344 {\n'
     header+=f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> words'+'{'+','.join('undercover::wii::ReplyNativeWord{'+fmt(row)+'}' for row in rows)+'};\n'
     header+='inline constexpr undercover::wii::SubmitResumeExpectation expected{'+fmt((SUBMIT,resume,edges[5][1],edges[5][2]))+','+','.join('undercover::wii::VectorEdge{'+fmt(e)+'}' for e in edges[1:3])+',words};\n}\n'
+    if allocator:
+        ret=edges[2][1];word=shared[SUBMIT][(ret-SUBMIT)//4]
+        header+='#include "wii_allocator_release_v1347.h"\nnamespace v1344 {\n'
+        header+='inline constexpr undercover::wii::AllocatorReleaseExpectation release_expected{'+fmt((FREE,ret,word))+','+','.join('undercover::wii::VectorEdge{'+fmt(e)+'}' for e in edges[3:5])+',words};\n}\n'
     with (root.parent/'input'/'v1344_private_submit.h').open('x') as f:f.write(header)
     for f,s in changes.items():f.write_text(s)
     if added:(root/'main_output.cpp').write_text(main)
-    print(f'V1344_SUBMIT_TRANSLATION verified=1 submit_labels={len(wanted)} audited_labels={len(expected)} direct_edges=2')
+    print(f'V1344_SUBMIT_TRANSLATION verified=1 submit_labels={sum(a==SUBMIT for a,_ in expected.values())} audited_labels={len(expected)} direct_edges=2')
+    if allocator:print(f'V1352_ALLOCATOR_TRANSLATION verified=1 free_labels={sum(a==FREE for a,_ in expected.values())} shared_helpers=2 direct_edges=2')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);p.add_argument('--submit-install',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);p.add_argument('--submit-install',action='store_true');p.add_argument('--allocator',action='store_true');a=p.parse_args()
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not 52<=a.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=a.dol.read_bytes(),a.elf.read_bytes()
-        if a.submit_install:install_submit(a.out,plan(d,e));return 0
+        if a.submit_install:install_submit(a.out,plan(d,e),a.allocator);return 0
         verify(d,e,(a.out/'fixture.dol').read_bytes(),(a.out/'symbols.csv').read_text());return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip','completion hook','completion hook label','completion hook duplicate','completion hook include','completion hook coverage','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper exact root','helper call label','helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional')
+        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip','completion hook','completion hook label','completion hook duplicate','completion hook include','completion hook coverage','completion allocator census','completion allocator shared hook','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper exact root','helper call label','helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional')
         print('V1337_COMPLETION_PREFLIGHT verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'prior_or_io'));return 1
 if __name__=='__main__':raise SystemExit(main())
