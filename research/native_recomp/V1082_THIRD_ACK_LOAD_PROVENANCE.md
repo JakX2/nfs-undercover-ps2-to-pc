@@ -1,0 +1,3 @@
+# V1082: verify actual third ACK load destination before native continuation
+
+The new ACK route already validates effective bus address and store value. Also require the loaded GPR to match the observed bus result at the next instruction. Support the original PPC byte-reversed word load without changing the actual bus value. Add missing-read and incorrect-load-result controls, and exercise four ordinary and four byte-reversed successful synthetic paths. Keep the earlier missing-TC-W1C control distinct by changing the fixture register only after the observed load was checked. Total synthetic census: 61 cases (24 reentry, 16 dispatcher, 21 ACK). New results pending; original code and device logic unchanged.

@@ -83,11 +83,20 @@ public:
         stage_=7u;return true;
     }
     template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w){
-        if(!ack_frame(c)||!ack_.before(c,pc,w,true)||!ack_calls_.before(c,pc,w,owner))return fail(11);
+        if(!ack_frame(c))return fail(11);
+        if(ack_read_reg_<32u){
+            if(!ack_read_result_||c.gpr[ack_read_reg_]!=*ack_read_result_)return fail(16);
+            ack_read_reg_=32u;ack_read_result_.reset();
+        }
+        if(!ack_.before(c,pc,w,true)||!ack_calls_.before(c,pc,w,owner))return fail(11);
         if(ack_.stage()==3u){
             if(ack_.token()!=3u||!ack_.reads()||!ack_.writes()||!ack_calls_.entries()||
                !ack_calls_.returns()||!ack_.response_class_verified())return fail(11);
-            stage_=8u;
+            stage_=8u;return true;
+        }
+        const auto access=PostAckTransferDevice::word_access(c,w);
+        if(access.kind==PostAckTransferDevice::Access::Read&&PostAckTransferDevice::offset(access.address)){
+            ack_read_reg_=(w>>21)&31u;ack_read_reverse_=(w>>26)==31u&&((w>>1)&1023u)==534u;
         }
         return true;
     }
@@ -98,7 +107,11 @@ public:
         return ack_frame(c)&&ack_calls_.can_poll()&&ack_.poll(c.inst_count)?true:fail(13);
     }
     bool ack_read(unsigned off,uint32_t& v){
-        return stage_==7u&&!error_&&ack_.read(*ctl_,off,v)?true:fail(14);
+        if(stage_!=7u||error_||ack_read_reg_>=32u||ack_read_result_||!ack_.read(*ctl_,off,v))return fail(14);
+        // The hardware read is always the bus value. Only the original
+        // translated lwbrx instruction reverses it in the destination GPR.
+        ack_read_result_=ack_read_reverse_?(v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24):v;
+        return true;
     }
     bool ack_write(unsigned off,uint32_t v){
         return stage_==7u&&!error_&&ack_.write(*ctl_,off,v)?true:fail(15);
@@ -110,6 +123,8 @@ private:
         return stage_==7u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    unsigned ack_read_reg_=32u;bool ack_read_reverse_=false;
+    std::optional<uint32_t> ack_read_result_;
     SecondCompletionAck ack_;
     BoundedAckCallRoute ack_calls_;
     SecondSiDispatchWitness* dispatch_=nullptr;

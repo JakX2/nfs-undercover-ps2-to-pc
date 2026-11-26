@@ -30,7 +30,7 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
 }
 int main(){
     unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0;
-    for(trial=0;trial<59;++trial){
+    for(trial=0;trial<61;++trial){
         const unsigned fault=trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
@@ -158,8 +158,12 @@ int main(){
         constexpr uint32_t CallSave=branch(Handler,Save)|1u,Call=branch(Handler+4,Helper)|1u;
         c.mmu.words[Handler]=CallSave;c.mmu.words[Handler+4]=Call;c.mmu.words[Handler+8]=Nop;
         c.mmu.words[Save]=Blr;
-        c.mmu.words[Helper]=Nop;c.mmu.words[Helper+4]=Load;c.mmu.words[Helper+8]=Store;c.mmu.words[Helper+12]=Nop;
-        const std::array<AckCallSpan,3> spans{{{Handler,Handler+12},{Save,Save+4},{Helper,Helper+16}}};
+        const bool reversed=trial>=52&&trial<56;
+        constexpr uint32_t Lwbrx=(31u<<26)|(4u<<21)|(3u<<16)|(534u<<1);
+        const uint32_t load=reversed?Lwbrx:Load;
+        c.mmu.words[Helper]=Nop;c.mmu.words[Helper+4]=load;c.mmu.words[Helper+8]=Nop;
+        c.mmu.words[Helper+12]=Store;c.mmu.words[Helper+16]=Nop;
+        const std::array<AckCallSpan,3> spans{{{Handler,Handler+12},{Save,Save+4},{Helper,Helper+20}}};
         const std::array<AckCallEdge,2> edges{{{Handler,Save},{Handler+4,Helper}}};
         auto ack_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason);++ack_refused;
@@ -171,7 +175,7 @@ int main(){
         if(fault==34)c.mmu.words[0x80003090u]^=4u;
         if(fault==35)c.lr^=4u;
         ok=route.begin_ack(c,spans,edges);
-        if((fault>=25&&fault<=27)||fault>=33){
+        if((fault>=25&&fault<=27)||(fault>=33&&fault<=35)){
             ack_reject(!ok,10);need(dev.stage()==2u&&ctl.read(C)==control&&cause==(Other|SI));continue;
         }
         need(ok&&dev.stage()==3u&&route.completion_ack().token()==3u&&
@@ -184,22 +188,32 @@ int main(){
         if(fault==29){ack_reject(!route.ack_entry(c,Helper+4),12);continue;}
         need(route.ack_entry(c,Helper));
         tick();need(route.ack_before(c,Helper,Helper,Nop));
-        c.gpr[3]=Base;tick();need(route.ack_before(c,Helper,Helper+4,Load)&&route.ack_read(C,value));c.gpr[4]=value;
+        c.gpr[3]=Base;c.gpr[0]=0;tick();need(route.ack_before(c,Helper,Helper+4,load));
+        if(fault==37){tick();ack_reject(!route.ack_before(c,Helper,Helper+8,Nop),16);need(cause==(Other|SI));continue;}
+        need(route.ack_read(C,value));
+        auto swap=[](uint32_t v){return (v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24);};
+        c.gpr[4]=reversed?swap(value):value;
+        if(fault==36)c.gpr[4]^=1u;
+        tick();ok=route.ack_before(c,Helper,Helper+8,Nop);
+        if(fault==36){ack_reject(!ok,16);need(cause==(Other|SI));continue;}need(ok);
+        // Model the independent fixture's register operations only after
+        // the native load result was verified. Real guest code is unmodified.
+        if(reversed)c.gpr[4]=swap(c.gpr[4]);
         if(fault==30)c.gpr[4]&=~SiController::TC_INT;
-        tick();need(route.ack_before(c,Helper,Helper+8,Store));
+        tick();need(route.ack_before(c,Helper,Helper+12,Store));
         if(fault==30){ack_reject(!route.ack_write(C,c.gpr[4]),15);need(cause==(Other|SI));continue;}
         if(fault==31){ack_reject(!route.ack_write(C,c.gpr[4]^2u),15);need(cause==(Other|SI));continue;}
         need(route.ack_write(C,c.gpr[4])&&cause==Other);
-        if(fault==32){c.mmu.words[Context+124]^=1u;tick();ack_reject(!route.ack_before(c,Helper,Helper+12,Nop),11);continue;}
-        tick();need(route.ack_before(c,Helper,Helper+12,Nop)&&route.stage()==8u&&
+        if(fault==32){c.mmu.words[Context+124]^=1u;tick();ack_reject(!route.ack_before(c,Helper,Helper+16,Nop),11);continue;}
+        tick();need(route.ack_before(c,Helper,Helper+16,Nop)&&route.stage()==8u&&
                     route.completion_ack().stage()==3u&&route.completion_ack().reads()==1u&&route.completion_ack().writes()==1u&&
                     route.ack_calls().entries()==2u&&route.ack_calls().returns()==1u&&
                     ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&
                     ctl.read(S)==status&&ctl.read(B)==buffer&&sched.completed()==3u&&ack.stage()==5u);
         ++ack_valid;
     }
-    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==11);
+    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
-    std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=11 actual_w1c=1 retired_transfer=1 original_execution=0\n";
+    std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
 }
