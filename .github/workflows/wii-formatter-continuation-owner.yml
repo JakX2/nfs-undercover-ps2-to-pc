@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/prepare_formatter_continuation_fixture.py'
       - 'research/native_recomp/wii_register_continuation.h'
+      - 'research/native_recomp/make_v626_ipc_fixture.py'
+      - 'research/native_recomp/test_v626_ipc_fixture.py'
       - '.github/workflows/wii-formatter-continuation-owner.yml'
 permissions:
   contents: read
