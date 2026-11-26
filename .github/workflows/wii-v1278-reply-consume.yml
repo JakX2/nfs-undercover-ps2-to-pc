@@ -1,0 +1,21 @@
+name: Wii V1278 Native Reply Consumption Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1278*'
+      - '.github/workflows/wii-v1278-reply-consume.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native ARMMSG Y1 W1C and reply invalidate contract
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cold_reply_consume_v1278.cpp -o "$RUNNER_TEMP/v1278"
+          "$RUNNER_TEMP/v1278"
