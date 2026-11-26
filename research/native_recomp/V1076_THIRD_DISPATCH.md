@@ -1,0 +1,3 @@
+# V1076: third dispatcher under the freshly captured original context
+
+V1071 run 45746712741 passed all 40 original third vector/trampoline paths (34/20 instruction visits); 32 retained and eight stale-frame cases proved all 38 saved fields. Reuse the original second-dispatch census with a new witness bound to the third reentry capture, not the retired second frame. The completed third device owns each native instruction and outer dispatch tick. Route actual PI cause/mask reads from the existing atomics, reject all writes, require four authenticated direct leaf entries and the original indirect SI handler entry. Stop before the handler instruction; no third ACK or further transfer is simulated. Add 32 focused owner cases in both modes. Execution pending.

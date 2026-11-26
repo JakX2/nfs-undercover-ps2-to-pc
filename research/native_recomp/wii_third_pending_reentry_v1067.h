@@ -1,5 +1,6 @@
 #pragma once
 #include "wii_second_vector_v939.h"
+#include "wii_second_si_dispatch_v944.h"
 #include "wii_postack_transfer_device_v771.h"
 namespace undercover::wii {
 // Compose the completed third SI owner with a real restored RFI context.
@@ -45,7 +46,30 @@ public:
     template<class C>bool saved(C& c,uint32_t context){
         return stage_==4u&&held(c)&&next_.captured().saved_integer(c,context).ok();
     }
+    // Only the completed vector can join the newly captured frame to
+    // the original SI dispatcher. The retired second capture is not reused.
+    template<class C>bool begin_dispatch(C& c,SecondSiDispatchWitness& dispatch){
+        if(stage_!=4u||!held(c)||!dispatch.begin(c,next_.captured(),cause_->load(),mask_->load(),true))return fail(7);
+        dispatch_=&dispatch;stage_=5;return true;
+    }
+    template<class C>bool dispatch_tick(C& c){
+        if(stage_!=5u||!dispatch_||!advance(c)||!dispatch_->poll(c,cause_->load(),mask_->load(),true))return fail(8);
+        return true;
+    }
+    template<class C>bool dispatch_entry(C& c,uint32_t pc){
+        if(stage_!=5u||!dispatch_||!(c.inst_count==last_?held(c):advance(c))||
+           !dispatch_->observe(c,pc,cause_->load(),mask_->load(),true))return fail(9);
+        if(dispatch_->stage()==6u)stage_=6u;
+        return true;
+    }
+    template<class C>bool dispatch_poll(C& c){
+        return stage_==5u&&dispatch_&&held(c)&&dispatch_->poll(c,cause_->load(),mask_->load(),true)?true:fail(8);
+    }
+    template<class C>bool dispatch_saved(C& c,uint32_t context){
+        return stage_==6u&&held(c)&&next_.captured().saved_integer(c,context).ok();
+    }
 private:
+    SecondSiDispatchWitness* dispatch_=nullptr;
     PendingExternalReentry next_;
     SecondVectorWitness vector_;
     const void* cpu_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
