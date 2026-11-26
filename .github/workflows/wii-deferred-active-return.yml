@@ -26,6 +26,8 @@ on:
       - 'research/native_recomp/test_post_stm_sc_queue.cpp'
       - 'research/native_recomp/wii_post_stm_sc_report_return.h'
       - 'research/native_recomp/test_post_stm_sc_report_return.cpp'
+      - 'research/native_recomp/wii_post_stm_sc_report_helper.h'
+      - 'research/native_recomp/test_post_stm_sc_report_helper.cpp'
       - '.github/workflows/wii-deferred-active-return.yml'
 permissions:
   contents: read
@@ -61,3 +63,5 @@ jobs:
           /tmp/post_stm_sc_queue
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_post_stm_sc_report_return.cpp -o /tmp/post_stm_sc_report_return
           /tmp/post_stm_sc_report_return
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_post_stm_sc_report_helper.cpp -o /tmp/post_stm_sc_report_helper
+          /tmp/post_stm_sc_report_helper
