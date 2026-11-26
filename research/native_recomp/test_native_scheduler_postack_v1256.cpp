@@ -79,6 +79,9 @@
 #include "v1398_private_ioctl_flush.h"
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
 #include "v1401_private_ioctl_output.h"
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+#include "v1404_private_ioctl_submit_prefix.h"
+#endif
 #endif
 #endif
 #endif
@@ -288,6 +291,10 @@ static unsigned ioctl_flush_count=0;
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
 static std::unique_ptr<IoctlFlushTailWitness> ioctl_tail;
 static unsigned ioctl_output_count=0,ioctl_submit_count=0,ioctl_input_lines=0,ioctl_output_lines=0;
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+static std::unique_ptr<IoctlSubmitPrefixWitness> ioctl_submit_prefix;
+static unsigned ioctl_header_entry_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -430,6 +437,21 @@ static bool ioctl_flush_held(nw::CPUContext& c){return ioctl_build&&ioctl_build-
     throw WitnessFailure{};
 }
 #endif
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+static bool ioctl_submit_prefix_held(nw::CPUContext& c){return ioctl_build&&ioctl_build->identity_preserved(c,ioctl_alloc_held(c));}
+[[noreturn]]static void ioctl_submit_prefix_refuse(unsigned kind){
+    std::cout<<"V1404_PREFIX_REFUSAL kind="<<kind<<" stage="<<(ioctl_submit_prefix?ioctl_submit_prefix->stage():0u)
+        <<" reason="<<(ioctl_submit_prefix?ioctl_submit_prefix->failure():0u)<<" visits="<<(ioctl_submit_prefix?ioctl_submit_prefix->visits():0u)
+        <<" stores="<<(ioctl_submit_prefix?ioctl_submit_prefix->stores():0u)<<" queue="<<(ioctl_submit_prefix?ioctl_submit_prefix->queue_stores():0u)
+        <<" fence="<<(ioctl_submit_prefix?ioctl_submit_prefix->store_failure():0u)<<" range="<<(ioctl_submit_prefix?ioctl_submit_prefix->range_failure():0u)
+        <<" ordinal="<<(ioctl_submit_prefix?ioctl_submit_prefix->ordinal():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void v1404_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    // Shared queue initializer also executes in the two earlier Opens.
+    if(ioctl_submit_prefix&&!ioctl_submit_prefix->before(c,pc,w,ioctl_submit_prefix_held(c)))ioctl_submit_prefix_refuse(2);
+}
+#endif
 void v1392_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
     if(ioctl_tail){if(!ioctl_tail->before(c,pc,w,ioctl_flush_held(c)))ioctl_tail_refuse(2);return;}
@@ -528,6 +550,9 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+    if(ioctl_submit_prefix){v1404_before(c,pc,w);return;}
+#endif
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
     if(ioctl_alloc&&ioctl_alloc->stage()==1u){v1387_before(c,pc,w);return;}
 #endif
@@ -882,6 +907,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     }
     #endif
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+    if(ioctl_submit_prefix){
+        if(!ioctl_submit_prefix->entry(c,pc,ioctl_submit_prefix_held(c)))ioctl_submit_prefix_refuse(3);
+        if(ioctl_submit_prefix->stage()==2u){++ioctl_header_entry_count;throw StmIoctlReached{};}
+        return;
+    }
+#endif
     if(ioctl_tail){
         if(!ioctl_tail->entry(c,pc,ioctl_flush_held(c)))ioctl_tail_refuse(4);
         if(ioctl_tail->stage()==2u){
@@ -889,7 +921,17 @@ void trace_call(uint32_t pc,CPUContext& c){
             if(!ioctl_flush->begin(c,ioctl_flush_held(c)))ioctl_flush_refuse(1);
             return;
         }
-        if(ioctl_tail->stage()==4u){++ioctl_submit_count;throw StmIoctlReached{};}
+        if(ioctl_tail->stage()==4u){
+            ++ioctl_submit_count;
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+            if(!ioctl_tail->reached(c,ioctl_flush_held(c)))ioctl_tail_refuse(4);
+            ioctl_submit_prefix=std::make_unique<IoctlSubmitPrefixWitness>(v1404::expected);
+            if(!ioctl_submit_prefix->begin(c,ioctl_flush_held(c),ioctl_build->request(),ioctl_build->allocated_size()))ioctl_submit_prefix_refuse(1);
+            return;
+#else
+            throw StmIoctlReached{};
+#endif
+        }
         ioctl_tail_refuse(4);
     }
 #endif
@@ -1261,6 +1303,9 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
     if(ioctl_flush){if(!ioctl_flush->poll(c,ioctl_flush_held(c)))ioctl_flush_refuse(3);return false;}
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+    if(ioctl_submit_prefix)ioctl_submit_prefix_refuse(4);
+#endif
     if(ioctl_tail)ioctl_tail_refuse(5);
 #endif
 #endif
@@ -1574,6 +1619,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+    if(ioctl_submit_prefix)ioctl_submit_prefix_refuse(4);
+#endif
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
     if(ioctl_flush){
         if(!ioctl_flush->dispatch(c,ioctl_flush_held(c),[](auto& cpu){func_80000C00(cpu);},
@@ -2562,7 +2610,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->reached(c,ioctl_submit_prefix_held(c))&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_tail&&ioctl_tail->reached(c,ioctl_flush_held(c))&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_flush&&ioctl_flush->returned(c,ioctl_flush_held(c))&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -2594,6 +2646,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
         std::cout<<"V1398_FLUSH_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 lines="<<ioctl_input_lines<<" empty=0\n";
         std::cout<<"V1401_OUTPUT_TRIAL n="<<trial<<" second_flush=1 native_rfi=1 submit_entry=1 lines="<<ioctl_output_lines<<" visits="<<ioctl_tail->visits()<<'\n';
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+        std::cout<<"V1404_PREFIX_TRIAL n="<<trial<<" original_submit=1 queue_zero=1 header_flush_entry=1 visits="<<ioctl_submit_prefix->visits()
+                 <<" stores="<<ioctl_submit_prefix->stores()<<" queue="<<ioctl_submit_prefix->queue_stores()<<" request="<<ioctl_submit_prefix->request_stores()<<'\n';
+        ioctl_submit_prefix.reset();
+#endif
         ioctl_tail.reset();
 #else
         std::cout<<"V1398_FLUSH_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 lines="<<ioctl_flush->lines()<<" empty="<<ioctl_flush->zero()<<'\n';
@@ -2721,6 +2778,10 @@ int main(int argc,char** argv)try{
     need(ioctl_flush_count==8u);
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
     need(ioctl_output_count==8u&&ioctl_submit_count==8u);
+#ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
+    need(ioctl_header_entry_count==8u);
+    std::cout<<"V1404_PREFIX_NATIVE owner=1 trials=8 submit=8 queue_zero=8 header_flush_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1401_OUTPUT_NATIVE owner=1 trials=8 second_flush_return=8 native_rfi=8 submit_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1398_FLUSH_NATIVE owner=1 trials=8 first_flush_return=8 native_rfi=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";

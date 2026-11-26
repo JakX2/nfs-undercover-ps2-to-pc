@@ -21,6 +21,7 @@ public:
     unsigned ordinal()const{return ordinal_;}
     unsigned flush_kind()const{return flush_kind_;}
     uint32_t request()const{return request_;}
+    uint32_t allocated_size()const{return size_;}
     uint32_t output()const{return output_;}
     uint32_t output_size()const{return out_size_;}
     unsigned wire_failure()const{return wire_error_;}
@@ -100,12 +101,16 @@ public:
         return stage_==3u&&live(c,held)&&c.pc==edge.pc&&c.lr==edge.lr&&c.inst_count==last_&&wire(c)&&storage(c);
     }
     template<class C>bool preserved(C& c,bool held){return stage_==3u&&live(c,held)&&wire(c)&&storage(c);}
+    // Once the original submit routine enters, a fresh store fence owns
+    // the allocated block and the submit frame. Retain all other storage
+    // and exact wire/callback identities; do not require the old SP.
+    template<class C>bool identity_preserved(C& c,bool held){return stage_==3u&&base(c,held)&&wire(c)&&outside_storage(c);}
 private:
     IoctlConstructionExpectation e_;AllocatorStoreFence fence_;AllocatorRange heap_{},meta_{};
     const void* cpu_=nullptr;std::vector<uint8_t> in_,out_,heap_shadow_,metadata_;
     uint32_t msr_=0,sp0_=0,sp_=0,r2_=0,r13_=0,fd_=0,input_=0,in_size_=0,output_=0,out_size_=0,callback_=0,
         request_=0,size_=0,next_=0,poll_pc_=0;
-    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,flush_kind_=0,polls_=0,wire_error_=0,control_error_=0;
+    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,flush_kind_=0,polls_=0,wire_error_=0,control_error_=0,callback_offset_=0;
     bool first_=true,entry_due_=false,poll_due_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool control(uint32_t pc,unsigned n){ordinal_=(pc-e_.wrapper)/4u+1u;control_error_=n;return fail(5);}
@@ -114,8 +119,8 @@ private:
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>bool base(C& c,bool held)const{return !error_&&cpu_==&c&&held&&safe(c)&&c.msr==msr_&&c.gpr[2]==r2_&&c.gpr[13]==r13_;}
     template<class C>bool live(C& c,bool held)const{return base(c,held)&&c.gpr[1]==sp_;}
-    template<class C>bool storage(C& c){
-        if(!fence_.finished(c))return false;
+    template<class C>bool storage(C& c){return fence_.finished(c)&&outside_storage(c);}
+    template<class C>bool outside_storage(C& c){
         for(unsigned i=0;i<heap_shadow_.size();++i)
             if(!AllocatorRange{request_,size_}.contains(heap_.base+i,1u)&&c.mmu.read8(heap_.base+i)!=heap_shadow_[i])return false;
         for(unsigned i=0;i<metadata_.size();++i)if(c.mmu.read8(meta_.base+i)!=metadata_[i])return false;
@@ -128,10 +133,10 @@ private:
             {16,input_&0x3fffffffu},{20,in_size_},{24,output_&0x3fffffffu},{28,out_size_}}};
         unsigned n=0;
         for(auto f:fields){++n;if(c.mmu.read32(request_+f.first)!=f.second){wire_error_=n;return false;}}
-        unsigned matches=0;
-        for(unsigned off=32;off<64;off+=4)if(c.mmu.read32(request_+off)==callback_)++matches;
-        if(matches!=1u){wire_error_=8;return false;}
-        return true;
+        unsigned matches=0,match=0;
+        for(unsigned off=32;off<64;off+=4)if(c.mmu.read32(request_+off)==callback_){++matches;match=off;}
+        if(matches!=1u||(callback_offset_&&callback_offset_!=match)){wire_error_=8;return false;}
+        callback_offset_=match;return true;
     }
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
         if(!n||!((a>=0x80000000u&&uint64_t(a)+n<=0x81800000ull)||(a>=0x90000000u&&uint64_t(a)+n<=0x94000000ull)))return false;
