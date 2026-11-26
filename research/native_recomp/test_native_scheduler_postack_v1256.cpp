@@ -240,6 +240,9 @@ static unsigned second_sleep_count=0,second_scheduler_count=0,second_save_count=
 #ifdef UNDERCOVER_V1370_SECOND_REPLY
 static unsigned second_irq_kind=0,second_ack_irq_count=0,second_ack_vector_count=0,second_ack_dispatch_count=0,second_ack_return_count=0;
 static unsigned second_reply_rfi_count=0,second_reply_vector2_count=0,second_reply_dispatch2_count=0,second_reply_entry2_count=0,second_wake_entry_count=0;
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+static unsigned second_ready_count=0,second_nested_count=0,second_return_count=0,second_idle_return_count=0,second_selection_count=0,second_load_count=0,second_resumed_sleep_count=0,second_sleep_exit_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -772,7 +775,11 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
     if(sleep_active){
         if(!sleep_resume->entry(c,pc,load_held(c))||!sleep_resume->restored_sleep_at(c,load_held(c)))sleep_resume_refuse(2);
-        ++resumed_sleep_count;
+        
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_resumed_sleep_count;else
+#endif
+            ++resumed_sleep_count;
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
         if(!sleep_exit->begin(c,*sleep_resume,load_held(c)))sleep_exit_refuse(4);
         sleep_active=false;exit_active=true;return;
@@ -789,6 +796,10 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(!selection_route->entry(c,pc,device_ok(c))||!selection_witness->entry(c,pc,device_ok(c)))selection_refuse(2);
         if(selection_route->stage()==2u){
             if(!selection_route->loader_at(c,device_ok(c))||!selection_witness->loader_ready(c,device_ok(c)))selection_refuse(3);
+            
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_selection_count;else
+#endif
             ++selection_count;
 #ifdef UNDERCOVER_V1334_COOP_LOAD
             if(!coop_load->begin(c,*load_save,load_held(c)))load_refuse(3);
@@ -815,7 +826,11 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1289_WAKE_READY
     if(wake_ready){
         if(!wake_ready->entry(c,pc,device_ok(c)))wake_refuse(2);
-        if(wake_ready->stage()==2u){++ready_count;throw ReadyReached{};}
+        if(wake_ready->stage()==2u){
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_ready_count;else
+#endif
+            ++ready_count;throw ReadyReached{};}
         return;
     }
 #endif
@@ -1021,7 +1036,14 @@ bool process_pending_callbacks(CPUContext& c){
         if(!sleep_exit->poll(c,load_held(c)))sleep_exit_refuse(5);
         if(sleep_exit->stage()==3u){
             if(!sleep_exit->returned(c,load_held(c)))sleep_exit_refuse(5);
+            
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_sleep_exit_count;else
+#endif
             ++sleep_exit_count;
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)throw SleepExited{};
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
             if(!submit_resume->begin(c,*sleep_exit,load_held(c)))submit_resume_refuse(4);
             exit_active=false;submit_resume_active=true;return false;
@@ -1040,6 +1062,10 @@ bool process_pending_callbacks(CPUContext& c){
         if(!coop_load->poll(c,load_held(c)))load_refuse(4);
         if(coop_load->stage()==4u){
             if(!coop_load->restored(c,load_held(c)))load_refuse(5);
+            
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_load_count;else
+#endif
             ++load_count;
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
             if(!sleep_resume->begin(c,*coop_load,load_held(c))||!sleep_resume->poll(c,load_held(c)))sleep_resume_refuse(4);
@@ -1069,6 +1095,10 @@ bool process_pending_callbacks(CPUContext& c){
         if(!idle_epilogue->poll(c,cause.load(),mask.load()))idle_return_refuse(5);
         if(idle_epilogue->stage()==4u){
             if(!ready_idle->finish(c,device_ok(c)))idle_return_refuse(6);
+            
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_idle_return_count;else
+#endif
             ++idle_return_count;throw IdleRfiReturned{};
         }
         return false;
@@ -1077,14 +1107,22 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){
         if(!reply_return->poll(c,device_ok(c)))return_refuse(3);
-        if(reply_return->stage()==2u){++return_count;throw ReplyHandlerReturned{};}
+        if(reply_return->stage()==2u){
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_return_count;else
+#endif
+            ++return_count;throw ReplyHandlerReturned{};}
         return false;
     }
 #endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){
         if(!nested_wake->poll(c,device_ok(c)))nested_refuse(3);
-        if(nested_wake->stage()==2u){++nested_count;throw NestedReturned{};}
+        if(nested_wake->stage()==2u){
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+            if(second_scheduler_lane)++second_nested_count;else
+#endif
+            ++nested_count;throw NestedReturned{};}
         return false;
     }
 #endif
@@ -1974,6 +2012,11 @@ int main(int argc,char** argv)try{
         const OpenTransactionEpoch epoch(kind);
         const auto second_held=[&]{return raw_device_ok(c)&&epoch.acknowledged_descriptors(3u-kind)&&
             host.serviced_steps()==3u&&descriptor.identity_after_release(c);};
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+        SleepExitWitness exited2({PostAckSleepJoin::Sleep,SubmitResume,submit_word->word,v1252::edges[2],v1321::ram_words});
+        sleep_exit=&exited2;
+        if(!exited2.capture(c,second_held()))sleep_exit_refuse(7);
+#endif
         PostAckSleepJoin sleep2(v1252::edges);
         if(!idle_reuse.preserved(c,second_held())||!sleep2.begin(c,second_submission,second_held())){
             std::cout<<"V1368_REUSE_REFUSAL stage=2\n";throw WitnessFailure{};
@@ -1982,6 +2025,11 @@ int main(int argc,char** argv)try{
         try{run_game(c);}catch(const SleepStop&){waiting2=true;}
         need(waiting2&&sleep2.select_at(c,second_held())&&second_sleep_count==trial+1u);
         std::cout<<"V1368_SLEEP_TRIAL n="<<trial<<" waiting=1 queue=1 ack_held=1\n";
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+        SleepResumeWitness resumed2({Q::Select,PostAckSleepJoin::Sleep,0x80529818u,0x8052a4fcu,v1252::edges[2],v1321::ram_words});
+        sleep_resume=&resumed2;
+        if(!resumed2.capture(c,second_held()))sleep_resume_refuse(7);
+#endif
         PostAckSchedulerJoin sched2(v1256::edges,v1256::indirect,v1256::resume,v1256::resume_word);
         if(!sched2.begin_reused(c,sleep2,idle_reuse,second_held())){
             std::cout<<"V1368_REUSE_REFUSAL stage=3\n";throw WitnessFailure{};
@@ -2056,6 +2104,9 @@ int main(int argc,char** argv)try{
         constexpr uint32_t Read2=0x8051905cu,Reply2=0x805190c0u,Return2=0x80519354u;
         auto edge2=[](auto e){return e.pc==Reply2&&e.lr==Return2;};
         need(std::count_if(v1255::edges.begin(),v1255::edges.end(),edge2)==1);
+        #ifdef UNDERCOVER_V1374_SECOND_RESTORE
+        const auto handler_abi2=ReplyReturnAbi::capture(c);
+        #endif
         JoinedIpcReplyEntry entry2(v1255::handler,Read2,*std::find_if(v1255::edges.begin(),v1255::edges.end(),edge2),
             Q::Idle,Q::Thread,v1255::edges,v1255::polls);
         need(entry2.begin(c,reply_dispatch2,irq_capture,sleep2.queue(),req2,device_ok(c)));
@@ -2065,6 +2116,9 @@ int main(int argc,char** argv)try{
              c.pc==Reply2&&c.lr==Return2&&host.serviced_steps()==4u&&
              same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&device_ok(c));
         reply_entry=nullptr;reply_cpu=nullptr;
+        #ifdef UNDERCOVER_V1374_SECOND_RESTORE
+        const auto processor_abi2=ReplyReturnAbi::capture(c);
+        #endif
         ReplyProcessorWitness body2(v1281::expected(Q::Idle,Q::Thread),kind);
         reply_body=&body2;body_cpu=&c;
         if(!body2.begin(c,entry2,irq_capture,sleep2.queue(),req2,device_ok(c)))body_refuse(6);
@@ -2076,9 +2130,59 @@ int main(int argc,char** argv)try{
              consumed2.ppc==req2&&consumed2.arm==req2&&irq_capture.saved_integer(c,Q::Idle).ok()&&
              c.mmu.read16(Q::Thread+712u)==4u&&c.mmu.read32(sleep2.queue())==Q::Thread&&
              c.mmu.read32(sleep2.queue()+4u)==Q::Thread&&epoch.acknowledged_descriptors(3u-kind)&&device_ok(c));
-        reply_body=nullptr;body_cpu=nullptr;coop_saved=nullptr;
+        reply_body=nullptr;body_cpu=nullptr;
         std::cout<<"V1370_REPLY_TRIAL n="<<trial<<" native_rfi=1 original_vector=1 original_dispatch=1 original_processor=1 native_dcbi=1 wake_entry=1 fd=1\n";
-        second_irq_kind=0;
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+        WakeReadyWitness ready2(v1289::expected(Q::Idle,Q::Thread));wake_ready=&ready2;
+        if(!ready2.begin(c,body2,irq_capture,sleep2.queue(),device_ok(c)))wake_refuse(6);
+        bool selected2=false;try{run_game(c);}catch(const ReadyReached&){selected2=true;}
+        need(selected2&&ready2.stage()==2u&&second_ready_count==trial+1u&&ready2.ready_queue()&&
+             c.pc==Q::Select&&c.lr==0x8052a5f0u&&c.gpr[3]==0u&&host.serviced_steps()==4u&&
+             c.mmu.read16(Q::Thread+712u)==1u&&c.mmu.read32(sleep2.queue())==0u&&
+             c.mmu.read32(sleep2.queue()+4u)==0u&&irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
+        wake_ready=nullptr;
+        const int64_t nested_counter2=int64_t(c.gpr[13])+v1292::counter_disp;
+        need(nested_counter2>=0x80000000ll&&nested_counter2<=0x817ffffcll);
+        NestedWakeReturnWitness nested2(v1292::expected(Q::Idle,uint32_t(nested_counter2)));nested_wake=&nested2;
+        if(!nested2.begin(c,ready2,irq_capture,sleep2.queue(),device_ok(c)))nested_refuse(6);
+        bool wake_return2=false;try{run_game(c);}catch(const NestedReturned&){wake_return2=true;}
+        need(wake_return2&&nested2.stage()==2u&&second_nested_count==trial+1u&&c.pc==0x805192d4u&&
+             c.lr==c.pc&&ready2.ready_held(c,device_ok(c))&&host.serviced_steps()==4u);
+        nested_wake=nullptr;
+        std::cout<<"V1374_WAKE_TRIAL n="<<trial<<" original_wake=1 ready=1 nested_return=1\n";
+        ReplyReturnWitness completed2(v1299::expected(uint32_t(nested_counter2)));
+        reply_return=&completed2;return_cpu=&c;
+        if(!completed2.begin(c,body2,ready2,nested2,irq_capture,sleep2.queue(),req2,handler_abi2,processor_abi2,device_ok(c)))return_refuse(6);
+        bool handler_ret2=false;try{run_game(c);}catch(const ReplyHandlerReturned&){handler_ret2=true;}
+        need(handler_ret2&&completed2.returned(c,device_ok(c))&&completed2.x2_writes()==1u&&completed2.helper_returns()==1u&&
+             second_return_count==trial+1u&&c.pc==v1255::returned&&c.lr==c.pc&&host.serviced_steps()==4u&&
+             !(cause.load()&mask.load())&&ready2.ready_context_held(c,device_ok(c)));
+        reply_return=nullptr;return_cpu=nullptr;
+        ReadyIdleReturnJoin idle_join2;LiveEpilogueWitness idle2(v1270::expected(Q::Idle));
+        ready_idle=&idle_join2;idle_epilogue=&idle2;idle_tick=c.inst_count;
+        if(!idle_join2.begin(c,completed2,ready2,irq_capture,device_ok(c)))idle_return_refuse(6);
+        bool idle_ret2=false;try{run_game(c);}catch(const IdleRfiReturned&){idle_ret2=true;}
+        need(idle_ret2&&idle_join2.resumed_idle(c,device_ok(c))&&idle2.stage()==4u&&second_idle_return_count==trial+1u&&
+             c.pc==v1256::resume&&(c.msr&0x8000u)&&host.serviced_steps()==4u&&!(cause.load()&mask.load())&&
+             save2.preserved(c,device_ok(c)));
+        ready_idle=nullptr;idle_epilogue=nullptr;
+        std::cout<<"V1374_IDLE_TRIAL n="<<trial<<" handler_return=1 latch_clear=1 native_rfi=1 ready_preserved=1\n";
+        IdleSelectionWitness selection2(v1321::selection(Q::Thread,Q::Idle,uint32_t(nested_counter2)));
+        IdleRouteWitness route2({Q::Enable,v1256::resume,Q::Select,0x80529864u,v1321::direct[3].pc,
+             v1321::ram_words,v1321::direct,v1321::callbacks});
+        selection_witness=&selection2;selection_route=&route2;
+        if(!selection2.begin(c,idle_join2,device_ok(c))||!route2.begin(c,device_ok(c)))selection_refuse(7);
+        CooperativeLoadLane load2(v1321::load());coop_load=&load2;load_save=&save2;
+        bool sleep_exit2=false;try{run_game(c);}catch(const SleepExited&){sleep_exit2=true;}
+        need(sleep_exit2&&exited2.returned(c,load_held(c))&&second_selection_count==trial+1u&&
+             second_load_count==trial+1u&&second_resumed_sleep_count==trial+1u&&second_sleep_exit_count==trial+1u&&
+             host.serviced_steps()==4u&&!(cause.load()&mask.load())&&epoch.acknowledged_descriptors(3u-kind)&&
+             host.physical_ram().read32(req2+4u)==1u&&descriptor.identity_after_release(c));
+        std::cout<<"V1374_RESTORE_TRIAL n="<<trial<<" original_select=1 original_load=1 native_rfi=1 sleep_return=1 fd=1\n";
+        selection_route=nullptr;selection_witness=nullptr;load_active=false;coop_load=nullptr;load_save=nullptr;
+        sleep_active=false;sleep_resume=nullptr;exit_active=false;sleep_exit=nullptr;
+#endif
+        coop_saved=nullptr;second_irq_kind=0;
 #endif
         second_scheduler_lane=false;
 #endif
@@ -2159,6 +2263,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
     need(second_sleep_count==8u&&second_scheduler_count==8u&&second_save_count==8u);
 #ifdef UNDERCOVER_V1370_SECOND_REPLY
+#ifdef UNDERCOVER_V1374_SECOND_RESTORE
+    need(second_ready_count==8u&&second_nested_count==8u&&second_return_count==8u&&second_idle_return_count==8u&&
+         second_selection_count==8u&&second_load_count==8u&&second_resumed_sleep_count==8u&&second_sleep_exit_count==8u);
+    std::cout<<"V1374_RESTORE_NATIVE owner=1 trials=8 wake=8 handler_return=8 idle_rfi=8 selection=8 cooperative_rfi=8 sleep_return=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     need(second_ack_irq_count==8u&&second_ack_vector_count==8u&&second_ack_dispatch_count==8u&&second_ack_return_count==8u&&
          second_reply_rfi_count==8u&&second_reply_vector2_count==8u&&second_reply_dispatch2_count==8u&&second_reply_entry2_count==8u&&second_wake_entry_count==8u);
     std::cout<<"V1370_REPLY_NATIVE owner=1 trials=8 ack_irq=8 original_ack_return=8 native_reply=8 native_rfi=8 reply_irq=8 original_processor=8 wake_entry=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
