@@ -57,11 +57,11 @@ def render(g):
 
 def analyzer(s,g):
     roots=g[0]
-    s=vector_analyzer(s,dispatcher_size=4*len(roots[DISPATCH]))
-    spans=[(pc,len(ws)*4) for pc,ws in roots.items() if pc not in (DISPATCH,DISABLE,RESTORE)]
-    root=ANALYZE_ROOT+'\n    const auto ipc_dispatch_owner=[](uint32_t a)->uint32_t {\n'+''.join(
+    if len(roots[DISPATCH])*4!=0x2a4:raise ValueError('dispatcher extent')
+    spans=[(VECTOR,152),(TRAMP,80)]+[(pc,len(ws)*4) for pc,ws in roots.items() if pc not in (DISABLE,RESTORE)]
+    root=(ANALYZE_ROOT+'\n    const auto ipc_dispatch_owner=[](uint32_t a)->uint32_t {\n'+''.join(
         f'      if(a>=0x{pc:08x}u&&a<0x{pc+n:08x}u)return 0x{pc:08x}u;\n' for pc,n in spans)+
-        '      return 0;\n    };\n    if(ipc_dispatch_owner(func_start)&&ipc_dispatch_owner(func_start)!=func_start)continue;'
+        '      return 0;\n    };\n    if(ipc_dispatch_owner(func_start)&&ipc_dispatch_owner(func_start)!=func_start)continue;')
     read='        const auto ipc_dispatch_root=ipc_dispatch_owner(current_pc);\n        if((ipc_dispatch_root&&ipc_dispatch_root!=func_start)||(ipc_dispatch_owner(func_start)&&ipc_dispatch_root!=func_start))break;\n'+READ
     return rewrite(s,((ANALYZE_ROOT,root),(READ,read)))
 

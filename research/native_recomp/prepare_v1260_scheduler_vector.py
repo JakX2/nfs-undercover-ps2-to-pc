@@ -51,9 +51,9 @@ def render(v,t,d):
 def analyzer(s,dispatcher_size=8):
     if dispatcher_size not in (8,0x2a4):raise ValueError('dispatcher extent')
     spans=((VECTOR,152),(TRAMP,80),(DISPATCH,dispatcher_size))
-    roots=ANALYZE_ROOT+'\n    const auto ipc_vector_owner=[](uint32_t a)->uint32_t {\n'+''.join(
+    roots=(ANALYZE_ROOT+'\n    const auto ipc_vector_owner=[](uint32_t a)->uint32_t {\n'+''.join(
         f'      if(a>=0x{pc:08x}u&&a<0x{pc+n:08x}u)return 0x{pc:08x}u;\n' for pc,n in spans)+
-        '      return 0;\n    };\n    if(ipc_vector_owner(func_start)&&ipc_vector_owner(func_start)!=func_start)continue;'
+        '      return 0;\n    };\n    if(ipc_vector_owner(func_start)&&ipc_vector_owner(func_start)!=func_start)continue;')
     read='        const auto ipc_vector_root=ipc_vector_owner(current_pc);\n        if((ipc_vector_root&&ipc_vector_root!=func_start)||(ipc_vector_owner(func_start)&&ipc_vector_root!=func_start))break;\n'+READ
     return rewrite(s,((ANALYZE_ROOT,roots),(READ,read)))
 
