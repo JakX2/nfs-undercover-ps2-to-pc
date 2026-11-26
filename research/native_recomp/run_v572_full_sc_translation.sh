@@ -153,7 +153,11 @@ fi
 # Derive the actual target before touching private inputs; use it unchanged
 # after the native build. Public plan contains flags only, never source paths.
 echo "V875_TRANSLATION_PLAN requested=$requested_mode base=$mode target=$target wrapper=$si_wireless_wrapper write=$si_wireless_write callback=$si_callback_return combined=$si_combined_callback handler=$si_handler_suffix"
-if [[ "$matrix" == 1 ]]; then echo 'V1018_BUILD_PLAN links=1 isolated_launches=3 callback_time_installed=1';fi
+if [[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" == 1 && "$matrix" != 1 ]]; then exit 2;fi
+if [[ "$matrix" == 1 ]]; then
+  lanes=3;[[ "${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}" != 1 ]] || lanes=4
+  echo "V1018_BUILD_PLAN links=1 isolated_launches=$lanes callback_time_installed=1"
+fi
 if [[ "$describe" == 1 ]]; then exit 0;fi
 root="$(realpath "$1")"; dol="$(realpath "$2")"; elf="$(realpath "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"

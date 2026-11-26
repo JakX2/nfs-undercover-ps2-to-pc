@@ -12,6 +12,8 @@ elif [[ $# == 3 ]]; then
   mkdir -m 700 "$work"
 else exit 2
 fi
+extended="${UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX:-0}"
+[[ "$extended" == 0 || "$extended" == 1 ]] || exit 2
 # Remove unrelated launcher overrides. Each lane has a fixed explicit
 # contract, all three retain the same verified pre-second-IRQ sequence.
 while IFS= read -r key; do
@@ -28,11 +30,14 @@ success=(UNDERCOVER_RUN_V975_SECOND_TIME=1 UNDERCOVER_RUN_V981_SECOND_FRONTIER=1
   UNDERCOVER_RUN_V995_SUCCESS_FRONTIER=1 UNDERCOVER_RUN_V1009_SECOND_CALLBACK=1
   UNDERCOVER_RUN_V1012_SI_PROFILE=port1-present)
 failed=0
-for lane in absent mixed-prefix mixed-time; do
+lanes=(absent mixed-prefix mixed-time)
+if [[ "$extended" == 1 ]]; then lanes+=(absent-time);fi
+for lane in "${lanes[@]}"; do
   case "$lane" in
     absent) flags=(UNDERCOVER_RUN_V1015_ERROR_COMPLETION=1 UNDERCOVER_RUN_V1012_SI_PROFILE=absent);;
     mixed-prefix) flags=("${success[@]}");;
     mixed-time) flags=("${success[@]}" UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME=1);;
+    absent-time) flags=("${success[@]}" UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME=1 UNDERCOVER_RUN_V1015_ERROR_COMPLETION=1 UNDERCOVER_RUN_V1021_ERROR_FRONTIER=1 UNDERCOVER_RUN_V1012_SI_PROFILE=absent);;
   esac
   echo "V1018_LANE_BEGIN lane=$lane"
   rc=0
@@ -44,5 +49,5 @@ for lane in absent mixed-prefix mixed-time; do
   if [[ "$rc" != 0 ]]; then failed=$((failed+1));fi
   echo "V1018_LANE_END lane=$lane audit_rc=$rc boot_verified=0"
 done
-echo "V1018_MATRIX_RESULT attempted=3 failed=$failed describe=$describe boot_verified=0"
+echo "V1018_MATRIX_RESULT attempted=${#lanes[@]} failed=$failed describe=$describe boot_verified=0"
 [[ "$failed" == 0 ]]

@@ -1,0 +1,3 @@
+# V1024: fourth isolated shared-image lane
+
+Add the V1023 absent-controller callback-time execution to the existing V1018 shared-image workflow. Keep the original three-lane default and require the existing authenticated callback-time superset for the opt-in fourth lane. Each lane still starts a fresh process with a private HOME and guest context. Test the actual sanitized launch plans and retain the original result gate. No additional native execution claims until the owner workflow passes.

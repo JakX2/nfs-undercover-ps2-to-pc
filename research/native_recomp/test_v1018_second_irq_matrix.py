@@ -24,6 +24,17 @@ class Matrix(unittest.TestCase):
         self.assertIn('UNDERCOVER_V1014_SECOND_CALLBACK_TIME=1',plans[2])
         self.assertEqual(sum(l.startswith('V1012_SI_PROFILE ') for l in rows),2)
         self.assertEqual(rows[-1],'V1018_MATRIX_RESULT attempted=3 failed=0 describe=1 boot_verified=0')
+    def test_extended_matrix(self):
+        env=os.environ.copy();env['UNDERCOVER_RUN_V1023_ERROR_TIME_MATRIX']='1'
+        p=subprocess.run(['bash',str(HERE/'run_v1018_second_irq_matrix.sh'),'--describe-mode'],env=env,capture_output=True,text=True,timeout=10)
+        self.assertEqual(p.returncode,0,p.stderr)
+        rows=p.stdout.splitlines();plans=[l for l in rows if l.startswith('V875_LAUNCH_PLAN ')]
+        self.assertEqual(len(plans),4)
+        self.assertIn('audit=audit_v1023_error_callback_time.py',plans[-1])
+        self.assertIn('UNDERCOVER_V1021_ERROR_FRONTIER=1',plans[-1])
+        self.assertIn('UNDERCOVER_V1014_SECOND_CALLBACK_TIME=1',plans[-1])
+        self.assertEqual(sum(l.startswith('V1012_SI_PROFILE ') for l in rows),2)
+        self.assertEqual(rows[-1],'V1018_MATRIX_RESULT attempted=4 failed=0 describe=1 boot_verified=0')
     def test_build_gate(self):
         env={k:v for k,v in os.environ.items() if not k.startswith('UNDERCOVER_RUN_')}
         env['UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX']='1'
