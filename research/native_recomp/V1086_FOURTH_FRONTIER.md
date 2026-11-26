@@ -1,0 +1,3 @@
+# V1086: fourth-call frontier classification without a fourth transaction
+
+Extend only the cold/due focused lane across four channels and both modes (eight trials). Begin a fresh queue-history census at the original third handler entry, sample every authenticated third-ACK instruction, preserve the retired owners, and classify actual fourth transfer arguments and timing-only mismatch admission at the next original transfer call. Do not execute the fourth call or start a transaction. Retain the independent helper/time stop lanes. If execution takes an unsupported guard instead, fail closed rather than invent a path. Add bounded ACK/call failure diagnostics without raw addresses, words, or registers. This is a diagnostic candidate, not an observed fourth transfer or boot.

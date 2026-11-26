@@ -60,11 +60,12 @@ static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
 static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false,third_callback_return=false;
-static bool third_handler_route=false,third_handler_active=false,third_pending_rfi=false,third_vector_route=false,third_vector_poison=false,third_dispatch_route=false,third_ack_route=false,third_postack_route=false,third_time_route=false;
+static bool third_handler_route=false,third_handler_active=false,third_pending_rfi=false,third_vector_route=false,third_vector_poison=false,third_dispatch_route=false,third_ack_route=false,third_postack_route=false,third_time_route=false,third_frontier_route=false;
 static ThirdPendingReentry third_reentry(ThirdVectorExpected);
 static SecondSiDispatchWitness third_dispatch(DispatchExpected);
 static unsigned third_dispatch_visits=0,third_dispatch_reads=0,third_dispatch_entries=0,third_dispatch_polls=0,third_ack_visits=0;
-static unsigned third_ack_boundary=0,third_helper_return=0,third_time_start=0,third_time_entries=0,third_time_returns=0,third_time_msr=0;
+static unsigned third_ack_boundary=0,third_helper_return=0,third_time_start=0,third_time_entries=0,third_time_returns=0,third_time_msr=0,third_time_return=0;
+static SiQueueHistory fourth_queue_history;
 static unsigned third_poisoned_fields=0;
 static void third_vector_need(bool accepted,const std::source_location loc=std::source_location::current());
 static constexpr auto ThirdVectorBytes=[] {std::array<uint8_t,4*ThirdVectorWords.size()> out{};for(unsigned i=0;i<ThirdVectorWords.size();++i)for(unsigned k=0;k<4;++k)out[4*i+k]=uint8_t(ThirdVectorWords[i]>>(24-8*k));return out;}();
@@ -209,6 +210,10 @@ static void third_vector_need(bool accepted,const std::source_location loc){
                  <<" reason="<<third_reentry.failure()<<" vector_reason="<<third_reentry.vector_failure()
                  <<" vector_visits="<<third_reentry.vector_visits()<<" trampoline_visits="<<third_reentry.trampoline_visits()
                  <<" poisoned="<<third_poisoned_fields<<std::endl;
+        if(third_reentry.stage()>=7u)std::cout<<std::dec<<"V1086_THIRD_ACK_REFUSAL route="<<third_reentry.failure()
+                 <<" ack="<<third_reentry.completion_ack().failure()<<" calls="<<third_reentry.ack_calls().failure()
+                 <<" ack_stage="<<third_reentry.completion_ack().stage()<<" visits="<<third_ack_visits
+                 <<" helper_return="<<unsigned(third_helper_return!=0)<<" time_return="<<unsigned(third_time_return!=0)<<std::endl;
         need(false,loc);
     }
 }
@@ -434,7 +439,9 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(third_reentry.stage()){
         if(third_reentry.ack_active()){
             need(third_ack_route&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end()&&++third_ack_visits<=2048u);
-            scheduler->advance(c.inst_count);third_vector_need(third_reentry.ack_before(c,owner,pc,w));
+            scheduler->advance(c.inst_count);
+            if(third_frontier_route)need(fourth_queue_history.sample(c));
+            third_vector_need(third_reentry.ack_before(c,owner,pc,w));
             if(third_reentry.stage()==8u){
                 const auto& a=third_reentry.completion_ack();const auto& calls3=third_reentry.ack_calls();
                 need(ack.stage()==5u&&third.stage()==3u&&a.stage()==3u&&a.token()==3u&&ctl->issued_tokens()==3u&&
@@ -463,11 +470,25 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                     need(!third_time_start&&owner==Handler&&calls3.depth()==1u&&third_reentry.postack_held(c));
                     third_time_start=third_ack_visits;third_time_entries=calls3.entries();third_time_returns=calls3.returns();third_time_msr=calls3.msr_writes();
                 }
-                if(third_time_start&&pc==TimeCall+4u){
+                if(third_time_start&&!third_time_return&&pc==TimeCall+4u){
                     need(owner==Handler&&calls3.depth()==0u&&third_reentry.postack_held(c)&&calls3.entries()-third_time_entries==4u&&
                          calls3.returns()-third_time_returns==4u&&calls3.msr_writes()-third_time_msr==2u);
                     std::cout<<std::dec<<"V1084_THIRD_TIME_RETURN original_time=1 leaves=3 visits="<<third_ack_visits-third_time_start
                              <<" token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+                    third_time_return=third_ack_visits;
+                    if(!third_frontier_route)std::_Exit(0);
+                }
+                if(third_time_return&&pc==TransferCall){
+                    need(third_frontier_route&&owner==Handler&&calls3.depth()==1u&&third_reentry.postack_held(c)&&
+                         third_ack_visits>third_time_return);
+                    const auto args=inspect_si_transfer_arguments(c,TransferData,0x806fe340u,CallbackRoot);
+                    const auto hist=fourth_queue_history.finish(c,args);need(hist.valid&&args.channel<4u);
+                    const auto admission=si_transfer_admission(args,&hist);
+                    std::cout<<std::dec<<"V1086_FOURTH_FRONTIER type="<<args.type<<" idle="<<args.idle<<" callback="<<args.callback_known
+                             <<" channel="<<args.channel<<" mismatch="<<args.mismatch_mask<<" slot_kind="<<args.slot_kind
+                             <<" initial_mismatch="<<hist.initial_mismatch<<" changed="<<hist.changed<<" samples="<<hist.samples
+                             <<" admission="<<admission<<" visits="<<third_ack_visits-third_time_return
+                             <<" token=3 saved_fields=38 original_call_executed=0 boot_verified=0"<<std::endl;
                     std::_Exit(0);
                 }
             }
@@ -835,6 +856,7 @@ void trace_call(uint32_t pc,CPUContext& c){
                          <<" entries="<<third_dispatch_entries<<" pi_reads="<<third_dispatch_reads<<" polls="<<third_dispatch_polls
                          <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
                 if(!third_ack_route)std::_Exit(0);
+                if(third_frontier_route)need(fourth_queue_history.begin(c,0x806fe340u));
                 third_vector_need(third_reentry.begin_ack(c,ack_spans,ack_edges,AckMsr));
             }
             return;
@@ -1037,11 +1059,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_time_route=tail=="-ack-time";third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
