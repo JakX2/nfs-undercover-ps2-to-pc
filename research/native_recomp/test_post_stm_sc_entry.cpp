@@ -53,5 +53,18 @@ static void trial(unsigned fault){
     if(fault==16){c.mmu.write32(Sp-16,1);assert(!w.frame_held(c,true));}
     if(fault==17){c.gpr[1]+=4;assert(!w.frame_held(c,true));}
     if(fault==18){c.inst_count+=129;assert(!w.frame_held(c,true));}
+    if(fault>=19){
+        constexpr uint32_t child=Sp-32-128,link=Root+0x40;
+        c.gpr[1]=child;c.mmu.write32(Sp-28,link);
+        assert(w.nested_frame_held(c,true,child,link));
+        assert(!w.frame_held(c,true));
+        if(fault==20){c.mmu.write32(Sp-28,link+4);assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault==21){c.mmu.write32(Sp-4,0);assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault==22){c.mmu.write32(Sp+4,0);assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault==23){c.gpr[1]=Sp-32-520;assert(!w.nested_frame_held(c,true,c.gpr[1],link));}
+        if(fault==24){assert(!w.nested_frame_held(c,false,child,link));}
+        if(fault==25){c.mmu.write32(Sp-32,0);assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault==26){c.inst_count+=129;assert(!w.nested_frame_held(c,true,child,link));}
+    }
 }
-int main(){for(unsigned i=0;i<=18;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=19 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=26;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=27 original_execution=0\n";}
