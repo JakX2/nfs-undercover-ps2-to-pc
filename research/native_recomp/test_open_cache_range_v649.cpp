@@ -11,7 +11,42 @@ struct Mmu{
 struct Cpu{
     Mmu mmu;bool is_running=true;uint32_t guest_flush_count=20000,guest_last_flush=0;
 };
+static void flush(Cpu& c,OpenCacheRangeTrace& w,uint32_t a){w.on_flush(a);++c.guest_flush_count;c.guest_last_flush=a;}
+static void empty_ranges(){
+    unsigned count=0;
+    for(unsigned off=0;off<32;++off){
+        Cpu c;OpenCacheRangeTrace w;unsigned lines=(off+19+31)/32;
+        need(w.begin(c,0x81000000u+off,19));
+        for(unsigned i=0;i<lines;++i)flush(c,w,0x81000000u+32*i);
+        need(w.ready_sc(c)&&w.finish(c)&&w.lines()==lines&&w.rearm(c));
+        const auto n=c.guest_flush_count,last=c.guest_last_flush;
+        need(w.begin_empty(c)&&w.ready_sc(c)&&w.finish(c)&&!w.lines());
+        need(c.guest_flush_count==n&&c.guest_last_flush==last&&w.rearm(c));
+        need(w.begin(c,0x81000040u,32));flush(c,w,0x81000040u);
+        need(w.ready_sc(c)&&w.finish(c)&&w.lines()==1);++count;
+    }
+    for(unsigned f=0;f<10;++f){
+        Cpu c;OpenCacheRangeTrace w;
+        if(f==0){need(!w.begin(c,0x81000000u,0));}
+        else if(f==1){c.is_running=false;need(!w.begin_empty(c));}
+        else{
+            need(w.begin_empty(c));
+            if(f==2)w.on_flush(0x81000000u);
+            if(f==3)w.on_zero(0x81000000u);
+            if(f==4)++c.guest_flush_count;
+            if(f==5)c.guest_last_flush+=32;
+            if(f==6){Cpu other=c;need(!w.ready_sc(other));}
+            else if(f==7){need(w.ready_sc(c));w.on_flush(0x81000000u);need(!w.finish(c));}
+            else if(f==8){need(w.ready_sc(c));++c.guest_flush_count;need(!w.finish(c));}
+            else if(f==9){need(!w.rearm(c));}
+            else need(!w.ready_sc(c));
+        }
+        need(w.phase()==OpenCacheRangeTrace::Phase::Failed);++count;
+    }
+    std::cout<<"V1400_EMPTY_CACHE cases="<<count<<" original_execution=0\n";
+}
 int main(){
+    empty_ranges();
     unsigned passed=0,refused=0;
     for(unsigned offset=0;offset<32;++offset){
         Cpu c;OpenCacheRangeTrace w;const unsigned n=19,lines=(offset+n+31u)/32u;
