@@ -4,7 +4,11 @@ import argparse
 import struct
 from pathlib import Path
 from prepare_v629_stm_open import geometry,STM,EDGES
-from prepare_v419_full_start import MAX_DOL
+from prepare_v419_full_start import MAX_DOL,EXPECTED_GPRS
+from prepare_stm_event_return_geometry import object_at,plan as event_plan
+from prepare_ipc_dispatch_geometry import credit_object
+from prepare_ipc_profile_geometry import layout
+from prepare_v1414_ipc_ring import ring_object
 from prepare_stm_outer_restore import plan as outer_plan
 from make_v624_ipc_geometry import exact_words
 
@@ -55,16 +59,17 @@ def prologue(words):
         raise ValueError('prologue identity')
     return frame,{off:value for off,value in slots.items() if value is not None}
 
-def tail(words,frame,slots):
+def tail(words,frame,slots,store_sites=()):
     # After the outer restore call the native epilogue is a leaf. Require
     # every restored nonvolatile register to originate at its prologue slot.
-    sp=-frame;values=[None]*32;lr=False;loaded=set();loads=0
+    sp=-frame;values=[None]*32;lr=False;loaded=set();loads=0;stores=0
+    if len(set(store_sites))!=len(store_sites):raise ValueError('tail store identity')
     if not words or len(words)>32 or words[-1]!=BLR:
         raise ValueError('tail extent')
     for ordinal,w in enumerate(words,1):
         op=w>>26;rs=(w>>21)&31;ra=(w>>16)&31;xo=(w>>1)&1023
         if w==BLR:
-            if w!=words[-1] or sp or not lr or loaded!=set(slots.values()):
+            if w!=words[-1] or sp or not lr or loaded!=set(slots.values()) or stores!=len(store_sites):
                 raise ValueError('tail ABI')
         elif op in (32,46) and ra==1:
             for n in range(32-rs if op==46 else 1):
@@ -72,6 +77,10 @@ def tail(words,frame,slots):
                 if value is None or value in loaded or r==1 or (value!='lr' and value!=r) or (value=='lr' and r>=14):
                     raise ValueError('tail load')
                 values[r]=value;loaded.add(value);loads+=1
+        elif op==36 and ra in (2,13):
+            if ordinal not in store_sites or values[rs]!=('constant',1):
+                raise ValueError('tail store value')
+            stores+=1
         elif op==14 and rs==ra==1:
             if sp!=-frame or imm(w)!=frame:raise ValueError('tail stack')
             sp=0
@@ -79,9 +88,15 @@ def tail(words,frame,slots):
             if values[rs]!='lr' or lr:raise ValueError('tail LR')
             lr=True
         elif op in (14,15) and rs in (0,*range(3,13)):
-            values[rs]=values[ra] if op==14 and ra and not imm(w) else None
+            source=values[ra] if ra else ('constant',0)
+            if isinstance(source,tuple) and source[0]=='constant':
+                add=imm(w)*(65536 if op==15 else 1)
+                values[rs]=('constant',(source[1]+add)&0xffffffff)
+            else:values[rs]=source if op==14 and not imm(w) else None
         elif op==31 and xo==444 and ra in (0,*range(3,13)):
             values[ra]=values[rs] if rs==((w>>11)&31) else None
+        elif op==24 and ra in (0,*range(3,13)) and isinstance(values[rs],tuple):
+            values[ra]=('constant',values[rs][1]|(w&0xffff))
         elif op in (20,21,23,24,25,26,27,28,29) and ra in (0,*range(3,13)):
             # An integer return-value computation is not LR provenance.
             # Reserved SDA/SP and nonvolatile registers cannot be changed.
@@ -102,20 +117,36 @@ def derive(d,e):
         raise ValueError('tail caller')
     start=(caller-STM)//4
     frame,slots=prologue(body[:start])
-    loads,saved=tail(body[start:],frame,slots)
+    # Only an exact SDA word store to a privately identified writable
+    # ELF object is admissible. It must not alias the already-registered
+    # event or any IPC accounting object.
+    stores=[]
+    for i,w in enumerate(body[start:],1):
+        if w>>26!=36:continue
+        ra=(w>>16)&31
+        if ra not in (2,13):raise ValueError('tail store base')
+        a=(EXPECTED_GPRS[ra]+imm(w))&0xffffffff
+        obj=object_at(d,e,a,4)
+        protected=[ring_object(d,e)[:2],credit_object(d,e),*layout(d,e),*event_plan(d,e)[3]]
+        if any(obj[0]<b+n and b<obj[0]+obj[1] for b,n in protected):
+            raise ValueError('tail store overlap')
+        stores.append(i)
+    if len(stores)!=1:raise ValueError('tail store count')
+    loads,saved=tail(body[start:],frame,slots,stores)
     # Caller identity is authenticated privately; the focused fixture
     # still models the OSInit bridge and must stop before its continuation.
     exact_words(d,e,edge[1],1)
-    return len(body[start:]),loads,saved
+    return len(body[start:]),loads,saved,len(stores)
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
     allowed={'size','prologue frame','prologue store before frame','prologue slot','prologue duplicate register',
-             'prologue identity','tail extent','tail ABI','tail load','tail stack','tail LR','tail opcode','tail return count','tail caller'}
+             'prologue identity','tail extent','tail ABI','tail load','tail stack','tail LR','tail opcode','tail return count','tail caller','tail store identity','tail store value',
+             'tail store base','tail store overlap','tail store count'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:
             raise ValueError('size')
-        labels,loads,saved=derive(q.dol.read_bytes(),q.elf.read_bytes())
+        labels,loads,saved,stores=derive(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         reason=str(ex)
         if reason.startswith('tail opcode '):
@@ -125,6 +156,6 @@ def main():
                 return 1
         print('STM_FINAL_RETURN_GEOMETRY verified=0 reason='+(reason.replace(' ','_') if reason in allowed else 'private_input'))
         return 1
-    print(f'STM_FINAL_RETURN_GEOMETRY verified=1 labels={labels} stack_loads={loads} saved_gprs={saved} lr=1 caller=1 original_execution=0')
+    print(f'STM_FINAL_RETURN_GEOMETRY verified=1 labels={labels} stack_loads={loads} saved_gprs={saved} state_stores={stores} lr=1 caller=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

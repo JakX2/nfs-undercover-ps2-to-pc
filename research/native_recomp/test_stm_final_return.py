@@ -24,6 +24,14 @@ class ReturnGeometry(unittest.TestCase):
         self.assertEqual(tail((REST[0],REST[1],ins(14,3,30,0),REST[2],*REST[3:]),f,s),(3,2))
         with self.assertRaises(ValueError):tail((REST[0],REST[1],ins(14,0,0,7),REST[2],*REST[3:]),f,s)
         with self.assertRaises(ValueError):tail((REST[0],REST[1],ins(14,30,0,7),REST[2],*REST[3:]),f,s)
+    def test_authorized_state_store(self):
+        f,s=prologue(SAVE)
+        lane=(ins(14,3,0,1),ins(36,3,13,16),*REST)
+        self.assertEqual(tail(lane,f,s,(2,)),(3,2))
+        for bad,sites in ((lane,()),((ins(14,3,0,0),*lane[1:]),(2,)),
+                          ((lane[0],ins(36,3,1,16),*REST),(2,)),
+                          (lane,(1,)),(lane,(2,2))):
+            with self.subTest(bad=bad,sites=sites),self.assertRaises(ValueError):tail(bad,f,s,sites)
     def test_bad_prologue(self):
         for bad in ((MFLR,), (ST,MFLR,ins(36,0,1,40)),
                     (ST,MFLR,ins(36,0,1,36),ins(36,0,1,28)),
