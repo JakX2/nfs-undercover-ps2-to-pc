@@ -43,19 +43,21 @@ static void trial(unsigned first,unsigned kind,bool empty,unsigned fault){
     open(host,first==1?"/dev/stm/immediate":"/dev/stm/eventhook",0);
     open(host,first==1?"/dev/stm/eventhook":"/dev/stm/immediate",1);
     Cpu c;constexpr uint32_t F=0x805222c0u,P=0x805222e4u,N=0x60000000u,A=0x81000000u;
-    c.pc=F;c.lr=kind==1?R::EventInputCaller:R::EventOutputCaller;
-    c.gpr[1]=0x81000800u;c.gpr[3]=empty?0u:A+16u;c.gpr[4]=empty?0u:48u;
+    c.pc=F;c.lr=kind==1?R::EventInputCaller:kind==2?R::EventOutputCaller:R::SubmitCaller;
+    c.gpr[1]=0x81000800u;c.gpr[3]=empty?0u:kind==3?A:A+16u;c.gpr[4]=empty?0u:kind==3?64u:48u;
     c.mmu.write32(F,N);c.mmu.write32(c.lr,N);c.mmu.write32(R::Call,0x44000002u);c.mmu.write32(R::Resume,0x4e800020u);
     assert(c.open_cache_range.begin(c,A,1));
     c.open_cache_range.on_flush(A);++c.guest_flush_count;c.guest_last_flush=A;
     assert(c.open_cache_range.ready_sc(c)&&c.open_cache_range.finish(c));
     std::array<uint32_t,1> polls{P};std::array<uint8_t,28> bytes{};
-    IoctlFirstFlushWitness w({N,N,N,polls},bytes,first,kind);
+    IoctlFirstFlushWitness w({N,N,N,polls,fault==9?0u:N},bytes,first,fault==11?4u:kind);
     if(fault==1)c.msr|=0x8000u;
     if(fault==2)c.lr=R::Caller;
     if(fault==3)c.gpr[4]=4097;
+    if(fault==10)c.gpr[4]=16;
+    if(fault==12)c.gpr[3]+=16;
     bool ok=w.begin(c,true);
-    if(fault>=1&&fault<=3){assert(!ok);return;}assert(ok);
+    if((fault>=1&&fault<=3)||(kind==3&&empty)||fault>=9){assert(!ok);return;}assert(ok);
     if(!empty||fault==4){
         c.open_cache_range.on_flush(A);++c.guest_flush_count;c.guest_last_flush=A;
         if(!empty&&fault!=4){c.open_cache_range.on_flush(A+32);++c.guest_flush_count;c.guest_last_flush=A+32;}
@@ -85,8 +87,11 @@ static void trial(unsigned first,unsigned kind,bool empty,unsigned fault){
     assert(w.returned(c,true)&&w.lines()==(empty?0u:2u)&&host.serviced_steps()==4u);
 }
 int main(){
-    for(unsigned first:{1u,2u})for(unsigned kind:{1u,2u})for(bool empty:{false,true}){
-        for(unsigned fault=0;fault<=8;++fault)trial(first,kind,empty,fault);
+    for(unsigned first:{1u,2u}){
+        for(unsigned kind:{1u,2u,3u})for(bool empty:{false,true}){
+            for(unsigned fault=0;fault<=8;++fault)trial(first,kind,empty,fault);
+        }
+        for(unsigned fault=9;fault<=12;++fault)trial(first,3,false,fault);
     }
-    std::cout<<"V1398_FLUSH_TEST cases=72 original_execution=0\n";
+    std::cout<<"V1398_FLUSH_TEST cases=116 original_execution=0\n";
 }

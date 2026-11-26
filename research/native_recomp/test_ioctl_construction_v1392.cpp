@@ -70,6 +70,15 @@ static void trial(unsigned fault,unsigned first,bool input,bool output_first){
     c.pc=F;c.lr=fault==8?(output_first?I:V)+4:site+4;
     ok=w.entry(c,F,true);if(fault==8){assert(!ok);return;}assert(ok);
     assert(w.reached(c,true)&&w.request_stores()==8&&w.flush_kind()==(output_first?2u:1u));
+    // The new submit frame may move SP and initialize an extension word.
+    // The old whole-allocation guard is retired only after this handoff.
+    c.gpr[1]-=32;c.mmu.write32(Q+48,0x13572468u);
+    assert(w.identity_preserved(c,true)&&!w.preserved(c,true));
+    c.mmu.write32(H+200,1);assert(!w.identity_preserved(c,true));c.mmu.write32(H+200,0);
+    c.mmu.write32(O,1);assert(!w.identity_preserved(c,true));c.mmu.write32(O,0);
+    assert(w.identity_preserved(c,true));
+    c.mmu.write32(Q+32,0);c.mmu.write32(Q+36,CB);
+    assert(!w.identity_preserved(c,true)&&w.wire_failure()==8);
 }
 int main(){for(unsigned first:{1u,2u}){
     for(unsigned f=0;f<=11;++f){trial(f,first,false,false);trial(f,first,true,false);trial(f,first,false,true);}

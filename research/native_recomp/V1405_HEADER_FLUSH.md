@@ -1,0 +1,3 @@
+# V1405 third cache flush and submit handoff contract
+
+Reuse the independently verified masked cache helper observer for the original submit-header caller, using a distinct caller kind and a privately authenticated return word. Reject a missing return identity, an empty/undersized or unaligned header range, and unknown kind. The earlier input/output modes are unchanged. The source suite exercises 116 cases across both descriptor orders. The construction suite additionally exercises the V1404 handoff: a new frame and permitted request-extension writes may occur, but moving the original callback to another slot, mutating the buffers, or touching heap outside the request is rejected. Header owner execution is not yet enabled; the V1404 owner prefix must succeed first.

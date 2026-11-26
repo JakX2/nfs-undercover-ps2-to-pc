@@ -7,22 +7,25 @@ namespace undercover::wii {
 struct IoctlFirstFlushExpectation {
     uint32_t entry_word,input_resume_word,output_resume_word;
     std::span<const uint32_t> polls;
+    uint32_t submit_resume_word=0; // independently authenticated header flush return
 };
 // Continue the actual native DCFlushRange body. All translated labels and
-// the two exact caller return edges are authenticated by the private installer.
+// the exact caller return edge is authenticated by the private installer.
 class IoctlFirstFlushWitness {
 public:
     using R=OpenScRoute;
     IoctlFirstFlushWitness(IoctlFirstFlushExpectation e,const std::array<uint8_t,28>& bytes,unsigned first,unsigned kind)
-        :e_(e),caller_(kind==1?R::EventInputCaller:R::EventOutputCaller),route_(bytes,caller_,first,R::Mode::DeferredStm){}
+        :e_(e),kind_(kind),caller_(kind==1?R::EventInputCaller:kind==2?R::EventOutputCaller:R::SubmitCaller),route_(bytes,caller_,first,R::Mode::DeferredStm){}
     unsigned stage()const{return stage_;} unsigned failure()const{return error_;}
     unsigned lines()const{return lines_;} unsigned polls()const{return polls_;}
     unsigned zero()const{return empty_;}
     template<class C>bool begin(C& c,bool held){
-        if(stage_||error_||!held||!c.is_running||c.in_callback||c.dispatch_saved_ctx||(c.msr&0x8000u)||
+        if(stage_||error_||kind_<1u||kind_>3u||!held||!c.is_running||c.in_callback||c.dispatch_saved_ctx||(c.msr&0x8000u)||
            c.pc!=0x805222c0u||c.lr!=caller_||c.mmu.read32(c.pc)!=e_.entry_word||
            c.mmu.read32(caller_)!=return_word()||c.gpr[4]>4096u||
            c.open_cache_range.phase()!=OpenCacheRangeTrace::Phase::Done)return fail(1);
+        // Submit header is a distinct, nonempty aligned allocation range.
+        if(kind_==3u&&(!e_.submit_resume_word||c.gpr[4]<32u||(c.gpr[3]&31u)))return fail(1);
         empty_=c.gpr[4]==0u;
         // The zero-length variant must not generate a cache-line access.
         // Unaligned zero-size arguments are not assumed to be harmless.
@@ -65,11 +68,11 @@ public:
                c.open_cache_range.phase()==OpenCacheRangeTrace::Phase::Done;
     }
 private:
-    IoctlFirstFlushExpectation e_;uint32_t caller_;R route_;
+    IoctlFirstFlushExpectation e_;unsigned kind_;uint32_t caller_;R route_;
     const void* cpu_=nullptr;uint32_t sp_=0,msr_=0;uint64_t start_=0;
     unsigned stage_=0,error_=0,lines_=0,polls_=0;bool empty_=false,resume_poll_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
-    uint32_t return_word()const{return caller_==R::EventInputCaller?e_.input_resume_word:e_.output_resume_word;}
+    uint32_t return_word()const{return kind_==1u?e_.input_resume_word:kind_==2u?e_.output_resume_word:e_.submit_resume_word;}
     template<class C>bool live(C& c,bool held)const{
         return !error_&&held&&cpu_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
            c.gpr[1]==sp_&&c.msr==msr_&&c.inst_count>=start_&&c.inst_count-start_<=4096u;
