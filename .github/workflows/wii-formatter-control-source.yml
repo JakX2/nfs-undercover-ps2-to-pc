@@ -25,6 +25,7 @@ jobs:
           python3 research/native_recomp/test_formatter_nested_log.py
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_control_contract.py
+          python3 research/native_recomp/test_formatter_post_ctr_contract.py
           python3 research/native_recomp/test_formatter_ctr_target.py
           python3 research/native_recomp/test_formatter_local_ctr_native.py
           python3 research/native_recomp/test_formatter_cli_cache_scope.py

@@ -80,4 +80,20 @@ class Arrival(unittest.TestCase):
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(arrival_log(),arrival=True,control=True)
         with self.assertRaisesRegex(ValueError,'coverage'):verify(control_log(),arrival=True)
+def post_ctr_log():
+    return [f'FORMATTER_POST_CTR_TRIAL n={i} native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=5 local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84' for i in range(8)]+['FORMATTER_POST_CTR_NATIVE owner=1 trials=8 native_prefix=8 loads=64 stores=104 nonvolatile=24 authenticated_loads=40 local_transfer=8 stack_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=672 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+class PostCtr(unittest.TestCase):
+    def test_exact(self):self.assertEqual(verify(post_ctr_log(),post_ctr=True),tuple(post_ctr_log()[-1:]))
+    def test_count(self):
+        x=post_ctr_log();x[-1]=x[-1].replace('authenticated_loads=40','authenticated_loads=48')
+        with self.assertRaisesRegex(ValueError,'native totals'):verify(x,post_ctr=True)
+    def test_details(self):
+        x=post_ctr_log();x[1]=x[1].replace('authenticated_loads=5','authenticated_loads=6')
+        with self.assertRaisesRegex(ValueError,'details'):verify(x,post_ctr=True)
+    def test_unresolved(self):
+        x=post_ctr_log();x[0]=x[0].replace('unresolved_load=0','unresolved_load=1')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,post_ctr=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(post_ctr_log(),post_ctr=True,arrival=True)
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(arrival_log(),post_ctr=True)
 if __name__=='__main__':unittest.main(verbosity=2)
