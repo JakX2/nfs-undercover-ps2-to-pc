@@ -21,6 +21,7 @@ public:
     unsigned detail()const{return detail_;}
     unsigned queue_path()const{return queue_returned_?1u:queue_skipped_?2u:0u;}
     unsigned queue_class()const{return queue_class_;}
+    uint32_t caller_sp()const{return sp0_;}
     template<class C>bool begin(C& c,bool held,uint32_t request,uint32_t size,uint32_t callback=0){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.submit.pc||c.lr!=e_.submit.lr||
            canonical(c.gpr[3])!=request||(request&31u)||size<64u||size>4096u||

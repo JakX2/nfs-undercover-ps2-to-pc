@@ -81,6 +81,9 @@
 #include "v1401_private_ioctl_output.h"
 #ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
 #include "v1404_private_ioctl_submit_prefix.h"
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+#include "v1410_private_ioctl_queue.h"
+#endif
 #endif
 #endif
 #endif
@@ -297,6 +300,10 @@ static unsigned ioctl_header_entry_count=0,ioctl_queue_init_count=0,ioctl_queue_
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
 static unsigned ioctl_header_return_count=0;
 static std::vector<uint8_t> ioctl_header_shadow;
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+static std::unique_ptr<IoctlSubmitQueueWitness> ioctl_submit_queue;
+static unsigned ioctl_queue_entry_count=0,ioctl_header_lines=0;
+#endif
 #endif
 #endif
 #endif
@@ -465,6 +472,17 @@ static bool ioctl_submit_prefix_held(nw::CPUContext& c){return ioctl_build&&ioct
         <<" queue_class="<<(ioctl_submit_prefix?ioctl_submit_prefix->queue_class():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+[[noreturn]]static void ioctl_submit_queue_refuse(unsigned kind){
+    std::cout<<"V1410_QUEUE_REFUSAL kind="<<kind<<" stage="<<(ioctl_submit_queue?ioctl_submit_queue->stage():0u)
+             <<" reason="<<(ioctl_submit_queue?ioctl_submit_queue->failure():0u)
+             <<" visits="<<(ioctl_submit_queue?ioctl_submit_queue->visits():0u)
+             <<" stores="<<(ioctl_submit_queue?ioctl_submit_queue->stores():0u)
+             <<" polls="<<(ioctl_submit_queue?ioctl_submit_queue->polls():0u)
+             <<" ordinal="<<(ioctl_submit_queue?ioctl_submit_queue->ordinal():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1404_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     // Shared queue initializer also executes in the two earlier Opens.
     if(ioctl_submit_prefix&&!ioctl_submit_prefix->before(c,pc,w,ioctl_submit_prefix_held(c)))ioctl_submit_prefix_refuse(2);
@@ -568,6 +586,12 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue){
+        if(!ioctl_submit_queue->before(c,pc,w,ioctl_flush_held(c)))ioctl_submit_queue_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
     if(ioctl_submit_prefix){v1404_before(c,pc,w);return;}
 #endif
@@ -897,6 +921,15 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue){
+        if(!ioctl_submit_queue->entry(c,pc,ioctl_flush_held(c)))ioctl_submit_queue_refuse(3);
+        if(ioctl_submit_queue->stage()==2u){
+            ++ioctl_queue_entry_count;throw StmIoctlReached{};
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
@@ -910,7 +943,16 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
             if(ioctl_submit_prefix){
                 if(pc!=OpenScRoute::SubmitCaller||!ioctl_flush->lines())ioctl_flush_refuse(2);
-                ++ioctl_header_return_count;throw StmIoctlReached{};
+                ++ioctl_header_return_count;
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+                ioctl_header_lines=ioctl_flush->lines();
+                ioctl_submit_queue=std::make_unique<IoctlSubmitQueueWitness>(v1410::expected);
+                if(!ioctl_submit_queue->begin(c,ioctl_flush_held(c),ioctl_build->request(),
+                        ioctl_build->allocated_size(),ioctl_submit_prefix->caller_sp()))ioctl_submit_queue_refuse(1);
+                ioctl_flush.reset();return;
+#else
+                throw StmIoctlReached{};
+#endif
             }
 #endif
             if(!ioctl_tail){
@@ -1344,6 +1386,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue){
+        if(!ioctl_submit_queue->poll(c,ioctl_flush_held(c)))ioctl_submit_queue_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
@@ -1667,6 +1715,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue)ioctl_submit_queue_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
     if(ioctl_submit_prefix&&!ioctl_flush)ioctl_submit_prefix_refuse(4);
 #endif
@@ -1727,6 +1778,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue)ioctl_submit_queue_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
     if(stm_ioctl)stm_ioctl_refuse(5);
 #endif
@@ -1819,6 +1873,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    if(ioctl_submit_queue)ioctl_submit_queue_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
     if(stm_ioctl)stm_ioctl_refuse(5);
 #endif
@@ -2660,7 +2717,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
 #ifdef UNDERCOVER_V1404_IOCTL_SUBMIT_PREFIX
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->reached(c,ioctl_flush_held(c))&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&ioctl_flush&&ioctl_flush->returned(c,ioctl_flush_held(c))&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->reached(c,ioctl_submit_prefix_held(c))&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -2702,8 +2763,16 @@ int main(int argc,char** argv)try{
         std::cout<<"V1404_PREFIX_TRIAL n="<<trial<<" original_submit=1 queue_path="<<ioctl_submit_prefix->queue_path()<<" header_flush_entry=1 visits="<<ioctl_submit_prefix->visits()
                  <<" stores="<<ioctl_submit_prefix->stores()<<" queue="<<ioctl_submit_prefix->queue_stores()<<" request="<<ioctl_submit_prefix->request_stores()<<'\n';
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+        std::cout<<"V1407_HEADER_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 request_preserved=1 lines="<<ioctl_header_lines<<'\n';
+        std::cout<<"V1410_QUEUE_TRIAL n="<<trial<<" original_disable=1 masked=1 queue_entry=1 request_preserved=1 visits="<<ioctl_submit_queue->visits()
+                 <<" stores="<<ioctl_submit_queue->stores()<<" polls="<<ioctl_submit_queue->polls()<<'\n';
+        ioctl_submit_queue.reset();ioctl_header_lines=0;
+#else
         std::cout<<"V1407_HEADER_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 request_preserved=1 lines="<<ioctl_flush->lines()<<'\n';
-        ioctl_flush.reset();ioctl_header_shadow.clear();
+        ioctl_flush.reset();
+#endif
+        ioctl_header_shadow.clear();
 #endif
         ioctl_submit_prefix.reset();
 #endif
@@ -2838,6 +2907,10 @@ int main(int argc,char** argv)try{
     need(ioctl_header_entry_count==8u&&ioctl_queue_init_count+ioctl_queue_skip_count==8u);
 #ifdef UNDERCOVER_V1407_IOCTL_HEADER
     need(ioctl_header_return_count==8u);
+#ifdef UNDERCOVER_V1410_IOCTL_QUEUE
+    need(ioctl_queue_entry_count==8u);
+    std::cout<<"V1410_QUEUE_NATIVE owner=1 trials=8 nested_disable=8 queue_entry=8 request_preserved=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1407_HEADER_NATIVE owner=1 trials=8 header_flush_return=8 native_rfi=8 request_preserved=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1406_QUEUE_PATH initialized="<<ioctl_queue_init_count<<" skipped="<<ioctl_queue_skip_count<<"\n";
