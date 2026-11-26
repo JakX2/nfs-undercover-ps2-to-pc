@@ -213,4 +213,35 @@ class PostAlarmSuffixLaunch(PostAlarmWirelessLaunch):
             self.assertNotIn('UNDERCOVER_V1123_POSTALARM_SUFFIX=1',p.stdout)
             self.assertIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN' if build else 'audit=audit_v1121_postalarm_wireless.py',p.stdout)
 
+class PostAlarmReturnLaunch(PostAlarmSuffixLaunch):
+    def setUp(self):
+        super().setUp()
+        self.env.update(UNDERCOVER_RUN_V1135_POSTALARM_RETURN='1',UNDERCOVER_PREPARE_V1134_POSTALARM_RETURN='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1135_POSTALARM_RETURN_BUILD_PLAN links=1 private_installer=1 suffix_predecessor=1' if build else 'audit=audit_v1135_postalarm_return.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1132_POSTALARM_RETURN=1',p.stdout)
+    def test_refusals(self):
+        super().test_refusals()
+        for key in ('UNDERCOVER_RUN_V1135_POSTALARM_RETURN','UNDERCOVER_PREPARE_V1134_POSTALARM_RETURN'):
+            for val in ('','2','true'):
+                env=self.env.copy();env[key]=val
+                for build in (False,True):
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def without_return(self):
+        self.env.pop('UNDERCOVER_RUN_V1135_POSTALARM_RETURN');self.env.pop('UNDERCOVER_PREPARE_V1134_POSTALARM_RETURN')
+    def test_frontier_only_unchanged(self):
+        self.without_return();super().test_frontier_only_unchanged()
+    def test_wireless_only_unchanged(self):
+        self.without_return();super().test_wireless_only_unchanged()
+    def test_suffix_only_unchanged(self):
+        self.without_return()
+        for build in (False,True):
+            p=self.launch.plan(self.env,build);self.assertEqual(p.returncode,0,p.stderr)
+            self.assertNotIn('V1135_POSTALARM_RETURN_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1132_POSTALARM_RETURN=1',p.stdout)
+            self.assertIn('V1127_POSTALARM_SUFFIX_BUILD_PLAN' if build else 'audit=audit_v1127_postalarm_suffix.py',p.stdout)
+
 if __name__=='__main__':unittest.main()
