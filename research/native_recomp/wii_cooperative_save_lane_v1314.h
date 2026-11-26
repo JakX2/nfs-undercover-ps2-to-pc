@@ -19,6 +19,8 @@ public:
     unsigned abi_failure()const{return context_.failure();}
     unsigned visits()const{return visits_;}
     const CooperativeContextWitness& context()const{return context_;}
+    CooperativeContextWitness& context(){return context_;}
+    const Expectation& expectation()const{return e_;}
     template<class C>bool capture(C& c,bool held){
         if(stage_||error_||e_.words.empty()||e_.words.size()>128u||e_.words.back()!=0x4e800020u||
            !e_.gqr_mask||e_.gqr_mask>255u||!word(c,e_.geometry.save_return,e_.return_word))return fail(1);

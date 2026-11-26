@@ -1,4 +1,4 @@
-#include "wii_cooperative_save_lane_v1314.h"
+#include "wii_cooperative_load_lane_v1317.h"
 #include <cassert>
 #include <iostream>
 #include <map>
@@ -50,9 +50,41 @@ static void trial(unsigned fault){
     if(fault==5){assert(!ok&&w.failure()==5u);return;}
     if(fault==6||fault==7){assert(!ok&&w.failure()==4u);return;}
     assert(ok&&w.stage()==2u&&w.visits()==3u&&w.preserved(c,true));
-    if(fault==8){m[T+0x2c4u]^=1;assert(!w.preserved(c,true));}
+    if(fault==8){m[T+0x2c4u]^=1;assert(!w.preserved(c,true));return;}
+    if(fault<9)return;
+    constexpr uint32_t Caller=Load-0x100u;
+    std::array<uint32_t,54> load{};load.fill(Nop);load.back()=0x4c000064u;
+    for(unsigned i=0;i<load.size();++i)m[Load+4*i]=load[i];
+    m[Caller-4]=0x48000001u|((Load-(Caller-4))&0x03fffffcu);
+    c.pc=Load;c.lr=Caller;c.gpr[3]=T;m[T+0x2c8u]=2u<<16;
+    for(unsigned i=1;i<8;++i)c.gqr[i]^=0x1000u;
+    const auto saved_msr=c.msr;
+    CooperativeLoadLane lane({load,Caller,0xfeu});
+    if(fault==10)c.lr+=4;
+    if(fault==11)m[T+0x2c4u]^=1;
+    ok=lane.begin(c,w,true);
+    if(fault==10||fault==11){assert(!ok&&lane.failure()==1u);return;}assert(ok);
+    for(unsigned i=0;i<load.size()-1;++i){
+        ++c.inst_count;
+        if(fault==12&&i==0){assert(!lane.before(c,Load+4,Nop,true)&&lane.failure()==3u);return;}
+        assert(lane.before(c,Load+4*i,load[i],true));
+    }
+    c.gpr=gp;c.gpr[3]=1;c.lr=Ret;c.srr0=Ret;c.srr1=saved_msr;
+    for(unsigned i=1;i<8;++i)c.gqr[i]=m[T+0x1a4u+4*i];
+    if(fault==13)c.gqr[7]^=1;
+    ++c.inst_count;ok=lane.before(c,Rfi,load.back(),true);
+    if(fault==13){assert(!ok&&lane.failure()==4u);return;}assert(ok);
+    c.pc=Ret;c.msr=saved_msr;
+    if(fault==14)c.gpr[3]=0;
+    ok=lane.poll(c,true);if(fault==14){assert(!ok&&lane.failure()==6u);return;}assert(ok);
+    if(fault==15)++c.inst_count;
+    ok=lane.poll(c,true);if(fault==15){assert(!ok&&lane.failure()==6u);return;}assert(ok);
+    assert(lane.restored(c,true)&&lane.visits()==54u);
+    if(fault==16){c.gpr[31]^=1;assert(!lane.restored(c,true));}
 }
 int main(){
     for(unsigned i=0;i<=8;++i)trial(i);
     std::cout<<"V1314_SAVE_LANE synthetic=1 valid=1 refused=8 gqr=1 exact_ticks=1 original_execution=0\n";
+    for(unsigned i=9;i<=16;++i)trial(i);
+    std::cout<<"V1317_LOAD_LANE synthetic=1 valid=1 refused=7 gqr=1 two_rfi_polls=1 original_execution=0\n";
 }

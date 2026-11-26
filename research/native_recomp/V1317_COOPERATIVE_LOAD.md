@@ -1,0 +1,3 @@
+# V1317 cooperative loader witness
+
+Reuse the actual pre-idle save witness from V1315, require the original selected thread and exact original direct call, validate every native loader label, original branches and restored GQRs (preserve unsaved GQR0). Observe both generated RFI callbacks with exact ticks and original saved integer ABI. Eight additional original-free cases, including wrong LR, changed saved context, missing instruction, GQR corruption, wrong resumed result, tick drift and post-return corruption. The new loader is not yet connected to owner execution. The existing V1315 owner result is unchanged.

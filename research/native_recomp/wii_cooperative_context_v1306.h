@@ -62,6 +62,10 @@ public:
            c.pc!=e_.save_return||c.msr!=msr_||!restored_regs(c))return fail(5);
         stage_=5;return true;
     }
+    template<class C>bool resumed_at(C& c,bool held)const{
+        return stage_==5u&&live(c,held)&&selected(c)&&c.inst_count==rfi_tick_&&
+               c.pc==e_.save_return&&c.msr==msr_&&restored_regs(c);
+    }
 private:
     Geometry e_;const void* cpu_=nullptr;std::array<uint32_t,32> gp_{};
     std::array<uint32_t,0x2c8u/4u> image_{};
