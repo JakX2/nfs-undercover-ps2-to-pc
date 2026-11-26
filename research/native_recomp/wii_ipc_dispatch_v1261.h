@@ -2,6 +2,7 @@
 #include "wii_external_return_v706.h"
 #include "wii_scheduler_irq_entry_v1259.h"
 #include "wii_si_dispatch_v667.h"
+#include "wii_stm_deferred_event_gate.h"
 namespace undercover::wii {
 struct IpcDispatchExpectations {
     SiDispatchExpectations code;
@@ -30,7 +31,16 @@ public:
         if(!physical_request)return fail(1);
         return begin_impl(c,frame,s,queue,held,physical_request);
     }
+    // The third startup IRQ interrupts the selected active caller. It
+    // has a pending deferred event, not a synchronous reply or waiter.
+    template<class C>bool begin_deferred(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
+                                         uint32_t empty_queue,uint32_t request,StmDeferredEventGate& gate,bool held){
+        if(stage_||error_||!epoch_.second()||!request||!gate.deferred_held(held))return fail(1);
+        deferred_request_=request;deferred_gate_=&gate;
+        return begin_impl(c,frame,s,empty_queue,held,0u);
+    }
     bool reply_mode()const{return stage_&&!error_&&reply_request_!=0;}
+    bool deferred_mode()const{return stage_&&!error_&&deferred_request_!=0;}
 private:
     template<class C>bool begin_impl(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
                                      uint32_t queue,bool held,uint32_t physical_request){
@@ -38,9 +48,10 @@ private:
         if(stage_||error_||!held||!safe(c)||!epoch_held()||c.pc!=SiDispatchWitness::Dispatcher||
            c.gpr[3]!=4u||c.gpr[4]!=e_.context||frame.source()!=H::PI_HOLLYWOOD||
            !frame.pending_source(c,s.pi_cause,s.pi_mask)||!frame.saved_integer(c,e_.context).ok()||
-           !(s.flags&H::IPC_PPC)||s.queued||s.event||
-           (physical_request?!reply_wire(c,s,physical_request):
-            (!(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||s.steps!=epoch_.ack_steps()||s.replies!=1u))||
+           !(s.flags&H::IPC_PPC)||s.queued||
+           (deferred_request_?!deferred_wire(c,s):s.event||
+            (physical_request?!reply_wire(c,s,physical_request):
+             (!(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||s.steps!=epoch_.ack_steps()||s.replies!=1u)))||
            !word(c,c.pc,e_.code.dispatcher_word)||!mapped(c,e_.counter,4u))return fail(1);
         reply_request_=physical_request;queue_=queue;cpu_=&c;frame_=&frame;s_=s;counter_=c.mmu.read32(e_.counter);
         if(counter_==0xffffffffu||!tables(c))return fail(1);
@@ -83,6 +94,7 @@ public:
         return stage_==6u&&!error_&&held&&epoch_held()&&cpu_==&c&&frame_==&frame&&queue_==queue&&safe(c)&&
             c.inst_count==last_entry_&&same_scheduler_ipc_snapshot(s_,s)&&frame.pending_source(c,s.pi_cause,s.pi_mask)&&
             frame.saved_integer(c,e_.context).ok()&&tables(c)&&(!reply_request_||reply_wire(c,s,reply_request_))&&
+            (!deferred_request_||deferred_wire(c,s))&&
             c.pc==e_.handler&&c.ctr==e_.handler&&
             c.gpr[3]==27u&&c.gpr[4]==e_.context&&c.lr==e_.code.indirect_pc+4u&&
             word(c,c.pc,e_.code.handler_word)&&word(c,e_.code.indirect_pc,e_.code.indirect_word)&&
@@ -90,7 +102,8 @@ public:
     }
 private:
     IpcDispatchExpectations e_;OpenTransactionEpoch epoch_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
-    ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0,reply_request_=0;
+    ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0,reply_request_=0,deferred_request_=0;
+    StmDeferredEventGate* deferred_gate_=nullptr;
     uint64_t start_=0,last_=0,last_entry_=0;unsigned stage_=0,error_=0,visits_=0,cause_reads_=0,mask_reads_=0;
     unsigned detail_=0;
     bool fail_detail(unsigned n,unsigned d){if(!error_)detail_=d;return fail(n);}
@@ -112,11 +125,25 @@ private:
         const uint32_t a=request|0x80000000u;
         return mapped(c,a,64u)&&word(c,a,S::Reply)&&word(c,a+4u,epoch_.result_fd())&&word(c,a+8u,S::Open);
     }
+    template<class C>bool deferred_wire(C& c,const ColdIpcSnapshot& s)const{
+        using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
+        if(!deferred_gate_||!deferred_gate_->deferred_held(true)||!deferred_request_||
+           (deferred_request_&31u)||deferred_request_>0x13ffffc0u||s.ppc!=deferred_request_||
+           (s.control&(M::X1|M::Y1|M::Y2))!=M::Y2||!(s.control&M::IY2)||
+           !(s.flags&H::IPC_PPC)||!(s.irq_mask&H::IPC_PPC)||s.steps!=5u||s.replies||s.queued||!s.event)return false;
+        const uint32_t a=deferred_request_|0x80000000u;
+        return mapped(c,a,64u)&&word(c,a,S::Ioctl)&&word(c,a+8u,epoch_.first_kind()==2u?0u:1u)&&
+            word(c,a+12u,S::EventHook);
+    }
     template<class C>bool tables(C& c)const{
-        return mapped(c,e_.thread+712u,2u)&&c.mmu.read16(e_.thread+712u)==4u&&
-            word(c,0x800000d4u,e_.context)&&word(c,0x800000c0u,e_.context&0x3fffffffu)&&
-            word(c,e_.irq_global,e_.table)&&word(c,e_.table+4u*27u,e_.handler)&&
-            word(c,queue_,e_.thread)&&word(c,queue_+4u,e_.thread)&&word(c,e_.thread+732u,queue_);
+        if(!mapped(c,e_.thread+712u,2u)||!word(c,0x800000d4u,e_.context)||
+           !word(c,0x800000c0u,e_.context&0x3fffffffu)||!word(c,e_.irq_global,e_.table)||
+           !word(c,e_.table+4u*27u,e_.handler))return false;
+        if(deferred_request_)
+            return e_.context==e_.thread&&word(c,0x800000e4u,e_.thread)&&c.mmu.read16(e_.thread+712u)==2u&&
+                word(c,queue_,0u)&&word(c,queue_+4u,0u)&&word(c,e_.thread+736u,0u)&&word(c,e_.thread+740u,0u);
+        return c.mmu.read16(e_.thread+712u)==4u&&word(c,queue_,e_.thread)&&
+            word(c,queue_+4u,e_.thread)&&word(c,e_.thread+732u,queue_);
     }
     template<class C>bool common(C& c,const ColdIpcSnapshot& s,bool held)const{
         return !common_detail(c,s,held);
@@ -129,6 +156,7 @@ private:
         if(!frame_->saved_integer(c,e_.context).ok())return 5;
         if(!tables(c))return 6;
         if(reply_request_&&!reply_wire(c,s,reply_request_))return 10;
+        if(deferred_request_&&!deferred_wire(c,s))return 10;
         return 0;
     }
 };

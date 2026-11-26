@@ -1,0 +1,23 @@
+name: Wii Deferred Active IPC Dispatch Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ipc_dispatch_v1261.h'
+      - 'research/native_recomp/test_ipc_deferred_active_dispatch.cpp'
+      - '.github/workflows/wii-ipc-deferred-active-dispatch.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          for test in test_ipc_deferred_active_dispatch test_ipc_dispatch_contract_v1265; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie "$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
