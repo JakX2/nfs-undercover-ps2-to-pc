@@ -9,6 +9,8 @@
 #include "wii_callback_frontier_v829.h"
 #include "wii_wireless_wrapper_v844.h"
 #include "wii_callback_suffix_v841.h"
+#include "wii_callback_return_v846.h"
+#include "wii_callback_dispatch_device_v808.h"
 #include <optional>
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
@@ -143,7 +145,9 @@ public:
             if(row->ordinal!=6u||row->kind!=2u||c.gpr[3]>=4u||
                classify_callback_identity(c,pc,w,row->ordinal,row->kind,root_,words_,sites_)!=2u||
                !prefix_.start_dispatch(c,pc,w,true,true))return fail(4);
-            channel_=c.gpr[3];stage_=2u;
+            channel_=c.gpr[3];callback_site_=pc;callback_gp_=c.gpr;callback_cr_=0;
+            for(auto f:c.cr)callback_cr_=(callback_cr_<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+            stage_=2u;
         }
         return true;
     }
@@ -227,12 +231,13 @@ public:
            e.root!=root_||e.resume!=pc)return fail(15);
         callback_suffix_.emplace(e);
         if(!callback_suffix_->start(c,pc,w,true,true)||!callback_suffix_->before(c,pc,w,true))return fail(15);
-        stage_=callback_suffix_->stage()==2u?11u:10u;return true;
+        stage_=callback_suffix_->stage()==2u?11u:10u;
+        if(stage_==11u){suffix_site_=pc;suffix_word_=w;}return true;
     }
     template<class C>bool callback_suffix_before(C& c,uint32_t pc,uint32_t w){
         if(stage_!=10u||!callback_suffix_||!common(c)||c.inst_count-last_!=1u||
            !dev_->after_return_at(c.inst_count)||!held()||!callback_suffix_->before(c,pc,w,true))return fail(16);
-        last_=c.inst_count;if(callback_suffix_->stage()==2u)stage_=11u;return true;
+        last_=c.inst_count;if(callback_suffix_->stage()==2u){suffix_site_=pc;suffix_word_=w;stage_=11u;}return true;
     }
     template<class C>bool callback_suffix_poll(C& c){
         return stage_==10u&&callback_suffix_&&common(c)&&c.inst_count==last_&&held()&&
@@ -240,7 +245,40 @@ public:
     }
     unsigned callback_suffix_failure()const{return callback_suffix_?callback_suffix_->failure():0u;}
     const CallbackSuffixWitness* callback_suffix_witness()const{return callback_suffix_?&*callback_suffix_:nullptr;}
+    template<class C>bool start_callback_return(C& c,uint32_t pc,uint32_t w,CallbackReturnExpectation e){
+        if(stage_!=11u||callback_return_||!callback_suffix_||callback_suffix_->stage()!=2u||
+           callback_suffix_->ordinal()!=13u||callback_suffix_->target_class()!=0u||
+           !common(c)||!held()||c.inst_count!=last_||pc!=suffix_site_||w!=suffix_word_||
+           e.call!=pc||e.caller!=callback_site_+4u)return fail(18);
+        callback_return_.emplace(e);
+        if(!callback_return_->start_dispatch(c,pc,w,callback_gp_,callback_cr_,true))return fail(18);
+        stage_=12u;return true;
+    }
+    template<class C>bool callback_return_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=12u||!callback_return_||!common(c)||c.inst_count-last_!=1u||
+           !dev_->after_return_at(c.inst_count)||!held()||!callback_return_->before(c,pc,w,true))return fail(19);
+        last_=c.inst_count;if(callback_return_->stage()==5u)stage_=13u;return true;
+    }
+    template<class C>bool callback_return_entry(C& c,uint32_t pc){
+        return stage_==12u&&callback_return_&&common(c)&&c.inst_count==last_&&held()&&
+               callback_return_->entry(c,pc,true)?true:fail(20);
+    }
+    template<class C>bool callback_return_poll(C& c){
+        return stage_==12u&&callback_return_&&common(c)&&c.inst_count==last_&&held()&&
+               callback_return_->dispatch_poll(c,true)?true:fail(20);
+    }
+    template<class C>bool callback_return_dispatch(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=12u||!callback_return_||!common(c)||c.inst_count-last_!=1u||
+           !observe_completed_callback_dispatch(*dev_,c.inst_count)||!held()||
+           !callback_return_->dispatch_resume(c,pc,w,true))return fail(21);
+        last_=c.inst_count;return true;
+    }
+    unsigned callback_return_failure()const{return callback_return_?callback_return_->failure():0u;}
+    const CallbackReturnWitness* callback_return_witness()const{return callback_return_?&*callback_return_:nullptr;}
 private:
+    std::optional<CallbackReturnWitness> callback_return_;
+    std::array<uint32_t,32> callback_gp_{};
+    uint32_t callback_cr_=0,callback_site_=0,suffix_site_=0,suffix_word_=0;
     std::optional<CallbackSuffixWitness> callback_suffix_;
     std::optional<WirelessWrapperWitness> wireless_;
     uint32_t frontier_site_=0,frontier_word_=0,wireless_resume_=0,wireless_word_=0;

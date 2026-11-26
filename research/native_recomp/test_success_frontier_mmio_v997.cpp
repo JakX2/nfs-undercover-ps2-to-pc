@@ -249,6 +249,12 @@ int main(int argc,char** argv){
                 constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root,Stack=0x8000b000u;
                 if(mode=="error-abi-live-alarm-callback-frame")c.mmu.words[v958::context+124]^=1u;
                 if(mode=="error-abi-live-alarm-callback-target")c.ctr=Leaf;
+#ifdef UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN
+                // Synthetic save slots for the four extra compiler loads;
+                // the smaller existing prefix fixture saves only r30/r31.
+                if(mode.find("-suffix-return")!=std::string_view::npos)
+                    for(unsigned i=26;i<30;++i)c.mmu.words[Stack-4u*(32u-i)]=c.gpr[i];
+#endif
                 visit(Site+8,0x4e800421u);c.pc=Root;c.lr=Site+12;
                 if(mode!="error-abi-live-alarm-callback-poll")need(!v958::poll(c));
                 scheduler.advance(++tick);v958::observe(Root,c);
@@ -358,6 +364,40 @@ int main(int argc,char** argv){
                                 c.cr[0].eq=false;visit(Root+52u,v1123::rows[2].word);
                                 if(sf!="-missing-poll")v958::poll(c);
                                 if(sf=="-double-poll")v958::poll(c);
+#ifdef UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN
+                                if(sf.starts_with("-return")){
+                                    const auto rf=sf.substr(std::string_view("-return").size());
+                                    const auto e=v1132::expected;
+                                    put(e.root,e.restore);put(e.call+4u,e.tail);
+                                    c.mmu.words[e.caller]=e.caller_word;
+                                    if(rf=="-identity")c.mmu.words[e.root]^=1u;
+                                    c.gpr[30]^=0x55u;c.gpr[31]^=0xaau;c.gpr[11]=Stack;
+                                    visit(e.call,v1123::rows[3].word);
+                                    need(v958::third_postalarm.stage()==12u);
+                                    c.pc=e.root;c.lr=e.call+4u;
+                                    v958::observe(rf=="-entry"?e.root+4u:e.root,c);
+                                    if(rf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                    if(rf=="-tick")scheduler.advance(++tick);
+                                    if(rf=="-device")mask=0;
+                                    if(rf=="-slot")c.mmu.words[Stack-24u]^=1u;
+                                    for(unsigned i=0;i<6;++i){
+                                        visit(e.root+4u*i,e.restore[i]);
+                                        c.gpr[26+i]=c.mmu.words[Stack-24u+4u*i];
+                                    }
+                                    visit(e.root+24u,Blr);
+                                    visit(e.call+4u,e.tail[0]);c.gpr[0]=c.mmu.words[Stack+4u];
+                                    visit(e.call+8u,e.tail[1]);c.lr=c.gpr[0];
+                                    visit(e.call+12u,e.tail[2]);c.gpr[1]+=64u;
+                                    visit(e.call+16u,Blr);c.pc=e.caller;
+                                    if(rf!="-poll")v958::poll(c);
+                                    if(rf=="-double-poll")v958::poll(c);
+                                    if(rf!="-dispatch"){
+                                        scheduler.advance(++tick);v958::postalarm_dispatch_resume(c,e.caller,e.caller_word);
+                                    }
+                                    if(rf=="-abi")c.gpr[31]^=1u;
+                                    visit(e.caller,e.caller_word);need(false);
+                                }
+#endif
                                 visit(Root+56u,v1123::rows[3].word);need(false);
                             }
 #endif
