@@ -31,8 +31,12 @@ public:
         if(stage_!=1u||!live(c,held)||c.inst_count<=tick_||
            c.pc!=e_.save_return||c.lr!=lr_||c.gpr[3]!=0u||
            !equal(c,e_.active,e_.context)||!equal(c,e_.current,e_.context)||
-           !live_abi(c)||!stored(c))return fail(2);
-        for(unsigned i=0;i<image_.size();++i)image_[i]=c.mmu.read32(e_.context+4u*i);
+           !live_abi(c)||!mapped(c,e_.context,0x2c8u)||!stored(c))return fail(2);
+        for(unsigned i=0;i<image_.size();++i){
+            const auto addr=e_.context+4u*i;
+            if(!mapped(c,addr,4u))return fail(2);
+            image_[i]=c.mmu.read32(addr);
+        }
         stage_=2;return true;
     }
     template<class C>bool preserved(C& c,bool held)const{
@@ -97,7 +101,7 @@ private:
     }
     template<class C>bool selected(C& c)const{
         return equal(c,e_.active,e_.context)&&equal(c,e_.physical,e_.context&0x3fffffffu)&&
-               equal(c,e_.current,e_.context)&&mapped(c,e_.context,0x2c8u)&&c.mmu.read16(e_.context+0x2c8u)==2u;
+               equal(c,e_.current,e_.context)&&mapped(c,e_.context+0x2c8u,2u)&&c.mmu.read16(e_.context+0x2c8u)==2u;
     }
     template<class C>bool restored_regs(C& c)const{
         return live_abi(c)&&pack(c)==cr_&&c.lr==lr_&&c.ctr==ctr_&&c.xer==xer_&&c.gpr[3]==1u;

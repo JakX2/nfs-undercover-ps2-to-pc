@@ -38,8 +38,9 @@ static void trial(unsigned fault){
     if(fault==4)m[T+408]+=4;
     if(fault==5)m[T+0x1a0]=2;
     if(fault==6)c.gpr[13]^=1;
+    if(fault==17)m.erase(T+0x200u);
     ok=w.saved(c,true);
-    if(fault>=2&&fault<=6){assert(!ok&&w.failure()==2u);return;}assert(ok);
+    if((fault>=2&&fault<=6)||fault==17){assert(!ok&&w.failure()==2u);return;}assert(ok);
     m[Active]=T+0x1000u;++c.inst_count;
     if(fault==7)m[T+0x2c4]^=1;
     if(fault==7){assert(!w.preserved(c,true));return;}
@@ -47,8 +48,9 @@ static void trial(unsigned fault){
     c.pc=Load;c.gpr[3]=T;m[Active]=m[Current]=T;m[Phys]=T&0x3fffffffu;m[T+0x2c8]=2u<<16;++c.inst_count;
     if(fault==8)m[Current]+=4;
     if(fault==9)m[T+0x2c8]=1u<<16;
+    if(fault==18)m.erase(T+0x2c8u);
     ok=w.loader_entry(c,true);
-    if(fault==8||fault==9){assert(!ok&&w.failure()==3u);return;}assert(ok);
+    if(fault==8||fault==9||fault==18){assert(!ok&&w.failure()==3u);return;}assert(ok);
     c.gpr=gp;c.gpr[3]=1;c.gpr[5]^=1; // volatile r5 is not a cooperative ABI guarantee
     c.pc=Rfi;c.srr0=Ret;c.srr1=msr;c.inst_count+=40;
     if(fault==10)c.gpr[3]=0;
@@ -66,6 +68,6 @@ static void trial(unsigned fault){
     assert(ok&&w.stage()==5u);
 }
 int main(){
-    for(unsigned f=0;f<=16;++f)trial(f);
-    std::cout<<"V1306_COOPERATIVE_CONTEXT synthetic=1 valid=1 refused=16 saved_abi=1 resume_abi=1 original_execution=0\n";
+    for(unsigned f=0;f<=18;++f)trial(f);
+    std::cout<<"V1306_COOPERATIVE_CONTEXT synthetic=1 valid=1 refused=18 saved_abi=1 resume_abi=1 original_execution=0\n";
 }
