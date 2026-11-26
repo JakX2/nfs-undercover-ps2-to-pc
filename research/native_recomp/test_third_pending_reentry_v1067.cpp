@@ -4,6 +4,7 @@
 #include "wii_callback_frontier_v829.h"
 #include "wii_wireless_wrapper_v844.h"
 #include "wii_callback_suffix_v841.h"
+#include "wii_callback_return_v846.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -40,8 +41,10 @@ int main(){
     unsigned post_valid=0,post_refused=0;
     unsigned wireless_valid=0,wireless_refused=0;
     unsigned suffix_valid=0,suffix_refused=0;
-    for(trial=0;trial<188;++trial){
-        const unsigned suffix_fault=trial>=176?trial-175u:0u;
+    unsigned return_valid=0,return_refused=0;
+    for(trial=0;trial<208;++trial){
+        const unsigned return_fault=trial>=196?trial-195u:0u;
+        const unsigned suffix_fault=trial>=188?0u:trial>=176?trial-175u:0u;
         const unsigned wireless_fault=trial>=168?0u:trial>=156?trial-155u:0u;
         const unsigned post_fault=trial>=148?0u:trial>=136?trial-135u:0u;
         const unsigned time_fault=trial>=128?0u:trial>=116?trial-115u:0u;
@@ -272,6 +275,7 @@ int main(){
         for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
         c.gpr[1]=Stack;c.ctr=Root;
         if(trial>=128)c.gpr[3]=ch;
+        const auto original_callback_gp=c.gpr;
         CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign_witness(Root,Leaf,prefix,leaf);
         auto callback_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++callback_refused;
@@ -499,10 +503,56 @@ int main(){
         need(route.stage()==20u&&suffix.stage()==2u&&suffix.ordinal()==13u&&suffix.target_class()==0u&&
              suffix.visits()==4u&&suffix.writes()==1u&&suffix.polls()==1u&&route.completion_ack().postack_held()&&
              ctl.issued_tokens()==3u&&cause==Other);
-        ++suffix_valid;
+        if(trial<188){++suffix_valid;continue;}
+        // Two-register independent restore fixture. The real owner route
+        // uses the privately authenticated six-register compiler routine.
+        constexpr uint32_t RestoreCall=Return+12u,Caller=Handler+16u;
+        constexpr std::array<uint32_t,3> restore_words{0x83cbfff8u,0x83ebfffcu,Blr};
+        constexpr std::array<uint32_t,4> tail{0x80010044u,0x7c0803a6u,0x38210040u,Blr};
+        const NativeReturnExpectation<2> return_ex{RestoreCall,RestoreRoot,Caller,restore_words,tail,Nop};
+        put(RestoreRoot,restore_words);put(RestoreCall+4u,tail);c.mmu.words[Caller]=Nop;
+        NativeReturnWitness<2> ret(return_ex),foreign_ret(return_ex);
+        auto refuse_return=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++return_refused;
+        };
+        if(return_fault==4)tick();
+        if(return_fault==5)c.mmu.words[RestoreRoot]^=1u;
+        if(return_fault==6)c.mmu.words[Context+124]^=1u;
+        // Simulate independently authored callback volatile changes;
+        // the original save slots must be read, not overwritten.
+        c.gpr[30]^=0x55u;c.gpr[31]^=0xaau;c.gpr[11]=Stack;
+        ok=route.begin_callback_return(c,return_fault==1?foreign_suffix:suffix,ret,
+                        RestoreCall+(return_fault==2?4u:0u),return_fault==3?Nop:suffix_rows[3].word);
+        if(return_fault>=1&&return_fault<=6){refuse_return(!ok,35);continue;}need(ok);
+        c.pc=RestoreRoot;c.lr=RestoreCall+4u;
+        ok=route.callback_return_entry(c,ret,return_fault==7?RestoreRoot+4u:RestoreRoot);
+        if(return_fault==7){refuse_return(!ok,36);continue;}need(ok);
+        auto at_return=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.callback_return_before(c,ret,pc,w);};
+        if(return_fault==8)c.mmu.words[Stack-8u]^=1u;
+        ok=at_return(RestoreRoot,restore_words[0]);
+        if(return_fault==8){refuse_return(!ok,37);continue;}need(ok);
+        c.gpr[30]=c.mmu.words[Stack-8u];
+        need(at_return(RestoreRoot+4u,restore_words[1]));c.gpr[31]=c.mmu.words[Stack-4u];
+        need(at_return(RestoreRoot+8u,Blr));
+        need(at_return(RestoreCall+4u,tail[0]));c.gpr[0]=c.mmu.words[Stack+4u];
+        need(at_return(RestoreCall+8u,tail[1]));c.lr=c.gpr[0];
+        need(at_return(RestoreCall+12u,tail[2]));c.gpr[1]+=64u;
+        need(at_return(RestoreCall+16u,tail[3]));c.pc=Caller;
+        if(return_fault==9){tick();refuse_return(!route.callback_return_poll(c,ret),38);continue;}
+        if(return_fault!=10)need(route.callback_return_poll(c,ret));
+        tick();ok=route.callback_return_resume(c,ret,Caller,Nop);
+        if(return_fault==10){refuse_return(!ok,39);continue;}need(ok);
+        if(return_fault==11)c.gpr[30]^=1u;
+        if(return_fault==12){tick();refuse_return(!route.callback_return_before(c,foreign_ret,Caller,Nop),37);continue;}
+        ok=at_return(Caller,Nop);
+        if(return_fault==11){refuse_return(!ok,37);continue;}need(ok);
+        need(route.stage()==22u&&ret.stage()==5u&&ret.visits()==8u&&c.gpr[1]==original_callback_gp[1]&&
+             c.gpr[30]==original_callback_gp[30]&&c.gpr[31]==original_callback_gp[31]&&
+             route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
+        ++return_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -513,4 +563,5 @@ int main(){
     std::cout<<"V1108_THIRD_ACK_FRONTIER_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1112_THIRD_ACK_WIRELESS_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1115_THIRD_ACK_SUFFIX_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
+    std::cout<<"V1117_THIRD_ACK_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 actual_device=1 original_execution=0\n";
 }

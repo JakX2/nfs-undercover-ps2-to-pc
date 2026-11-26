@@ -144,7 +144,10 @@ public:
            pc!=callback_site_||w!=callback_word_||!ack_.postack_held()||
            !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
            !witness.start_dispatch(c,pc,w,true,true))return fail(19);
-        callback_=&witness;callback_channel_=c.gpr[3];stage_=11u;return true;
+        callback_=&witness;callback_channel_=c.gpr[3];callback_gp_=c.gpr;
+        callback_cr_=0;for(auto field:c.cr)callback_cr_=(callback_cr_<<4)|(unsigned(field.lt)<<3)|
+            (unsigned(field.gt)<<2)|(unsigned(field.eq)<<1)|unsigned(field.so);
+        stage_=11u;return true;
     }
     template<class C,class W>bool callback_poll(C& c,W& witness){
         return callback_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
@@ -241,6 +244,35 @@ public:
         return suffix_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.poll(c,true)?true:fail(34);
     }
+    // Only the exact compiler restore frontier may return to the handler.
+    // Use the ABI captured before the original indirect callback, not the
+    // register image from the previous (retired) callback.
+    template<class C,class P,class W>bool begin_callback_return(C& c,P& prior,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=20u||error_||cpu_!=&c||suffix_!=&prior||return_||prior.stage()!=2u||
+           prior.ordinal()!=13u||prior.target_class()!=0u||pc!=suffix_site_||w!=suffix_word_||
+           !dev_||dev_->stage()!=3u||!ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start_dispatch(c,pc,w,callback_gp_,callback_cr_,true))return fail(35);
+        return_=&witness;stage_=21u;return true;
+    }
+    template<class C,class W>bool callback_return_entry(C& c,W& witness,uint32_t pc){
+        return return_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.entry(c,pc,true)?true:fail(36);
+    }
+    template<class C,class W>bool callback_return_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!return_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(37);
+        if(witness.stage()==5u){return_site_=pc;return_word_=w;stage_=22u;}
+        return true;
+    }
+    template<class C,class W>bool callback_return_poll(C& c,W& witness){
+        return return_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.dispatch_poll(c,true)?true:fail(38);
+    }
+    template<class C,class W>bool callback_return_resume(C& c,W& witness,uint32_t pc,uint32_t w){
+        return return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
+               witness.dispatch_resume(c,pc,w,true)?true:fail(39);
+    }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
@@ -268,6 +300,13 @@ private:
         return stage_==19u&&!error_&&cpu_==&c&&suffix_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C,class W>bool return_frame(C& c,W& witness)const{
+        return stage_==21u&&!error_&&cpu_==&c&&return_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* return_=nullptr;
+    std::array<uint32_t,32> callback_gp_{};
+    uint32_t callback_cr_=0,return_site_=0,return_word_=0;
     const void* suffix_=nullptr;
     uint32_t suffix_site_=0,suffix_word_=0;
     const void* wireless_=nullptr;

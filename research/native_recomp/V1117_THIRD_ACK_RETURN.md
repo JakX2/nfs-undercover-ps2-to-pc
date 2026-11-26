@@ -1,0 +1,3 @@
+# V1117: original third acknowledged callback return
+
+V1115 passed 32/32 original suffix trials, all ordinal 13, 37 visits and four loop polls. Capture the callback ABI at its own indirect entry and compose the original restore routine and stack unwind through the existing native return witness. Explicitly account for the outer return dispatch tick and poll with the fresh ACK, not the retired device. Add twenty source-only cases and 32 private owner trials. The first original handler instruction remains unexecuted at the terminal boundary. Expected original return geometry is 12 visits; new execution not yet verified. No duplicate full-image run.
