@@ -119,6 +119,9 @@
 #include "private_post_stm_sc_version.h"
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
 #include "private_post_stm_sc_report.h"
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+#include "private_post_stm_sc_report_helper.h"
+#endif
 #endif
 #endif
 #endif
@@ -457,6 +460,13 @@ static unsigned post_stm_report_count=0;
 struct PostStmReportStop{};
 static bool post_stm_report_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_report_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+static ScReportHelperWitness* post_stm_helper=nullptr;
+static unsigned post_stm_helper_count=0;
+struct PostStmHelperStop{};
+static bool post_stm_helper_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_helper_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -807,6 +817,26 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+static bool post_stm_helper_held(nw::CPUContext& c){
+    return post_stm_helper&&post_stm_report&&post_stm_version_data&&post_stm_objects&&post_stm_frame&&third_return_join&&
+        post_stm_version_data->data_held(c,post_stm_objects->objects_held(c,
+        post_stm_report->child_frame_held(c,post_stm_frame->nested_frame_held(c,
+        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr),
+        post_stm_helper->expected_sp(),post_stm_report->linkage_word()),
+        post_stm_helper->expected_sp(),post_stm_helper->linkage_word())));
+}
+[[noreturn]]static void post_stm_helper_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_REPORT_HELPER_REFUSAL kind="<<kind<<" stage="<<(post_stm_helper?post_stm_helper->stage():0u)
+        <<" reason="<<(post_stm_helper?post_stm_helper->failure():0u)
+        <<" visits="<<(post_stm_helper?post_stm_helper->visits():0u)
+        <<" stores="<<(post_stm_helper?post_stm_helper->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_report_helper_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_helper||!post_stm_helper->before(c,pc,w,post_stm_helper_held(c)))post_stm_helper_refuse(2);
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
 static bool post_stm_report_held(nw::CPUContext& c){
     return post_stm_report&&post_stm_version_data&&post_stm_objects&&post_stm_frame&&third_return_join&&
@@ -1554,6 +1584,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    if(post_stm_helper){
+        if(!post_stm_helper->entry(c,pc,post_stm_helper_held(c)))post_stm_helper_refuse(3);
+        if(post_stm_helper->stage()==2u){++post_stm_helper_count;throw PostStmHelperStop{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     if(post_stm_report){
         if(!post_stm_report->entry(c,pc,post_stm_report_held(c)))post_stm_report_refuse(3);
@@ -2146,6 +2183,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    if(post_stm_helper){
+        if(!post_stm_helper->poll(c,post_stm_helper_held(c)))post_stm_helper_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     if(post_stm_report){
         if(!post_stm_report->poll(c,post_stm_report_held(c)))post_stm_report_refuse(4);
@@ -2591,6 +2634,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    if(post_stm_helper)post_stm_helper_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     if(post_stm_report)post_stm_report_refuse(7);
 #endif
@@ -2672,6 +2718,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    if(post_stm_helper)post_stm_helper_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     if(post_stm_report)post_stm_report_refuse(6);
 #endif
@@ -2815,6 +2864,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    if(post_stm_helper)post_stm_helper_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     if(post_stm_report)post_stm_report_refuse(6);
 #endif
@@ -3004,6 +3056,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
         for(auto w:post_stm_sc_report_private::path)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(post_stm_sc_report_private::expected.target,post_stm_sc_report_private::expected.target_word);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+        for(auto w:post_stm_sc_report_helper_private::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(post_stm_sc_report_helper_private::expected.target,post_stm_sc_report_helper_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4022,6 +4078,20 @@ int main(int argc,char** argv)try{
             <<" original_prologue=1 native_stores="<<sc_report.stores()
             <<" va_abi=1 original_helper_entry=1 deferred=1 reply=0 helper_executed=0 visits="
             <<sc_report.visits()<<'\n';
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+        ScReportHelperWitness sc_helper(post_stm_sc_report_helper_private::expected);
+        if(!sc_helper.begin(c,sc_report.reached(c,post_stm_report_held(c))))post_stm_helper_refuse(1);
+        post_stm_helper=&sc_helper;
+        bool helper_done=false;try{run_game(c);}catch(const PostStmHelperStop&){helper_done=true;}
+        if(!helper_done||post_stm_helper_count!=trial+1u||!sc_helper.reached(c,post_stm_helper_held(c))||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)post_stm_helper_refuse(5);
+        std::cout<<"POST_STM_SC_REPORT_HELPER_TRIAL n="<<trial
+            <<" original_prefix=1 native_stores="<<sc_helper.stores()
+            <<" saved_nonvolatile=3 original_next_entry=1 deferred=1 reply=0 next_executed=0 visits="
+            <<sc_helper.visits()<<'\n';
+        post_stm_helper=nullptr;
+#endif
         post_stm_report=nullptr;post_stm_version_data=nullptr;
 #endif
         post_stm_version_msr=0;
@@ -4276,6 +4346,10 @@ int main(int argc,char** argv)try{
     need(post_stm_version_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_REPORT
     need(post_stm_report_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_REPORT_HELPER
+    need(post_stm_helper_count==8u);
+    std::cout<<"POST_STM_SC_REPORT_HELPER_NATIVE owner=1 trials=8 original_prefix=8 native_stores=40 saved_nonvolatile=24 original_next_entry=8 deferred=8 reply=0 next_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_REPORT_NATIVE owner=1 trials=8 original_prologue=8 native_stores=112 va_abi=8 original_helper_entry=8 deferred=8 reply=0 helper_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_VERSION_NATIVE owner=1 trials=8 original_pointer=8 original_thunk=8 diagnostic_abi=8 original_tail=8 deferred=8 reply=0 report_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
