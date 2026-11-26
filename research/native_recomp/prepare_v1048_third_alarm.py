@@ -37,7 +37,12 @@ def hook(body,pc,w,handoff=False):
         # Do not add another tick or another observer call.
         conditional='    if(undercover::wii::v958::third_active()) '+current.lstrip()
         allowed=(current,conditional,conditional+'    else '+guard.lstrip())
-        if len(hits)!=1 or hits[0] not in allowed or block.index(hits[0])<block.index(SI):raise ValueError('third alarm handoff hook')
+        # A single logical if/else hook occupies two emitted lines.
+        # Require adjacency and exact identity; concatenating disjoint
+        # statements alone would accidentally accept an extra side effect.
+        observed=''.join(hits)
+        if observed not in allowed or block.count(observed)!=1 or block.index(observed)<block.index(SI):
+            raise ValueError('third alarm handoff hook')
         return body[:i]+suppress_legacy(block)+body[j:]
     if len(hits)>1:raise ValueError('third alarm duplicate hook')
     if hits:

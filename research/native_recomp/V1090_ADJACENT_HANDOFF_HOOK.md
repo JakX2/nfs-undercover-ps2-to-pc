@@ -1,0 +1,3 @@
+# V1090: authenticate the two-line transfer resume hook
+
+V1089 gated run 45753410969 stopped in the original-free installer tests, before owner work. V1029 emits an adjacent conditional and else statement on separate lines; the V1087 validator mistakenly required exactly one matching line. Accept the exact combined statement only if it occurs once contiguously after the SI tick. Preserve the other valid single-line forms; reject separated, duplicated or unconditional-guard statements. Requeue the gated workflow with no change to its owner prerequisites. No previous owner job is duplicated. Verification pending.
