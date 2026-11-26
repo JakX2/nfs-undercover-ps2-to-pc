@@ -35,7 +35,7 @@ def direct_writers(words,addr,n):
         if overlap(addr,n,(EXPECTED_GPRS[ra]+disp)&0xffffffff,width):direct+=1
     return direct
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     missed=[]
     try:nested_plan(d,e,on_unknown=lambda a,n:missed.append((a,n)))
     except ValueError:
@@ -54,7 +54,8 @@ def plan(d,e):
     covered=sum(addr+i in seeded for i in range(n))
     matches=sum(addr+i in seeded and data is not None and seeded[addr+i]==data[i] for i in range(n))
     writers=direct_writers(tuple(stm)+tuple(w for words in (*roots.values(),*shared.values()) for w in words),addr,n)
-    return kind,n,int(data is not None),int(equal),covered,matches,writers
+    result=(kind,n,int(data is not None),int(equal),covered,matches,writers)
+    return (result,addr,data) if details else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
