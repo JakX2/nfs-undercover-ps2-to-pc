@@ -109,6 +109,9 @@
 #include "private_stm_final_return.h"
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
 #include "private_post_stm_sc.h"
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+#include "private_post_stm_sc_disable.h"
+#endif
 #endif
 #endif
 #endif
@@ -407,6 +410,14 @@ static unsigned post_stm_sc_count=0;
 struct PostStmScStop{};
 static bool post_stm_sc_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_sc_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+static PostStmScDisableWitness* post_stm_disable=nullptr;
+static PostStmScEntryWitness* post_stm_frame=nullptr;
+static unsigned post_stm_disable_count=0;
+struct PostStmDisableStop{};
+static bool post_stm_disable_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_disable_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -752,6 +763,19 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+static bool post_stm_disable_held(nw::CPUContext& c){
+    return post_stm_disable&&post_stm_frame&&third_return_join&&
+        post_stm_frame->frame_held(c,third_return_join->post_resume_storage_held(c,third_return_storage(c),
+                                       post_stm_disable->expected_msr()));
+}
+[[noreturn]]static void post_stm_disable_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_DISABLE_REFUSAL kind="<<kind<<" stage="<<(post_stm_disable?post_stm_disable->stage():0u)
+        <<" reason="<<(post_stm_disable?post_stm_disable->failure():0u)
+        <<" visits="<<(post_stm_disable?post_stm_disable->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void post_stm_sc_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!post_stm_sc||!post_stm_sc->before(c,pc,w,post_stm_sc_held(c)))post_stm_sc_refuse(2);
 }
@@ -993,6 +1017,16 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable){
+        // The shared original disable leaf is owned by v1270_before.
+        // This secondary installed hook may be before or after it.
+        if(!third_return_storage(c)||std::count_if(post_stm_sc_disable_private::words.begin(),
+             post_stm_sc_disable_private::words.end(),[&](auto x){return x.pc==pc&&x.word==w;})!=1)
+            post_stm_disable_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
     if(third_return_route){
         // The shared original restore helper is already observed by
@@ -1319,6 +1353,12 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable){
+        if(!post_stm_disable->before(c,pc,w,post_stm_disable_held(c)))post_stm_disable_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_RESUMED_RESTORE
     if(third_resume){
         const bool first=third_resume->visits()==0u;
@@ -1395,6 +1435,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable){
+        if(!post_stm_disable->entry(c,pc,post_stm_disable_held(c)))post_stm_disable_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     if(post_stm_sc){
         if(!post_stm_sc->entry(c,pc,post_stm_sc_held(c)))post_stm_sc_refuse(3);
@@ -1955,6 +2001,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable){
+        if(!post_stm_disable->poll(c,post_stm_disable_held(c)))post_stm_disable_refuse(4);
+        if(post_stm_disable->stage()==2u){++post_stm_disable_count;throw PostStmDisableStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     if(post_stm_sc){if(!post_stm_sc->poll(c,post_stm_sc_held(c)))post_stm_sc_refuse(4);return false;}
 #endif
@@ -2368,6 +2421,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable)post_stm_disable_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     if(post_stm_sc)post_stm_sc_refuse(7);
 #endif
@@ -2434,6 +2490,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable)post_stm_disable_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     if(post_stm_sc)post_stm_sc_refuse(6);
 #endif
@@ -2562,6 +2621,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    if(post_stm_disable)post_stm_disable_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     if(post_stm_sc)post_stm_sc_refuse(6);
 #endif
@@ -2719,6 +2781,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
         for(auto w:post_stm_sc_private::words)c.mmu.write32(w.pc,w.word);
         need(c.mmu.read32(post_stm_sc_private::expected.disable)==post_stm_sc_private::expected.disable_word);
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+        // Original continuation identity is only a stop guard in this
+        // lane; the compiled SC prefix still has a nonreturning guard.
+        c.mmu.write32(post_stm_sc_disable_private::expected.caller,post_stm_sc_disable_private::expected.caller_word);
+#endif
 #endif
 #endif
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
@@ -3645,6 +3712,21 @@ int main(int argc,char** argv)try{
             <<" original_osinit_call=1 original_sc_prefix=1 stack_stores=3 disable_entry=1 deferred=1 reply=0 disable_executed=0 visits="
             <<sc_entry.visits()<<'\n';
         post_stm_sc=nullptr;
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+        PostStmScDisableWitness sc_disable(post_stm_sc_disable_private::expected);
+        post_stm_frame=&sc_entry;
+        if(!sc_disable.begin(c,sc_entry.reached(c,third_return_join->continuation_held(c,third_return_storage(c)))))
+            post_stm_disable_refuse(1);
+        post_stm_disable=&sc_disable;
+        bool sc_disabled=false;try{run_game(c);}catch(const PostStmDisableStop&){sc_disabled=true;}
+        if(!sc_disabled||post_stm_disable_count!=trial+1u||!sc_disable.reached(c,post_stm_disable_held(c))||
+           (c.msr&0x8000u)||c.gpr[3]!=1u||host.serviced_steps()!=5u||!host.services().event_pending()||
+           (cause.load()&mask.load())||host.cold_ipc_snapshot().replies)post_stm_disable_refuse(5);
+        std::cout<<"POST_STM_SC_DISABLE_TRIAL n="<<trial
+            <<" original_disable=1 native_msr=1 previous_ee=1 sc_return=1 deferred=1 reply=0 decision_executed=0 visits="
+            <<sc_disable.visits()<<'\n';
+        post_stm_disable=nullptr;post_stm_frame=nullptr;
+#endif
 #endif
 #endif
 #endif
@@ -3880,6 +3962,10 @@ int main(int argc,char** argv)try{
     need(stm_final_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_ENTRY
     need(post_stm_sc_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_DISABLE
+    need(post_stm_disable_count==8u);
+    std::cout<<"POST_STM_SC_DISABLE_NATIVE owner=1 trials=8 original_disable=8 native_msr=8 previous_ee=8 sc_return=8 deferred=8 reply=0 decision_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_NATIVE owner=1 trials=8 original_osinit_call=8 original_sc_prefix=8 disable_entry=8 deferred=8 reply=0 disable_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_FINAL_RETURN_NATIVE owner=1 trials=8 original_stm_return=8 state_store=8 caller_abi=8 deferred=8 reply=0 osinit_instruction_executed=0 modeled_osinit_bridge=1 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

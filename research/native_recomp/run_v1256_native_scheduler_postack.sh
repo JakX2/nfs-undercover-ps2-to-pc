@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0
+reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0
+if [[ $# == 4 && "$4" == --post-stm-sc-disable ]];then
+  post_stm_disable_mode=1
+  set -- "$1" "$2" "$3" --post-stm-sc-entry
+fi
 if [[ $# == 4 && "$4" == --post-stm-sc-entry ]];then
   post_stm_sc_mode=1
   set -- "$1" "$2" "$3" --irq-stm-final-return
@@ -254,6 +258,7 @@ if [[ "$stm_active_return_mode" == 1 ]];then extra+=(-DUNDERCOVER_STM_DEFERRED_A
 if [[ "$stm_resumed_restore_mode" == 1 ]];then extra+=(-DUNDERCOVER_STM_RESUMED_RESTORE);fi
 if [[ "$stm_final_return_mode" == 1 ]];then extra+=(-DUNDERCOVER_STM_FINAL_RETURN);fi
 if [[ "$post_stm_sc_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_ENTRY);fi
+if [[ "$post_stm_disable_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_DISABLE);fi
 helper_args=()
 if [[ "$reply_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_V1316_REPLY_HELPER);helper_args=(--helper);fi
 root="$(realpath "$1")";here="$(cd "$(dirname "$0")" && pwd)"
@@ -298,6 +303,7 @@ if [[ "$stm_event_return_mode" == 1 ]];then python3 "$here/prepare_stm_event_ret
 if [[ "$stm_outer_mode" == 1 ]];then python3 "$here/prepare_stm_outer_restore.py" "$2" "$3" "$work/input";fi
 if [[ "$stm_final_return_mode" == 1 ]];then python3 "$here/prepare_stm_final_return.py" "$2" "$3" --out "$work/input";fi
 if [[ "$post_stm_sc_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_join.py" "$2" "$3" --fixture "$work/input";fi
+if [[ "$post_stm_disable_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_disable.py" "$2" "$3" --out "$work/input";fi
 python3 "$here/apply_open_roots_v645.py" "$root" "$2" "$3"
 if [[ "${4-}" != --irq-return ]];then python3 "$here/make_v1256_scheduler_fixture.py" "$2" "$3" "$work/input" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp";fi
 if [[ "${4-}" == --irq-vector ]];then python3 "$here/prepare_v1260_scheduler_vector.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
@@ -395,6 +401,7 @@ if [[ "$stm_outer_mode" == 1 ]];then python3 "$here/prepare_stm_outer_restore.py
 if [[ "$stm_active_return_mode" == 1 ]];then python3 "$here/prepare_deferred_active_resume.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$stm_final_return_mode" == 1 ]];then python3 "$here/prepare_stm_final_return.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$post_stm_sc_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_join.py" "$2" "$3" --install "$work/generated";fi
+if [[ "$post_stm_disable_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_disable.py" "$2" "$3" --audit "$work/generated";fi
 python3 "$here/patch_sc_trace_v570.py" "$work/generated"
 python3 "$here/patch_sc_trace_v640.py" "$work/generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --vector "$work/input/vector.bin"
@@ -408,6 +415,7 @@ grep -Ex 'STM_DEFERRED_ACTIVE_RETURN_REFUSAL kind=[1-7] stage=[0-5] reason=[0-9]
 grep -Ex 'STM_RESUMED_RESTORE_REFUSAL kind=[1-5] stage=[0-2] reason=[0-4] visits=[0-9] rfi=[0-5]|STM_RESUMED_RESTORE_TRIAL n=[0-7] native_resume=1 original_restore_return=1 stm_caller=1 deferred=1 reply=0 stm_instruction_executed=0 visits=[0-9]' "$work/run.log" || true
 grep -Ex 'STM_FINAL_RETURN_REFUSAL kind=[1-6] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9]{1,2} stores=[0-1]|STM_FINAL_RETURN_TRIAL n=[0-7] original_stm_return=1 state_store=1 caller_abi=1 deferred=1 reply=0 osinit_instruction_executed=0 visits=[0-9]{1,2} loads=[0-9]{1,2}' "$work/run.log" || true
 grep -Ex 'POST_STM_SC_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-6] stores=[0-3]|POST_STM_SC_TRIAL n=[0-7] original_osinit_call=1 original_sc_prefix=1 stack_stores=3 disable_entry=1 deferred=1 reply=0 disable_executed=0 visits=6' "$work/run.log" || true
+grep -Ex 'POST_STM_SC_DISABLE_REFUSAL kind=[1-7] stage=[0-2] reason=[0-4] visits=[0-9]{1,2}|POST_STM_SC_DISABLE_TRIAL n=[0-7] original_disable=1 native_msr=1 previous_ee=1 sc_return=1 deferred=1 reply=0 decision_executed=0 visits=[0-9]{1,2}' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 
@@ -634,4 +642,9 @@ fi
 if [[ "$post_stm_sc_mode" == 1 ]];then
   [[ "$(grep -Ec '^POST_STM_SC_TRIAL n=[0-7] original_osinit_call=1 original_sc_prefix=1 stack_stores=3 disable_entry=1 deferred=1 reply=0 disable_executed=0 visits=6$' "$work/run.log")" == 8 ]]
   grep -Fx 'POST_STM_SC_NATIVE owner=1 trials=8 original_osinit_call=8 original_sc_prefix=8 disable_entry=8 deferred=8 reply=0 disable_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
+fi
+
+if [[ "$post_stm_disable_mode" == 1 ]];then
+  [[ "$(grep -Ec '^POST_STM_SC_DISABLE_TRIAL n=[0-7] original_disable=1 native_msr=1 previous_ee=1 sc_return=1 deferred=1 reply=0 decision_executed=0 visits=([3-9]|1[0-2])$' "$work/run.log")" == 8 ]]
+  grep -Fx 'POST_STM_SC_DISABLE_NATIVE owner=1 trials=8 original_disable=8 native_msr=8 previous_ee=8 sc_return=8 deferred=8 reply=0 decision_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 fi
