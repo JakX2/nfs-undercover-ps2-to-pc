@@ -3,6 +3,8 @@
 #include "wii_second_si_dispatch_v944.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_bounded_ack_call_route_v956.h"
+#include "wii_handler_suffix_guard_v868.h"
+#include "wii_handler_index_branch_v911.h"
 namespace undercover::wii {
 // Compose the completed third SI owner with a real restored RFI context.
 // No host-supplied "held" boolean, no device writes and no scheduler advance.
@@ -273,6 +275,36 @@ public:
         return return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
                witness.dispatch_resume(c,pc,w,true)?true:fail(39);
     }
+    // Return label already belongs to the callback-return witness; it must
+    // not consume another ACK tick. Allow only the bounded handler suffix.
+    template<class C,class W>bool begin_handler_suffix(C& c,W& prior,uint32_t pc,uint32_t w,
+            std::span<const HandlerSuffixLabel> rows,HandlerIndexBranchExpectation index,uint32_t rd,uint32_t wr){
+        if(stage_!=22u||error_||cpu_!=&c||return_!=&prior||prior.stage()!=5u||
+           pc!=return_site_||w!=return_word_||rd==wr||rd<=pc||wr<=rd||
+           !dev_||dev_->stage()!=3u||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok())return fail(40);
+        handler_rows_=rows;handler_rd_=rd;handler_wr_=wr;handler_index_.emplace(index);
+        if(!handler_suffix_.start(c,rows,pc,64u,true)||!handler_index_->start(c,pc))return fail(40);
+        stage_=23u;
+        return handler_step(c,pc,w,false);
+    }
+    template<class C>bool handler_before(C& c,uint32_t pc,uint32_t w){return handler_step(c,pc,w,true);}
+    bool handler_read(unsigned off,uint32_t& v){
+        if(stage_!=23u||error_||off!=SiController::Status||handler_pending_!=1u||
+           !ack_.read(*ctl_,off,v))return fail(42);
+        handler_value_=v;handler_pending_=2u;return true;
+    }
+    bool handler_write(unsigned off,uint32_t v){
+        if(stage_!=23u||error_||off!=SiController::Status||handler_pending_!=3u||
+           v!=handler_value_||!ack_.write(*ctl_,off,v))return fail(43);
+        handler_pending_=4u;return true;
+    }
+    unsigned handler_visits()const{return handler_suffix_.visits();}
+    unsigned handler_stores()const{return handler_suffix_.writes();}
+    unsigned handler_reads()const{return handler_reads_;}
+    unsigned handler_writes()const{return handler_writes_;}
+    unsigned handler_ordinal()const{return handler_ordinal_;}
+    bool handler_taken()const{return handler_index_&&handler_index_->taken();}
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
@@ -304,6 +336,49 @@ private:
         return stage_==21u&&!error_&&cpu_==&c&&return_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C>bool handler_step(C& c,uint32_t pc,uint32_t w,bool advance_tick){
+        if(stage_!=23u||error_||cpu_!=&c||!dev_||dev_->stage()!=3u||!handler_index_||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok())return fail(41);
+        if(handler_pending_==1u||handler_pending_==3u)return fail(41);
+        if(handler_pending_==2u){
+            if(c.gpr[handler_reg_]!=handler_value_)return fail(41);
+            ++handler_reads_;handler_pending_=0;
+        }
+        if(handler_pending_==4u){
+            if(ctl_->read(SiController::Status)!=handler_expected_status_)return fail(41);
+            ++handler_writes_;handler_pending_=0;
+        }
+        const HandlerSuffixLabel* row=nullptr;
+        for(const auto& x:handler_rows_)if(x.pc==pc){row=&x;break;}
+        const bool rd=pc==handler_rd_,wr=pc==handler_wr_;
+        const auto a=PostAckTransferDevice::word_access(c,w);
+        const auto off=PostAckTransferDevice::offset(a.address);
+        if(!row||((rd||wr)&&(!advance_tick||!off||*off!=SiController::Status))||
+           (!rd&&!wr&&off)||!handler_suffix_.before(c,pc,w,row->ordinal,row->kind,rd,wr)||
+           !handler_index_->before(c,pc,w))return fail(41);
+        if(advance_tick&&!ack_.before(c,pc,w,true))return fail(41);
+        if(rd){
+            if(a.kind!=PostAckTransferDevice::Access::Read||handler_reads_||handler_writes_)return fail(41);
+            handler_reg_=(w>>21)&31u;handler_pending_=1u;
+        }else if(wr){
+            if(a.kind!=PostAckTransferDevice::Access::Write||!a.store||(*a.store&~0x0f0f0f0fu)||
+               handler_reads_!=1u||handler_writes_)return fail(41);
+            handler_value_=*a.store;handler_expected_status_=ctl_->read(SiController::Status)&~*a.store;
+            handler_pending_=3u;
+        }else if(!ack_.postack_held())return fail(41);
+        if(row->kind){
+            if(row->kind!=1u||(row->ordinal!=7u&&row->ordinal!=8u&&row->ordinal!=12u)||
+               handler_index_->stage()!=5u||handler_reads_!=1u||handler_writes_!=1u||
+               handler_pending_||!ack_.postack_held())return fail(41);
+            handler_ordinal_=row->ordinal;stage_=24u;
+        }
+        return true;
+    }
+    HandlerSuffixGuard handler_suffix_;
+    std::optional<HandlerIndexBranchWitness> handler_index_;
+    std::span<const HandlerSuffixLabel> handler_rows_{};
+    uint32_t handler_rd_=0,handler_wr_=0,handler_value_=0,handler_expected_status_=0;
+    unsigned handler_pending_=0,handler_reg_=32,handler_reads_=0,handler_writes_=0,handler_ordinal_=0;
     const void* return_=nullptr;
     std::array<uint32_t,32> callback_gp_{};
     uint32_t callback_cr_=0,return_site_=0,return_word_=0;

@@ -42,8 +42,10 @@ int main(){
     unsigned wireless_valid=0,wireless_refused=0;
     unsigned suffix_valid=0,suffix_refused=0;
     unsigned return_valid=0,return_refused=0;
-    for(trial=0;trial<208;++trial){
-        const unsigned return_fault=trial>=196?trial-195u:0u;
+    unsigned handler_valid=0,handler_refused=0;
+    for(trial=0;trial<228;++trial){
+        const unsigned handler_fault=trial>=216?trial-215u:0u;
+        const unsigned return_fault=trial>=208?0u:trial>=196?trial-195u:0u;
         const unsigned suffix_fault=trial>=188?0u:trial>=176?trial-175u:0u;
         const unsigned wireless_fault=trial>=168?0u:trial>=156?trial-155u:0u;
         const unsigned post_fault=trial>=148?0u:trial>=136?trial-135u:0u;
@@ -275,6 +277,7 @@ int main(){
         for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
         c.gpr[1]=Stack;c.ctr=Root;
         if(trial>=128)c.gpr[3]=ch;
+        if(trial>=208)c.gpr[20]=ch;
         const auto original_callback_gp=c.gpr;
         CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign_witness(Root,Leaf,prefix,leaf);
         auto callback_reject=[&](bool rejected,unsigned reason){
@@ -549,10 +552,55 @@ int main(){
         need(route.stage()==22u&&ret.stage()==5u&&ret.visits()==8u&&c.gpr[1]==original_callback_gp[1]&&
              c.gpr[30]==original_callback_gp[30]&&c.gpr[31]==original_callback_gp[31]&&
              route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
-        ++return_valid;
+        if(trial<208){++return_valid;continue;}
+        constexpr uint32_t Table=0x80033000u,StatusLoad=0x80830038u,StatusStore=0x90830038u;
+        constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
+        constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
+        const HandlerIndexBranchExpectation ix{Caller,Indexed,Compare,Branch,Caller+64u,
+            {Table,Table+4u,Table+8u,Table+12u},20u};
+        std::array<HandlerSuffixLabel,16> rows_handler{};
+        for(unsigned i=0;i<14;++i)rows_handler[i]={Caller+4u*i,Nop,0,0};
+        rows_handler[1].word=StatusLoad;rows_handler[2].word=StatusStore;
+        rows_handler[11].word=Indexed;rows_handler[12].word=Compare;rows_handler[13].word=Branch;
+        rows_handler[14]={Caller+56u,branch(Caller+56u,Caller+64u),0,0};
+        rows_handler[15]={Caller+64u,branch(Caller+64u,RestoreRoot)|1u,12u,1u};
+        for(const auto& row:rows_handler)c.mmu.words[row.pc]=row.word;
+        for(unsigned i=0;i<4;++i)c.mmu.words[Table+4*i]=i==ch?7u:9u;
+        auto refuse_handler=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++handler_refused;
+        };
+        if(handler_fault==4)tick();
+        if(handler_fault==5)c.mmu.words[Caller+44u]^=1u;
+        if(handler_fault==6)c.mmu.words[Context+124]^=1u;
+        ok=route.begin_handler_suffix(c,handler_fault==1?foreign_ret:ret,
+            Caller+(handler_fault==2?4u:0u),handler_fault==3?Blr:Nop,
+            rows_handler,ix,Caller+4u,Caller+8u);
+        if(handler_fault>=1&&handler_fault<=6){refuse_handler(!ok,40);continue;}need(ok);
+        auto at_handler=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.handler_before(c,pc,w);};
+        c.gpr[3]=Base;
+        need(at_handler(Caller+4u,StatusLoad));
+        if(handler_fault==7){refuse_handler(!route.handler_read(C,value),42);continue;}
+        if(handler_fault!=8){need(route.handler_read(S,value));c.gpr[4]=value^(handler_fault==9?1u:0u);}
+        ok=at_handler(Caller+8u,StatusStore);
+        if(handler_fault==8||handler_fault==9){refuse_handler(!ok,41);continue;}need(ok);
+        if(handler_fault==10){refuse_handler(!route.handler_write(S,value^1u),43);continue;}
+        if(handler_fault!=11)need(route.handler_write(S,value));
+        ok=at_handler(Caller+12u,Nop);
+        if(handler_fault==11){refuse_handler(!ok,41);continue;}need(ok);
+        for(unsigned i=4;i<11;++i)need(at_handler(Caller+4u*i,Nop));
+        c.gpr[3]=Table;c.gpr[4]=4u*ch;need(at_handler(Caller+44u,Indexed));c.gpr[5]=7;
+        need(at_handler(Caller+48u,Compare));c.cr[0]={false,false,true,false};
+        if(handler_fault==12)c.cr[0].eq=false;
+        ok=at_handler(Caller+52u,Branch);
+        if(handler_fault==12){refuse_handler(!ok,41);continue;}need(ok);
+        need(at_handler(Caller+64u,rows_handler.back().word));
+        need(route.stage()==24u&&route.handler_ordinal()==12u&&route.handler_taken()&&route.handler_visits()==15u&&
+             route.handler_reads()==1u&&route.handler_writes()==1u&&route.completion_ack().postack_held()&&
+             ctl.issued_tokens()==3u&&cause==Other);
+        ++handler_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -564,4 +612,5 @@ int main(){
     std::cout<<"V1112_THIRD_ACK_WIRELESS_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1115_THIRD_ACK_SUFFIX_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1117_THIRD_ACK_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 actual_device=1 original_execution=0\n";
+    std::cout<<"V1122_THIRD_ACK_HANDLER_JOIN valid=8 refused=12 same_tick=1 status_read=1 status_w1c=1 original_execution=0\n";
 }
