@@ -58,7 +58,16 @@ public:
         }else if(st){
             auto a=ea(c,w);
             if(a>0xffffffffull||(a&3u))return store_fail(1);
-            if((owner_==e_.handler&&pc==e_.credit_site)||(owner_==e_.profile_root&&pc==e_.profile_site)){
+            // The original handler may perform the Hollywood W1C directly
+            // rather than calling an MMIO leaf. Only the authenticated
+            // handler instruction, exact register, value and phase qualify.
+            if(owner_==e_.handler&&pc!=e_.credit_site&&flag_register(uint32_t(a))){
+                if((op!=36u&&!(op==31u&&xo==151u))||ra==1u||writes_!=1u||
+                   gate_->stage()!=5u||!gate_->ack_latch_cleared(true)||
+                   c.gpr[rs]!=HollywoodIrq::IPC_PPC)return store_fail(6);
+                access_addr_=uint32_t(a)&0x3fffffffu;
+                access_value_=c.gpr[rs];access_due_=2u;
+            }else if((owner_==e_.handler&&pc==e_.credit_site)||(owner_==e_.profile_root&&pc==e_.profile_site)){
                 if(op!=36u)return store_fail(2);
                 if(!gate_->ack_latch_cleared(true))return store_fail(3);
                 if(!mem_->authorize(c,uint32_t(a),c.gpr[rs],4u,true))return store_fail(4);
@@ -168,6 +177,11 @@ private:
     bool entry_due_=false,return_due_=false,access_seen_=false,load_due_=false,sp_due_=false,ctr_due_=false,polled_=false,initial_poll_=false,resumed_=false;
     bool store_fail(unsigned d){if(!error_)detail_=d;return fail(4);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    static bool flag_register(uint32_t a){
+        if((a&0xc0000000u)==0x40000000u)return false;
+        a&=0x3fffffffu;
+        return a==IosBus::IPC+HollywoodIrq::PPC_FLAG||a==IosBus::MIRROR+HollywoodIrq::PPC_FLAG;
+    }
     bool admitted(uint32_t pc)const{return pc==e_.read_root||pc==e_.write_root||pc==e_.profile_root;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool live(C& c,bool held)const{

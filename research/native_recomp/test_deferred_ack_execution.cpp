@@ -60,16 +60,20 @@ static void trial(unsigned first,unsigned fault){
         {Handler,Handler+24,Unstack},{Handler,Handler+28,LR},{Handler,Handler+32,Ret},
         {Read,Read,Ld},{Read,Read+4,Ret},{Write,Write,St},{Write,Write+4,Ret},
         {Prof,Prof,Dec},{Prof,Prof+4,Ret},{Caller,Caller,N}}};
-    const bool late_flag=fault>=18;
+    const bool late_flag=fault==18||fault==19;
+    const bool inline_flag=fault>=20;
+    constexpr uint32_t Stx=(31u<<26)|(4u<<21)|(3u<<16)|(5u<<11)|(151u<<1);
+    if(inline_flag)words[3].word=fault==25?Stx:St;
     if(late_flag){
         words[3].word=Inc;words[4].word=bl(Handler+16,Prof);words[5].word=bl(Handler+20,Write);
     }
     if(fault==3)words[0].word=0x900d0000u;
     for(auto x:words)c.mmu.write32(x.pc,x.word);
-    const std::array<IpcDispatchEdge,4> edges{{{Handler+4,Read,words[1].word},
+    std::vector<IpcDispatchEdge> edges{{Handler+4,Read,words[1].word},
         {Handler+8,Write,words[2].word},
         {late_flag?Handler+16:Handler+12,late_flag?Prof:Write,late_flag?words[4].word:words[3].word},
-        {Handler+20,late_flag?Write:Prof,words[5].word}}};
+        {Handler+20,late_flag?Write:Prof,words[5].word}};
+    if(inline_flag)edges.erase(edges.begin()+2);
     c.pc=Handler;c.lr=Caller;c.msr=0x32;c.gpr[1]=Sp;c.gpr[13]=Credit;c.gpr[0]=Caller;
     DeferredAckExecution w({Handler,Caller,N,Handler+32,Read,Write,Prof,late_flag?Handler+12:Handler+16,Prof,words,edges});
     bool ok=w.begin(c,gate,mem,fault!=1);if(fault==1){assert(!ok);return;}assert(ok);
@@ -91,13 +95,26 @@ static void trial(unsigned first,unsigned fault){
     if(fault==6){assert(!v);return;}assert(v);
     c.gpr[3]=fault==7?0u:*v;
     ok=step(Read+4,Ret);if(fault==7){assert(!ok);return;}assert(ok);
-    for(unsigned i=0;i<(late_flag?1u:2u);++i){
+    for(unsigned i=0;i<((late_flag||inline_flag)?1u:2u);++i){
         const auto call=Handler+8+i*4;
         c.gpr[3]=I::IPC+(i?H::PPC_FLAG:M::PPCCTRL);c.gpr[4]=i?H::IPC_PPC:en|M::Y2;
         assert(step(call,bl(call,Write)));c.pc=Write;c.lr=call+4;assert(w.entry(c,Write,true));
         assert(step(Write,St));ok=w.write(c,c.gpr[3],fault==8&&i==0?0u:c.gpr[4],true);
         if(fault==8){assert(!ok);return;}assert(ok);
         assert(step(Write+4,Ret));
+    }
+    if(inline_flag){
+        c.gpr[3]=I::IPC+(fault==21?H::PPC_MASK:H::PPC_FLAG);
+        if(fault==26)c.gpr[3]|=0x80000000u;
+        if(fault==25){c.gpr[3]=I::IPC;c.gpr[5]=H::PPC_FLAG;}
+        c.gpr[4]=fault==22?0u:H::IPC_PPC;
+        ok=step(Handler+12,words[3].word);
+        if(fault==21||fault==22){assert(!ok&&w.failure()==4);return;}assert(ok);
+        if(fault==24){
+            assert(!step(Handler+16,Inc));return;
+        }
+        ok=w.write(c,I::IPC+(fault==23?H::PPC_MASK:H::PPC_FLAG),c.gpr[4],true);
+        if(fault==23){assert(!ok&&w.failure()==7);return;}assert(ok);
     }
     c.gpr[4]=fault==9?0u:1u;
     ok=step(late_flag?Handler+12:Handler+16,Inc);if(fault==9){assert(!ok);return;}assert(ok);
@@ -123,8 +140,8 @@ static void trial(unsigned first,unsigned fault){
     ok=step(Handler+32,Ret);if(fault==13){assert(!ok);return;}assert(ok);
     c.pc=fault==14?Caller+4:Caller;
     ok=w.poll(c,true);if(fault==14){assert(!ok);return;}assert(ok);
-    assert(w.reached(c,true)&&w.reads()==1&&w.writes()==2&&w.calls()==4&&w.stack_stores()==1&&
+    assert(w.reached(c,true)&&w.reads()==1&&w.writes()==2&&w.calls()==(inline_flag?3u:4u)&&w.stack_stores()==1&&
            host.serviced_steps()==5&&host.services().event_pending()&&mem.preserved(c));
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=19;++f)trial(first,f);
-    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=40 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=26;++f)trial(first,f);
+    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=54 original_execution=0\n";}
