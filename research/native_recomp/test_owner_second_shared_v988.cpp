@@ -49,7 +49,8 @@ static SiTypeScheduler* scheduler=nullptr;
 static PostAckTransferDevice third;
 static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned seed_kind=0;
-static bool error_census=false,error_cold=false;
+static bool error_census=false,error_cold=false,error_continue=false;
+static unsigned error_return_visit=0;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static AlarmCancelReturnWitness alarm_witness(v786::expected);
@@ -80,7 +81,7 @@ static bool held(){
     std::_Exit(126);
 }
 static void need(bool ok,const std::source_location loc=std::source_location::current()){if(!ok)fail(1,loc.line());}
-[[noreturn]]static void error_boundary(bool returned,unsigned lane,unsigned ordinal,unsigned kind){
+static void error_boundary(bool returned,unsigned lane,unsigned ordinal,unsigned kind){
     need(error_census&&(trial&4u)&&ack.stage()==4u&&ack.postack_held()&&
          ack.token()==2u&&ctl->issued_tokens()==2u&&cause==Other&&bank_mask==Mask&&
          (held_control&SiController::COM_ERR)&&ack_visits>ack_boundary_visits);
@@ -96,7 +97,11 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
         <<" returns="<<call_route.returns()<<" msr="<<call_route.msr_writes()
         <<" visits="<<ack_visits-ack_boundary_visits
         <<" token_preserved=1 saved_fields=38 boundary_executed=0 continuous_boot=0"<<std::endl;
-    std::_Exit(0);
+    if(error_continue&&returned){
+        need(!shared_seen&&!shared_tick&&call_route.entries()==6u&&call_route.returns()==6u&&call_route.msr_writes()==2u&&ack_visits-ack_boundary_visits==130u);
+        error_return_visit=ack_visits;return;
+    }
+    need(!error_continue);std::_Exit(0);
 }
 // The runner authenticates this same DOL against the owner hash before
 // invoking the fixture. Copy only initialized data sections, not code.
@@ -212,6 +217,19 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             return;
         }
         if(std::find(Guard.begin(),Guard.end(),pc)!=Guard.end()){
+            if(error_continue&&post_seen){
+                need(owner==Handler&&w==0x4e800020u&&call_route.depth()==0u&&
+                     error_return_visit&&ack_visits>error_return_visit&&ack.before(c,pc,w,true)&&ack.postack_held());
+                for(const auto& row:GuardCensus)if(pc==row[0]){
+                    std::cout<<std::dec<<"V1017_ERROR_FRONTIER seed="<<seed_kind<<" prior_absent="<<error_cold
+                        <<" profile="<<trial<<" lane="<<row[1]<<" ordinal="<<row[2]<<" kind="<<row[3]
+                        <<" handler_time="<<time_seen<<" callback_candidate="<<(row[3]==2u&&c.ctr==0x805327f8u)
+                        <<" transfer_type=0 visits="<<ack_visits-error_return_visit
+                        <<" token_preserved=1 saved_fields=38 call_executed=0"<<std::endl;
+                    std::_Exit(0);
+                }
+                fail(11);
+            }
             if(error_census&&ack.stage()==4u&&w==0x4e800020u){
                 for(const auto& row:GuardCensus)if(pc==row[0]){
                     need(ack.before(c,pc,w,true)&&ack.poll(c.inst_count));
@@ -284,6 +302,13 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 <<" in_mapped="<<in_mapped<<" callback="<<callback<<" command_zero="<<command_zero
                 <<" idle="<<(c.mmu.read32(TransferData)==0xffffffffu)<<" type="<<type<<std::endl;
             if(argument_probe){
+                if(error_continue){
+                    need(post_seen&&error_return_visit&&time_seen&&ack.postack_held()&&ack_visits>error_return_visit);
+                    std::cout<<std::dec<<"V1017_ERROR_FRONTIER seed="<<seed_kind<<" prior_absent="<<error_cold
+                        <<" profile="<<trial<<" lane=1 ordinal=4 kind=1 handler_time=1 callback_candidate=0 transfer_type="<<type
+                        <<" visits="<<ack_visits-error_return_visit<<" token_preserved=1 saved_fields=38 call_executed=0"<<std::endl;
+                    std::_Exit(0);
+                }
                 if(shared_continue){
                     need(shared_seen&&post_seen&&time_seen&&ack.postack_held());
                     std::cout<<std::dec<<"V992_SUCCESS_FRONTIER seed="<<seed_kind<<" profile="<<trial
@@ -306,7 +331,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             need(call_route.returns()>ack_returns&&ack_visits>ack_boundary_visits&&ack.token()==2u&&cause==Other&&bank_mask==Mask);
             std::cout<<std::dec<<"V962_POST_ACK_RETURN original_helper_return=1 saved_fields=38 token_preserved=1 visits="<<ack_visits-ack_boundary_visits<<" handler_instruction_executed=0"<<std::endl;
             if(error_census)error_boundary(true,0u,0u,0u);
-            if(shared_route){
+            if(shared_route&&!error_continue){
                 need(shared_seen&&ack.postack_held());
                 std::cout<<std::dec<<"V988_SUCCESS_HELPER_RETURN seed="<<seed_kind<<" profile="<<trial<<" original_helper_return=1 shared_time=1 visits="
                     <<ack_visits-ack_boundary_visits<<" token_preserved=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
@@ -395,8 +420,11 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];
+    std::string mode=argv[2];
+    error_continue=mode.ends_with("-next");
+    if(error_continue)mode.resize(mode.size()-5u);
     error_census=mode=="active-error"||mode=="seeded-error"||mode=="active-error-cold"||mode=="seeded-error-cold";
+    need(!error_continue||error_census);
     error_cold=mode=="active-error-cold"||mode=="seeded-error-cold";
     need(!error_census||(trial&4u));
     need(error_census||mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier");
@@ -407,7 +435,7 @@ int main(int argc,char** argv)try{
     suffix_route=mode=="queue-suffix"||mode=="seeded-suffix"||alarm_route;
     seed_kind=mode=="seeded-args"||mode=="transfer"||mode=="seeded-suffix"||mode=="seeded-alarm"||mode=="seeded-success"||mode=="seeded-frontier"?3u:mode=="queue-args"||mode=="queue-transfer"||mode=="queue-suffix"||mode=="queue-alarm"?1u:mode=="active-args"||mode=="active-transfer"||mode=="active-success"||mode=="active-frontier"?2u:0u;
     if(error_census)seed_kind=mode.starts_with("seeded-")?3u:2u;
-    seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||shared_continue;
+    seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||shared_continue||error_continue;
     transfer_route=seeded_route||argument_probe;frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
     load_private_data(c,argv[3]);

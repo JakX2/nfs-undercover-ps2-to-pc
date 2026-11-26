@@ -64,6 +64,21 @@ for mode in nonsplit split; do
     done
   done
   echo "V1013_OWNER_ERROR_CENSUS mode=$mode classified=16 fallback=0 continuous_boot=0"
+  for lane in active-error seeded-error active-error-cold seeded-error-cold; do
+    case "$lane" in active-*) seed=2;; *) seed=3;; esac
+    case "$lane" in *-cold) prior=1;; *) prior=0;; esac
+    for trial in {4..7}; do
+      timeout 20s "$work/probe" "$trial" "$lane-next" "$dol" > "$work/run.log" 2>&1 || {
+        grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+        echo "V1017_ERROR_FRONTIER_EXECUTION failed=1 seed=$seed prior_absent=$prior profile=$trial";exit 1;
+      }
+      test "$(grep -Fxc "V1013_ERROR_CENSUS seed=$seed prior_absent=$prior profile=$trial helper_return=1 shared_time=0 lane=0 ordinal=0 kind=0 depth=0 entries=6 returns=6 msr=2 visits=130 token_preserved=1 saved_fields=38 boundary_executed=0 continuous_boot=0" "$work/run.log")" = 1
+      pattern="V1017_ERROR_FRONTIER seed=$seed prior_absent=$prior profile=$trial lane=[1-5] ordinal=[0-9]{1,2} kind=[1-6] handler_time=[01] callback_candidate=[01] transfer_type=[01] visits=[1-9][0-9]{0,3} token_preserved=1 saved_fields=38 call_executed=0"
+      test "$(grep -Exc "$pattern" "$work/run.log")" = 1
+      grep -Ex "$pattern" "$work/run.log"
+    done
+  done
+  echo "V1017_OWNER_ERROR_FRONTIER mode=$mode classified=16 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done
