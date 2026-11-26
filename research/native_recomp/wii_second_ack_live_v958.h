@@ -21,6 +21,10 @@
 #include "v1139_private_postalarm_handler.h"
 #ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
 #include "v1145_private_postalarm_handler_return.h"
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+#include "wii_held_pending_epilogue_v1149.h"
+#include "v1151_private_held_epilogue.h"
+#endif
 #endif
 #endif
 #endif
@@ -46,6 +50,7 @@
 #include <iostream>
 namespace undercover::wii::v958 {
 inline thread_local SecondCompletionAck ack;
+inline thread_local ExternalReturnWitness* frame=nullptr;
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
 // Only an independently authenticated third-transfer installer may enable this.
 inline thread_local PostAckTransferDevice next_device;
@@ -65,7 +70,20 @@ inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.sta
 inline thread_local ThirdAlarmCallbackRoute<third_postalarm_prefix.size(),third_postalarm_save.size(),third_postalarm_words.size()>
     third_postalarm(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save,third_postalarm_words,third_postalarm_sites);
 inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1095_AFTER_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
-inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u||third_postalarm.stage()==6u||third_postalarm.stage()==8u||third_postalarm.stage()==10u||third_postalarm.stage()==12u||third_postalarm.stage()==14u||third_postalarm.stage()==16u;}
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+inline thread_local HeldPendingEpilogueWitness held_epilogue(v1151::epilogue,v1151::vector);
+inline bool held_epilogue_enabled(){const char* v=std::getenv("UNDERCOVER_V1151_HELD_EPILOGUE");return v&&v[0]=='1'&&v[1]==0;}
+inline bool held_epilogue_active(){return held_epilogue.stage()!=0u;}
+[[noreturn]]inline void reject_held_epilogue(){
+    std::cout<<std::dec<<"V1151_HELD_EPILOGUE_FAULT stage="<<held_epilogue.stage()<<" reason="<<held_epilogue.failure()
+             <<" epilogue="<<held_epilogue.epilogue_failure()<<" reentry="<<held_epilogue.reentry_failure()<<std::endl;std::_Exit(126);
+}
+#endif
+inline bool third_postalarm_active(){
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    if(held_epilogue_active())return true;
+#endif
+    return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u||third_postalarm.stage()==6u||third_postalarm.stage()==8u||third_postalarm.stage()==10u||third_postalarm.stage()==12u||third_postalarm.stage()==14u||third_postalarm.stage()==16u;}
 #ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
 inline bool third_postalarm_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1103_POSTALARM_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
 #ifdef UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER
@@ -157,6 +175,13 @@ template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
             std::cout<<std::dec<<"V1145_POSTALARM_HANDLER_RETURN original_restore=1 original_return=1 visits="
                      <<third_postalarm.handler_return_witness()->visits()
                      <<" restored_gprs=15 token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+            if(held_epilogue_enabled()){
+                const auto* prior=third_postalarm.handler_return_witness();
+                if(!frame||!prior||!held_epilogue.begin_bound(c,pc,w,*prior,*frame,next_device))reject_held_epilogue();
+                return;
+            }
+#endif
             std::_Exit(0);
         }
         return;
@@ -283,7 +308,6 @@ template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
 #endif
 #endif
 inline thread_local BoundedAckCallRoute calls;
-inline thread_local ExternalReturnWitness* frame=nullptr;
 inline thread_local unsigned visits=0,post_visits=0,post_returns=0;
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
 inline thread_local unsigned time_tick=0,time_entries=0,time_returns=0,time_msr=0;
@@ -375,6 +399,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_postalarm_handler_enabled()&&!third_postalarm_return_enabled())return false;
 #ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
     if(third_postalarm_handler_return_enabled()&&!third_postalarm_handler_enabled())return false;
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    if(held_epilogue_enabled()&&!third_postalarm_handler_return_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -426,6 +453,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    if(held_epilogue_active()){if(guard||!held_epilogue.before(c,pc,w))reject_held_epilogue();return;}
+#endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(queue_detail_enabled()&&!queue_history.sample(c))reject(18);
 #endif
@@ -664,6 +694,19 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    if(held_epilogue_active()){
+        using Poll=HeldPendingEpilogueWitness::PollResult;
+        const auto p=held_epilogue.poll(c,v1151::image);
+        if(p==Poll::Rejected)reject_held_epilogue();
+        if(p==Poll::Entered){
+            std::cout<<std::dec<<"V1151_HELD_PENDING_RFI native_rfi=1 pending_exception=1 visits="<<held_epilogue.visits()
+                     <<" token=3 held=1 resumed_instruction_executed=0 boot_verified=0"<<std::endl;
+            return true;
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
     if(third_postalarm.stage()==16u){if(!third_postalarm.handler_return_poll(c))reject_postalarm_handler_return();return false;}
 #endif
@@ -719,6 +762,18 @@ template<class C>bool poll(C& c){
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    if(held_epilogue_active()){
+        if(!held_epilogue.entry(c,pc))reject_held_epilogue();
+        if(held_epilogue.stage()==5u){
+            if(!held_epilogue.saved(c))reject_held_epilogue();
+            std::cout<<std::dec<<"V1151_HELD_VECTOR_JOIN original_vector=1 original_trampoline=1 saved_fields=38 vector_visits="
+                     <<held_epilogue.vector_visits()<<" trampoline_visits="<<held_epilogue.trampoline_visits()
+                     <<" token=3 held=1 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;std::_Exit(0);
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN
     if(third_postalarm.stage()==16u){if(!third_postalarm.handler_return_entry(c,pc))reject_postalarm_handler_return();return;}
 #endif

@@ -16,6 +16,12 @@ public:
     unsigned visits()const{return ep_.visits();}
     unsigned vector_visits()const{return next_.vector_visits();}
     unsigned trampoline_visits()const{return next_.trampoline_visits();}
+    // Bind only the actual controller and PI atomics retained by the device.
+    template<class C>bool begin_bound(C& c,uint32_t pc,uint32_t w,const HeldHandlerReturnWitness& prior,
+            ExternalReturnWitness& frame,PostAckTransferDevice& dev){
+        if(!dev.ctl_||!dev.cause_||!dev.mask_)return fail(1);
+        return begin(c,pc,w,prior,frame,dev,*dev.ctl_,*dev.cause_,*dev.mask_);
+    }
     template<class C>bool begin(C& c,uint32_t pc,uint32_t w,const HeldHandlerReturnWitness& prior,
             ExternalReturnWitness& frame,PostAckTransferDevice& dev,SiController& ctl,
             const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask){

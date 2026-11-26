@@ -22,9 +22,10 @@ struct Mmu{
     uint8_t* get_ptr(uint32_t a){return words.count(a&~3u)?&byte:nullptr;}
     uint32_t read32(uint32_t a){return words.at(a);}
     uint8_t read8(uint32_t a){return uint8_t(words.at(a&~3u)>>(24u-8u*(a&3u)));}
+    uint16_t read16(uint32_t a){return uint16_t((uint16_t(read8(a))<<8)|read8(a+1u));}
 };
 struct Cpu{
-    Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint64_t inst_count=100;
+    Mmu mmu;std::array<uint32_t,32> gpr{};std::array<uint32_t,8> gqr{};std::array<Cr,8> cr{};uint64_t inst_count=100;
     uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=Resume,srr1=0x8032u;
     bool is_running=true,in_callback=false,dec_irq_pending=true;
     uint32_t dec_value=300;uint64_t dec_written_tb=50;
@@ -58,6 +59,11 @@ int main(int argc,char** argv){
     need(old.finish(tick,1)&&old.held_now());
     for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u;
     c.gpr[1]=0x8000b000u;c.gpr[3]=Base;
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+    const bool epilogue=v958::held_epilogue_enabled();
+    if(epilogue){c.gpr[13]=0x80039000u;c.gpr[21]=v958::context;}
+    const auto interrupted_gp=c.gpr;const auto interrupted_lr=c.lr,interrupted_ctr=c.ctr,interrupted_xer=c.xer;
+#endif
     need(frame.capture(c,cause.load(),mask.load()));
     for(unsigned i=0;i<32;++i)c.mmu.words[v958::context+4*i]=c.gpr[i];
     c.mmu.words[v958::context+128]=0;
@@ -478,7 +484,62 @@ int main(int argc,char** argv){
                                                 scheduler.advance(++tick);v958::postalarm_handler_dispatch_resume(c,e2.caller,e2.caller_word);
                                             }
                                             if(ff=="-abi")c.gpr[31]^=1u;
-                                            visit(e2.caller,e2.caller_word);need(false);
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+                                            if(epilogue){
+                                                namespace q=v1151;
+                                                c.mmu.words[c.gpr[13]+4]=2;c.mmu.words[c.gpr[13]+8]=0;
+                                                for(unsigned i=0;i<8;++i)c.mmu.words[v958::context+0x1a4u+4*i]=0;
+                                                c.mmu.words[v958::context+0x1a0u]=0;
+                                                c.mmu.words[q::En]=q::branch(q::En,q::Di)|1u;
+                                                c.mmu.words[q::En+4]=q::branch(q::En+4,q::Rs)|1u;c.mmu.words[q::En+8]=Blr;
+                                                c.mmu.words[q::Di]=Blr;c.mmu.words[q::Rs]=Blr;c.mmu.words[q::Re]=Blr;
+                                                c.mmu.words[q::Dest+4]=q::branch(q::Dest+4,q::Re)|1u;
+                                                c.mmu.words[q::Dest+8]=Nop;c.mmu.words[q::Dest+12]=q::branch(q::Dest+12,q::Lo)|1u;
+                                                c.mmu.words[q::Lo]=q::Rfi;c.mmu.words[ExternalVector]=Nop;c.mmu.words[ExternalVector+4]=q::Rfi;
+                                                c.mmu.words[q::T]=Nop;c.mmu.words[q::T+4]=q::tramp[1];c.mmu.words[q::D]=Nop;
+                                            }
+#endif
+                                            visit(e2.caller,e2.caller_word);
+#ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
+                                            if(epilogue){
+                                                need(ff.starts_with("-epilogue"));
+                                                const auto ef=ff.substr(std::string_view("-epilogue").size());
+                                                namespace q=v1151;
+                                                need(v958::held_epilogue.stage()==1u);
+                                                auto ent=[&](uint32_t pc,uint32_t link){c.pc=pc;c.lr=link;v958::observe(pc,c);};
+                                                ent(ef=="-entry"?q::Di:q::En,q::Dest+4);
+                                                if(ef=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                if(ef=="-tick")scheduler.advance(++tick);
+                                                visit(q::En,q::branch(q::En,q::Di)|1u);
+                                                ent(q::Di,q::En+4);visit(q::Di,Blr);
+                                                visit(q::En+4,q::branch(q::En+4,q::Rs)|1u);
+                                                ent(q::Rs,q::En+8);visit(q::Rs,Blr);
+                                                c.lr=q::Dest+4;c.gpr[3]=2;c.mmu.words[c.gpr[13]+4]=1;
+                                                visit(q::En+8,Blr);visit(q::Dest+4,q::branch(q::Dest+4,q::Re)|1u);
+                                                ent(q::Re,q::Dest+8);visit(q::Re,Blr);
+                                                visit(q::Dest+8,Nop);c.gpr[3]=v958::context;
+                                                visit(q::Dest+12,q::branch(q::Dest+12,q::Lo)|1u);ent(q::Lo,q::Dest+16);
+                                                c.gpr=interrupted_gp;c.lr=interrupted_lr;c.ctr=interrupted_ctr;c.xer=interrupted_xer;
+                                                c.cr.fill({});c.srr0=Resume;c.srr1=0x8032u;
+                                                visit(q::Lo,q::Rfi);c.pc=Resume;c.msr=c.srr1;
+                                                if(ef=="-gqr")c.gqr[0]^=1u;
+                                                if(ef=="-image")c.mmu.words[ExternalVector]^=1u;
+                                                need(v958::poll(c)&&c.pc==ExternalVector);
+                                                if(ef!="-outer-poll")need(!v958::poll(c));
+                                                scheduler.advance(++tick);v958::observe(ExternalVector,c);
+                                                visit(ExternalVector,Nop);
+                                                for(unsigned i=3;i<=5;++i)c.mmu.words[v958::context+4*i]=interrupted_gp[i];
+                                                c.srr0=q::T;c.srr1=0x32u;visit(ExternalVector+4,q::Rfi);
+                                                c.pc=q::T;c.msr=c.srr1;c.gpr[3]=4;c.gpr[4]=v958::context;
+                                                need(!v958::poll(c));scheduler.advance(++tick);v958::observe(q::T,c);
+                                                visit(q::T,Nop);visit(q::T+4,q::tramp[1]);
+                                                for(unsigned i=0;i<32;++i)c.mmu.words[v958::context+4*i]=interrupted_gp[i];
+                                                c.pc=q::D;need(!v958::poll(c));scheduler.advance(++tick);
+                                                if(ef=="-saved")c.mmu.words[v958::context+124]^=1u;
+                                                v958::observe(q::D,c);need(false);
+                                            }
+#endif
+                                            need(false);
                                         }
 #endif
                                         visit(v1139::A+64u,v1139::rows[15].word);need(false);

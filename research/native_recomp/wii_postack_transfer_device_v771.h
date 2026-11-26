@@ -7,6 +7,7 @@ namespace undercover::wii {
 // MMIO arguments are matched to the caller's decoded effective address.
 // Never writes PI directly, advances time, or fabricates a response.
 class PostAckTransferDevice {
+    friend class HeldPendingEpilogueWitness;
 public:
     enum class Access : unsigned {None,Read,Write};
     unsigned stage()const noexcept{return stage_;}

@@ -8,5 +8,5 @@ inline constexpr auto restore=[]{
     out.back()=0x4e800020u;return out;
 }();
 inline constexpr HandlerReturnExpectation expected{v1139::A+64u,v1139::A+128u,0x8003a000u,
-    restore,{0x80010084u,0x7c0803a6u,0x38210080u,0x4e800020u},0x60000000u};
+    restore,{0x80010084u,0x7c0803a6u,0x38210080u,0x4e800020u},0x48001001u};
 }
