@@ -576,7 +576,9 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     if(selection_route){
-        if(!selection_witness->boundary(c,device_ok(c))||!selection_route->poll(c,device_ok(c)))selection_refuse(4);
+        const auto detail=selection_witness->boundary_detail(c,device_ok(c));
+        if(detail){std::cout<<"V1332_SELECTION_BOUNDARY detail="<<detail<<'\n';selection_refuse(4);}
+        if(!selection_route->poll(c,device_ok(c)))selection_refuse(4);
         return false;
     }
 #endif

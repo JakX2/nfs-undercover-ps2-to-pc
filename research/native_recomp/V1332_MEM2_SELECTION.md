@@ -1,0 +1,3 @@
+# V1332: preserve original MEM2 waiting queue at the selection boundary
+
+V1329 owner run 45817005689 verified 181 route labels and 369 combined native labels, compiled and executed through second idle RFI, then refused the first selection poll (stage 1, route 1, route reason 0, visits 0). The actual IPC request heap is in MEM2 (0x9338xxxx), and the existing wake witness accepts both MEM1 and MEM2 while the selection witness only accepted MEM1. Use the predecessor's contiguous mapped RAM predicate, not MMIO or physical aliases. Exercise the entire joined route with the waiting queue in MEM2 plus a corrupted queue case. Add bounded selection boundary diagnostics. Owner retry pending; the mapping correction is source-derived, not yet native-confirmed.

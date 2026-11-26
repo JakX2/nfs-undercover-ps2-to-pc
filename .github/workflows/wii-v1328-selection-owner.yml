@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/V1328_SELECTION_OWNER.md'
       - 'research/native_recomp/V1329_SCALAR_RESUME_FIX.md'
+      - 'research/native_recomp/V1332_MEM2_SELECTION.md'
       - '.github/workflows/wii-v1328-selection-owner.yml'
 permissions:
   contents: read

@@ -37,18 +37,20 @@ public:
     // Call at each native instruction or callback during selection, before
     // OSLoadContext starts changing CPU registers. Intermediate scheduler
     // list/pointer stores need not be atomic.
-    template<class C>bool boundary(C& c,bool held)const{
-        if(stage_<1u||stage_>6u||error_||!prior_||cpu_!=&c||!prior_->selection_transport_held(c,held)||
-           !word(c,e_.counter,0u)||!word(c,e_.callback_ptr,e_.callback)||
-           !word(c,wait_,0u)||!word(c,wait_+4u,0u)||!word(c,e_.thread+720u,priority_)||
-           c.inst_count<tick_||c.inst_count-tick_>4096u)return false;
-        if(stage_<=2u&&!ready_state(c))return false;
-        if(stage_<=4u&&!idle_active(c))return false;
-        if(stage_>=4u&&!selected_queue(c))return false;
-        if(stage_>=2u&&stage_<=6u&&(c.msr&0x8000u)&&stage_!=2u)return false;
-        for(unsigned i=0;i<image_.size();++i)if(!word(c,e_.thread+4u*i,image_[i]))return false;
-        return true;
+    template<class C>unsigned boundary_detail(C& c,bool held)const{
+        if(stage_<1u||stage_>6u||error_||!prior_||cpu_!=&c)return 1u;
+        if(!prior_->selection_transport_held(c,held))return 2u;
+        if(!word(c,e_.counter,0u)||!word(c,e_.callback_ptr,e_.callback))return 3u;
+        if(!word(c,wait_,0u)||!word(c,wait_+4u,0u))return 4u;
+        if(!word(c,e_.thread+720u,priority_)||c.inst_count<tick_||c.inst_count-tick_>4096u)return 5u;
+        if(stage_<=2u&&!ready_state(c))return 6u;
+        if(stage_<=4u&&!idle_active(c))return 7u;
+        if(stage_>=4u&&!selected_queue(c))return 8u;
+        if(stage_>=3u&&(c.msr&0x8000u))return 9u;
+        for(unsigned i=0;i<image_.size();++i)if(!word(c,e_.thread+4u*i,image_[i]))return 10u;
+        return 0u;
     }
+    template<class C>bool boundary(C& c,bool held)const{return boundary_detail(c,held)==0u;}
     template<class C>bool entry(C& c,uint32_t pc,bool held){
         if(!boundary(c,held)||c.pc!=pc||c.inst_count<=last_)return fail(2);
         if(stage_==1u&&matches(c,e_.disable)&&pc==e_.disable.pc&&(c.msr&0x8000u)){
@@ -81,7 +83,10 @@ private:
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
         const uint64_t end=uint64_t(a)+n;
-        return n&&a>=0x80000000u&&end<=0x81800000ull&&c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+n-1u);
+        if(!n||!((a>=0x80000000u&&end<=0x81800000ull)||(a>=0x90000000u&&end<=0x94000000ull)))return false;
+        auto* p=c.mmu.get_ptr(a);auto* q=c.mmu.get_ptr(a+n-1u);
+        return p&&q&&reinterpret_cast<uintptr_t>(q)>=reinterpret_cast<uintptr_t>(p)&&
+            reinterpret_cast<uintptr_t>(q)-reinterpret_cast<uintptr_t>(p)==n-1u;
     }
     template<class C>static bool word(C& c,uint32_t a,uint32_t v){
         return !(a&3u)&&mapped(c,a,4u)&&c.mmu.read32(a)==v;

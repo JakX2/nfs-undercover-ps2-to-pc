@@ -31,7 +31,7 @@
 #include <vector>
 using namespace undercover::wii;
 using H=HollywoodIrq;using M=IpcMailbox;using S=StmIos;using Bus=IosBus;
-constexpr uint32_t Context=0x80004000u,Thread=0x80006000u,Queue=0x80008000u,
+constexpr uint32_t Context=0x80004000u,Thread=0x80006000u,undercover_queue_default=0x80008000u,
     Table=0x80003040u,Global=0x80009000u,Counter=0x80009100u,
     Handler=0x80010000u,Resume=0x80005000u,Request=0x100u,Path=0x800u,
     Other=0x100u,Mask=H::PI_HOLLYWOOD;
@@ -43,9 +43,10 @@ constexpr SiDispatchExpectations Code{
         {0x80015000u,0x80013108u,7u,8u}}},
     0x8001200cu,0x4e800421u,9u,10u};
 struct Mmu{
-    std::span<uint8_t> mem;WiiPhysicalRam& ram;
+    std::span<uint8_t> mem;WiiPhysicalRam& ram;std::span<uint8_t> mem2{};
     uint8_t* get_ptr(uint32_t a){
         const auto p=a&0x3fffffffu;
+        if(p>=0x10000000u&&p-0x10000000u<mem2.size())return mem2.data()+p-0x10000000u;
         return p<mem.size()?mem.data()+p:nullptr;
     }
     uint8_t read8(uint32_t a)const{return ram.read8(a&0x3fffffffu);}
@@ -91,7 +92,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
 #ifdef UNDERCOVER_TEST_JOINED_ACK
     NativeIosBinding binding(host);
 #endif
-    Cpu c{{one,ram}};
+    Cpu c{{one,ram,two}};
+    const uint32_t Queue=idle_case>=22u?0x90000100u:undercover_queue_default;
     constexpr std::string_view name="/dev/stm/immediate";
     for(unsigned i=0;i<name.size();++i)ram.write8(Path+i,uint8_t(name[i]));
     ram.write8(Path+name.size(),0);ram.write32(Request,S::Open);ram.write32(Request+12u,Path);
@@ -480,6 +482,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                     IdleSelectionWitness select({Thread,Context,Counter,CBP,CB,d,cl,set,load,cb});
                     ok=select.begin(c,join,true);
                     if(idle_case==14){assert(!ok&&select.failure()==1u);return;}assert(ok);
+                    assert(select.boundary(c,true));
+                    if(idle_case==23){m.write32(Queue+4u,Thread);assert(select.boundary_detail(c,true)==4u);return;}
                     auto enter=[&](VectorEdge e){c.pc=e.pc;c.lr=e.lr;++c.inst_count;return select.entry(c,e.pc,true);};
                     if(idle_case==15)c.msr&=~0x8000u;
                     ok=enter(d);if(idle_case==15){assert(!ok&&select.failure()==3u);return;}assert(ok);
@@ -500,7 +504,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                     ok=enter(load);if(idle_case==20){assert(!ok&&select.failure()==3u);return;}assert(ok);
                     assert(select.loader_ready(c,true));
                     if(idle_case==21){++c.inst_count;assert(!select.loader_ready(c,true));}
-                    else assert(idle_case==13u);
+                    else assert(idle_case==13u||idle_case==22u);
                     return;
                 }
 #endif
@@ -629,8 +633,8 @@ int main(){
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
     std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_IDLE_SELECTION
-    for(unsigned i=13;i<=21;++i)trial(0,0,true,0,0,0,0,1,i);
-    std::cout<<"V1319_IDLE_SELECTION synthetic=1 valid=1 refused=8 ready_drained=1 native_loader_entry=0 original_execution=0\n";
+    for(unsigned i=13;i<=23;++i)trial(0,0,true,0,0,0,0,1,i);
+    std::cout<<"V1332_IDLE_SELECTION synthetic=1 valid=2 refused=9 mem2_wait_queue=1 ready_drained=1 native_loader_entry=0 original_execution=0\n";
 #endif
 #endif
 #endif
