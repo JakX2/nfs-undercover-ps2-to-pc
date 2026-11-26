@@ -1,0 +1,97 @@
+name: Wii Original IPC Profiling Helper Return
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/prepare_ipc_profile_native.py'
+      - 'research/native_recomp/prepare_ipc_profile_geometry.py'
+      - 'research/native_recomp/wii_ipc_profile_execution.h'
+      - 'research/native_recomp/test_ipc_profile_execution.cpp'
+      - '.github/workflows/wii-ipc-profile-owner.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-ipc-profile-owner-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_ipc_profile_native.py research/native_recomp/prepare_ipc_profile_geometry.py
+          for test in test_ipc_profile_execution test_ipc_profile_enqueue_v1415 test_ipc_ring_enqueue_v1413 test_ioctl_submit_queue_v1409; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
+  owner-profile:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require verified original ring, private profile geometry and source contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          reqs=(
+              Requirement(45848283031,'8a3916c9ddd2f0c0882d7a9bd5016e8174b003ec',
+                          '.github/workflows/wii-v1410-ioctl-queue-owner.yml','owner-queue'),
+              Requirement(45848747526,'65fb9cd2346ba7ba760c51b9e48e7018e0131aba',
+                          '.github/workflows/wii-v1410-ioctl-queue-owner.yml','owner-queue'),
+              Requirement(45849414950,'7d7c1694862dd1644256e109e3d78bde1bcf99f9',
+                          '.github/workflows/wii-ipc-profile-geometry.yml','owner-geometry'),
+              Requirement(45849598881,'072bfac33982cf0c7a1f98ce40bf52f43ef67914',
+                          '.github/workflows/wii-ipc-profile-execution.yml','source'),
+          )
+          def fetch(path):
+              raw=subprocess.check_output(['gh','api',f"repos/{os.environ['GH_REPO']}/{path}"],stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:
+              ok=all(verify(fetch,req) for req in reqs)
+          except (OSError,ValueError,subprocess.SubprocessError):
+              ok=False
+          if not ok:raise SystemExit('IPC_PROFILE_OWNER_GATE verified=0')
+          print('IPC_PROFILE_OWNER_GATE verified=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original IPC profiling helper to return
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw1352"
+          git -C "$RUNNER_TEMP/nw1352" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1352" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1352" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nw1352" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --irq-stm-ioctl-profile
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw1352"
