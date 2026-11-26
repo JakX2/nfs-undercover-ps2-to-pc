@@ -536,6 +536,40 @@ int main(int argc,char** argv){
                                                 for(unsigned i=0;i<32;++i)c.mmu.words[v958::context+4*i]=interrupted_gp[i];
                                                 c.pc=q::D;need(!v958::poll(c));scheduler.advance(++tick);
                                                 if(ef=="-saved")c.mmu.words[v958::context+124]^=1u;
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+                                                if(v958::held_dispatch_enabled()){
+                                                    need(ef.starts_with("-dispatch"));
+                                                    const auto df=ef.substr(std::string_view("-dispatch").size());
+                                                    const auto& e3=v1158::expected;
+                                                    constexpr uint32_t Handler=SiDispatchWitness::Handler;
+                                                    for(auto edge:e3.edges){
+                                                        c.mmu.words[edge.pc]=edge.entry_word;c.mmu.words[edge.lr-4u]=edge.branch_word;
+                                                    }
+                                                    c.mmu.words[e3.indirect_pc]=e3.indirect_word;c.mmu.words[Handler]=e3.handler_word;
+                                                    c.mmu.words[0x80003090u]=Handler;c.mmu.words[0x800000d4u]=v958::context;c.mmu.words[0x800000e4u]=v958::context;
+                                                    if(df=="-owner")c.mmu.words[0x80003090u]^=4u;
+                                                    SecondSiDispatchWitness busy(e3);
+                                                    if(df=="-busy")second_dispatch_mmio=&busy;
+                                                    v958::observe(q::D,c);
+                                                    need(v958::held_epilogue.stage()==6u&&second_dispatch_mmio==v958::held_epilogue.dispatch_witness());
+                                                    if(df=="-tick")scheduler.advance(++tick);
+                                                    if(df=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                    if(df=="-trace")second_dispatch_mmio=nullptr;
+                                                    visit(q::D,Nop,df=="-guard");
+                                                    record_second_dispatch_pi(false,0x0c003000u,32,cause.load()^(df=="-value"?SI:0),false);
+                                                    if(df!="-missing")record_second_dispatch_pi(false,0x0c003004u,32,mask.load(),false);
+                                                    if(df=="-duplicate")record_second_dispatch_pi(false,0x0c003000u,32,cause.load(),false);
+                                                    for(unsigned i=0;i<4;++i){
+                                                        const auto edge=e3.edges[i];
+                                                        visit(edge.lr-4u,edge.branch_word);
+                                                        c.pc=edge.pc;c.lr=edge.lr;v958::observe(df=="-entry"&&i==0?edge.pc+4u:edge.pc,c);
+                                                        visit(edge.pc,edge.entry_word);need(!v958::poll(c));
+                                                    }
+                                                    visit(e3.indirect_pc,e3.indirect_word);
+                                                    c.pc=Handler;c.ctr=Handler;c.lr=e3.indirect_pc+4u;c.gpr[3]=df=="-handler"?19u:20u;c.gpr[4]=v958::context;
+                                                    v958::observe(Handler,c);need(false);
+                                                }
+#endif
                                                 v958::observe(q::D,c);need(false);
                                             }
 #endif

@@ -24,6 +24,9 @@
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
 #include "wii_held_pending_epilogue_v1149.h"
 #include "v1151_private_held_epilogue.h"
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+#include "v1158_private_held_dispatch.h"
+#endif
 #endif
 #endif
 #endif
@@ -74,6 +77,9 @@ inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V109
 inline thread_local HeldPendingEpilogueWitness held_epilogue(v1151::epilogue,v1151::vector);
 inline bool held_epilogue_enabled(){const char* v=std::getenv("UNDERCOVER_V1151_HELD_EPILOGUE");return v&&v[0]=='1'&&v[1]==0;}
 inline bool held_epilogue_active(){return held_epilogue.stage()!=0u;}
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_HELD_DISPATCH");return v&&v[0]=='1'&&v[1]==0;}
+#endif
 [[noreturn]]inline void reject_held_epilogue(){
     std::cout<<std::dec<<"V1151_HELD_EPILOGUE_FAULT stage="<<held_epilogue.stage()<<" reason="<<held_epilogue.failure()
              <<" epilogue="<<held_epilogue.epilogue_failure()<<" reentry="<<held_epilogue.reentry_failure()<<std::endl;std::_Exit(126);
@@ -401,6 +407,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_postalarm_handler_return_enabled()&&!third_postalarm_handler_enabled())return false;
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_enabled()&&!third_postalarm_handler_return_enabled())return false;
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+    if(held_dispatch_enabled()&&!held_epilogue_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -454,7 +463,16 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
-    if(held_epilogue_active()){if(guard||!held_epilogue.before(c,pc,w))reject_held_epilogue();return;}
+    if(held_epilogue_active()){
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+        if(held_epilogue.stage()==6u){
+            if(second_dispatch_mmio!=held_epilogue.dispatch_witness()||!held_epilogue.dispatch_before(c,pc,w,guard))reject_held_epilogue();
+            return;
+        }
+#endif
+        if(guard||!held_epilogue.before(c,pc,w))reject_held_epilogue();
+        return;
+    }
 #endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(queue_detail_enabled()&&!queue_history.sample(c))reject(18);
@@ -697,6 +715,9 @@ template<class C>bool poll(C& c){
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
         using Poll=HeldPendingEpilogueWitness::PollResult;
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+        if(held_epilogue.stage()==6u&&second_dispatch_mmio!=held_epilogue.dispatch_witness())reject_held_epilogue();
+#endif
         const auto p=held_epilogue.poll(c,v1151::image);
         if(p==Poll::Rejected)reject_held_epilogue();
         if(p==Poll::Entered){
@@ -764,12 +785,33 @@ template<class C>bool poll(C& c){
 template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     if(held_epilogue_active()){
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+        if(held_epilogue.stage()==6u&&second_dispatch_mmio!=held_epilogue.dispatch_witness())reject_held_epilogue();
+#endif
         if(!held_epilogue.entry(c,pc))reject_held_epilogue();
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+        if(held_epilogue.stage()==7u){
+            if(!held_epilogue.dispatch_saved(c))reject_held_epilogue();
+            second_dispatch_mmio=nullptr;
+            std::cout<<std::dec<<"V1158_HELD_DISPATCH original_dispatcher=1 original_leaves=4 original_indirect=1 visits="
+                     <<held_epilogue.dispatch_visits()<<" entries="<<held_epilogue.dispatch_entries()
+                     <<" pi_reads="<<held_epilogue.dispatch_reads()<<" polls="<<held_epilogue.dispatch_polls()
+                     <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+#endif
         if(held_epilogue.stage()==5u){
             if(!held_epilogue.saved(c))reject_held_epilogue();
             std::cout<<std::dec<<"V1151_HELD_VECTOR_JOIN original_vector=1 original_trampoline=1 saved_fields=38 vector_visits="
                      <<held_epilogue.vector_visits()<<" trampoline_visits="<<held_epilogue.trampoline_visits()
-                     <<" token=3 held=1 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;std::_Exit(0);
+                     <<" token=3 held=1 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
+            if(held_dispatch_enabled()){
+                if(second_dispatch_mmio||!held_epilogue.begin_dispatch(c,v1158::expected))reject_held_epilogue();
+                second_dispatch_mmio=held_epilogue.dispatch_witness();return;
+            }
+#endif
+            std::_Exit(0);
         }
         return;
     }

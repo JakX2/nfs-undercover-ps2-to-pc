@@ -19,9 +19,10 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_postalarm_handler_v1139.h',root/'v1139_private_postalarm_handler.h')
             shutil.copyfile(HOST/'synthetic_postalarm_handler_return_v1145.h',root/'v1145_private_postalarm_handler_return.h')
             shutil.copyfile(HOST/'synthetic_held_epilogue_v1151.h',root/'v1151_private_held_epilogue.h')
+            shutil.copyfile(HOST/'synthetic_held_dispatch_v1158.h',root/'v1158_private_held_dispatch.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n'
-                +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n'
+                +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
 inline constexpr std::array<AckCallSpan,5> third_spans{{{0x80004000u,0x80004020u},{0x80004700u,0x80004750u},{0x80004800u,0x80004804u},{0x80004900u,0x80004904u},{0x80004a00u,0x80004a04u}}};
@@ -220,4 +221,17 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=[1-4] reason=[1-5] epilogue=[0-9] reentry=[0-9]+$')
+            env['UNDERCOVER_V1158_HELD_DISPATCH']='1'
+            for fault in ('','-owner','-busy','-tick','-frame','-trace','-guard','-value','-missing','-duplicate','-entry','-handler'):
+                with self.subTest(held_dispatch=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1151_HELD_VECTOR_JOIN original_vector=1 original_trampoline=1 saved_fields=38 vector_visits=2 trampoline_visits=2 token=3 held=1 dispatcher_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1158_HELD_DISPATCH original_dispatcher=1 original_leaves=4 original_indirect=1 visits=10 entries=5 pi_reads=2 polls=4 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=[56] reason=[0-8] epilogue=[0-9] reentry=[0-9]+$')
 if __name__=='__main__':unittest.main()
