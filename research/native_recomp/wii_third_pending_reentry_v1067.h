@@ -313,6 +313,11 @@ public:
         return return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
                witness.dispatch_resume(c,pc,w,true)?true:fail(39);
     }
+    template<class C,class W>bool callback_return_boundary(C& c,W& witness)const{
+        return stage_==22u&&!error_&&cpu_==&c&&return_==&witness&&witness.stage()==5u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // Return label already belongs to the callback-return witness; it must
     // not consume another ACK tick. Allow only the bounded handler suffix.
     template<class C,class W>bool begin_handler_suffix(C& c,W& prior,uint32_t pc,uint32_t w,
