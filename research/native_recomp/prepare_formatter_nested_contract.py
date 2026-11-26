@@ -13,10 +13,11 @@ def byte_cells(v,n):
     if v[0]=='const':return tuple(('byte',(v[1]>>(8*(n-1-i)))&255) for i in range(n))
     return tuple(('part',v,n,i) for i in range(n))
 
-def contract(entry,record,words,blocks,resolve):
+def contract(entry,record,words,blocks,resolve,*,extended=False):
     root,initial,parent,caller,readonly=entry
     at,n,path,frame,sites,gp,mem,cr,ctr,lr,saves=record
-    if len(path)!=36 or path[0]!=root or len(set(path))!=36 or frame!=48 or len(sites)!=13 or n!=4:
+    labels,accesses=(45,14) if extended else (36,13)
+    if len(path)!=labels or path[0]!=root or len(set(path))!=labels or frame!=48 or len(sites)!=accesses or n!=4:
         raise ValueError('nested contract geometry')
     if initial[1][0]!='stack' or gp[1]!=('stack',initial[1][1]-frame) or lr!=('const',caller):
         raise ValueError('nested contract stack')

@@ -26,11 +26,11 @@ def summarize(cell,record):
         raise ValueError('second frontier predecessor')
     return len(path)-1,len(set(path[:-1])),len(path)-36,frame,sites,n
 
-def plan(d,e):
-    cell=candidate(d,e);missed=[]
-    try:nested(d,e,candidate=cell,read_refusal=lambda *args:missed.append(args))
+def plan(d,e,*,details=False):
+    cell=candidate(d,e);missed=[];entries=[]
+    try:nested(d,e,candidate=cell,read_refusal=lambda *args:missed.append(args),entry_observer=lambda *args:entries.append(args))
     except ValueError:
-        if len(missed)!=1:raise ValueError('second frontier refusal')
+        if len(missed)!=1 or len(entries)!=1:raise ValueError('second frontier refusal')
     else:raise ValueError('second frontier no refusal')
     record=missed[0];counts=summarize(cell,record)
     at,n=record[:2];kind=classify_section(e,at,n)
@@ -39,7 +39,8 @@ def plan(d,e):
     if blob is not None and kind in ('writable','readonly'):
         try:equal=elf_data(e,at,n)==blob
         except ValueError:pass
-    return counts,kind,int(blob is not None),int(equal)
+    result=(counts,kind,int(blob is not None),int(equal))
+    return (*result,entries[0],record,cell) if details else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
