@@ -6,7 +6,10 @@ import struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL,OWNER_SHA,EXPECTED_GPRS
 from make_private_elf_symbol_map import HEADER,ORIGINAL_SHA256
-from make_v1255_ack_fixture import geometry,IPC
+from make_v1255_ack_fixture import geometry,IPC,DISPATCH_RETURN
+from make_v624_ipc_geometry import exact_words
+from prepare_v625_ipc_client import audit_native
+from prepare_v680_si_helper import verify_direct
 from prepare_ipc_dispatch_geometry import credit_object
 from prepare_ipc_profile_geometry import layout
 from prepare_v1414_ipc_ring import ring_object
@@ -65,7 +68,7 @@ def reachable(words,blocked=None):
         work.append(i+1)
     return seen
 
-def credit_sites(root,words,address,call,bases):
+def credit_sites(root,words,address,call,bases,*,return_site=False):
     if not root<call<root+4*len(words):raise ValueError('ack call extent')
     sites=[]
     for i,w in enumerate(words):
@@ -87,7 +90,7 @@ def credit_sites(root,words,address,call,bases):
         if op in (16,18) and not(w&1):
             mask,sign=(0xfffc,0x8000) if op==16 else (0x03fffffc,0x02000000)
             if (((w&mask)^sign)-sign)<=0:raise ValueError('ack credit loop')
-    return len(sites)
+    return root+4*i if return_site else len(sites)
 
 def derive(d,e):
     if hashlib.sha256(d).hexdigest()!=OWNER_SHA or hashlib.sha256(e).hexdigest()!=ORIGINAL_SHA256:
@@ -105,13 +108,59 @@ def derive(d,e):
     credit_sites(IPC,native[IPC],credit[0],lr-4,bases)
     return len(native[target]),1,1
 
+def execution_plan(d,e):
+    derive(d,e)
+    native,_,edges,_=geometry(d,e)
+    read,write=0x8051905c,0x8051906c
+    profile=next(x for x in native if x not in (IPC,read,write))
+    admitted={IPC,read,write,profile}
+    calls=tuple((lr-4,t,w) for t,lr,w,_ in edges if t in admitted)
+    if any(t==IPC for _,t,_ in calls):raise ValueError('ack recursive call')
+    profile_call=[site for site,t,_ in calls if t==profile]
+    if len(profile_call)!=1:raise ValueError('ack profile edge')
+    bases={i:EXPECTED_GPRS[i] for i in (2,13)}
+    credit=credit_sites(IPC,native[IPC],credit_object(d,e)[0],profile_call[0],bases,return_site=True)
+    words={a+4*i:(a,w) for a,ws in native.items() for i,w in enumerate(ws)}
+    ret=exact_words(d,e,DISPATCH_RETURN,1)[0]
+    return (IPC,DISPATCH_RETURN,ret,IPC+4*(len(native[IPC])-1),read,write,profile,credit,profile+8),words,calls
+
+def render(p):
+    expect,words,calls=p
+    fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    def arr(name,typ,rows):
+        return f'inline constexpr std::array<undercover::wii::{typ},{len(rows)}> {name}'+'{'+','.join('undercover::wii::'+typ+'{'+fmt(row)+'}' for row in rows)+'};\n'
+    return ('#pragma once\n#include "wii_deferred_ack_execution.h"\nnamespace deferred_ack_private {\n'+
+        arr('words','IpcDispatchWord',[(owner,pc,w) for pc,(owner,w) in sorted(words.items())])+
+        arr('calls','IpcDispatchEdge',calls)+
+        'inline constexpr undercover::wii::DeferredAckExpectation expected{'+fmt(expect)+',words,calls};\n}\n')
+
+def audit_execution(root,p):
+    expect,words,calls=p
+    sources=[x.read_text() for x in sorted(root.glob('output_*.cpp'))]
+    audit_native(sources,(root/'main_output.cpp').read_text(),words)
+    for site,target,_ in calls:
+        hits=[s for s in sources if f'loc_{site:X}: ;' in s]
+        if len(hits)!=1:raise ValueError('ack native edge')
+        verify_direct(hits[0],site,target)
+    for pc,(_,w) in words.items():
+        hook=f'    v1266_before(ctx,0x{pc:08x}u,0x{w:08x}u);'
+        if sum(s.count(hook) for s in sources)!=1:raise ValueError('ack prior hook')
+    print(f'DEFERRED_ACK_TRANSLATION verified=1 labels={len(words)} direct_edges={len(calls)}')
+
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--out',type=Path);a.add_argument('--audit',type=Path);q=a.parse_args()
     allowed={'size','identity','ack profile extent','ack profile dataflow','ack profile load','ack profile store','ack call extent','ack credit stores',
-             'ack credit dataflow','ack credit clobber','ack credit definition','ack credit add','ack credit load','ack credit dominance','ack credit loop','ack absolute branch','ack profile edge','ack object overlap'}
+             'ack credit dataflow','ack credit clobber','ack credit definition','ack credit add','ack credit load','ack credit dominance','ack credit loop','ack absolute branch','ack profile edge','ack object overlap','ack recursive call','ack native edge','ack prior hook',
+             'native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not HEADER.size<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        labels,credit,profile=derive(q.dol.read_bytes(),q.elf.read_bytes())
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        labels,credit,profile=derive(d,e)
+        if q.audit:audit_execution(q.audit,execution_plan(d,e));return 0
+        if q.out:
+            p=execution_plan(d,e)
+            with (q.out/'private_deferred_ack_execution.h').open('x') as f:f.write(render(p))
+            print(f'DEFERRED_ACK_PRIVATE verified=1 labels={len(p[1])} direct_edges={len(p[2])}')
     except (OSError,ValueError,KeyError,IndexError,struct.error) as ex:
         print('IPC_DEFERRED_ACK_GEOMETRY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input'))
         return 1
