@@ -92,14 +92,28 @@ public:
         if(ack_.stage()==3u){
             if(ack_.token()!=3u||!ack_.reads()||!ack_.writes()||!ack_calls_.entries()||
                !ack_calls_.returns()||!ack_.response_class_verified())return fail(11);
-            stage_=8u;return true;
+            stage_=8u;ack_successor_=pc;ack_successor_word_=w;return true;
         }
+        observe_ack_access(c,w);
+        return true;
+    }
+    // Resume the exact verified successor, at the same tick. The native
+    // call witness already consumed its label; never consume it twice.
+    template<class C>bool resume_ack(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=8u||error_||cpu_!=&c||!dev_||dev_->stage()!=3u||
+           pc!=ack_successor_||w!=ack_successor_word_||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !ack_.resume_after_ack(c,pc,w))return fail(17);
+        stage_=9u;observe_ack_access(c,w);return true;
+    }
+private:
+    template<class C>void observe_ack_access(C& c,uint32_t w){
         const auto access=PostAckTransferDevice::word_access(c,w);
         if(access.kind==PostAckTransferDevice::Access::Read&&PostAckTransferDevice::offset(access.address)){
             ack_read_reg_=(w>>21)&31u;ack_read_reverse_=(w>>26)==31u&&((w>>1)&1023u)==534u;
         }
-        return true;
     }
+public:
     template<class C>bool ack_entry(C& c,uint32_t pc){
         return ack_frame(c)&&ack_calls_.entry(c,pc)&&ack_.poll(c.inst_count)?true:fail(12);
     }
@@ -107,22 +121,27 @@ public:
         return ack_frame(c)&&ack_calls_.can_poll()&&ack_.poll(c.inst_count)?true:fail(13);
     }
     bool ack_read(unsigned off,uint32_t& v){
-        if(stage_!=7u||error_||ack_read_reg_>=32u||ack_read_result_||!ack_.read(*ctl_,off,v))return fail(14);
+        if(!ack_active()||error_||ack_read_reg_>=32u||ack_read_result_||!ack_.read(*ctl_,off,v))return fail(14);
         // The hardware read is always the bus value. Only the original
         // translated lwbrx instruction reverses it in the destination GPR.
         ack_read_result_=ack_read_reverse_?(v>>24)|((v>>8)&0xff00u)|((v<<8)&0xff0000u)|(v<<24):v;
         return true;
     }
     bool ack_write(unsigned off,uint32_t v){
-        return stage_==7u&&!error_&&ack_.write(*ctl_,off,v)?true:fail(15);
+        return ack_active()&&!error_&&ack_.write(*ctl_,off,v)?true:fail(15);
+    }
+    bool ack_active()const{return stage_==7u||stage_==9u;}
+    template<class C>bool postack_held(C& c)const{
+        return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
     }
     const SecondCompletionAck& completion_ack()const{return ack_;}
     const BoundedAckCallRoute& ack_calls()const{return ack_calls_;}
 private:
     template<class C>bool ack_frame(C& c)const{
-        return stage_==7u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
+        return ack_active()&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    uint32_t ack_successor_=0,ack_successor_word_=0;
     unsigned ack_read_reg_=32u;bool ack_read_reverse_=false;
     std::optional<uint32_t> ack_read_result_;
     SecondCompletionAck ack_;
