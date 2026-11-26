@@ -311,6 +311,37 @@ int main(int argc,char** argv){
                         c.gpr[3]=fault=="-frontier-channel"?1u:2u;c.gpr[4]=0u;
                         visit(Root+36,v831::words[2].word);
                         if(fault!="-frontier-store")c.mmu.words[c.gpr[1]+8u]=0;
+#ifdef UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS
+                        if(fault.starts_with("-frontier-wireless")){
+                            const auto wf=fault.substr(std::string_view("-frontier-wireless").size());
+                            put(v847::A,v847::setter);put(v847::B,v847::getter);put(v847::U,v847::unlock);
+                            put(v847::D,v847::disable);put(v847::R,v847::restore);
+                            c.mmu.words[v847::L]=Nop;c.mmu.words[Root+48u]=Nop;
+                            for(unsigned i=0;i<20u;++i)c.mmu.words[v847::SRAM+4u*i]=0;
+                            c.mmu.words[v847::SRAM+64u]=64u;c.mmu.words[v847::SRAM+76u]=1u;
+                            if(wf=="-changed")c.mmu.words[v847::SRAM+52u]=0x01000100u;
+                            if(wf=="-identity")c.mmu.words[v847::A]^=1u;
+                            visit(Root+40,v831::words[3].word);
+                            need(v958::third_postalarm.stage()==8u&&v958::third_postalarm.wireless_witness()&&!v958::third_postalarm.wireless_witness()->changed());
+                            c.pc=v847::A;c.lr=Root+44u;
+                            v958::observe(wf=="-entry"?v847::B:c.pc,c);
+                            if(wf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                            if(wf=="-tick")scheduler.advance(++tick);
+                            if(wf=="-device")mask=0;
+                            if(wf=="-poll")v958::poll(c);
+                            visit(v847::A,v847::setter[0]);
+                            c.gpr[3]=0;c.gpr[4]=20;c.gpr[5]=v847::SRAM;c.mmu.words[v847::SRAM+72u]=1u;
+                            c.pc=v847::U;c.lr=v847::A+4u;v958::observe(c.pc,c);
+                            visit(v847::U,v847::unlock[0]);c.pc=v847::D;c.lr=v847::U+4u;v958::observe(c.pc,c);
+                            visit(v847::D,Blr);c.gpr[4]=0;visit(v847::U+4u,v847::unlock[1]);
+                            c.mmu.words[v847::SRAM+72u]=wf=="-store"?1u:0u;
+                            visit(v847::U+8u,v847::unlock[2]);c.pc=v847::R;c.lr=v847::U+12u;v958::observe(c.pc,c);
+                            visit(v847::R,Blr);visit(v847::U+12u,Nop);c.lr=v847::A+4u;
+                            visit(v847::U+16u,Blr);visit(v847::A+4u,Nop);c.lr=Root+44u;
+                            if(wf=="-abi")c.gpr[31]^=1u;
+                            visit(v847::A+8u,Blr);visit(Root+44u,v831::words[4].word);need(false);
+                        }
+#endif
                         visit(Root+40,v831::words[3].word);need(false);
                     }
 #endif

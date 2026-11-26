@@ -7,6 +7,7 @@
 #include "wii_callback_identity_v796.h"
 #include "wii_callback_time_v810.h"
 #include "wii_callback_frontier_v829.h"
+#include "wii_wireless_wrapper_v844.h"
 #include <optional>
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
@@ -186,16 +187,40 @@ public:
             return fail(10);
         frontier_.emplace(e);
         if(!frontier_->start(c,pc,w,channel_,true,true)||!frontier_->before(c,pc,w,true))return fail(10);
-        stage_=frontier_->stage()==2u?7u:6u;return true;
+        stage_=frontier_->stage()==2u?7u:6u;
+        if(stage_==7u){frontier_site_=pc;frontier_word_=w;}return true;
     }
     template<class C>bool frontier_before(C& c,uint32_t pc,uint32_t w){
         if(stage_!=6u||!frontier_||!common(c)||c.inst_count-last_!=1u||
            !dev_->after_return_at(c.inst_count)||!held()||!frontier_->before(c,pc,w,true))return fail(11);
-        last_=c.inst_count;if(frontier_->stage()==2u)stage_=7u;return true;
+        last_=c.inst_count;if(frontier_->stage()==2u){frontier_site_=pc;frontier_word_=w;stage_=7u;}return true;
     }
     unsigned frontier_failure()const{return frontier_?frontier_->failure():0u;}
     const CallbackFrontierWitness* frontier_witness()const{return frontier_?&*frontier_:nullptr;}
+    // Retain the asserted third token across the unchanged wireless setter.
+    // The previous frontier already paid the call-site tick.
+    template<class C>bool start_wireless(C& c,uint32_t pc,uint32_t w,WirelessExpectation e){
+        if(stage_!=7u||wireless_||!frontier_||frontier_->stage()!=2u||frontier_->ordinal()!=3u||
+           frontier_->zero_id()!=1u||!common(c)||!held()||c.inst_count!=last_||
+           pc!=frontier_site_||w!=frontier_word_||c.gpr[3]!=channel_||c.gpr[4]!=0u)return fail(12);
+        wireless_.emplace(e);
+        if(!wireless_->start(c,pc,w,true,true)||wireless_->changed()||wireless_->ordinal()!=3u)return fail(12);
+        stage_=8u;return true;
+    }
+    template<class C>bool wireless_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=8u||!wireless_||!common(c)||c.inst_count-last_!=1u||
+           !dev_->after_return_at(c.inst_count)||!held()||!wireless_->before(c,pc,w,true))return fail(13);
+        last_=c.inst_count;if(wireless_->stage()==2u){wireless_resume_=pc;wireless_word_=w;stage_=9u;}return true;
+    }
+    template<class C>bool wireless_entry(C& c,uint32_t pc){
+        return stage_==8u&&wireless_&&common(c)&&c.inst_count==last_&&held()&&
+               wireless_->entry(c,pc,true)&&wireless_->stage()==1u?true:fail(14);
+    }
+    unsigned wireless_failure()const{return wireless_?wireless_->failure():0u;}
+    const WirelessWrapperWitness* wireless_witness()const{return wireless_?&*wireless_:nullptr;}
 private:
+    std::optional<WirelessWrapperWitness> wireless_;
+    uint32_t frontier_site_=0,frontier_word_=0,wireless_resume_=0,wireless_word_=0;
     std::optional<CallbackTimeWitness> time_;
     std::optional<CallbackFrontierWitness> frontier_;
     uint32_t channel_=4u,time_resume_=0,time_word_=0;

@@ -1,0 +1,3 @@
+# V1118: held third wireless setter runtime
+
+V1112 verified the unchanged setter and SRAM unlock in 32/32 focused original acknowledged trials (66 visits, 12 stores). Join the same existing wireless witness to the held token at the exact V1111 frontier tick. Refuse changed SRAM, unexpected code, wrong entry, extra tick, corrupted frame, device mask, poll, store or ABI. Add ten source-only live-binding trials. Opt-in macro and runtime flag are independent of the acknowledged route, and no new original execution is claimed. Private installer and full-image launch not yet enabled; V1116 remains active.
