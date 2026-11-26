@@ -234,6 +234,10 @@ static nw::CPUContext* second_submit_cpu=nullptr;
 static bool second_submit_active=false;
 static unsigned second_submit_count=0,second_submit_vectors=0,second_submit_returns=0,second_submit_polls=0;
 struct SecondSubmitAcked{};
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+static bool second_scheduler_lane=false;
+static unsigned second_sleep_count=0,second_scheduler_count=0,second_save_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -887,7 +891,11 @@ void trace_call(uint32_t pc,CPUContext& c){
     }
     if(sleep_join){
         if(!sleep_join->observe(c,pc,device_ok(c))){last_stage=sleep_join->stage();last_reason=sleep_join->failure();throw WitnessFailure{};}
-        if(sleep_join->stage()==4u){need(sleep_join->select_at(c,device_ok(c)));++sleep_count;throw SleepStop{};}
+        if(sleep_join->stage()==4u){need(sleep_join->select_at(c,device_ok(c)));
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+            if(second_scheduler_lane)++second_sleep_count;else
+#endif
+            ++sleep_count;throw SleepStop{};}
         return;
     }
     if(submit_host){submit_trace(pc,c);last_stage=submit_stage;return;}
@@ -1116,6 +1124,9 @@ bool process_pending_callbacks(CPUContext& c){
             if(!sched_join->enabled_at(c,device_ok(c))){
                 last_stage=sched_join->stage();last_reason=sched_join->failure();throw WitnessFailure{};
             }
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+            if(second_scheduler_lane)++second_scheduler_count;else
+#endif
             ++scheduler_count;throw SchedulerStop{};
         }
         need(sched_join->boundary(c,device_ok(c)));
@@ -1559,6 +1570,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
         PostAckSubmitJoin second_submission(edges,v626::vector,kind);
         second_submit=&second_submission;second_submit_cpu=&c;second_submit_polls=0;
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+        IdleContextReuse idle_reuse;
+#endif
 #endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
         SubmitResumeWitness submit_cont(v1344::expected);
@@ -1808,6 +1822,9 @@ int main(int argc,char** argv)try{
             second_request_returns==trial+1u&&second_open_count==trial+1u&&open_return_count==trial+1u&&host.serviced_steps()==3u&&
             host.exception_pending(0x8000u)&&!host.exception_pending(c.msr));
         std::cout<<"V1366_SUBMIT_TRIAL n="<<trial<<" submitted=1 ack=1 second_fd=1 first_fd_held=1 native_rfi=1 reply_pending=1\n";
+        #ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+        if(!idle_reuse.capture(c,second_submission,second_submit_held(c))){std::cout<<"V1368_REUSE_REFUSAL stage=1\n";throw WitnessFailure{};}
+        #endif
         second_submit_active=false;second_submit=nullptr;second_submit_cpu=nullptr;
 #else
         try{run_game(c);}catch(const SecondRequestReached&){allocator_returned=true;}
@@ -1908,6 +1925,36 @@ int main(int argc,char** argv)try{
 #endif
 #endif
 #endif
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+        // All first-transaction witnesses were checked at their own
+        // frontiers. Retire them before the second save changes OSContext.
+        second_scheduler_lane=true;coop_saved=nullptr;
+        const OpenTransactionEpoch epoch(kind);
+        const auto second_held=[&]{return raw_device_ok(c)&&epoch.acknowledged_descriptors(3u-kind)&&
+            host.serviced_steps()==3u&&descriptor.identity_after_release(c);};
+        PostAckSleepJoin sleep2(v1252::edges);
+        if(!idle_reuse.preserved(c,second_held())||!sleep2.begin(c,second_submission,second_held())){
+            std::cout<<"V1368_REUSE_REFUSAL stage=2\n";throw WitnessFailure{};
+        }
+        sleep_join=&sleep2;bool waiting2=false;
+        try{run_game(c);}catch(const SleepStop&){waiting2=true;}
+        need(waiting2&&sleep2.select_at(c,second_held())&&second_sleep_count==trial+1u);
+        std::cout<<"V1368_SLEEP_TRIAL n="<<trial<<" waiting=1 queue=1 ack_held=1\n";
+        PostAckSchedulerJoin sched2(v1256::edges,v1256::indirect,v1256::resume,v1256::resume_word);
+        if(!sched2.begin_reused(c,sleep2,idle_reuse,second_held())){
+            std::cout<<"V1368_REUSE_REFUSAL stage=3\n";throw WitnessFailure{};
+        }
+        sleep_join=nullptr;sched_join=&sched2;
+        CooperativeSaveLane save2(v1314::expected(Q::Thread));coop_save=&save2;
+        bool enabled2=false;
+        try{run_game(c);}catch(const SchedulerStop&){enabled2=true;}
+        need(enabled2&&sched2.stage()==7u&&second_scheduler_count==trial+1u&&
+            second_held()&&save2.preserved(c,second_held())&&save2.visits()==v1314::words.size()&&
+            host.exception_pending(c.msr)&&c.pc==v1256::resume&&(c.msr&0x8000u));
+        ++second_save_count;coop_save=nullptr;
+        std::cout<<"V1368_SCHED_TRIAL n="<<trial<<" saved=1 idle_reused=1 enabled=1 pending_ack=1\n";
+        second_scheduler_lane=false;
+#endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
 #ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
         coop_saved=nullptr;
@@ -1982,6 +2029,10 @@ int main(int argc,char** argv)try{
     need(second_request_count==8u&&second_request_vectors==8u&&second_request_returns==8u);
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
     need(second_submit_count==8u&&second_submit_vectors==8u&&second_submit_returns==8u);
+#ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
+    need(second_sleep_count==8u&&second_scheduler_count==8u&&second_save_count==8u);
+    std::cout<<"V1368_SCHED_NATIVE owner=1 trials=8 second_sleep=8 second_save=8 idle_reused=8 ee=8 pending_ack=8 ios_steps=3 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1366_SUBMIT_NATIVE owner=1 trials=8 submitted=8 ack=8 second_fd=8 first_fd_held=8 native_rfi=8 ios_steps=3 second_reply=0 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1364_REQUEST_NATIVE owner=1 trials=8 request=8 opposite_path=8 native_rfi=8 first_fd_held=8 ios_steps=2 second_submitted=0 fallback=0 complete_image=0 boot_verified=0\n";

@@ -1,4 +1,4 @@
-#include "wii_post_ack_submit_join_v1251.h"
+#include "wii_idle_context_reuse_v1368.h"
 #include <iostream>
 #include <source_location>
 using namespace undercover::wii;
@@ -77,6 +77,22 @@ static bool second_submit(Cpu& c,PostAckOpenJoin& w,NativeIosTransport& host,uns
     need(epoch.acknowledged_descriptors(kind)&&!epoch.descriptor_held());
     need(host.physical_ram().read32(request)==S::Open);
     if(fault==5){++c.inst_count;need(!j.ack_at(c,true));return false;}
+    using U=IdleContextReuse;
+    c.mmu.write32(0x800000d4u,U::Thread);c.mmu.write32(0x800000c0u,U::Thread&0x3fffffffu);
+    c.mmu.write32(0x800000e4u,U::Thread);c.mmu.write32(U::Idle+4u,0x80701000u);
+    c.mmu.write32(U::Idle+408u,0x80529864u);
+    U wrong,valid;
+    need(!wrong.capture(c,j,false));
+    c.mmu.write32(U::Idle+0x1a0u,2u);
+    need(!wrong.capture(c,j,true));
+    c.mmu.write32(U::Idle+0x1a0u,0u);
+    need(valid.capture(c,j,true)&&valid.preserved(c,true)&&!valid.capture(c,j,true));
+    c.mmu.write32(U::Idle+4u,0u);need(!valid.preserved(c,true));
+    c.mmu.write32(U::Idle+4u,0x80701000u);need(valid.preserved(c,true));
+    c.mmu.write32(0x800000d4u,U::Idle);need(!valid.preserved(c,true));
+    c.mmu.write32(0x800000d4u,U::Thread);need(valid.preserved(c,true)&&!valid.preserved(c,false));
+    c.inst_count+=8193u;need(!valid.preserved(c,true));c.inst_count-=8193u;
+    std::cout<<"V1368_REUSE_TEST valid=1 refused=6\n";
     // Complete a second synthetic reply through the actual broker.
     // The guest IRQ/scheduler path is not represented by this source test.
     need(host.write32(IosBus::IPC+M::PPCCTRL,(initial.control&(M::IY1|M::IY2|M::X2))|M::Y2));

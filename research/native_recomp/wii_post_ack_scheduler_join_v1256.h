@@ -1,5 +1,5 @@
 #pragma once
-#include "wii_post_ack_sleep_join_v1252.h"
+#include "wii_idle_context_reuse_v1368.h"
 #include <span>
 namespace undercover::wii {
 // Original scheduler, stopping at the interruptible mtmsr seam. No
@@ -16,20 +16,30 @@ public:
     unsigned failure()const{return error_;}
     unsigned callbacks()const{return callbacks_;}
     template<class C>bool begin(C& c,const PostAckSleepJoin& sleep,bool device_ok){
+        return begin_impl(c,sleep,device_ok,nullptr);
+    }
+    template<class C>bool begin_reused(C& c,const PostAckSleepJoin& sleep,const IdleContextReuse& reuse,bool device_ok){
+        return begin_impl(c,sleep,device_ok,&reuse);
+    }
+private:
+    template<class C>bool begin_impl(C& c,const PostAckSleepJoin& sleep,bool device_ok,const IdleContextReuse* reuse){
         auto s=NativeIosBinding::cold_snapshot();
         if(stage_||error_||!sleep.select_at(c,device_ok)||!s||
            !equal(c,Active,Thread)||!equal(c,Physical,Thread&0x3fffffffu)||
            !equal(c,CallbackPtr,Callback)||!mapped(c,Idle,424u))return fail(1);
-        for(unsigned i=0;i<424u;++i)if(c.mmu.read8(Idle+i))return fail(1);
+        if(reuse){if(!reuse->select_at(c,sleep,device_ok))return fail(1);}
+        else for(unsigned i=0;i<424u;++i)if(c.mmu.read8(Idle+i))return fail(1);
+        reuse_=reuse;
         cpu_=&c;ack_=*s;queue_=sleep.queue();tick_=c.inst_count;sp_=c.gpr[1];
         r2_=c.gpr[2];r13_=c.gpr[13];stage_=1;return true;
     }
+public:
     template<class C>bool boundary(C& c,bool device_ok)const{
         auto s=NativeIosBinding::cold_snapshot();
         return stage_>=1u&&stage_<=6u&&!error_&&cpu_==&c&&device_ok&&c.is_running&&
            !c.in_callback&&!c.dispatch_saved_ctx&&c.inst_count>=tick_&&c.inst_count-tick_<=32768u&&
            (stage_==6u||!(c.msr&0x8000u))&&c.gpr[2]==r2_&&c.gpr[13]==r13_&&s&&same(*s,ack_)&&
-           waiting(c)&&equal(c,CallbackPtr,Callback);
+           waiting(c)&&equal(c,CallbackPtr,Callback)&&(!reuse_||stage_>=5u||reuse_->preserved(c,device_ok));
     }
     // bctrl and blr re-enter run_game. Only admit the authenticated edge
     // and its exact, single-use continuation.
@@ -81,7 +91,7 @@ public:
 private:
     std::span<const VectorEdge> edges_,indirect_;
     uint32_t resume_,resume_word_;
-    const void* cpu_=nullptr;ColdIpcSnapshot ack_{};
+    const void* cpu_=nullptr;ColdIpcSnapshot ack_{};const IdleContextReuse* reuse_=nullptr;
     unsigned stage_=0,error_=0,callbacks_=0;
     uint32_t queue_=0,sp_=0,r2_=0,r13_=0,saved_sp_=0,enable_msr_=0,enable_sp_=0,callback_return_=0;
     uint64_t tick_=0,enable_tick_=0;
