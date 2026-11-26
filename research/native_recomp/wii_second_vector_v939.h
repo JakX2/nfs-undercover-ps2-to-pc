@@ -19,12 +19,19 @@ public:
     uint32_t gpr_mask()const{return gpr_mask_;}
     unsigned special_mask()const{return special_mask_;}
     template<class C>bool begin(C& c,PendingExternalReentry& second,uint32_t cause,uint32_t mask,bool held){
-        if(stage_||error_||second.stage()!=3u||!held||!safe(c)||c.pc!=ExternalVector||(cause&mask)!=8u||
+        if(second.stage()!=3u||second.captured().source()!=8u)return fail(1);
+        return begin_captured(c,second.captured(),cause,mask,held);
+    }
+    // The first IPC exception also uses this original vector; the caller
+    // captures the interrupted context before hardware entry.
+    template<class C>bool begin_captured(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask,bool held){
+        if(stage_||error_||captured.stage()!=1u||!held||!safe(c)||c.pc!=ExternalVector||
+           !captured.source()||(cause&mask)!=captured.source()||
            e_.vector.empty()||e_.vector.size()>64u||e_.trampoline_words.empty()||e_.trampoline_words.size()>64u||
            !mapped(c,e_.dispatcher)||c.mmu.read32(e_.dispatcher)!=e_.dispatcher_word)return fail(1);
         for(unsigned i=0;i<e_.vector.size();++i)if(!word(c,ExternalVector+4u*i,e_.vector[i]))return fail(1);
         for(unsigned i=0;i<e_.trampoline_words.size();++i)if(!word(c,e_.trampoline+4u*i,e_.trampoline_words[i]))return fail(1);
-        ctx_=&c;captured_=&second.captured();cause_=cause;mask_=mask;last_=c.inst_count;
+        ctx_=&c;captured_=&captured;cause_=cause;mask_=mask;last_=c.inst_count;
         gqr_=c.gqr;next_=ExternalVector;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,uint32_t cause,uint32_t mask,bool held){

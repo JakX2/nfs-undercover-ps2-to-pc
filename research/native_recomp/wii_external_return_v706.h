@@ -9,12 +9,13 @@ class ExternalReturnWitness {
 public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
-    template<class C>bool capture(C& c,uint32_t cause,uint32_t mask){
+    uint32_t source()const{return source_;}
+    template<class C>bool capture(C& c,uint32_t cause,uint32_t mask,uint32_t source=8u){
         if(stage_||error_||!safe(c)||!c.pc||(c.pc&3u)||!(c.msr&0x8000u)||
-           (cause&mask)!=8u||c.inst_count>UINT64_MAX-32768u)return fail(1);
+           !source||(source&(source-1u))||(cause&mask)!=source||c.inst_count>UINT64_MAX-32768u)return fail(1);
         ctx_=&c;gp_=c.gpr;cr_=pack_cr(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
         resume_=c.pc;restored_msr_=c.msr&ExternalSrr1Mask;
-        cause_=cause&~8u;mask_=mask;start_tick_=c.inst_count;stage_=1;return true;
+        source_=source;cause_=cause&~source;mask_=mask;start_tick_=c.inst_count;stage_=1;return true;
     }
     struct SavedIntegerCheck{
         unsigned gpr_mismatches=0,special_mask=0;
@@ -91,6 +92,7 @@ private:
     std::array<uint32_t,32> gp_{};
     uint32_t cr_=0,lr_=0,ctr_=0,xer_=0,resume_=0,restored_msr_=0,cause_=0,mask_=0;
     uint64_t start_tick_=0,rfi_tick_=0;
+    uint32_t source_=0;
     bool pending_return_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
@@ -106,7 +108,7 @@ private:
         return c.pc==resume_&&c.msr==restored_msr_&&c.srr0==resume_&&c.srr1==restored_msr_&&integer_state(c);
     }
     template<class C>bool pending_common(C& c,uint32_t cause,uint32_t mask)const{
-        return !error_&&ctx_==&c&&safe(c)&&cause==(cause_|8u)&&mask==mask_&&(cause&mask)==8u;
+        return !error_&&ctx_==&c&&safe(c)&&cause==(cause_|source_)&&mask==mask_&&(cause&mask)==source_;
     }
     template<class C>bool common(C& c,uint32_t cause,uint32_t mask)const{
         return !error_&&ctx_==&c&&safe(c)&&cause==cause_&&mask==mask_&&!(cause&mask);

@@ -1,0 +1,3 @@
+# V1260: original IPC external vector and trampoline
+
+V1259 owner run 45791949781 passed 8/8 native external IRQ entries, with the pending IOS ACK and interrupted registers unchanged. V1260 extends that exact CPU into the original installed external vector and assembly trampoline, using the existing V662 overlay and SPRG support. Reuse the existing V939 control-flow witness with an explicit interrupt source and capture the actual idle context before hardware entry. Require all 38 saved integer fields at the authenticated original dispatcher entry; stop before its first instruction. Private vector/table/trampoline bytes stay in temporary CI files. Seeded prior OSExceptionInit metadata remains explicit. Owner execution and source regressions pending.

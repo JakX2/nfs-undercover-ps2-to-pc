@@ -9,6 +9,10 @@
 #include "wii_scheduler_irq_entry_v1259.h"
 #include "v1259_private_vector.h"
 #endif
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+#include "wii_second_vector_v939.h"
+#include "v1260_private_vector.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -35,6 +39,17 @@ static PostAckSchedulerJoin* sched_join=nullptr;
 static unsigned scheduler_count=0;
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
 static unsigned irq_count=0;
+#endif
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+static ExternalReturnWitness irq_capture;
+static constexpr SecondVectorExpectation ipc_vector_expected{v1260::trampoline,v1260::dispatcher,
+    PostAckSchedulerJoin::Idle,v1260::dispatcher_word,v1260::vector_words,v1260::trampoline_words};
+static SecondVectorWitness ipc_vector(ipc_vector_expected);
+static bool vector_active=false;
+static unsigned vector_count=0;
+static uint64_t vector_tick=0;
+static ColdIpcSnapshot vector_mail{};
+struct VectorStop{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -75,6 +90,21 @@ static void seed_completed_si(nw::CPUContext& c,SiController& ctl,SecondCompleti
     ++c.inst_count;need(ack.before(c,A+8,Nop,true)&&ack.resume_after_ack(c,A+8,Nop));
     need(ack.postack_held()&&device_ok(c)&&!(cause.load()&SiController::PI_SI));
 }
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+static bool vector_held(nw::CPUContext& c){
+    auto s=B::cold_snapshot();
+    return vector_active&&s&&same_scheduler_ipc_snapshot(*s,vector_mail)&&device_ok(c);
+}
+static void vector_refuse(unsigned kind){
+    std::cout<<"V1260_VECTOR_REFUSAL kind="<<kind<<" stage="<<ipc_vector.stage()
+        <<" reason="<<ipc_vector.failure()<<" gpr="<<ipc_vector.gpr_mask()
+        <<" special="<<ipc_vector.special_mask()<<'\n';
+    throw WitnessFailure{};
+}
+void v1260_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!ipc_vector.before(c,pc,w,cause.load(),mask.load(),vector_held(c)))vector_refuse(1);
+}
+#endif
 static void submit_trace(uint32_t pc,nw::CPUContext& c){
     need(submit_join);
     const bool ok=submit_join->observe(c,pc,device_ok(c));
@@ -94,6 +124,18 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+    if(vector_active){
+        if(!ipc_vector.stage()){
+            if(pc!=ExternalVector||c.inst_count-vector_tick!=1u||
+               !ipc_vector.begin_captured(c,irq_capture,cause.load(),mask.load(),vector_held(c)))vector_refuse(2);
+        }else{
+            if(!ipc_vector.entry(c,pc,cause.load(),mask.load(),vector_held(c)))vector_refuse(3);
+            if(ipc_vector.stage()==3u){++vector_count;throw VectorStop{};}
+        }
+        return;
+    }
+#endif
     if(sched_join){
         if(!sched_join->observe(c,pc,device_ok(c))){
             last_stage=sched_join->stage();last_reason=sched_join->failure();throw WitnessFailure{};
@@ -139,6 +181,14 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+    if(vector_active){
+        if(!ipc_vector.stage()){
+            if(c.pc!=ExternalVector||c.inst_count!=vector_tick||!vector_held(c))vector_refuse(4);
+        }else if(!ipc_vector.poll(c,cause.load(),mask.load(),vector_held(c)))vector_refuse(4);
+        return false;
+    }
+#endif
     if(sched_join){
         if(c.pc==v1256::resume&&sched_join->stage()==6u){
             if(!sched_join->enabled_at(c,device_ok(c))){
@@ -293,6 +343,13 @@ int main()try{
         // Seed the authenticated prior OSExceptionInit postcondition.
         for(unsigned i=0;i<v1259::vector.size();++i)c.mmu.write8(ExternalVector+i,v1259::vector[i]);
 #endif
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+        for(unsigned i=0;i<v1260::trampoline_words.size();++i)c.mmu.write32(v1260::trampoline+4u*i,v1260::trampoline_words[i]);
+        c.mmu.write32(v1260::dispatcher,v1260::dispatcher_word);
+        // Previously installed OS exception-handler metadata, not guest context.
+        c.mmu.write32(0x80000048u,0x004e5090u);
+        c.mmu.write32(0x80003010u,v1260::trampoline);
+#endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
         c.mmu.write32(W::Lo,lo);c.mmu.write32(W::Hi,hi);
@@ -365,6 +422,11 @@ int main()try{
         std::cout<<"V1256_SCHED_TRIAL n="<<trial<<" saved=1 idle=1 enabled=1 pending_ack=1 irq_entered=0\n";
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
         const auto before_irq=c.inst_count;
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+        irq_capture=ExternalReturnWitness{};ipc_vector=SecondVectorWitness(ipc_vector_expected);
+        need(irq_capture.capture(c,cause.load(),mask.load(),H::PI_HOLLYWOOD));
+        vector_mail=host.cold_ipc_snapshot();vector_tick=c.inst_count;
+#endif
         need(enter_scheduler_ipc_irq(c,host,v1259::vector,next.request()&0x3fffffffu));
         need(c.pc==ExternalVector&&c.srr0==v1256::resume&&c.inst_count==before_irq&&
              c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read16(Q::Thread+712u)==4u&&
@@ -372,6 +434,16 @@ int main()try{
              host.serviced_steps()==1u&&device_ok(c));
         ++irq_count;
         std::cout<<"V1259_IRQ_TRIAL n="<<trial<<" entered=1 srr=1 registers=1 pending_ack=1 vector_executed=0\n";
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+        vector_active=true;sched_join=nullptr;bool dispatched=false;
+        try{run_game(c);}catch(const VectorStop&){dispatched=true;}
+        need(dispatched&&ipc_vector.stage()==3u&&vector_count==trial+1u&&vector_held(c)&&
+             c.pc==v1260::dispatcher&&irq_capture.saved_integer(c,Q::Idle).ok()&&
+             c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read16(Q::Thread+712u)==4u&&
+             c.mmu.read32(sleep.queue())==Q::Thread&&c.mmu.read32(sleep.queue()+4u)==Q::Thread);
+        vector_active=false;
+        std::cout<<"V1260_VECTOR_TRIAL n="<<trial<<" saved_fields=38 original_vector=1 trampoline=1 pending_ack=1 dispatcher_executed=0\n";
+#endif
 #endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
     }
@@ -381,6 +453,10 @@ int main()try{
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
     need(irq_count==8u);
     std::cout<<"V1259_IRQ_NATIVE owner=1 trials=8 entered=8 saved=8 idle=8 pending_ack=8 vector_executed=0 reply=0 seeded_vector=1 fallback=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1260_IRQ_VECTOR
+    need(vector_count==8u);
+    std::cout<<"V1260_VECTOR_NATIVE owner=1 trials=8 original_vector=8 trampoline=8 saved_fields=38 dispatcher_entry=8 dispatcher_executed=0 pending_ack=8 reply=0 fallback=0 boot_verified=0\n";
+#endif
 #endif
 }catch(const WitnessFailure&){
     std::cout<<"V1256_OPEN_FAILURE kind=witness trial="<<last_trial<<" stage="<<last_stage<<" reason="<<last_reason<<" line=0\n";return 1;
