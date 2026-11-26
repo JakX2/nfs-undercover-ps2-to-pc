@@ -1,0 +1,3 @@
+# V1350: whole IPC heap differential verification
+
+V1345 authenticated all 20 static allocator store sites; V1346/V1347 passed their source contracts. Preserve the original per-instruction effective-address and post-store byte checks, and snapshot the actual bounded IPC heap at free entry. Update the shadow only after a verified native store and compare all bytes at return. Two additional synthetic cases detect persistent collateral writes to unvisited bytes and later corruption of a previously verified store. This does not prove transient write absence, allocator semantics or actual original free execution. No guest writes by the witness.

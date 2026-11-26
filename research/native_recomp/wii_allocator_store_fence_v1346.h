@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <cstddef>
+#include <vector>
 namespace undercover::wii {
 // Read-only fence for an authenticated allocator instruction lane.
 // The native translation performs the store. The observer predicts its
@@ -24,7 +25,10 @@ public:
            overlap(stack,heap)||(meta.size&&(!ram(c,meta.base,meta.size)||meta.size>64u||
            overlap(stack,meta)||overlap(heap,meta))))return fail(1);
         cpu_=&c;stack_=stack;heap_=heap;meta_=meta;
-        lower_=c.mmu.read8(heap.base-1u);upper_=c.mmu.read8(uint32_t(heap.end()));return true;
+        lower_=c.mmu.read8(heap.base-1u);upper_=c.mmu.read8(uint32_t(heap.end()));
+        heap_shadow_.resize(heap.size);
+        for(unsigned i=0;i<heap.size;++i)heap_shadow_[i]=c.mmu.read8(heap.base+i);
+        return true;
     }
     template<class C>bool settled(C& c){
         if(!live(c))return fail(2);
@@ -32,6 +36,8 @@ public:
         if(!ram(c,addr_,width_))return fail(2);
         for(unsigned i=0;i<width_;++i)if(c.mmu.read8(addr_+i)!=bytes_[i])return fail(3);
         if(update_&&c.gpr[ra_]!=addr_)return fail(3);
+        if(heap_.contains(addr_,width_))
+            for(unsigned i=0;i<width_;++i)heap_shadow_[addr_-heap_.base+i]=bytes_[i];
         pending_=false;return true;
     }
     template<class C>bool before(C& c,uint32_t w){
@@ -72,10 +78,17 @@ public:
         }else for(unsigned i=0;i<n;++i)bytes_[i]=uint8_t(c.gpr[rs]>>(8u*(n-1u-i)));
         addr_=a;width_=n;ra_=ra;update_=update;pending_=true;return true;
     }
-    template<class C>bool finished(C& c){return settled(c)&&heap_stores_!=0u&&stores_!=0u;}
+    // Read the complete bounded heap at the final frontier. Per-store
+    // verification alone would miss an unrelated persistent memory write.
+    template<class C>bool finished(C& c){
+        if(!settled(c)||!heap_stores_||!stores_)return false;
+        for(unsigned i=0;i<heap_shadow_.size();++i)
+            if(c.mmu.read8(heap_.base+i)!=heap_shadow_[i])return fail(6);
+        return true;
+    }
 private:
     const void* cpu_=nullptr;AllocatorRange stack_{},heap_{},meta_{};
-    std::array<uint8_t,128> bytes_{};uint8_t lower_=0,upper_=0;
+    std::array<uint8_t,128> bytes_{};std::vector<uint8_t> heap_shadow_;uint8_t lower_=0,upper_=0;
     uint32_t addr_=0;unsigned width_=0,ra_=0,error_=0,stores_=0,heap_stores_=0,stack_stores_=0,metadata_stores_=0;
     bool pending_=false,update_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}

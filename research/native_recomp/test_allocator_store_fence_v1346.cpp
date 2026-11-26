@@ -32,7 +32,11 @@ static void trial(unsigned f){
     assert(w.before(c,d(47,30,5,8)));c.mmu.write(H+8,c.gpr[30]);c.mmu.write(H+12,c.gpr[31]);assert(w.settled(c));
     assert(w.before(c,d(36,4,13,0)));c.mmu.write(M,c.gpr[4]);
     if(f==7)c.mmu.write(H+256,1,1);
-    ok=w.finished(c);if(f==7){assert(!ok&&w.failure()==2);return;}assert(ok);
+    if(f==8)c.mmu.write(H+40,1,1);
+    if(f==9)c.mmu.write(H+4,0x1234,2);
+    ok=w.finished(c);
+    if(f>=7){assert(!ok&&w.failure()==(f==7?2u:6u));return;}
+    assert(ok);
     assert(w.stores()==5&&w.stack_stores()==1&&w.heap_stores()==3&&w.metadata_stores()==1);
 }
-int main(){for(unsigned f=0;f<=7;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1346_ALLOCATOR_STORE_FENCE synthetic=1 valid=1 refused=8 exact_bytes=1 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=9;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1350_ALLOCATOR_STORE_FENCE synthetic=1 valid=1 refused=10 exact_bytes=1 complete_heap_shadow=1 original_execution=0\n";}
