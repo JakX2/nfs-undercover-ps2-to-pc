@@ -1,0 +1,3 @@
+# V1074: full installer composition regression without private assets
+
+Build a twenty-shard synthetic generated tree with the existing transfer resume hook, original-free direct-call shapes, and shared callback/time hooks. Mock only DOL/ELF extraction and render inputs; use real native label/edge/entry audits, alarm suffix collection, exact composed private-header verification, and hook rewriting. Verify that transfer resume is not double-instrumented and the authentic alarm header remains unchanged. Six malformed-tree controls must reject with no partial file changes (metadata, duplicate owner, wrong label, missing SI tick, wrong call, and wrong dispatcher target). Tests pending CI. This is not a substitute for original native execution.
