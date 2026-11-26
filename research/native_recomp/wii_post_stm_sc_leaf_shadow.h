@@ -108,6 +108,11 @@ public:
     template<class C>bool reached(C& c,bool held)const{
         return stage_==2u&&due_&&common(c,held)&&c.pc==e_.caller&&c.inst_count==last_;
     }
+    template<class C>bool object_held(C& c,bool held)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||!mapped(c,object_))return false;
+        for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(object_.base+i)!=shadow_[i])return false;
+        return true;
+    }
 private:
     ScLeafExpectation e_;const void* cpu_=nullptr;AllocatorRange object_{};
     std::array<uint32_t,32> gp_{};std::array<uint32_t,8> gqr_{};

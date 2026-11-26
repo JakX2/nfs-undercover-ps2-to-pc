@@ -4169,6 +4169,11 @@ int main(int argc,char** argv)try{
         if(!dep_done||post_stm_dependency_count!=trial+1u||!sc_dependency.reached(c,post_stm_dependency_held(c))||
            host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
            host.cold_ipc_snapshot().replies)post_stm_dependency_refuse(5);
+        if(sc_dependency.visits()!=20u||sc_dependency.loads()!=1u||sc_dependency.stores()!=1u||
+           c.gpr[3]!=post_stm_sc_report_dependency_private::returned||
+           !std::equal(sc_dependency.expected_bytes().begin(),sc_dependency.expected_bytes().end(),
+                       post_stm_sc_report_dependency_private::final_bytes.begin(),
+                       post_stm_sc_report_dependency_private::final_bytes.end()))post_stm_dependency_refuse(5);
         std::cout<<"POST_STM_SC_REPORT_DEPENDENCY_TRIAL n="<<trial
             <<" native_leaf=1 original_return=1 loads="<<sc_dependency.loads()<<" stores="<<sc_dependency.stores()
             <<" deferred=1 reply=0 caller_executed=0 visits="<<sc_dependency.visits()<<'\n';

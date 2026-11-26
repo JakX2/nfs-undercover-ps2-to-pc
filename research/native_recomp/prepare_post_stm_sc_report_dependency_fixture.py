@@ -5,6 +5,7 @@ from pathlib import Path
 from prepare_post_stm_sc_report_helper_fixture import plan as helper_plan,scope as helper_scope
 from prepare_post_stm_sc_report_dependency_abi import plan as abi_plan
 from prepare_post_stm_sc_report_dependency import census
+from prepare_post_stm_sc_report_dependency_path import execute
 from prepare_post_stm_sc_join import GUARD,check_spans
 from prepare_v1337_open_completion import rebuild,hook_submit
 from prepare_v419_full_start import MAX_DOL,words_at
@@ -24,14 +25,19 @@ def plan(d,e):
     if args[0][0]!='const' or args[1][0]!='const' or fields[0]!=prior[3][2]:
         raise ValueError('SC report dependency identity')
     blocks=merge(old,helper,fields,ws)
-    return prior,old,blocks,fields,ws,obj,sites,kind,blob,(args[0][1],args[1][1])
+    args=(args[0][1],args[1][1])
+    result=execute(fields[0],ws,args,obj,sites,blob)
+    if result[:3]!=(20,1,1) or sum(a!=b for a,b in zip(result[4],blob))!=1:
+        raise ValueError('SC report dependency path identity')
+    return prior,old,blocks,fields,ws,obj,sites,kind,blob,args,result
 
 def render(p):
-    _,_,_,fields,ws,obj,sites,kind,blob,args=p
+    _,_,_,fields,ws,obj,sites,kind,blob,args,result=p
     f=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
     wr=','.join('undercover::wii::IpcDispatchWord{'+f((fields[0],fields[0]+4*i,w))+'}' for i,w in enumerate(ws))
     ar=','.join('undercover::wii::ScLeafAccess{'+f((pc,a-obj[0],n))+','+str(wr).lower()+'}' for pc,a,n,wr in sites)
     br=','.join(str(v)+'u' for v in blob)
+    final=','.join(str(v)+'u' for v in result[4])
     return ('#pragma once\n#include "wii_post_stm_sc_leaf_shadow.h"\nnamespace post_stm_sc_report_dependency_private {\n'
         f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(ws)}> words'+'{'+wr+'};\n'
         f'inline constexpr std::array<undercover::wii::ScLeafAccess,{len(sites)}> accesses'+'{'+ar+'};\n'
@@ -39,6 +45,8 @@ def render(p):
         'inline constexpr undercover::wii::AllocatorRange object{'+f(obj)+'};\n'
         'inline constexpr uint32_t argument='+f((args[0],))+';\n'
         'inline constexpr uint32_t selector='+f((args[1],))+';\n'
+        'inline constexpr uint32_t returned='+f((result[3],))+';\n'
+        f'inline constexpr std::array<uint8_t,{len(result[4])}> final_bytes'+'{'+final+'};\n'
         'inline constexpr unsigned initial_kind='+str(kind)+'u;\n'
         'inline constexpr undercover::wii::ScLeafExpectation expected{'+f(fields)+',words,accesses};\n}\n')
 
@@ -92,7 +100,7 @@ def main():
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
     a.add_argument('--symbols',type=Path);q=a.parse_args()
     safe={'size','SC report dependency predecessor','SC report dependency identity','SC report dependency extent','SC report dependency hook',
-          'SC report dependency coverage','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label',
+          'SC report dependency coverage','SC report dependency path identity','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label',
           'native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
