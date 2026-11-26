@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Authenticate the existing shared completion helper for the third ACK continuation."""
-import argparse,struct
+import argparse,struct,re
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from prepare_v667_si_dispatch import HANDLER,DISABLE,TIME,RESTORE,exact
@@ -9,7 +9,9 @@ from prepare_owner_second_shared_v988 import admit_shared_time
 from prepare_owner_second_dispatch_v946 import reachable
 from prepare_v975_second_time import render_time,render_shared
 from prepare_v1169_third_ack import metadata as ack_metadata,render as render_ack,verify_label,verify_bus
-from prepare_v1097_after_alarm import fmt
+from prepare_v1097_after_alarm import fmt,ACTIVE,inherited_hooks
+from prepare_owner_callback_prefix_v797 import plan as prefix_plan
+from prepare_owner_indirect_callback_v806 import verify_indirect
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
@@ -55,12 +57,13 @@ def metadata(dol,elf):
     compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected)
     return spans,edges,rows,msr,expected,render_ack(old_spans,old_edges,old_rows),prior
 
-def render(spans,edges,rows,msr,expected):
+def render(spans,edges,rows,msr,expected,callback_guard=True):
     s=render_ack(spans,edges,rows).replace('namespace undercover::wii::v1167 {','namespace undercover::wii::v1175 {',1)
     old='inline constexpr std::array<AckMsrSite,0> msr{};\n'
     if s.count(old)!=1 or not s.endswith('}\n'):raise ValueError('ACK helper render')
     s=s.replace(old,f'inline constexpr std::array<AckMsrSite,{len(msr)}> msr{{{{'+','.join('{'+fmt(m)+'}' for m in msr)+'}};\n',1)
     return (s[:-2]+'inline constexpr HeldAckHelperExpectation expected{'+fmt(expected)+',130u,6u,6u,2u};\n'
+        +'inline constexpr bool callback_guard='+str(callback_guard).lower()+';\n'
         +'inline constexpr auto callback_words=v958::success_callback_words;\n'
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
         +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n}\n')
@@ -84,10 +87,44 @@ def verify_callback_metadata(dol,elf,spans,rows,old):
 def verify_callback_guard(body,pc):
     block=block_at(body,pc,0x4e800421)
     guard=f'    undercover::wii::v958::before(ctx,0x{pc:08x}u,0x4e800421u,true);\n'
-    if block.count(guard)!=1:
-        raise ValueError('ACK callback guard')
+    observed=''.join(re.findall(r'(?m)^    [^\n]*v958::before\(ctx,[^\n]+\n',block))
+    if observed==guard and block.count(guard)==1:return True
+    # Existing post-alarm installers may already own this exact label.
+    # Authenticate their conditional observer, not an arbitrary false hook.
+    inherited={v for v in inherited_hooks(pc,0x4e800421).values()
+               if ACTIVE in v and v.endswith('    else '+guard.lstrip())}
+    if observed in inherited and block.count(observed)==1:return False
+    raise ValueError('ACK callback guard')
 
-def install(dol,elf,root,host,callback=False):
+def verify_prefix_metadata(dol,elf,old):
+    roots,C,S,site,_,_=prefix_plan(dol,elf)
+    candidate,words,sites=callback_expectations(dol,elf)
+    prefix=roots[C][:-1];save=roots[S]
+    if C!=candidate or len(prefix)!=6 or len(save)!=7 or tuple(prefix)!=tuple(words[:6]) or site!=C+16:
+        raise ValueError('ACK prefix geometry')
+    expected=['#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1',
+              f'inline constexpr uint32_t third_postalarm_save_root=0x{S:08x}u;']
+    for name,ws in (('third_postalarm_prefix',prefix),('third_postalarm_save',save),
+                    ('third_postalarm_words',words),('third_postalarm_sites',sites)):
+        expected.append(f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+fmt(ws)+'};')
+    if any(old.splitlines().count(line)!=1 for line in expected):
+        raise ValueError('ACK prefix metadata')
+    return C,S,site,prefix,save
+
+def verify_prefix_native(src,outer,meta):
+    C,S,site,prefix,save=meta
+    for addr,words in ((C,prefix),(S,save)):
+        hits=[s for s in src.values() if owns_root(s,addr)]
+        if len(hits)!=1 or sum(entry_count(s,addr) for s in src.values())!=1:
+            raise ValueError('ACK prefix owner')
+        body=exact_function(hits[0],addr)
+        rows={addr+4*i:(addr,w) for i,w in enumerate(words)}
+        if audit_native([body],outer,rows)!=len(rows):raise ValueError('ACK prefix coverage')
+        if addr==C:verify_direct(body,site,S)
+        for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
+
+def install(dol,elf,root,host,callback=False,prefix=False):
+    if prefix and not callback:raise ValueError('ACK prefix mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -109,15 +146,24 @@ def install(dol,elf,root,host,callback=False):
         (dest/'wii_callback_identity_v796.h').is_symlink() or
         (dest/'wii_callback_identity_v796.h').read_text()!=(host/'wii_callback_identity_v796.h').read_text()):
         raise ValueError('ACK callback metadata')
+    prefix_meta=verify_prefix_metadata(dol,elf,old) if prefix else None
+    if prefix:
+        h=dest/'wii_callback_prefix_v800.h'
+        if h.is_symlink() or not h.is_file() or h.read_text()!=(host/h.name).read_text() or 'UNDERCOVER_V1184_PRIVATE_ACK_PREFIX' in old:
+            raise ValueError('ACK prefix metadata')
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
     src={x:x.read_text() for x in paths};outer=main.read_text()
+    callback_guard=True
+    if prefix_meta:verify_prefix_native(src,outer,prefix_meta)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
         body=exact_function(src[hits[0]],a)
-        if callback_site is not None and a==HANDLER:verify_callback_guard(body,callback_site)
+        if callback_site is not None and a==HANDLER:
+            callback_guard=verify_callback_guard(body,callback_site)
+            if prefix:verify_indirect(body,callback_site)
         expected_rows={pc:(a,w) for pc,w,owner,_ in rows if owner==a}
         if audit_native([body],outer,expected_rows)!=len(expected_rows):raise ValueError('ACK helper coverage')
         for pc,dst in edges:
@@ -130,21 +176,25 @@ def install(dol,elf,root,host,callback=False):
                 raise
     # No new emitted hook or instruction. The existing generated V958
     # observer owns all authenticated roots at the original scheduler tick.
-    result.write_text(render(spans,edges,rows,msr,expected))
+    result.write_text(render(spans,edges,rows,msr,expected,callback_guard))
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
+    if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
+    if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
+        safe|={'ACK prefix '+s for s in ('geometry','metadata','owner','coverage','mode')}
+        safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
     return 0

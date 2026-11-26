@@ -518,7 +518,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
             if(held_epilogue.stage()==10u||held_epilogue.stage()==12u)owner=third_ack_native_owner(v1175::labels,pc,w);
             if(held_epilogue.stage()==12u&&pc==v1175::callback_expected.site){
                 const auto callback_owner=third_ack_native_owner(v1175::labels,pc,w,true);
-                if(!ack_callback_enabled()||!guard||!callback_owner||second_dispatch_mmio||ack.stage()!=5u||
+                if(!ack_callback_enabled()||guard!=v1175::callback_guard||!callback_owner||second_dispatch_mmio||ack.stage()!=5u||
                    next_device.stage()!=3u||!held_epilogue.callback_frontier(c,callback_owner,pc,w,transfer_callback,
                        v1175::callback_words,v1175::callback_sites)||!held_epilogue.callback_saved(c))reject_held_epilogue();
                 std::cout<<std::dec<<"V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits="<<held_epilogue.callback_visits()

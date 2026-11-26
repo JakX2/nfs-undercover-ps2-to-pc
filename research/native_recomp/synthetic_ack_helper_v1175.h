@@ -17,6 +17,7 @@ inline constexpr std::array<ThirdAckNativeLabel,16> labels{{
  {Restore,Mtmsr,Restore,false},{Restore+4u,Blr,Restore,false},{Nested+12u,Nop,Nested,false},
  {Nested+16u,Blr,Nested,false},{Helper+24u,Nop,Helper,false},{Helper+28u,Blr,Helper,false},{Handler+8u,Nop,Handler,false},{Handler+12u,0x4e800421u,Handler,true}}};
 inline constexpr HeldAckHelperExpectation expected{Handler+8u,Nop,15,6,6,2};
+inline constexpr bool callback_guard=true;
 inline constexpr auto callback_words=v958::third_postalarm_prefix;
 inline constexpr std::array<uint32_t,2> callback_sites{Handler+12u,Handler+16u};
 inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,1u,6u};

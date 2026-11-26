@@ -107,7 +107,26 @@ class AckCallbackMetadata(unittest.TestCase):
     def test_guard(self):
         pc=ins.HANDLER+12
         guard=f'    undercover::wii::v958::before(ctx,0x{pc:08x}u,0x4e800421u,true);\n'
-        with patch.object(ins,'block_at',return_value=guard):ins.verify_callback_guard('',pc)
-        for bad in (guard.replace('true','false'),guard+guard,''):
+        with patch.object(ins,'block_at',return_value=guard):self.assertTrue(ins.verify_callback_guard('',pc))
+        inherited=ins.inherited_hooks(pc,0x4e800421)[guard]
+        with patch.object(ins,'block_at',return_value=inherited):self.assertFalse(ins.verify_callback_guard('',pc))
+        for bad in (guard.replace('true','false'),guard+guard,'',inherited+guard,inherited.replace(ins.ACTIVE,'unrelated()')):
             with patch.object(ins,'block_at',return_value=bad),self.assertRaises(ValueError):ins.verify_callback_guard('',pc)
+class AckPrefixMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;S=H+0x2000;site=C+16
+        prefix=[W]*6;save=[W]*6+[BLR];words=prefix+[W]*166;sites=(H,H+4)
+        plan=({C:prefix+[BLR],S:save},C,S,site,11,-24)
+        old='#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n'
+        old+=f'inline constexpr uint32_t third_postalarm_save_root=0x{S:08x}u;\n'
+        for name,ws in (('third_postalarm_prefix',prefix),('third_postalarm_save',save),
+                        ('third_postalarm_words',words),('third_postalarm_sites',sites)):
+            old+=f'inline constexpr std::array<uint32_t,{len(ws)}> {name}{{'+ins.fmt(ws)+'};\n'
+        with patch.object(ins,'prefix_plan',return_value=plan),patch.object(ins,'callback_expectations',return_value=(C,words,sites)):
+            self.assertEqual(ins.verify_prefix_metadata(b'',b'',old),(C,S,site,prefix,save))
+            for bad in (old+old,old.replace('AFTER_ALARM 1','AFTER_ALARM 0'),old.replace('0x60000000','0x60000001'),old.replace('third_postalarm_save_root','wrong')):
+                with self.assertRaises(ValueError):ins.verify_prefix_metadata(b'',b'',bad)
+    def test_requires_callback(self):
+        with self.assertRaisesRegex(ValueError,'ACK prefix mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),False,True)
 if __name__=='__main__':unittest.main()
