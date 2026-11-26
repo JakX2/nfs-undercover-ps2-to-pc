@@ -43,10 +43,10 @@ def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None,read_
     if out_gp[1]!=('stack',sp-frame):raise ValueError('nested stack identity')
     return result
 
-def candidate_map(candidate,candidates):
+def candidate_map(candidate,candidates,*,third=False):
     if candidate is not None and candidates:raise ValueError('nested candidate modes')
     rows=(candidate,) if candidate is not None else tuple(candidates)
-    if len(rows)>2:raise ValueError('nested candidate cap')
+    if (third and len(rows)!=3) or (not third and len(rows)>2):raise ValueError('nested candidate cap')
     out={}
     for at,blob in rows:
         if not isinstance(blob,bytes) or len(blob)!=4 or at&3 or not 0x80000000<=at<at+4<=0x81800000 or (at,4) in out:
@@ -54,8 +54,8 @@ def candidate_map(candidate,candidates):
         out[at,4]=blob
     return out
 
-def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,entry_observer=None):
-    allowed=candidate_map(candidate,candidates)
+def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,entry_observer=None,third=False):
+    allowed=candidate_map(candidate,candidates,third=third)
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
     if len(leaf[0])!=8 or len(leaf[1])!=1 or len(leaf[3])!=12:raise ValueError('nested predecessor')

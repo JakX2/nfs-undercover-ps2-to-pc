@@ -21,13 +21,14 @@ def classify(record,data,addr,cells,protected):
     # are not excluded by the direct SDA census, so live proof is separate.
     return (*record,protected_overlap,eligible)
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     kind,path,frame,sites,_,width,section,entry,record,cells=two_cell_path(d,e,details=True)
     if (kind,len(path),len(set(path)),frame,len(sites),width,section)!=('load',74,74,48,18,4,'writable'):
         raise ValueError('third cell frontier')
     addr,n=record[:2]
     audit,data=audit_cell(d,e,addr,n)
-    return classify(audit,data,addr,cells,protected_ranges(d,e))
+    result=classify(audit,data,addr,cells,protected_ranges(d,e))
+    return (result,addr,data,cells,tuple(path),tuple(sites)) if details else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
