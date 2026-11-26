@@ -1,0 +1,22 @@
+name: Wii V1384 Deferred STM Cache Syscall
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_open_sc_route_v637.h'
+      - 'research/native_recomp/test_stm_deferred_sc.cpp'
+      - '.github/workflows/wii-v1384-deferred-sc.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for test in test_wii_open_sc_route_v637 test_stm_deferred_sc test_open_cache_range_v649; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done

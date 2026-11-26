@@ -10,10 +10,16 @@ namespace undercover::wii {
 class OpenScRoute {
 public:
     static constexpr uint32_t Call=0x805222e8u, Resume=Call+4u,
-        Caller=0x80519a1cu, SubmitCaller=0x8051963cu, Source=0x805290a8u, Vector=0x80000c00u;
+        Caller=0x80519a1cu, SubmitCaller=0x8051963cu, Source=0x805290a8u, Vector=0x80000c00u,
+        EventInputCaller=0x8051a29cu,EventOutputCaller=0x8051a2a8u;
+    enum class Mode { Open, DeferredStm };
     enum class Phase { Idle, Armed, Executing, Returned, Failed };
-    explicit OpenScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller,unsigned first_kind=0):bytes_(expected),caller_(caller),epoch_(first_kind){
-        if((caller_!=Caller&&caller_!=SubmitCaller)||!epoch_.valid())fail();
+    explicit OpenScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller,unsigned first_kind=0,Mode mode=Mode::Open)
+        :bytes_(expected),caller_(caller),epoch_(first_kind),mode_(mode){
+        if(!epoch_.valid()||
+           (mode_==Mode::Open?(caller_!=Caller&&caller_!=SubmitCaller):
+             mode_!=Mode::DeferredStm||!epoch_.second()||
+             (caller_!=EventInputCaller&&caller_!=EventOutputCaller&&caller_!=SubmitCaller)))fail();
         for(unsigned i=0;i<bytes_.size();i+=4){
             const uint32_t w=(uint32_t(bytes_[i])<<24)|(uint32_t(bytes_[i+1])<<16)|
                 (uint32_t(bytes_[i+2])<<8)|bytes_[i+3];
@@ -25,7 +31,7 @@ public:
     template<class Cpu>void arm(uint32_t addr,Cpu& c){
         const auto s=NativeIosBinding::cold_snapshot();
         if(phase_!=Phase::Idle||addr!=Call||c.pc!=Call||c.lr!=caller_||!c.is_running||
-           !(c.msr&0x8000u)||c.dispatch_saved_ctx||!s||!quiet(*s))
+           !correct_ee(c.msr)||c.dispatch_saved_ctx||!s||!quiet(*s))
             fail();
         context_=&c;sp_=c.gpr[1];msr_=c.msr;tick_=c.inst_count;snapshot_=*s;
         phase_=Phase::Armed;
@@ -48,7 +54,7 @@ public:
             return false;
         }
         if(!target||context_!=&c||!c.is_running||c.gpr[1]!=sp_||
-           c.msr!=msr_||!(c.msr&0x8000u)||c.dispatch_saved_ctx||!stable()||
+           c.msr!=msr_||!correct_ee(c.msr)||c.dispatch_saved_ctx||!stable()||
            c.inst_count<tick_||c.inst_count-tick_!=1u||
            c.mmu.read32(Call)!=0x44000002u||c.mmu.read32(Resume)!=0x4e800020u)
             fail();
@@ -83,13 +89,23 @@ private:
     std::array<uint8_t,28> bytes_;
     uint32_t caller_;
     OpenTransactionEpoch epoch_;
+    Mode mode_;
     Phase phase_=Phase::Idle;
     const void* context_=nullptr;
     uint32_t sp_=0,msr_=0;
     uint64_t tick_=0;
     unsigned entries_=0,syncs_=0,isyncs_=0;
     ColdIpcSnapshot snapshot_{};
-    bool quiet(const ColdIpcSnapshot& s)const{return epoch_.quiet(s);}
+    bool correct_ee(uint32_t msr)const{return bool(msr&0x8000u)==(mode_==Mode::Open);}
+    bool quiet(const ColdIpcSnapshot& s)const{
+        if(mode_==Mode::Open)return epoch_.quiet(s);
+        using M=IpcMailbox;using H=HollywoodIrq;
+        return epoch_.second()&&epoch_.acknowledged_descriptors(3u-epoch_.first_kind())&&
+            !s.queued&&!s.replies&&!s.event&&s.steps==4u&&
+            (s.control&(M::IY1|M::IY2))==(M::IY1|M::IY2)&&!(s.control&(M::X1|M::Y1|M::Y2))&&
+            !(s.flags&H::IPC_PPC)&&s.irq_mask==H::IPC_PPC&&
+            (s.pi_mask&H::PI_HOLLYWOOD)&&!(s.pi_cause&s.pi_mask);
+    }
     bool stable()const{
         const auto s=NativeIosBinding::cold_snapshot();const auto& b=snapshot_;
         return s&&quiet(*s)&&s->control==b.control&&s->ppc==b.ppc&&s->arm==b.arm&&
