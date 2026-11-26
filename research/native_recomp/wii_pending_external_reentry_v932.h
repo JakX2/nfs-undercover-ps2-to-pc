@@ -8,6 +8,7 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     ExternalReturnWitness& captured(){return second_;}
+    const ExternalReturnWitness& captured()const{return second_;}
     template<class C,size_t N>bool enter(C& c,uint32_t cause,uint32_t mask,
                                         const std::array<uint8_t,N>& vector,bool restored,bool held){
         static_assert(N>=4&&N<=0x100&&N%4==0);

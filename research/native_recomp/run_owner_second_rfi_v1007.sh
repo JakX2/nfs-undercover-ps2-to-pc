@@ -176,7 +176,7 @@ for mode in nonsplit split; do
               grep -Fx 'V1070_THIRD_VECTOR_FRAME poisoned=0 verified=38 fixture_only=0 original_dispatcher_instruction_executed=0' "$work/run.log"
             fi
             if [[ "$lane" == *callback-dispatch || "$lane" == *callback-ack ]]; then
-              grep -Ex 'V1076_THIRD_DISPATCH original_dispatcher=1 original_leaves=4 original_indirect=1 visits=[1-9][0-9]{0,3} entries=5 pi_reads=2 polls=[0-9]{1,3} token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
+              grep -Fx 'V1076_THIRD_DISPATCH original_dispatcher=1 original_leaves=4 original_indirect=1 visits=153 entries=5 pi_reads=2 polls=10 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
             fi
             if [[ "$lane" == *callback-ack ]]; then
               grep -Ex 'V1079_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response=[01] visits=[1-9][0-9]{0,3} entries=[1-9][0-9]? returns=[1-9][0-9]? reads=[1-9][0-9]? writes=[1-9][0-9]? saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0' "$work/run.log"
