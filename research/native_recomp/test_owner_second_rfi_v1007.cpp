@@ -60,8 +60,10 @@ static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
 static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false,third_callback_return=false;
-static bool third_handler_route=false,third_handler_active=false,third_pending_rfi=false,third_vector_route=false;
+static bool third_handler_route=false,third_handler_active=false,third_pending_rfi=false,third_vector_route=false,third_vector_poison=false;
 static ThirdPendingReentry third_reentry(ThirdVectorExpected);
+static unsigned third_poisoned_fields=0;
+static void third_vector_need(bool accepted,const std::source_location loc=std::source_location::current());
 static constexpr auto ThirdVectorBytes=[] {std::array<uint8_t,4*ThirdVectorWords.size()> out{};for(unsigned i=0;i<ThirdVectorWords.size();++i)for(unsigned k=0;k<4;++k)out[4*i+k]=uint8_t(ThirdVectorWords[i]>>(24-8*k));return out;}();
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
@@ -196,6 +198,15 @@ static void after_alarm_step(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w
             need(callback_witness.start_dispatch(c,pc,w,true,true));return;
         }
         std::_Exit(0);
+    }
+}
+static void third_vector_need(bool accepted,const std::source_location loc){
+    if(!accepted){
+        std::cout<<std::dec<<"V1070_THIRD_VECTOR_REFUSAL stage="<<third_reentry.stage()
+                 <<" reason="<<third_reentry.failure()<<" vector_reason="<<third_reentry.vector_failure()
+                 <<" vector_visits="<<third_reentry.vector_visits()<<" trampoline_visits="<<third_reentry.trampoline_visits()
+                 <<" poisoned="<<third_poisoned_fields<<std::endl;
+        need(false,loc);
     }
 }
 static bool third_callback_held(){
@@ -419,7 +430,7 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(third_reentry.stage()){
         need(third_vector_route&&third_reentry.stage()==3u&&(owner==ThirdVectorRoot||owner==ThirdTrampolineRoot));
-        scheduler->advance(c.inst_count);need(third_reentry.before(c,pc,w));return;
+        scheduler->advance(c.inst_count);third_vector_need(third_reentry.before(c,pc,w));return;
     }
     if(epilogue.stage()){
         if(third_pending_rfi){
@@ -766,12 +777,15 @@ bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_reentry.stage()){
         scheduler->advance(c.inst_count);
-        if(third_reentry.stage()==2u){need(pc==ThirdVectorRoot&&third_reentry.vector_entry(c,pc));return;}
-        need(third_reentry.stage()==3u&&third_reentry.entry(c,pc));
+        if(third_reentry.stage()==2u){third_vector_need(pc==ThirdVectorRoot&&third_reentry.vector_entry(c,pc));return;}
+        third_vector_need(third_reentry.stage()==3u&&third_reentry.entry(c,pc));
         if(third_reentry.stage()==4u){
-            need(pc==Dispatcher&&third_reentry.saved(c,Context)&&third_callback_held());
+            third_vector_need(pc==Dispatcher&&third_reentry.saved(c,Context)&&third_callback_held()&&
+                              third_poisoned_fields==(third_vector_poison?38u:0u));
             std::cout<<std::dec<<"V1069_THIRD_VECTOR original_vector=1 original_trampoline=1 vector_visits="<<third_reentry.vector_visits()
                      <<" trampoline_visits="<<third_reentry.trampoline_visits()<<" token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::cout<<std::dec<<"V1070_THIRD_VECTOR_FRAME poisoned="<<third_poisoned_fields<<" verified=38 fixture_only="<<third_vector_poison
+                     <<" original_dispatcher_instruction_executed=0"<<std::endl;
             std::_Exit(0);
         }
         return;
@@ -854,7 +868,7 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
     if(third_reentry.stage()){
-        need(third_reentry.stage()==1u?third_reentry.outer_poll(c):third_reentry.poll(c));return false;
+        third_vector_need(third_reentry.stage()==1u?third_reentry.outer_poll(c):third_reentry.poll(c));return false;
     }
     if(third_pending_rfi&&epilogue.stage()){
         need(third_callback_held());
@@ -865,7 +879,21 @@ bool process_pending_callbacks(CPUContext& c){
             std::cout<<std::dec<<"V1064_THIRD_PENDING_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 token=3 held=1 visits="
                      <<epilogue.visits()<<" saved_fields=38 third_vector_executed=0 resume_instruction_executed=0 boot_verified=0"<<std::endl;
             if(!third_vector_route)std::_Exit(0);
-            need(third_reentry.enter(c,captured,third,*ctl,cause,bank_mask,ThirdVectorBytes));return true;
+            third_vector_need(third_reentry.enter(c,captured,third,*ctl,cause,bank_mask,ThirdVectorBytes));
+            if(third_vector_poison){
+                // Explicit negative-staleness fixture after the real RFI.
+                // No live CPU registers, code, SI state or scheduler are edited.
+                // Original vector/trampoline must write every saved field again.
+                for(unsigned i=0;i<32;++i){
+                    const uint32_t a=Context+4u*i,old=c.mmu.read32(a);
+                    c.mmu.write32(a,old^0x5a5a5a5au);need(c.mmu.read32(a)!=old);++third_poisoned_fields;
+                }
+                for(unsigned off:{128u,132u,136u,140u,408u,412u}){
+                    const uint32_t a=Context+off,old=c.mmu.read32(a);
+                    c.mmu.write32(a,old^0x5a5a5a5au);need(c.mmu.read32(a)!=old);++third_poisoned_fields;
+                }
+            }
+            return true;
         }
         need(epilogue.stage()==1u&&captured.saved_integer(c,Context).ok()&&epilogue.poll(c,cause.load(),Mask));return false;
     }
@@ -933,11 +961,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_route=tail=="-vector";third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_vector_route=tail=="-vector"||third_vector_poison;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
