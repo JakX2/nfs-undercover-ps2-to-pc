@@ -88,9 +88,30 @@ def apply(w,regs,stack,wire):
     elif op in (7,8,12,13):regs[rt]=None
     else:raise ValueError('request unmodeled instruction')
 
+def allocation_prefix(root,words,alloc,submit,restore):
+    """Static reverse reachability, stopping at allocation or terminal."""
+    end=root+4*len(words);reverse={}
+    for i,w in enumerate(words):
+        pc=root+4*i;op=w>>26
+        if pc in (alloc,submit,restore) or w==0x4e800020:continue
+        if op in (16,18) and not(w&1):
+            successors=[branch_target(pc,w)]
+            if op==16 and (w>>21)&20!=20:successors.append(pc+4)
+        else:successors=[pc+4]
+        for dst in successors:
+            if root<=dst<end:reverse.setdefault(dst,set()).add(pc)
+    seen=set();work=[alloc]
+    while work:
+        pc=work.pop()
+        if pc in seen:continue
+        seen.add(pc);work.extend(reverse.get(pc,()))
+    return seen
+
 def paths(root,words,edges):
     if not words or len(words)>256 or len(edges)!=6:raise ValueError('request geometry')
     calls=dict(edges);save,alloc,flush1,flush2,submit,restore=(pc for pc,_ in edges)
+    prefix=allocation_prefix(root,words,alloc,submit,restore)
+    if root not in prefix:raise ValueError('request allocation unreachable')
     regs=[None]*32;regs[1]=S();regs[2]=('static',2);regs[13]=('static',13)
     for i in range(3,11):regs[i]=A(i)
     pending=[(root,regs,{}, {},(),(),frozenset())];finished=[];nodes=0;unallocated=0
@@ -100,6 +121,8 @@ def paths(root,words,edges):
         nodes+=1
         if nodes>4096 or len(finished)>64 or pc in visited or pc&3 or not root<=pc<end:
             raise ValueError('request path budget')
+        if alloc not in history and pc not in prefix:
+            unallocated+=1;continue
         visited=visited|{pc};w=words[(pc-root)//4];op=w>>26
         if pc==submit:
             if direct_bl(w,pc)!=calls[pc]:raise ValueError('request submit edge')
@@ -123,7 +146,13 @@ def paths(root,words,edges):
             pending.append((dst,regs.copy(),dict(stack),dict(wire),flushes,history,visited))
             if op==16 and (w>>21)&20!=20:pending.append((pc+4,regs,stack,wire,flushes,history,visited))
             continue
-        apply(w,regs,stack,wire)
+        try:apply(w,regs,stack,wire)
+        except ValueError as ex:
+            if str(ex) in ('request unknown store base','request unmodeled store','request unmodeled instruction'):
+                # Only a bounded phase and relative ordinal, not words or
+                # addresses. The diagnostic does not authorize the store.
+                print(f'V1391_DATAFLOW_REFUSAL phase={int(alloc in history)} ordinal={(pc-root)//4+1} kind='+str(ex).replace(' ','_'))
+            raise
         pending.append((pc+4,regs,stack,wire,flushes,history,visited))
     if not finished:raise ValueError('request no submit path')
     return finished,nodes,unallocated
@@ -150,11 +179,11 @@ def main():
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         roots,*_=plan(q.dol.read_bytes(),q.elf.read_bytes())
         _,count,nodes,lo,hi,unallocated=verify(paths(IOCTL,roots[IOCTL],EDGES))
-        print(f'V1390_REQUEST_DATAFLOW verified=1 allocated_submit_paths={count} unallocated_static_paths={unallocated} states={nodes} wire_fields=7 callback_fields=2 flush_min={lo} flush_max={hi} original_execution=0')
+        print(f'V1391_REQUEST_DATAFLOW verified=1 allocated_submit_paths={count} pruned_prefix_edges={unallocated} states={nodes} wire_fields=7 callback_fields=2 flush_min={lo} flush_max={hi} original_execution=0')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed={'size','request geometry','request store range','request unknown store base','request unmodeled store','request unmodeled instruction','request path budget',
+        allowed={'size','request geometry','request allocation unreachable','request store range','request unknown store base','request unmodeled store','request unmodeled instruction','request path budget',
             'request submit edge','request call','request branch','request no submit path','request wire provenance',
             'request callback provenance','request flush coverage','request callback layout'}
-        print('V1390_REQUEST_DATAFLOW verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input_or_io'));return 1
+        print('V1391_REQUEST_DATAFLOW verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input_or_io'));return 1
 if __name__=='__main__':raise SystemExit(main())

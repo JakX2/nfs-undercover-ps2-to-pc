@@ -1,5 +1,5 @@
 import unittest
-from prepare_v1388_ioctl_dataflow import A,C,P,R,S,apply,paths,verify
+from prepare_v1388_ioctl_dataflow import A,C,P,R,S,apply,paths,verify,allocation_prefix
 
 def st(rs,ra,off):return 36<<26|rs<<21|ra<<16|(off&0xffff)
 def mr(rd,rs):return 31<<26|rs<<21|rd<<16|rs<<11|444<<1
@@ -25,6 +25,13 @@ class Tests(unittest.TestCase):
             req,wire,flush=result[0][0]
             bad={**wire,off:None}
             with self.assertRaises(ValueError):verify(([(req,bad,flush)],result[1],result[2]))
+    def test_prefix_pruning(self):
+        r=0x80004000
+        # A conditional can either enter the allocator or jump directly
+        # to an unallocated path; only the former is in its prefix.
+        words=(0x4182000c,0x60000000,0x48000010,0x60000000,0x60000000,0x4e800020,0x4e800020)
+        self.assertEqual(allocation_prefix(r,words,r+4,r+20,r+24),{r,r+4})
+        self.assertEqual(allocation_prefix(r,words,r+12,r+20,r+24),{r,r+12})
     def test_unknown_destroys_or_rejects(self):
         regs=[None]*32;regs[3]=A(3);regs[22]=R();regs[1]=S()
         stack={};wire={}

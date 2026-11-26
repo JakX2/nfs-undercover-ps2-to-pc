@@ -1,0 +1,3 @@
+# V1391 allocated-prefix dataflow diagnostics
+
+The V1390 source tests passed but the owner audit failed closed at an unknown store base. The previous enumerator analyzed a statically unallocated path until reaching the submit edge. This change derives reverse CFG reachability to the authenticated allocator call, prunes only pre-allocation paths that cannot reach it, and counts pruned branches separately. Unknown store bases still fail; the new diagnostic prints only phase (before/after allocation), bounded relative instruction ordinal, and error category. The new synthetic test proves the reverse reachability excludes a branch that bypasses the selected call. No claim of branch feasibility, field provenance or runtime execution until owner verification.
