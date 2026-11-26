@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_post_stm_sc_report_helper.h"
 #include <bit>
+#include <optional>
 namespace undercover::wii {
 // Independent integer leaf instruction shadow. It never writes guest
 // registers or memory. A caller supplies the only writable object and
@@ -11,6 +12,9 @@ struct ScLeafExpectation {
     std::span<const IpcDispatchWord> words;
     std::span<const ScLeafAccess> accesses;
     uint32_t start=0,call_target=0,call_word=0; // optional bounded resumed call
+    std::span<const uint32_t> exact_path{}; // opt-in finite path, including taken return
+    bool read_only=false;
+    std::optional<uint32_t> expected_r3{};
 };
 class ScLeafShadow {
 public:
@@ -22,12 +26,17 @@ public:
     std::span<const uint8_t> expected_bytes()const{return shadow_;}
     template<class C>bool begin(C& c,AllocatorRange object,bool held){
         if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=start()||c.lr!=e_.caller||
-           e_.words.empty()||e_.words.size()>128u||e_.accesses.size()>8u||
+           e_.words.empty()||e_.words.size()>128u||e_.accesses.size()>8u||e_.exact_path.size()>128u||
+           (e_.read_only&&(e_.exact_path.empty()||e_.call_target||!e_.expected_r3))||
            !object.size||object.size>4096u||!mapped(c,object)||!known(c,start())||!word(c,e_.caller,e_.caller_word)||
            (e_.call_target&&(!e_.start||!e_.accesses.empty()||!word(c,e_.call_target,e_.call_word))))return fail(1);
         for(auto x:e_.words)if(x.owner!=e_.root||!word(c,x.pc,x.word)||
             std::count_if(e_.words.begin(),e_.words.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(1);
-        for(auto a:e_.accesses)if((a.width!=1u&&a.width!=2u&&a.width!=4u)||a.offset>object.size||
+        if(!e_.exact_path.empty()){
+            if(e_.exact_path.front()!=start())return fail(1);
+            for(auto pc:e_.exact_path)if(!known(c,pc))return fail(1);
+        }
+        for(auto a:e_.accesses)if((e_.read_only&&a.write)||(a.width!=1u&&a.width!=2u&&a.width!=4u)||a.offset>object.size||
            a.width>object.size-a.offset||!known(c,a.pc)||
            std::count_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==a.pc;})!=1)return fail(1);
         object_=object;
@@ -38,7 +47,10 @@ public:
     template<class C>bool poll(C& c,bool held){
         if(stage_!=1u||!common(c,held)||c.inst_count!=last_)return fail(2);
         if(!visits_&&!initial_poll_&&c.pc==start()){initial_poll_=true;return true;}
-        if(e_.call_target||!due_||c.pc!=e_.caller||c.lr!=e_.caller||!word(c,e_.caller,e_.caller_word))return fail(2);
+        if(e_.call_target||!due_||c.pc!=e_.caller||c.lr!=e_.caller||!word(c,e_.caller,e_.caller_word)||
+           (!e_.exact_path.empty()&&visits_!=e_.exact_path.size())||
+           (e_.expected_r3&&c.gpr[3]!=*e_.expected_r3)||
+           (e_.read_only&&(stores_||loads_!=e_.accesses.size())))return fail(2);
         stage_=2;return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
@@ -53,15 +65,19 @@ public:
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!common(c,held)||due_||pc!=next_||
            c.inst_count-last_!=(visits_?1u:2u)||(!visits_&&(!initial_poll_||!entry_seen_||c.pc!=pc))||
-           !known(c,pc,w)||++visits_>e_.words.size())return fail(4);
+           !known(c,pc,w)||(!e_.exact_path.empty()&&(visits_>=e_.exact_path.size()||e_.exact_path[visits_]!=pc))||
+           ++visits_>(e_.exact_path.empty()?e_.words.size():e_.exact_path.size()))return fail(4);
         last_=c.inst_count;next_=pc+4u;
         const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
-        if(w==0x4e800020u){
-            if(e_.call_target||lr_!=e_.caller)return fail(5);
-            next_=e_.caller;due_=true;return true;
-        }
-        if(op==10u||op==11u){
+        if(w==0x4e800020u||(e_.read_only&&op==19u&&xo==16u&&!(w&1u))){
+            const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
+            if(e_.call_target||lr_!=e_.caller||!(bo&4u))return fail(5);
+            if((bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u)){
+                if(!e_.exact_path.empty()&&visits_!=e_.exact_path.size())return fail(5);
+                next_=e_.caller;due_=true;return true;
+            }
+        }else if(op==10u||op==11u){
             if(w&0x00200000u)return fail(5);
             const uint32_t a=gp_[ra],b=op==10u?w&0xffffu:imm;
             compare((w>>23)&7u,op==10u?a<b:std::bit_cast<int32_t>(a)<std::bit_cast<int32_t>(b),a==b);
@@ -92,9 +108,15 @@ public:
             if(!vol(rs))return fail(5);
             gp_[rs]=xo==266u?gp_[ra]+gp_[rb]:gp_[rb]-gp_[ra];
             if(w&1u)record(gp_[rs]);
-        }else if(op==32u||op==34u||op==40u||op==42u||op==36u||op==38u||op==44u){
+        }else if(e_.read_only&&op==31u&&(xo==922u||xo==954u)){
+            if(!vol(ra))return fail(5);
+            const uint32_t m=xo==922u?0xffffu:0xffu,t=xo==922u?0x8000u:0x80u;
+            gp_[ra]=((gp_[rs]&m)^t)-t;if(w&1u)record(gp_[ra]);
+        }else if(op==32u||op==34u||op==40u||op==42u||op==36u||op==38u||op==44u||
+                 (e_.read_only&&(op==33u||op==35u||op==41u||op==43u))){
             const bool wr=op==36u||op==38u||op==44u;
-            const unsigned n=op==32u||op==36u?4u:op==34u||op==38u?1u:2u;
+            const unsigned n=op==32u||op==33u||op==36u?4u:op==34u||op==35u||op==38u?1u:2u;
+            if((e_.read_only&&wr)||((op&1u)&&(!ra||ra==rs||!vol(ra))))return fail(6);
             const uint32_t a=(ra?gp_[ra]:0u)+imm;
             auto p=std::find_if(e_.accesses.begin(),e_.accesses.end(),[&](auto x){return x.pc==pc;});
             if(p==e_.accesses.end()||p->write!=wr||p->width!=n||a!=object_.base+p->offset||
@@ -102,7 +124,8 @@ public:
             const auto i=unsigned(p-e_.accesses.begin());if(seen_&(1u<<i))return fail(6);seen_|=1u<<i;
             if(wr){for(unsigned j=0;j<n;++j)shadow_[p->offset+j]=uint8_t(gp_[rs]>>(8u*(n-j-1u)));++stores_;}
             else {uint32_t v=0;for(unsigned j=0;j<n;++j)v=(v<<8)|shadow_[p->offset+j];
-                gp_[rs]=op==42u&&v&0x8000u?v|0xffff0000u:v;++loads_;}
+                gp_[rs]=(op==42u||op==43u)&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
+                if(op&1u)gp_[ra]=a;}
         }else if(op==18u&&(w&3u)==1u){
             if(!e_.call_target||target(pc,w)!=e_.call_target||visits_!=e_.words.size())return fail(5);
             lr_=pc+4u;next_=e_.call_target;due_=true;return true;
@@ -111,7 +134,8 @@ public:
             const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
             if(op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u))next_=target(pc,w);
         }else return fail(5);
-        if(next_<=pc||!known(c,next_))return fail(5);
+        if(!known(c,next_)||(e_.exact_path.empty()?next_<=pc:
+            (visits_>=e_.exact_path.size()||e_.exact_path[visits_]!=next_)))return fail(5);
         return true;
     }
     template<class C>bool reached(C& c,bool held)const{
