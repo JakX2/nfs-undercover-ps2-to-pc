@@ -4,6 +4,8 @@
 #include "wii_third_alarm_suffix_v1047.h"
 #include <iostream>
 #include <map>
+#include <memory>
+#include <vector>
 #include <source_location>
 #include <string_view>
 #ifdef UNDERCOVER_V1199_TEST_SRAM
@@ -22,9 +24,25 @@ struct Mmu{
         {Nested,bl(Nested,Disable)},{Nested+4,bl(Nested+4,Time)},{Nested+8,bl(Nested+8,Restore)},{Nested+12,Nop},{Nested+16,Blr},
         {Disable,Mtmsr},{Disable+4,Blr},{Time,Nop},{Time+4,Blr},{Restore,Mtmsr},{Restore+4,Blr}};
     uint8_t byte=0;
-    uint8_t* get_ptr(uint32_t a){return words.count(a&~3u)?&byte:nullptr;}
-    uint32_t read32(uint32_t a){return words.at(a);}
-    uint8_t read8(uint32_t a){return uint8_t(words.at(a&~3u)>>(24u-8u*(a&3u)));}
+    // Dense backing is enabled only by the positive IPC fixture. All older
+    // sparse-memory rejection lanes retain their exact previous semantics.
+    std::vector<uint8_t> mem1,mem2;
+    uint8_t* dense(uint32_t a){
+        if(a>=0x80000000u&&uint64_t(a)-0x80000000u<mem1.size())return mem1.data()+a-0x80000000u;
+        if(a>=0x90000000u&&uint64_t(a)-0x90000000u<mem2.size())return mem2.data()+a-0x90000000u;
+        return nullptr;
+    }
+    uint8_t* get_ptr(uint32_t a){if(auto* p=dense(a))return p;return words.count(a&~3u)?&byte:nullptr;}
+    uint32_t read32(uint32_t a){
+        if(auto i=words.find(a);i!=words.end())return i->second;
+        if(mem1.empty())return words.at(a);
+        uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|read8(a+i);return v;
+    }
+    uint8_t read8(uint32_t a){
+        if(auto i=words.find(a&~3u);i!=words.end())return uint8_t(i->second>>(24u-8u*(a&3u)));
+        if(auto* p=dense(a))return *p;
+        return uint8_t(words.at(a&~3u)>>(24u-8u*(a&3u)));
+    }
     uint16_t read16(uint32_t a){return uint16_t((uint16_t(read8(a))<<8)|read8(a+1u));}
 };
 struct Cpu{
@@ -61,10 +79,27 @@ int main(int argc,char** argv){
     for(unsigned i=0;i<9;++i)need(step());
     need(old.finish(tick,1)&&old.held_now());
     for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u;
-    c.gpr[1]=0x8000b000u;c.gpr[3]=Base;
+    uint32_t fixture_stack=0x8000b000u;
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+    const bool ipc_fixture=mode.ends_with("-ipc-valid");
+    std::unique_ptr<NativeIosTransport> ipc_transport;
+    std::unique_ptr<NativeIosBinding> ipc_binding;
+    if(ipc_fixture){
+        using W=IpcClientWitness;
+        c.mmu.mem1.resize(WiiPhysicalRam::MEM1_SIZE);
+        c.mmu.mem2.resize(WiiPhysicalRam::MEM2_SIZE);
+        ipc_transport=std::make_unique<NativeIosTransport>(c.mmu.mem1,c.mmu.mem2,cause,mask);
+        ipc_binding=std::make_unique<NativeIosBinding>(*ipc_transport);
+        fixture_stack=W::Stack;c.lr=W::Call;
+    }
+#endif
+    c.gpr[1]=fixture_stack;c.gpr[3]=Base;
 #ifdef UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE
     const bool epilogue=v958::held_epilogue_enabled();
     if(epilogue){c.gpr[13]=0x80039000u;c.gpr[21]=v958::context;}
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+    if(ipc_fixture)c.gpr[13]=IpcClientWitness::Sda;
+#endif
     const auto interrupted_gp=c.gpr;const auto interrupted_lr=c.lr,interrupted_ctr=c.ctr,interrupted_xer=c.xer;
 #endif
     need(frame.capture(c,cause.load(),mask.load()));
@@ -225,7 +260,7 @@ int main(int argc,char** argv){
                 c.mmu.words[Site+8]=0x4e800421u;
                 for(unsigned i=0;i<v958::third_postalarm_prefix.size();++i)c.mmu.words[v958::transfer_callback+4u*i]=v958::third_postalarm_prefix[i];
                 for(unsigned i=0;i<v958::third_postalarm_save.size();++i)c.mmu.words[v958::third_postalarm_save_root+4u*i]=v958::third_postalarm_save[i];
-                constexpr uint32_t Stack=0x8000b000u;
+                const uint32_t Stack=fixture_stack;
                 need(c.gpr[1]==Stack);
                 for(uint32_t p=Stack-0x400u;p<Stack+0x100u;p+=4u)c.mmu.words[p]=p^0xdeadbeefu;
             }
@@ -265,14 +300,15 @@ int main(int argc,char** argv){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
             const bool callback_mode=mode.starts_with("error-abi-live-alarm-callback");
             if(callback_mode){
-                need(c.gpr[1]==0x8000b000u);c.gpr[3]=2u;c.ctr=v958::transfer_callback;
+                need(c.gpr[1]==fixture_stack);c.gpr[3]=2u;c.ctr=v958::transfer_callback;
                 if(mode=="error-abi-live-alarm-callback-word")c.mmu.words[Site+8]^=1u;
             }
 #endif
             visit(Site+4,Nop); // production observer owns terminal result
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
             if(callback_mode){
-                constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root,Stack=0x8000b000u;
+                constexpr uint32_t Root=v958::transfer_callback,Leaf=v958::third_postalarm_save_root;
+                const uint32_t Stack=fixture_stack;
                 if(mode=="error-abi-live-alarm-callback-frame")c.mmu.words[v958::context+124]^=1u;
                 if(mode=="error-abi-live-alarm-callback-target")c.ctr=Leaf;
 #ifdef UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN
@@ -1014,9 +1050,29 @@ int main(int argc,char** argv){
                                                                                                             if(lf!="-poll")v958::poll(c);
                                                                                                             if(lf=="-double-poll")v958::poll(c);
                                                                                                             scheduler.advance(++tick);
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+                                                                                                            if(ipc_fixture){
+                                                                                                                using W=IpcClientWitness;
+                                                                                                                constexpr uint32_t Heap=0x93380000u,Hi=0x93400000u;
+                                                                                                                c.mmu.words[W::Root]=Nop;
+                                                                                                                c.mmu.words[v624::expected_client.handler]=v624::expected_client.handler_word;
+                                                                                                                c.mmu.words[W::Lo]=Heap;c.mmu.words[W::Hi]=Hi;
+                                                                                                                c.mmu.words[W::Sda-16336u]=Heap;c.mmu.words[W::Sda-3352u]=Hi;
+                                                                                                                c.mmu.words[W::MaskA]=0xf7fff7f0u;c.mmu.words[W::MaskB]=0;
+                                                                                                                c.mmu.words[W::IrqGlobal]=W::Table;
+                                                                                                                need(ipc_transport&&ipc_transport->serviced_steps()==0);
+                                                                                                            }
+#endif
                                                                                                             if(lf!="-dispatch")v958::observe(lf=="-target"?le.caller+4u:le.caller,c);
                                                                                                             if(lf=="-gqr")c.gqr[0]^=1u;
                                                                                                             visit(le.caller,le.caller_word);
+#ifdef UNDERCOVER_V1230_PRIVATE_ACK_IPC
+                                                                                                            if(ipc_fixture){
+                                                                                                                need(v958::ack_ipc.stage()==2u);
+                                                                                                                c.pc=IpcClientWitness::Root;c.lr=IpcClientWitness::Return;
+                                                                                                                v958::observe(c.pc,c);
+                                                                                                            }
+#endif
                                                                                                         }
 #endif
                                                                                                     }

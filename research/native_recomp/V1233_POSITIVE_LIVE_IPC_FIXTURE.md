@@ -1,0 +1,3 @@
+# V1233: positive live post-ACK IPC fixture
+
+The V1231 regression proves the new runtime gate rejects a missing cold IPC context, and V1229 independently passes a positive bridge. V1233 adds a positive path through the complete existing synthetic third-IRQ fixture with a real native IOS transport and dense MEM1/MEM2 backing. The fixture uses a synthetic direct branch and models register effects, not original Wii instruction execution. It must traverse the real v958 observer, retain the cleared third token, validate the unchanged cold IPC prerequisites, and stop at callee entry. Existing sparse negative lanes are retained. CI pending.

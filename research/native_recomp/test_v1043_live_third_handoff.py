@@ -69,8 +69,37 @@ inline constexpr AlarmCancelExpectation expected{
             h=root/'wii_postack_transfer_device_v771.h';s=h.read_text();seam='\n};\n}\n'
             self.assertEqual(s.count(seam),1);h.write_text(s.replace(seam,'\n};\ninline thread_local PostAckTransferDevice si_transfer_device{};\n}\n'))
             (root/'v1199_test_sram.h').write_text('#pragma once\n#include <array>\n#include <cstdint>\nnamespace v1199_test {\n'+''.join('inline constexpr std::array<uint8_t,64> '+name+'{'+','.join(map(str,blob))+'};\n' for name,blob in (('pattern',sram_fixture()),('zero',wireless_zero_fixture())))+'}\n')
-            (root/'v1227_private_ack_leaf.h').write_text('#pragma once\n#include "wii_irq_leaf_finish_v927.h"\nnamespace undercover::wii::v1227 {inline constexpr IrqLeafFinishExpectation expected{0x80005000u,(21u<<26)|(3u<<16)|(17u<<11)|(31u<<6)|(31u<<1),0x80006000u,0x60000000u};}\n')
-            (root/'v1230_private_ack_ipc.h').write_text('#pragma once\n#include "wii_post_ack_ipc_join_v1229.h"\nnamespace undercover::wii::v624 {inline constexpr IpcClientExpectations expected_client{};}\nnamespace undercover::wii::v1230 {inline constexpr IpcEntryJoinExpectation expected{0x80006000u,0x80007000u,0x48001001u,0x60000000u};}\n')
+            (root/'v1227_private_ack_leaf.h').write_text("""
+#pragma once
+#include "wii_irq_leaf_finish_v927.h"
+#include "wii_ipc_client_witness_v623.h"
+#include <cstdlib>
+namespace undercover::wii::v1227 {
+inline bool ipc_fixture(){const char* v=std::getenv("UNDERCOVER_V1233_IPC_FIXTURE");return v&&v[0]=='1'&&v[1]==0;}
+inline constexpr uint32_t ipc_bl=0x48000001u|((IpcClientWitness::Root-IpcClientWitness::Call)&0x03fffffcu);
+inline const IrqLeafFinishExpectation expected{0x80005000u,(21u<<26)|(3u<<16)|(17u<<11)|(31u<<6)|(31u<<1),
+    ipc_fixture()?IpcClientWitness::Call:0x80006000u,ipc_fixture()?ipc_bl:0x60000000u};
+}
+""")
+            (root/'v1230_private_ack_ipc.h').write_text("""
+#pragma once
+#include "wii_post_ack_ipc_join_v1229.h"
+namespace undercover::wii::v624 {
+inline const IpcClientExpectations expected_client=[]{
+    IpcClientExpectations e{};
+    if(v1227::ipc_fixture()){
+        e.edges[0]={IpcClientWitness::Root,IpcClientWitness::Return,v1227::ipc_bl,0x60000000u};
+        e.handler=0x80519094u;e.handler_word=0x1234u;
+    }
+    return e;
+}();
+}
+namespace undercover::wii::v1230 {
+inline const IpcEntryJoinExpectation expected=v1227::ipc_fixture()?
+    IpcEntryJoinExpectation{IpcClientWitness::Call,IpcClientWitness::Root,v1227::ipc_bl,0x60000000u}:
+    IpcEntryJoinExpectation{0x80006000u,0x80007000u,0x48001001u,0x60000000u};
+}
+""")
             exe=root/'probe'
             build=subprocess.run([cc,'-DUNDERCOVER_V1199_TEST_SRAM=1','-std=c++20','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-fno-pie','-no-pie','-I'+str(root),str(root/'probe.cpp'),'-o',str(exe)],capture_output=True,timeout=90)
             self.assertEqual(build.returncode,0,build.stderr.decode(errors='replace'))
@@ -429,4 +458,11 @@ inline constexpr AlarmCancelExpectation expected{
             self.assertEqual(got.returncode,126,got.stdout+got.stderr)
             self.assertEqual(got.stderr,b'')
             self.assertRegex(got.stdout.splitlines()[-1],rb'^V1230_ACK_IPC_INVALID stage=0 reason=1 cold=1 refusal=[1-9][0-9]{0,4} join=0$')
+            # Positive end-to-end live observer path, with a native IOS
+            # transport, dense guest RAM and synthetic direct BL effects.
+            env['UNDERCOVER_V1233_IPC_FIXTURE']='1'
+            got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback-prefix-time-frontier-wireless-suffix-return-handler-return-final-resume-leaf-ipc-valid'],env=env,capture_output=True,timeout=10)
+            self.assertEqual(got.returncode,0,got.stdout+got.stderr)
+            self.assertEqual(got.stderr,b'')
+            self.assertEqual(got.stdout.splitlines()[-1],b'V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0')
 if __name__=='__main__':unittest.main()
