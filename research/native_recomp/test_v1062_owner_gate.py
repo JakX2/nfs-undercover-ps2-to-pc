@@ -23,6 +23,20 @@ class OwnerGate(unittest.TestCase):
             return self.jobs
         self.fail('unexpected request')
 
+    def test_new_pinned_requirements(self):
+        expected = [(45753506495, 'owner-execution'), (45756409951, 'owner-context'),
+                    (45757000670, 'owner-context')]
+        self.assertEqual([(r.run_id, r.owner) for r in REQUIREMENTS[-3:]], expected)
+        self.assertEqual(len({r.run_id for r in REQUIREMENTS}), len(REQUIREMENTS))
+        for req in REQUIREMENTS[-3:]:
+            self.req = req
+            self.run.update(id=req.run_id, head_sha=req.head, path=req.path)
+            self.owner.update(name=req.owner, run_id=req.run_id)
+            self.assertTrue(verify(self.fetch, req))
+            self.owner['conclusion'] = 'skipped'
+            self.assertFalse(verify(self.fetch, req))
+            self.owner['conclusion'] = 'success'
+
     def test_success_and_attempt_pinning(self):
         self.assertTrue(verify(self.fetch, self.req))
         self.assertEqual(self.calls, [f'actions/runs/{self.req.run_id}',

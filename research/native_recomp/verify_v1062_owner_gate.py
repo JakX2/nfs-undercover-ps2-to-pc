@@ -23,6 +23,12 @@ REQUIREMENTS = (
                 '.github/workflows/wii-v1038-continuous-queue-history.yml', 'owner-execution'),
     Requirement(45742746303, '90b71ec01b245095278cb528a5d1be69c8753245',
                 '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
+    Requirement(45753506495, '5f1f83d179b770510cb5231ad5d13f90f1e656ae',
+                '.github/workflows/wii-v1059-continuous-third-alarm.yml', 'owner-execution'),
+    Requirement(45756409951, '0a4d51407909ae4e4f0f0e8b7e9f5823d21afcd6',
+                '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
+    Requirement(45757000670, 'cd1d4467e51f1ee962246e00b90b153d7640aa6c',
+                '.github/workflows/wii-v1007-second-rfi.yml', 'owner-context'),
 )
 
 
@@ -75,7 +81,7 @@ def main():
         except (OSError, ValueError, subprocess.SubprocessError):
             print(f'V1062_OWNER_GATE verified=0 gate={index} reason=unavailable')
             return 1
-    print('V1059_PREREQUISITES verified=1 historical_installer=1 queue=1 focused_alarm=1')
+    print('V1116_PREREQUISITES verified=1 historical_installer=1 queue=1 focused_alarm=1 continuous_alarm=1 focused_wireless=1 focused_setter=1')
     return 0
 
 
