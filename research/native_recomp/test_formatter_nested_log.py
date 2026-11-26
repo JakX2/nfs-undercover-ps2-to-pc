@@ -67,4 +67,17 @@ class Control(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(control_log()[1:],control=True)
     def test_mixed(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(control_log(),control=True,third=True)
+def arrival_log():
+    return [f'FORMATTER_ARRIVAL_TRIAL n={i} native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77' for i in range(8)]+['FORMATTER_ARRIVAL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 transfer_executed=8 destination_arrival=8 destination_body=0 deferred=8 reply=0 visits=616 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+class Arrival(unittest.TestCase):
+    def test_exact(self):self.assertEqual(verify(arrival_log(),arrival=True),tuple(arrival_log()[-1:]))
+    def test_transfer(self):
+        x=arrival_log();x[0]=x[0].replace('transfer_executed=1','transfer_executed=0')
+        with self.assertRaisesRegex(ValueError,'native trial'):verify(x,arrival=True)
+    def test_body(self):
+        x=arrival_log();x[-1]=x[-1].replace('destination_body=0','destination_body=8')
+        with self.assertRaisesRegex(ValueError,'native aggregate'):verify(x,arrival=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(arrival_log(),arrival=True,control=True)
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(control_log(),arrival=True)
 if __name__=='__main__':unittest.main(verbosity=2)

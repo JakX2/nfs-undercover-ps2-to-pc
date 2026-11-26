@@ -977,10 +977,19 @@ static bool formatter_nested_held(nw::CPUContext& c){
 }
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!formatter_nested)formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_ARRIVAL
+    if(pc==formatter_nested_private::expected.control.destination){
+        if(!formatter_nested->stop_before_control_destination(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+        ++formatter_nested_count;throw FormatterNestedStop{};
+    }
+#endif
     if(pc==formatter_nested_private::expected.target){
         const bool held=formatter_nested_held(c);
         if(formatter_nested_private::expected.control.destination){
             if(!formatter_nested->stop_before_control(c,pc,w,held))formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_ARRIVAL
+            return; // let the unchanged translated bctr execute
+#endif
         }else if(!formatter_nested->stop_before_load(c,pc,w,held))formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
@@ -1789,7 +1798,14 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
 #ifdef UNDERCOVER_FORMATTER_NESTED
     if(formatter_nested){
-        if(!formatter_nested->entry(c,pc,formatter_nested_held(c)))formatter_nested_refuse(3);
+        const bool held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_ARRIVAL
+        if(formatter_nested->stage()==3u){
+            if(!formatter_nested->control_destination_entry(c,pc,held))formatter_nested_refuse(3);
+            return;
+        }
+#endif
+        if(!formatter_nested->entry(c,pc,held))formatter_nested_refuse(3);
         return;
     }
 #endif
@@ -2427,7 +2443,14 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_FORMATTER_NESTED
     if(formatter_nested){
-        if(!formatter_nested->poll(c,formatter_nested_held(c)))formatter_nested_refuse(4);
+        const bool held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_ARRIVAL
+        if(formatter_nested->stage()==2u){
+            if(!formatter_nested->control_transfer_poll(c,held))formatter_nested_refuse(4);
+            return false;
+        }
+#endif
+        if(!formatter_nested->poll(c,held))formatter_nested_refuse(4);
         return false;
     }
 #endif
@@ -4527,8 +4550,12 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             const bool nested_boundary_held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_ARRIVAL
+            const bool nested_reached=nested.reached_control_destination(c,nested_boundary_held);
+#else
             const bool nested_reached=formatter_nested_private::expected.control.destination?
                 nested.reached_control_boundary(c,nested_boundary_held):nested.reached_load_boundary(c,nested_boundary_held);
+#endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
                nested.visits()!=nested_visits||nested.loads()!=nested_loads||nested.authenticated_loads()!=nested_authenticated||nested.stores()!=nested_stores||
                host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
@@ -4544,7 +4571,10 @@ int main(int argc,char** argv)try{
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_CONTROL)
+#if defined(UNDERCOVER_FORMATTER_ARRIVAL)
+            std::cout<<"FORMATTER_ARRIVAL_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77\n";
+#elif defined(UNDERCOVER_FORMATTER_CONTROL)
             std::cout<<"FORMATTER_CONTROL_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 pre_transfer_stop=1 transfer_executed=0 deferred=1 reply=0 visits=76\n";
 #elif defined(UNDERCOVER_FORMATTER_THIRD)
@@ -4846,7 +4876,9 @@ int main(int argc,char** argv)try{
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_CONTROL)
+#if defined(UNDERCOVER_FORMATTER_ARRIVAL)
+    std::cout<<"FORMATTER_ARRIVAL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 transfer_executed=8 destination_arrival=8 destination_body=0 deferred=8 reply=0 visits=616 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#elif defined(UNDERCOVER_FORMATTER_CONTROL)
     std::cout<<"FORMATTER_CONTROL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 pre_transfer_stop=8 transfer_executed=0 deferred=8 reply=0 visits=608 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #elif defined(UNDERCOVER_FORMATTER_THIRD)
     std::cout<<"FORMATTER_THIRD_NATIVE owner=1 trials=8 native_prefix=8 loads=40 stores=104 nonvolatile="<<8u*nested_saved
