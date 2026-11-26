@@ -44,6 +44,7 @@ on:
       - 'research/native_recomp/*v1167*'
       - 'research/native_recomp/*v1169*'
       - 'research/native_recomp/*v1175*'
+      - 'research/native_recomp/*v1176*'
       - 'research/native_recomp/*v1151*'
       - 'research/native_recomp/*v1153*'
       - 'research/native_recomp/*v1152*'
@@ -91,6 +92,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v1152_held_epilogue.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1161_held_dispatch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1169_third_ack.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1176_ack_helper.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v868_handler_suffix.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1051_third_launch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1054_third_alarm_audit.py -v
