@@ -42,6 +42,12 @@ def plan(d,e,*,details=False):
         if len(missed)!=1:raise ValueError('nested audit refusal')
     else:raise ValueError('nested audit no refusal')
     addr,n=missed[0]
+    result,data=audit_cell(d,e,addr,n)
+    return (result,addr,data) if details else result
+
+def audit_cell(d,e,addr,n):
+    if n not in (1,2,4) or addr%n or not 0x80000000<=addr<addr+n<=0x81800000:
+        raise ValueError('nested audit cell range')
     kind=classify_section(e,addr,n)
     data=data_at(d,addr,n)
     equal=False
@@ -55,7 +61,7 @@ def plan(d,e,*,details=False):
     matches=sum(addr+i in seeded and data is not None and seeded[addr+i]==data[i] for i in range(n))
     writers=direct_writers(tuple(stm)+tuple(w for words in (*roots.values(),*shared.values()) for w in words),addr,n)
     result=(kind,n,int(data is not None),int(equal),covered,matches,writers)
-    return (result,addr,data) if details else result
+    return result,data
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
