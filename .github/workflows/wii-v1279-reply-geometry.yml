@@ -1,0 +1,51 @@
+name: Wii V1279 Original Reply Geometry
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1279*'
+      - '.github/workflows/wii-v1279-reply-geometry.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate syntax closure and generated synthetic header
+        run: |
+          python3 -m py_compile research/native_recomp/prepare_v1279_reply_geometry.py
+          python3 -m unittest discover -s research/native_recomp -p test_v1279_reply_geometry.py -v
+  owner-geometry:
+    needs: original-free
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private original inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Verify original reply processor and cache closure
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/prepare_v1279_reply_geometry.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals"
