@@ -37,7 +37,8 @@ public:
     // Call at each native instruction or callback during selection, before
     // OSLoadContext starts changing CPU registers. Intermediate scheduler
     // list/pointer stores need not be atomic.
-    template<class C>unsigned boundary_detail(C& c,bool held)const{
+private:
+    template<class C>unsigned state_detail(C& c,bool held,bool exact_msr_checked)const{
         if(stage_<1u||stage_>6u||error_||!prior_||cpu_!=&c)return 1u;
         if(!prior_->selection_transport_held(c,held))return 2u;
         if(!word(c,e_.counter,0u)||!word(c,e_.callback_ptr,e_.callback))return 3u;
@@ -46,10 +47,12 @@ public:
         if(stage_<=2u&&!ready_state(c))return 6u;
         if(stage_<=4u&&!idle_active(c))return 7u;
         if(stage_>=4u&&!selected_queue(c))return 8u;
-        if(stage_>=3u&&(c.msr&0x8000u))return 9u;
+        if(stage_>=3u&&(c.msr&0x8000u)&&!exact_msr_checked)return 9u;
         for(unsigned i=0;i<image_.size();++i)if(!word(c,e_.thread+4u*i,image_[i]))return 10u;
         return 0u;
     }
+public:
+    template<class C>unsigned boundary_detail(C& c,bool held)const{return state_detail(c,held,false);}
     template<class C>bool boundary(C& c,bool held)const{return boundary_detail(c,held)==0u;}
     template<class C>bool entry(C& c,uint32_t pc,bool held){
         if(!boundary(c,held)||c.pc!=pc||c.inst_count<=last_)return fail(2);
@@ -76,6 +79,13 @@ public:
     // authenticated queue, selected context, wire and saved image checks.
     template<class C>bool loader_boundary(C& c,bool held)const{
         return stage_==6u&&boundary(c,held)&&word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
+    }
+    // Separate read-only guard for the later synchronous submit route.
+    // The caller must supply its independently captured/predicted MSR,
+    // never the live MSR as a substitute for the expected state.
+    template<class C>bool selected_response_held(C& c,bool held,uint32_t expected_msr)const{
+        return stage_==6u&&c.msr==expected_msr&&state_detail(c,held,true)==0u&&
+            word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
     }
     template<class C>bool loader_ready(C& c,bool held)const{
         return stage_==6u&&boundary(c,held)&&c.inst_count==last_&&c.pc==e_.load.pc&&

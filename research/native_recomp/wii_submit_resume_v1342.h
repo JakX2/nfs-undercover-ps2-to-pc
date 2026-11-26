@@ -15,6 +15,7 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
+    uint32_t expected_msr()const{return enabled_?msr_:(msr_&~0x8000u);}
     template<class C>bool capture(C& c,bool held){
         if(stage_||error_||!safe(c,held)||c.pc!=e_.submit||c.lr!=e_.open_return||
            !(c.msr&0x8000u)||!c.gpr[1]||(c.gpr[1]&7u)||!mapped(c,c.gpr[3],32u)||

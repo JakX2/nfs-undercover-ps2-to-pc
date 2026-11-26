@@ -1,0 +1,3 @@
+# V1343: selected-thread response guard across the outer interrupt restore
+
+Preserve the original V1332 EE-disabled loader guard unchanged. Add a separate read-only check after selected context installation, requiring an independently captured exact MSR and all existing saved context, selected queue, waiting queue, active/physical/current pointer and native transport/response checks. Expose the V1342 predicted MSR, rather than using the live value as its own expectation. Five additional joined synthetic cases: valid enabled state, changed response, corrupted saved context, wrong physical context and nonempty waiting queue. No owner execution enabled by this change. V1340 and V1341 source tests passed; their private owner jobs are executing.

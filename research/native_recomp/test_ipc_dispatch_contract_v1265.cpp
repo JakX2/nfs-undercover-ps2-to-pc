@@ -504,6 +504,17 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                     ok=enter(load);if(idle_case==20){assert(!ok&&select.failure()==3u);return;}assert(ok);
                     assert(select.loader_ready(c,true));
                     if(idle_case==21){++c.inst_count;assert(!select.loader_ready(c,true));}
+                    else if(idle_case>=24u){
+                        const uint32_t disabled=c.msr,enabled=disabled|0x8000u;
+                        assert(select.selected_response_held(c,true,disabled));
+                        c.msr=enabled;
+                        assert(!select.loader_boundary(c,true)&&!select.selected_response_held(c,true,disabled));
+                        if(idle_case==25)ram.write32(Request+4u,1u);
+                        if(idle_case==26)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
+                        if(idle_case==27)m.write32(0x800000c0u,Context&0x3fffffffu);
+                        if(idle_case==28)m.write32(Queue,Thread);
+                        assert(select.selected_response_held(c,true,enabled)==(idle_case==24u));
+                    }
                     else assert(idle_case==13u||idle_case==22u);
                     return;
                 }
@@ -633,8 +644,8 @@ int main(){
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
     std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_IDLE_SELECTION
-    for(unsigned i=13;i<=23;++i)trial(0,0,true,0,0,0,0,1,i);
-    std::cout<<"V1332_IDLE_SELECTION synthetic=1 valid=2 refused=9 mem2_wait_queue=1 ready_drained=1 native_loader_entry=0 original_execution=0\n";
+    for(unsigned i=13;i<=28;++i)trial(0,0,true,0,0,0,0,1,i);
+    std::cout<<"V1343_IDLE_SELECTION synthetic=1 valid=3 refused=13 mem2_wait_queue=1 ready_drained=1 exact_outer_msr=1 native_loader_entry=0 original_execution=0\n";
 #endif
 #endif
 #endif
