@@ -21,4 +21,9 @@ inline constexpr bool callback_guard=true;
 inline constexpr auto callback_words=v958::third_postalarm_prefix;
 inline constexpr std::array<uint32_t,2> callback_sites{Handler+12u,Handler+16u};
 inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,1u,6u};
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+inline constexpr unsigned return_loads=2;
+inline constexpr NativeReturnExpectation<return_loads> return_expected{v1123::R+12u,v1123::Restore,Handler+16u,
+    {0x83cbfff8u,0x83ebfffcu,Blr},{0x80010044u,0x7c0803a6u,0x38210040u,Blr},Nop};
+#endif
 }

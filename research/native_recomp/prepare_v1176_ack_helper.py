@@ -76,7 +76,8 @@ def render(spans,edges,rows,msr,expected,callback_guard=True):
         +'inline constexpr bool callback_guard='+str(callback_guard).lower()+';\n'
         +'inline constexpr auto callback_words=v958::success_callback_words;\n'
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
-        +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n}\n')
+        +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n'
+        +'#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN\ninline constexpr unsigned return_loads=6;\ninline constexpr auto return_expected=v1132::expected;\n#endif\n}\n')
 
 def verify_callback_metadata(dol,elf,spans,rows,old):
     candidate,words,sites=callback_expectations(dol,elf)

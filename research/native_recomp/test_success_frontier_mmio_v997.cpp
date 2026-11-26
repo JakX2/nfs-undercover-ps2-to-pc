@@ -811,7 +811,43 @@ int main(int argc,char** argv){
                                                                                     c.cr[0].eq=false;visit(Root2+52u,v1123::rows[2].word);
                                                                                     if(sf2!="-missing-poll")v958::poll(c);
                                                                                     if(sf2=="-double-poll")v958::poll(c);
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+                                                                                    const bool return_mode=v958::ack_return_enabled();
+                                                                                    const auto rf2=sf2.starts_with("-return")?sf2.substr(std::string_view("-return").size()):std::string_view{};
+                                                                                    const auto e2=q4::return_expected;
+                                                                                    if(return_mode){
+                                                                                        need(sf2.starts_with("-return"));
+                                                                                        for(unsigned i=0;i<e2.restore.size();++i)c.mmu.words[e2.root+4u*i]=e2.restore[i];
+                                                                                        for(unsigned i=0;i<e2.tail.size();++i)c.mmu.words[e2.call+4u+4u*i]=e2.tail[i];
+                                                                                        c.mmu.words[e2.caller]=e2.caller_word;
+                                                                                        if(rf2=="-identity")c.mmu.words[e2.root]^=1u;
+                                                                                        c.gpr[30]^=0x55u;c.gpr[31]^=0xaau;c.gpr[11]=stack;
+                                                                                    }
+#endif
                                                                                     visit(Root2+56u,v1123::rows[3].word);
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+                                                                                    if(return_mode){
+                                                                                        need(v958::held_epilogue.stage()==24u);
+                                                                                        c.pc=e2.root;c.lr=e2.call+4u;v958::observe(rf2=="-entry"?e2.root+4u:e2.root,c);
+                                                                                        if(rf2=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                                        if(rf2=="-tick")scheduler.advance(++tick);
+                                                                                        if(rf2=="-device")mask=0;
+                                                                                        if(rf2=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                        if(rf2=="-slot")c.mmu.words[stack-8u]^=1u;
+                                                                                        visit(e2.root,e2.restore[0],rf2=="-guard");c.gpr[30]=c.mmu.words[stack-8u];
+                                                                                        visit(e2.root+4u,e2.restore[1]);c.gpr[31]=c.mmu.words[stack-4u];
+                                                                                        visit(e2.root+8u,Blr);
+                                                                                        visit(e2.call+4u,e2.tail[0]);c.gpr[0]=c.mmu.words[stack+4u];
+                                                                                        visit(e2.call+8u,e2.tail[1]);c.lr=c.gpr[0];
+                                                                                        visit(e2.call+12u,e2.tail[2]);c.gpr[1]+=64u;
+                                                                                        visit(e2.call+16u,Blr);c.pc=e2.caller;
+                                                                                        if(rf2!="-poll")v958::poll(c);
+                                                                                        if(rf2=="-double-poll")v958::poll(c);
+                                                                                        if(rf2!="-dispatch"){scheduler.advance(++tick);v958::postalarm_dispatch_resume(c,e2.caller,e2.caller_word);}
+                                                                                        if(rf2=="-abi")c.gpr[31]^=1u;
+                                                                                        visit(e2.caller,e2.caller_word);
+                                                                                    }
+#endif
                                                                                 }
 #endif
                                                                             }

@@ -88,7 +88,7 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u||held_epilogue.stage()==20u||held_epilogue.stage()==21u||held_epilogue.stage()==22u||held_epilogue.stage()==23u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u||held_epilogue.stage()==20u||held_epilogue.stage()==21u||held_epilogue.stage()==22u||held_epilogue.stage()==23u||held_epilogue.stage()==24u||held_epilogue.stage()==25u;}
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1180_ACK_CALLBACK");return v&&v[0]=='1'&&v[1]==0;}
@@ -97,6 +97,10 @@ inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_T
 inline bool ack_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1193_ACK_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1197_ACK_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_suffix_enabled(){const char* v=std::getenv("UNDERCOVER_V1201_ACK_SUFFIX");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_return_enabled(){const char* v=std::getenv("UNDERCOVER_V1205_ACK_RETURN");return v&&v[0]=='1'&&v[1]==0;}
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+inline thread_local NativeReturnWitness<v1175::return_loads> ack_return(v1175::return_expected);
+#endif
 #ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
 inline thread_local CallbackSuffixWitness ack_suffix(v1123::expected);
 #endif
@@ -166,6 +170,12 @@ inline bool third_postalarm_return_enabled(){const char* v=std::getenv("UNDERCOV
              <<" witness="<<third_postalarm.callback_return_failure()<<" stage="<<third_postalarm.stage()<<std::endl;std::_Exit(126);
 }
 template<class C>void postalarm_dispatch_resume(C& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+    if(held_epilogue.stage()==24u){
+        if(!ack_return_enabled()||!held_epilogue.prefix_return_dispatch(c,ack_return,pc,w))reject_held_epilogue();
+        return;
+    }
+#endif
     if(third_postalarm.stage()==12u&&!third_postalarm.callback_return_dispatch(c,pc,w))reject_postalarm_return();
 }
 #endif
@@ -454,6 +464,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_frontier_enabled()&&!ack_time_enabled())return false;
     if(ack_wireless_enabled()&&!ack_frontier_enabled())return false;
     if(ack_suffix_enabled()&&!ack_wireless_enabled())return false;
+    if(ack_return_enabled()&&!ack_suffix_enabled())return false;
+#ifndef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+    if(ack_return_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
     if(ack_suffix_enabled())return false;
 #endif
@@ -544,13 +558,20 @@ template<class C>void finish_ack_frontier(C& c,uint32_t pc,uint32_t w){
 }
 #endif
 #ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
-template<class C>void finish_ack_suffix(C& c){
+template<class C>void finish_ack_suffix(C& c,uint32_t pc,uint32_t w){
+    (void)pc;(void)w;
     if(held_epilogue.stage()!=23u)return;
     if(!held_epilogue.prefix_suffix_saved(c,ack_suffix))reject_held_epilogue();
     std::cout<<std::dec<<"V1201_ACK_CALLBACK_SUFFIX ordinal="<<ack_suffix.ordinal()
              <<" target_class="<<ack_suffix.target_class()<<" visits="<<ack_suffix.visits()
              <<" writes="<<ack_suffix.writes()<<" polls="<<ack_suffix.polls()
              <<" token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+    if(ack_return_enabled()){
+        if(!held_epilogue.begin_prefix_return(c,ack_suffix,ack_return,pc,w))reject_held_epilogue();
+        return;
+    }
+#endif
     std::_Exit(0);
 }
 #endif
@@ -560,11 +581,24 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+            if(held_epilogue.stage()==24u){
+                if(!ack_return_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
+                   !held_epilogue.prefix_return_before(c,ack_return,pc,w,guard))reject_held_epilogue();
+                if(held_epilogue.stage()==25u){
+                    if(!held_epilogue.prefix_return_saved(c,ack_return))reject_held_epilogue();
+                    std::cout<<std::dec<<"V1205_ACK_CALLBACK_RETURN original_restore=1 original_return=1 visits="
+                             <<ack_return.visits()<<" token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+                    std::_Exit(0);
+                }
+                return;
+            }
+#endif
 #ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
             if(held_epilogue.stage()==22u){
                 if(!ack_suffix_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
                    !held_epilogue.prefix_suffix_before(c,ack_suffix,pc,w,guard))reject_held_epilogue();
-                finish_ack_suffix(c);return;
+                finish_ack_suffix(c,pc,w);return;
             }
 #endif
 #ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
@@ -579,7 +613,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
                     if(ack_suffix_enabled()){
                         if(!held_epilogue.begin_prefix_suffix(c,ack_wireless,ack_suffix,pc,w))reject_held_epilogue();
-                        finish_ack_suffix(c);return;
+                        finish_ack_suffix(c,pc,w);return;
                     }
 #endif
                     std::_Exit(0);
@@ -961,6 +995,12 @@ template<class C>bool poll(C& c){
             return false;
         }
 #endif
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+        if(held_epilogue.stage()==24u){
+            if(!held_epilogue.prefix_return_poll(c,ack_return))reject_held_epilogue();
+            return false;
+        }
+#endif
         const auto p=held_epilogue.poll(c,v1151::image);
         if(p==Poll::Rejected)reject_held_epilogue();
         if(p==Poll::Entered){
@@ -1049,6 +1089,12 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
         if(held_epilogue.stage()==20u){
             if(!held_epilogue.prefix_wireless_entry(c,ack_wireless,pc))reject_held_epilogue();
+            return;
+        }
+#endif
+#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN
+        if(held_epilogue.stage()==24u){
+            if(!held_epilogue.prefix_return_entry(c,ack_return,pc))reject_held_epilogue();
             return;
         }
 #endif
