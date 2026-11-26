@@ -1,0 +1,21 @@
+name: Wii Deferred STM Native IRQ Entry
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_deferred_stm_irq_entry.h'
+      - 'research/native_recomp/test_deferred_stm_irq_entry.cpp'
+      - '.github/workflows/wii-deferred-stm-irq-entry.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_deferred_stm_irq_entry.cpp -o /tmp/deferred_stm_irq_entry
+          /tmp/deferred_stm_irq_entry
