@@ -58,7 +58,7 @@ static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route
 static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
-static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false;
+static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false,third_callback_return=false;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -207,13 +207,36 @@ static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint3
     need(!PostAckTransferDevice::offset(a.address)&&
          !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
          !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
+    if(callback_return.stage()){
+        need(third_callback_return&&callback_return.before(c,pc,w,true));
+        if(callback_return.stage()==5u){
+            need(owner==Handler&&pc==CallbackCall+4u&&third_callback_held());
+            std::cout<<std::dec<<"V1060_THIRD_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits="<<callback_return.visits()
+                     <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+    if(callback_suffix.stage()){
+        need(third_callback_return&&owner==CallbackRoot&&callback_suffix.before(c,pc,w,true));
+        if(callback_suffix.stage()==2u){
+            std::cout<<std::dec<<"V1060_THIRD_CALLBACK_SUFFIX ordinal="<<callback_suffix.ordinal()<<" target_class="<<callback_suffix.target_class()
+                     <<" visits="<<callback_suffix.visits()<<" writes="<<callback_suffix.writes()<<" polls="<<callback_suffix.polls()
+                     <<" token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
+            // Unknown indirect callbacks are never invoked by this lane.
+            need(callback_suffix.ordinal()==13u&&callback_return.start_dispatch(c,pc,w,callback_gp,callback_cr,true));
+        }
+        return;
+    }
     if(wireless.stage()){
         need(third_wireless_route&&wireless.stage()==1u&&wireless.before(c,pc,w,true));
         if(wireless.stage()==2u){
             need(owner==CallbackRoot&&!third_wireless_changed&&!wireless.changed()&&wireless.ordinal()==3u);
             std::cout<<std::dec<<"V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits="<<wireless.visits()
                      <<" stores="<<wireless.writes()<<" token=3 held=1 saved_fields=38 continuation_executed=0"<<std::endl;
-            std::_Exit(0);
+            if(!third_callback_return)std::_Exit(0);
+            // The setter return is already counted by the device witness.
+            need(callback_suffix.start(c,pc,w,true,true)&&callback_suffix.before(c,pc,w,true)&&callback_suffix.stage()==1u);
         }
         return;
     }
@@ -288,6 +311,14 @@ void handler_resume(CPUContext& c,uint32_t pc,uint32_t w){
 }
 void callback_resume(CPUContext& c,uint32_t pc,uint32_t w){
     if(!callback_return.stage())return;
+    if(third_callback_return){
+        // The outer dispatcher has already consumed its one tick; the
+        // handler label has not. Do not resurrect the retired second ACK.
+        need(callback_return.stage()==4u&&captured.saved_integer(c,Context).ok());
+        scheduler->advance(c.inst_count);
+        need(observe_completed_callback_dispatch(third,c.inst_count)&&third_callback_held()&&callback_return.dispatch_resume(c,pc,w,true));
+        return;
+    }
     need(callback_return.stage()==4u&&captured.saved_integer(c,Context).ok()&&ack.accept_dispatch_tick(c)&&
          ack.postack_held()&&callback_return.dispatch_resume(c,pc,w,true));
 }
@@ -628,6 +659,10 @@ bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_callback_route&&callback_witness.stage()){
         need(captured.saved_integer(c,Context).ok());
+        if(callback_return.stage()){
+            need(third_callback_return&&third_callback_held()&&callback_return.entry(c,pc,true));return;
+        }
+        need(!callback_suffix.stage());
         if(wireless.stage()){
             need(third_wireless_route&&third_callback_held()&&wireless.entry(c,pc,true));
             if(wireless.stage()==3u){
@@ -693,7 +728,14 @@ void trace_call(uint32_t pc,CPUContext& c){
 }
 bool process_pending_callbacks(CPUContext& c){
     if(third_callback_route&&callback_witness.stage()){
-        need(captured.saved_integer(c,Context).ok()&&third_callback_held()&&!callback_frontier.stage());
+        need(captured.saved_integer(c,Context).ok()&&third_callback_held());
+        if(callback_return.stage()){
+            need(third_callback_return&&callback_return.dispatch_poll(c,true));return false;
+        }
+        if(callback_suffix.stage()){
+            need(third_callback_return&&callback_suffix.poll(c,true));return false;
+        }
+        need(!callback_frontier.stage());
         if(callback_time.stage())need(callback_time.poll(c,true));
         else need(callback_witness.dispatch_poll(c,true));
         return false;
@@ -745,11 +787,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return"}){
         if(mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_callback_return=tail=="-return";break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
