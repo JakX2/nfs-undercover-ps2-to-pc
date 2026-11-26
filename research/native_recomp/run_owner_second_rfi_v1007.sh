@@ -134,14 +134,14 @@ for mode in nonsplit split; do
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Ex 'V985_ALARM_RETURN original_return=1 queue=1 lane=[0-4] timer=[01] calls=[0-9]+ visits=[1-9][0-9]* token_held=1 saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Fx 'V1032_THIRD_CALL_CENSUS entries=5 returns=5 visits=105 token=3' "$work/run.log"
-      grep -Ex 'V1054_THIRD_ALARM_CENSUS suffix_visits=[1-9][0-9]{0,2} status_reads=[01] status_writes=[01] alarm_lane=0 alarm_visits=33 calls=3 token=3 held=1' "$work/run.log"
+      grep -Fx 'V1054_THIRD_ALARM_CENSUS suffix_visits=6 status_reads=0 status_writes=0 alarm_lane=0 alarm_visits=33 calls=3 token=3 held=1' "$work/run.log"
       if [[ "$lane" == *after-alarm || "$lane" == *callback ]]; then
         grep -Ex "V1032_AFTER_ALARM_FRONTIER prior_absent=$prior profile=$trial ordinal=[0-9]+ kind=[0-2] target_class=[0-4] visits=[1-9][0-9]* token=3 held=1 saved_fields=38 call_executed=0" "$work/run.log"
       fi
       if [[ "$lane" == *callback ]]; then
-        grep -Ex 'V1053_THIRD_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=[1-9][0-9]* token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
-        grep -Ex 'V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=[1-9][0-9]* polls=[1-9][0-9]* token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
-        grep -Ex 'V1053_THIRD_CALLBACK_FRONTIER ordinal=[35] visits=[1-9][0-9]* writes=[0-3] zero_id=[01] token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
+        grep -Fx 'V1053_THIRD_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=13 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
+        grep -Fx 'V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
+        grep -Fx 'V1053_THIRD_CALLBACK_FRONTIER ordinal=3 visits=17 writes=3 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
       fi
     done
   done

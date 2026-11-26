@@ -1,0 +1,3 @@
+# V1057: exact original third alarm and callback census
+
+Owner run 45742746303 at V1054 passed both native split modes. All 80 third-alarm samples reported 6 suffix visits, no SI status reads/writes, 33 alarm visits and 3 calls with token 3 held. All 32 third-callback samples reported 13 prologue visits and 8 writes, 25 system-time visits, 18 time-leaf visits, 1 poll, and ordinal 3 reached in 17 visits with 3 writes and zero ID. Tighten the continuous alarm audit and focused shell checks to these exact observed values. Preserve the broad diagnostic pattern so bounded unexpected results remain visible, but never count them as successful execution. This does not advance the verified continuous frontier.
