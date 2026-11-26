@@ -1,0 +1,3 @@
+# V1029: private third native transfer installation
+
+Authenticate the already translated handler call, successor label, original SITransfer, compiler save/restore and shared interrupt leaves. Require exact native ownership, six direct call edges and one scheduler tick per label. Preserve existing first-transfer hooks, suppressing the retired witness only during third-device ownership. Private header contains original geometry; no generated source or code words are published. The owner preflight compiles the complete-image observer without linking or executing the new route. No runtime mode is enabled in the standard launcher until this preflight is verified.

@@ -290,6 +290,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                 fi
             elif [[ "${UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME:-0}" == 1 ]]; then exit 2
             fi
+            if [[ "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 ]]; then
+                [[ "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 ]] || exit 2
+                python3 "$here/prepare_v1029_third_transfer.py" "$dol" "$elf" "$work/generated"
+            fi
         fi
         if [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v928_leaf_finish.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v930_ipc_join.py" "$dol" "$elf" "$work/generated";fi
