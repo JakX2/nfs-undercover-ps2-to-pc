@@ -1,0 +1,23 @@
+name: Wii Initialized Cell Observation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_initialized_cell_observation.h'
+      - 'research/native_recomp/test_initialized_cell_observation.cpp'
+      - '.github/workflows/wii-initialized-cell-observation.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for test in test_initialized_dol_data_v1264 test_initialized_cell_observation; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
