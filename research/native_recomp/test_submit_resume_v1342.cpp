@@ -26,6 +26,12 @@ static void trial(unsigned f,uint32_t fd=0){
     c.pc=S+4;c.gpr[1]-=64;c.msr=0x32;c.inst_count+=100;c.mmu.write32(Q,StmIos::Reply);c.mmu.write32(Q+8,StmIos::Open);
     c.mmu.write32(Q+4,fd^(f==2?1u:0u));
     ok=w.begin(c,Prior{f!=3},true);if(f==2||f==3){assert(!ok&&w.failure()==2);return;}assert(ok);
+    if(fd==1u){
+        if(f==11u){c.pc+=4u;assert(!w.initial_dispatch_poll(c,true));return;}
+        if(f==12u){++c.inst_count;assert(!w.initial_dispatch_poll(c,true));return;}
+        if(f==13u){assert(!w.initial_dispatch_poll(c,false));return;}
+        assert(w.initial_dispatch_poll(c,true)&&!w.initial_dispatch_poll(c,true));
+    }else assert(!w.initial_dispatch_poll(c,true));
     c.inst_count+=2;assert(w.before(c,S+4,Nop,true));c.gpr[3]=f==4?0:1;++c.inst_count;
     ok=w.before(c,S+8,bl(S+8,R),true);if(f==4){assert(!ok&&w.failure()==4);return;}assert(ok);
     c.pc=R;c.lr=S+12;assert(w.entry(c,R,true));c.gpr[4]=f==5?0x32:0x8032;++c.inst_count;
@@ -43,7 +49,7 @@ static void trial(unsigned f,uint32_t fd=0){
 }
 int main(){for(unsigned f=0;f<=10;++f)trial(f);
 #ifdef UNDERCOVER_TEST_SECOND_RETURN
-for(unsigned f=0;f<=10;++f){trial(f,1u);}
-std::cout<<"V1375_SECOND_SUBMIT_RETURN cases=11\n";
+for(unsigned f=0;f<=13;++f){trial(f,1u);}
+std::cout<<"V1380_SECOND_SUBMIT_RETURN cases=14\n";
 #endif
 std::cout<<"V1342_SUBMIT_RESUME synthetic=1 valid=1 refused=10 response_held=1 outer_ee=1 original_execution=0\n";}

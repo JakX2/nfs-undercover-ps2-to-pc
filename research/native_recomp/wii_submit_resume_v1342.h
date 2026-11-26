@@ -79,6 +79,14 @@ public:
         }
         return fail(5);
     }
+    // The second lane stops at the independently proven sleep return,
+    // then re-enters run_game. Admit its initial poll once, without
+    // accepting any extra instruction tick or changing guest state.
+    template<class C>bool initial_dispatch_poll(C& c,bool held){
+        if(fd_!=1u||!resume_||initial_polled_||poll_due_||entry_due_||
+           !live(c,held)||c.pc!=next_||c.inst_count!=last_)return false;
+        initial_polled_=true;return true;
+    }
     template<class C>bool poll(C& c,bool held){
         if(!live(c,held)||!poll_due_||c.inst_count!=last_||c.pc!=poll_pc_)return fail(6);
         if(enabled_&&!polled_){
@@ -98,7 +106,7 @@ private:
     std::array<uint32_t,8> reply_{};
     uint32_t req_=0,sp_=0,r2_=0,r13_=0,msr_=0,active_=0,next_=0,last_pc_=0,poll_pc_=0;
     uint64_t tick_=0,last_=0;unsigned stage_=0,error_=0,visits_=0;
-    bool resume_=false,entry_due_=false,poll_due_=false,enabled_=false,polled_=false,restored_=false;
+    bool resume_=false,entry_due_=false,poll_due_=false,enabled_=false,polled_=false,restored_=false,initial_polled_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c,bool held){return held&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>bool base(C& c,bool held)const{

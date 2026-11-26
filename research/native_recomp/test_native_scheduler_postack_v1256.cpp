@@ -1084,7 +1084,12 @@ bool process_pending_callbacks(CPUContext& c){
     }
 #endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
-    if(submit_resume_active){if(!submit_resume->poll(c,submit_held(c)))submit_resume_refuse(3);return false;}
+    if(submit_resume_active){
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+        if(second_scheduler_lane&&submit_resume->initial_dispatch_poll(c,submit_held(c)))return false;
+#endif
+        if(!submit_resume->poll(c,submit_held(c)))submit_resume_refuse(3);return false;
+    }
 #endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active){

@@ -1,3 +1,7 @@
 # V1378 original second submit continuation and allocator free
 
 V1374 owner 45831236031/job 139948628488 verified eight original second wakeups, idle RFI, cooperative loader and sleep return. V1376 source run 45831498780 passed 47 new second-return cases. Capture second SubmitResumeWitness before the second submit executes. Join at the verified sleep return with original selected context, four IOS service steps and response descriptor 1. Observe original outer EE restore and original allocator-free entry; authorize only the already-discovered descriptor field on a separately admitted second release, preserving a new full heap and metadata shadow. Stop at authenticated original inline free return, with both descriptors and broker unchanged. The later Open return and full STM tail remain separate. Owner verification pending.
+
+## V1380 initial dispatch correction
+
+Owner run 45831818757/job 139950620286 reached verified second sleep return, then refused at SubmitResumeWitness poll (stage 2, reason 6, visits 0). The second lane re-enters run_game from the observed sleep-return checkpoint, unlike the first inline callback. Admit exactly one initial same-PC/same-tick dispatch poll in the explicit second-result lane. No guest state change or extra tick; original first instruction still requires its exact two-tick native resume. Reject wrong PC, tick, held state, duplicate poll and cold-lane initial poll. Retry owner run; no second free claimed until verified.
