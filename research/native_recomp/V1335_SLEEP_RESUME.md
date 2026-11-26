@@ -1,0 +1,3 @@
+# V1335: observe restored SelectThread return to original OSSleepThread
+
+The historical V82 original path stopped at interrupt restore entry after the sleeping thread resumed. New observer independently captures the original sleeping caller ABI before initial SelectThread, then requires verified cooperative RFI, exact native instruction/branch path, original outer dispatcher return, restored stack and nonvolatile ABI, exact original interrupt restore call and disabled MSR. Stops before interrupt restore. Nine original-free synthetic cases. Not integrated into owner execution until V1334 succeeds. No claim of actual sleeping-thread continuation.

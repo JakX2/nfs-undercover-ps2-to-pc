@@ -1,0 +1,20 @@
+name: Wii V1335 Sleeping Caller Continuation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1335*'
+      - '.github/workflows/wii-v1335-sleep-resume.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_sleep_resume_v1335.cpp -o /tmp/v1335
+          /tmp/v1335
