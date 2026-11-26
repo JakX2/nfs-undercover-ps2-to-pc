@@ -1,0 +1,3 @@
+# V1078: device-bound third completion acknowledgement
+
+V1077 source-only run 45747367407 passed its eight successful and eight refused dispatcher joins. Extend the route with a separate fresh ACK and strict native call witness. Require the fresh dispatcher capture and same completed third device before retiring the transfer owner. Use the controller's real W1C transaction, never write PI directly; stop on the exact instruction after W1C. Add eight successful and eight negative synthetic cases (frame, PC, tick, unarmed access, wrong entry, missing TC W1C, changed write value, corrupted frame after W1C). Preserve earlier 40 tests. Original instruction effects remain synthetic; owner execution not yet wired or claimed.

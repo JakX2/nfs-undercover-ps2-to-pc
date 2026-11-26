@@ -1,7 +1,8 @@
 #pragma once
 #include "wii_second_vector_v939.h"
 #include "wii_second_si_dispatch_v944.h"
-#include "wii_postack_transfer_device_v771.h"
+#include "wii_second_completion_ack_v950.h"
+#include "wii_bounded_ack_call_route_v956.h"
 namespace undercover::wii {
 // Compose the completed third SI owner with a real restored RFI context.
 // No host-supplied "held" boolean, no device writes and no scheduler advance.
@@ -68,7 +69,49 @@ public:
     template<class C>bool dispatch_saved(C& c,uint32_t context){
         return stage_==6u&&held(c)&&next_.captured().saved_integer(c,context).ok();
     }
+    // Transfer the completed token only after authenticating the new
+    // handler and its independently supplied native call geometry. The
+    // previous transfer observer is retired, never reset or reused.
+    template<class C>bool begin_ack(C& c,std::span<const AckCallSpan> spans,
+            std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr={}){
+        if(stage_!=6u||!held(c)||!dispatch_||dispatch_->stage()!=6u||
+           c.pc!=SiDispatchWitness::Handler||c.gpr[3]!=20u||c.gpr[4]!=SiDispatchWitness::Thread||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           spans.empty()||spans.front().root!=SiDispatchWitness::Handler||
+           !ack_calls_.begin(c,spans,edges,msr,true)||
+           !dev_->handoff_second_ack(ack_,*ctl_,*cause_,*mask_,c.inst_count))return fail(10);
+        stage_=7u;return true;
+    }
+    template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w){
+        if(!ack_frame(c)||!ack_.before(c,pc,w,true)||!ack_calls_.before(c,pc,w,owner))return fail(11);
+        if(ack_.stage()==3u){
+            if(ack_.token()!=3u||!ack_.reads()||!ack_.writes()||!ack_calls_.entries()||
+               !ack_calls_.returns()||!ack_.response_class_verified())return fail(11);
+            stage_=8u;
+        }
+        return true;
+    }
+    template<class C>bool ack_entry(C& c,uint32_t pc){
+        return ack_frame(c)&&ack_calls_.entry(c,pc)&&ack_.poll(c.inst_count)?true:fail(12);
+    }
+    template<class C>bool ack_poll(C& c){
+        return ack_frame(c)&&ack_calls_.can_poll()&&ack_.poll(c.inst_count)?true:fail(13);
+    }
+    bool ack_read(unsigned off,uint32_t& v){
+        return stage_==7u&&!error_&&ack_.read(*ctl_,off,v)?true:fail(14);
+    }
+    bool ack_write(unsigned off,uint32_t v){
+        return stage_==7u&&!error_&&ack_.write(*ctl_,off,v)?true:fail(15);
+    }
+    const SecondCompletionAck& completion_ack()const{return ack_;}
+    const BoundedAckCallRoute& ack_calls()const{return ack_calls_;}
 private:
+    template<class C>bool ack_frame(C& c)const{
+        return stage_==7u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    SecondCompletionAck ack_;
+    BoundedAckCallRoute ack_calls_;
     SecondSiDispatchWitness* dispatch_=nullptr;
     PendingExternalReentry next_;
     SecondVectorWitness vector_;
