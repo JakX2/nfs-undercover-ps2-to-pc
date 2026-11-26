@@ -49,6 +49,21 @@ for mode in nonsplit split; do
       grep -Ex 'V976_ARG_PROFILE seed=[23] profile=[0-3] admissible=[01] original_transfer_executed=0' "$work/run.log" || true
     done
   done
+  for lane in active-error seeded-error active-error-cold seeded-error-cold; do
+    case "$lane" in active-*) seed=2;; *) seed=3;; esac
+    case "$lane" in *-cold) prior=1;; *) prior=0;; esac
+    for trial in {4..7}; do
+      timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
+        grep -Ex 'V955_ACK_FAULT kind=[0-9]{1,2} line=[0-9]{1,4} trial=[0-7] visits=[0-9]{1,4} ack_stage=[0-5] ack_reason=[0-5] ack_visits=[0-9]{1,4} ack_entries=[0-9]{1,4} stage=[0-6] reason=[0-5] entries=[0-9]{1,2} polls=[0-9]{1,4} reads=[0-9]{1,3}' "$work/run.log" || true
+        echo "V1013_ERROR_EXECUTION failed=1 seed=$seed prior_absent=$prior profile=$trial";exit 1;
+      }
+      test "$(grep -Fxc 'V955_ACK_TRIAL verified=1 original_w1c=1 next_label=1 saved_fields=38 token=2' "$work/run.log")" = 1
+      pattern="V1013_ERROR_CENSUS seed=$seed prior_absent=$prior profile=$trial (helper_return=1 shared_time=[01] lane=0 ordinal=0 kind=0 depth=0|helper_return=0 shared_time=[01] lane=[1-5] ordinal=[0-9]{1,2} kind=[1-6] depth=[0-8]) entries=[1-9][0-9]{0,3} returns=[1-9][0-9]{0,3} msr=[0-9]{1,4} visits=[1-9][0-9]{0,3} token_preserved=1 saved_fields=38 boundary_executed=0 continuous_boot=0"
+      test "$(grep -Exc "$pattern" "$work/run.log")" = 1
+      grep -Ex "$pattern" "$work/run.log"
+    done
+  done
+  echo "V1013_OWNER_ERROR_CENSUS mode=$mode classified=16 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

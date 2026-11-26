@@ -49,6 +49,7 @@ static SiTypeScheduler* scheduler=nullptr;
 static PostAckTransferDevice third;
 static bool transfer_route=false,transfer_idle=false,seeded_route=false,argument_probe=false;
 static unsigned seed_kind=0;
+static bool error_census=false,error_cold=false;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static AlarmCancelReturnWitness alarm_witness(v786::expected);
@@ -79,6 +80,24 @@ static bool held(){
     std::_Exit(126);
 }
 static void need(bool ok,const std::source_location loc=std::source_location::current()){if(!ok)fail(1,loc.line());}
+[[noreturn]]static void error_boundary(bool returned,unsigned lane,unsigned ordinal,unsigned kind){
+    need(error_census&&(trial&4u)&&ack.stage()==4u&&ack.postack_held()&&
+         ack.token()==2u&&ctl->issued_tokens()==2u&&cause==Other&&bank_mask==Mask&&
+         (held_control&SiController::COM_ERR)&&ack_visits>ack_boundary_visits);
+    // Count an original helper return only after the native call witness
+    // has actually unwound. A guard is a separate, unexecuted boundary.
+    if(returned)need(call_route.depth()==0u&&call_route.returns()>ack_returns&&
+                    (!shared_tick||shared_seen)&&!lane&&!ordinal&&!kind);
+    else need(lane&&kind);
+    std::cout<<std::dec<<"V1013_ERROR_CENSUS seed="<<seed_kind<<" prior_absent="<<error_cold
+        <<" profile="<<trial<<" helper_return="<<returned<<" shared_time="<<shared_seen
+        <<" lane="<<lane<<" ordinal="<<ordinal<<" kind="<<kind
+        <<" depth="<<call_route.depth()<<" entries="<<call_route.entries()
+        <<" returns="<<call_route.returns()<<" msr="<<call_route.msr_writes()
+        <<" visits="<<ack_visits-ack_boundary_visits
+        <<" token_preserved=1 saved_fields=38 boundary_executed=0 continuous_boot=0"<<std::endl;
+    std::_Exit(0);
+}
 // The runner authenticates this same DOL against the owner hash before
 // invoking the fixture. Copy only initialized data sections, not code.
 static void load_private_data(CPUContext& c,const char* path){
@@ -193,6 +212,12 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
             return;
         }
         if(std::find(Guard.begin(),Guard.end(),pc)!=Guard.end()){
+            if(error_census&&ack.stage()==4u&&w==0x4e800020u){
+                for(const auto& row:GuardCensus)if(pc==row[0]){
+                    need(ack.before(c,pc,w,true)&&ack.poll(c.inst_count));
+                    error_boundary(false,row[1],row[2],row[3]);
+                }
+            }
             if(argument_probe&&(ack.stage()==1u||ack.stage()==4u)&&w==0x4e800020u){
                 for(const auto& row:GuardCensus)if(pc==row[0]){
                     need(ack.before(c,pc,w,true)&&ack.poll(c.inst_count)&&bank_mask==Mask&&ctl->issued_tokens()==2u);
@@ -280,6 +305,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         if(ack.stage()==4u&&!post_seen&&pc>=Handler&&pc<Handler+4u*handler_words.size()&&call_route.depth()==0u){
             need(call_route.returns()>ack_returns&&ack_visits>ack_boundary_visits&&ack.token()==2u&&cause==Other&&bank_mask==Mask);
             std::cout<<std::dec<<"V962_POST_ACK_RETURN original_helper_return=1 saved_fields=38 token_preserved=1 visits="<<ack_visits-ack_boundary_visits<<" handler_instruction_executed=0"<<std::endl;
+            if(error_census)error_boundary(true,0u,0u,0u);
             if(shared_route){
                 need(shared_seen&&ack.postack_held());
                 std::cout<<std::dec<<"V988_SUCCESS_HELPER_RETURN seed="<<seed_kind<<" profile="<<trial<<" original_helper_return=1 shared_time=1 visits="
@@ -369,13 +395,18 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 extern "C" void run_game(CPUContext&);
 int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
-    const std::string mode=argv[2];need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier");
+    const std::string mode=argv[2];
+    error_census=mode=="active-error"||mode=="seeded-error"||mode=="active-error-cold"||mode=="seeded-error-cold";
+    error_cold=mode=="active-error-cold"||mode=="seeded-error-cold";
+    need(!error_census||(trial&4u));
+    need(error_census||mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
     shared_continue=mode=="active-frontier"||mode=="seeded-frontier";
-    shared_route=mode=="active-success"||mode=="seeded-success"||shared_continue;
+    shared_route=error_census||mode=="active-success"||mode=="seeded-success"||shared_continue;
     alarm_route=mode=="queue-alarm"||mode=="seeded-alarm";
     suffix_route=mode=="queue-suffix"||mode=="seeded-suffix"||alarm_route;
     seed_kind=mode=="seeded-args"||mode=="transfer"||mode=="seeded-suffix"||mode=="seeded-alarm"||mode=="seeded-success"||mode=="seeded-frontier"?3u:mode=="queue-args"||mode=="queue-transfer"||mode=="queue-suffix"||mode=="queue-alarm"?1u:mode=="active-args"||mode=="active-transfer"||mode=="active-success"||mode=="active-frontier"?2u:0u;
+    if(error_census)seed_kind=mode.starts_with("seeded-")?3u:2u;
     seeded_route=seed_kind!=0;argument_probe=mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||shared_continue;
     transfer_route=seeded_route||argument_probe;frontier_route=mode=="frontier"||transfer_route;time_route=mode=="time"||frontier_route;postack=mode=="postack"||time_route;
     auto cpu=std::make_unique<CPUContext>();auto& c=*cpu;
@@ -387,11 +418,19 @@ int main(int argc,char** argv)try{
     SiController dev(cause);ctl=&dev;
     const std::array<uint8_t,3> response{9,0,0};
     const uint32_t cfg=SiController::TC_MASK|(1u<<16)|(3u<<8)|((trial%4u)<<1);
-    dev.write(SiController::Control,cfg|SiController::TSTART);dev.complete(dev.pending()->token,response);
-    dev.write(SiController::Control,cfg|SiController::TC_INT);need(cause.load()==Other);
+    // For the cold comparison, the predecessor is the real controller's
+    // no-response completion on port zero, then explicit W1C and status clear.
+    // All preparation remains before native execution begins.
+    const uint32_t first_cfg=error_cold?cfg&~6u:cfg;
+    dev.write(SiController::Control,first_cfg|SiController::TSTART);
+    if(error_cold)dev.complete(dev.pending()->token,{},SiController::ERR_NOREP);
+    else dev.complete(dev.pending()->token,response);
+    dev.write(SiController::Control,first_cfg|SiController::TC_INT);need(cause.load()==Other);
+    if(error_cold)dev.write(SiController::Status,SiController::ERR_NOREP<<24u);
     dev.write(SiController::Control,cfg|SiController::TSTART);
     if(trial&4u)dev.complete(dev.pending()->token,{},SiController::ERR_NOREP);else dev.complete(dev.pending()->token,response);
     held_control=dev.read(SiController::Control);held_status=dev.read(SiController::Status);
+    if(error_census)need((held_control&SiController::COM_ERR)&&held_status==(SiController::ERR_NOREP<<((3u-trial%4u)*8u))&&dev.read(SiController::Buffer)==(error_cold?0u:0x09000000u));
     for(unsigned i=0;i<32;++i)held_buffer[i]=dev.read(SiController::Buffer+4*i);
     need(held());
     using Port=SiTypeScheduler::Port;
