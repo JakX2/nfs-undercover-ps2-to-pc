@@ -90,7 +90,18 @@ echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104'
     # execution retain their original ordering and failure semantics.
     if not out.rstrip().endswith("echo 'BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104'"):
         raise ValueError("V104 unexpected owner-runner trailer")
-    return out[:out.index(anchor)]+success
+    # Preserve only the existing anchored public filters, never raw guest logs.
+    inherited=[]
+    for line in out[out.index(anchor):].splitlines():
+        if line.startswith("grep -E '^V") and line.endswith("' \"$work/private-native.log\" | sort -u") and not line.startswith("grep -E '^V104_"):
+            inherited.append(line+" || true")
+    if not inherited or not any("^V79_RFI_STATE" in x for x in inherited) or not any("^V103_SC_SAVE" in x for x in inherited):
+        raise ValueError("V104 inherited success filter identity")
+    marker="echo 'PASS: original Wii continuous __start constructed authentic IOS_OpenAsync request'"
+    if success.count(marker)!=1:raise ValueError("V104 public trailer anchor")
+    forwarding="\n".join(inherited)+"\n"+"""grep -E '^V104_TRIAL_PASS trial=[0-9]{1,2}$' "$log" | sort -u
+"""
+    return out[:out.index(anchor)]+success.replace(marker,forwarding+marker,1)
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)

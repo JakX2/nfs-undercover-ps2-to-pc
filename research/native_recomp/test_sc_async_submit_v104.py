@@ -83,10 +83,16 @@ class AsyncSubmitV104(unittest.TestCase):
                       "V104_ASYNC_SYSCALL order=1 lines=1",
                       "V104_ASYNC_SUBMIT route=1 request=1 mode=1 path=1 abi=1 prior=1",
                       "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync request submit assertions; mode=owner trials=16 stop=0x805195ec"]
-            log.write_text("\n".join(records)+"\n")
+            inherited=["V79_RFI_STATE resume=1 regs=1 waiting=1",
+                       "V80_WAKE_ENTRY route=1 waiting=1 wire=1 consumed=1",
+                       "V103_SC_SAVE route=1"]
+            log.write_text("\n".join(records+inherited+["PRIVATE_ARBITRARY_SENTINEL"])+"\n")
             ok=subprocess.run(["bash",str(run)],capture_output=True,text=True)
             self.assertEqual(ok.returncode,0,ok.stderr)
             self.assertIn("BOOT_PROGRESS entry=0x8000403C pc=0x805195EC stage=104",ok.stdout)
+            self.assertIn("V104_SUCCESS_GATE count=16 save=1 cache=1 sc=1 submit=1 terminal=1",ok.stdout)
+            for line in inherited+records[:16]:self.assertIn(line,ok.stdout.splitlines())
+            self.assertNotIn("PRIVATE_ARBITRARY_SENTINEL",ok.stdout)
             for missing in ("V104_TRIAL_PASS trial=7","V104_ASYNC_CACHE bounded=1",
                             "PASS: 123 V104 recovered continuous original __start->IOS_OpenAsync request submit assertions; mode=owner trials=16 stop=0x805195ec"):
                 log.write_text("\n".join(x for x in records if x!=missing)+"\n")
