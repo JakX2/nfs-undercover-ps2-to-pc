@@ -393,6 +393,20 @@ public:
         return stage_==31u&&same(c)&&final_ep_&&final_ep_->stage()==4u&&
             next_.completion_ack().postack_held_after_rfi(c.inst_count,0u);
     }
+    // The first resume label is an independent terminal frontier.
+    // Its two native ticks must not be charged as interrupt-handler ticks.
+    template<class C>bool prefix_resume_dispatch(C& c,uint32_t pc){
+        if(stage_!=31u||!same(c)||!final_ep_||!next_.epilogue_resume_dispatch(c,pc))return fail(35);
+        stage_=32u;return true;
+    }
+    template<class C>bool prefix_resume_label(C& c,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=32u||guard||!same(c)||!final_ep_||!next_.epilogue_resume_label(c,pc,w))return fail(36);
+        stage_=33u;return true;
+    }
+    template<class C>bool prefix_resume_saved(C& c)const{
+        return stage_==33u&&same(c)&&final_ep_&&final_ep_->stage()==5u&&
+            next_.completion_ack().postack_held_after_rfi(c.inst_count,2u);
+    }
     unsigned prefix_epilogue_visits()const{return final_ep_?final_ep_->visits():0u;}
     unsigned prefix_epilogue_failure()const{return final_ep_?final_ep_->failure():0u;}
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
