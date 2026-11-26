@@ -140,7 +140,15 @@ bool process_pending_callbacks(CPUContext& c){
             ++scheduler_count;throw SchedulerStop{};
         }
         need(sched_join->boundary(c,device_ok(c)));
-        need(c.pc==PostAckSchedulerJoin::Select||std::find(v1256::polls.begin(),v1256::polls.end(),c.pc)!=v1256::polls.end());
+        const bool allowed=(c.pc==PostAckSchedulerJoin::Select&&sched_join->stage()==1u)||
+            sched_join->indirect_poll(c)||
+            std::find(v1256::polls.begin(),v1256::polls.end(),c.pc)!=v1256::polls.end();
+        if(!allowed){
+            last_stage=sched_join->stage();
+            std::cout<<"V1256_SCHED_POLL_REFUSAL stage="<<last_stage
+                     <<" category="<<(c.pc==PostAckSchedulerJoin::Callback?1:2)<<'\n';
+            throw WitnessFailure{};
+        }
         return false;
     }
     if(sleep_join){

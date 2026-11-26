@@ -31,6 +31,17 @@ public:
            (stage_==6u||!(c.msr&0x8000u))&&c.gpr[2]==r2_&&c.gpr[13]==r13_&&s&&same(*s,ack_)&&
            waiting(c)&&equal(c,CallbackPtr,Callback);
     }
+    // bctrl and blr re-enter run_game. Only admit the authenticated edge
+    // and its exact, single-use continuation.
+    template<class C>bool indirect_poll(C& c){
+        if(stage_<2u||stage_>5u)return false;
+        if(c.pc==Callback)
+            return !callback_return_&&callbacks_<2u&&c.ctr==Callback&&matches(c,indirect_);
+        if(callback_return_&&c.pc==callback_return_&&c.lr==callback_return_&&c.ctr==Callback){
+            callback_return_=0;return true;
+        }
+        return false;
+    }
     template<class C>bool observe(C& c,uint32_t pc,bool device_ok){
         if(!boundary(c,device_ok)||c.pc!=pc||(c.msr&0x8000u))return fail(2);
         if(pc==Select){
@@ -38,10 +49,10 @@ public:
             stage_=2;return true;
         }
         if(pc==Callback){
-            if(stage_<2u||stage_>5u||callbacks_>=2u||c.ctr!=Callback||!matches(c,indirect_))return fail(2);
-            ++callbacks_;return true;
+            if(stage_<2u||stage_>5u||callbacks_>=2u||callback_return_||c.ctr!=Callback||!matches(c,indirect_))return fail(2);
+            callback_return_=c.lr;++callbacks_;return true;
         }
-        if(!matches(c,edges_))return fail(2);
+        if(callback_return_||!matches(c,edges_))return fail(2);
         if(pc==Get&&stage_==2u&&c.lr==0x80529748u&&equal(c,Active,Thread)){
             stage_=3;return true;
         }
@@ -72,7 +83,7 @@ private:
     uint32_t resume_,resume_word_;
     const void* cpu_=nullptr;ColdIpcSnapshot ack_{};
     unsigned stage_=0,error_=0,callbacks_=0;
-    uint32_t queue_=0,sp_=0,r2_=0,r13_=0,saved_sp_=0,enable_msr_=0,enable_sp_=0;
+    uint32_t queue_=0,sp_=0,r2_=0,r13_=0,saved_sp_=0,enable_msr_=0,enable_sp_=0,callback_return_=0;
     uint64_t tick_=0,enable_tick_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){

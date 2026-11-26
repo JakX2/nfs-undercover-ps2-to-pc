@@ -1,0 +1,3 @@
+# V1258: scheduler callback dispatcher boundaries
+
+V1256 owner run 45790169190 authenticated 486 native labels and reached the original WAITING queue on trial 0, then rejected the scheduler polling boundary at harness line 143. The pinned emitter implements bctrl and blr as returns to run_game, which polls before dispatching the callback target and again before dispatching its continuation. Admit only the authenticated callback edge and one matching return; retain the original waiting/ACK invariants and native execution. Add bounded categorical rejection diagnostics. Owner retest pending; this is not evidence of scheduler completion or boot.
