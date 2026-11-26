@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/test_formatter_nested_log.py'
+      - 'research/native_recomp/formatter_local_ctr_native.py'
+      - 'research/native_recomp/test_formatter_local_ctr_native.py'
       - '.github/workflows/wii-formatter-control-source.yml'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
       - 'research/native_recomp/prepare_formatter_control_contract.py'
@@ -24,4 +26,5 @@ jobs:
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_control_contract.py
           python3 research/native_recomp/test_formatter_ctr_target.py
+          python3 research/native_recomp/test_formatter_local_ctr_native.py
           python3 research/native_recomp/test_formatter_cli_cache_scope.py

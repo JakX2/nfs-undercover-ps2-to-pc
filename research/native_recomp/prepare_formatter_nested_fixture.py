@@ -15,6 +15,8 @@ from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
+from formatter_local_ctr_native import verify_ctr_body
+from prepare_v680_si_helper import exact_function
 
 def plan(d,e,*,second=False,third=False,control=False):
     if sum((second,third,control))>1:raise ValueError('nested fixture mode')
@@ -82,6 +84,13 @@ def install(directory,p):
     if target in expected:raise ValueError('nested fixture load boundary')
     expected[target]=(root,word)
     audit_native(sources.values(),(directory/'main_output.cpp').read_text(),expected)
+    if len(fields)==10:
+        owners=[]
+        for source in sources.values():
+            try:owners.append(exact_function(source,root))
+            except ValueError:pass
+        if len(owners)!=1:raise ValueError('nested fixture control owner')
+        verify_ctr_body(owners[0],target)
     done=set();changed={}
     for file,s in sources.items():
         old=s
@@ -104,7 +113,7 @@ def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
     a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()

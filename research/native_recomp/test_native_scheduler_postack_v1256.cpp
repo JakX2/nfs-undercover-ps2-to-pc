@@ -3384,6 +3384,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_NESTED
         for(auto w:formatter_nested_private::path)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(formatter_nested_private::expected.target,formatter_nested_private::expected.target_word);
+#ifdef UNDERCOVER_FORMATTER_CONTROL
+        const auto control=formatter_nested_private::expected.control;
+        c.mmu.write32(control.destination,control.word); // authenticated original fixture code, not guest data
+#endif
 #endif
 #endif
 #endif
