@@ -2,7 +2,7 @@
 """Private native formatter first path, exact 704-byte frame and next callee."""
 import argparse,re,struct
 from pathlib import Path
-from private_plan_cache import memoized_plan
+from private_plan_cache import memoized_plan,plan_cache_scope
 from prepare_post_stm_sc_report_helper_resume_fixture import plan as resume_plan,scope as resume_scope
 from prepare_post_stm_sc_report_formatter_path import plan as path_plan
 from prepare_post_stm_sc_join import GUARD,check_spans
@@ -117,13 +117,15 @@ def main():
     safe={'size','SC formatter predecessor','SC formatter path','SC formatter saved slot','SC formatter saved slot count','SC formatter ABI','SC formatter extent','SC formatter owner','SC formatter hook','SC formatter coverage','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge','helper call label'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
-        if q.fixture:extend(q.fixture,p);return 0
-        if q.install:install(q.install,p);return 0
-        if q.analyzer:
-            if not q.symbols:raise ValueError('SC formatter extent')
-            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
-            print('POST_STM_SC_FORMATTER_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope():
+            p=plan(d,e)
+            if q.fixture:extend(q.fixture,p);return 0
+            if q.install:install(q.install,p);return 0
+            if q.analyzer:
+                if not q.symbols:raise ValueError('SC formatter extent')
+                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                print('POST_STM_SC_FORMATTER_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_FORMATTER_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1

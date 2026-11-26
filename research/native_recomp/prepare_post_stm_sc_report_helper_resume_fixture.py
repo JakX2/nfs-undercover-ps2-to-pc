@@ -2,6 +2,7 @@
 """Private native helper continuation to the authenticated formatter entry."""
 import argparse,re,struct
 from pathlib import Path
+from private_plan_cache import plan_cache_scope
 from prepare_post_stm_sc_report_dependency_fixture import plan as leaf_plan,scope as leaf_scope
 from prepare_post_stm_sc_report_helper_resume import plan as resume_plan
 from prepare_post_stm_sc_join import GUARD,check_spans
@@ -108,13 +109,15 @@ def main():
     safe={'size','SC report resume predecessor','SC report resume path','SC report resume arguments','SC report resume extent','SC report resume owner','SC report resume entry trace','SC report resume hook','SC report resume coverage','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge','helper call label'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
-        if q.fixture:extend(q.fixture,p);return 0
-        if q.install:install(q.install,p);return 0
-        if q.analyzer:
-            if not q.symbols:raise ValueError('SC report resume extent')
-            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
-            print('POST_STM_SC_REPORT_RESUME_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope():
+            p=plan(d,e)
+            if q.fixture:extend(q.fixture,p);return 0
+            if q.install:install(q.install,p);return 0
+            if q.analyzer:
+                if not q.symbols:raise ValueError('SC report resume extent')
+                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                print('POST_STM_SC_REPORT_RESUME_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_REPORT_RESUME_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1

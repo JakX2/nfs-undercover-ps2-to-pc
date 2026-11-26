@@ -2,6 +2,7 @@
 """Private full diagnostic dependency leaf with authenticated object data."""
 import argparse,re,struct
 from pathlib import Path
+from private_plan_cache import plan_cache_scope
 from prepare_post_stm_sc_report_helper_fixture import plan as helper_plan,scope as helper_scope
 from prepare_post_stm_sc_report_dependency_abi import plan as abi_plan
 from prepare_post_stm_sc_report_dependency import census
@@ -104,13 +105,15 @@ def main():
           'native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
-        if q.fixture:extend(q.fixture,p);return 0
-        if q.install:install(q.install,p);return 0
-        if q.analyzer:
-            if not q.symbols:raise ValueError('SC report dependency extent')
-            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
-            print('POST_STM_SC_REPORT_DEPENDENCY_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope():
+            p=plan(d,e)
+            if q.fixture:extend(q.fixture,p);return 0
+            if q.install:install(q.install,p);return 0
+            if q.analyzer:
+                if not q.symbols:raise ValueError('SC report dependency extent')
+                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                print('POST_STM_SC_REPORT_DEPENDENCY_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_REPORT_DEPENDENCY_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1

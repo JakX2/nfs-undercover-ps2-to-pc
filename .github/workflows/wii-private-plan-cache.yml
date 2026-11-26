@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/test_private_plan_cache.py'
       - 'research/native_recomp/benchmark_formatter_plan_cache.py'
       - 'research/native_recomp/test_formatter_plan_cache_benchmark.py'
+      - 'research/native_recomp/test_formatter_cli_cache_scope.py'
       - '.github/workflows/wii-private-plan-cache.yml'
 permissions:
   contents: read
@@ -21,6 +22,7 @@ jobs:
           set -euo pipefail
           python3 research/native_recomp/test_private_plan_cache.py
           python3 research/native_recomp/test_formatter_plan_cache_benchmark.py
+          python3 research/native_recomp/test_formatter_cli_cache_scope.py
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_continuation_fixture.py
           python3 research/native_recomp/test_formatter_second_contract.py

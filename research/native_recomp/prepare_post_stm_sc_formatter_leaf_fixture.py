@@ -2,7 +2,7 @@
 """Private full formatter dependency fixture. Public logs contain counts only."""
 import argparse,struct
 from pathlib import Path
-from private_plan_cache import memoized_plan
+from private_plan_cache import memoized_plan,plan_cache_scope
 from prepare_post_stm_sc_report_formatter_fixture import plan as prefix_plan,scope as prefix_scope
 from prepare_post_stm_sc_report_formatter_path import plan as path_plan
 from prepare_post_stm_sc_formatter_leaf_path import run
@@ -119,14 +119,16 @@ def main():
     safe={'size','formatter leaf predecessor','formatter leaf guarded caller','formatter leaf active identity','formatter leaf stack identity','formatter leaf read alignment','formatter leaf read extent','formatter leaf read bytes','formatter leaf extent','formatter leaf hook','formatter leaf coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
-        if q.fixture:extend(q.fixture,p);return 0
-        if q.install:install(q.install,p);return 0
-        if q.analyzer:
-            if not q.symbols:raise ValueError('formatter leaf extent')
-            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
-            print('POST_STM_SC_FORMATTER_LEAF_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
-        if not render(p):raise ValueError('formatter leaf extent')
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope():
+            p=plan(d,e)
+            if q.fixture:extend(q.fixture,p);return 0
+            if q.install:install(q.install,p);return 0
+            if q.analyzer:
+                if not q.symbols:raise ValueError('formatter leaf extent')
+                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                print('POST_STM_SC_FORMATTER_LEAF_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
+            if not render(p):raise ValueError('formatter leaf extent')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_FORMATTER_LEAF_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1

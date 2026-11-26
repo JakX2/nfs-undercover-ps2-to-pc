@@ -104,14 +104,15 @@ def main():
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
-        with plan_cache_scope(): p=plan(d,e,details=True)
-        if q.fixture:extend(q.fixture,p);return 0
-        if q.install:install(q.install,p);return 0
-        if q.analyzer:
-            if not q.symbols:raise ValueError('continuation fixture extent')
-            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
-            print('FORMATTER_CONTINUATION_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
-        if not render(p[1]) or not updated_leaf(*p):raise ValueError('continuation leaf header')
+        with plan_cache_scope():
+            p=plan(d,e,details=True)
+            if q.fixture:extend(q.fixture,p);return 0
+            if q.install:install(q.install,p);return 0
+            if q.analyzer:
+                if not q.symbols:raise ValueError('continuation fixture extent')
+                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                print('FORMATTER_CONTINUATION_ANALYZER verified=1 expanded_root=1 new_roots=1');return 0
+            if not render(p[1]) or not updated_leaf(*p):raise ValueError('continuation leaf header')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('FORMATTER_CONTINUATION_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1
