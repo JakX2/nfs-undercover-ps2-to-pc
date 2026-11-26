@@ -66,7 +66,8 @@ int main(){
     unsigned held_ack_valid=0,held_ack_refused=0;
     unsigned held_postack_valid=0,held_postack_refused=0;
     unsigned held_callback_valid=0,held_callback_refused=0;
-    for(trial=0;trial<448;++trial){
+    unsigned held_prefix_valid=0,held_prefix_refused=0;
+    for(trial=0;trial<468;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -116,7 +117,8 @@ int main(){
             const unsigned hd=trial>=388?0u:trial>=376?trial-375u:0u;
             const unsigned ha=trial>=408?0u:trial>=396?trial-395u:0u;
             const unsigned hp=trial>=428?0u:trial>=416?trial-415u:0u;
-            const unsigned hc=trial>=436?trial-435u:0u;
+            const unsigned hc=trial>=448?0u:trial>=436?trial-435u:0u;
+            const unsigned hprefix=trial>=456?trial-455u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -432,7 +434,10 @@ int main(){
             if(trial<428){++held_postack_valid;continue;}
             {
                 constexpr uint32_t Target=0x8003f000u,Site=Handler+12u,IndirectWord=0x4e800421u;
-                const std::array<uint32_t,2> words{Nop,Blr},sites{Site,Site+4u};
+                constexpr uint32_t Leaf=Target+0x100u,Stack=0x80035000u;
+                const std::array<uint32_t,6> words{0x9421ffc0u,0x7c0802a6u,0x90010044u,0x39610040u,branch(Target+16u,Leaf)|1u,Nop};
+                const std::array<uint32_t,3> leaf{0x93cbfff8u,0x93ebfffcu,Blr};
+                const std::array<uint32_t,2> sites{Site,Site+4u};
                 for(unsigned i=0;i<words.size();++i)c.mmu.words[Target+4u*i]=words[i];
                 HeldAckCallbackExpectation expectation{Site,IndirectWord,hc==5?2u:1u,hc==4?11u:6u};
                 auto refuse_callback=[&](bool bad){
@@ -455,8 +460,52 @@ int main(){
                 need(ep.stage()==13u&&ep.callback_saved(c)&&ep.callback_visits()==1u&&ep.helper_visits()==2u&&
                      ep.ack_calls().entries()==2u&&ep.ack_calls().returns()==2u&&ep.completion_ack().writes()==1u&&
                      c.pc==Site&&c.ctr==Target&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u);
+                if(trial<448){++held_callback_valid;continue;}
+                for(unsigned i=0;i<leaf.size();++i)c.mmu.words[Leaf+4u*i]=leaf[i];
+                c.gpr[1]=Stack;
+                for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
+                CallbackPrefixWitness<6,3> witness(Target,Leaf,words,leaf),foreign_witness(Target,Leaf,words,leaf);
+                auto refuse_prefix=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_prefix_refused;
+                };
+                if(hprefix==1)tick();
+                if(hprefix==2)c.mmu.words[Leaf]^=1u;
+                ok=ep.begin_prefix(c,witness,Site+(hprefix==3?4u:0u),IndirectWord);
+                if(hprefix>=1&&hprefix<=3){refuse_prefix(!ok);continue;}need(ok&&ep.stage()==14u);
+                if(hprefix==4){refuse_prefix(!ep.begin_prefix(c,witness,Site,IndirectWord));continue;}
+                c.pc=Target;c.lr=Site+4u;
+                if(hprefix==5)c.mmu.words[Context+124]^=1u;
+                if(hprefix==6){refuse_prefix(!ep.prefix_poll(c,foreign_witness));continue;}
+                if(hprefix==7)tick();
+                if(hprefix!=8){
+                    ok=ep.prefix_poll(c,witness);
+                    if(hprefix==5||hprefix==7){refuse_prefix(!ok);continue;}need(ok);
+                }
+                if(hprefix==9){refuse_prefix(!ep.prefix_poll(c,witness));continue;}
+                tick();ok=ep.prefix_entry(c,witness,Target);
+                if(hprefix==8){refuse_prefix(!ok);continue;}need(ok);
+                auto prefix_at=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_before(c,witness,pc,w,hprefix==10);};
+                ok=prefix_at(Target,words[0]);
+                if(hprefix==10){refuse_prefix(!ok);continue;}need(ok);
+                c.gpr[1]=Stack-64u;c.mmu.words[Stack-64u]=Stack;
+                if(hprefix==11)c.mmu.words[Stack-64u]^=1u;
+                ok=prefix_at(Target+4u,words[1]);
+                if(hprefix==11){refuse_prefix(!ok);continue;}need(ok);c.gpr[0]=c.lr;
+                need(prefix_at(Target+8u,words[2]));c.mmu.words[Stack+4u]=c.gpr[0];
+                need(prefix_at(Target+12u,words[3]));c.gpr[11]=Stack;
+                need(prefix_at(Target+16u,words[4]));c.pc=Leaf;c.lr=Target+20u;need(ep.prefix_entry(c,witness,Leaf));
+                need(prefix_at(Leaf,leaf[0]));c.mmu.words[Stack-8u]=c.gpr[30];
+                need(prefix_at(Leaf+4u,leaf[1]));c.mmu.words[Stack-4u]=c.gpr[31];
+                need(prefix_at(Leaf+8u,Blr));
+                if(hprefix==12)c.mmu.words[Stack-8u]^=1u;
+                ok=prefix_at(Target+20u,Nop);
+                if(hprefix==12){refuse_prefix(!ok);continue;}need(ok);
+                need(ep.stage()==15u&&ep.prefix_saved(c,witness)&&!ep.prefix_saved(c,foreign_witness)&&
+                     witness.writes()==4u&&witness.visits()==9u&&ep.completion_ack().writes()==1u&&
+                     cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u);
+                ++held_prefix_valid;continue;
             }
-            ++held_callback_valid;continue;
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
@@ -1105,7 +1154,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1129,4 +1178,5 @@ int main(){
     std::cout<<"V1164_HELD_THIRD_ACK_JOIN valid=8 refused=12 fresh_ack=1 actual_w1c=1 retired_transfer=1 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1172_HELD_ACK_HELPER_RETURN valid=8 refused=12 same_tick=1 helper_return=1 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1179_ACK_CALLBACK_FRONTIER valid=8 refused=12 same_tick=1 target_identity=1 call_executed=0 pi_cleared=1 original_execution=0\n";
+    std::cout<<"V1183_ACK_CALLBACK_PREFIX valid=8 refused=12 indirect_dispatch=1 stack_proof=1 save_return=1 original_execution=0\n";
 }

@@ -179,6 +179,30 @@ public:
         stage_=13u;return true;
     }
     template<class C>bool callback_saved(C& c){return stage_==13u&&same(c)&&next_.callback_boundary(c);}
+    // Join the previously authenticated indirect call without replaying its tick.
+    template<class C,class W>bool begin_prefix(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!callback_saved(c)||!callback_||pc!=callback_->site||w!=callback_->word||
+           !next_.begin_callback(c,witness,pc,w,true))return fail(17);
+        prefix_=&witness;stage_=14u;return true;
+    }
+    template<class C,class W>bool prefix_poll(C& c,W& witness){
+        return stage_==14u&&same(c)&&prefix_==&witness&&next_.callback_poll(c,witness)?true:fail(18);
+    }
+    template<class C,class W>bool prefix_entry(C& c,W& witness,uint32_t pc){
+        return stage_==14u&&same(c)&&prefix_==&witness&&next_.callback_entry(c,witness,pc)?true:fail(18);
+    }
+    template<class C,class W>bool prefix_before(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=14u||guard||!same(c)||prefix_!=&witness||!no_si(c,w)||!next_.callback_before(c,witness,pc,w))return fail(18);
+        if(witness.stage()==6u){
+            if(next_.stage()!=12u||!next_.completion_ack().postack_held())return fail(18);
+            stage_=15u;
+        }
+        return true;
+    }
+    template<class C,class W>bool prefix_saved(C& c,W& witness){
+        return stage_==15u&&same(c)&&prefix_==&witness&&next_.stage()==12u&&witness.stage()==6u&&
+            next_.completion_ack().postack_held()&&frame_->saved_integer(c,expected_.context).ok();
+    }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -188,6 +212,7 @@ private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
+    const void* prefix_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
