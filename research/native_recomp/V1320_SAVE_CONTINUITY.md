@@ -1,0 +1,3 @@
+# V1320: retain the original cooperative save across both IRQs
+
+New opt-in --irq-ready-idle-save-helper combines the V1315 actual save observer, V1316 original helper, and V1305 second idle RFI continuation. Preserve the original 712-byte save snapshot from first idle entry at every existing device boundary until the second idle RFI. No additional roots, no host writes, no changes to independent owner modes. Run source checks; do not launch a duplicate private run before the original helper/handler prerequisite succeeds. The combined native mode has not been compiled with private generated headers yet.

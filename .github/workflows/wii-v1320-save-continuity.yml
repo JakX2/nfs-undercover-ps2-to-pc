@@ -1,0 +1,23 @@
+name: Wii V1320 Save Continuity Source
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/V1320_SAVE_CONTINUITY.md'
+      - '.github/workflows/wii-v1320-save-continuity.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cooperative_save_lane_v1314.cpp -o /tmp/v1320
+          /tmp/v1320
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -DUNDERCOVER_TEST_NESTED_WAKE -DUNDERCOVER_TEST_REPLY_COMPLETION -DUNDERCOVER_TEST_REPLY_RETURN -DUNDERCOVER_TEST_READY_IDLE_RETURN -DUNDERCOVER_TEST_IDLE_SELECTION -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1320-joined
+          /tmp/v1320-joined

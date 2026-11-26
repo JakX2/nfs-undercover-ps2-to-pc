@@ -73,6 +73,10 @@ static unsigned scheduler_count=0;
 #ifdef UNDERCOVER_V1315_COOP_SAVE
 static CooperativeSaveLane* coop_save=nullptr;
 static unsigned coop_save_count=0;
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+static const CooperativeSaveLane* coop_saved=nullptr;
+static unsigned coop_idle_count=0;
+#endif
 #endif
 #ifdef UNDERCOVER_V1259_IRQ_ENTRY
 static unsigned irq_count=0;
@@ -160,7 +164,12 @@ static void need(bool b,const std::source_location l=std::source_location::curre
     if(!b)throw HarnessFailure(l.line());
 }
 static bool device_ok(nw::CPUContext& c){
-    return si_ack&&si_ack->token()==3u&&si_ack->postack_device_quiescent(c.inst_count);
+    const bool ok=si_ack&&si_ack->token()==3u&&si_ack->postack_device_quiescent(c.inst_count);
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+    return ok&&(!coop_saved||coop_saved->preserved(c,true));
+#else
+    return ok;
+#endif
 }
 // The isolated caller and prior SI transaction are seeded, not original
 // execution. Exercise actual native SI W1C and the same shared guard used
@@ -959,6 +968,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1315_COOP_SAVE
         if(!save_lane.preserved(c,device_ok(c))||save_lane.visits()!=v1314::words.size())coop_save_refuse(3);
         ++coop_save_count;coop_save=nullptr;
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+        coop_saved=&save_lane;
+#endif
         std::cout<<"V1315_SAVE_TRIAL n="<<trial<<" native_save=1 original_return=1 saved_abi=1 gqr=1 idle_preserved=1\n";
 #endif
         std::cout<<"V1256_SCHED_TRIAL n="<<trial<<" saved=1 idle=1 enabled=1 pending_ack=1 irq_entered=0\n";
@@ -1126,6 +1138,11 @@ int main(int argc,char** argv)try{
              host.serviced_steps()==2u&&!(cause.load()&mask.load()));
         ready_idle=nullptr;idle_epilogue=nullptr;
         std::cout<<"V1305_IDLE_TRIAL n="<<trial<<" original_epilogue=1 native_rfi=1 idle_restored=1 ready_preserved=1\n";
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+        need(coop_saved==&save_lane&&save_lane.preserved(c,device_ok(c))&&coop_idle_count==trial);
+        ++coop_idle_count;
+        std::cout<<"V1320_IDLE_SAVE_TRIAL n="<<trial<<" native_save=1 complete_context=1 second_idle_rfi=1 ready=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -1138,6 +1155,9 @@ int main(int argc,char** argv)try{
 #endif
 #endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+        coop_saved=nullptr;
+#endif
     }
     need(callbacks==16&&control_writes==8&&stm_entries==8&&open_entries==8);
 #ifdef UNDERCOVER_V1315_COOP_SAVE
@@ -1179,6 +1199,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     need(idle_return_count==8u);
     std::cout<<"V1305_READY_IDLE_NATIVE owner=1 trials=8 original_epilogue=8 native_rfi=8 idle_restored=8 ready_preserved=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
+    need(coop_idle_count==8u);
+    std::cout<<"V1320_IDLE_SAVE_NATIVE owner=1 trials=8 native_save=8 complete_context=8 second_idle_rfi=8 ready=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
