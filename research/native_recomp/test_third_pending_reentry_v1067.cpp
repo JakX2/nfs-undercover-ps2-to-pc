@@ -365,9 +365,9 @@ int main(){
         constexpr uint32_t P=Resume+8u,A=0x8000b000u,B=0x8000b100u;
         const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
             {P+8u,0x90810008u},{P+12u,branch(P+12u,A)|1u},{P+16u,branch(P+16u,B)|1u}}};
-        const CallbackFrontierExpectation ex{Root,Root+688u,P,rows,
+        const CallbackFrontierExpectation post_expectation{Root,Root+688u,P,rows,
             {{{P+12u,A,3},{P+16u,B,5}}}};
-        CallbackFrontierWitness frontier(ex),foreign_frontier(ex);
+        CallbackFrontierWitness frontier(post_expectation),foreign_frontier(post_expectation);
         for(const auto& row:rows)c.mmu.words[row.pc]=row.word;
         auto reject_post=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++post_refused;
