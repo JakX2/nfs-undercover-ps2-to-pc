@@ -6,4 +6,8 @@ inline constexpr uint32_t CallSave=v1151::branch(Handler,Save)|1u,CallHelper=v11
 inline constexpr std::array<AckCallSpan,3> spans{{{Handler,Handler+16u},{Save,Save+4u},{Helper,Helper+24u}}};
 inline constexpr std::array<AckCallEdge,2> edges{{{Handler,Save},{Handler+4u,Helper}}};
 inline constexpr std::array<AckMsrSite,0> msr{};
+inline constexpr std::array<ThirdAckNativeLabel,8> labels{{
+ {Handler,CallSave,Handler,false},{Save,0x4e800020u,Save,false},{Handler+4u,CallHelper,Handler,false},
+ {Helper,0x60000000u,Helper,false},{Helper+4u,0x80830034u,Helper,false},{Helper+8u,0x60000000u,Helper,false},
+ {Helper+12u,0x90830034u,Helper,false},{Helper+16u,0x60000000u,Helper,false}}};
 }

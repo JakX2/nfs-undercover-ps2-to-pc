@@ -477,7 +477,8 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
-            if(second_dispatch_mmio||!held_epilogue.ack_before(c,0u,pc,w,guard))reject_held_epilogue();
+            const auto owner=third_ack_native_owner(v1167::labels,pc,w);
+            if(!owner||second_dispatch_mmio||!held_epilogue.ack_before(c,owner,pc,w,guard))reject_held_epilogue();
             if(held_epilogue.stage()==9u){
                 const auto& a=held_epilogue.completion_ack();const auto& calls3=held_epilogue.ack_calls();
                 if(ack.stage()!=5u||next_device.stage()!=3u||!held_epilogue.ack_saved(c))reject_held_epilogue();

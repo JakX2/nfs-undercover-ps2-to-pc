@@ -2,6 +2,15 @@
 #include "wii_third_alarm_suffix_v1047.h"
 #include "wii_third_pending_reentry_v1067.h"
 namespace undercover::wii {
+struct ThirdAckNativeLabel {uint32_t pc,word,owner;bool guard;};
+inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labels,uint32_t pc,uint32_t w){
+    uint32_t owner=0;unsigned hits=0;
+    for(const auto& label:labels)if(label.pc==pc){
+        if(++hits!=1u||label.guard||label.word!=w||!label.owner)return 0;
+        owner=label.owner;
+    }
+    return owner;
+}
 // Join the actual held handler return to the real scheduler/context loader.
 // Only the existing external-exception entry routine changes CPU state;
 // the native RFI and all guest instructions remain emitter-owned.
