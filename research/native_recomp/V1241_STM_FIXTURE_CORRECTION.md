@@ -1,0 +1,3 @@
+# V1241: standalone STM fixture correction
+
+V1238 private focused owner run 45783570032, job 139785454929 passed 8/8 original IPC returns, 136 ordered call entries, 16 restore polls, 32 backward polls, 8 mailbox writes and unchanged SI state. It uses seeded caller and SI state, not continuous startup. V1240 live synthetic integration and launch contracts passed. V1239 standalone failed compilation from a duplicate local name; rename the second admission variable. Also parenthesize guest address subtraction in three test fixtures before adding offsets to host pointers; the previous expressions could perform out-of-bounds intermediate pointer arithmetic. No production runtime change. Retest pending.

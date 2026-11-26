@@ -12,8 +12,8 @@ struct Mmu {
     std::vector<uint8_t> mem1=std::vector<uint8_t>(24u*1024u*1024u);
     std::array<uint8_t,W::HeapLimit+2u> mem2{};
     uint8_t* get_ptr(uint32_t a){
-        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+a-0x80000000u;
-        if(a>=heap-1u&&a<=heap+W::HeapLimit)return mem2.data()+a-(heap-1u);
+        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+(a-0x80000000u);
+        if(a>=heap-1u&&a<=heap+W::HeapLimit)return mem2.data()+(a-(heap-1u));
         return nullptr;
     }
     uint8_t read8(uint32_t a){auto* p=get_ptr(a);need(p);return *p;}
@@ -134,9 +134,9 @@ int main(){
         if(lane==3)c.mmu.write32(S::Begin+4u,0u);
         if(lane==4)c.mmu.write32(W::Table+108u,0u);
         if(lane==5){need(!next.begin(c,w,false)&&next.failure()==1);++refused;continue;}
-        const bool bad_begin=lane>=1&&lane<=4;
-        need(next.begin(c,w,true)==!bad_begin);
-        if(bad_begin){need(next.failure()==1);++refused;continue;}
+        const bool bad_stm_begin=lane>=1&&lane<=4;
+        need(next.begin(c,w,true)==!bad_stm_begin);
+        if(bad_stm_begin){need(next.failure()==1);++refused;continue;}
         need(next.stage()==1u&&next.heap_size()==64u&&next.boundary(c,true));
         if(lane==6){need(!next.begin(c,w,true));++refused;continue;}
         c.pc=S::Stm;c.lr=stm.stm.lr;c.inst_count+=7;

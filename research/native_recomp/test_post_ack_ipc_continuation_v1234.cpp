@@ -12,8 +12,8 @@ struct Mmu {
     std::vector<uint8_t> mem1=std::vector<uint8_t>(24u*1024u*1024u);
     std::array<uint8_t,W::HeapLimit+2u> mem2{};
     uint8_t* get_ptr(uint32_t a){
-        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+a-0x80000000u;
-        if(a>=heap-1u&&a<=heap+W::HeapLimit)return mem2.data()+a-(heap-1u);
+        if(a>=0x80000000u&&a<0x81800000u)return mem1.data()+(a-0x80000000u);
+        if(a>=heap-1u&&a<=heap+W::HeapLimit)return mem2.data()+(a-(heap-1u));
         return nullptr;
     }
     uint8_t read8(uint32_t a){auto* p=get_ptr(a);need(p);return *p;}

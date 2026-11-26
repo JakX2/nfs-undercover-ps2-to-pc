@@ -28,8 +28,8 @@ struct Mmu{
     // sparse-memory rejection lanes retain their exact previous semantics.
     std::vector<uint8_t> mem1,mem2;
     uint8_t* dense(uint32_t a){
-        if(a>=0x80000000u&&uint64_t(a)-0x80000000u<mem1.size())return mem1.data()+a-0x80000000u;
-        if(a>=0x90000000u&&uint64_t(a)-0x90000000u<mem2.size())return mem2.data()+a-0x90000000u;
+        if(a>=0x80000000u&&uint64_t(a)-0x80000000u<mem1.size())return mem1.data()+(a-0x80000000u);
+        if(a>=0x90000000u&&uint64_t(a)-0x90000000u<mem2.size())return mem2.data()+(a-0x90000000u);
         return nullptr;
     }
     uint8_t* get_ptr(uint32_t a){if(auto* p=dense(a))return p;return words.count(a&~3u)?&byte:nullptr;}
