@@ -2,6 +2,7 @@
 """Private read-only async IOCTL epilogue geometry, including the compiler restore leaf."""
 import argparse
 import hashlib
+import re
 import struct
 from pathlib import Path
 from prepare_v1385_async_ioctl_geometry import plan as wrapper_plan,IOCTL,EDGES
@@ -9,6 +10,9 @@ from prepare_v1383_stm_ioctl_entry import CALL as STM_CALL,STM
 from prepare_v419_full_start import MAX_DOL,OWNER_SHA,direct_bl
 from make_private_elf_symbol_map import ORIGINAL_SHA256
 from make_v624_ipc_geometry import exact_words
+from prepare_v625_ipc_client import audit_native
+from prepare_v680_si_helper import verify_direct
+from prepare_v1337_open_completion import hook_submit
 
 def corridor(root,words,start,call,helper):
     end=root+4*len(words);seen=set();labels=set();returns=set();work=[(start,False)]
@@ -65,13 +69,58 @@ def render(p):
         'inline constexpr undercover::wii::AsyncWrapperReturnExpectation expected{'+fmt((IOCTL,start,caller,word,count))+
         ',undercover::wii::IpcDispatchEdge{'+fmt(edge)+'},words};\n}\n')
 
+def install(root,p):
+    start,caller,w,count,edge,words,*_=p
+    sources={x:x.read_text() for x in sorted(root.glob('output_*.cpp'))}
+    audit_native(sources.values(),(root/'main_output.cpp').read_text(),{**words,caller:(STM,w)})
+    for pc,target in ((edge[0],edge[1]),(caller-4,IOCTL)):
+        hits=[s for s in sources.values() if f'loc_{pc:X}: ;' in s]
+        if len(hits)!=1:raise ValueError('wrapper native edge')
+        verify_direct(hits[0],pc,target)
+    done=set();returned=0;changes={}
+    for path,s in sources.items():
+        old=s
+        for pc,(_,word) in words.items():
+            if pc==start:
+                raw=re.findall(r'(?mi)^loc_'+f'{pc:X}'+r': ;$',s)
+                if not raw:continue
+                a=(f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n'
+                   f'    async_submit_return(ctx,0x{pc:08x}u);\n    ++ctx.inst_count;\n')
+                if len(raw)!=1 or s.count(a)!=1:raise ValueError('wrapper prior return hook')
+                s=s.replace(a,a+f'    async_wrapper_before(ctx,0x{pc:08x}u,0x{word:08x}u);\n')
+            else:
+                s,found=hook_submit(s,pc,word)
+                if not found:continue
+                a=f'    v1344_before(ctx,0x{pc:08x}u,0x{word:08x}u);'
+                if s.count(a)!=1:raise ValueError('wrapper native hook')
+                s=s.replace(a,a.replace('v1344_before','async_wrapper_before'))
+            if pc in done:raise ValueError('wrapper duplicate hook')
+            done.add(pc)
+        raw=re.findall(r'(?mi)^loc_'+f'{caller:X}'+r': ;$',s)
+        if raw:
+            pat=r'(?mi)^loc_'+f'{caller:X}'+r': ;\n    // 0x'+f'{caller:08X}'+': '+f'{w:08X}'+r'\n(?=    \+\+ctx\.inst_count;)'
+            if len(raw)!=1 or len(re.findall(pat,s))!=1:raise ValueError('wrapper caller hook')
+            s=re.sub(pat,lambda m:m[0]+f'    async_wrapper_return(ctx,0x{caller:08x}u);\n',s,count=1)
+            returned+=1
+        if s!=old:
+            anchor='#include "runtime/cpu_context.h"'
+            if s.count(anchor)!=1:raise ValueError('wrapper include')
+            changes[path]=s.replace(anchor,anchor+'\nvoid async_wrapper_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);\nvoid async_wrapper_return(nwii::runtime::CPUContext&,uint32_t);')
+    if done!=set(words) or returned!=1:raise ValueError('wrapper hook coverage')
+    for path,s in changes.items():path.write_text(s)
+    print(f'ASYNC_WRAPPER_TRANSLATION verified=1 labels={len(done)} return_hooks=1')
+
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--out',type=Path);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--out',type=Path);a.add_argument('--install',type=Path);q=a.parse_args()
     allowed={'size','identity','wrapper extent','wrapper call','wrapper early return','wrapper branch','wrapper loop',
-             'wrapper stack load','wrapper special register','wrapper opcode','wrapper route','wrapper caller','wrapper leaf extent'}
+             'wrapper stack load','wrapper special register','wrapper opcode','wrapper route','wrapper caller','wrapper leaf extent',
+             'wrapper native edge','wrapper prior return hook','wrapper native hook','wrapper duplicate hook','wrapper caller hook',
+             'wrapper include','wrapper hook coverage','completion hook label','native IPC duplicate root','native IPC label identity',
+             'native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         p=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        if q.install:install(q.install,p);return 0
         if q.out:
             with (q.out/'private_async_wrapper_return.h').open('x') as f:f.write(render(p))
         print(f'ASYNC_WRAPPER_GEOMETRY verified=1 labels={len(p[5])} wrapper_labels={p[6]} restore_gprs={p[3]} returns={p[7]}')

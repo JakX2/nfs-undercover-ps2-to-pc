@@ -90,6 +90,9 @@
 #include "wii_stm_deferred_event_gate.h"
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 #include "private_async_submit_return.h"
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+#include "private_async_wrapper_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -326,6 +329,10 @@ static unsigned ioctl_deferred_count=0;
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 static std::unique_ptr<AsyncSubmitReturnWitness> async_return;
 static unsigned async_return_count=0;
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+static std::unique_ptr<AsyncWrapperReturnWitness> async_wrapper;
+static unsigned async_wrapper_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -569,10 +576,34 @@ static bool async_held(nw::CPUContext& c){
              <<" polls="<<(async_return?async_return->polls():0u)<<" ordinal="<<(async_return?async_return->ordinal():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+[[noreturn]]static void async_wrapper_refuse(unsigned kind){
+    std::cout<<"ASYNC_WRAPPER_REFUSAL kind="<<kind<<" stage="<<(async_wrapper?async_wrapper->stage():0u)
+             <<" reason="<<(async_wrapper?async_wrapper->failure():0u)<<" visits="<<(async_wrapper?async_wrapper->visits():0u)
+             <<" loads="<<(async_wrapper?async_wrapper->loads():0u)<<" restored="<<(async_wrapper?async_wrapper->restored():0u)
+             <<" ordinal="<<(async_wrapper?async_wrapper->ordinal():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void async_wrapper_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(async_wrapper&&!async_wrapper->before(c,pc,w,async_held(c)))async_wrapper_refuse(2);
+}
+void async_wrapper_return(nw::CPUContext& c,uint32_t pc){
+    if(!async_wrapper)return;
+    if(!async_wrapper->returned(c,pc,async_held(c),ioctl_prefix->caller_abi(c)))async_wrapper_refuse(4);
+    ++async_wrapper_count;throw StmIoctlReached{};
+}
+#endif
 void async_submit_return(nw::CPUContext& c,uint32_t pc){
     if(!async_return)return;
     if(!async_return->returned(c,pc,async_held(c),ioctl_submit_prefix->caller_abi(c)))async_refuse(4);
-    ++async_return_count;throw StmIoctlReached{};
+    ++async_return_count;
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+    if(!async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))||!ioctl_prefix)async_wrapper_refuse(1);
+    async_wrapper=std::make_unique<AsyncWrapperReturnWitness>(async_wrapper_private::expected);
+    if(!async_wrapper->begin(c,async_held(c),ioctl_prefix->caller_sp()))async_wrapper_refuse(1);
+#else
+    throw StmIoctlReached{};
+#endif
 }
 #endif
 void ipc_dispatch_return(nw::CPUContext& c,uint32_t pc){
@@ -1065,6 +1096,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+    if(async_wrapper){if(!async_wrapper->entry(c,pc,async_held(c)))async_wrapper_refuse(3);return;}
+#endif
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
     if(async_return){if(!async_return->entry(c,pc,async_held(c)))async_refuse(3);return;}
 #endif
@@ -1553,6 +1587,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+    if(async_wrapper)async_wrapper_refuse(5);
+#endif
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
     if(async_return){if(!async_return->poll(c,async_held(c)))async_refuse(5);return false;}
 #endif
@@ -2923,7 +2960,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_IPC_PROFILE
 #ifdef UNDERCOVER_IPC_DISPATCH
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&ioctl_dispatch->reached(c,ioctl_dispatch_held(c))&&ioctl_event_gate->stage()==3u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -2993,8 +3034,16 @@ int main(int argc,char** argv)try{
                  <<ioctl_dispatch->visits()<<" stores="<<ioctl_dispatch->stores()<<" calls="<<ioctl_dispatch->calls()
                  <<" writes="<<ioctl_dispatch->writes()<<" reads="<<ioctl_dispatch->reads()<<" polls="<<ioctl_dispatch->polls()<<'\n';
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+        need(async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&host.serviced_steps()==5u&&
+             host.services().event_pending()&&!host.exception_pending(c.msr));
+        std::cout<<"ASYNC_WRAPPER_TRIAL n="<<trial<<" original_return=1 masked=1 abi=1 deferred=1 visits="<<async_wrapper->visits()
+                 <<" loads="<<async_wrapper->loads()<<" restored="<<async_wrapper->restored()<<'\n';
+        async_wrapper.reset();
+#else
         need(async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&host.serviced_steps()==5u&&
              host.services().event_pending()&&!host.exception_pending(c.msr));
+#endif
         std::cout<<"IPC_DEFERRED_TRIAL n="<<trial<<" original_boundary=1 deferred=1 pending_ack=1 masked=1 cpu_preserved=1 ring_preserved=1 request_preserved=1 reply=0 ios_steps=5\n";
         std::cout<<"ASYNC_SUBMIT_TRIAL n="<<trial<<" original_return=1 masked=1 abi=1 deferred=1 visits="<<async_return->visits()<<" polls="<<async_return->polls()<<'\n';
         async_return.reset();
@@ -3178,6 +3227,10 @@ int main(int argc,char** argv)try{
     need(ioctl_deferred_count==8u);
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
     need(async_return_count==8u);
+#ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+    need(async_wrapper_count==8u);
+    std::cout<<"ASYNC_WRAPPER_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"ASYNC_SUBMIT_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"IPC_DEFERRED_NATIVE owner=1 trials=8 original_boundary=8 deferred=8 pending_ack=8 cpu_preserved=8 request_preserved=8 reply=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

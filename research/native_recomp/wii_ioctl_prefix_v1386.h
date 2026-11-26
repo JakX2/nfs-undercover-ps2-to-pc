@@ -14,6 +14,13 @@ public:
     unsigned stage()const{return stage_;} unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;} unsigned stores()const{return stores_;}
     unsigned saved()const{return saved_;}
+    uint32_t caller_sp()const{return sp_;}
+    template<class C>bool caller_abi(C& c)const{
+        if(stage_!=2u||error_||cpu_!=&c||c.gpr[1]!=sp_||c.lr!=caller_lr_||
+           c.gpr[2]!=gp_[2]||c.gpr[13]!=gp_[13]||c.msr!=msr_||c.gpr[3]!=0u||pack(c)!=caller_cr_)return false;
+        for(unsigned i=14;i<32;++i)if(c.gpr[i]!=gp_[i])return false;
+        return true;
+    }
     template<class C>bool begin(C& c,bool held){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.root||(c.msr&0x8000u)||
            e_.save_count<1u||e_.save_count>18u||e_.words.size()>128u||
@@ -21,6 +28,7 @@ public:
            !known(c,e_.alloc_root,e_.alloc_root)||c.gpr[1]<0x80000200u||
            c.gpr[1]>0x817ffff0u||(c.gpr[1]&7u))return fail(1);
         sp_=c.gpr[1];lo_=sp_-512u;gp_=c.gpr;msr_=c.msr;
+        caller_lr_=c.lr;caller_cr_=pack(c);
         if(!mapped(c,lo_,shadow_.size()*4u))return fail(1);
         for(unsigned i=0;i<shadow_.size();++i)shadow_[i]=c.mmu.read32(lo_+4u*i);
         cpu_=&c;active_=next_=c.pc;last_=c.inst_count;stage_=1;return true;
@@ -89,6 +97,11 @@ public:
 private:
     IoctlPrefixExpectation e_;const void* cpu_=nullptr;std::array<uint32_t,32> gp_{};
     std::array<uint32_t,132> shadow_{};
+    uint32_t caller_lr_=0,caller_cr_=0;
+    template<class C>static uint32_t pack(C& c){
+        uint32_t v=0;for(auto f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+        return v&0x00fff000u;
+    }
     uint32_t sp_=0,lo_=0,msr_=0,active_=0,next_=0,last_pc_=0,ret_=0,new_sp_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,saved_=0,polls_=0;
     bool entry_due_=false,saved_return_=false,sp_update_=false;
