@@ -1,0 +1,3 @@
+# V1008: terminal SI ownership snapshot after native RFI
+
+V1007 introduces a read-only check for the zero, one and two tick observations at RFI, outer dispatch and resume. This check does not advance the ACK witness or authorize another access. Eight extra synthetic tests verify the terminal observations, reject a third tick, stale caller tick, PI cause/mask drift and communication-buffer changes, and confirm that the normal exact-tick poll still refuses after the outer tick. Correct the V1007 preparation error's sanitized diagnostic string. Owner RFI execution pending. No original execution claim for these tests.

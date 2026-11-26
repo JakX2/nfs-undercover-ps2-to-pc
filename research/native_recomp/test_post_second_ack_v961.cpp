@@ -21,8 +21,8 @@ static void need(bool b,const std::source_location loc=std::source_location::cur
     if(!b){std::cerr<<"V961_ASSERT trial="<<trial<<" line="<<loc.line()<<std::endl;throw std::runtime_error("post ACK");}
 }
 int main(){
-    unsigned valid=0,refused=0,additional=0,dispatch_good=0,dispatch_bad=0;
-    for(trial=0;trial<27;++trial){
+    unsigned valid=0,refused=0,additional=0,dispatch_good=0,dispatch_bad=0,rfi_good=0,rfi_bad=0;
+    for(trial=0;trial<35;++trial){
         const unsigned fault=trial<8?0:trial-7,ch=trial%4;
         std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SecondCompletionAck w;Cpu c;
         const uint32_t cfg=SiController::TC_MASK|0x00010300u|(ch<<1);
@@ -68,6 +68,18 @@ int main(){
         }
         need(w.reads()==2u&&w.writes()==3u&&w.token()==2u&&cause==Other&&mask==SI&&w.poll(c.inst_count));
         if(fault==14){const auto tick=c.inst_count;++c.inst_count;need(!w.poll(tick)&&!w.postack_held());++additional;continue;}
+        if(fault>=20){
+            const auto prior=c.inst_count;c.msr|=0x8000u;
+            if(fault!=20)c.inst_count+=fault==21?1u:fault==22?2u:fault==23?3u:2u;
+            if(fault==24)cause|=0x200u;
+            if(fault==25)mask=0;
+            if(fault==26)ctl.write(B,0x87654321u);
+            const bool held=w.postack_held_after_rfi(fault==27?prior:c.inst_count,fault==20?0u:fault==21?1u:fault==23?3u:2u);
+            if(fault<=22){need(held&&w.stage()==4u&&w.failure()==0u);++rfi_good;
+                if(fault>20)need(!w.postack_held()&&!w.poll(c.inst_count));}
+            else{need(!held);++rfi_bad;}
+            continue;
+        }
         if(fault>=15){
             if(fault!=16)c.inst_count+=fault==17?2u:1u;
             if(fault==18)mask=0;
@@ -79,8 +91,9 @@ int main(){
         }
         ++valid;
     }
-    need(valid==8&&refused==12&&additional==2&&dispatch_good==1&&dispatch_bad==4);
+    need(valid==8&&refused==12&&additional==2&&dispatch_good==1&&dispatch_bad==4&&rfi_good==3&&rfi_bad==5);
     std::cout<<"V961_POST_SECOND_ACK valid=8 refused=12 real_device=1 original_execution=0\n";
     std::cout<<"V993_SUCCESSOR_BINDING changed_word_refused=1 stale_poll_refused=1 original_execution=0\n";
     std::cout<<"V997_OUTER_DISPATCH valid=1 refused=4 original_execution=0\n";
+    std::cout<<"V1008_RFI_HELD_SNAPSHOT valid=3 refused=5 read_only=1 original_execution=0\n";
 }

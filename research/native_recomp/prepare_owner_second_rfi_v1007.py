@@ -22,7 +22,7 @@ def plan(dol,elf):
     original=exact(dol,elf,HANDLER,len(roots[HANDLER]))
     tail=original[(site-HANDLER)//4:(site-HANDLER)//4+5]
     tr=tail_roots[root]
-    if len(tail)!=5 or len(tr)!=16 or site not in guard or roots[HANDLER][(site-HANDLER)//4]!=0x4e800020:raise ValueError('epilogue shared','epilogue overlap','epilogue seam','epilogue switch','epilogue coverage','epilogue hook','handler tail geometry')
+    if len(tail)!=5 or len(tr)!=16 or site not in guard or roots[HANDLER][(site-HANDLER)//4]!=0x4e800020:raise ValueError('handler tail geometry')
     if list(roots[HANDLER][(site-HANDLER)//4+1:(site-HANDLER)//4+5])!=list(tail[1:]):raise ValueError('handler tail words')
     added=root not in roots
     if not added and list(roots[root])!=list(tr):raise ValueError('handler restore overlap')
