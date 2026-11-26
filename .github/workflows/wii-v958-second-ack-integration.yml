@@ -20,6 +20,7 @@ on:
       - 'research/native_recomp/*v997*'
       - 'research/native_recomp/*v1000*'
       - 'research/native_recomp/*v1009*'
+      - 'research/native_recomp/*v1010*'
       - 'research/native_recomp/wii_second_si_dispatch_v944.h'
       - '.github/workflows/wii-v958-second-ack-integration.yml'
 permissions:
@@ -52,6 +53,7 @@ jobs:
           "$RUNNER_TEMP/v1000"
           python3 -m py_compile research/native_recomp/prepare_v1009_second_callback.py research/native_recomp/audit_v1009_second_callback.py
           python3 -m unittest discover -s research/native_recomp -p test_v1009_composed_callback.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1010_callback_installer.py -v
           echo 'V1009_LIVE_CALLBACK synthetic=1 prefix=1 controls=13 original_execution=0'
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           bash -n research/native_recomp/run_v572_full_sc_translation.sh

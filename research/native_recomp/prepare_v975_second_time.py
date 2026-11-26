@@ -4,7 +4,7 @@ import argparse,re,struct
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL,replace_exact
 from prepare_v667_si_dispatch import HANDLER,DISABLE,TIME,RESTORE,exact
-from audit_handler_third_v740 import edge
+from audit_handler_third_v740 import edge as handler_edge
 from prepare_v789_alarm_suffix import expectations as callback_expectations
 from prepare_owner_second_time_v966 import plan as time_plan
 from prepare_owner_second_shared_v988 import admit_shared_time
@@ -82,8 +82,8 @@ def install(dol,elf,root,frontier=False,shared=False,success_frontier=False):
         original=exact(dol,elf,a,len(roots[a]))
         expected={pc:(a,original[(pc-a)//4]) for pc in reachable(a,roots[a],guard,indirect)}
         audit_native([body] if legacy=='v680' else src.values(),outer,expected)
-        for edge,dst,_,_,_ in extra:
-            if a<=edge<a+4*len(original):verify_direct(body,edge,dst)
+        for call_site,dst,_,_,_ in extra:
+            if a<=call_site<a+4*len(original):verify_direct(body,call_site,dst)
         old_pcs=reachable(a,old_roots[a],old_guard,indirect) if legacy else set()
         for pc,(_,w) in expected.items():
             if not legacy:out=shared_label(out,pc,w,a,pc in guard)
@@ -100,7 +100,7 @@ def install(dol,elf,root,frontier=False,shared=False,success_frontier=False):
     private_time=render_time(previous_header,roots,base_extra,site,msr)
     if shared_edge:private_time=render_shared(private_time,extra,shared_edge[0])
     if frontier:
-        call,dst,w=edge(HANDLER,exact(dol,elf,HANDLER,len(roots[HANDLER])),4)
+        call,dst,w=handler_edge(HANDLER,exact(dol,elf,HANDLER,len(roots[HANDLER])),4)
         if call not in guard or call not in reachable(HANDLER,roots[HANDLER],guard,indirect):raise ValueError('transfer frontier geometry')
         candidate,callback_words,callback_sites=callback_expectations(dol,elf)
         private_time=replace_exact(private_time,'#define UNDERCOVER_V975_PRIVATE_TIME 1\n','#define UNDERCOVER_V975_PRIVATE_TIME 1\n#define UNDERCOVER_V981_PRIVATE_FRONTIER 1\n')
