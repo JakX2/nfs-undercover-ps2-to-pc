@@ -24,6 +24,12 @@ class Nested(unittest.TestCase):
         m={**self.mem,-124:('byte',0)}
         with self.assertRaisesRegex(ValueError,'duplicate stack write'):
             nested(R,self.ws,self.gp,m,self.state,(),L)
+    def test_outer_linkage(self):
+        m={**self.mem,**{4+i:('part',('lr',0),4,i) for i in range(4)}}
+        p=nested(R,self.ws,self.gp,m,self.state,(),L)
+        self.assertEqual(p[6][7],m[7])
+        with self.assertRaisesRegex(ValueError,'nested memory geometry'):
+            nested(R,self.ws,self.gp,{**m,8:('byte',0)},self.state,(),L)
     def test_out_of_frame(self):
         m={**self.mem,-132:('byte',0)}
         with self.assertRaisesRegex(ValueError,'nested memory geometry'):

@@ -33,7 +33,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
     for r,v in args.items():gp[r]=v
     mem=dict(seed_bytes or {});cr=dict(initial_cr or {});ctr=initial_ctr;lr=entry_lr
     path=[];accesses=[];frame=0;saves=set();protected=set()
-    if seed_bytes is not None and (stack_slots or resume is not None or any(not caller_sp<=at<0 for at in mem)):
+    if seed_bytes is not None and (stack_slots or resume is not None or any(not caller_sp<=at<8 for at in mem)):
         raise ValueError('formatter nested memory geometry')
     if resume is not None and (initial_cr is not None or initial_ctr is not None or entry_lr!=('lr',0)):
         raise ValueError('formatter nested state')
