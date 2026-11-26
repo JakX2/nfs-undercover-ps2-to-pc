@@ -41,5 +41,28 @@ static void trial(bool heap,unsigned fault){
     c.pc=F;c.lr=S+16;assert(w.entry(c,F,true)&&w.reached(c,true)&&w.queue_stores()==2u&&w.stores()==3u);
     assert(w.request_stores()==(heap?2u:0u));
 }
+static void skip_trial(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=Q;
+    constexpr uint32_t J=S+4,K=S+8,T=S+12,L=S+16;
+    const uint32_t jump=0x41820000u|((T-J)&0xfffcu);
+    const std::array<ReplyNativeWord,9> words{{{S,S,Push},{S,J,jump},{S,K,bl(K,C)},{S,T,N},{S,L,bl(L,F)},
+        {C,C,Zero},{C,C+4,St0},{C,C+8,St4},{C,C+12,Blr}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(W,bl(W,S));c.mmu.write32(F,N);
+    IoctlSubmitPrefixWitness w({{S,W+4,bl(W,S),Push},{C,K+4,bl(K,C),Zero},{F,L+4,bl(L,F),N},words});
+    assert(w.begin(c,true,Q,64,fault==1?0u:fault==2?0x80009001u:0x80009000u));
+    ++c.inst_count;assert(w.before(c,S,Push,true));c.mmu.write32(SP-32,SP);c.gpr[1]=SP-32;
+    c.cr[0].eq=fault!=3;++c.inst_count;
+    bool ok=w.before(c,J,jump,true);
+    if(fault==1||fault==2){assert(!ok&&w.detail()==6);return;}assert(ok);
+    ++c.inst_count;ok=w.before(c,T,N,true);
+    if(fault==3){assert(!ok);return;}assert(ok&&w.queue_path()==2u);
+    c.gpr[3]=Q;c.gpr[4]=64;
+    if(fault==4)c.mmu.write32(Q+8,1);
+    ++c.inst_count;ok=w.before(c,L,bl(L,F),true);
+    if(fault==4){assert(!ok&&w.detail()==4);return;}assert(ok);
+    c.pc=F;c.lr=L+4;assert(w.entry(c,F,true)&&w.reached(c,true)&&w.queue_stores()==0u&&w.queue_path()==2u);
+}
 int main(){for(bool heap:{false,true})for(unsigned f=0;f<=9;++f)trial(heap,f);
-    std::cout<<"V1403_SUBMIT_PREFIX_TEST cases=20 original_execution=0\n";}
+    for(unsigned f=0;f<=4;++f)skip_trial(f);
+    std::cout<<"V1403_SUBMIT_PREFIX_TEST cases=25 original_execution=0\n";}

@@ -21,6 +21,7 @@ public:
     unsigned ordinal()const{return ordinal_;}
     unsigned flush_kind()const{return flush_kind_;}
     uint32_t request()const{return request_;}
+    uint32_t callback()const{return callback_;}
     uint32_t allocated_size()const{return size_;}
     uint32_t output()const{return output_;}
     uint32_t output_size()const{return out_size_;}

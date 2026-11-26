@@ -69,6 +69,10 @@ def main():
         if q.install:install(q.out,p);return 0
         with (q.out/'v1404_private_ioctl_submit_prefix.h').open('x') as f:f.write(render(p))
         print(f'V1404_PREFIX_GEOMETRY verified=1 prefix_labels={len(p[0][SUBMIT])} queue_labels={len(p[0][QUEUE])}')
+        from prepare_v1388_ioctl_dataflow import branch_target
+        crossing=sum(w>>26 in (16,18) and not(w&3) and SUBMIT+4*i<CALLS[0][0]<branch_target(SUBMIT+4*i,w)<=CALLS[1][0]
+                     for i,w in enumerate(p[0][SUBMIT]))
+        print(f'V1406_PREFIX_STATIC forward_queue_bypasses={crossing}')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed={'size','submit wrapper edge','submit queue shape','submit prefix edges','submit prior hook','submit queue hook','submit queue coverage',

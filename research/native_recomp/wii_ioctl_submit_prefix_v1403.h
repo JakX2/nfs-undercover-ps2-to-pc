@@ -18,13 +18,16 @@ public:
     unsigned store_failure()const{return fence_.failure();}
     unsigned range_failure()const{return fence_.range_failure();}
     unsigned ordinal()const{return ordinal_;}
-    template<class C>bool begin(C& c,bool held,uint32_t request,uint32_t size){
+    unsigned detail()const{return detail_;}
+    unsigned queue_path()const{return queue_returned_?1u:queue_skipped_?2u:0u;}
+    unsigned queue_class()const{return queue_class_;}
+    template<class C>bool begin(C& c,bool held,uint32_t request,uint32_t size,uint32_t callback=0){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.submit.pc||c.lr!=e_.submit.lr||
            canonical(c.gpr[3])!=request||(request&31u)||size<64u||size>4096u||
            c.gpr[1]<0x80000200u||c.gpr[1]>0x817fff70u||(c.gpr[1]&7u)||
            !known(c,e_.submit.pc,c.pc)||!edge(c,e_.submit)||!edge(c,e_.queue)||!edge(c,e_.flush))return fail(1);
         sp0_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;
-        stack_={sp0_-512u,520u};req_={request,size};
+        stack_={sp0_-512u,520u};req_={request,size};callback_=callback;
         if(!fence_.begin(c,stack_,req_))return fail(1);
         for(unsigned i=0;i<size;++i)shadow_.push_back(c.mmu.read8(request+i));
         cpu_=&c;active_=next_=c.pc;last_=start_=c.inst_count;stage_=1;return true;
@@ -52,16 +55,20 @@ public:
             return fail(4);
         }
         if(op==18u&&(w&1u)){
-            if(!queue_returned_&&pc+4u==e_.queue.lr&&w==e_.queue.branch_word){
+            if(!queue_returned_&&!queue_skipped_&&pc+4u==e_.queue.lr&&w==e_.queue.branch_word){
                 queue_=c.gpr[3];
-                if((queue_&3u)||(!req_.contains(queue_,8u)&&!stack_.contains(queue_,8u)))return fail(5);
+                queue_class_=req_.contains(queue_,8u)?1u:stack_.contains(queue_,8u)?2u:
+                    req_.contains(canonical(queue_),8u)?3u:queue_==0u?4u:5u;
+                if((queue_&3u)||(!req_.contains(queue_,8u)&&!stack_.contains(queue_,8u)))return bad(pc,1);
                 next_=e_.queue.pc;due_=true;return true;
             }
-            if(queue_returned_&&pc+4u==e_.flush.lr&&w==e_.flush.branch_word){
-                if(!flush_args(c)||!finished(c))return fail(5);
+            if(pc+4u==e_.flush.lr&&w==e_.flush.branch_word){
+                if(!queue_path())return bad(pc,2);
+                if(!flush_args(c))return bad(pc,3);
+                if(!finished(c))return bad(pc,4);
                 next_=e_.flush.pc;due_=true;return true;
             }
-            return fail(5);
+            return bad(pc,5);
         }
         if(op==17u||(op==19u&&(xo==16u||xo==50u||xo==528u))||(op==31u&&xo==146u))return fail(6);
         if(op==16u||op==18u){
@@ -70,16 +77,23 @@ public:
             if(dst<=pc)return fail(6);
             if(op==18u||taken(c,w))next_=dst;
             if(!known(c,active_,next_))return fail(6);
+            // Only a taken, exact original forward edge crossing the
+            // initializer call may bypass it. A synchronous request
+            // (no authenticated callback) still requires initialization.
+            if(pc<e_.queue.lr-4u&&next_>=e_.queue.lr&&!queue_path()){
+                if(!callback_||(callback_&3u)||next_>e_.flush.lr-4u)return bad(pc,6);
+                queue_skipped_=true;
+            }
         }
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
         if(stage_!=1u||!live(c,held)||!due_||c.pc!=pc||pc!=next_||
            c.inst_count!=last_||!fence_.settled(c))return fail(7);
-        const auto e=queue_returned_?e_.flush:e_.queue;
+        const auto e=queue_path()?e_.flush:e_.queue;
         if(pc!=e.pc||c.lr!=e.lr||!edge(c,e))return fail(7);
         due_=false;
-        if(!queue_returned_){
+        if(!queue_path()){
             if(c.gpr[3]!=queue_)return fail(7);
             active_=pc;return true;
         }
@@ -88,15 +102,16 @@ public:
     }
     template<class C>bool reached(C& c,bool held){
         return stage_==2u&&live(c,held)&&c.pc==e_.flush.pc&&c.lr==e_.flush.lr&&
-            c.inst_count==last_&&queue_returned_&&queue_mask_==3u&&flush_args(c)&&finished(c);
+            c.inst_count==last_&&queue_path()&&flush_args(c)&&finished(c);
     }
 private:
     IoctlSubmitPrefixExpectation e_;AllocatorStoreFence fence_;AllocatorRange req_{},stack_{};
     std::vector<uint8_t> shadow_;const void* cpu_=nullptr;
-    uint32_t sp0_=0,r2_=0,r13_=0,msr_=0,active_=0,next_=0,queue_=0;
-    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,queue_mask_=0;
-    bool due_=false,queue_returned_=false;
+    uint32_t sp0_=0,r2_=0,r13_=0,msr_=0,active_=0,next_=0,queue_=0,callback_=0;
+    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,queue_mask_=0,detail_=0,queue_class_=0;
+    bool due_=false,queue_returned_=false,queue_skipped_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    bool bad(uint32_t pc,unsigned n){ordinal_=(pc-active_)/4u+1u;detail_=n;return fail(5);}
     static uint32_t canonical(uint32_t a){return OpenCacheRangeTrace::canonical(a);}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool live(C& c,bool held)const{
@@ -106,7 +121,8 @@ private:
     template<class C>bool queue_zero(C& c){return fence_.settled(c)&&!c.mmu.read32(queue_)&&!c.mmu.read32(queue_+4u);}
     template<class C>bool flush_args(C& c)const{return canonical(c.gpr[3])==req_.base&&c.gpr[4]>=32u&&c.gpr[4]<=req_.size;}
     template<class C>bool finished(C& c){
-        if(!fence_.settled(c)||!fence_.stores()||!queue_zero(c))return false;
+        if(!fence_.settled(c)||!fence_.stores()||!queue_path()||
+           (queue_returned_&&(queue_mask_!=3u||!queue_zero(c)))||(queue_skipped_&&queue_mask_))return false;
         if(fence_.heap_stores())return fence_.finished(c);
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(req_.base+i)!=shadow_[i])return false;
         return true;
