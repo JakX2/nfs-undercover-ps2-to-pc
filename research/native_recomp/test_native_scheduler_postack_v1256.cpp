@@ -17,6 +17,10 @@
 #include "v1261_private_dispatch.h"
 #include "wii_initialized_dol_data_v1264.h"
 #endif
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+#include "v1266_private_ack.h"
+#include "wii_joined_ipc_ack_v1266.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -60,6 +64,12 @@ static IpcDispatchWitness* ipc_dispatch=nullptr;
 static uint32_t dispatch_queue=0;
 static unsigned dispatch_count=0;
 struct DispatchStop{};
+#endif
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+static JoinedIpcAck* joined_ack=nullptr;
+static nw::CPUContext* joined_cpu=nullptr;
+static unsigned joined_count=0;
+struct AckReturned{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -129,6 +139,18 @@ void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!s||!ipc_dispatch->before(c,pc,w,guard,*s,device_ok(c)))dispatch_refuse(1);
 }
 #endif
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+static void joined_refuse(unsigned kind){
+    std::cout<<"V1266_ACK_REFUSAL kind="<<kind<<" stage="<<joined_ack->stage()<<" reason="<<joined_ack->failure()
+        <<" gate="<<joined_ack->gate_stage()<<" gate_reason="<<joined_ack->gate_failure()<<" visits="<<joined_ack->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!joined_ack)return; // shared original leaves used earlier
+    const bool guard=pc==0x805190c0u||pc==0x8052a51cu||pc==v1255::returned;
+    if(!joined_ack->before(c,pc,w,guard,device_ok(c)))joined_refuse(1);
+}
+#endif
 static void submit_trace(uint32_t pc,nw::CPUContext& c){
     need(submit_join);
     const bool ok=submit_join->observe(c,pc,device_ok(c));
@@ -148,6 +170,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+    if(joined_ack){
+        if(!joined_ack->entry(c,pc,device_ok(c)))joined_refuse(2);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
     if(ipc_dispatch){
         auto s=B::cold_snapshot();need(s.has_value());
@@ -217,6 +245,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+    if(joined_ack){
+        if(!joined_ack->poll(c,device_ok(c)))joined_refuse(3);
+        if(c.pc==v1255::returned){
+            if(!joined_ack->finish(c,device_ok(c)))joined_refuse(4);
+            throw AckReturned{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
     if(ipc_dispatch){
         auto s=B::cold_snapshot();need(s.has_value());
@@ -317,6 +355,11 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+    if(joined_ack){
+        auto v=joined_ack->read(*joined_cpu,a,device_ok(*joined_cpu));if(!v)joined_refuse(5);return *v;
+    }
+#endif
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
     if(ipc_dispatch){
         if(p!=IosBus::PI_CAUSE&&p!=IosBus::PI_MASK)dispatch_refuse(5);
@@ -333,6 +376,12 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+    if(joined_ack){
+        if(!joined_ack->write(*joined_cpu,a,v,device_ok(*joined_cpu)))joined_refuse(6);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
     if(ipc_dispatch)dispatch_refuse(6);
 #endif
@@ -421,6 +470,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
         for(auto w:v1261::words)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(W::Sda+v1261::counter_disp,0u);
+#endif
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+        for(auto w:v1255::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(v1255::returned,v1266::return_word);
 #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
@@ -525,6 +578,19 @@ int main(int argc,char** argv)try{
              irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
         ipc_dispatch=nullptr;
         std::cout<<"V1261_DISPATCH_TRIAL n="<<trial<<" original_dispatcher=1 index=27 context=1 pi_reads=1 handler_entry=1 handler_executed=0\n";
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+        JoinedIpcAck joined(v1255::handler,v1255::returned,v1266::return_word,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
+        need(joined.begin(c,dispatch,irq_capture,sleep.queue(),next.request()&0x3fffffffu,kind,device_ok(c)));
+        joined_ack=&joined;joined_cpu=&c;
+        bool ack_returned=false;
+        try{run_game(c);}catch(const AckReturned&){ack_returned=true;}
+        need(ack_returned&&joined.stage()==2u&&host.serviced_steps()==1u);
+        if(!joined.publish(c,device_ok(c)))joined_refuse(7);
+        need(joined.stage()==3u&&host.serviced_steps()==2u&&c.pc==v1255::returned&&
+             irq_capture.saved_integer(c,Q::Idle).ok()&&c.mmu.read16(Q::Thread+712u)==4u);
+        ++joined_count;joined_ack=nullptr;joined_cpu=nullptr;
+        std::cout<<"V1266_ACK_TRIAL n="<<trial<<" handler_return=1 guest_w1c=1 native_reply=1 waiting=1 saved_fields=38\n";
+#endif
 #endif
 #endif
 #endif
@@ -542,6 +608,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
     need(dispatch_count==8u);
     std::cout<<"V1261_DISPATCH_NATIVE owner=1 trials=8 dispatcher=8 ipc_index=27 handler_entry=8 handler_executed=0 pending_ack=8 reply=0 fallback=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1266_JOINED_ACK
+    need(joined_count==8u);
+    std::cout<<"V1266_ACK_NATIVE owner=1 trials=8 original_dispatch=8 original_handler_return=8 native_reply=8 waiting=8 saved_fields=38 modeled_dispatch=0 wakeup=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
