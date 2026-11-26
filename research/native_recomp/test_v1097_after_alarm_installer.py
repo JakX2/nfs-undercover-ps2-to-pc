@@ -229,4 +229,79 @@ class TimeTree(unittest.TestCase):
                 self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(Tree.snapshot(root),before)
 
+
+class FrontierTree(unittest.TestCase):
+    def fixture(self,root):
+        import prepare_v1113_postalarm_frontier as frontier
+        from prepare_v831_callback_frontier import render as render_frontier
+        time=TimeTree();f=time.fixture(root)
+        q,callback,private=f;base,T,D,U,R,ts,leaves=q;roots,C,S,site,_,_=base
+        resume=ts+4;A=0x8000c000;B=0x8000d000;host=Path(frontier.__file__).parent
+        old_words=list(callback[1]);seen=list(range(resume,resume+27*4,4))
+        stops={seen[24]:(3,A),seen[26]:(5,B)}
+        for pc in seen:
+            old_words[(pc-C)//4]=Tree.branch(pc,stops[pc][1]) if pc in stops else Tree.NOP
+        full=tuple(old_words)
+        # Update only independently authored fixture code and private
+        # expectations before running the previous installer.
+        old_row=f'inline constexpr std::array<uint32_t,{len(callback[1])}> third_postalarm_words{{'+frontier.fmt(callback[1])+'};\n'
+        new_row=f'inline constexpr std::array<uint32_t,{len(full)}> third_postalarm_words{{'+frontier.fmt(full)+'};\n'
+        private.write_text(private.read_text().replace(old_row,new_row))
+        callback=(C,full,callback[2])
+        time.install(root,(q,callback,private))
+        p=root/'output_1.cpp';s=p.read_text();extra=''
+        for pc in seen[1:]:
+            w=full[(pc-C)//4]
+            extra+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n    ++ctx.inst_count;\n'+SI
+            if pc in stops:
+                dst=stops[pc][1]
+                extra+=f'    ctx.pc = 0x{dst:X}; fn_{dst:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+        p.write_text(s[:-2]+extra+'}\n')
+        dest=private.parent
+        (dest/'wii_callback_frontier_v829.h').write_bytes((host/'wii_callback_frontier_v829.h').read_bytes())
+        expected={pc:(C,full[(pc-C)//4]) for pc in seen}
+        (dest/'v831_private_callback_frontier.h').write_text(render_frontier(C,resume,expected,stops))
+        return (q,seen,stops,A,B),callback,private
+    def install(self,root,f):
+        import prepare_v1113_postalarm_frontier as frontier
+        q,callback,_=f
+        with patch.object(frontier,'plan',return_value=q),patch.object(frontier,'expectations',return_value=callback), \
+             patch.object(frontier,'exact',return_value=callback[1]):
+            frontier.install(b'',b'',root,Path(frontier.__file__).parent)
+    def test_frontier_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=self.fixture(root);before=Tree.snapshot(root);self.install(root,f);after=Tree.snapshot(root)
+            self.assertEqual(set(before),set(after))
+            self.assertEqual({p for p in before if before[p]!=after[p]},{Path('output_1.cpp'),f[-1].relative_to(root)})
+            self.assertIn('UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1',f[-1].read_text())
+            p=Path('output_1.cpp')
+            self.assertEqual(before[p].count(b'++ctx.inst_count;'),after[p].count(b'++ctx.inst_count;'))
+            self.assertEqual(after[p].count(b'v958::before(ctx,0x80005044u,'),1)
+    def test_frontier_tree_refusals(self):
+        reasons={'header':'postalarm frontier identity','metadata':'postalarm frontier metadata','owner':'postalarm frontier owner',
+                 'edge':'helper direct native call','label':'native IPC label identity','tick':'postalarm tick',
+                 'resume':'postalarm time resume','dispatch':'native IPC dispatch'}
+        for fault,reason in reasons.items():
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
+                root=Path(td);f=self.fixture(root);private=f[-1];p=root/'output_1.cpp'
+                if fault=='header':
+                    h=private.parent/'v831_private_callback_frontier.h';h.write_text(h.read_text()+'// tamper\n')
+                elif fault=='metadata':private.write_text(private.read_text().replace('third_postalarm_words','other_words'))
+                elif fault=='owner':(root/'output_19.cpp').write_bytes(p.read_bytes())
+                elif fault=='dispatch':
+                    p=root/'main_output.cpp';p.write_text(p.read_text().replace('fn_80005000(ctx)','fn_80005004(ctx)'))
+                else:
+                    s=p.read_text()
+                    if fault=='edge':s=s.replace('fn_8000C000(ctx);','fn_8000C004(ctx);')
+                    elif fault=='label':s=s.replace('// 0x80005048: 60000000','// 0x80005048: 60000001')
+                    elif fault=='resume':s=s.replace('v958::before(ctx,0x80005044u,','v958::other(ctx,0x80005044u,')
+                    else:
+                        marker='loc_80005048: ;\n    // 0x80005048: 60000000\n    ++ctx.inst_count;\n'
+                        s=s.replace(marker+SI,marker)
+                    p.write_text(s)
+                before=Tree.snapshot(root)
+                with self.assertRaises(ValueError) as caught:self.install(root,f)
+                self.assertEqual(str(caught.exception),reason)
+                self.assertEqual(Tree.snapshot(root),before)
+
 if __name__=='__main__':unittest.main()
