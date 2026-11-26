@@ -143,4 +143,90 @@ class Tree(unittest.TestCase):
                 with self.assertRaises(ValueError) as caught:self.install(root,f)
                 self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(self.snapshot(root),before)
+
+class TimeTree(unittest.TestCase):
+    def fixture(self,root):
+        import prepare_v1106_postalarm_time as time
+        from prepare_v813_callback_time import render as render_time
+        prior=Tree();f=prior.fixture(root);H,C,S,A=prior.H,prior.C,prior.S,prior.A
+        T,D,U,R=0x80008000,0x80009000,0x8000a000,0x8000b000
+        host=Path(time.__file__).parent
+        prefix=f[1][0][C][:-1];save=f[1][0][S];resume=C+20;ts=C+64
+        code=prefix+[prior.NOP]*10+[prior.branch(ts,T),prior.NOP]
+        full=tuple(code+[prior.BLR]+[prior.NOP]*(172-len(code)-1));sites=f[2][2]
+        dest=f[-1].parent
+        (dest/'v786_private_alarm.h').write_text(patch_private(f[3],C,full,sites))
+        f=(f[0],f[1],(C,full,sites),f[3],f[4])
+        prior.install(root,f)
+        system=[prior.NOP]*24+[prior.BLR]
+        for i,a in ((1,D),(4,U),(7,R)):system[i]=prior.branch(T+4*i,a)
+        leaves_words={D:[prior.NOP]*5+[prior.BLR],U:[prior.NOP]*7+[prior.BLR],R:[prior.NOP]*5+[prior.BLR]}
+        leaves=[(T+4*i,a,a+4*len(leaves_words[a]),system[i],kind,leaves_words[a])
+                for kind,(i,a) in enumerate(((1,D),(4,U),(7,R)),1)]
+        roots={H:f[0],C:code+[prior.BLR],S:save,T:system,**leaves_words}
+        (dest/'wii_callback_time_v810.h').write_bytes((host/'wii_callback_time_v810.h').read_bytes())
+        (dest/'v813_private_callback_time.h').write_text(render_time(C,ts,code[5:],T,system,leaves))
+        def labels(addr,words,shared,start=0):
+            body=''
+            for i in range(start,len(words)):
+                pc=addr+4*i;w=words[i]
+                body+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n    ++ctx.inst_count;\n'+SI
+                if shared:body+=f'    undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{w:08x}u,false);\n'
+                body+=f'    undercover::wii::v813::before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'
+                if w>>26==18 and w&3==1:
+                    target=pc+(((w&0x03fffffc)^0x02000000)-0x02000000)
+                    body+=f'    ctx.pc = 0x{target:X}; fn_{target:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+            return body
+        p=root/'output_1.cpp';s=p.read_text()
+        p.write_text(s[:-2]+labels(C,code,False,6)+'}\n')
+        for idx,a in enumerate((T,D,U,R),4):
+            s='#include "runtime/cpu_context.h"\n'
+            s+=f'void fn_{a:X}(CPUContext& ctx) {{\n    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{a:X}) nwii::runtime::trace_call(0x{a:X}, ctx);\n'
+            (root/f'output_{idx}.cpp').write_text(s+labels(a,roots[a],True)+'}\n')
+        p=root/'main_output.cpp';s=p.read_text()
+        p.write_text(s[:-2]+''.join(f'case 0x{a:X}: fn_{a:X}(ctx); break;\n' for a in (T,D,U,R))+'}\n')
+        return ((roots,C,S,C+16,0,0),T,D,U,R,ts,leaves),(C,full,sites),f[-1]
+    def install(self,root,f):
+        import prepare_v1106_postalarm_time as time
+        q,callback,_=f
+        with patch.object(time,'plan',return_value=q),patch.object(time,'expectations',return_value=callback), \
+             patch.object(time,'exact',return_value=callback[1]):
+            time.install(b'',b'',root,Path(time.__file__).parent)
+    def test_time_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=self.fixture(root);before=Tree.snapshot(root);self.install(root,f);after=Tree.snapshot(root)
+            self.assertEqual(set(before),set(after))
+            self.assertEqual({p for p in before if before[p]!=after[p]},
+                             {Path(f'output_{i}.cpp') for i in (1,4,5,6,7)}|{f[-1].relative_to(root)})
+            self.assertIn('UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1',f[-1].read_text())
+            for i in (1,4,5,6,7):
+                p=Path(f'output_{i}.cpp')
+                self.assertEqual(before[p].count(b'++ctx.inst_count;'),after[p].count(b'++ctx.inst_count;'))
+            self.assertEqual((root/'output_1.cpp').read_text().count('v958::before(ctx,0x80005014u,'),1)
+    def test_time_tree_refusals(self):
+        reasons={'resume':'postalarm time resume','header':'postalarm time identity','metadata':'postalarm time metadata',
+                 'owner':'postalarm time owner','edge':'helper direct native call','label':'native IPC label identity',
+                 'tick':'postalarm tick','dispatch':'native IPC dispatch'}
+        for fault,reason in reasons.items():
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
+                root=Path(td);f=self.fixture(root);private=f[-1]
+                if fault=='header':
+                    p=private.parent/'v813_private_callback_time.h';p.write_text(p.read_text()+'// tamper\n')
+                elif fault=='metadata':private.write_text(private.read_text().replace('third_postalarm_words','other_words'))
+                elif fault=='owner':(root/'output_19.cpp').write_bytes((root/'output_4.cpp').read_bytes())
+                elif fault=='dispatch':
+                    p=root/'main_output.cpp';p.write_text(p.read_text().replace('fn_80008000(ctx)','fn_80008004(ctx)'))
+                elif fault=='resume':
+                    p=root/'output_1.cpp';p.write_text(p.read_text().replace('v958::before(ctx,0x80005014u,','v958::other(ctx,0x80005014u,'))
+                else:
+                    p=root/'output_4.cpp';s=p.read_text()
+                    if fault=='edge':s=s.replace('fn_80009000(ctx);','fn_80009004(ctx);')
+                    elif fault=='label':s=s.replace('// 0x80008000: 60000000','// 0x80008000: 60000001')
+                    else:s=s.replace(SI,'',1)
+                    p.write_text(s)
+                before=Tree.snapshot(root)
+                with self.assertRaises(ValueError) as caught:self.install(root,f)
+                self.assertEqual(str(caught.exception),reason)
+                self.assertEqual(Tree.snapshot(root),before)
+
 if __name__=='__main__':unittest.main()

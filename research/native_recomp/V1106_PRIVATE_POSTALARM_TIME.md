@@ -1,0 +1,3 @@
+# V1106: private held-token time route installer
+
+V1103 synthetic held-token time integration passed, and V1104's 128/128 sanitizer fixture passed. Authenticate V1097 metadata, original callback time geometry, and existing private prefix/time headers before modifying generated code. Reuse the already-consumed prefix resume label; instrument the remaining reachable callback labels and shared time roots without another instruction tick. Require 13 callback labels, 45 shared labels and four direct native edges. Add a 20-shard independently authored tree regression plus eight exact refusal cases. The opt-in private macro is not connected to the full-image launch scripts yet. No additional full-image build launched; validation pending.
