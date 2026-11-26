@@ -1,0 +1,3 @@
+# V1243: focused original STM prefix after original IPC
+
+Reuse the verified V1238 isolated original IPC graph and completed SI token. Authenticate and translate the original 23-word STM prefix and first IOS_Open instruction. Only the original STM prefix executes, stopping at the actual native Open entry trace before its first instruction. The caller bridge is modeled, not executed; privately seed the original initialized SDA loads and path data before IPC, and retain guest-selected pathname rather than substituting one. Two fixture-only terminating BLRs are unreachable on the accepted route. Eight trials must preserve the same native mailbox and SI device, with no IOS service or interpreter fallback. CI pending. No full-image link or boot claim.
