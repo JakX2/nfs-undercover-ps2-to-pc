@@ -10,6 +10,7 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned stores()const{return stores_;}
+    unsigned detail()const{return detail_;}
     template<class C>bool begin(C& c,AllocatorRange ring,AllocatorRange credit,IpcProfileLayout profile,
                                 AllocatorRange request,AllocatorRange stack,unsigned slots,uint32_t fd,bool authorized){
         if(stage_||error_||!authorized||fd>1u||slots<2u||slots>64u||ring.size!=16u+4u*slots||
@@ -25,15 +26,20 @@ public:
             for(unsigned off=0;off<a.size;off+=4u)shadow_[i].push_back(c.mmu.read32(a.base+off));
         }
         const auto& q=shadow_[0];
-        if(q[0]!=q[1]||q[2]>=slots||q[3]!=q[2]||q[4u+(q[2]+slots-1u)%slots]!=request.base||
-           shadow_[1][0]!=0u||!shadow_[2][0]||!shadow_[3][0]||shadow_[3][0]>shadow_[2][0])return fail(2);
+        if(q[0]!=q[1])return bad(2,1);
+        if(q[2]>=slots||q[3]!=q[2])return bad(2,2);
+        if(q[4u+(q[2]+slots-1u)%slots]!=request.base)return bad(2,3);
+        if(shadow_[1][0]!=0u)return bad(2,4);
+        if(!shadow_[2][0]||!shadow_[3][0])return bad(2,5);
+        if(shadow_[3][0]>shadow_[2][0])return bad(2,6);
         unsigned matches=0;
         for(unsigned i=0;i<shadow_[4].size();++i)
             if(shadow_[4][i]==request.base){
-                if(shadow_[5][i]!=fd)return fail(2);
+                if(shadow_[5][i]!=fd)return bad(2,7);
                 ++matches;
             }
-        if(matches!=1u||c.mmu.read32(request.base+8u)!=fd)return fail(2);
+        if(matches!=1u)return bad(2,8);
+        if(c.mmu.read32(request.base+8u)!=fd)return bad(2,9);
         for(unsigned off=0;off<request.size;++off)request_shadow_.push_back(c.mmu.read8(request.base+off));
         req_=request;cpu_=&c;stage_=1;return true;
     }
@@ -72,7 +78,8 @@ private:
     std::vector<uint8_t> request_shadow_;
     AllocatorRange req_{};
     const void* cpu_=nullptr;
-    unsigned stage_=0,error_=0,stores_=0;
+    unsigned stage_=0,error_=0,stores_=0,detail_=0;
+    bool bad(unsigned n,unsigned d){if(!error_)detail_=d;return fail(n);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool overlap(AllocatorRange a,AllocatorRange b){return a.size&&b.size&&a.base<b.end()&&b.base<a.end();}
     template<class C>static bool mapped(C& c,AllocatorRange a){

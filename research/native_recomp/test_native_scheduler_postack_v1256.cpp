@@ -665,7 +665,8 @@ static bool third_irq_held(nw::CPUContext& c){
 [[noreturn]]static void third_vector_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_VECTOR_REFUSAL kind="<<kind<<" stage="<<(third_vector?third_vector->stage():0u)
              <<" reason="<<(third_vector?third_vector->failure():0u)
-             <<" memory="<<(third_memory?third_memory->failure():0u)<<'\n';
+             <<" memory="<<(third_memory?third_memory->failure():0u)
+             <<" detail="<<(third_memory?third_memory->detail():0u)<<'\n';
     throw WitnessFailure{};
 }
 #endif
@@ -3261,6 +3262,7 @@ int main(int argc,char** argv)try{
         // At entry no original vector instruction has executed yet.
         // Transfer protected IPC memory to the independent ACK observer.
         IpcDeferredAckMemory ack_memory3;
+        third_memory=&ack_memory3;
         const auto dx=ipc_dispatch_private::expected;
         const auto req3=ioctl_build->request();
         if(!ack_memory3.begin(c,dx.ring,dx.credit,dx.profile,{req3,ioctl_build->allocated_size()},
