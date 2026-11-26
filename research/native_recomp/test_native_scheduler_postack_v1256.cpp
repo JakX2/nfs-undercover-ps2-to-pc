@@ -99,6 +99,9 @@
 #include "wii_deferred_stm_irq_entry.h"
 #ifdef UNDERCOVER_STM_DEFERRED_VECTOR
 #include "wii_ipc_deferred_ack_memory.h"
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+#include "private_deferred_ack_execution.h"
+#endif
 #endif
 #endif
 #endif
@@ -360,6 +363,13 @@ static unsigned third_vector_count=0;
 static IpcDispatchWitness* third_dispatch=nullptr;
 static unsigned third_dispatch_count=0;
 static uint32_t third_request=0;
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+static DeferredAckExecution* third_ack=nullptr;
+static unsigned third_ack_count=0;
+struct DeferredAckStop{};
+static bool third_ack_held(nw::CPUContext&);
+[[noreturn]]static void third_ack_refuse(unsigned);
+#endif
 [[noreturn]]static void third_dispatch_refuse(unsigned);
 #endif
 static bool third_irq_held(nw::CPUContext&);
@@ -599,6 +609,13 @@ static bool ioctl_dispatch_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 void ipc_dispatch_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){
+        if(std::count_if(deferred_ack_private::words.begin(),deferred_ack_private::words.end(),
+            [&](auto x){return x.pc==pc&&x.word==w;})!=1)third_ack_refuse(1);
+        return;
+    }
+#endif
     if(ioctl_dispatch&&!ioctl_dispatch->before(c,pc,w,ioctl_dispatch_held(c)))ioctl_dispatch_refuse(2);
 }
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
@@ -639,21 +656,33 @@ static bool stm_outer_held(nw::CPUContext& c){
         ioctl_dispatch&&ioctl_dispatch->storage_preserved(c);
 }
 #ifdef UNDERCOVER_STM_DEFERRED_VECTOR
-static bool third_irq_held(nw::CPUContext& c){
+static bool third_storage_held(nw::CPUContext& c,bool ack){
     // Retired wrapper frames are no longer owned by the submit observer.
     // The interrupt may update the active OSContext; its scheduler tail
     // and all independently authenticated IPC objects remain immutable.
     if(!third_vector||!third_frame_ptr||!third_memory||!ioctl_event_gate||!ioctl_build||!stm_event_return||
-       !raw_device_ok(c)||!ioctl_event_gate->deferred_held(true)||!third_memory->settled(c)||
+       !raw_device_ok(c)||!(ack?ioctl_event_gate->ack_held(true):ioctl_event_gate->deferred_held(true))||!third_memory->settled(c)||
        !stm_event_return->flag_preserved(c)||!ioctl_build->identity_storage_after_irq(c,true)||
        !allocator_descriptor||!allocator_descriptor->identity_after_release(c)||
        c.mmu.read32(0x800000c0u)!=(third_context&0x3fffffffu)||c.mmu.read32(0x800000d4u)!=third_context||
        c.mmu.read32(0x800000e4u)!=third_context||c.mmu.read32(third_wait)||c.mmu.read32(third_wait+4u)||
-       !third_frame_ptr->pending_source(c,cause.load(),mask.load()))return false;
+       !(ack?third_frame_ptr->saved_integer(c,third_context).ok():third_frame_ptr->pending_source(c,cause.load(),mask.load())))return false;
     for(unsigned i=0;i<third_thread_tail.size();++i)
         if(c.mmu.read32(third_context+712u+4u*i)!=third_thread_tail[i])return false;
     return true;
 }
+static bool third_irq_held(nw::CPUContext& c){return third_storage_held(c,false);}
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+static bool third_ack_held(nw::CPUContext& c){return third_storage_held(c,true);}
+[[noreturn]]static void third_ack_refuse(unsigned kind){
+    std::cout<<"STM_DEFERRED_ACK_REFUSAL kind="<<kind<<" stage="<<(third_ack?third_ack->stage():0u)
+             <<" reason="<<(third_ack?third_ack->failure():0u)<<" visits="<<(third_ack?third_ack->visits():0u)
+             <<" ordinal="<<(third_ack?third_ack->ordinal():0u)<<" reads="<<(third_ack?third_ack->reads():0u)
+             <<" writes="<<(third_ack?third_ack->writes():0u)<<" memory="<<(third_memory?third_memory->failure():0u)
+             <<" gate="<<(ioctl_event_gate?ioctl_event_gate->stage():0u)<<" gate_reason="<<(ioctl_event_gate?ioctl_event_gate->failure():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
 [[noreturn]]static void third_dispatch_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_DISPATCH_REFUSAL kind="<<kind<<" stage="<<(third_dispatch?third_dispatch->stage():0u)
@@ -858,6 +887,13 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){
+        if(std::count_if(deferred_ack_private::words.begin(),deferred_ack_private::words.end(),
+            [&](auto x){return x.pc==pc&&x.word==w;})!=1)third_ack_refuse(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     // Shared interrupt leaves retain both installed hooks. The active
     // dispatcher owns these original labels via v1261_before; do not
@@ -1111,6 +1147,9 @@ static void joined_refuse(unsigned kind){
     throw WitnessFailure{};
 }
 void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){if(!third_ack->before(c,pc,w,third_ack_held(c)))third_ack_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){
         const auto i=std::find_if(v1299::words.begin(),v1299::words.end(),[&](auto x){return x.pc==pc;});
@@ -1223,6 +1262,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){if(!third_ack->entry(c,pc,third_ack_held(c)))third_ack_refuse(3);return;}
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     if(third_dispatch){
         auto s=B::cold_snapshot();
@@ -1757,6 +1799,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){
+        if(!third_ack->poll(c,third_ack_held(c)))third_ack_refuse(4);
+        if(third_ack->stage()==2u){++third_ack_count;throw DeferredAckStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     if(third_dispatch){
         auto s=B::cold_snapshot();
@@ -2194,6 +2243,13 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){
+        if(!ioctl_dispatch_cpu)third_ack_refuse(5);
+        auto& c=*ioctl_dispatch_cpu;
+        auto v=third_ack->read(c,a,third_ack_held(c));if(!v)third_ack_refuse(5);return *v;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     if(third_dispatch){
         const auto p=a&0x3fffffffu;
@@ -2309,6 +2365,12 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    if(third_ack){
+        if(!ioctl_dispatch_cpu||!third_ack->write(*ioctl_dispatch_cpu,a,v,third_ack_held(*ioctl_dispatch_cpu)))third_ack_refuse(6);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     if(third_dispatch)third_dispatch_refuse(6);
 #endif
@@ -3301,6 +3363,19 @@ int main(int argc,char** argv)try{
         std::cout<<"STM_DEFERRED_DISPATCH_TRIAL n="<<trial<<" original_dispatch=1 handler_index=27 active_context=1 pending_ack=1 deferred=1 handler_executed=0 visits="
                  <<dispatch3.visits()<<" reads="<<dispatch3.cause_reads()+dispatch3.mask_reads()<<'\n';
         third_dispatch=nullptr;third_request=0;
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+        DeferredAckExecution ack3(deferred_ack_private::expected);
+        third_ack=&ack3;
+        if(!ack3.begin(c,*ioctl_event_gate,ack_memory3,third_ack_held(c)))third_ack_refuse(1);
+        bool ack_done=false;try{run_game(c);}catch(const DeferredAckStop&){ack_done=true;}
+        if(!ack_done||third_ack_count!=trial+1u||!ack3.reached(c,third_ack_held(c))||
+           !ack_memory3.preserved(c)||!ioctl_event_gate->completed(true)||host.serviced_steps()!=5u||
+           !host.services().event_pending()||(cause.load()&mask.load())||host.cold_ipc_snapshot().replies||
+           !third_frame.saved_integer(c,Q::Thread).ok())third_ack_refuse(7);
+        std::cout<<"STM_DEFERRED_ACK_TRIAL n="<<trial<<" original_return=1 guest_w1c=1 credit=1 unissued=1 deferred=1 reply=0 active_context=1 visits="
+                 <<ack3.visits()<<" reads="<<ack3.reads()<<" writes="<<ack3.writes()<<" stack="<<ack3.stack_stores()<<" calls="<<ack3.calls()<<'\n';
+        third_ack=nullptr;
+#endif
 #endif
         third_vector=nullptr;third_frame_ptr=nullptr;third_memory=nullptr;third_context=third_wait=0;
 #endif
@@ -3381,7 +3456,12 @@ int main(int argc,char** argv)try{
 #endif
              descriptor.second_completed()&&second_release_count==trial+1u&&second_allocator_count==trial+1u&&
 #ifdef UNDERCOVER_IPC_DEFERRED
-             host.serviced_steps()==5u&&epoch.acknowledged_descriptors(3u-kind)&&(cause.load()&mask.load())==H::PI_HOLLYWOOD&&
+             host.serviced_steps()==5u&&epoch.acknowledged_descriptors(3u-kind)&&
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+             !(cause.load()&mask.load())&&third_ack_count==trial+1u&&
+#else
+             (cause.load()&mask.load())==H::PI_HOLLYWOOD&&
+#endif
              host.services().event_pending()&&ioctl_deferred_count==trial+1u);
 #else
              host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
@@ -3515,6 +3595,10 @@ int main(int argc,char** argv)try{
     need(third_vector_count==8u);
 #ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
     need(third_dispatch_count==8u);
+#ifdef UNDERCOVER_STM_DEFERRED_ACK
+    need(third_ack_count==8u);
+    std::cout<<"STM_DEFERRED_ACK_NATIVE owner=1 trials=8 original_return=8 guest_w1c=8 credit=8 unissued=8 deferred=8 reply=0 active_context=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_DEFERRED_DISPATCH_NATIVE owner=1 trials=8 original_dispatch=8 handler_index=27 active_context=8 pending_ack=8 deferred=8 handler_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_DEFERRED_VECTOR_NATIVE owner=1 trials=8 original_vector=8 original_trampoline=8 active_context=8 saved_fields=38 deferred=8 pending_ack=8 dispatcher_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
