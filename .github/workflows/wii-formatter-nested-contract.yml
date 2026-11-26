@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/prepare_formatter_nested_contract.py'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/test_formatter_nested_fixture.py'
       - 'research/native_recomp/test_formatter_nested_contract.py'
       - '.github/workflows/wii-formatter-nested-contract.yml'
 permissions:
@@ -24,6 +26,7 @@ jobs:
           python3 -m py_compile research/native_recomp/prepare_formatter_nested_contract.py
           python3 research/native_recomp/test_stm_outer_restore.py
           python3 research/native_recomp/test_formatter_nested_contract.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
   owner-geometry:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'

@@ -62,10 +62,10 @@ def contract(entry,record,words,blocks,resolve):
     access=tuple((pc,width,address-sp if k.startswith('stack') else address,k.startswith('stack'),k=='stack_write') for pc,k,width,address in sites)
     return extended,(root,caller,target,w,frame,at,n),rows,access,tuple(slots),tuple(known)
 
-def plan(d,e):
+def plan(d,e,*,previous=None):
     counts,kind,entry,record=frontier(d,e,details=True)
     if kind!='writable' or counts[:3]!=(35,35,48):raise ValueError('nested contract predecessor')
-    previous=continuation(d,e)
+    if previous is None:previous=continuation(d,e)
     if previous[3]!=entry[0]:raise ValueError('nested contract predecessor')
     return contract(entry,record,exact_words(d,e,entry[0],383),previous[0],lambda a,n:immutable_read(d,e,a,n))
 

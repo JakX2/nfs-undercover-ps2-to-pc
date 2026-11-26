@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Private finite nested fixture. The unresolved load is an observed stop."""
+import argparse,struct
+from pathlib import Path
+from prepare_formatter_nested_contract import plan as nested_plan
+from prepare_formatter_continuation_plan import plan as continuation_plan
+from prepare_formatter_continuation_fixture import scope as continuation_scope
+from prepare_post_stm_sc_join import check_spans
+from prepare_v1337_open_completion import rebuild,hook_submit
+from prepare_v419_full_start import MAX_DOL,words_at
+from prepare_v1281_reply_fixture import symbols
+from prepare_v1270_ipc_epilogue import analyzer
+from prepare_v625_ipc_client import audit_native
+
+def plan(d,e):
+    prior=continuation_plan(d,e,details=True)
+    return prior,nested_plan(d,e,previous=prior[1])
+
+def render(contract):
+    _,fields,rows,access,slots,known=contract
+    root,caller,target,word,frame,addr,width=fields
+    fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    wr=','.join('undercover::wii::IpcDispatchWord{'+fmt((root,pc,w))+'}' for pc,w in rows)
+    values={pc:int.from_bytes(data,'big') for pc,_,data in known}
+    ar=','.join('undercover::wii::ScFormatterAccess{'+fmt((pc,n))+','+str(at)+','+str(stack).lower()+','+str(write).lower()+
+                (','+fmt((values[pc],)) if pc in values else '')+'}' for pc,n,at,stack,write in access)
+    sr=','.join('undercover::wii::StmFinalSlot{'+str(at)+','+str(reg)+'u}' for at,reg in slots)
+    return ('#pragma once\n#include "wii_post_stm_sc_formatter.h"\nnamespace formatter_nested_private {\n'
+        f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(rows)}> path'+'{'+wr+'};\n'
+        f'inline constexpr std::array<undercover::wii::ScFormatterAccess,{len(access)}> accesses'+'{'+ar+'};\n'
+        f'inline constexpr std::array<undercover::wii::StmFinalSlot,{len(slots)}> slots'+'{'+sr+'};\n'
+        'inline constexpr undercover::wii::ScFormatterExpectation expected{'+fmt((root,caller,target,word,frame))+',path,accesses,slots,{'+fmt((addr,width))+'}};\n}\n')
+
+def expand(old,blocks,live,root):
+    if set(blocks)!=set(old) or root not in old or any(live.get(a)!=ws for a,ws in old.items()):
+        raise ValueError('nested fixture predecessor')
+    if any(blocks[a]!=ws for a,ws in old.items() if a!=root) or len(blocks[root])<=len(old[root]):
+        raise ValueError('nested fixture expansion')
+    result={**live,**blocks}
+    check_spans({a:4*len(ws) for a,ws in result.items()})
+    return result
+
+def extend(directory,p):
+    prior,contract=p;old=prior[1][0];blocks,fields,*_=contract;root=fields[0]
+    image=directory/'fixture.dol';csv=directory/'symbols.csv';raw=image.read_bytes()
+    live={a:words_at(raw,a,n//4) for a,n in symbols(csv.read_text()).items()}
+    expanded=expand(old,blocks,live,root)
+    new=rebuild(raw,expanded,max_roots=60)
+    with (directory/'private_formatter_nested.h').open('x') as out:out.write(render(contract))
+    image.write_bytes(new)
+    csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
+    print('FORMATTER_NESTED_FIXTURE verified=1 labels=35 guarded_load=1 new_roots=0')
+
+def scope(d,e,sizes,p):
+    prior,contract=p;old=prior[1][0];blocks,fields,*_=contract;root=fields[0]
+    if set(blocks)!=set(old) or sizes.get(root)!=4*len(blocks[root]):
+        raise ValueError('nested fixture extent')
+    before={**sizes,root:4*len(old[root])}
+    return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root]})
+
+def install(directory,p):
+    _,contract=p
+    _,fields,rows,*_=contract;root,_,target,word,*_=fields
+    files=sorted(directory.glob('output_*.cpp'));sources={x:x.read_text() for x in files}
+    expected={pc:(root,w) for pc,w in rows}
+    if target in expected:raise ValueError('nested fixture load boundary')
+    expected[target]=(root,word)
+    audit_native(sources.values(),(directory/'main_output.cpp').read_text(),expected)
+    done=set();changed={}
+    for file,s in sources.items():
+        old=s
+        for pc,(_,w) in expected.items():
+            s,found=hook_submit(s,pc,w)
+            if not found:continue
+            hook=f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);'
+            if pc in done or s.count(hook)!=1:raise ValueError('nested fixture native hook')
+            done.add(pc);s=s.replace(hook,hook.replace('v1344_before','formatter_nested_before'))
+        if s!=old:
+            anchor='#include "runtime/cpu_context.h"'
+            if s.count(anchor)!=1:raise ValueError('nested fixture native hook')
+            changed[file]=s.replace(anchor,anchor+'\nvoid formatter_nested_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
+    if done!=set(expected):raise ValueError('nested fixture coverage')
+    for file,s in changed.items():file.write_text(s)
+    print('FORMATTER_NESTED_TRANSLATION verified=1 labels=35 pre_load_hook=1')
+
+def main():
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
+    m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
+    a.add_argument('--symbols',type=Path);q=a.parse_args()
+    safe={'size','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    try:
+        if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
+        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
+        if q.fixture:extend(q.fixture,p);return 0
+        if q.install:install(q.install,p);return 0
+        if q.analyzer:
+            if not q.symbols:raise ValueError('nested fixture extent')
+            q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+            print('FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
+        if not render(p[1]):raise ValueError('nested fixture extent')
+    except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
+        print('FORMATTER_NESTED_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
+    print('FORMATTER_NESTED_PREP verified=1 labels=35 pre_load_hook=1 original_execution=0')
+    return 0
+if __name__=='__main__':raise SystemExit(main())
