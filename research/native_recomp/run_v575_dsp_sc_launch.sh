@@ -213,6 +213,10 @@ third_ack="${UNDERCOVER_RUN_V1171_THIRD_ACK-0}"
 [[ "$third_ack" == 0 || "$third_ack" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1169_THIRD_ACK-0}" == "$third_ack" ]] || exit 2
 [[ "$third_ack" == 0 || "$held_dispatch" == 1 ]] || exit 2
+ack_helper="${UNDERCOVER_RUN_V1177_ACK_HELPER-0}"
+[[ "$ack_helper" == 0 || "$ack_helper" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1176_ACK_HELPER-0}" == "$ack_helper" ]] || exit 2
+[[ "$ack_helper" == 0 || "$third_ack" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -242,6 +246,9 @@ if [[ "$third" == 1 ]]; then
                         extra+=(UNDERCOVER_V1158_HELD_DISPATCH=1);audit=audit_v1163_held_dispatch.py
                         if [[ "$third_ack" == 1 ]]; then
                           extra+=(UNDERCOVER_V1167_THIRD_ACK=1);audit=audit_v1171_third_ack.py
+                          if [[ "$ack_helper" == 1 ]]; then
+                            extra+=(UNDERCOVER_V1175_ACK_HELPER=1);audit=audit_v1177_ack_helper.py
+                          fi
                         fi
                       fi
                     fi
