@@ -1,0 +1,3 @@
+# V1351: original synchronous submit and IOS_Open return contract
+
+Capture original Open and submit caller ABI independently at their authenticated entries, then attach only after witnessed allocator return. Check the actual native instruction/branch route, each outer dispatch return, both saved nonvolatile ABIs, original MSR, and the completed descriptor at both boundaries. Reject extra calls, system calls, MSR transitions and unknown return targets. The caller must supply the actual IOS descriptor binding and selected-thread/transport guard, not synthetic success. Twelve synthetic cases. No native Open return claimed, no STM continuation admitted yet.
