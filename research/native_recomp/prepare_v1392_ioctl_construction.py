@@ -17,6 +17,16 @@ def derive(d,e):
     edges=[(dst,pc+4,words[pc],exact_words(d,e,dst,1)[0]) for pc,dst in CALLS]
     return words,edges
 
+def refusal_geometry(p):
+    # Classify the previously refused post-allocation store without
+    # exposing its original word, effective address or register value.
+    words,_=p;w=words[RESUME+4];op=w>>26;ra=(w>>16)&31
+    base=1 if ra==1 else 2 if ra in (2,13) else 3 if ra else 0
+    d=((w&0xffff)^0x8000)-0x8000
+    direct=op in (36,37,38,39,44,45,47)
+    disp=(0 if d<0 else 1 if d<=8 else 2 if d<=64 else 3) if direct else 4
+    print(f'V1396_CONSTRUCTION_STORE_GEOMETRY ordinal=24 direct_store={int(direct)} base_class={base} displacement_class={disp}')
+
 def render(p):
     words,edges=p
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
@@ -63,6 +73,7 @@ def main():
         if q.install:install(q.out,p);return 0
         with (q.out/'v1392_private_ioctl_construction.h').open('x') as f:f.write(render(p))
         print(f'V1392_CONSTRUCTION_GEOMETRY verified=1 labels={len(p[0])}')
+        refusal_geometry(p)
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed={'size','construction edge','construction resume hook','construction hook','construction hook coverage',

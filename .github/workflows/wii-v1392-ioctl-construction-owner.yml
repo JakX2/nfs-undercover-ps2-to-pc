@@ -5,6 +5,9 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/V1392_IOCTL_CONSTRUCTION.md'
+      - 'research/native_recomp/prepare_v1392_ioctl_construction.py'
+      - 'research/native_recomp/wii_ioctl_construction_v1392.h'
+      - 'research/native_recomp/test_ioctl_construction_v1392.cpp'
       - '.github/workflows/wii-v1392-ioctl-construction-owner.yml'
 permissions:
   contents: read
