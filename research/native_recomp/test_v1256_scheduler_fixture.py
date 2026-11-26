@@ -25,7 +25,8 @@ class Scheduler(unittest.TestCase):
         with self.assertRaises(ValueError):assemble(blocks,ROOT)
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=48),ROOT,1),(BLR,))
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=51),ROOT,1),(BLR,))
-        with self.assertRaises(ValueError):assemble(blocks,ROOT,max_roots=52)
+        self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=58),ROOT,1),(BLR,))
+        with self.assertRaises(ValueError):assemble(blocks,ROOT,max_roots=59)
         at_cap={ROOT+4*i:(BLR,) for i in range(51)}
         self.assertEqual(words_at(assemble(at_cap,ROOT,max_roots=51),ROOT,1),(BLR,))
         with self.assertRaises(ValueError):assemble(at_cap,ROOT,max_roots=50)
