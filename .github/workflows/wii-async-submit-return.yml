@@ -21,3 +21,4 @@ jobs:
           cd research/native_recomp
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_async_submit_return.cpp -o /tmp/async_submit_return
           /tmp/async_submit_return
+          python3 test_async_submit_return.py
