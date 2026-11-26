@@ -1,0 +1,3 @@
+# V1389 native allocator tail dispatch accounting
+
+V1387 source tests passed, and owner run 45835799981 authenticated all 129 allocator words, 20 static store sites and 145 generated labels. Original trial stopped at the first allocator body entry (one observed veneer instruction, no stores). The pinned NWiiRecomp emitter explicitly returns from a non-linking external branch to the outer dispatcher, whose poll precedes a single extra dispatch tick. Admit only that exact tail boundary with one poll and one extra tick; preserve zero extra ticks for direct BL helper calls. Authenticate the generated veneer return form and add negative missing-poll and extra-tick tests. No allocator RAM bounds or interrupt guards relaxed. Original retry pending.

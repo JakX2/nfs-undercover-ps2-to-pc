@@ -24,7 +24,12 @@ static void trial(unsigned fault){
     IoctlAllocationWitness w({V,A,U,Nop,{D,A+4,b(A,D,true),Mtmsr},{R,A+16,b(A+12,R,true),Mtmsr},words});
     assert(w.begin(c,true,{H,256},{M+12,4},{M,16}));
     auto step=[&](uint32_t pc,uint32_t op){++c.inst_count;return w.before(c,pc,op,true);};
-    assert(step(V,b(V,A)));c.pc=A;assert(w.entry(c,A,true));assert(step(A,b(A,D,true)));
+    assert(step(V,b(V,A)));c.pc=A;
+    if(fault!=10)assert(w.poll(c,true));
+    c.inst_count+=fault==11?2u:1u;
+    const bool entered=w.entry(c,A,true);
+    if(fault==10||fault==11){assert(!entered&&w.failure()==6);return;}
+    assert(entered);assert(step(A,b(A,D,true)));
     c.pc=D;c.lr=A+4;assert(w.entry(c,D,true));
     c.gpr[4]=fault==1?0x8032:0x32;
     bool ok=step(D,Mtmsr);if(fault==1){assert(!ok);return;}assert(ok);
@@ -44,4 +49,4 @@ static void trial(unsigned fault){
     else assert(w.poll(c,true));
     assert(w.returned(c,true)&&w.request()==H+32&&w.stores()==2&&w.metadata_stores()==1);
 }
-int main(){for(unsigned i=0;i<10;++i)trial(i);std::cout<<"V1387_ALLOCATION_TEST cases=10 original_execution=0\n";}
+int main(){for(unsigned i=0;i<12;++i)trial(i);std::cout<<"V1389_ALLOCATION_TEST cases=12 original_execution=0\n";}

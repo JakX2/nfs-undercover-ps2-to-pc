@@ -81,12 +81,17 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
-        if(!live(c,held)||!entry_due_||c.pc!=pc||pc!=next_||c.inst_count!=last_||!fence_.settled(c))return fail(6);
-        const bool a=active_==e_.veneer&&pc==e_.body&&c.lr==e_.resume&&c.gpr[3]==gp_[3]&&c.gpr[4]==size_;
+        // A non-linking external B returns to the outer native dispatcher.
+        // Its poll occurs before the dispatcher's one extra host tick.
+        // Direct BL helper entries still require zero additional ticks.
+        const bool tail=active_==e_.veneer&&pc==e_.body;
+        if(!live(c,held)||!entry_due_||c.pc!=pc||pc!=next_||
+           c.inst_count-last_!=(tail?1u:0u)||(tail&&!tail_poll_)||!fence_.settled(c))return fail(6);
+        const bool a=tail&&c.lr==e_.resume&&c.gpr[3]==gp_[3]&&c.gpr[4]==size_;
         const bool d=active_==e_.body&&!disabled_&&pc==e_.disable.pc&&c.lr==e_.disable.lr&&edge(c,e_.disable);
         const bool r=active_==e_.body&&disable_returned_&&!restored_&&pc==e_.restore.pc&&c.lr==e_.restore.lr&&edge(c,e_.restore)&&!c.gpr[3];
         if(!a&&!d&&!r)return fail(6);
-        active_=pc;entry_due_=false;return true;
+        active_=pc;entry_due_=false;last_=c.inst_count;return true;
     }
     template<class C>bool poll(C& c,bool held){
         if(!live(c,held)||c.inst_count!=last_||!fence_.settled(c)||++polls_>1024u)return fail(7);

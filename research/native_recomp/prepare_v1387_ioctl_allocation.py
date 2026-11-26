@@ -10,7 +10,7 @@ from make_v624_ipc_geometry import exact_words
 from prepare_owner_scheduler_v722 import reachable
 from derive_allocator_census_v1345 import census
 from prepare_v625_ipc_client import audit_native
-from prepare_v680_si_helper import verify_direct
+from prepare_v680_si_helper import verify_direct,exact_function
 from prepare_v1337_open_completion import hook_submit
 from make_start_to_ios_open_v71 import EDGES as OPEN_EDGES
 RESUME=EDGES[1][0]+4
@@ -45,6 +45,11 @@ def install(root,p):
     expected={pc:(a,ws[(pc-a)//4]) for a,ws in roots.items() for pc in reachable(a,ws)}
     expected[RESUME]=(IOCTL,resume)
     audit_native(sources.values(),(root/'main_output.cpp').read_text(),expected)
+    owner=[s for s in sources.values() if f'loc_{PROFILE:X}: ;' in s]
+    if len(owner)!=1:raise ValueError('allocation tail owner')
+    body=exact_function(owner[0],PROFILE)
+    if body.count(f'ctx.pc = 0x{ALLOC:X}; return;')!=1:
+        raise ValueError('allocation tail dispatcher')
     for site,dst in CALLS:
         owners=[s for s in sources.values() if f'loc_{site:X}: ;' in s]
         if len(owners)!=1:raise ValueError('allocation edge')
@@ -84,7 +89,7 @@ def main():
         print(f'V1387_ALLOCATION_GEOMETRY verified=1 body_labels={p[3]} static_stores={p[4]}')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed={'size','allocation geometry','allocation edge','allocation shared hook','allocation hook','allocation hook coverage',
+        allowed={'size','allocation geometry','allocation edge','allocation tail owner','allocation tail dispatcher','allocation shared hook','allocation hook','allocation hook coverage',
             'allocator unsupported store','allocator extent','allocator call','allocator control','allocator coverage',
             'reachable fallthrough','reachable external conditional','completion hook label','native IPC duplicate root',
             'native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch',
