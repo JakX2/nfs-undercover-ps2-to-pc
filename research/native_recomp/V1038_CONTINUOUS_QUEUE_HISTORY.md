@@ -1,0 +1,3 @@
+# V1038: continuous queue lifecycle diagnostic
+
+Run only the verified default absent-controller native startup path through the V1021 frontier with V1034/V1037 queue diagnostics. Require both field-level and lifetime evidence from the genuine complete-image run. This uses one private full-image build; no callback experiment or third-transfer execution is enabled. The runtime admission rule is unchanged. The prior V1018/V1024 matrices established that both device-response profiles reach the same direct transfer argument mismatch; the next work depends on whether the mismatch is in the two timing words or in the six actual transfer arguments. No proprietary trace or generated source is published. Pending owner CI.
