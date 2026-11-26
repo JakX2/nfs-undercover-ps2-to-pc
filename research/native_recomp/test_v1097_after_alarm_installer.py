@@ -501,4 +501,121 @@ class SuffixTree(unittest.TestCase):
                 self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(Tree.snapshot(root),before)
 
+
+class ReturnHooks(unittest.TestCase):
+    def test_exact_seams(self):
+        from prepare_v1134_postalarm_return import patch_return_label
+        from prepare_v1106_postalarm_time import verify_resume
+        args=f'ctx,0x{P:08x}u,0x{W:08x}u'
+        tick='    ++ctx.inst_count;\n'
+        for dispatch in (False,True):
+            old='    undercover::wii::v850::'+('handler_resume' if dispatch else 'before')+'('+args+');\n'
+            pre='    undercover::wii::v850::dispatch_resume('+args+');\n'
+            src=L+old
+            if dispatch:src=src.replace(tick,pre+tick)
+            out=patch_return_label(src,P,W,dispatch)
+            verify_resume(out,P,W)
+            self.assertEqual(out.count(tick),1)
+            self.assertEqual(out.count('v958::before(ctx,'),1)
+            self.assertIn('if(!'+ACTIVE+') { '+old.strip()+' }',out)
+            if dispatch:
+                hook='    undercover::wii::v958::postalarm_dispatch_resume('+args+');\n'
+                self.assertIn(hook+tick,out)
+                self.assertEqual(out.count(hook),1)
+            else:self.assertNotIn('postalarm_dispatch_resume',out)
+            for bad in (src.replace(old,''),src+old,src.replace(SI,''),src.replace(tick,tick+tick),
+                        src.replace('0x60000000u','0x60000001u')):
+                with self.subTest(dispatch=dispatch,bad=bad):
+                    with self.assertRaises(ValueError):patch_return_label(bad,P,W,dispatch)
+            if dispatch:
+                for bad in (src.replace(pre,''),src.replace(pre,pre+'    unrelated();\n'),src+pre):
+                    with self.assertRaises(ValueError):patch_return_label(bad,P,W,True)
+
+class ReturnTree(unittest.TestCase):
+    H,C,R=0x80004000,0x80005000,0x80006000
+    def fixture(self,root):
+        import prepare_v1134_postalarm_return as ret
+        H,C,R=self.H,self.C,self.R
+        code=[Tree.NOP]*172;resume=C+40
+        seen=list(range(resume,resume+21*4,4));call=seen[-1]
+        stops={seen[-2]:(4,2,None),call:(13,1,R)}
+        code[(seen[-2]-C)//4]=Tree.BCTRL;code[(call-C)//4]=Tree.branch(call,R)
+        tail=(0x80010044,0x7c0803a6,0x38210040,Tree.BLR)
+        code[(call+4-C)//4:(call+20-C)//4]=tail
+        restore=(0x834bffe8,0x836bffec,0x838bfff0,0x83abfff4,0x83cbfff8,0x83ebfffc,Tree.BLR)
+        handler=[Tree.NOP,Tree.BCTRL,Tree.NOP,Tree.NOP,Tree.BCTRL,Tree.NOP,Tree.BLR]
+        sites=(H+4,H+16);callers=[(site,Tree.BCTRL,ordinal,Tree.NOP) for site,ordinal in zip(sites,(6,11))]
+        rows={pc:code[(pc-C)//4] for pc in seen}
+        dest=root/'nWiiRuntime/include/undercover';dest.mkdir(parents=True)
+        private=dest/'v958_private_second_ack.h'
+        private.write_text('#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n'
+            +f'inline constexpr uint32_t transfer_callback=0x{C:08x}u;\n'
+            +'inline constexpr std::array<uint32_t,172> third_postalarm_words{'+ret.fmt(code)+'};\n')
+        for name in ('wii_third_alarm_suffix_v1047.h','wii_callback_return_v846.h'):
+            (dest/name).write_bytes((Path(ret.__file__).parent/name).read_bytes())
+        (dest/'v1123_private_postalarm_suffix.h').write_text(ret.render_suffix(C,resume,rows,stops))
+        (dest/'v850_private_callback_return.h').write_text(ret.render_old(C,resume,rows,stops,R,restore,tail,callers))
+        def source(a,entries):
+            s=f'#include "runtime/cpu_context.h"\nvoid fn_{a:X}(CPUContext& ctx) {{\n'
+            s+=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{a:X}) nwii::runtime::trace_call(0x{a:X}, ctx);\n'
+            for pc,w in entries:
+                args=f'ctx,0x{pc:08x}u,0x{w:08x}u'
+                s+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n'
+                if a==H and pc in (sites[0]+4,sites[1]+4):
+                    s+='    undercover::wii::v850::dispatch_resume('+args+');\n'
+                s+='    ++ctx.inst_count;\n'+SI
+                if a==C and pc in seen:s+=f'    if({ACTIVE}) undercover::wii::v958::before({args},false);\n'
+                elif a==H and pc in (sites[0]+4,sites[1]+4):s+='    undercover::wii::v850::handler_resume('+args+');\n'
+                elif a!=H:s+='    undercover::wii::v850::before('+args+');\n'
+                if w>>26==18 and w&3==1:
+                    dst=pc+(((w&0x03fffffc)^0x02000000)-0x02000000)
+                    s+=f'    ctx.pc = 0x{dst:X}; fn_{dst:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+                elif w==Tree.BCTRL:s+=f'    ctx.lr = 0x{pc+4:X};\n    if (ctx.ctr) {{ ctx.pc = ctx.ctr; return; }}\n'
+            return s+'}\n'
+        (root/'output_0.cpp').write_text(source(C,sorted(list(rows.items())+[(call+4+4*i,w) for i,w in enumerate(tail)])))
+        (root/'output_1.cpp').write_text(source(R,[(R+4*i,w) for i,w in enumerate(restore)]))
+        (root/'output_2.cpp').write_text(source(H,[(H+4*i,w) for i,w in enumerate(handler)]))
+        for i in range(3,20):(root/f'output_{i}.cpp').write_text('// unused shard\n')
+        (root/'main_output.cpp').write_text('extern "C" void run_game(CPUContext& ctx) {\n'+''.join(
+            f'case 0x{pc:X}: fn_{a:X}(ctx); break;\n' for pc,a in ((C,C),(R,R),(H,H),(H+8,H),(H+20,H)))+'}\n')
+        return ((None,(({R:restore},),)),C,resume,seen,stops),(C,tuple(code),sites),{C:tuple(code),R:restore,H:tuple(handler)},private
+    def install(self,root,f):
+        import prepare_v1134_postalarm_return as ret
+        plan,cb,roots,_=f
+        with patch.multiple(ret,HANDLER=self.H),patch.object(ret,'plan',return_value=plan), \
+             patch.object(ret,'expectations',return_value=cb),patch.object(ret,'geometry',return_value=(len(roots[self.H]),)), \
+             patch.object(ret,'exact',side_effect=lambda d,e,a,n:roots[a][:n]):
+            ret.install(b'',b'',root,Path(ret.__file__).parent)
+    def test_return_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=self.fixture(root);before=Tree.snapshot(root);self.install(root,f);after=Tree.snapshot(root)
+            new=f[-1].parent/'v1132_private_postalarm_return.h'
+            self.assertEqual(set(after)-set(before),{new.relative_to(root)})
+            self.assertEqual({p for p in before if before[p]!=after[p]},{Path('output_0.cpp'),Path('output_1.cpp'),Path('output_2.cpp'),f[-1].relative_to(root)})
+            for i,n in enumerate((4,7,1)):
+                p=Path(f'output_{i}.cpp')
+                self.assertEqual(before[p].count(b'++ctx.inst_count;'),after[p].count(b'++ctx.inst_count;'))
+                self.assertEqual(after[p].count(b'v958::before(ctx,')-before[p].count(b'v958::before(ctx,'),n)
+            self.assertEqual(after[Path('output_2.cpp')].count(b'v958::postalarm_dispatch_resume(ctx,'),1)
+            self.assertIn('UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1',f[-1].read_text())
+    def test_return_tree_refusals(self):
+        for fault in ('header','metadata','owner','direct','dispatch','resume','legacy','existing'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
+                root=Path(td);f=self.fixture(root);private=f[-1];p=root/'output_0.cpp'
+                if fault=='header':
+                    q=private.parent/'v850_private_callback_return.h';q.write_text(q.read_text()+'// tamper\n')
+                elif fault=='metadata':private.write_text(private.read_text().replace('third_postalarm_words','other_words'))
+                elif fault=='owner':(root/'output_19.cpp').write_bytes(p.read_bytes())
+                elif fault=='direct':p.write_text(p.read_text().replace('fn_80006000(ctx);','fn_80006004(ctx);'))
+                elif fault=='dispatch':
+                    q=root/'main_output.cpp';q.write_text(q.read_text().replace('case 0x80004008: fn_80004000','case 0x80004008: fn_80004004'))
+                elif fault=='resume':
+                    q=root/'output_2.cpp';q.write_text(q.read_text().replace('v850::dispatch_resume','v850::wrong_resume',1))
+                elif fault=='legacy':
+                    q=root/'output_1.cpp';q.write_text(q.read_text().replace('v850::before','v850::wrong',1))
+                else:(private.parent/'v1132_private_postalarm_return.h').write_text('// existing\n')
+                before=Tree.snapshot(root)
+                with self.assertRaises(ValueError):self.install(root,f)
+                self.assertEqual(Tree.snapshot(root),before)
+
 if __name__=='__main__':unittest.main()

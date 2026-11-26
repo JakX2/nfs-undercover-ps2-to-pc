@@ -1,0 +1,3 @@
+# V1134: private held callback return installer
+
+Authenticate the previous 21-label suffix, original 172-word callback, seven restore words, four callback tail words, both caller identities and the exact sixth-call resume dispatcher mapping. Reuse the existing V850 pre-tick dispatch seam, adding the new observer without altering the native instruction tick or duplicating device advancement. Verify source-owned legacy hooks and refuse wrong labels, header, metadata, owner, edges, resume dispatch and pre-existing destination. A 20-shard original-free generated-tree fixture exercises the real installer. Original owner RFI and full-image retry remain independent. No launcher activation yet.
