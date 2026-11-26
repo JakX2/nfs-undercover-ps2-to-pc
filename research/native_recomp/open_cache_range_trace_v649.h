@@ -28,12 +28,19 @@ public:
         if(uint64_t(base_)+(stop_-first_)/32u>0xffffffffull)return fail();
         context_=&c;phase_=Phase::Flush;return true;
     }
+    // Explicit empty range for the independently authenticated deferred
+    // STM lane. No cache line may be emitted, including a spurious DCBF.
+    template<class Cpu>bool begin_empty(Cpu& c){
+        if(phase_!=Phase::Idle||!c.is_running)return fail();
+        first_=next_=stop_=0;base_=c.guest_flush_count;last_empty_=c.guest_last_flush;
+        context_=&c;phase_=Phase::Flush;return true;
+    }
     // Explicit rearm only after a completed range on this same CPU.
     // The global cache-operation counter is never reset.
     template<class Cpu>bool rearm(Cpu& c){
         if(phase_!=Phase::Done||context_!=&c||!c.is_running||
            uint64_t(c.guest_flush_count)<uint64_t(base_)+lines_)return fail();
-        phase_=Phase::Idle;context_=nullptr;first_=next_=stop_=base_=0;lines_=0;
+        phase_=Phase::Idle;context_=nullptr;first_=next_=stop_=base_=last_empty_=0;lines_=0;
         return true;
     }
     void on_flush(uint32_t ea) noexcept {
@@ -54,12 +61,12 @@ public:
     }
 private:
     Phase phase_=Phase::Idle;const void* context_=nullptr;
-    uint32_t first_=0,next_=0,stop_=0,base_=0;unsigned lines_=0;
+    uint32_t first_=0,next_=0,stop_=0,base_=0,last_empty_=0;unsigned lines_=0;
     bool fail() noexcept {phase_=Phase::Failed;return false;}
     template<class Cpu>bool complete(Cpu& c)const{
         return context_==&c&&c.is_running&&next_==stop_&&lines_==(stop_-first_)/32u&&
             uint64_t(c.guest_flush_count)==uint64_t(base_)+lines_&&
-            (canonical(c.guest_last_flush)&~31u)==stop_-32u;
+            (lines_?(canonical(c.guest_last_flush)&~31u)==stop_-32u:c.guest_last_flush==last_empty_);
     }
 };
 }

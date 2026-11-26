@@ -96,6 +96,7 @@ public:
         const auto edge=flush_kind_==1u?e_.input_flush:e_.output_flush;
         return stage_==3u&&live(c,held)&&c.pc==edge.pc&&c.lr==edge.lr&&c.inst_count==last_&&wire(c)&&storage(c);
     }
+    template<class C>bool preserved(C& c,bool held){return stage_==3u&&live(c,held)&&wire(c)&&storage(c);}
 private:
     IoctlConstructionExpectation e_;AllocatorStoreFence fence_;AllocatorRange heap_{},meta_{};
     const void* cpu_=nullptr;std::vector<uint8_t> in_,out_,heap_shadow_,metadata_;

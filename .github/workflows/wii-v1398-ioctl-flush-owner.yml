@@ -1,0 +1,145 @@
+name: Wii V1398 Original Ioctl First Native Flush Return
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/V1398_IOCTL_FLUSH.md'
+      - 'research/native_recomp/prepare_v1398_ioctl_flush.py'
+      - 'research/native_recomp/wii_ioctl_first_flush_v1398.h'
+      - 'research/native_recomp/test_ioctl_first_flush_v1398.cpp'
+      - '.github/workflows/wii-v1398-ioctl-flush-owner.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-v1392-ioctl-construction-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_v1398_ioctl_flush.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ioctl_first_flush_v1398.cpp -o /tmp/v1398
+          /tmp/v1398
+          python3 -m unittest discover -s research/native_recomp -p test_v1386_ioctl_prefix.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ioctl_prefix_v1386.cpp -o /tmp/v1386
+          /tmp/v1386
+          python3 -m py_compile research/native_recomp/prepare_v1387_ioctl_allocation.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ioctl_allocation_v1387.cpp -o /tmp/v1387
+          /tmp/v1387
+          python3 -m py_compile research/native_recomp/prepare_v1392_ioctl_construction.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_ioctl_construction_v1392.cpp -o /tmp/v1392
+          /tmp/v1392
+          python3 -m unittest discover -s research/native_recomp -p test_v1379_second_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1383_stm_ioctl_entry.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_stm_ioctl_entry.cpp -o /tmp/v1382
+          /tmp/v1382
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cooperative_save_lane_v1314.cpp -o /tmp/v1320
+          /tmp/v1320
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -DUNDERCOVER_TEST_NESTED_WAKE -DUNDERCOVER_TEST_REPLY_COMPLETION -DUNDERCOVER_TEST_REPLY_RETURN -DUNDERCOVER_TEST_READY_IDLE_RETURN -DUNDERCOVER_TEST_IDLE_SELECTION -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1320-joined
+          /tmp/v1320-joined
+          python3 -m py_compile research/native_recomp/prepare_v1328_idle_route.py
+          python3 -m unittest discover -s research/native_recomp -p test_v1307_cooperative_fixture.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_idle_route_v1327.cpp -o /tmp/v1327
+          /tmp/v1327
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_sleep_resume_v1335.cpp -o /tmp/v1335
+          /tmp/v1335
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_sleep_exit_v1339.cpp -o /tmp/v1339
+          /tmp/v1339
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_submit_resume_v1342.cpp -o /tmp/v1342
+          /tmp/v1342
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_allocator_release_v1347.cpp -o /tmp/v1347
+          /tmp/v1347
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_allocator_store_fence_v1346.cpp -o /tmp/v1346
+          /tmp/v1346
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_allocator_descriptor_v1356.cpp -o /tmp/v1356
+          /tmp/v1356
+          python3 -m py_compile research/native_recomp/derive_allocator_descriptor_v1356.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_open_return_v1351.cpp -o /tmp/v1358
+          /tmp/v1358
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_stm_second_v1359.cpp -o /tmp/v1359
+          /tmp/v1359
+          for test in test_open_cache_range_v649 test_wii_open_sc_route_v637 test_wii_open_request_witness_v639 test_post_ack_open_join_v1242 test_second_request_v1361 test_second_submit_v1365; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
+          python3 -m py_compile research/native_recomp/prepare_v1358_open_return.py research/native_recomp/prepare_v1359_second_open.py
+          python3 -m unittest discover -s research/native_recomp -p test_v1337_open_completion.py -v
+  owner-flush:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require verified original second Open and private STM tail audit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          reqs=(
+              Requirement(45839363656,'b0b142983a8f58217c6a65a1789ddf9f1be82cfb',
+                          '.github/workflows/wii-v1392-ioctl-construction-owner.yml','owner-construction'),
+              Requirement(45836361710,'98a7d6ab28c7c739ba9a3e0c26f062904675db64',
+                          '.github/workflows/wii-v1389-ioctl-allocation-retry.yml','owner-retry'),
+              Requirement(45834913624,'729d545c6042b818bb99510fa16dbd1ea2703ff4',
+                          '.github/workflows/wii-v1386-ioctl-prefix-owner.yml','owner-prefix'),
+              Requirement(45833865115,'54fed29537c7fb4aafa43ec291aac1919f1536ee',
+                          '.github/workflows/wii-v1385-async-ioctl.yml','owner-geometry'),
+              Requirement(45833301504,'57e327302cbbe32d4142ce6e16ad70035dbd587c',
+                          '.github/workflows/wii-v1383-stm-ioctl-owner.yml','owner-ioctl'),
+              Requirement(45832698667,'421eb1478b8ccf31cb1d2254269883da972c63df',
+                          '.github/workflows/wii-v1379-second-return-owner.yml','owner-open'),
+              Requirement(45831706043,'cacbfc7f6b5103224cc926db6a1af8e4c6c3deaf',
+                          '.github/workflows/wii-v1377-stm-tail.yml','owner-tail'),
+          )
+          def fetch(path):
+              raw=subprocess.check_output(['gh','api',f"repos/{os.environ['GH_REPO']}/{path}"],stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:
+              ok=all(verify(fetch,req) for req in reqs)
+          except (OSError,ValueError,subprocess.SubprocessError):
+              ok=False
+          if not ok:raise SystemExit('V1383_OWNER_GATE verified=0')
+          print('V1383_OWNER_GATE verified=1 prior_second_open=8 private_tail=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original first cache flush through masked native syscall and return
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw1352"
+          git -C "$RUNNER_TEMP/nw1352" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1352" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1352" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nw1352" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --irq-stm-ioctl-first-flush
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw1352"

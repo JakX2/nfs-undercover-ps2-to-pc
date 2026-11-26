@@ -75,6 +75,9 @@
 #include "v1387_private_ioctl_allocation.h"
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
 #include "v1392_private_ioctl_construction.h"
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+#include "v1398_private_ioctl_flush.h"
+#endif
 #endif
 #endif
 #endif
@@ -276,6 +279,10 @@ static unsigned ioctl_alloc_count=0;
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
 static IoctlConstructionWitness* ioctl_build=nullptr;
 static unsigned ioctl_build_count=0;
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+static std::unique_ptr<IoctlFirstFlushWitness> ioctl_flush;
+static unsigned ioctl_flush_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -400,6 +407,15 @@ static bool ioctl_alloc_held(nw::CPUContext& c){
         <<" ordinal="<<ioctl_build->ordinal()<<" wire="<<ioctl_build->wire_failure()<<" control="<<ioctl_build->control_failure()<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+static bool ioctl_flush_held(nw::CPUContext& c){return ioctl_build&&ioctl_build->preserved(c,ioctl_alloc_held(c));}
+[[noreturn]]static void ioctl_flush_refuse(unsigned kind){
+    std::cout<<"V1398_FLUSH_REFUSAL kind="<<kind<<" stage="<<(ioctl_flush?ioctl_flush->stage():0u)
+        <<" reason="<<(ioctl_flush?ioctl_flush->failure():0u)<<" lines="<<(ioctl_flush?ioctl_flush->lines():0u)
+        <<" polls="<<(ioctl_flush?ioctl_flush->polls():0u)<<" empty="<<(ioctl_flush?ioctl_flush->zero():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1392_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!ioctl_build||!ioctl_build->before(c,pc,w,ioctl_alloc_held(c)))ioctl_build_refuse(2);
 }
@@ -825,9 +841,23 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+    #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+    if(ioctl_flush){
+        if(!ioctl_flush->trace(c,pc,pc==OpenScRoute::Vector||ioctl_flush_held(c)))ioctl_flush_refuse(2);
+        if(ioctl_flush->stage()==4u){++ioctl_flush_count;throw StmIoctlReached{};}
+        return;
+    }
+    #endif
     if(ioctl_build&&ioctl_build->stage()==2u){
         if(!ioctl_build->entry(c,pc,ioctl_alloc_held(c)))ioctl_build_refuse(3);
-        ++ioctl_build_count;throw StmIoctlReached{};
+        ++ioctl_build_count;
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+        ioctl_flush=std::make_unique<IoctlFirstFlushWitness>(v1398::expected,v626::vector,second_irq_kind,ioctl_build->flush_kind());
+        if(!ioctl_build->reached(c,ioctl_alloc_held(c))||!ioctl_flush->begin(c,ioctl_flush_held(c)))ioctl_flush_refuse(1);
+        return;
+#else
+        throw StmIoctlReached{};
+#endif
     }
 #endif
     if(ioctl_alloc&&ioctl_alloc->stage()==1u){
@@ -1183,6 +1213,9 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+    if(ioctl_flush){if(!ioctl_flush->poll(c,ioctl_flush_held(c)))ioctl_flush_refuse(3);return false;}
+#endif
     if(ioctl_build&&ioctl_build->stage()==2u){
         if(!ioctl_build->poll(c,ioctl_alloc_held(c)))ioctl_build_refuse(4);
         return false;
@@ -1493,6 +1526,16 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+    if(ioctl_flush){
+        if(!ioctl_flush->dispatch(c,ioctl_flush_held(c),[](auto& cpu){func_80000C00(cpu);},
+            [](auto& cpu,const auto& gp,uint32_t hid){
+                for(unsigned i=0;i<32;++i)if(cpu.gpr[i]!=(i==9?hid:i==10?(hid|8u):gp[i]))return false;
+                return true;
+            }))ioctl_flush_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
     if(second_submit_active){
         if(!second_submit->dispatch(c,second_submit_held(c),[](auto& cpu){func_80000C00(cpu);},
@@ -2469,7 +2512,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+        need(ioctl_reached&&ioctl_flush&&ioctl_flush->returned(c,ioctl_flush_held(c))&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&build3.reached(c,ioctl_alloc_held(c))&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&alloc3.returned(c,ioctl_alloc_held(c))&&descriptor.identity_after_release(c)&&
 #endif
@@ -2491,6 +2538,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
         std::cout<<"V1392_CONSTRUCTION_TRIAL n="<<trial<<" original_request=1 callback=1 first_flush=1 flush_kind="<<build3.flush_kind()
                  <<" stores="<<build3.stores()<<" request="<<build3.request_stores()<<'\n';
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+        std::cout<<"V1398_FLUSH_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 lines="<<ioctl_flush->lines()<<" empty="<<ioctl_flush->zero()<<'\n';
+        ioctl_flush.reset();
+#endif
         ioctl_build=nullptr;
 #endif
         ioctl_alloc=nullptr;
@@ -2608,6 +2659,10 @@ int main(int argc,char** argv)try{
     need(ioctl_alloc_count==8u);
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
     need(ioctl_build_count==8u);
+#ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+    need(ioctl_flush_count==8u);
+    std::cout<<"V1398_FLUSH_NATIVE owner=1 trials=8 first_flush_return=8 native_rfi=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1392_CONSTRUCTION_NATIVE owner=1 trials=8 request=8 first_flush_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1387_ALLOCATION_NATIVE owner=1 trials=8 allocation_return=8 heap_shadow=8 metadata_shadow=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
