@@ -25,8 +25,7 @@ fi
 echo 'V415_FULL_LINK stage=configure result=passed'
 # No optimizations or debug-info generation: prioritize a complete link
 # over performance. The two-worker ceiling bounds peak compiler memory.
-if ! timeout --kill-after=10s 5100s cmake --build "$build" \
-    --target UndercoverWiiLocal --parallel 2 > "$build/build-private.log" 2>&1; then
+if ! python3 "$(dirname "$0")/run_native_link_progress_v1026.py" "$build"; then
   echo 'V415_FULL_LINK stage=build result=failed'; exit 1
 fi
 echo 'V415_FULL_LINK stage=build result=passed'

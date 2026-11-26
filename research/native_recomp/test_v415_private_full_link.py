@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from run_native_link_progress_v1026 import progress
 
 SCRIPT=Path(__file__).with_name('run_private_full_link.sh')
 @unittest.skipUnless(platform.system()=='Linux' and platform.machine()=='x86_64' and all(shutil.which(x) for x in ('cmake','ninja','g++','timeout')), 'Linux x64 build tools required')
@@ -29,6 +30,17 @@ class Tests(unittest.TestCase):
         r=self.invoke();self.assertEqual(r.returncode,0,r.stdout+r.stderr)
         self.assertIn('V415_FULL_LINK_GATE linked=1 platform=linux-x64 launch=0 boot_verified=0',r.stdout)
         self.assertTrue(os.access(self.out/'bin'/'UndercoverWiiLocal',os.X_OK))
+        self.assertRegex(r.stdout,r'V1026_LINK_PROGRESS elapsed_seconds=[0-9]+ completed=2 total=2')
+    def test_progress_numeric_only(self):
+        log=self.root/'fixture-private.log'
+        log.write_bytes(b'V1026_NINJA 1/10 private source name\nV1026_NINJA 999/10 malformed\n')
+        self.assertEqual(progress(log),(1,10))
+        log.write_bytes(b'V1026_NINJA 4/8 private source name\n'+b'x'*70000)
+        self.assertIsNone(progress(log))
+        log.write_bytes(b'x'*70000+b'\nV1026_NINJA 8/8 private source name\n')
+        self.assertEqual(progress(log),(8,8))
+        log.write_bytes(b'V1026_NINJA 1/0 invalid\nV1026_NINJA 12345678/12345678 invalid\n')
+        self.assertIsNone(progress(log))
     def test_unresolved_symbol_fails(self):
         (self.src/'main.cpp').write_text('extern int missing(); int main(){return missing();}\n')
         r=self.invoke();self.assertNotEqual(r.returncode,0)

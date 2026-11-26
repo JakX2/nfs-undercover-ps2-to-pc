@@ -1,0 +1,3 @@
+# V1026: bounded numeric native-link progress
+
+Full-image Linux link jobs spend long periods in the private CMake/Ninja build step. Preserve the existing two-worker limit and 5100-second timeout, but report only elapsed seconds and numeric completed/total Ninja tasks every 30 seconds and at exit. No generated filename, compiler diagnostic, path, original symbol, or raw log is published. Missing or out-of-bounds progress is not fabricated. The actual build return status and ELF verification remain authoritative; numeric progress cannot claim a completed link or boot. Existing private CMake synthetic integration tests cover actual link and failed link, plus bounded parser cases. No performance or original execution claim.
