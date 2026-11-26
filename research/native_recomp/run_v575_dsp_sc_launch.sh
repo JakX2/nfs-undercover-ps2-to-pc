@@ -146,8 +146,13 @@ if [[ "${UNDERCOVER_RUN_V1014_SECOND_CALLBACK_TIME:-0}" == 1 ]]; then
   extra+=(UNDERCOVER_V1014_SECOND_CALLBACK_TIME=1);audit=audit_v1014_second_callback_time.py
 fi
 if [[ "${UNDERCOVER_RUN_V1021_ERROR_FRONTIER:-0}" == 1 ]]; then
-  [[ "$audit" == audit_v995_success_frontier.py && "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" == 1 ]] || exit 2
-  extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1 UNDERCOVER_V1021_ERROR_FRONTIER=1);audit=audit_v1021_error_frontier.py
+  [[ "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" == 1 ]] || exit 2
+  case "$audit" in
+    audit_v995_success_frontier.py) audit=audit_v1021_error_frontier.py;;
+    audit_v1014_second_callback_time.py) audit=audit_v1023_error_callback_time.py;;
+    *) exit 2;;
+  esac
+  extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1 UNDERCOVER_V1021_ERROR_FRONTIER=1)
 elif [[ "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" == 1 ]]; then
   [[ "$audit" == audit_v989_shared_time.py ]] || exit 2
   extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1);audit=audit_v1015_error_completion.py

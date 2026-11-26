@@ -1,0 +1,3 @@
+# V1023: share native callback-time route across response classes
+
+V1020 verifies original absent-controller callback return and RFI in 16 focused trials. V1021 already admits its authenticated call boundary. The existing complete-image V1009/V1014 callback prefix/time implementation accepts the same indirect target, with unchanged frame and device witnesses. Add an absent-controller callback-time audit requiring V1021's exact error proof, known aligned target, native prefix and time return. The queued transfer is a distinct terminal frontier. Extend composed MMIO tests across both response classes and offset/frame/time result refusals. Native call geometry is unchanged; no continuous RFI claim. Pending CI.

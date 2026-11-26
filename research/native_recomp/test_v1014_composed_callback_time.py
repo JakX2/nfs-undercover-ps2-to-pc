@@ -8,6 +8,7 @@ from prepare_v777_transfer_return import patch_si as transfer
 from prepare_v958_second_ack import patch_si as second
 from prepare_v1014_second_callback_time import hook
 import audit_v1014_second_callback_time as audit
+import audit_v1023_error_callback_time as error_audit
 HOST=Path(__file__).resolve().parent
 TIME=b'V1014_CALLBACK_TIME original_return=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 offset=1 token_preserved=1 saved_fields=38 continuation_executed=0 boot_verified=0'
 class TimeRoute(unittest.TestCase):
@@ -30,6 +31,18 @@ class TimeRoute(unittest.TestCase):
                 self.assertFalse(audit.inspect(data,0)[1])
         with patch.object(audit.old,'inspect',return_value=('V1009_CALLBACK_CENSUS verified=1 prefix=0 boot_verified=0',True,b'')):
             self.assertTrue(audit.inspect(b'',0)[1]);self.assertFalse(audit.inspect(TIME,0)[1])
+    def test_error_audit(self):
+        before=b'V1021_ERROR_FRONTIER synthetic'
+        proof=audit.old.RESULT+b'\n'+TIME
+        with patch.object(error_audit.old,'inspect',return_value=('verified=1 branch=6 admitted=1',True)):
+            self.assertTrue(error_audit.inspect(before+b'\n'+proof,0)[1])
+            for tail in (b'',TIME,audit.old.RESULT,proof+b'\n'+TIME,proof.replace(b'reads=3',b'reads=4'),proof+b'\nV958_ACK_INVALID'):
+                self.assertFalse(error_audit.inspect(before+b'\n'+tail,0)[1])
+        with patch.object(error_audit.old,'inspect',return_value=('verified=1 branch=4 admitted=1',True)):
+            self.assertTrue(error_audit.inspect(before,0)[1])
+            self.assertFalse(error_audit.inspect(before+b'\n'+proof,0)[1])
+        with patch.object(error_audit.old,'inspect',return_value=('verified=0 branch=0 admitted=0',False)):
+            self.assertFalse(error_audit.inspect(before+b'\n'+proof,0)[1])
     @unittest.skipIf(os.name=='nt','GCC sanitizer regression')
     def test_composed_time(self):
         cc=shutil.which('g++')
@@ -52,13 +65,20 @@ class TimeRoute(unittest.TestCase):
             env=os.environ.copy()
             for k in ('V958_SECOND_ACK','V967_POST_ACK','V989_SHARED_COMPLETION','V975_SECOND_TIME','V981_SECOND_FRONTIER','V995_SUCCESS_FRONTIER','V1009_SECOND_CALLBACK','V1014_SECOND_CALLBACK_TIME'):
                 env['UNDERCOVER_'+k]='1'
-            for mode in ('callback-time','callback-time-offset','callback-time-frame','callback-time-result'):
+            for mode in ('callback-time','callback-time-offset','callback-time-frame','callback-time-result','error-callback-time','error-callback-time-offset','error-callback-time-frame','error-callback-time-result'):
                 with self.subTest(mode=mode):
-                    got=subprocess.run([str(exe),mode],env=env,capture_output=True,timeout=10)
+                    runenv=env.copy()
+                    if mode.startswith('error-'):
+                        runenv['UNDERCOVER_V1015_ERROR_COMPLETION']='1'
+                        runenv['UNDERCOVER_V1021_ERROR_FRONTIER']='1'
+                    got=subprocess.run([str(exe),mode],env=runenv,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
                     self.assertEqual(got.stderr,b'')
                     self.assertIn(audit.old.RESULT,rows)
-                    if mode=='callback-time':
+                    if mode.startswith('error-'):
+                        self.assertIn(error_audit.old.error.RESULT,rows)
+                        self.assertIn(error_audit.old.INDIRECT,rows)
+                    if mode in ('callback-time','error-callback-time'):
                         self.assertEqual(got.returncode,0,got.stdout);self.assertEqual(rows[-1],TIME)
                     else:
                         self.assertEqual(got.returncode,126,got.stdout);self.assertIsNotNone(re.fullmatch(audit.FAULT,rows[-1]))
