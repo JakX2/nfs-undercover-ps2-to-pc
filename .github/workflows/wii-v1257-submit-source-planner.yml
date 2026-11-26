@@ -1,0 +1,20 @@
+name: Wii V1257 Submission Source Planner
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1257*'
+      - '.github/workflows/wii-v1257-submit-source-planner.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v1257_ack_submit.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1246_ack_open.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v418_native_ios_mmio.py -v
