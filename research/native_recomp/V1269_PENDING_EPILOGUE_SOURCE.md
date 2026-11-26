@@ -1,0 +1,3 @@
+# V1269: source-specific pending RFI witness
+
+The original V762/V933 dispatcher epilogue witness hardcoded the pending SI PI bit. Generalize only that predicate to the single source already authenticated by ExternalReturnWitness::capture. Preserve the no-pending path and every scheduler, frame, instruction, GQR and RFI predicate. Add source-only modeled instruction regressions for both SI and Hollywood (two admitted, twenty refusal cases), and rerun existing V932 pending reentry cases. V1267's real IOS handler contract passed 14/14; private joined handler run pending. This patch enables the next owner integration but does not execute original PPC on its own.

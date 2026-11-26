@@ -34,7 +34,8 @@ private:
         if(!safe(c)||!c.inst_count||c.pc!=e_.dispatcher)refusal_|=2u;
         if(e_.context_reg<14||e_.context_reg>31||c.gpr[e_.context_reg]!=e_.context)refusal_|=4u;
         if(!captured.saved_integer(c,e_.context).ok())refusal_|=8u;
-        if((cause&mask)!=(pending?8u:0u)||(pending&&!captured.pending_source(c,cause,mask)))refusal_|=16u;
+        const uint32_t source=pending?captured.source():0u;
+        if((cause&mask)!=source||(pending&&(!source||!captured.pending_source(c,cause,mask))))refusal_|=16u;
         if(!e_.gqr_mask||e_.gqr_mask>255u)refusal_|=32u;
         if(refusal_)return fail(1);
         const int64_t counter=int64_t(c.gpr[13])+e_.counter_disp,hint=int64_t(c.gpr[13])+e_.hint_disp;
@@ -43,7 +44,7 @@ private:
         counter_=uint32_t(counter);hint_=uint32_t(hint);
         if(!mapped(c,counter_)||!mapped(c,hint_)){refusal_|=128u;return fail(1);}
         initial_=c.mmu.read32(counter_);if(!initial_||initial_>1024u){refusal_|=256u;return fail(1);}
-        pending_return_=pending;cpu_=&c;captured_=&captured;cause_=cause;mask_=mask;msr_=c.msr;
+        pending_return_=pending;pending_source_=source;cpu_=&c;captured_=&captured;cause_=cause;mask_=mask;msr_=c.msr;
         gp_=c.gpr;cr_=pack(c)&0x00fff000u;next_=e_.dispatcher;last_=c.inst_count-1u;stage_=1;return true;
     }
 public:
@@ -131,6 +132,7 @@ private:
     LiveEpilogueExpectation e_;ExternalReturnWitness* captured_=nullptr;const void* cpu_=nullptr;
     unsigned stage_=0,error_=0,visits_=0,depth_=0,calls_=0,refusal_=0;
     bool pending_return_=false;
+    uint32_t pending_source_=0;
     uint32_t cause_=0,mask_=0,msr_=0,cr_=0,counter_=0,hint_=0,initial_=0,next_=0,poll_pc_=0,poll_cr_=0,poll_lr_=0,poll_ctr_=0,poll_xer_=0,poll_msr_=0,poll_srr0_=0,poll_srr1_=0;
     uint64_t last_=0;bool entry_due_=false,pending_=false;
     std::array<uint32_t,2> stack_{};
@@ -139,7 +141,7 @@ private:
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool common(C& c,uint32_t cause,uint32_t mask)const{
-        return !error_&&cpu_==&c&&safe(c)&&cause==cause_&&mask==mask_&&(cause&mask)==(pending_return_?8u:0u);
+        return !error_&&cpu_==&c&&safe(c)&&cause==cause_&&mask==mask_&&(cause&mask)==pending_source_;
     }
     template<class C>static bool mapped(C& c,uint32_t pc){return !(pc&3u)&&pc>=0x80000000u&&pc<=0x817ffffcu&&c.mmu.get_ptr(pc)&&c.mmu.get_ptr(pc+3u);}
     template<class C>static uint32_t pack(C& c){
