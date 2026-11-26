@@ -20,7 +20,7 @@ public:
         first_=first_kind; a_=a;
         if(!descriptors()||a.fd!=(first_==2u?0u:1u)||!a.request||(a.request&31u)||
            a.input_size>4096u||a.output_size<4u||a.output_size>4096u||
-           !a.output||overlap(a.request,64u,a.output,a.output_size)||
+           !a.output||overlap(a.request,64u,a.output,a.output_size)||overlap(a.request,64u,a.input,a.input_size)||
            !range(a.request,64u)||!range(a.input,a.input_size)||!range(a.output,a.output_size)||
            s->steps!=4u||s->queued||s->replies||s->event||
            (s->control&(M::X1|M::Y1|M::Y2))||(s->control&en)!=en||
@@ -31,6 +31,19 @@ public:
            wire_[4]!=a.input||wire_[5]!=a.input_size||wire_[6]!=a.output||wire_[7]!=a.output_size||
            !capture(a.input,a.input_size,input_)||!capture(a.output,a.output_size,output_))return fail(1);
         expected_=*s;stage_=1;return true;
+    }
+    // Read-only observation seams for native submit and IRQ continuations.
+    bool submission_held(bool authorized)const{return stage_>=1u&&stage_<=3u&&boundary(authorized);}
+    bool deferred_held(bool authorized)const{return stage_==4u&&boundary(authorized);}
+    std::optional<uint32_t> read_submission_control(uint32_t addr,uint32_t msr,bool authorized){
+        if((stage_!=1u&&stage_!=2u)||(msr&IosBus::MSR_EE)||!reg(addr,M::PPCCTRL)||!boundary(authorized)){
+            fail(5);return std::nullopt;
+        }
+        try{
+            auto value=B::read32(addr);
+            if(value&&*value==expected_.control&&boundary(authorized))return value;
+        }catch(const std::exception&){}
+        fail(5);return std::nullopt;
     }
     bool submit_write(uint32_t addr,uint32_t value,uint32_t msr,bool authorized){
         if(!boundary(authorized)||(msr&IosBus::MSR_EE)||(stage_!=1u&&stage_!=2u))return fail(2);
