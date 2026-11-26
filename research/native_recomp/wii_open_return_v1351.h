@@ -37,12 +37,19 @@ public:
             return fail(3);
         fd_=fd;active_=e_.submit;next_=c.pc;last_=c.inst_count;stage_=3;resume_=true;return true;
     }
+    // The allocator's inline return is witnessed at the already-ticked
+    // original submit label. Observe that very instruction once, without
+    // an artificial outer dispatcher trip or extra native tick.
+    template<class C,class Prior>bool begin_inline(C& c,Prior& prior,bool held,bool descriptor,uint32_t fd){
+        if(!prior.inline_completed()||!begin(c,prior,held,descriptor,fd))return fail(3);
+        inline_tick_=true;return true;
+    }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held,bool descriptor){
         if(!live(c,held,descriptor)||outer_||poll_due_||pc!=next_||
-           c.inst_count-last_!=(resume_?2u:1u)||!known(c,active_,pc,w)||++visits_>256u)
+           c.inst_count-last_!=(inline_tick_?0u:resume_?2u:1u)||!known(c,active_,pc,w)||++visits_>256u)
             return fail(4);
         if(resume_&&c.pc!=pc)return fail(4);
-        resume_=false;last_=c.inst_count;last_pc_=pc;next_=pc+4u;
+        resume_=false;inline_tick_=false;last_=c.inst_count;last_pc_=pc;next_=pc+4u;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         if(op==19u&&xo==16u){
             if(w&1u)return fail(5);
@@ -84,7 +91,7 @@ private:
     struct Abi{std::array<uint32_t,32> gp{};uint32_t cr=0;};
     OpenReturnExpectation e_;const void* cpu_=nullptr;Abi open_{},submit_{};
     uint32_t msr_=0,fd_=0,active_=0,next_=0,last_pc_=0;uint64_t last_=0,start_=0;
-    unsigned stage_=0,error_=0,visits_=0;bool resume_=false,outer_=false,poll_due_=false;
+    unsigned stage_=0,error_=0,visits_=0;bool resume_=false,outer_=false,poll_due_=false,inline_tick_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c,bool held){return held&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>bool base(C& c,bool held)const{return !error_&&cpu_==&c&&safe(c,held)&&c.msr==msr_&&c.inst_count>=start_&&c.inst_count-start_<=65536u;}

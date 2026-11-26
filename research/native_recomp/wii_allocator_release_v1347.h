@@ -17,6 +17,7 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned store_failure()const{return fence_.failure();}
+    bool inline_completed()const{return stage_==2u&&!error_&&inline_completed_;}
     unsigned stores()const{return fence_.stores();}
     unsigned heap_stores()const{return fence_.heap_stores();}
     uint32_t expected_msr()const{return disabled_&&!enabled_?msr_&~0x8000u:msr_;}
@@ -100,7 +101,7 @@ public:
         if(!live(c,held)||!outer_||poll_due_||entry_due_||pc!=e_.resume||c.pc!=pc||
            c.lr!=pc||w!=e_.resume_word||!word(c,pc,w)||c.inst_count-last_!=1u||
            !abi(c)||!restore_returned_||!fence_.finished(c))return fail(8);
-        last_=c.inst_count;stage_=2;outer_=false;return true;
+        last_=c.inst_count;stage_=2;outer_=false;inline_completed_=true;return true;
     }
     template<class C>bool returned(C& c,bool held){
         return stage_==2u&&base(c,held)&&c.pc==e_.resume&&c.lr==e_.resume&&c.inst_count==last_&&
@@ -111,7 +112,7 @@ private:
     std::array<uint32_t,32> gp_{};uint32_t cr_=0,msr_=0,active_=0,next_=0,poll_pc_=0;
     uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0;
     bool disabled_=false,enabled_=false,disable_returned_=false,restore_polled_=false,restore_returned_=false;
-    bool entry_due_=false,poll_due_=false,outer_=false;
+    bool entry_due_=false,poll_due_=false,outer_=false,inline_completed_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c,bool held){return held&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>bool base(C& c,bool held)const{return !error_&&cpu_==&c&&safe(c,held)&&c.inst_count>=start_&&c.inst_count-start_<=2048u;}

@@ -1,0 +1,3 @@
+# V1353: preserve the actual native inline allocator return tick
+
+V1351 original-free Open return suite passed twelve cases. V1352 owner lane now verifies free's normal direct host-call return at the already-ticked original submit continuation. Add an explicit inline-completed provenance bit to the allocator witness, and a separate OpenReturnWitness begin_inline handoff. Consume the same already-ticked instruction with zero additional ticks only on this authenticated seam, then restore exact normal instruction increments. Three new synthetic cases cover valid inline handoff, absent provenance and extra tick. No original Open return execution claimed.
