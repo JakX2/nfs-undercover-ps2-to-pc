@@ -207,6 +207,11 @@ public:
         return time_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.poll(c,true)?true:fail(26);
     }
+    template<class C,class W>bool callback_time_boundary(C& c,W& witness)const{
+        return stage_==14u&&!error_&&cpu_==&c&&time_==&witness&&witness.stage()==5u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // No new device ownership or tick at the authenticated time return.
     template<class C,class T,class W>bool begin_callback_frontier(C& c,T& time,W& witness,uint32_t pc,uint32_t w){
         if(stage_!=14u||error_||cpu_!=&c||time_!=&time||time.stage()!=5u||frontier_||

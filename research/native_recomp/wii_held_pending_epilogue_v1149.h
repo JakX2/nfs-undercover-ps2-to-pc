@@ -202,6 +202,30 @@ public:
     template<class C,class W>bool prefix_saved(C& c,W& witness){
         return stage_==15u&&same(c)&&prefix_==&witness&&next_.callback_prefix_boundary(c,witness);
     }
+    // Reuse the post-save label already charged by the prefix observer.
+    template<class C,class P,class W>bool begin_prefix_time(C& c,P& prefix,W& witness,uint32_t pc,uint32_t w){
+        if(!prefix_saved(c,prefix)||time_||!no_si(c,w)||
+           !next_.begin_callback_time(c,prefix,witness,pc,w))return fail(19);
+        time_=&witness;stage_=16u;return true;
+    }
+    template<class C,class W>bool prefix_time_entry(C& c,W& witness,uint32_t pc){
+        return stage_==16u&&same(c)&&time_==&witness&&next_.callback_time_entry(c,witness,pc)?true:fail(20);
+    }
+    template<class C,class W>bool prefix_time_poll(C& c,W& witness){
+        return stage_==16u&&same(c)&&time_==&witness&&next_.callback_time_poll(c,witness)?true:fail(20);
+    }
+    template<class C,class W>bool prefix_time_before(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=16u||guard||!same(c)||time_!=&witness||!no_si(c,w)||
+           !next_.callback_time_before(c,witness,pc,w))return fail(20);
+        if(witness.stage()==5u){
+            if(!next_.callback_time_boundary(c,witness))return fail(20);
+            stage_=17u;
+        }
+        return true;
+    }
+    template<class C,class W>bool prefix_time_saved(C& c,W& witness){
+        return stage_==17u&&same(c)&&time_==&witness&&next_.callback_time_boundary(c,witness);
+    }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -211,7 +235,7 @@ private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
-    const void* prefix_=nullptr;
+    const void* prefix_=nullptr;const void* time_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;

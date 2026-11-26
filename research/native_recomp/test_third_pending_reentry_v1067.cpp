@@ -67,7 +67,8 @@ int main(){
     unsigned held_postack_valid=0,held_postack_refused=0;
     unsigned held_callback_valid=0,held_callback_refused=0;
     unsigned held_prefix_valid=0,held_prefix_refused=0;
-    for(trial=0;trial<468;++trial){
+    unsigned held_time_valid=0,held_time_refused=0;
+    for(trial=0;trial<488;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -118,7 +119,8 @@ int main(){
             const unsigned ha=trial>=408?0u:trial>=396?trial-395u:0u;
             const unsigned hp=trial>=428?0u:trial>=416?trial-415u:0u;
             const unsigned hc=trial>=448?0u:trial>=436?trial-435u:0u;
-            const unsigned hprefix=trial>=456?trial-455u:0u;
+            const unsigned hprefix=trial>=468?0u:trial>=456?trial-455u:0u;
+            const unsigned ht=trial>=476?trial-475u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -506,7 +508,63 @@ int main(){
                      cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u);
                 c.mmu.words[Context+124]^=1u;need(!ep.prefix_saved(c,witness));
                 c.mmu.words[Context+124]^=1u;need(ep.prefix_saved(c,witness));
-                ++held_prefix_valid;continue;
+                if(trial<468){++held_prefix_valid;continue;}
+                constexpr uint32_t Resume2=Target+20u;
+                const std::array<uint32_t,3> continuation{Nop,branch(Resume2+4u,v813::T)|1u,Nop};
+                auto e=v813::expected;e.callback=Target;e.callback_end=Target+688u;
+                e.resume=Resume2;e.time_site=Resume2+4u;e.continuation=continuation;
+                CallbackTimeWitness time(e),foreign_time(e);
+                auto put=[&](uint32_t base,const auto& ws){for(auto word:ws){c.mmu.words[base]=word;base+=4;}};
+                put(Resume2,continuation);put(v813::T,v813::system_words);put(v813::D,v813::disable);
+                put(v813::U,v813::timebase);put(v813::R,v813::restore);
+                if(ht!=5){c.mmu.words[v813::Offset]=0;c.mmu.words[v813::Offset+4]=0x1234u;}
+                auto reject_time=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_time_refused;
+                };
+                if(ht==4)tick();
+                const auto join_tick=c.inst_count;
+                ok=ep.begin_prefix_time(c,ht==1?foreign_witness:witness,time,Resume2+(ht==2?4u:0u),ht==3?Blr:Nop);
+                if(ht>=1&&ht<=5){reject_time(!ok);continue;}need(ok&&ep.stage()==16u&&time.visits()==1u&&c.inst_count==join_tick);
+                if(ht==6){reject_time(!ep.begin_prefix_time(c,witness,time,Resume2,Nop));continue;}
+                if(ht==7)c.mmu.words[Context+124]^=1u;
+                if(ht==12)mask=0;
+                auto at_time=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_time_before(c,time,pc,w);};
+                ok=at_time(Resume2+4u,continuation[1]);
+                if(ht==7||ht==12){reject_time(!ok);continue;}need(ok);
+                c.pc=v813::T;c.lr=Resume2+8u;
+                ok=ep.prefix_time_entry(c,time,ht==8?v813::D:c.pc);
+                if(ht==8){reject_time(!ok);continue;}need(ok);
+                bool missing_poll=false;
+                for(unsigned i=0;i<25&&!missing_poll;++i){
+                    const uint32_t pc=v813::T+4u*i;need(at_time(pc,v813::system_words[i]));
+                    if(i==1||i==4||i==7){
+                        const uint32_t root=i==1?v813::D:i==4?v813::U:v813::R;
+                        const auto& ws=i==1?v813::disable:i==4?v813::timebase:v813::restore;
+                        c.pc=root;c.lr=pc+4u;need(ep.prefix_time_entry(c,time,root));
+                        for(unsigned j=0;j<ws.size();++j){
+                            ok=at_time(root+4u*j,ws[j]);
+                            if(ht==9&&i==4&&j==4){reject_time(!ok);missing_poll=true;break;}need(ok);
+                            if(i==4){
+                                if(j==0)c.gpr[3]=uint32_t(c.read_timebase()>>32);
+                                if(j==1)c.gpr[4]=uint32_t(c.read_timebase());
+                                if(j==2)c.gpr[5]=uint32_t(c.read_timebase()>>32);
+                                if(j==3&&ht!=9)need(ep.prefix_time_poll(c,time));
+                            }else if(j==0){c.gpr[6]=c.msr;c.gpr[3]=0;}
+                        }
+                    }
+                    if(i==5)c.gpr[3]=0;
+                    if(i==23){c.gpr[3]=1;c.gpr[4]=ht==10?0x1255u:0x1254u;c.lr=Resume2+8u;}
+                }
+                if(missing_poll)continue;
+                if(ht==11)c.mmu.words[v813::Offset+4]^=1u;
+                ok=at_time(Resume2+8u,Nop);
+                if(ht==10||ht==11){reject_time(!ok);continue;}need(ok);
+                need(ep.stage()==17u&&ep.prefix_time_saved(c,time)&&!ep.prefix_time_saved(c,foreign_time)&&
+                     time.cursor()==3u&&time.time_visits()==25u&&time.leaf_visits()==18u&&time.polls()==1u&&time.reads()==3u&&
+                     ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
+                     ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+                ++held_time_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1156,7 +1214,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1181,4 +1239,5 @@ int main(){
     std::cout<<"V1172_HELD_ACK_HELPER_RETURN valid=8 refused=12 same_tick=1 helper_return=1 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1179_ACK_CALLBACK_FRONTIER valid=8 refused=12 same_tick=1 target_identity=1 call_executed=0 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1183_ACK_CALLBACK_PREFIX valid=8 refused=12 indirect_dispatch=1 stack_proof=1 save_return=1 original_execution=0\n";
+    std::cout<<"V1188_ACK_PREFIX_TIME valid=8 refused=12 same_tick=1 system_visits=25 leaf_visits=18 reads=3 polls=1 original_execution=0\n";
 }
