@@ -92,6 +92,9 @@
 #include "private_async_submit_return.h"
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
 #include "private_async_wrapper_return.h"
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+#include "private_stm_event_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -332,6 +335,10 @@ static unsigned async_return_count=0;
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
 static std::unique_ptr<AsyncWrapperReturnWitness> async_wrapper;
 static unsigned async_wrapper_count=0;
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+static std::unique_ptr<StmEventReturnWitness> stm_event_return;
+static unsigned stm_event_return_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -588,10 +595,28 @@ static bool async_held(nw::CPUContext& c){
 void async_wrapper_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(async_wrapper&&!async_wrapper->before(c,pc,w,async_held(c)))async_wrapper_refuse(2);
 }
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+[[noreturn]]static void stm_event_refuse(unsigned kind){
+    std::cout<<"STM_EVENT_RETURN_REFUSAL kind="<<kind<<" stage="<<(stm_event_return?stm_event_return->stage():0u)
+             <<" reason="<<(stm_event_return?stm_event_return->failure():0u)<<" visits="<<(stm_event_return?stm_event_return->visits():0u)
+             <<" stores="<<(stm_event_return?stm_event_return->stores():0u)<<" ordinal="<<(stm_event_return?stm_event_return->ordinal():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void stm_event_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(stm_event_return&&!stm_event_return->before(c,pc,w,async_held(c)))stm_event_refuse(2);
+}
+#endif
 void async_wrapper_return(nw::CPUContext& c,uint32_t pc){
     if(!async_wrapper)return;
     if(!async_wrapper->returned(c,pc,async_held(c),ioctl_prefix->caller_abi(c)))async_wrapper_refuse(4);
-    ++async_wrapper_count;throw StmIoctlReached{};
+    ++async_wrapper_count;
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+    if(!async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c)))stm_event_refuse(1);
+    stm_event_return=std::make_unique<StmEventReturnWitness>(stm_event_return_private::expected);
+    if(!stm_event_return->begin(c,async_held(c)))stm_event_refuse(1);
+#else
+    throw StmIoctlReached{};
+#endif
 }
 #endif
 void async_submit_return(nw::CPUContext& c,uint32_t pc){
@@ -1097,6 +1122,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+    if(stm_event_return){
+        if(!stm_event_return->entry(c,pc,async_held(c)))stm_event_refuse(3);
+        ++stm_event_return_count;throw StmIoctlReached{};
+    }
+#endif
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
     if(async_wrapper){if(!async_wrapper->entry(c,pc,async_held(c)))async_wrapper_refuse(3);return;}
 #endif
@@ -1588,6 +1619,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+    if(stm_event_return)stm_event_refuse(4);
+#endif
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
     if(async_wrapper){if(!async_wrapper->poll(c,async_held(c),ioctl_prefix->caller_abi(c)))async_wrapper_refuse(5);return false;}
 #endif
@@ -2962,7 +2996,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_IPC_DISPATCH
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->stage()==2u&&stm_event_return&&stm_event_return->reached(c,async_held(c))&&stm_event_return_count==trial+1u&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -3036,8 +3074,16 @@ int main(int argc,char** argv)try{
                  <<" writes="<<ioctl_dispatch->writes()<<" reads="<<ioctl_dispatch->reads()<<" polls="<<ioctl_dispatch->polls()<<'\n';
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+        need(stm_event_return->reached(c,async_held(c))&&host.serviced_steps()==5u&&
+             host.services().event_pending()&&!host.exception_pending(c.msr));
+        std::cout<<"STM_EVENT_RETURN_TRIAL n="<<trial<<" original_flag=1 restore_entry=1 masked=1 deferred=1 visits="<<stm_event_return->visits()
+                 <<" stores="<<stm_event_return->stores()<<'\n';
+        stm_event_return.reset();
+#else
         need(async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&host.serviced_steps()==5u&&
              host.services().event_pending()&&!host.exception_pending(c.msr));
+#endif
         std::cout<<"ASYNC_WRAPPER_TRIAL n="<<trial<<" original_return=1 masked=1 abi=1 deferred=1 visits="<<async_wrapper->visits()
                  <<" loads="<<async_wrapper->loads()<<" restored="<<async_wrapper->restored()<<" polls="<<async_wrapper->polls()<<'\n';
         async_wrapper.reset();
@@ -3230,6 +3276,10 @@ int main(int argc,char** argv)try{
     need(async_return_count==8u);
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
     need(async_wrapper_count==8u);
+#ifdef UNDERCOVER_STM_EVENT_RETURN
+    need(stm_event_return_count==8u);
+    std::cout<<"STM_EVENT_RETURN_NATIVE owner=1 trials=8 original_flag=8 restore_entry=8 masked=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"ASYNC_WRAPPER_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"ASYNC_SUBMIT_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
