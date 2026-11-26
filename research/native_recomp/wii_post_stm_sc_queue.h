@@ -46,7 +46,7 @@ public:
         const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
         if(owner_==e_.root){
-            if((op==14u||op==15u)&&volatile_reg(rs)&&visits_<=2u){
+            if((op==14u||op==15u)&&(volatile_reg(rs)||rs>=14u)&&visits_<=2u){
                 gp_[rs]=(ra?gp_[ra]:0u)+(op==15u?imm<<16u:imm);
             }else if(op==18u&&(w&3u)==1u&&visits_==3u&&pc+4u==e_.caller&&
                       pc+(((w&0x03fffffcu)^0x02000000u)-0x02000000u)==e_.queue&&gp_[3]==e_.address){

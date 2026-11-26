@@ -20,8 +20,9 @@ struct Cpu{
 };
 static void trial(unsigned fault){
     Cpu c;c.gpr[1]=Sp;
-    const std::array<IpcDispatchWord,7> words{{{R,S,ins(15,3,0,0x8000)},
-        {R,S+4,ins(14,3,3,0x500)},{R,S+8,bl(S+8,Q)},
+    const unsigned hi=fault==16?31u:3u;
+    const std::array<IpcDispatchWord,7> words{{{R,S,ins(15,hi,0,0x8000)},
+        {R,S+4,ins(14,3,hi,0x500)},{R,S+8,bl(S+8,Q)},
         {Q,Q,ins(14,0,0,0)},{Q,Q+4,ins(36,0,3,0)},
         {Q,Q+8,ins(36,0,3,fault==10?0:4)},{Q,Q+12,0x4e800020u}}};
     for(auto x:words)c.mmu.write32(x.pc,x.word);
@@ -32,7 +33,7 @@ static void trial(unsigned fault){
     assert(w.poll(c,true));++c.inst_count;assert(w.entry(c,S,true));
     auto step=[&](unsigned i){++c.inst_count;return w.before(c,words[i].pc,fault==3&&i==0?Nop:words[i].word,true);};
     ok=step(0);if(fault==3){assert(!ok);return;}assert(ok);
-    c.gpr[3]=0x80000000u;assert(step(1));c.gpr[3]=fault==4?A+4:A;
+    c.gpr[hi]=0x80000000u;assert(step(1));c.gpr[3]=fault==4?A+4:A;
     ok=step(2);if(fault==4){assert(!ok);return;}assert(ok);
     c.pc=Q;c.lr=fault==5?S:S+12;
     ok=w.entry(c,Q,fault!=6);if(fault==5||fault==6){assert(!ok);return;}assert(ok);
@@ -46,4 +47,4 @@ static void trial(unsigned fault){
     ok=w.poll(c,fault!=14);if(fault==13||fault==14){assert(!ok);return;}assert(ok&&w.reached(c,true)&&w.visits()==7&&w.stores()==2);
     assert(w.object_held(c,true));if(fault==15){c.mmu.write32(A+8,0);assert(!w.object_held(c,true));}
 }
-int main(){for(unsigned i=0;i<=15;++i)trial(i);std::cout<<"POST_STM_SC_QUEUE_TEST cases=16 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=16;++i)trial(i);std::cout<<"POST_STM_SC_QUEUE_TEST cases=17 original_execution=0\n";}

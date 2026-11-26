@@ -52,4 +52,26 @@ static void trial(unsigned fault){
     if(fault>=10&&fault<=13){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.stores()==13&&w.visits()==path.size()&&w.linkage_word()==lr&&c.gpr[3]==incoming[3]);
 }
-int main(){for(unsigned i=0;i<=13;++i)trial(i);std::cout<<"POST_STM_SC_REPORT_TEST cases=14 original_execution=0\n";}
+static void branch_check(bool wrong){
+    Cpu c;c.gpr[1]=Sp;
+    const uint32_t branch=wrong?0x41860008u:0x40860008u;
+    const std::array<IpcDispatchWord,3> path{{{R,R,ins(37,1,1,-128)},
+        {R,R+4,branch},{R,R+12,Nop}}};
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(T,Nop);
+    ScReportWitness w({R,T,Nop,128,path,14});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    ++c.inst_count;assert(w.before(c,R,path[0].word,true));
+    c.gpr[1]-=128;c.mmu.write32(c.gpr[1],Sp);
+    ++c.inst_count;assert(w.before(c,R+4,branch,true)==!wrong);
+}
+static void missing_entry(){
+    Cpu c;c.gpr[1]=Sp;
+    const std::array<IpcDispatchWord,1> path{{{R,R,ins(37,1,1,-128)}}};
+    c.mmu.write32(R,path[0].word);c.mmu.write32(T,Nop);
+    ScReportWitness w({R,T,Nop,128,path,1});
+    assert(w.begin(c,true)&&w.poll(c,true));c.inst_count+=2;
+    assert(!w.before(c,R,path[0].word,true));
+}
+int main(){for(unsigned i=0;i<=13;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
+    std::cout<<"POST_STM_SC_REPORT_TEST cases=17 original_execution=0\n";}

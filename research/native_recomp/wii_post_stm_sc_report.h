@@ -47,7 +47,7 @@ public:
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!common(c,held)||due_||visits_>=e_.path.size()||
-           c.inst_count-last_!=(visits_?1u:2u)||(!visits_&&(!initial_poll_||c.pc!=pc))||
+           c.inst_count-last_!=(visits_?1u:2u)||(!visits_&&(!initial_poll_||!entry_seen_||c.pc!=pc))||
            e_.path[visits_].pc!=pc||e_.path[visits_].word!=w||!word(c,pc,w))return fail(4);
         ++visits_;last_=c.inst_count;uint32_t next=pc+4u;
         const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
