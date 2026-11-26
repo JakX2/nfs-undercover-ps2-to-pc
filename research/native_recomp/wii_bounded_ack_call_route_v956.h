@@ -94,6 +94,12 @@ public:
         for(const auto e:edges_)if(e.site==pc)return fail(4);
         return true;
     }
+    template<class C>bool stop_before_indirect(C& c,uint32_t pc,uint32_t w){
+        if(!same(c)||!can_poll()||depth_||active_||next_||pc<spans_[0].root||
+           pc>=spans_[0].end||(pc&3u)||w!=0x4e800421u)return fail(4);
+        for(const auto e:edges_)if(e.site==pc)return fail(4);
+        return true;
+    }
     bool can_poll()const{return cpu_&&!error_&&!pending_entry_&&!pending_return_&&!msr_pending_;}
 private:
     struct Frame{uint32_t ret=0;unsigned caller=0;std::array<uint32_t,32> gp{};};

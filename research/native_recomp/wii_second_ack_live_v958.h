@@ -5,6 +5,9 @@
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 #include "wii_si_transfer_arguments_v981.h"
 #endif
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+#include "wii_callback_identity_v796.h"
+#endif
 #include <cstdlib>
 #include <iostream>
 namespace undercover::wii::v958 {
@@ -18,6 +21,10 @@ inline thread_local bool post_seen=false;
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
 inline thread_local unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 inline thread_local bool shared_seen=false;
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+inline thread_local unsigned helper_return_visits=0;
+inline bool success_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V995_SUCCESS_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
+#endif
 inline bool shared_enabled(){const char* v=std::getenv("UNDERCOVER_V989_SHARED_COMPLETION");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
@@ -36,6 +43,9 @@ inline bool active(){return ack.stage()!=0u;}
 }
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+    if(success_frontier_enabled()&&(!shared_enabled()||!time_enabled()||!frontier_enabled()||!post_enabled()))return false;
+#endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(frontier_enabled()&&(!time_enabled()||!post_enabled()))return false;
 #endif
@@ -54,6 +64,17 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+    if(success_frontier_enabled()&&pc==success_callback_sites[0]){
+        if(!guard||!shared_seen||!post_seen||!helper_return_visits||time_seen||w!=0x4e800421u||
+           !frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
+           !ack.before(c,pc,w,true)||!ack.postack_held()||!calls.stop_before_indirect(c,pc,w))reject(13);
+        const auto category=classify_callback_identity(c,pc,w,6u,2u,transfer_callback,success_callback_words,success_callback_sites);
+        std::cout<<std::dec<<"V995_CALLBACK_FRONTIER target_class="<<category<<" aligned="<<(!(c.ctr&3u))
+                 <<" visits="<<visits-helper_return_visits<<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+        std::_Exit(0);
+    }
+#endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
     if(frontier_enabled()&&time_seen&&pc==transfer_call){
         if(!guard||w!=transfer_branch||!frame||!frame->saved_integer(c,context).ok()||
@@ -123,7 +144,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                  <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
 #ifdef UNDERCOVER_V975_PRIVATE_TIME
-        if(time_enabled()){post_seen=true;return;}
+        if(time_enabled()){
+#ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
+            if(success_frontier_enabled())helper_return_visits=visits;
+#endif
+            post_seen=true;return;
+        }
 #endif
         std::_Exit(0);
     }

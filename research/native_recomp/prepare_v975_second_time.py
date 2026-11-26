@@ -64,7 +64,8 @@ def render_shared(old,extra,site):
     return s+'namespace undercover::wii::v958 {\n'+f'inline constexpr uint32_t completion_time_call=0x{site:08x}u;\n'+ \
         'inline constexpr std::array<AckCallEdge,8> shared_edges{{'+','.join('{'+fmt((a,b))+'}' for a,b,_,_,_ in extra)+'}};\n}\n'
 
-def install(dol,elf,root,frontier=False,shared=False):
+def install(dol,elf,root,frontier=False,shared=False,success_frontier=False):
+    if success_frontier and not (frontier and shared):raise ValueError('success frontier mode')
     previous=ack_plan(dol,elf);old_roots,_,indirect,_,_,_,old_guard,old_extra=previous
     q,site,msr,_=time_plan(dol,elf);roots,_,_,_,_,_,guard,extra=q
     base_extra=extra
@@ -101,26 +102,37 @@ def install(dol,elf,root,frontier=False,shared=False):
     if frontier:
         call,dst,w=edge(HANDLER,exact(dol,elf,HANDLER,len(roots[HANDLER])),4)
         if call not in guard or call not in reachable(HANDLER,roots[HANDLER],guard,indirect):raise ValueError('transfer frontier geometry')
-        candidate,_,_=callback_expectations(dol,elf)
+        candidate,callback_words,callback_sites=callback_expectations(dol,elf)
         private_time=replace_exact(private_time,'#define UNDERCOVER_V975_PRIVATE_TIME 1\n','#define UNDERCOVER_V975_PRIVATE_TIME 1\n#define UNDERCOVER_V981_PRIVATE_FRONTIER 1\n')
         private_time+='namespace undercover::wii::v958 {\n'+f'inline constexpr uint32_t transfer_call=0x{call:08x}u,transfer_branch=0x{w:08x}u,transfer_callback=0x{candidate:08x}u;\n'
         private_time+='inline constexpr uint32_t transfer_data=0x80619a60u,transfer_slots=0x806fe340u;\n}\n'
         header=private.parent/'wii_si_transfer_arguments_v981.h'
         if header.exists() or header.is_symlink():raise ValueError('time destination')
         changes[header]=(Path(__file__).parent/header.name).read_text()
+    if success_frontier:
+        raw=exact(dol,elf,HANDLER,len(roots[HANDLER]))
+        cb=callback_sites[0]
+        if cb not in guard or cb not in reachable(HANDLER,roots[HANDLER],guard,indirect) or raw[(cb-HANDLER)//4]!=0x4e800421 or len(callback_words)!=172:raise ValueError('success callback geometry')
+        private_time=replace_exact(private_time,'#define UNDERCOVER_V981_PRIVATE_FRONTIER 1\n','#define UNDERCOVER_V981_PRIVATE_FRONTIER 1\n#define UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER 1\n')
+        fmt=lambda xs:','.join(f'0x{x:08x}u' for x in xs)
+        private_time+='namespace undercover::wii::v958 {\n'+f'inline constexpr std::array<uint32_t,172> success_callback_words{{'+fmt(callback_words)+'};\n'
+        private_time+='inline constexpr std::array<uint32_t,2> success_callback_sites{'+fmt(callback_sites)+'};\n}\n'
+        header=private.parent/'wii_callback_identity_v796.h'
+        if header.is_symlink() or not header.is_file() or header.read_text()!=(Path(__file__).parent/header.name).read_text():raise ValueError('success callback identity')
     changes[private]=private_time
     for p,s in changes.items():p.write_text(s)
     print(f'V975_TIME_ROUTE installed=1 native_labels={count} original_edges=7 unchanged_msr_sites=2 execution=0')
     if frontier:print('V981_FRONTIER_ROUTE installed=1 original_call=4 execution=0')
     if shared_edge:print('V989_SHARED_ROUTE installed=1 original_edges=8 shared_time_root=1 execution=0')
+    if success_frontier:print('V995_SUCCESS_ROUTE installed=1 direct_boundary=4 indirect_boundary=6 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--frontier',action='store_true');p.add_argument('--shared-completion',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--frontier',action='store_true');p.add_argument('--shared-completion',action='store_true');p.add_argument('--success-frontier',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,a.frontier,a.shared_completion)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,a.frontier,a.shared_completion,a.success_frontier)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError) as e:
-        allowed=('time shared label','time shared tick','time shared guard','time old hook','time tree','time owner','time destination','transfer frontier geometry','shared time geometry','shared time body','source seam','second ACK label','second ACK hook','second ACK tick','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
+        allowed=('time shared label','time shared tick','time shared guard','time old hook','time tree','time owner','time destination','transfer frontier geometry','shared time geometry','shared time body','success frontier mode','success callback geometry','success callback identity','source seam','second ACK label','second ACK hook','second ACK tick','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge')
         print('V975_TIME_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in allowed else 'other'));return 1
     return 0
 if __name__=='__main__':raise SystemExit(main())

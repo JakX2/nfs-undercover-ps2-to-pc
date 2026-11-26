@@ -133,7 +133,10 @@ if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]]; then
   [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 ]] || exit 2
   extra+=(UNDERCOVER_V981_SECOND_FRONTIER=1);audit=audit_v986_transfer_frontier.py
 fi
-if [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then
+if [[ "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 ]]; then
+  [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 && "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]] || exit 2
+  extra+=(UNDERCOVER_V989_SHARED_COMPLETION=1 UNDERCOVER_V995_SUCCESS_FRONTIER=1);audit=audit_v995_success_frontier.py
+elif [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then
   [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" != 1 && "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" != 1 ]] || exit 2
   extra+=(UNDERCOVER_V989_SHARED_COMPLETION=1);audit=audit_v989_shared_time.py
 fi
