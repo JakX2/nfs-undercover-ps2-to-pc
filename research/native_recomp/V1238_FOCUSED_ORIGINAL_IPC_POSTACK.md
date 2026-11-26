@@ -1,0 +1,3 @@
+# V1238: focused original IPC execution with the new post-ACK bridge
+
+Reuse the existing V626 authenticated private 15-root fixture and pinned NWiiRecomp. Run the original IPC client and all dependencies natively with V1235's bridge and boundary guard. Seed a real SI controller with three transactions and explicit W1C through the same SecondCompletionAck object; seed the caller ABI and original BL effects independently. Neither is original execution. The callee/dependencies are genuine translated original instructions and the native IOS transport is real. Check all eight heap variants, 136 call entries, 16 restore polls, eight mailbox writes and unchanged SI device state; refuse interpreter/syscall fallback. No whole-image build or boot claim. Private execution pending.
