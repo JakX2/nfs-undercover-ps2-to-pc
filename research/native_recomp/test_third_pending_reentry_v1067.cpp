@@ -1,6 +1,7 @@
 #include "wii_third_pending_reentry_v1067.h"
 #include "wii_callback_prefix_v800.h"
 #include "synthetic_callback_time_expectations_v1014.h"
+#include "wii_callback_frontier_v829.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -34,8 +35,10 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
 int main(){
     unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0,frontier_valid=0,frontier_refused=0,callback_valid=0,callback_refused=0;
     unsigned time_valid=0,time_refused=0;
-    for(trial=0;trial<128;++trial){
-        const unsigned time_fault=trial>=116?trial-115u:0u;
+    unsigned post_valid=0,post_refused=0;
+    for(trial=0;trial<148;++trial){
+        const unsigned post_fault=trial>=136?trial-135u:0u;
+        const unsigned time_fault=trial>=128?0u:trial>=116?trial-115u:0u;
         const unsigned fault=trial>=108?0u:trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
@@ -262,6 +265,7 @@ int main(){
         for(unsigned i=0;i<leaf.size();++i)c.mmu.words[Leaf+4u*i]=leaf[i];
         for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
         c.gpr[1]=Stack;c.ctr=Root;
+        if(trial>=128)c.gpr[3]=ch;
         CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign_witness(Root,Leaf,prefix,leaf);
         auto callback_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++callback_refused;
@@ -357,10 +361,43 @@ int main(){
              time.leaf_visits()==18u&&time.polls()==1u&&time.reads()==3u&&
              route.completion_ack().postack_held()&&route.completion_ack().writes()==1u&&
              ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-        ++time_valid;
+        if(trial<128){++time_valid;continue;}
+        constexpr uint32_t P=Resume+8u,A=0x8000b000u,B=0x8000b100u;
+        const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
+            {P+8u,0x90810008u},{P+12u,branch(P+12u,A)|1u},{P+16u,branch(P+16u,B)|1u}}};
+        const CallbackFrontierExpectation ex{Root,Root+688u,P,rows,
+            {{{P+12u,A,3},{P+16u,B,5}}}};
+        CallbackFrontierWitness frontier(ex),foreign_frontier(ex);
+        for(const auto& row:rows)c.mmu.words[row.pc]=row.word;
+        auto reject_post=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++post_refused;
+        };
+        if(post_fault==4)tick();
+        if(post_fault==5)c.mmu.words[P+8u]^=1u;
+        if(post_fault==6)c.mmu.words[Context+124]^=1u;
+        ok=route.begin_callback_frontier(c,post_fault==1?foreign_time:time,frontier,
+                                        P+(post_fault==2?4u:0u),post_fault==3?Blr:Nop);
+        if(post_fault>=1&&post_fault<=6){reject_post(!ok,27);continue;}need(ok);
+        need(route.stage()==15u&&frontier.visits()==1u&&route.completion_ack().postack_held());
+        auto at_post=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.callback_frontier_before(c,frontier,pc,w);};
+        if(post_fault==7){tick();reject_post(!route.callback_frontier_before(c,foreign_frontier,P+4u,rows[1].word),28);continue;}
+        if(post_fault==8)tick();
+        if(post_fault==9)mask=0;
+        ok=at_post(P+4u,rows[1].word);
+        if(post_fault==8||post_fault==9){reject_post(!ok,28);continue;}need(ok);
+        c.gpr[3]=post_fault==12?((ch+1u)%4u):ch;c.gpr[4]=0;
+        need(at_post(P+8u,rows[2].word));
+        if(post_fault!=10)c.mmu.words[c.gpr[1]+8u]=0;
+        if(post_fault==11)c.mmu.words[Context+124]^=1u;
+        ok=at_post(P+12u,rows[3].word);
+        if(post_fault>=10){reject_post(!ok,28);continue;}need(ok);
+        need(route.stage()==16u&&frontier.stage()==2u&&frontier.ordinal()==3u&&frontier.zero_id()==1u&&
+             frontier.visits()==4u&&frontier.writes()==1u&&route.completion_ack().postack_held()&&
+             ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+        ++post_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -368,4 +405,5 @@ int main(){
     std::cout<<"V1088_THIRD_CALLBACK_STOP valid=8 refused=5 original_call_executed=0 original_execution=0\n";
     std::cout<<"V1093_THIRD_ACK_CALLBACK_JOIN valid=8 refused=12 actual_device=1 fresh_witness=1 original_execution=0\n";
     std::cout<<"V1104_THIRD_ACK_TIME_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
+    std::cout<<"V1108_THIRD_ACK_FRONTIER_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
 }

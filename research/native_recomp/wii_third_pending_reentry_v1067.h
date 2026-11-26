@@ -144,7 +144,7 @@ public:
            pc!=callback_site_||w!=callback_word_||!ack_.postack_held()||
            !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
            !witness.start_dispatch(c,pc,w,true,true))return fail(19);
-        callback_=&witness;stage_=11u;return true;
+        callback_=&witness;callback_channel_=c.gpr[3];stage_=11u;return true;
     }
     template<class C,class W>bool callback_poll(C& c,W& witness){
         return callback_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
@@ -173,7 +173,7 @@ public:
     template<class C,class W>bool callback_time_before(C& c,W& witness,uint32_t pc,uint32_t w){
         if(!time_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
            !witness.before(c,pc,w,true))return fail(24);
-        if(witness.stage()==5u)stage_=14u;
+        if(witness.stage()==5u){time_resume_=pc;time_word_=w;stage_=14u;}
         return true;
     }
     template<class C,class W>bool callback_time_entry(C& c,W& witness,uint32_t pc){
@@ -183,6 +183,22 @@ public:
     template<class C,class W>bool callback_time_poll(C& c,W& witness){
         return time_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.poll(c,true)?true:fail(26);
+    }
+    // No new device ownership or tick at the authenticated time return.
+    template<class C,class T,class W>bool begin_callback_frontier(C& c,T& time,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=14u||error_||cpu_!=&c||time_!=&time||time.stage()!=5u||frontier_||
+           pc!=time_resume_||w!=time_word_||callback_channel_>=4u||!dev_||dev_->stage()!=3u||
+           !ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start(c,pc,w,callback_channel_,true,true)||!witness.before(c,pc,w,true))return fail(27);
+        frontier_=&witness;stage_=witness.stage()==2u?16u:15u;return true;
+    }
+    template<class C,class W>bool callback_frontier_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=15u||error_||cpu_!=&c||frontier_!=&witness||!dev_||dev_->stage()!=3u||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !ack_.before(c,pc,w,true)||!ack_.postack_held()||!witness.before(c,pc,w,true))return fail(28);
+        if(witness.stage()==2u)stage_=16u;
+        return true;
     }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -203,7 +219,8 @@ private:
         return stage_==13u&&!error_&&cpu_==&c&&time_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
-    const void* time_=nullptr;
+    const void* time_=nullptr;const void* frontier_=nullptr;
+    uint32_t time_resume_=0,time_word_=0,callback_channel_=4u;
     uint32_t callback_resume_=0,callback_resume_word_=0;
     const void* callback_=nullptr;
     uint32_t callback_site_=0,callback_word_=0,ack_successor_=0,ack_successor_word_=0;

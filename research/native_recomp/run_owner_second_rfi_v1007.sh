@@ -120,7 +120,8 @@ for mode in nonsplit split; do
     error-queue-callback-ack-time error-queue-cold-callback-ack-time error-queue-due-callback-ack-time error-queue-cold-due-callback-ack-time \
     error-queue-cold-due-callback-ack-frontier \
     error-queue-callback-ack-callback error-queue-cold-callback-ack-callback error-queue-due-callback-ack-callback error-queue-cold-due-callback-ack-callback \
-    error-queue-callback-ack-callback-time error-queue-cold-callback-ack-callback-time error-queue-due-callback-ack-callback-time error-queue-cold-due-callback-ack-callback-time; do
+    error-queue-callback-ack-callback-time error-queue-cold-callback-ack-callback-time error-queue-due-callback-ack-callback-time error-queue-cold-due-callback-ack-callback-time \
+    error-queue-callback-ack-callback-frontier error-queue-cold-callback-ack-callback-frontier error-queue-due-callback-ack-callback-frontier error-queue-cold-due-callback-ack-callback-frontier; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -130,7 +131,7 @@ for mode in nonsplit split; do
         grep -Ex 'V1063_THIRD_HANDLER_FRONTIER ordinal=[0-9]{1,2} branch_taken=[01] visits=[0-9]{1,3} stores=[0-8] status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log" || true
         grep -Ex 'V1064_THIRD_EPILOGUE_(FAULT reason=[0-9]{1,2} stage=[0-3] visits=[0-9]{1,3}|ENTRY_REFUSAL mask=[0-9]{1,3})' "$work/run.log" || true
         grep -Ex 'V1068_THIRD_GUARD_REFUSAL handler_stage=[0-5] callback_stage=[0-5] dispatcher_owner=[01] dispatcher_resume=[01]' "$work/run.log" || true
-        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=([0-9]|1[0-4]) reason=[0-9]{1,2} vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
+        grep -Ex 'V1070_THIRD_VECTOR_REFUSAL stage=([0-9]|1[0-6]) reason=[0-9]{1,2} vector_reason=[0-6] vector_visits=[0-9]{1,3} trampoline_visits=[0-9]{1,3} poisoned=(0|38)' "$work/run.log" || true
         grep -Ex 'V1086_THIRD_ACK_REFUSAL route=[0-9]{1,2} ack=[0-5] calls=[0-5] ack_stage=[0-5] visits=[0-9]{1,4} helper_return=[01] time_return=[01]' "$work/run.log" || true
         echo "V1022_ERROR_QUEUE failed=1 prior_absent=$prior profile=$trial";exit 1;
       }
@@ -195,8 +196,11 @@ for mode in nonsplit split; do
                   ! grep -Eq '^V1084_THIRD_TIME_RETURN |^V1086_FOURTH_FRONTIER ' "$work/run.log"
                   if [[ "$lane" == *ack-callback* ]]; then
                     grep -Fx 'V1092_THIRD_ACK_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=13 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
-                    if [[ "$lane" == *ack-callback-time ]]; then
+                    if [[ "$lane" == *ack-callback-time || "$lane" == *ack-callback-frontier ]]; then
                       grep -Fx 'V1105_THIRD_ACK_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
+                      if [[ "$lane" == *ack-callback-frontier ]]; then
+                        grep -Ex 'V1108_THIRD_ACK_WIRELESS_FRONTIER ordinal=[35] visits=[1-9][0-9]? writes=[0-3] zero_id=[01] token=3 pi_cleared=1 saved_fields=38 call_executed=0 boot_verified=0' "$work/run.log"
+                      fi
                     fi
                   fi
                 else
@@ -233,6 +237,7 @@ for mode in nonsplit split; do
   echo "V1088_OWNER_THIRD_POSTACK mode=$mode helper_return=16 classified_branch=20 fallback=0 continuous_boot=0"
   echo "V1092_OWNER_THIRD_ACK_CALLBACK mode=$mode original_prefix=16 save_return=16 fallback=0 continuous_boot=0"
   echo "V1105_OWNER_THIRD_ACK_TIME mode=$mode original_time=16 pi_cleared=16 fallback=0 continuous_boot=0"
+  echo "V1108_OWNER_THIRD_ACK_FRONTIER mode=$mode classified=16 original_call_executed=0 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

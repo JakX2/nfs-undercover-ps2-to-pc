@@ -91,7 +91,8 @@ static uint32_t callback_cr=0;
 static uint32_t pack_cr(CPUContext& c){uint32_t v=0;for(auto f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);return v;}
 static void suffix_step(CPUContext&,uint32_t,uint32_t);
 static CallbackTimeWitness callback_time(v813::expected),third_ack_time(v813::expected);
-static bool third_ack_time_route=false;
+static bool third_ack_time_route=false,third_ack_frontier_route=false;
+static CallbackFrontierWitness third_ack_frontier(v831::expected);
 static CallbackPrefixWitness<callback_prefix.size(),callback_save.size()> callback_witness(CallbackRoot,CallbackSave,callback_prefix,callback_save);
 static CallbackPrefixWitness<callback_prefix.size(),callback_save.size()> third_ack_callback(CallbackRoot,CallbackSave,callback_prefix,callback_save);
 static AlarmCancelReturnWitness alarm_witness(v786::expected);
@@ -439,6 +440,21 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 }
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(third_reentry.stage()){
+        if(third_reentry.stage()==15u){
+            need(third_ack_frontier_route&&owner==CallbackRoot&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+            scheduler->advance(c.inst_count);
+            third_vector_need(third_reentry.callback_frontier_before(c,third_ack_frontier,pc,w));
+            if(third_reentry.stage()==16u){
+                need(third_ack_frontier.stage()==2u&&third_reentry.completion_ack().postack_held()&&
+                     ctl->issued_tokens()==3u&&cause==Other&&bank_mask==Mask&&third.stage()==3u&&ack.stage()==5u);
+                std::cout<<std::dec<<"V1108_THIRD_ACK_WIRELESS_FRONTIER ordinal="<<third_ack_frontier.ordinal()
+                         <<" visits="<<third_ack_frontier.visits()<<" writes="<<third_ack_frontier.writes()
+                         <<" zero_id="<<third_ack_frontier.zero_id()
+                         <<" token=3 pi_cleared=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
+            return;
+        }
         if(third_reentry.stage()==13u){
             need(third_ack_time_route&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
             scheduler->advance(c.inst_count);
@@ -450,7 +466,9 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                          <<" system_visits="<<third_ack_time.time_visits()<<" leaf_visits="<<third_ack_time.leaf_visits()
                          <<" polls="<<third_ack_time.polls()<<" reads="<<third_ack_time.reads()
                          <<" token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
-                std::_Exit(0);
+                if(!third_ack_frontier_route)std::_Exit(0);
+                third_vector_need(third_reentry.begin_callback_frontier(c,third_ack_time,third_ack_frontier,pc,w));
+                need(third_reentry.stage()==15u);
             }
             return;
         }
@@ -1106,11 +1124,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier","-ack-callback","-ack-callback-time"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier","-ack-callback","-ack-callback-time","-ack-callback-frontier"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_ack_time_route=tail=="-ack-callback-time";third_next_callback_route=tail=="-ack-callback"||third_ack_time_route;third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route||third_next_callback_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_ack_frontier_route=tail=="-ack-callback-frontier";third_ack_time_route=tail=="-ack-callback-time"||third_ack_frontier_route;third_next_callback_route=tail=="-ack-callback"||third_ack_time_route;third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route||third_next_callback_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";

@@ -1,0 +1,3 @@
+# V1108: acknowledged callback wireless frontier
+
+V1105 original time helper passed 32/32 focused trials. Retain the original callback channel captured at the indirect call and bind a new frontier witness to the exact completed time witness, CPU, tick and fresh ACK frame. Verify executed stores, control flow and original channel before the next direct call, without executing an unknown wireless operation. Add eight positive and twelve negative source-only real-device trials and 32 private native trials. Original branch choice/counts are deliberately not presumed: classify ordinal 3 or 5 first. No full-image build launched. Results pending.
