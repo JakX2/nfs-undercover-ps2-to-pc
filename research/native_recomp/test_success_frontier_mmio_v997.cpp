@@ -567,6 +567,38 @@ int main(int argc,char** argv){
                                                     }
                                                     visit(e3.indirect_pc,e3.indirect_word);
                                                     c.pc=Handler;c.ctr=Handler;c.lr=e3.indirect_pc+4u;c.gpr[3]=df=="-handler"?19u:20u;c.gpr[4]=v958::context;
+#ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
+                                                    if(v958::third_ack_enabled()){
+                                                        need(df.starts_with("-ack"));
+                                                        const auto af=df.substr(std::string_view("-ack").size());
+                                                        namespace q3=v1167;
+                                                        c.mmu.words[Handler+4]=q3::CallHelper;c.mmu.words[Handler+8]=Nop;c.mmu.words[Handler+12]=Blr;
+                                                        c.mmu.words[q3::Save]=Blr;c.mmu.words[q3::Helper]=Nop;
+                                                        c.mmu.words[q3::Helper+4]=Load;c.mmu.words[q3::Helper+8]=Nop;
+                                                        c.mmu.words[q3::Helper+12]=Store;c.mmu.words[q3::Helper+16]=Nop;c.mmu.words[q3::Helper+20]=Blr;
+                                                        v958::observe(Handler,c);
+                                                        need(v958::third_ack_active()&&v958::next_device.stage()==3u&&v958::ack.stage()==5u);
+                                                        if(af=="-unarmed")SiBinding::read32(Base+C);
+                                                        if(af=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                        if(af=="-tick")scheduler.advance(++tick);
+                                                        visit(Handler,q3::CallSave,af=="-guard");
+                                                        c.pc=q3::Save;c.lr=Handler+4;v958::observe(af=="-entry"?q3::Save+4:q3::Save,c);
+                                                        visit(q3::Save,Blr);visit(Handler+4,q3::CallHelper);
+                                                        c.pc=q3::Helper;c.lr=Handler+8;v958::observe(q3::Helper,c);
+                                                        visit(q3::Helper,Nop);c.gpr[3]=af=="-mirror"?Mirror:Base;
+                                                        visit(q3::Helper+4,Load);
+                                                        if(af=="-width")SiBinding::check(Base+C,2u,true);
+                                                        auto val=SiBinding::read32(c.gpr[3]+(af=="-offset"?S:C));need(val.has_value());
+                                                        c.gpr[4]=*val^(af=="-value"?1u:0u);
+                                                        visit(q3::Helper+8,Nop);
+                                                        if(af=="-w1c")c.gpr[4]&=~SiController::TC_INT;
+                                                        visit(q3::Helper+12,Store);
+                                                        need(SiBinding::write32(c.gpr[3]+C,c.gpr[4]^(af=="-write"?2u:0u)));
+                                                        need(cause==Other&&ctl.issued_tokens()==3u&&scheduler.completed()==3u);
+                                                        if(af=="-post-frame")c.mmu.words[v958::context+124]^=1u;
+                                                        visit(q3::Helper+16,Nop);need(false);
+                                                    }
+#endif
                                                     v958::observe(Handler,c);need(false);
                                                 }
 #endif

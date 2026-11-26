@@ -41,6 +41,7 @@ on:
       - 'research/native_recomp/*v1149*'
       - 'research/native_recomp/*v1158*'
       - 'research/native_recomp/*v1161*'
+      - 'research/native_recomp/*v1167*'
       - 'research/native_recomp/*v1151*'
       - 'research/native_recomp/*v1153*'
       - 'research/native_recomp/*v1152*'
