@@ -22,6 +22,7 @@ struct ReplyReturnAbi {
 struct ReplyReturnExpectation {
     uint32_t processor,handler,read_leaf,write_leaf,wake_return,processor_return,dispatcher_return,counter;
     std::span<const ReplyNativeWord> words;std::span<const VectorEdge> edges;bool require_x2=false;
+    uint32_t helper=0,helper_return=0;
 };
 // Continue after the original OSWakeupThread return. The only allowed
 // device effect is the native final Hollywood interrupt acknowledgment.
@@ -35,6 +36,7 @@ public:
     unsigned visits()const{return visits_;}
     unsigned writes()const{return gate_.writes();}
     unsigned x2_writes()const{return gate_.x2_writes();}
+    unsigned helper_returns()const{return helper_returned_?1u:0u;}
     unsigned control_detail()const{return control_detail_;}
     unsigned control_target()const{return control_target_;}
     unsigned control_owner()const{return owner_class(last_owner_);}
@@ -52,6 +54,8 @@ public:
            e_.words.empty()||e_.words.size()>1024u||e_.edges.size()>64u||
            !known(c,e_.processor,e_.wake_return)||!known(c,e_.handler,e_.processor_return)||
            !known(c,e_.read_leaf,e_.read_leaf)||!known(c,e_.write_leaf,e_.write_leaf)||
+           (bool(e_.helper)!=bool(e_.helper_return))||
+           (e_.helper&&(!e_.require_x2||!known(c,e_.helper,e_.helper)||!known(c,e_.processor,e_.helper_return)))||
            !gate_.begin(c,body,ready,nested,frame,queue,request,held))return fail(1);
         for(auto x:e_.words)if(std::count_if(e_.words.begin(),e_.words.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(1);
         handler_=handler;processor_=processor;counter_=c.mmu.read32(e_.counter);
@@ -60,7 +64,9 @@ public:
     template<class C>bool entry(C& c,uint32_t pc,bool held){
         if(!common(c,held)||!entry_due_||pc!=next_||c.pc!=pc||c.inst_count!=last_||
            c.lr!=ret_||!known(c,pc,pc))return fail(2);
-        entry_due_=false;active_=pc;return true;
+        entry_due_=false;active_=pc;
+        if(e_.helper&&pc==e_.helper){if(helper_returned_||gate_.x2_writes()!=1u)return fail(2);helper_abi_=ReplyReturnAbi::capture(c);}
+        return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(!common(c,held)||entry_due_||outer_due_||poll_due_||pc!=next_||
@@ -75,7 +81,10 @@ public:
             if(w&2u)return control_fail(1,dst);
             if(ret_)return control_fail(2,dst);
             if(active_!=e_.processor&&active_!=e_.handler)return control_fail(3,dst);
-            if(dst!=e_.read_leaf&&dst!=e_.write_leaf)return control_fail(4,dst);
+            if(dst!=e_.read_leaf&&dst!=e_.write_leaf){
+                if(!e_.helper||dst!=e_.helper||active_!=e_.processor||pc+4u!=e_.helper_return||
+                   helper_returned_||gate_.x2_writes()!=1u)return control_fail(4,dst);
+            }
             if(!edge(c,pc,w,dst))return control_fail(5,dst);
             caller_=active_;ret_=next_;next_=dst;entry_due_=true;return true;
         }
@@ -83,8 +92,9 @@ public:
             if(w&1u)return control_fail(6);
             if(!taken(c,w))return true;
             if(ret_){
-                if(active_!=e_.read_leaf&&active_!=e_.write_leaf)return control_fail(7);
+                if(active_!=e_.read_leaf&&active_!=e_.write_leaf&&(!e_.helper||active_!=e_.helper))return control_fail(7);
                 if(c.lr!=ret_)return control_fail(8);
+                if(e_.helper&&active_==e_.helper){if(!helper_abi_.restored(c)||helper_returned_)return fail(5);helper_returned_=true;}
                 active_=caller_;next_=ret_;ret_=0;return true;
             }
             if(active_==e_.processor){
@@ -134,13 +144,13 @@ public:
                handler_.restored(c)&&finished(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;
     }
 private:
-    ReplyReturnExpectation e_;ReplyCompletionGate gate_;ReplyReturnAbi handler_,processor_;
+    ReplyReturnExpectation e_;ReplyCompletionGate gate_;ReplyReturnAbi handler_,processor_,helper_abi_;
     WordMmioInstruction mmio_{};uint32_t counter_=0,active_=0,caller_=0,next_=0,ret_=0,last_pc_=0,last_owner_=0,read_value_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,outer_due_=0;
-    bool entry_due_=false,poll_due_=false,outer_resume_=false,processor_returned_=false,used_=false;
+    bool entry_due_=false,poll_due_=false,outer_resume_=false,processor_returned_=false,used_=false,helper_returned_=false;
     unsigned control_detail_=0,control_target_=0;
     unsigned owner_class(uint32_t a)const{
-        return a==e_.processor?1u:a==e_.handler?2u:a==e_.read_leaf?3u:a==e_.write_leaf?4u:0u;
+        return a==e_.processor?1u:a==e_.handler?2u:a==e_.read_leaf?3u:a==e_.write_leaf?4u:(e_.helper&&a==e_.helper)?5u:0u;
     }
     // Fixed categories for the already-known candidate helper roots.
     // Never publish a guest address or the original opcode.
@@ -161,7 +171,7 @@ private:
     }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>bool finished(C& c,bool held)const{
-        return gate_.finished(c,held)&&(!e_.require_x2||gate_.x2_writes()==1u);
+        return gate_.finished(c,held)&&(!e_.require_x2||gate_.x2_writes()==1u)&&(!e_.helper||helper_returned_);
     }
     template<class C>bool common(C& c,bool held)const{
         return stage_==1u&&!error_&&gate_.boundary(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;

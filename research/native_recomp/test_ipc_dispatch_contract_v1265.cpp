@@ -376,12 +376,15 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
         if(return_case){
             constexpr uint32_t P=Reply+24u,Hret=Handler+12u,Dret=Code.indirect_pc+4u;
-            const std::array<ReplyNativeWord,7> rw{{
-                {Reply,P,bl(P,Writer)},{Reply,P+4u,Stw},{Reply,P+8u,return_case==13?bl(P+8u,0x8051b070u):Blr},
+            constexpr uint32_t Helper=0x8051b070u;
+            const bool with_helper=return_case>=14u;
+            const std::array<ReplyNativeWord,11> rw{{
+                {Reply,P,bl(P,Writer)},{Reply,P+4u,Stw},{Reply,P+8u,(return_case==13||with_helper)?bl(P+8u,Helper):Blr},
+                {Reply,P+12u,Blr},{Helper,Helper,Nop},{Helper,Helper+4u,Blr},{Reply,P+16u,Nop},
                 {Writer,Writer,Stw},{Writer,Writer+4u,Blr},{Leaf,Leaf,Lwz},{Handler,Hret,Blr}}};
-            const std::array<VectorEdge,1> re{{{Writer,P+4u,rw[0].word,Stw}}};
+            const std::array<VectorEdge,2> re{{{Writer,P+4u,rw[0].word,Stw},{Helper,P+12u,bl(P+8u,Helper),Nop}}};
             for(auto x:rw)m.write32(x.pc,x.word);
-            ReplyReturnWitness ret({Reply,Handler,Leaf,Writer,P,Hret,Dret,Counter,rw,re,true});
+            ReplyReturnWitness ret({Reply,Handler,Leaf,Writer,P,Hret,Dret,Counter,rw,re,true,with_helper?Helper:0u,with_helper?P+12u:0u});
             auto no=[&](bool result,unsigned reason){assert(!result&&ret.failure()==reason&&host.serviced_steps()==2u);};
             if(return_case==2)++c.inst_count;
             ok=ret.begin(c,body,ready,nested,frame,Queue,Request,handler_abi,processor_abi,true);
@@ -407,6 +410,13 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             ok=rs(P+8u);if(return_case==9){no(ok,5);return;}
             if(return_case==13){no(ok,4);assert(ret.control_detail()==4u&&ret.control_target()==6u&&ret.control_owner()==1u&&ret.x2_writes()==1u);return;}
             assert(ok);
+            if(with_helper){
+                c.pc=Helper;c.lr=P+12u;assert(ret.entry(c,Helper,true)&&rs(Helper));
+                if(return_case==15)c.gpr[31]^=1u;
+                if(return_case==16){no(ret.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X2,true),7);return;}
+                ok=rs(Helper+4u);if(return_case==15){no(ok,5);return;}assert(ok);
+                c.lr=Hret;assert(rs(P+12u)&&ret.helper_returns()==1u);
+            }
             c.pc=Hret;
             if(return_case==10)c.mmu.write32(Counter,0u);
             ok=ret.poll(c,true);if(return_case==10){no(ok,6);return;}assert(ok);
@@ -415,7 +425,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             ok=rs(Hret);if(return_case==11){no(ok,5);return;}assert(ok);
             c.pc=Dret;if(return_case==12)++c.inst_count;
             ok=ret.poll(c,true);if(return_case==12){no(ok,6);return;}assert(ok);
-            assert(return_case==1&&ret.returned(c,true)&&ret.writes()==1u&&ret.x2_writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
+            assert((return_case==1||return_case==14)&&ret.returned(c,true)&&ret.writes()==1u&&ret.x2_writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
             if(idle_case){
                 ReadyIdleReturnJoin join;
@@ -572,8 +582,8 @@ int main(){
     for(unsigned i=1;i<=19;++i)trial(0,0,true,0,0,0,i);
     std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=2 refused=17 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
-    for(unsigned i=1;i<=13;++i)trial(0,0,true,0,0,0,0,i);
-    std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=12 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
+    for(unsigned i=1;i<=16;++i)trial(0,0,true,0,0,0,0,i);
+    std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=2 refused=14 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
     std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";

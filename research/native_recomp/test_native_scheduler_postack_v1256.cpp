@@ -271,6 +271,14 @@ void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     throw WitnessFailure{};
 }
 #endif
+void v1316_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1316_REPLY_HELPER
+    need(reply_return);
+    if(!reply_return->before(c,pc,w,device_ok(c)))return_refuse(1);
+#else
+    (void)c;(void)pc;(void)w;throw WitnessFailure{};
+#endif
+}
 void v1281_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){if(!reply_return->before(c,pc,w,device_ok(c)))return_refuse(1);return;}
@@ -1100,6 +1108,9 @@ int main(int argc,char** argv)try{
         need(handler_returned&&completed.returned(c,device_ok(c))&&completed.x2_writes()==1u&&return_count==trial+1u&&
              c.pc==v1255::returned&&c.lr==c.pc&&host.serviced_steps()==2u&&
              !(cause.load()&mask.load())&&ready.ready_context_held(c,device_ok(c)));
+#ifdef UNDERCOVER_V1316_REPLY_HELPER
+        need(completed.helper_returns()==1u);
+#endif
         reply_return=nullptr;return_cpu=nullptr;
         std::cout<<"V1300_RETURN_TRIAL n="<<trial<<" original_processor_return=1 original_handler_return=1 latch_clear=1 ready=1\n";
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN

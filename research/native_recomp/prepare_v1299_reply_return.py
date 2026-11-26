@@ -10,7 +10,7 @@ from prepare_v419_full_start import MAX_DOL,direct_bl,words_at
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import verify_direct
 
-def plan(dol,elf):
+def plan(dol,elf,helper=False):
     native,_,edges=reply_plan(dol,elf)
     _,ack,_,ack_edges,_,_=ack_geometry(dol,elf)
     roots={REPLY:native[REPLY],IPC:ack[IPC],READ:native[READ],WRITE:native[WRITE]}
@@ -22,7 +22,10 @@ def plan(dol,elf):
         i=(site-owner)//4
         if not 0<=i<len(roots[owner])-1 or direct_bl(roots[owner][i],site)!=dst:
             raise ValueError('return predecessor')
-    rows=tuple(row for row in (*edges,*ack_edges) if row[0] in (READ,WRITE))
+    if helper:
+        from prepare_v1316_reply_helper import HELPER,helper_plan
+        roots[HELPER]=helper_plan(dol,elf)
+    rows=tuple(row for row in (*edges,*ack_edges) if row[0] in (READ,WRITE) or (helper and row[0]==HELPER))
     if not rows or len(set(rows))!=len(rows) or len(rows)>64:
         raise ValueError('return edges')
     for dst,lr,w,entry in rows:
@@ -42,7 +45,9 @@ def labels(p):
     return out
 
 def render(p):
+    from prepare_v1316_reply_helper import HELPER,HELPER_RETURN
     f=lambda n:f'0x{n:08x}u'
+    suffix=','+f(HELPER)+','+f(HELPER_RETURN) if HELPER in p[0] else ''
     rows=labels(p)
     words=','.join('undercover::wii::ReplyNativeWord{'+','.join(map(f,(a,pc,w)))+'}' for pc,(a,w) in sorted(rows.items()))
     edges=','.join('undercover::wii::VectorEdge{'+','.join(map(f,x))+'}' for x in p[1])
@@ -50,11 +55,11 @@ def render(p):
         f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> words'+'{'+words+'};',
         f'inline constexpr std::array<undercover::wii::VectorEdge,{len(p[1])}> edges'+'{'+edges+'};',
         'inline constexpr undercover::wii::ReplyReturnExpectation expected(uint32_t counter){return {'+
-        ','.join(map(f,(REPLY,IPC,READ,WRITE,WAKE_LR,REPLY_LR,DISPATCH_RETURN)))+',counter,words,edges,true};}','}',''))
+        ','.join(map(f,(REPLY,IPC,READ,WRITE,WAKE_LR,REPLY_LR,DISPATCH_RETURN)))+',counter,words,edges,true'+suffix+'};}','}',''))
 
 def verify_hooks(sources,expected):
     for pc,(owner,w) in expected.items():
-        name='v1266_before' if owner==IPC else 'v1281_before'
+        name='v1266_before' if owner==IPC else 'v1316_before' if owner==0x8051b070 else 'v1281_before'
         # The reply hook is installed after the ACK hook and therefore
         # precedes it at shared leaves. Only that first hook owns the word.
         pattern=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n'
@@ -76,11 +81,11 @@ def verify_fixture(raw,sizes,p):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path)
-    p.add_argument('--audit',action='store_true');a=p.parse_args()
+    p.add_argument('--audit',action='store_true');p.add_argument('--helper',action='store_true');a=p.parse_args()
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not 52<=a.elf.stat().st_size<=64*1024*1024:
             raise ValueError('size')
-        result=plan(a.dol.read_bytes(),a.elf.read_bytes())
+        result=plan(a.dol.read_bytes(),a.elf.read_bytes(),a.helper)
         if a.audit:
             src=[x.read_text() for x in sorted(a.out.glob('output_*.cpp'))]
             main=(a.out/'main_output.cpp').read_text();expected=labels(result)

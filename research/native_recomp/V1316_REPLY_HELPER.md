@@ -1,0 +1,3 @@
+# V1316 original post-X2 helper continuation
+
+V1313 owner run 45813398740 classified the next refusal as a direct call to the known helper at 0x8051b070, after actual X2 acceptance (x2=1). V77 authenticates the corresponding callsite and 0x7c-byte extent. Expand only that guard, require private leaf/branch closure and exact generated native labels, preserve helper caller ABI and the existing reply/READY/device proof. Require exactly one native helper return before the original handler can finish. Three new joined cases and two planner tests; source and owner CI pending. No new roots or owner bytes published. No claim of handler return yet.
