@@ -70,7 +70,8 @@ int main(){
     unsigned held_time_valid=0,held_time_refused=0;
     unsigned held_frontier_valid=0,held_frontier_refused=0;
     unsigned held_wireless_valid=0,held_wireless_refused=0;
-    for(trial=0;trial<528;++trial){
+    unsigned held_suffix_valid=0,held_suffix_refused=0;
+    for(trial=0;trial<548;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -124,7 +125,8 @@ int main(){
             const unsigned hprefix=trial>=468?0u:trial>=456?trial-455u:0u;
             const unsigned ht=trial>=488?0u:trial>=476?trial-475u:0u;
             const unsigned hf=trial>=508?0u:trial>=496?trial-495u:0u;
-            const unsigned hw=trial>=516?trial-515u:0u;
+            const unsigned hw=trial>=528?0u:trial>=516?trial-515u:0u;
+            const unsigned hs=trial>=536?trial-535u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -571,11 +573,12 @@ int main(){
                 if(trial<488){++held_time_valid;continue;}
                 constexpr uint32_t P=Resume2+8u,A2=0x8003d000u,B2=A2+0x100u;
                 const bool getter=(trial>=492&&trial<496)||hw==1;
+                const uint32_t getter_pc=trial>=528?P+64u:P+16u;
                 const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
-                    {P+8u,getter?branch(P+8u,P+16u):0x90810008u},
-                    {P+12u,branch(P+12u,A2)|1u},{P+16u,branch(P+16u,B2)|1u}}};
+                    {P+8u,getter?branch(P+8u,getter_pc):0x90810008u},
+                    {P+12u,branch(P+12u,A2)|1u},{getter_pc,branch(getter_pc,B2)|1u}}};
                 const CallbackFrontierExpectation fe{Target,Target+688u,P,rows,
-                    {{{P+12u,A2,3},{P+16u,B2,5}}}};
+                    {{{P+12u,A2,3},{getter_pc,B2,5}}}};
                 CallbackFrontierWitness frontier(fe),foreign_frontier(fe);
                 for(auto row:rows)c.mmu.words[row.pc]=row.word;
                 auto reject_frontier=[&](bool bad){
@@ -599,7 +602,7 @@ int main(){
                 need(at_frontier(P+8u,rows[2].word));
                 if(!getter&&hf!=10)c.mmu.words[c.gpr[1]+8u]=0;
                 if(hf==11)c.mmu.words[Context+124]^=1u;
-                ok=at_frontier(getter?P+16u:P+12u,rows[getter?4u:3u].word);
+                ok=at_frontier(getter?getter_pc:P+12u,rows[getter?4u:3u].word);
                 if(hf>=10){reject_frontier(!ok);continue;}need(ok);
                 need(ep.stage()==19u&&ep.prefix_frontier_saved(c,frontier)&&!ep.prefix_frontier_saved(c,foreign_frontier)&&
                      frontier.ordinal()==(getter?5u:3u)&&frontier.zero_id()==unsigned(!getter)&&
@@ -622,10 +625,10 @@ int main(){
                 c.mmu.words[L2]=Nop;
                 for(unsigned i=0;i<20;++i)c.mmu.words[SRAM2+4u*i]=0;
                 c.mmu.words[SRAM2+64u]=64u;c.mmu.words[SRAM2+76u]=1u;
-                const auto return_word=rows[4].word;
+                const auto return_word=trial>=528?Nop:rows[4].word;
                 const WirelessExpectation we{{{{A2,setter},{B2,getter_words},{U2,unlock},{DI2,disable},{RI2,restore}}},
-                    {{{P+12u,rows[3].word,return_word,3},{P+16u,rows[4].word,Nop,5}}},L2,Nop,SRAM2};
-                c.mmu.words[Return2]=return_word;c.mmu.words[P+20u]=Nop;
+                    {{{P+12u,rows[3].word,return_word,3},{getter_pc,rows[4].word,Nop,5}}},L2,Nop,SRAM2};
+                c.mmu.words[Return2]=return_word;c.mmu.words[getter_pc+4u]=Nop;
                 WirelessWrapperWitness wrapper(we),foreign_wrapper(we);
                 auto reject_wireless=[&](bool bad){
                     need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
@@ -635,7 +638,7 @@ int main(){
                 if(hw==5)c.mmu.words[SRAM2+48u]=c.mmu.words[SRAM2+52u]=0x01000100u;
                 if(hw==6)c.mmu.words[SRAM2+72u]=1u;
                 if(hw==7)c.gpr[3]=(ch+1u)%4u;
-                const auto selected_pc=getter?P+16u:P+12u;
+                const auto selected_pc=getter?getter_pc:P+12u;
                 const auto selected_word=rows[getter?4u:3u].word;
                 ok=ep.begin_prefix_wireless(c,frontier,wrapper,selected_pc+(hw==2?4u:0u),hw==3?Nop:selected_word);
                 if(hw>=1&&hw<=7){reject_wireless(!ok);continue;}need(ok&&ep.stage()==20u&&wrapper.stage()==1u&&!wrapper.changed());
@@ -665,7 +668,47 @@ int main(){
                      wrapper.visits()==11u&&wrapper.writes()==1u&&!wrapper.changed()&&
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-                ++held_wireless_valid;continue;
+                if(trial<528){++held_wireless_valid;continue;}
+                constexpr uint32_t RestoreRoot2=0x8003e800u;
+                const std::array<CallbackSuffixWord,5> suffix_rows{{{Return2,Nop},{Return2+4u,0x90810008u},
+                    {Return2+8u,0x4182fffcu},{Return2+12u,branch(Return2+12u,RestoreRoot2)|1u},
+                    {Return2+16u,IndirectCall}}};
+                const CallbackSuffixExpectation sx{Target,Target+688u,Return2,suffix_rows,
+                    {{{Return2+16u,0u,4u},{Return2+12u,RestoreRoot2,13u}}}};
+                for(const auto& row:suffix_rows)c.mmu.words[row.pc]=row.word;
+                CallbackSuffixWitness suffix(sx),foreign_suffix(sx);
+                auto reject_suffix=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_suffix_refused;
+                };
+                if(hs==4)tick();
+                if(hs==5)c.mmu.words[Return2+8u]^=1u;
+                if(hs==6)c.mmu.words[Context+124]^=1u;
+                const auto join_tick2=c.inst_count;
+                ok=ep.begin_prefix_suffix(c,hs==1?foreign_wrapper:wrapper,suffix,
+                                          Return2+(hs==2?4u:0u),hs==3?Blr:Nop);
+                if(hs>=1&&hs<=6){reject_suffix(!ok);continue;}
+                need(ok&&ep.stage()==22u&&suffix.visits()==1u&&c.inst_count==join_tick2);
+                auto at_suffix=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_suffix_before(c,suffix,pc,w);};
+                if(hs==7){tick();reject_suffix(!ep.prefix_suffix_before(c,foreign_suffix,Return2+4u,suffix_rows[1].word));continue;}
+                if(hs==8)mask=0;
+                c.gpr[4]=0x12345678u;
+                ok=at_suffix(Return2+4u,suffix_rows[1].word);
+                if(hs==8){reject_suffix(!ok);continue;}need(ok);
+                if(hs!=9)c.mmu.words[c.gpr[1]+8u]=c.gpr[4];
+                c.cr[0].eq=false;
+                ok=at_suffix(Return2+8u,suffix_rows[2].word);
+                if(hs==9){reject_suffix(!ok);continue;}need(ok);
+                if(hs==10){tick();reject_suffix(!ep.prefix_suffix_poll(c,suffix));continue;}
+                if(hs!=11)need(ep.prefix_suffix_poll(c,suffix));
+                if(hs==12)c.mmu.words[Context+124]^=1u;
+                ok=at_suffix(Return2+12u,suffix_rows[3].word);
+                if(hs>=11){reject_suffix(!ok);continue;}need(ok);
+                need(ep.stage()==23u&&ep.prefix_suffix_saved(c,suffix)&&!ep.prefix_suffix_saved(c,foreign_suffix)&&
+                     suffix.ordinal()==13u&&suffix.target_class()==0u&&suffix.visits()==4u&&suffix.writes()==1u&&suffix.polls()==1u&&
+                     ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
+                     ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+                ++held_suffix_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1315,7 +1358,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12&&held_suffix_valid==8&&held_suffix_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1343,4 +1386,5 @@ int main(){
     std::cout<<"V1188_ACK_PREFIX_TIME valid=8 refused=12 same_tick=1 system_visits=25 leaf_visits=18 reads=3 polls=1 original_execution=0\n";
     std::cout<<"V1192_ACK_TIME_FRONTIER valid=8 refused=12 setter=4 getter=4 same_tick=1 call_executed=0 original_execution=0\n";
     std::cout<<"V1195_ACK_WIRELESS_RETURN valid=8 refused=12 unchanged_setter=1 getter_refused=1 changed_refused=1 save_context=1 original_execution=0\n";
+    std::cout<<"V1200_ACK_CALLBACK_SUFFIX valid=8 refused=12 same_tick=1 restore_frontier=1 original_execution=0\n";
 }

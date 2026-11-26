@@ -279,6 +279,11 @@ public:
         return suffix_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.poll(c,true)?true:fail(34);
     }
+    template<class C,class W>bool callback_suffix_boundary(C& c,W& witness)const{
+        return stage_==20u&&!error_&&cpu_==&c&&suffix_==&witness&&witness.stage()==2u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // Only the exact compiler restore frontier may return to the handler.
     // Use the ABI captured before the original indirect callback, not the
     // register image from the previous (retired) callback.
