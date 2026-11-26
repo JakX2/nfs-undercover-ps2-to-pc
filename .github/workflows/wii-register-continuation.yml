@@ -7,6 +7,8 @@ on:
       - 'research/native_recomp/wii_register_continuation.h'
       - 'research/native_recomp/test_register_continuation.cpp'
       - 'research/native_recomp/test_register_continuation_join.cpp'
+      - 'research/native_recomp/guarded_continuation.py'
+      - 'research/native_recomp/test_guarded_continuation.py'
       - '.github/workflows/wii-register-continuation.yml'
 permissions:
   contents: read
@@ -22,3 +24,4 @@ jobs:
           /tmp/register-continuation
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_register_continuation_join.cpp -o /tmp/register-continuation-join
           /tmp/register-continuation-join
+          python3 research/native_recomp/test_guarded_continuation.py
