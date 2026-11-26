@@ -84,6 +84,9 @@ static void trial(unsigned first,unsigned kind,bool empty,unsigned fault){
     if(fault==8){assert(!ok);return;}assert(ok);
     assert(w.returned(c,true)&&w.lines()==(empty?0u:2u)&&host.serviced_steps()==4u);
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned kind:{1u,2u})for(bool empty:{false,true})
-    for(unsigned fault=0;fault<=8;++fault)trial(first,kind,empty,fault);
-    std::cout<<"V1398_FLUSH_TEST cases=72 original_execution=0\n";}
+int main(){
+    for(unsigned first:{1u,2u})for(unsigned kind:{1u,2u})for(bool empty:{false,true}){
+        for(unsigned fault=0;fault<=8;++fault)trial(first,kind,empty,fault);
+    }
+    std::cout<<"V1398_FLUSH_TEST cases=72 original_execution=0\n";
+}

@@ -1,3 +1,5 @@
 # V1398 first original ioctl cache-flush return
 
 V1397 owner run 45839363656 passed all eight original request-construction trials, 11 stores each (10 request stores), first flush entry and callback verified. This opt-in continuation runs the existing authenticated DCFlushRange body, checks ordered cache lines or an explicit aligned empty range, routes the original masked SC through the seven-instruction native vector, verifies return to the exact wrapper continuation, and preserves both completed IOS descriptors, request storage and masked state. It stops before the next wrapper instruction. A zero-length early return without SC is not yet admitted; if the actual helper takes that route, report refusal rather than invent an RFI. Owner verification pending. No new IOS service or full boot claimed.
+
+V1399: brace the nested synthetic test loops. A local minimal compiler reproduction confirmed that the earlier spelling would trigger GCC -Werror=misleading-indentation; the correction changes no test behavior or owner execution logic. Full source and owner CI remain required.
