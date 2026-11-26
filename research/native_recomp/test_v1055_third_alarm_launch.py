@@ -649,4 +649,28 @@ class AckHandlerReturnLaunch(unittest.TestCase):
             self.assertNotIn('V1215_ACK_HANDLER_RETURN_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1214_ACK_HANDLER_RETURN=1',p.stdout)
             self.assertIn('V1211_ACK_HANDLER_BUILD_PLAN' if build else 'audit=audit_v1211_ack_handler.py',p.stdout)
+class AckFinalLaunch(unittest.TestCase):
+    def setUp(self):
+        base=AckHandlerReturnLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1218_ACK_FINAL='1',UNDERCOVER_PREPARE_V1218_ACK_FINAL='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1218_ACK_FINAL_BUILD_PLAN links=1 private_installer=1 handler_return_predecessor=1' if build else 'audit=audit_v1218_ack_final.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1217_ACK_FINAL=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1218_ACK_FINAL','UNDERCOVER_PREPARE_V1218_ACK_FINAL','UNDERCOVER_RUN_V1215_ACK_HANDLER_RETURN','UNDERCOVER_PREPARE_V1215_ACK_HANDLER_RETURN'):
+            for val in ('','0','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_handler_return_only(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertNotIn('V1218_ACK_FINAL_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1217_ACK_FINAL=1',p.stdout)
+            self.assertIn('V1215_ACK_HANDLER_RETURN_BUILD_PLAN' if build else 'audit=audit_v1215_ack_handler_return.py',p.stdout)
 if __name__=='__main__':unittest.main()

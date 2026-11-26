@@ -322,4 +322,36 @@ class AckHandlerReturnMetadata(unittest.TestCase):
     def test_requires_handler(self):
         with self.assertRaisesRegex(ValueError,'ACK handler return mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,False,True)
+class AckFinalMetadata(unittest.TestCase):
+    def test_metadata(self):
+        j=ins.DISPATCH+64;entries=tuple(H+0x100*i for i in range(5))
+        ep={j:(ins.DISPATCH,W),**{entries[0]+4*i:(entries[0],W) for i in range(50)}}
+        ep[entries[-1]]=(entries[-1],0x4c000064)
+        edges=((ins.DISPATCH,[(j,entries[0])]),(entries[0],[]))
+        prior={'v922_private_irq_return.h':'test metadata'}
+        geo=(ep,j,{},edges,entries,W,prior)
+        returned=(H,H+4,j,[],[],W,W,H)
+        old='#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v1151_private_held_epilogue.h';h.write_text(ins.final_render())
+            for n,s in prior.items():(dest/n).write_text(s)
+            for n in ('wii_live_epilogue_v762.h','wii_external_return_v706.h'):(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'final_metadata',return_value=geo):
+                self.assertEqual(ins.verify_final_metadata(b'',b'',old,dest,HOST,returned),(ep,j,edges,entries))
+                for bad in (old+old,old.replace('EPILOGUE 1','EPILOGUE 0'),old+'#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_final_metadata(b'',b'',bad,dest,HOST,returned)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_final_metadata(b'',b'',old,dest,HOST,(*returned[:2],j+4,*returned[3:]))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_final_metadata(b'',b'',old,dest,HOST,returned)
+    def test_hook(self):
+        pc=H+16;arg=f'ctx,0x{pc:08x}u,0x{W:08x}u'
+        hook=f'    if({ins.FINAL_ACTIVE}) undercover::wii::v958::before({arg},false);\n    else undercover::wii::v922::before({arg});\n'
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {W:08X}\n'
+        ins.verify_final_hook(label+T+SI+hook,pc,W)
+        for bad in (hook+T+SI,T+hook+SI,T+SI+hook+hook,T+SI+hook.replace('false);','true);'),T+SI+hook.replace('else ','if(true) ')):
+            with self.assertRaisesRegex(ValueError,'ACK final hook'):ins.verify_final_hook(label+bad,pc,W)
+    def test_requires_handler_return(self):
+        with self.assertRaisesRegex(ValueError,'ACK final mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()
