@@ -1,0 +1,3 @@
+# V1390 allocated-only request provenance scope
+
+V1388 owner geometry stopped at a syntactic submit path without the original allocation in its call history. No infeasibility claim is justified by the bounded path enumerator. This revision counts such paths separately and analyzes only paths that actually include the authenticated allocation call (the native focused lane's prerequisite). It also refuses unknown store bases rather than ignoring potential request aliases. The original-free tests pass only if wrong fields, unmodeled operations, unknown store bases and invalid offsets are rejected. This is static dataflow for the allocated lane, not proof of all original paths or of original execution. Private retry pending.

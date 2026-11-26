@@ -24,13 +24,14 @@ class Tests(unittest.TestCase):
         for off in (0,8,12,16,20,24,28,32,36):
             req,wire,flush=result[0][0]
             bad={**wire,off:None}
-            with self.assertRaises(ValueError):verify(([(req,bad,flush)],result[1]))
+            with self.assertRaises(ValueError):verify(([(req,bad,flush)],result[1],result[2]))
     def test_unknown_destroys_or_rejects(self):
         regs=[None]*32;regs[3]=A(3);regs[22]=R();regs[1]=S()
         stack={};wire={}
         apply(mr(23,3),regs,stack,wire);self.assertEqual(regs[23],A(3))
         apply(phys(23,3),regs,stack,wire);self.assertEqual(regs[23],P(3))
         apply(st(23,22,8),regs,stack,wire);self.assertEqual(wire[8],P(3))
+        with self.assertRaises(ValueError):apply(st(23,21,0),regs,stack,wire)
         with self.assertRaises(ValueError):apply(st(23,22,64),regs,stack,wire)
         with self.assertRaises(ValueError):apply(0xffffffff,regs,stack,wire)
         apply(li(23,6),regs,stack,wire);self.assertEqual(regs[23],C(6))

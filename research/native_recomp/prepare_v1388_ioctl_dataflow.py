@@ -19,7 +19,7 @@ def offset(x,n):
     if x is None:return None
     if n==0:return x
     if x[0]=='constant':return C(x[1]+n)
-    if x[0] in ('request','stack'):return x[0],x[1]+n
+    if x[0] in ('request','stack','static'):return x[0],x[1]+n
     return None
 
 def branch_target(pc,w):
@@ -57,7 +57,8 @@ def apply(w,regs,stack,wire):
     elif op in (20,23):regs[ra]=None
     elif op in (36,37):
         ea=offset(regs[ra] if ra else C(0),d)
-        if ea is not None and ea[0]=='request':
+        if ea is None:raise ValueError('request unknown store base')
+        if ea[0]=='request':
             if ea[1]&3 or not 0<=ea[1]<=60:raise ValueError('request store range')
             wire[ea[1]]=regs[rt]
         if ea is not None and ea[0]=='stack':stack[ea[1]]=regs[rt]
@@ -90,9 +91,9 @@ def apply(w,regs,stack,wire):
 def paths(root,words,edges):
     if not words or len(words)>256 or len(edges)!=6:raise ValueError('request geometry')
     calls=dict(edges);save,alloc,flush1,flush2,submit,restore=(pc for pc,_ in edges)
-    regs=[None]*32;regs[1]=S()
+    regs=[None]*32;regs[1]=S();regs[2]=('static',2);regs[13]=('static',13)
     for i in range(3,11):regs[i]=A(i)
-    pending=[(root,regs,{}, {},(),(),frozenset())];finished=[];nodes=0
+    pending=[(root,regs,{}, {},(),(),frozenset())];finished=[];nodes=0;unallocated=0
     end=root+4*len(words)
     while pending:
         pc,regs,stack,wire,flushes,history,visited=pending.pop()
@@ -101,7 +102,11 @@ def paths(root,words,edges):
             raise ValueError('request path budget')
         visited=visited|{pc};w=words[(pc-root)//4];op=w>>26
         if pc==submit:
-            if direct_bl(w,pc)!=calls[pc] or alloc not in history:raise ValueError('request submit edge')
+            if direct_bl(w,pc)!=calls[pc]:raise ValueError('request submit edge')
+            # This audit covers only the allocated lane already required
+            # by the native fixture. Count, do not claim infeasible, any
+            # syntactic paths bypassing that independently verified call.
+            if alloc not in history:unallocated+=1;continue
             finished.append((regs[3],dict(wire),flushes));continue
         if pc==restore or w==0x4e800020:continue
         if op==18 and w&1:
@@ -121,10 +126,10 @@ def paths(root,words,edges):
         apply(w,regs,stack,wire)
         pending.append((pc+4,regs,stack,wire,flushes,history,visited))
     if not finished:raise ValueError('request no submit path')
-    return finished,nodes
+    return finished,nodes,unallocated
 
 def verify(paths_result):
-    rows,nodes=paths_result
+    rows,nodes,unallocated=paths_result
     expected={0:{C(6)},8:{A(3)},12:{A(4)},16:{P(5),C(0)},20:{A(6)},24:{P(7),C(0)},28:{A(8)}}
     layouts=set();flush_counts=set()
     for req,wire,flushes in rows:
@@ -137,19 +142,19 @@ def verify(paths_result):
         layouts.add((callback[0],userdata[0]));flush_counts.add(len(flushes))
         if not 0<len(flushes)<=2:raise ValueError('request flush coverage')
     if len(layouts)!=1:raise ValueError('request callback layout')
-    return next(iter(layouts)),len(rows),nodes,min(flush_counts),max(flush_counts)
+    return next(iter(layouts)),len(rows),nodes,min(flush_counts),max(flush_counts),unallocated
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         roots,*_=plan(q.dol.read_bytes(),q.elf.read_bytes())
-        _,count,nodes,lo,hi=verify(paths(IOCTL,roots[IOCTL],EDGES))
-        print(f'V1388_REQUEST_DATAFLOW verified=1 submit_paths={count} states={nodes} wire_fields=7 callback_fields=2 flush_min={lo} flush_max={hi} original_execution=0')
+        _,count,nodes,lo,hi,unallocated=verify(paths(IOCTL,roots[IOCTL],EDGES))
+        print(f'V1390_REQUEST_DATAFLOW verified=1 allocated_submit_paths={count} unallocated_static_paths={unallocated} states={nodes} wire_fields=7 callback_fields=2 flush_min={lo} flush_max={hi} original_execution=0')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed={'size','request geometry','request store range','request unmodeled store','request unmodeled instruction','request path budget',
+        allowed={'size','request geometry','request store range','request unknown store base','request unmodeled store','request unmodeled instruction','request path budget',
             'request submit edge','request call','request branch','request no submit path','request wire provenance',
             'request callback provenance','request flush coverage','request callback layout'}
-        print('V1388_REQUEST_DATAFLOW verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input_or_io'));return 1
+        print('V1390_REQUEST_DATAFLOW verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input_or_io'));return 1
 if __name__=='__main__':raise SystemExit(main())
