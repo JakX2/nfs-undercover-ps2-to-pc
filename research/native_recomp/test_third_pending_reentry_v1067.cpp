@@ -29,9 +29,9 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
     if(!ok){std::cerr<<"V1067_ASSERT trial="<<trial<<" line="<<loc.line()<<'\n';throw std::runtime_error("third reentry");}
 }
 int main(){
-    unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0;
-    for(trial=0;trial<61;++trial){
-        const unsigned fault=trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
+    unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0;
+    for(trial=0;trial<75;++trial){
+        const unsigned fault=trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
         using Port=SiTypeScheduler::Port;
@@ -156,14 +156,14 @@ int main(){
         // Synthetic authenticated handler and single native helper geometry.
         constexpr uint32_t Helper=0x80009000u,Save=Helper+0x100u,Blr=0x4e800020u;
         constexpr uint32_t CallSave=branch(Handler,Save)|1u,Call=branch(Handler+4,Helper)|1u;
-        c.mmu.words[Handler]=CallSave;c.mmu.words[Handler+4]=Call;c.mmu.words[Handler+8]=Nop;
+        c.mmu.words[Handler]=CallSave;c.mmu.words[Handler+4]=Call;c.mmu.words[Handler+8]=Nop;c.mmu.words[Handler+12]=Blr;
         c.mmu.words[Save]=Blr;
         const bool reversed=trial>=52&&trial<56;
         constexpr uint32_t Lwbrx=(31u<<26)|(4u<<21)|(3u<<16)|(534u<<1);
         const uint32_t load=reversed?Lwbrx:Load;
         c.mmu.words[Helper]=Nop;c.mmu.words[Helper+4]=load;c.mmu.words[Helper+8]=Nop;
         c.mmu.words[Helper+12]=Store;c.mmu.words[Helper+16]=Nop;c.mmu.words[Helper+20]=Blr;
-        const std::array<AckCallSpan,3> spans{{{Handler,Handler+12},{Save,Save+4},{Helper,Helper+24}}};
+        const std::array<AckCallSpan,3> spans{{{Handler,Handler+16},{Save,Save+4},{Helper,Helper+24}}};
         const std::array<AckCallEdge,2> edges{{{Handler,Save},{Handler+4,Helper}}};
         auto ack_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason);++ack_refused;
@@ -213,10 +213,33 @@ int main(){
         need(route.ack_calls().entries()==2u&&route.ack_calls().returns()==1u);
         need(ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&
              ctl.read(S)==status&&ctl.read(B)==buffer&&sched.completed()==3u&&ack.stage()==5u);
-        ++ack_valid;
+        if(trial<61){++ack_valid;continue;}
+        // The same-tick successor must execute at most once. Its native
+        // call-route label was already consumed by ack_before above.
+        auto resume_reject=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&cause==Other&&ctl.issued_tokens()==3u);++resume_refused;
+        };
+        const auto resume_tick=c.inst_count;
+        if(fault==38)tick();
+        if(fault==39)c.mmu.words[Context+124]^=1u;
+        ok=route.resume_ack(c,Helper+16+(fault==40?4u:0u),fault==41?Blr:Nop);
+        if(fault>=38&&fault<=41){resume_reject(!ok,17);continue;}need(ok);
+        need(c.inst_count==resume_tick&&route.stage()==9u&&route.postack_held(c));
+        if(fault==42){resume_reject(!route.resume_ack(c,Helper+16,Nop),17);continue;}
+        if(fault==43){resume_reject(!route.ack_before(c,Helper,Helper+16,Nop),11);continue;}
+        tick();need(route.ack_before(c,Helper,Helper+20,Blr));
+        c.pc=Handler+8;tick();
+        // Handler terminal label itself has an unexecuted continuation.
+        // The original helper return must account for both calls.
+        need(route.ack_before(c,Handler,Handler+8,Nop)&&route.postack_held(c)&&
+             route.ack_calls().depth()==0u&&route.ack_calls().entries()==2u&&route.ack_calls().returns()==2u&&
+             route.completion_ack().writes()==1u&&ctl.issued_tokens()==3u&&cause==Other);
+        ++resume_valid;
     }
-    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13);
+    need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
+         resume_valid==8&&resume_refused==6);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
+    std::cout<<"V1085_THIRD_ACK_RESUME valid=8 refused=6 same_tick=1 no_w1c_replay=1 helper_return=1 original_execution=0\n";
 }
