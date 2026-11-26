@@ -25,4 +25,10 @@ class Test(unittest.TestCase):
         for blocks in ({**new,T:(GUARD,)},{**new,L:(N,)},old):
             with self.assertRaises(ValueError):expand(old,blocks,old,R)
         with self.assertRaises(ValueError):expand(old,new,{**old,R:(GUARD,)},R)
+    def test_missing_const_read(self):
+        c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),())
+        with self.assertRaisesRegex(ValueError,'data contract'):render(c)
+    def test_stack_read_not_a_file_constant(self):
+        c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,-8,True,False),),((4,32),),())
+        self.assertIn('true,false}',render(c))
 if __name__=='__main__':unittest.main(verbosity=2)

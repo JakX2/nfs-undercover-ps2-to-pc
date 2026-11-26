@@ -5,6 +5,7 @@ from pathlib import Path
 from private_plan_cache import plan_cache_scope
 from prepare_formatter_nested_contract import plan as nested_plan
 from prepare_formatter_second_contract import plan as second_plan
+from prepare_formatter_third_contract import plan as third_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import check_spans
@@ -14,10 +15,13 @@ from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
 
-def plan(d,e,*,second=False):
+def plan(d,e,*,second=False,third=False):
+    if second and third:raise ValueError('nested fixture mode')
     prior=continuation_plan(d,e,details=True)
     first=nested_plan(d,e,previous=prior[1])
-    return prior,second_plan(d,e,previous=prior[1],first=first) if second else first
+    if not (second or third):return prior,first
+    two=second_plan(d,e,previous=prior[1],first=first)
+    return prior,third_plan(d,e,previous=prior[1],second=two) if third else two
 
 def render(contract):
     _,fields,rows,access,slots,known=contract
@@ -25,6 +29,10 @@ def render(contract):
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
     wr=','.join('undercover::wii::IpcDispatchWord{'+fmt((root,pc,w))+'}' for pc,w in rows)
     values={pc:int.from_bytes(data,'big') for pc,_,data in known}
+    if len(values)!=len(known) or any(sum(site[0]==pc and not site[3] and not site[4] and site[2]==at and site[1]==len(data) for site in access)!=1 for pc,at,data in known):
+        raise ValueError('nested fixture data contract')
+    if any(not stack and not write and pc not in values for pc,_,_,stack,write in access):
+        raise ValueError('nested fixture data contract')
     ar=','.join('undercover::wii::ScFormatterAccess{'+fmt((pc,n))+','+str(at)+','+str(stack).lower()+','+str(write).lower()+
                 (','+fmt((values[pc],)) if pc in values else '')+'}' for pc,n,at,stack,write in access)
     sr=','.join('undercover::wii::StmFinalSlot{'+str(at)+','+str(reg)+'u}' for at,reg in slots)
@@ -89,12 +97,12 @@ def install(directory,p):
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);a.add_argument('--second',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');q=a.parse_args()
+    safe={'size','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
-        with plan_cache_scope(): p=plan(d,e,second=q.second)
+        with plan_cache_scope(): p=plan(d,e,second=q.second,third=q.third)
         if q.fixture:extend(q.fixture,p);return 0
         if q.install:install(q.install,p);return 0
         if q.analyzer:
