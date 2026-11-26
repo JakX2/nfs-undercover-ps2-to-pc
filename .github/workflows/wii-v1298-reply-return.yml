@@ -1,0 +1,21 @@
+name: Wii V1298 Reply Handler Return Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1298*'
+      - '.github/workflows/wii-v1298-reply-return.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native latch and two original-function ABI return contracts
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -DUNDERCOVER_TEST_NESTED_WAKE -DUNDERCOVER_TEST_REPLY_COMPLETION -DUNDERCOVER_TEST_REPLY_RETURN -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1298
+          /tmp/v1298

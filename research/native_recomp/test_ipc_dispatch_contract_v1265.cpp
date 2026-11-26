@@ -11,6 +11,9 @@
 #include "wii_nested_wake_return_v1291.h"
 #ifdef UNDERCOVER_TEST_REPLY_COMPLETION
 #include "wii_reply_completion_v1293.h"
+#ifdef UNDERCOVER_TEST_REPLY_RETURN
+#include "wii_reply_return_v1298.h"
+#endif
 #endif
 #endif
 #endif
@@ -54,7 +57,10 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0,unsigned return_case=0){
+#ifndef UNDERCOVER_TEST_REPLY_RETURN
+    (void)return_case;
+#endif
 #ifndef UNDERCOVER_TEST_REPLY_COMPLETION
     (void)finish_case;
 #endif
@@ -190,6 +196,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         constexpr std::array<uint32_t,0> polls{};
         m.write32(Handler+4u,edges[0].branch_word);m.write32(Handler+8u,reply_edge.branch_word);
         m.write32(Leaf,edges[0].entry_word);m.write32(Reply,reply_edge.entry_word);
+#ifdef UNDERCOVER_TEST_REPLY_RETURN
+        const auto handler_abi=ReplyReturnAbi::capture(c);
+#endif
         JoinedIpcReplyEntry j(Handler,Leaf,reply_edge,Context,Thread,edges,polls);
         auto refuse=[&](bool ok,unsigned reason){assert(!ok&&j.failure()==reason);unchanged();};
         if(join_case==1)++c.inst_count;
@@ -230,6 +239,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             {Leaf,Reply+16u,words[3].word,Lwz},{Cache,Reply+20u,words[4].word,Dcbi1},
             {Wake,Reply+24u,words[5].word,Nop}}};
         for(auto x:words)m.write32(x.pc,x.word);
+#ifdef UNDERCOVER_TEST_REPLY_RETURN
+        const auto processor_abi=ReplyReturnAbi::capture(c);
+#endif
         ReplyProcessorWitness body({Reply,Leaf,Writer,Cache,Wake,Reply+24u,Context,Thread,words,calls});
         auto reject=[&](bool ok,unsigned reason){assert(!ok&&body.failure()==reason&&host.serviced_steps()==2u);};
         if(processor_case==1)++c.inst_count;
@@ -353,6 +365,49 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         ok=nested.poll(c,true);if(nested_case==11){nr(ok,7);return;}
         assert(ok&&nested.stage()==2u&&ready.ready_held(c,true)&&host.serviced_steps()==2u);
 #ifdef UNDERCOVER_TEST_REPLY_COMPLETION
+#ifdef UNDERCOVER_TEST_REPLY_RETURN
+        if(return_case){
+            constexpr uint32_t P=Reply+24u,Hret=Handler+12u,Dret=Code.indirect_pc+4u;
+            const std::array<ReplyNativeWord,7> rw{{
+                {Reply,P,bl(P,Writer)},{Reply,P+4u,Nop},{Reply,P+8u,Blr},
+                {Writer,Writer,Stw},{Writer,Writer+4u,Blr},{Leaf,Leaf,Lwz},{Handler,Hret,Blr}}};
+            const std::array<VectorEdge,1> re{{{Writer,P+4u,rw[0].word,Stw}}};
+            for(auto x:rw)m.write32(x.pc,x.word);
+            ReplyReturnWitness ret({Reply,Handler,Leaf,Writer,P,Hret,Dret,Counter,rw,re});
+            auto no=[&](bool result,unsigned reason){assert(!result&&ret.failure()==reason&&host.serviced_steps()==2u);};
+            if(return_case==2)++c.inst_count;
+            ok=ret.begin(c,body,ready,nested,frame,Queue,Request,handler_abi,processor_abi,true);
+            if(return_case==2){no(ok,1);return;}assert(ok);
+            if(return_case==3)c.pc+=4u;
+            ok=ret.poll(c,true);if(return_case==3){no(ok,6);return;}assert(ok);
+            auto rs=[&](uint32_t pc){c.pc=pc;++c.inst_count;return ret.before(c,pc,m.read32(pc),true);};
+            if(return_case!=4)++c.inst_count;
+            ok=rs(P);if(return_case==4){no(ok,3);return;}assert(ok);
+            c.lr=P+4u;c.pc=Writer;
+            if(return_case==5)c.lr+=4u;
+            ok=ret.entry(c,Writer,true);if(return_case==5){no(ok,2);return;}assert(ok);
+            c.gpr[3]=H::IPC_PPC;c.gpr[4]=Bus::IPC+H::PPC_FLAG;
+            assert(rs(Writer));
+            if(return_case==6){no(ret.write(c,Bus::IPC+H::PPC_FLAG,0u,true),7);return;}
+            if(return_case==7){no(rs(Writer+4u),7);return;}
+            assert(ret.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true));
+            if(return_case==8){no(ret.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true),7);return;}
+            assert(rs(Writer+4u)&&rs(P+4u));
+            c.gpr[1]=processor_abi.gp[1];c.lr=Hret;
+            if(return_case==9)c.gpr[31]^=1u;
+            ok=rs(P+8u);if(return_case==9){no(ok,5);return;}assert(ok);
+            c.pc=Hret;
+            if(return_case==10)c.mmu.write32(Counter,0u);
+            ok=ret.poll(c,true);if(return_case==10){no(ok,6);return;}assert(ok);
+            c.gpr[1]=handler_abi.gp[1];c.lr=Dret;++c.inst_count;
+            if(return_case==11)c.gpr[14]^=1u;
+            ok=rs(Hret);if(return_case==11){no(ok,5);return;}assert(ok);
+            c.pc=Dret;if(return_case==12)++c.inst_count;
+            ok=ret.poll(c,true);if(return_case==12){no(ok,6);return;}assert(ok);
+            assert(return_case==1&&ret.returned(c,true)&&ret.writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
+            return;
+        }
+#endif
         ReplyCompletionGate finish;
         if(finish_case==1)++c.inst_count;
         ok=finish.begin(c,body,ready,nested,frame,Queue,finish_case==2?Request+32u:Request,finish_case!=3);
@@ -450,6 +505,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_REPLY_COMPLETION
     for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,0,i);
     std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=1 refused=11 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_REPLY_RETURN
+    for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
+    std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
+#endif
 #endif
 #endif
 #endif
