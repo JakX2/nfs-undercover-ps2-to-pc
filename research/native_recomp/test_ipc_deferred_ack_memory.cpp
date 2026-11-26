@@ -21,11 +21,13 @@ static void trial(unsigned fd,bool wrap,unsigned fault){
     c.mmu.write32(Credit,fault==3?1u:0u);
     c.mmu.write32(P,2);c.mmu.write32(U,fault==4?0u:1u);
     c.mmu.write32(A+8,Req);c.mmu.write32(F+8,fault==5?1u-fd:fd);
-    if(fault==6){c.mmu.write32(A+12,Req);c.mmu.write32(F+12,fd);}
+    if(fault==6||fault>=23){c.mmu.write32(A+12,Req);c.mmu.write32(F+12,fault==6?fd:1u-fd);}
+    if(fault==25)c.mmu.write32(A+8,Req+32u);
+    if(fault==26)c.mmu.write32(F+8,1u-fd);
     c.mmu.write32(Req+8,fd);
     IpcDeferredAckMemory w;
-    bool ok=w.begin(c,{Ring,80},{Credit,4},{{P,4},{U,4},{A,128},{F,128}},{Req,64},{Sp,64},16,fd,fault!=1);
-    if(fault>=1&&fault<=6){assert(!ok);return;}assert(ok);
+    bool ok=w.begin(c,{Ring,80},{Credit,4},{{P,4},{U,4},{A,128},{F,128}},{Req,64},{Sp,64},16,fd,fault!=1,fault>=23?(fault==24?3u:fault==27?32u:2u):~0u);
+    if((fault>=1&&fault<=6)||(fault>=24&&fault<=27)){assert(!ok);return;}assert(ok);
     if(fault==7){assert(!w.authorize(c,Credit,1,4,true));return;}
     if(fault==8){assert(!w.latch_cleared(c,false));return;}
     if(fault==9){assert(!w.settled(other));return;}
@@ -44,5 +46,5 @@ static void trial(unsigned fd,bool wrap,unsigned fault){
     assert(w.preserved(c)&&w.stores()==2u&&c.mmu.read32(P)==2u&&c.mmu.read32(A+8)==Req);
     if(fault==22){c.mmu.write32(F+8,0xffffffffu);assert(!w.preserved(c));}
 }
-int main(){for(unsigned fd:{0u,1u})for(bool wrap:{false,true})for(unsigned f=0;f<=22;++f)trial(fd,wrap,f);
-    std::cout<<"IPC_DEFERRED_ACK_MEMORY_TEST cases=92 original_execution=0\n";}
+int main(){for(unsigned fd:{0u,1u})for(bool wrap:{false,true})for(unsigned f=0;f<=27;++f)trial(fd,wrap,f);
+    std::cout<<"IPC_DEFERRED_ACK_MEMORY_TEST cases=112 original_execution=0\n";}

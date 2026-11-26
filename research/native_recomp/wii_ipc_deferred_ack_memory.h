@@ -12,7 +12,8 @@ public:
     unsigned stores()const{return stores_;}
     unsigned detail()const{return detail_;}
     template<class C>bool begin(C& c,AllocatorRange ring,AllocatorRange credit,IpcProfileLayout profile,
-                                AllocatorRange request,AllocatorRange stack,unsigned slots,uint32_t fd,bool authorized){
+                                AllocatorRange request,AllocatorRange stack,unsigned slots,uint32_t fd,bool authorized,
+                                unsigned authenticated_slot=~0u){
         if(stage_||error_||!authorized||fd>1u||slots<2u||slots>64u||ring.size!=16u+4u*slots||
            credit.size!=4u||profile.pending.size!=4u||profile.unissued.size!=4u||
            profile.pointers.size!=profile.descriptors.size||profile.pointers.size<8u||
@@ -32,13 +33,23 @@ public:
         if(shadow_[1][0]!=0u)return bad(2,4);
         if(!shadow_[2][0]||!shadow_[3][0])return bad(2,5);
         if(shadow_[3][0]>shadow_[2][0])return bad(2,6);
-        unsigned matches=0;
-        for(unsigned i=0;i<shadow_[4].size();++i)
-            if(shadow_[4][i]==request.base){
-                if(shadow_[5][i]!=fd)return bad(2,7);
-                ++matches;
-            }
-        if(matches!=1u)return bad(2,8);
+        // The original enqueue helper may have selected a fresh slot while
+        // earlier synthetic-startup Open records retain a reused pointer.
+        // In the joined lane the slot index comes only from the verified
+        // enqueue witness, not a scan of the current pointer values.
+        if(authenticated_slot!=~0u){
+            if(authenticated_slot>=shadow_[4].size()||
+               shadow_[4][authenticated_slot]!=request.base||
+               shadow_[5][authenticated_slot]!=fd)return bad(2,10);
+        }else{
+            unsigned matches=0;
+            for(unsigned i=0;i<shadow_[4].size();++i)
+                if(shadow_[4][i]==request.base){
+                    if(shadow_[5][i]!=fd)return bad(2,7);
+                    ++matches;
+                }
+            if(matches!=1u)return bad(2,8);
+        }
         if(c.mmu.read32(request.base+8u)!=fd)return bad(2,9);
         for(unsigned off=0;off<request.size;++off)request_shadow_.push_back(c.mmu.read8(request.base+off));
         req_=request;cpu_=&c;stage_=1;return true;

@@ -15,6 +15,7 @@ public:
     unsigned failure()const{return error_;}
     unsigned stores()const{return stores_;}
     bool slot_available()const{return slot_<slots_;}
+    unsigned selected_slot()const{return slot_;}
     template<class C>bool begin(C& c,IpcProfileLayout p,AllocatorRange request,
                                 AllocatorRange stack,AllocatorRange ring,uint32_t fd,bool authenticated){
         if(cpu_||error_||!authenticated||fd>1u||request.size<64u||(request.base&31u)||

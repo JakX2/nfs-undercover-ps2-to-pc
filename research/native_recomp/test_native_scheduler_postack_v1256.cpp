@@ -3266,7 +3266,9 @@ int main(int argc,char** argv)try{
         const auto dx=ipc_dispatch_private::expected;
         const auto req3=ioctl_build->request();
         if(!ack_memory3.begin(c,dx.ring,dx.credit,dx.profile,{req3,ioctl_build->allocated_size()},
-            {c.gpr[1]-512u,520u},dx.slots,c.mmu.read32(req3+8u),ioctl_event_gate->deferred_held(true)))third_vector_refuse(5);
+            {c.gpr[1]-512u,520u},dx.slots,c.mmu.read32(req3+8u),
+            ioctl_event_gate->deferred_held(true)&&ioctl_profile->stage()==2u&&ioctl_profile->slot_available(),
+            ioctl_profile->selected_slot()))third_vector_refuse(5);
         SecondVectorWitness vec3({v1260::trampoline,v1260::dispatcher,Q::Thread,
             v1260::dispatcher_word,v1260::vector_words,v1260::trampoline_words});
         third_context=Q::Thread;third_wait=sleep2.queue();

@@ -23,6 +23,7 @@ public:
     unsigned polls()const{return polls_;}
     unsigned ordinal()const{return ordinal_;}
     bool slot_available()const{return profile_.slot_available();}
+    unsigned selected_slot()const{return profile_.selected_slot();}
     template<class C>bool begin(C& c,bool held,AllocatorRange request,AllocatorRange stack,AllocatorRange ring,uint32_t fd){
         if(stage_||error_||!held||!safe(c)||!e_.helper||e_.call>0xfffffffbu||
            c.pc!=e_.helper||c.lr!=e_.call+4u||c.gpr[3]!=request.base||c.gpr[4]!=fd||
