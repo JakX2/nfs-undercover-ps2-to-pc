@@ -27,7 +27,7 @@ def contract(prior,root,words,result,target_word):
         raise ValueError('continuation arguments')
     return blocks,root,start,dst,target_word,rows,mask,args
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     prior=fixture_plan(d,e)
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
@@ -35,7 +35,8 @@ def plan(d,e):
     result=resume(path[0],ws,(path,frame,accesses,saved,leaf_root,gp,mem,state),leaf,readonly)
     dst=result[4]
     if parse_functions(e).get(dst)!=383*4:raise ValueError('continuation target size')
-    return contract(prior,path[0],ws,result,exact_words(d,e,dst,1)[0])
+    prepared=contract(prior,path[0],ws,result,exact_words(d,e,dst,1)[0])
+    return (prior,prepared) if details else prepared
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

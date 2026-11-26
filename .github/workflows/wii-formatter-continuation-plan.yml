@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/prepare_formatter_continuation_plan.py'
+      - 'research/native_recomp/prepare_formatter_continuation_fixture.py'
+      - 'research/native_recomp/test_formatter_continuation_fixture.py'
       - 'research/native_recomp/test_formatter_continuation_plan.py'
       - '.github/workflows/wii-formatter-continuation-plan.yml'
 permissions:
@@ -25,6 +27,7 @@ jobs:
           python3 research/native_recomp/test_stm_outer_restore.py
           python3 research/native_recomp/test_guarded_continuation.py
           python3 research/native_recomp/test_formatter_continuation_plan.py
+          python3 research/native_recomp/test_formatter_continuation_fixture.py
   owner-geometry:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -76,6 +79,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 research/native_recomp/prepare_formatter_continuation_plan.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          python3 research/native_recomp/prepare_formatter_continuation_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Clean private originals
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
