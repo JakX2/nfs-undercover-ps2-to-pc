@@ -1,0 +1,20 @@
+name: Wii V1281 Joined Reply Wake Fixture
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1281*'
+      - '.github/workflows/wii-v1281-reply-wake-fixture.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fixture merge and generated C++ metadata
+        run: |
+          python3 -m py_compile research/native_recomp/prepare_v1281_reply_fixture.py
+          python3 -m unittest discover -s research/native_recomp -p test_v1281_reply_fixture.py -v
