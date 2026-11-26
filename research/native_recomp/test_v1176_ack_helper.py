@@ -250,6 +250,16 @@ class AckReturnMetadata(unittest.TestCase):
                     ins.verify_return_metadata(b'',b'',old,dest,HOST,(C,rows,stops),site+4)
                 h.write_text(h.read_text()+'// changed\n')
                 with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_return_metadata(b'',b'',old,dest,HOST,(C,rows,stops),site)
+    def test_dispatch_hook(self):
+        pc=H+16
+        hook=f'    undercover::wii::v958::postalarm_dispatch_resume(ctx,0x{pc:08x}u,0x{W:08x}u);\n'
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {W:08X}\n'
+        ins.verify_return_dispatch_hook(label+hook+T+SI,pc,W)
+        for fault in (T+hook+SI,hook+hook+T+SI,hook+'    ctx.inst_count+=1;\n'+T+SI,
+                      hook.replace('0x60000000u','0x60000001u')+T+SI,
+                      '    if(false) '+hook.lstrip()+T+SI,hook+T+T+SI,T+SI):
+            with self.subTest(fault=fault),self.assertRaisesRegex(ValueError,'ACK return dispatch'):
+                ins.verify_return_dispatch_hook(label+fault,pc,W)
     def test_requires_suffix(self):
         with self.assertRaisesRegex(ValueError,'ACK return mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,False,True)

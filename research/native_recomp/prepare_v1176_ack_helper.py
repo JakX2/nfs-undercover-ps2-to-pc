@@ -295,6 +295,16 @@ def verify_return_metadata(dol,elf,old,dest,host,suffix_meta,callback_site):
         if h.is_symlink() or not h.is_file() or h.read_text()!=s:raise ValueError('ACK return metadata')
     return C,call,R,caller,restore,tail,caller_word,words[(call-C)//4]
 
+def verify_return_dispatch_hook(body,caller,caller_word):
+    block=block_at(body,caller,caller_word)
+    hook=f'    undercover::wii::v958::postalarm_dispatch_resume(ctx,0x{caller:08x}u,0x{caller_word:08x}u);\n'
+    tick='    ++ctx.inst_count;\n'
+    # The dispatcher already advanced its tick. No additional executable
+    # statement or conditional may appear between this observer and the
+    # original caller label's own tick.
+    if block.count('v958::postalarm_dispatch_resume(')!=1 or block.count(hook)!=1 or block.count(tick)!=1 or block.count(hook+tick)!=1:
+        raise ValueError('ACK return dispatch')
+
 def verify_return_native(src,outer,meta):
     C,call,R,caller,restore,tail,caller_word,call_word=meta
     for addr,rows in ((C,{call+4+4*i:w for i,w in enumerate(tail)}),
@@ -307,11 +317,7 @@ def verify_return_native(src,outer,meta):
             verify_direct(body,call,R);verify_label(body,call,call_word,False);checked[call]=(addr,call_word)
         if addr==HANDLER:
             verify_resume_dispatch(outer,HANDLER,caller)
-            block=block_at(body,caller,caller_word)
-            hook=f'    undercover::wii::v958::postalarm_dispatch_resume(ctx,0x{caller:08x}u,0x{caller_word:08x}u);\n'
-            tick='    ++ctx.inst_count;\n'
-            if block.count(hook)!=1 or block.count(tick)!=1 or block.index(hook)>block.index(tick):
-                raise ValueError('ACK return dispatch')
+            verify_return_dispatch_hook(body,caller,caller_word)
         if audit_native([body],outer,checked)!=len(checked):raise ValueError('ACK return coverage')
         for pc,w in rows.items():verify_label(body,pc,w,False)
 
