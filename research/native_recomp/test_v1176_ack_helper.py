@@ -263,4 +263,30 @@ class AckReturnMetadata(unittest.TestCase):
     def test_requires_suffix(self):
         with self.assertRaisesRegex(ValueError,'ACK return mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,False,True)
+class AckHandlerMetadata(unittest.TestCase):
+    def test_metadata(self):
+        caller=H+16;rd=caller+20;wr=caller+36
+        rows={caller+4*i:(W,0,0) for i in range(52)}
+        rows[rd]=(0x80830038,0,0);rows[wr]=(0x90830038,0,0)
+        for i,o in zip((49,50,51),(7,8,12)):rows[caller+4*i]=(0x48000001,o,1)
+        census={pc:(o,k) for pc,(_,o,k) in rows.items() if k}
+        index=(caller,[W]*14,(H+0x400,H+0x404,H+0x408,H+0x40c),20,caller+64)
+        prior=(H+0x1000,H+0x1040,H+0x2000,caller,[],[],W,W)
+        old='#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v1139_private_postalarm_handler.h'
+            h.write_text(ins.handler_render(rows,rd,wr,index))
+            for n in ('wii_handler_suffix_guard_v868.h','wii_handler_index_branch_v911.h'):
+                (dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'handler_derive',return_value=([],[caller-4,caller+4],[rows,{}],rd,wr,index)),patch.object(ins,'call_census',return_value=census):
+                self.assertEqual(ins.verify_handler_metadata(b'',b'',old,dest,HOST,prior),(rows,caller))
+                for bad in (old+old,old.replace('HANDLER 1','HANDLER 0'),old+'#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_handler_metadata(b'',b'',bad,dest,HOST,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_handler_metadata(b'',b'',old,dest,HOST,(*prior[:3],caller+4,*prior[4:]))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_handler_metadata(b'',b'',old,dest,HOST,prior)
+    def test_requires_return(self):
+        with self.assertRaisesRegex(ValueError,'ACK handler mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()

@@ -412,4 +412,18 @@ class AckReturnAudit(unittest.TestCase):
             for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.prior_suffix.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.prior_suffix.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=24 reason=28 epilogue=0 reentry=37',c.RESULT)):
                 self.assertFalse(inspect(*rows))
             self.assertFalse(inspect(*prior,c.RESULT,rc=126))
+class AckHandlerAudit(unittest.TestCase):
+    def test_exact_handler(self):
+        import audit_v1211_ack_handler as c
+        h=c.helper;r=h.ret;p=r.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=11 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,r.time.RESULT,r.frontier.RESULT,r.wireless.RESULT,r.suffix.RESULT,r.RESULT,h.handler.RESULT,h.returned.RESULT,h.epilogue.RFI,h.epilogue.RESULT,h.dispatch.RESULT,h.ack.RESULT,h.RESULT,c.callback.RESULT,c.prior_prefix.RESULT,c.prior_time.RESULT,c.prior_frontier.RESULT,c.prior_wireless.RESULT,c.prior_suffix.RESULT,c.prior_return.RESULT)
+        def inspect(*rows,rc=0):return c.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,c.RESULT))
+            for old,new in ((b'ordinal=12',b'ordinal=7'),(b'branch_taken=1',b'branch_taken=0'),(b'visits=20',b'visits=15'),(b'status_reads=1',b'status_reads=0'),(b'status_writes=1',b'status_writes=2'),(b'token=3',b'token=4'),(b'saved_fields=38',b'saved_fields=37'),(b'pi_cleared=1',b'pi_cleared=0'),(b'call_executed=0',b'call_executed=1')):
+                self.assertFalse(inspect(*prior,c.RESULT.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.prior_return.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.prior_return.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=26 reason=30 epilogue=0 reentry=41',c.RESULT)):
+                self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,c.RESULT,rc=126))
 if __name__=='__main__':unittest.main()
