@@ -268,11 +268,11 @@ int main(int argc,char** argv){
                 constexpr uint32_t A=H+0xb00u,D=H+0xc00u,Q=H+0xd00u,Head=0x8000e000u,Tail=Head+4,Node=Head+0x100u;
                 constexpr uint32_t Rd=0x80830038u,Wr=0x90830038u,Site=H+36;
                 c.mmu.words[H+28]=Rd;c.mmu.words[H+32]=Wr;c.mmu.words[Site]=bl(Site,A);c.mmu.words[Site+4]=Nop;
-                c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Blr;
+                c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Nop;c.mmu.words[A+16]=Blr;
                 c.mmu.words[D]=Mtmsr;c.mmu.words[D+4]=Blr;c.mmu.words[Q]=Mtmsr;c.mmu.words[Q+4]=Blr;
                 c.mmu.words[Head]=c.mmu.words[Tail]=0;for(unsigned i=0;i<10;++i)c.mmu.words[Node+4*i]=0;
                 AlarmCancelExpectation expectation{};expectation.site=Site;expectation.branch=bl(Site,A);
-                expectation.root=A;expectation.end=A+16;expectation.head=Head;expectation.tail=Tail;
+                expectation.root=A;expectation.end=A+20;expectation.head=Head;expectation.tail=Tail;
                 expectation.root_calls[0]={A,D,D+8,bl(A,D)};expectation.root_calls[1]={A+8,Q,Q+8,bl(A+8,Q)};
                 const std::array<HandlerSuffixLabel,4> rows{{{H+24,Nop,0,0},{H+28,Rd,0,0},{H+32,Wr,0,0},{Site,bl(Site,A),5,1}}};
                 ThirdAlarmSuffixRoute alarm(expectation);
@@ -297,9 +297,9 @@ int main(int argc,char** argv){
                 need(alarm_at(A+4,Nop)&&alarm_at(A+8,bl(A+8,Q)));
                 c.pc=Q;c.lr=A+12;need(alarm.entry(c,Q,third));
                 c.gpr[3]=c.msr;need(alarm_at(Q,Mtmsr));c.gpr[3]=0;need(alarm_at(Q+4,Blr));
-                c.lr=Site+4;need(alarm_at(A+12,Blr));
+                need(alarm_at(A+12,Nop));c.lr=Site+4;need(alarm_at(A+16,Blr));
                 if(mode=="error-third-native-alarm-queue"){c.mmu.words[Head]=Node;return refused(!alarm_at(Site+4,Nop));}
-                need(alarm_at(Site+4,Nop)&&alarm.stage()==3u&&alarm.alarm().total()==8u&&
+                need(alarm_at(Site+4,Nop)&&alarm.stage()==3u&&alarm.alarm().total()==9u&&
                      alarm.alarm().calls()==3u&&third.held_now()&&third.suffix_status_reads()==1u&&third.suffix_status_writes()==1u&&cause==(Other|SI));
                 std::cout<<"V1047_THIRD_ALARM verified=1 token=3 status_reads=1 status_writes=1 alarm_return=1 original_execution=0"<<std::endl;return 0;
             }
