@@ -1,0 +1,3 @@
+# V1347 allocator free native-return contract
+
+V1345 private census verified 123 reachable labels, two direct helper calls, one return, 20 static scalar store sites (five stack and fifteen non-stack); no other store forms. Build a read-only route witness from authenticated free entry through nested disable, exact original stores in bounded stack/IPC heap, restore EE, original return and caller ABI. Require actual heap writes; report result without claiming full allocator equivalence. No optional metadata range admitted in this lane until privately authenticated. Nine synthetic cases. Owner execution remains gated on V1344 and source tests.
