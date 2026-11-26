@@ -1,0 +1,5 @@
+# V1287: advance the owner reply lane after verified original RFI
+
+Owner run 45802667477 (a3f68cde86036cc81a2aaa47d85fccd6c27570ba) passed eight of eight trials: actual original SelectThread, original RFI, restored idle integer context, second external IRQ vector/trampoline, 38 saved fields, no fallback. This is a focused joined fixture, not complete-image boot. V1284 regression passed 30/30. The deeper V1282 source gate passed, but owner execution was deliberately disabled pending the RFI proof; enable only the deeper owner workflow, which already includes the V1275 second dispatcher and reply entry. Do not independently duplicate the shorter owner run.
+
+Full-image retry 45802770404 passed the V1283 path and C++ budget tests but failed legacy installer regression: the local variable paths was overwritten by the generated shard path list, causing incorrect private header metadata. Rename the derived count tuple to callback_paths, leaving source path enumeration untouched. Re-run existing gated full-image workflow, without bypassing source checks. No original continuous callback advance claimed.

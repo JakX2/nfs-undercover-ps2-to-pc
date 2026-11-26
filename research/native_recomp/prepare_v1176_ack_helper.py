@@ -648,7 +648,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     for line in prior.splitlines():
         if 'inline constexpr ' in line and old.count(line+'\n')!=1:raise ValueError('ACK helper metadata')
     callback_site=verify_callback_metadata(dol,elf,spans,rows,old) if callback else None
-    paths=path_lengths(rows,HANDLER,expected[0],callback_site) if callback else ()
+    callback_paths=path_lengths(rows,HANDLER,expected[0],callback_site) if callback else ()
     if callback and ('UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK' in old or
         (dest/'wii_callback_identity_v796.h').is_symlink() or
         (dest/'wii_callback_identity_v796.h').read_text()!=(host/'wii_callback_identity_v796.h').read_text()):
@@ -717,7 +717,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
         (dest/'v1227_private_ack_leaf.h').write_text(render_leaf(leaf_meta[0],leaf_meta[1],leaf_meta[3]))
         (dest/'wii_irq_leaf_finish_v927.h').write_text((host/'wii_irq_leaf_finish_v927.h').read_text())
     for path,content in ipc_files.items():path.write_text(content)
-    result.write_text(render(spans,edges,rows,msr,expected,callback_guard,paths))
+    result.write_text(render(spans,edges,rows,msr,expected,callback_guard,callback_paths))
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'
