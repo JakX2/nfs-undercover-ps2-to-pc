@@ -715,7 +715,32 @@ int main(int argc,char** argv){
                                                                             if(i==23){c.gpr[3]=1;c.gpr[4]=tf=="-result"?0x1255u:0x1254u;c.lr=Root2+28u;}
                                                                         }
                                                                         if(tf=="-offset")c.mmu.words[v813::Offset+4u]^=1u;
+#ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
+                                                                        const bool frontier_mode=v958::ack_frontier_enabled();
+                                                                        const auto ff=tf.starts_with("-frontier")?tf.substr(std::string_view("-frontier").size()):std::string_view{};
+                                                                        if(frontier_mode){
+                                                                            need(tf.starts_with("-frontier"));
+                                                                            for(auto row:v831::words)c.mmu.words[row.pc]=row.word;
+                                                                            if(ff=="-identity")c.mmu.words[Root2+36u]^=1u;
+                                                                        }
+#endif
                                                                         visit(Root2+28u,v813::continuation.back());
+#ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
+                                                                        if(frontier_mode){
+                                                                            need(v958::held_epilogue.stage()==18u&&v958::ack_frontier.visits()==1u);
+                                                                            if(ff=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                            if(ff=="-tick")scheduler.advance(++tick);
+                                                                            if(ff=="-device")mask=0;
+                                                                            if(ff=="-bus")SiBinding::write32(Base+C,*val);
+                                                                            if(ff=="-entry")v958::observe(Root2+32u,c);
+                                                                            if(ff=="-poll")v958::poll(c);
+                                                                            visit(Root2+32u,v831::words[1].word,ff=="-guard");
+                                                                            c.gpr[3]=ff=="-channel"?1u:2u;c.gpr[4]=0u;
+                                                                            visit(Root2+36u,v831::words[2].word);
+                                                                            if(ff!="-store")c.mmu.words[c.gpr[1]+8u]=0;
+                                                                            visit(Root2+40u,v831::words[3].word);
+                                                                        }
+#endif
                                                                     }
 #endif
                                                                 }
