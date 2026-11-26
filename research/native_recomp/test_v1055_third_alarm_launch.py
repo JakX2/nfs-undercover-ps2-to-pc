@@ -478,4 +478,28 @@ class AckPrefixLaunch(unittest.TestCase):
             self.assertNotIn('V1187_ACK_PREFIX_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1184_ACK_PREFIX=1',p.stdout)
             self.assertIn('V1182_ACK_CALLBACK_BUILD_PLAN' if build else 'audit=audit_v1182_ack_callback.py',p.stdout)
+class AckTimeLaunch(unittest.TestCase):
+    def setUp(self):
+        base=AckPrefixLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1191_ACK_TIME='1',UNDERCOVER_PREPARE_V1190_ACK_TIME='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1191_ACK_TIME_BUILD_PLAN links=1 private_installer=1 prefix_predecessor=1' if build else 'audit=audit_v1191_ack_time.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1189_ACK_TIME=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1191_ACK_TIME','UNDERCOVER_PREPARE_V1190_ACK_TIME','UNDERCOVER_RUN_V1187_ACK_PREFIX','UNDERCOVER_PREPARE_V1186_ACK_PREFIX'):
+            for val in ('','0','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_prefix_only(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertNotIn('V1191_ACK_TIME_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1189_ACK_TIME=1',p.stdout)
+            self.assertIn('V1187_ACK_PREFIX_BUILD_PLAN' if build else 'audit=audit_v1187_ack_prefix.py',p.stdout)
 if __name__=='__main__':unittest.main()

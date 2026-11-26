@@ -213,6 +213,10 @@ ack_prefix="${UNDERCOVER_RUN_V1187_ACK_PREFIX-0}"
 [[ "$ack_prefix" == 0 || "$ack_prefix" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1186_ACK_PREFIX-0}" == "$ack_prefix" ]] || exit 2
 [[ "$ack_prefix" == 0 || "$ack_callback" == 1 ]] || exit 2
+ack_time="${UNDERCOVER_RUN_V1191_ACK_TIME-0}"
+[[ "$ack_time" == 0 || "$ack_time" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1190_ACK_TIME-0}" == "$ack_time" ]] || exit 2
+[[ "$ack_time" == 0 || "$ack_prefix" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -257,6 +261,9 @@ if [[ "$third_postalarm" == 1 ]]; then
                           echo 'V1182_ACK_CALLBACK_BUILD_PLAN links=1 private_installer=1 helper_predecessor=1'
                           if [[ "$ack_prefix" == 1 ]]; then
                             echo 'V1187_ACK_PREFIX_BUILD_PLAN links=1 private_installer=1 callback_predecessor=1'
+                            if [[ "$ack_time" == 1 ]]; then
+                              echo 'V1191_ACK_TIME_BUILD_PLAN links=1 private_installer=1 prefix_predecessor=1'
+                            fi
                           fi
                         fi
                       fi
@@ -438,6 +445,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                                     callback_args=()
                                                                     if [[ "$ack_callback" == 1 ]]; then callback_args+=(--callback); fi
                                                                     if [[ "$ack_prefix" == 1 ]]; then callback_args+=(--prefix); fi
+                                                                    if [[ "$ack_time" == 1 ]]; then callback_args+=(--time); fi
                                                                     python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi
