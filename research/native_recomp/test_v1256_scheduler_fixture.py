@@ -24,5 +24,10 @@ class Scheduler(unittest.TestCase):
         blocks={ROOT+4*i:(BLR,) for i in range(33)}
         with self.assertRaises(ValueError):assemble(blocks,ROOT)
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=48),ROOT,1),(BLR,))
-        with self.assertRaises(ValueError):assemble(blocks,ROOT,max_roots=49)
+        self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=51),ROOT,1),(BLR,))
+        with self.assertRaises(ValueError):assemble(blocks,ROOT,max_roots=52)
+        at_cap={ROOT+4*i:(BLR,) for i in range(51)}
+        self.assertEqual(words_at(assemble(at_cap,ROOT,max_roots=51),ROOT,1),(BLR,))
+        with self.assertRaises(ValueError):assemble(at_cap,ROOT,max_roots=50)
+        with self.assertRaises(ValueError):assemble({**at_cap,ROOT+4*51:(BLR,)},ROOT,max_roots=51)
 if __name__=='__main__':unittest.main()
