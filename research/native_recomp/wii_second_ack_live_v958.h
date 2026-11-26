@@ -7,6 +7,9 @@
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
 #include "wii_third_alarm_suffix_v1047.h"
 #include "v786_private_alarm.h"
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+#include "v813_private_callback_time.h"
+#endif
 #endif
 #endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
@@ -44,18 +47,46 @@ inline bool third_alarm_active(){return third_alarm.stage()==1u||third_alarm.sta
 inline thread_local ThirdAlarmCallbackRoute<third_postalarm_prefix.size(),third_postalarm_save.size(),third_postalarm_words.size()>
     third_postalarm(transfer_callback,third_postalarm_save_root,third_postalarm_prefix,third_postalarm_save,third_postalarm_words,third_postalarm_sites);
 inline bool third_postalarm_enabled(){const char* v=std::getenv("UNDERCOVER_V1095_AFTER_ALARM");return v&&v[0]=='1'&&v[1]=='\0';}
-inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u;}
+inline bool third_postalarm_active(){return third_postalarm.stage()==1u||third_postalarm.stage()==2u||third_postalarm.stage()==4u;}
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+inline bool third_postalarm_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1103_POSTALARM_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
+[[noreturn]]inline void reject_postalarm_time(){
+    std::cout<<std::dec<<"V1103_POSTALARM_TIME_FAULT route="<<third_postalarm.failure()
+             <<" witness="<<third_postalarm.time_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
+    std::_Exit(126);
+}
+#endif
 [[noreturn]]inline void reject_postalarm(){
     std::cout<<std::dec<<"V1095_AFTER_ALARM_FAULT route="<<third_postalarm.failure()
              <<" prefix="<<third_postalarm.prefix_failure()<<" stage="<<third_postalarm.stage()<<std::endl;
     std::_Exit(126);
 }
 template<class C>void postalarm_before(C& c,uint32_t pc,uint32_t w,bool guard){
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+    if(third_postalarm.stage()==4u){
+        if(guard||!third_postalarm.time_before(c,pc,w))reject_postalarm_time();
+        if(third_postalarm.stage()==5u){
+            const auto& t=*third_postalarm.time_witness();
+            std::cout<<std::dec<<"V1103_POSTALARM_TIME_RETURN original_return=1 leaves="<<t.cursor()
+                     <<" system_visits="<<t.time_visits()<<" leaf_visits="<<t.leaf_visits()
+                     <<" polls="<<t.polls()<<" reads="<<t.reads()
+                     <<" offset=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
     if(guard||!third_postalarm.before(c,pc,w))reject_postalarm();
     if(third_postalarm.stage()==3u){
         std::cout<<std::dec<<"V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits="
                  <<third_postalarm.suffix_visits()<<" visits="<<third_postalarm.prefix_visits()<<" writes="<<third_postalarm.writes()
                  <<" token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+        if(third_postalarm_time_enabled()){
+            if(!third_postalarm.start_time(c,pc,w,v813::expected))reject_postalarm_time();
+            return;
+        }
+#endif
         std::_Exit(0);
     }
 }
@@ -142,6 +173,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(third_alarm_enabled()&&(!third_enabled()||!six_arguments_enabled()))return false;
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
     if(third_postalarm_enabled()&&!third_alarm_enabled())return false;
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+    if(third_postalarm_time_enabled()&&!third_postalarm_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -422,6 +456,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 }
 template<class C>bool poll(C& c){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+    if(third_postalarm.stage()==4u){if(!third_postalarm.time_poll(c))reject_postalarm_time();return false;}
+#endif
     if(third_postalarm_active()){if(!third_postalarm.poll(c))reject_postalarm();return false;}
 #endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM
@@ -456,6 +493,9 @@ template<class C>bool poll(C& c){
 }
 template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1095_PRIVATE_AFTER_ALARM
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+    if(third_postalarm.stage()==4u){if(!third_postalarm.time_entry(c,pc))reject_postalarm_time();return;}
+#endif
     if(third_postalarm_active()){if(!third_postalarm.entry(c,pc))reject_postalarm();return;}
 #endif
 #ifdef UNDERCOVER_V1048_PRIVATE_THIRD_ALARM

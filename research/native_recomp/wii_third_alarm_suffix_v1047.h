@@ -5,6 +5,8 @@
 #include "wii_external_return_v706.h"
 #include "wii_callback_prefix_v800.h"
 #include "wii_callback_identity_v796.h"
+#include "wii_callback_time_v810.h"
+#include <optional>
 namespace undercover::wii {
 // Continue the same third token after SITransfer, without clearing its PI
 // source or granting the retired second ACK any MMIO ownership.
@@ -151,7 +153,33 @@ public:
            (outer&&!dev_->after_return_at(c.inst_count))||!held()||!prefix_.entry(c,pc,true))return fail(6);
         last_=c.inst_count;return true;
     }
+    // The prefix has already charged this exact label to the device.
+    // Do not advance it again when handing over to the time witness.
+    template<class C>bool start_time(C& c,uint32_t pc,uint32_t w,CallbackTimeExpectation e){
+        if(stage_!=3u||time_||!common(c)||!held()||c.inst_count!=last_||
+           prefix_.stage()!=6u||pc!=prefix_.resume()||e.callback!=root_||e.resume!=pc||
+           P>N||w!=words_[P-1u])return fail(7);
+        time_.emplace(e);
+        if(!time_->start(c,pc,w,true,true)||!time_->before(c,pc,w,true))return fail(7);
+        stage_=4u;return true;
+    }
+    unsigned time_failure()const{return time_?time_->failure():0u;}
+    const CallbackTimeWitness* time_witness()const{return time_?&*time_:nullptr;}
+    template<class C>bool time_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=4u||!time_||!common(c)||c.inst_count-last_!=1u||
+           !dev_->after_return_at(c.inst_count)||!held()||!time_->before(c,pc,w,true))return fail(8);
+        last_=c.inst_count;
+        if(time_->stage()==5u)stage_=5u;
+        return true;
+    }
+    template<class C>bool time_poll(C& c){
+        return stage_==4u&&time_&&common(c)&&c.inst_count==last_&&held()&&time_->poll(c,true)?true:fail(9);
+    }
+    template<class C>bool time_entry(C& c,uint32_t pc){
+        return stage_==4u&&time_&&common(c)&&c.inst_count==last_&&held()&&time_->entry(c,pc,true)?true:fail(9);
+    }
 private:
+    std::optional<CallbackTimeWitness> time_;
     uint32_t root_,context_=0;std::array<uint32_t,N> words_;std::array<uint32_t,2> sites_;
     CallbackPrefixWitness<P,S> prefix_;HandlerSuffixGuard suffix_;
     std::span<const HandlerSuffixLabel> rows_{};const void* cpu_=nullptr;

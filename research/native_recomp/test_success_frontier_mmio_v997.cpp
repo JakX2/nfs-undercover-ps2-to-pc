@@ -28,6 +28,7 @@ struct Cpu{
     uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=Resume,srr1=0x8032u;
     bool is_running=true,in_callback=false,dec_irq_pending=true;
     uint32_t dec_value=300;uint64_t dec_written_tb=50;
+    uint64_t read_timebase()const{return 0x100000020ull;}
 };
 static void need(bool b,const std::source_location loc=std::source_location::current()){
     if(!b){std::cerr<<"V997_ASSERT line="<<loc.line()<<std::endl;std::_Exit(125);}
@@ -259,7 +260,46 @@ int main(int argc,char** argv){
                 visit(Root+16,v958::third_postalarm_prefix[4]);c.pc=Leaf;c.lr=Root+20;
                 v958::observe(Leaf,c);visit(Leaf,v958::third_postalarm_save[0]);c.mmu.words[Stack-8]=c.gpr[30];
                 visit(Leaf+4,v958::third_postalarm_save[1]);c.mmu.words[Stack-4]=c.gpr[31];
-                visit(Leaf+8,Blr);visit(Root+20,Nop);
+                visit(Leaf+8,Blr);
+#ifdef UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME
+                if(mode.starts_with("error-abi-live-alarm-callback-time")){
+                    const auto fault=mode.substr(std::string_view("error-abi-live-alarm-callback-time").size());
+                    auto put=[&](uint32_t base,const auto& words){for(auto word:words){c.mmu.words[base]=word;base+=4;}};
+                    put(Root+20,v813::continuation);put(v813::T,v813::system_words);
+                    put(v813::D,v813::disable);put(v813::U,v813::timebase);put(v813::R,v813::restore);
+                    if(fault!="-offset"){c.mmu.words[v813::Offset]=0;c.mmu.words[v813::Offset+4]=0x1234u;}
+                    visit(Root+20,Nop);
+                    need(v958::third_postalarm.stage()==4u&&v958::third_postalarm.time_witness()->visits()==1u&&v958::next_device.held_now());
+                    if(fault=="-frame")c.mmu.words[v958::context+124]^=1u;
+                    if(fault=="-tick")scheduler.advance(++tick);
+                    if(fault=="-device")mask=0;
+                    if(fault=="-word")c.mmu.words[Root+24]^=4u;
+                    visit(Root+24,v813::continuation[1]);
+                    c.pc=v813::T;c.lr=Root+28;v958::observe(fault=="-entry"?v813::D:c.pc,c);
+                    for(unsigned i=0;i<25;++i){
+                        const uint32_t pc=v813::T+4*i;visit(pc,v813::system_words[i]);
+                        if(i==1||i==4||i==7){
+                            const uint32_t leaf=i==1?v813::D:i==4?v813::U:v813::R;
+                            const auto& words=i==1?v813::disable:i==4?v813::timebase:v813::restore;
+                            c.pc=leaf;c.lr=pc+4;v958::observe(leaf,c);
+                            for(unsigned j=0;j<words.size();++j){
+                                visit(leaf+4*j,words[j]);
+                                if(i==4){
+                                    if(j==0)c.gpr[3]=uint32_t(c.read_timebase()>>32);
+                                    if(j==1)c.gpr[4]=uint32_t(c.read_timebase());
+                                    if(j==2)c.gpr[5]=uint32_t(c.read_timebase()>>32);
+                                    if(j==3&&fault!="-poll")v958::poll(c);
+                                }else if(j==0){c.gpr[6]=c.msr;c.gpr[3]=0;}
+                            }
+                        }
+                        if(i==5)c.gpr[3]=0;
+                        if(i==23){c.gpr[3]=1;c.gpr[4]=fault=="-result"?0x1255u:0x1254u;c.lr=Root+28;}
+                    }
+                    if(fault=="-changed-offset")c.mmu.words[v813::Offset+4]^=1u;
+                    visit(Root+28,v813::continuation.back());need(false);
+                }
+#endif
+                visit(Root+20,Nop);
             }
 #endif
         }
