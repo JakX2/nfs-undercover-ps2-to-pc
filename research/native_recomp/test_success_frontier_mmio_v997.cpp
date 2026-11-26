@@ -785,7 +785,35 @@ int main(int argc,char** argv){
                                                                                 visit(v847::R,Blr);visit(v847::U+12u,Nop);c.lr=v847::A+4u;
                                                                                 visit(v847::U+16u,Blr);visit(v847::A+4u,Nop);c.lr=Root2+44u;
                                                                                 if(wf2=="-abi")c.gpr[31]^=1u;
-                                                                                visit(v847::A+8u,Blr);visit(Root2+44u,Nop);
+                                                                                visit(v847::A+8u,Blr);
+#ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
+                                                                                const bool suffix_mode=v958::ack_suffix_enabled();
+                                                                                const auto sf2=wf2.starts_with("-suffix")?wf2.substr(std::string_view("-suffix").size()):std::string_view{};
+                                                                                if(suffix_mode){
+                                                                                    need(wf2.starts_with("-suffix"));
+                                                                                    for(const auto& row:v1123::rows)c.mmu.words[row.pc]=row.word;
+                                                                                    if(sf2=="-identity")c.mmu.words[Root2+52u]^=1u;
+                                                                                }
+#endif
+                                                                                visit(Root2+44u,Nop);
+#ifdef UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX
+                                                                                if(suffix_mode){
+                                                                                    need(v958::held_epilogue.stage()==22u&&v958::ack_suffix.visits()==1u);
+                                                                                    if(sf2=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                                    if(sf2=="-tick")scheduler.advance(++tick);
+                                                                                    if(sf2=="-device")mask=0;
+                                                                                    if(sf2=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                    if(sf2=="-entry")v958::observe(Root2+48u,c);
+                                                                                    if(sf2=="-early-poll")v958::poll(c);
+                                                                                    c.gpr[4]=0x12345678u;
+                                                                                    visit(Root2+48u,v1123::rows[1].word,sf2=="-guard");
+                                                                                    if(sf2!="-store")c.mmu.words[c.gpr[1]+8u]=c.gpr[4];
+                                                                                    c.cr[0].eq=false;visit(Root2+52u,v1123::rows[2].word);
+                                                                                    if(sf2!="-missing-poll")v958::poll(c);
+                                                                                    if(sf2=="-double-poll")v958::poll(c);
+                                                                                    visit(Root2+56u,v1123::rows[3].word);
+                                                                                }
+#endif
                                                                             }
 #endif
                                                                         }
