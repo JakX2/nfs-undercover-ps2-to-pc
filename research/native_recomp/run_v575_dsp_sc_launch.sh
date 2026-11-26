@@ -158,6 +158,10 @@ elif [[ "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" == 1 ]]; then
   [[ "$audit" == audit_v989_shared_time.py ]] || exit 2
   extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1);audit=audit_v1015_error_completion.py
 fi
+if [[ "${UNDERCOVER_RUN_V1040_SIX_ARGS:-0}" == 1 ]]; then
+  [[ "$audit" == audit_v1021_error_frontier.py && "${UNDERCOVER_RUN_V1034_QUEUE_DETAIL:-0}" == 1 ]] || exit 2
+  extra+=(UNDERCOVER_V1040_SIX_ARGS=1);audit=audit_v1041_transfer_abi.py
+fi
 # Only the second-callback experiment may change the fixed cold SI profile.
 # Port zero must remain absent for the verified first completion.
 si_profile="${UNDERCOVER_RUN_V1012_SI_PROFILE-absent}"

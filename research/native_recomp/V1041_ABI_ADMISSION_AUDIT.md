@@ -1,0 +1,3 @@
+# V1041: independent admission diagnostic and launch contract
+
+Add a separate audit for the V1040 six-argument policy. Verify the original no-response direct frontier, both bounded queue diagnostics, legacy exact-match result, and independently recompute the admission decision. Reject duplicate markers, false timing-only claims, changes to the occupied slot, invalid callback/type/idle state, and a claimed call execution. The launch contract allows this diagnostic only after the V1021 error-frontier and queue-history flags; it does not turn on the native third transfer. The existing V1038 owner run remains the baseline and avoids another full-image build until its result is known. Source-only CI pending.
