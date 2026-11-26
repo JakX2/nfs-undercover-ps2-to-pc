@@ -403,21 +403,21 @@ int main(){
                  ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&ctl.read(S)==status&&ctl.read(B)==buffer&&
                  cause==Other&&dev.stage()==3u&&sched.completed()==3u);
             if(trial<408){++held_ack_valid;continue;}
-            HeldAckHelperExpectation e{Handler+8u,Nop,2,2,2,0};
+            HeldAckHelperExpectation helper_expect{Handler+8u,Nop,2,2,2,0};
             auto refuse_post=[&](bool bad){
                 need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
                      ctl.read(C)==(control&~SiController::TC_INT));++held_postack_refused;
             };
             if(hp==1)tick();
             if(hp==2)c.mmu.words[Context+124]^=1u;
-            if(hp==5)e.entries=3;
-            if(hp==6)e.visits=0;
-            if(hp==7)e.pc+=4u;
-            if(hp==8)e.word=Blr;
+            if(hp==5)helper_expect.entries=3;
+            if(hp==6)helper_expect.visits=0;
+            if(hp==7)helper_expect.pc+=4u;
+            if(hp==8)helper_expect.word=Blr;
             const auto resume_tick=c.inst_count;
-            ok=ep.resume_ack(c,Helper+16u+(hp==3?4u:0u),hp==4?Blr:Nop,e);
+            ok=ep.resume_ack(c,Helper+16u+(hp==3?4u:0u),hp==4?Blr:Nop,helper_expect);
             if(hp>=1&&hp<=6){refuse_post(!ok);continue;}need(ok&&c.inst_count==resume_tick&&ep.stage()==10u);
-            if(hp==9){refuse_post(!ep.resume_ack(c,Helper+16u,Nop,e));continue;}
+            if(hp==9){refuse_post(!ep.resume_ack(c,Helper+16u,Nop,helper_expect));continue;}
             if(hp==10){refuse_post(!ep.ack_write(ctl,C,control));continue;}
             ok=at_ack(Helper,Helper+20u,Blr,hp==11);
             if(hp==11){refuse_post(!ok);continue;}need(ok);
