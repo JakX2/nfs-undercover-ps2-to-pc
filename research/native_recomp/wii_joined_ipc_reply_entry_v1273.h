@@ -72,6 +72,15 @@ public:
         ++reads_;return v;
     }
     bool write_refused(){return fail(7);}
+    // Exact same-tick handoff at the authenticated original processor
+    // entry. A later host invocation cannot re-use this observation.
+    template<class C>bool processor_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,
+                                           uint32_t request,uint32_t processor,bool held)const{
+        return stage_==2u&&common(c,held)&&frame_==&frame&&queue_==queue&&request_==request&&
+            processor==reply_.pc&&c.pc==processor&&c.lr==reply_.lr&&c.inst_count==last_&&
+            last_pc_==reply_.lr-4u&&last_word_==reply_.branch_word&&word(c,processor,reply_.entry_word)&&
+            word(c,last_pc_,last_word_);
+    }
 private:
     uint32_t handler_,read_leaf_;VectorEdge reply_;
     uint32_t context_,thread_,queue_=0,request_=0,last_pc_=0,last_word_=0;

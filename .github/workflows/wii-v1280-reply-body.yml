@@ -1,0 +1,23 @@
+name: Wii V1280 Joined Reply Processor Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1280*'
+      - '.github/workflows/wii-v1280-reply-body.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Joined reply processor and prerequisite native mailbox contracts
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o "$RUNNER_TEMP/v1280"
+          "$RUNNER_TEMP/v1280"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cold_reply_consume_v1278.cpp -o "$RUNNER_TEMP/v1278"
+          "$RUNNER_TEMP/v1278"

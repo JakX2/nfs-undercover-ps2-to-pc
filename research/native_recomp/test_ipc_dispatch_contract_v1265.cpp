@@ -3,6 +3,9 @@
 #ifdef UNDERCOVER_TEST_JOINED_ACK
 #include "wii_joined_ipc_ack_v1266.h"
 #include "wii_joined_ipc_reply_entry_v1273.h"
+#ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
+#include "wii_reply_processor_v1280.h"
+#endif
 #endif
 #include <cassert>
 #include <iostream>
@@ -39,9 +42,13 @@ struct Cpu{
     uint32_t pc=Resume,lr=0x80005200u,ctr=17u,xer=0x80000000u,msr=0x8032u,
         srr0=0,srr1=0,dispatch_saved_ctx=0;
     uint64_t inst_count=100;
+    uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0){
+#ifndef UNDERCOVER_TEST_REPLY_PROCESSOR
+    (void)processor_case;
+#endif
 #ifndef UNDERCOVER_TEST_JOINED_ACK
     (void)join_case;
 #endif
@@ -189,6 +196,56 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false){
         if(join_case>=8){refuse(ok,join_case==8?3u:2u);return;}
         assert(ok&&j.stage()==2u&&j.reads()==1u&&j.visits()==4u);
         unchanged();
+#ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
+        constexpr uint32_t Writer=0x8051906cu,Cache=0x80522294u,Wake=0x8052a51cu,
+            Nop=0x60000000u,Blr=0x4e800020u,Lwz=0x80640000u,Stw=0x90640000u,
+            Dcbi1=(31u<<26)|(3u<<11)|(470u<<1),Dcbi2=(31u<<26)|(3u<<16)|(5u<<11)|(470u<<1);
+        constexpr auto bl=[](uint32_t a,uint32_t b){return 0x48000001u|((b-a)&0x03fffffcu);};
+        const std::array<ReplyNativeWord,14> words{{
+            {Reply,Reply,Nop},{Reply,Reply+4u,bl(Reply+4u,Leaf)},
+            {Reply,Reply+8u,bl(Reply+8u,Writer)},{Reply,Reply+12u,bl(Reply+12u,Leaf)},
+            {Reply,Reply+16u,bl(Reply+16u,Cache)},{Reply,Reply+20u,bl(Reply+20u,Wake)},
+            {Leaf,Leaf,Lwz},{Leaf,Leaf+4u,Blr},{Writer,Writer,Stw},{Writer,Writer+4u,Blr},
+            {Cache,Cache,Dcbi1},{Cache,Cache+4u,Dcbi2},{Cache,Cache+8u,Blr},{Wake,Wake,Nop}}};
+        const std::array<VectorEdge,5> calls{{
+            {Leaf,Reply+8u,words[1].word,Lwz},{Writer,Reply+12u,words[2].word,Stw},
+            {Leaf,Reply+16u,words[3].word,Lwz},{Cache,Reply+20u,words[4].word,Dcbi1},
+            {Wake,Reply+24u,words[5].word,Nop}}};
+        for(auto x:words)m.write32(x.pc,x.word);
+        ReplyProcessorWitness body({Reply,Leaf,Writer,Cache,Wake,Reply+24u,Context,Thread,words,calls});
+        auto reject=[&](bool ok,unsigned reason){assert(!ok&&body.failure()==reason&&host.serviced_steps()==2u);};
+        if(processor_case==1)++c.inst_count;
+        ok=body.begin(c,j,frame,Queue,processor_case==2?Request+32u:Request,true);
+        if(processor_case==1||processor_case==2){reject(ok,1);return;}assert(ok);
+        assert(body.poll(c,true));++c.inst_count;assert(body.entry(c,Reply,true));
+        auto step=[&](uint32_t pc){c.pc=pc;++c.inst_count;return body.before(c,pc,m.read32(pc),true);};
+        auto call=[&](uint32_t pc,uint32_t lr){c.pc=pc;c.lr=lr;return body.entry(c,pc,true);};
+        if(processor_case==3){reject(step(Reply+4u),5);return;}
+        assert(step(Reply)&&step(Reply+4u));
+        if(processor_case==4){reject(call(Leaf,Reply+12u),2);return;}
+        assert(call(Leaf,Reply+8u)&&step(Leaf));
+        if(processor_case==5){assert(!body.read(c,Bus::IPC+M::PPCMSG,true));reject(false,8);return;}
+        const auto control=body.read(c,Bus::IPC+M::PPCCTRL,true);assert(control);
+        assert(step(Leaf+4u)&&step(Reply+8u)&&call(Writer,Reply+12u)&&step(Writer));
+        if(processor_case==6){reject(body.write(c,Bus::IPC+M::PPCCTRL,*control|M::X1,true),8);return;}
+        assert(body.write(c,Bus::IPC+M::PPCCTRL,*control,true)&&step(Writer+4u));
+        assert(step(Reply+12u)&&call(Leaf,Reply+16u)&&step(Leaf));
+        assert(body.read(c,Bus::IPC+M::ARMMSG,true)==Request);
+        assert(step(Leaf+4u)&&step(Reply+16u));
+        c.gpr[3]=Request|0x80000000u;c.gpr[4]=processor_case==7?8u:64u;c.gpr[5]=32u;
+        ok=call(Cache,Reply+20u);
+        if(processor_case==7){reject(ok,4);return;}assert(ok&&step(Cache));
+        if(processor_case!=8){++c.guest_data_invalidate_count;c.guest_last_data_invalidate=c.gpr[3];}
+        ok=step(Cache+4u);if(processor_case==8){reject(ok,4);return;}assert(ok);
+        ++c.guest_data_invalidate_count;c.guest_last_data_invalidate=c.gpr[3]+(processor_case==9?0u:32u);
+        ok=step(Cache+8u);if(processor_case==9){reject(ok,4);return;}assert(ok);
+        if(processor_case==10)m.write32(Context+124u,0u);
+        ok=step(Reply+20u);if(processor_case==10){reject(ok,5);return;}assert(ok);
+        c.gpr[3]=processor_case==11?Queue+4u:Queue;ok=call(Wake,Reply+24u);
+        if(processor_case==11){reject(ok,3);return;}
+        assert(ok&&body.stage()==2u&&body.arm_reads()==1u&&body.invalidations()==2u&&
+            host.serviced_steps()==2u&&m.read16(Thread+712u)==4u&&m.read32(Queue)==Thread);
+#endif
 #endif
         return;
     }
@@ -250,5 +307,9 @@ int main(){
     for(unsigned i=1;i<=10;++i)trial(0,i,true);
     std::cout<<"V1273_REPLY_ENTRY_CONTRACT synthetic=1 valid=1 refused=10 native_reply=1 wakeup=0 original_execution=0\n";
     std::cout<<"V1267_JOINED_ACK_CONTRACT synthetic=1 valid=1 refused=13 native_reply=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
+    for(unsigned i=1;i<=11;++i)trial(0,0,true,i);
+    std::cout<<"V1280_REPLY_BODY synthetic=1 valid=1 refused=11 native_mmio=1 modeled_instructions=1 wakeup=0 original_execution=0\n";
+#endif
 #endif
 }
