@@ -47,4 +47,22 @@ class IndexedLoad(unittest.TestCase):
                 self.probe(xload(23,4,3,5),args,((A,b'abcdefgh'),))
         with self.assertRaisesRegex(ValueError,'data read provenance'):
             self.probe(xload(23,4,3,5),{3:const(A),5:const(0)},())
+class LocalCtr(unittest.TestCase):
+    def setUp(self):
+        self.site=B+20;self.dst=B+32
+        self.ws=(0x9421ffe0,0x7c0802a6,0x90010024,0x80830000,0x7c8903a6,0x4e800420,0x60000000,0x60000000,0x38a00007,bl(B+36,T))
+    def probe(self,edge,value=None):
+        value=self.dst if value is None else value
+        return first_path(B,self.ws,{3:const(A)},{},((A,value.to_bytes(4,'big')),),local_ctr_edge=edge,details=True)
+    def test_exact(self):
+        result=self.probe((self.site,self.dst))
+        self.assertEqual(result[0],list(range(B,B+24,4))+[self.dst,self.dst+4])
+        self.assertEqual(result[5][5],const(7));self.assertEqual(result[4],T)
+    def test_default_refusal(self):
+        with self.assertRaisesRegex(ValueError,'other boundary'):self.probe(None)
+    def test_wrong_live_target(self):
+        with self.assertRaisesRegex(ValueError,'CTR identity'):self.probe((self.site,self.dst),self.dst+4)
+    def test_bad_geometry(self):
+        for edge in ((self.site,self.dst+1),(self.site,T),(B+16,self.dst),(self.site,self.site),(self.site,B)):
+            with self.assertRaisesRegex(ValueError,'CTR geometry'):self.probe(edge)
 if __name__=='__main__':unittest.main(verbosity=2)

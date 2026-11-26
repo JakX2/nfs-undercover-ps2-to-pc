@@ -27,9 +27,14 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
+    edge_used=False
+    if local_ctr_edge is not None:
+        site,dst=local_ctr_edge
+        if resume is not None or not root<=site<root+4*len(ws) or not root<dst<root+4*len(ws) or (site|dst)&3 or site==dst or ws[(site-root)//4]!=0x4e800420:
+            raise ValueError('formatter local CTR geometry')
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
     for r,v in args.items():gp[r]=v
     mem=dict(seed_bytes or {});cr=dict(initial_cr or {});ctr=initial_ctr;lr=entry_lr
@@ -97,9 +102,16 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         path.append(pc);w=ws[(pc-root)//4];op=w>>26;xo=(w>>1)&1023;rs=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31
         imm=((w&0xffff)^0x8000)-0x8000;nxt=pc+4
         if pc in bounds:
+            if local_ctr_edge is not None and pc==local_ctr_edge[0]:
+                dst=local_ctr_edge[1]
+                if edge_used or w!=0x4e800420 or ctr!=dst or dst in path or not frame:
+                    raise ValueError('formatter local CTR identity')
+                extra_seen,extra_bounds,_=closure(root,ws,dst)
+                seen|=extra_seen;bounds|=extra_bounds;edge_used=True;pc=dst;continue
             if w>>26==18 and w&3==1 or (resume is not None and w==0x4e800421 and ctr is not None):
                 if not frame or stack_read(caller_sp-frame,4)!=('stack',caller_sp) or stack_read(caller_sp+4,4)!=entry_lr:
                     raise ValueError('formatter frame identity')
+                if local_ctr_edge is not None and not edge_used:raise ValueError('formatter local CTR unused')
                 dst=direct_bl(w,pc) if w>>26==18 else ctr
                 result=(path,frame,accesses,len(saves),dst,tuple(gp),dict(mem))
                 state=(tuple(gp),dict(mem),dict(cr),ctr,lr,frame,frozenset(saves))
