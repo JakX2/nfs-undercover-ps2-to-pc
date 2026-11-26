@@ -58,7 +58,12 @@ def thunk(root,words,report,sda,ptr):
             gp[rs]=((gp[ra] if ra else 0)+((w&0xffff)^0x8000)-0x8000)&0xffffffff
         elif op==31 and xo==444 and not w&1 and rs==rb and rs in gp and ra in (0,*range(3,13)):
             gp[ra]=gp[rs]
-        else:raise ValueError('SC version thunk opcode')
+        elif op==19 and xo==193 and rs==ra==rb==6 and not w&1:
+            # EABI variadic calls clear CR bit 6 (no floating arguments).
+            pass
+        else:
+            kind='cr' if op==19 else 'integer' if op in (14,15,24,31) else 'other'
+            raise ValueError(f'SC version thunk opcode {kind} {i+1}')
     raise ValueError('SC version tail')
 
 def plan(d,e):
@@ -105,7 +110,13 @@ def main():
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         rows,body,ranges,_=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        print('POST_STM_SC_VERSION_PROVENANCE verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
+        reason=str(ex)
+        if reason.startswith('SC version thunk opcode '):
+            _,_,_,_,kind,ordinal=reason.split()
+            if kind in ('cr','integer','other') and ordinal.isdecimal() and 1<=int(ordinal)<=8:
+                print(f'POST_STM_SC_VERSION_PROVENANCE verified=0 reason=SC_version_thunk_opcode category={kind} ordinal={ordinal}')
+                return 1
+        print('POST_STM_SC_VERSION_PROVENANCE verified=0 reason='+(reason.replace(' ','_') if reason in safe else 'private_input'))
         return 1
     print(f'POST_STM_SC_VERSION_PROVENANCE verified=1 caller_labels={len(rows)} thunk_labels={len(body)} initialized_ranges={len(ranges)} elf_identity=1 diagnostic_tail=1 earlier_direct_writers=0 original_execution=0')
     return 0

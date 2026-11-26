@@ -57,6 +57,7 @@ public:
         }else if(owner_==e_.version&&version_entry_){
             if(op==14u&&volatile_reg(rs))gp_[rs]=(ra?gp_[ra]:0u)+imm;
             else if(op==31u&&xo==444u&&!(w&1u)&&rs==rb&&volatile_reg(ra))gp_[ra]=gp_[rs];
+            else if(op==19u&&xo==193u&&!(w&1u)&&rs==6u&&ra==6u&&rb==6u)cr_&=~(1u<<25);
             else if(op==18u&&!(w&3u)&&target(pc,w)==e_.report&&visits_==e_.words.size()&&
                     gp_[3]==e_.format_ptr&&gp_[4]==e_.version_ptr&&lr_==e_.start+8u){
                 next_=e_.report;tail_due_=true;return true;

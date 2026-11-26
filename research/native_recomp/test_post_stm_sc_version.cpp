@@ -50,4 +50,24 @@ static void trial(unsigned fault){
     ok=w.poll(c,fault!=16);if(fault>=13&&fault<=16){assert(!ok);return;}assert(ok&&w.reached(c,true)&&w.visits()==5);
     assert(w.data_held(c,true));if(fault==17){*c.mmu.get_ptr(Fmt)='X';assert(!w.data_held(c,true));}
 }
-int main(){for(unsigned i=0;i<=17;++i)trial(i);std::cout<<"POST_STM_SC_VERSION_TEST cases=18 original_execution=0\n";}
+static void variadic(bool fault){
+    Cpu c;c.gpr[13]=B;c.cr[1].eq=true;
+    constexpr uint32_t crclr=(19u<<26)|(6u<<21)|(6u<<16)|(6u<<11)|(193u<<1);
+    const std::array<IpcDispatchWord,6> words{{{Root,Start,ins(32,3,13,0x500)},
+        {Root,Start+4,branch(Start+4,Version,true)},{Version,Version,mr(4,3)},
+        {Version,Version+4,ins(14,3,13,0x700)},{Version,Version+8,crclr},
+        {Version,Version+12,branch(Version+12,Report,false)}}};
+    const std::array<ScVersionByte,9> data{{{Cell,0x80},{Cell+1,0},{Cell+2,6},{Cell+3,0},{Str,'V'},{Str+1,0},{Fmt,'%'},{Fmt+1,'s'},{Fmt+2,0}}};
+    for(auto x:data)*c.mmu.get_ptr(x.addr)=x.value;
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(Report,Nop);
+    ScVersionWitness w({Root,Start,Version,Report,Nop,Cell,Str,Fmt,words,data});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,Start,true));
+    auto step=[&](unsigned i){++c.inst_count;return w.before(c,words[i].pc,words[i].word,true);};
+    assert(step(0));c.gpr[3]=Str;assert(step(1));c.pc=Version;c.lr=Start+8;assert(w.entry(c,Version,true));
+    assert(step(2));c.gpr[4]=Str;assert(step(3));c.gpr[3]=Fmt;assert(step(4));
+    if(!fault)c.cr[1].eq=false;
+    const bool ok=step(5);if(fault){assert(!ok);return;}assert(ok);
+    c.pc=Report;assert(w.poll(c,true)&&w.reached(c,true)&&w.visits()==6);
+}
+int main(){for(unsigned i=0;i<=17;++i)trial(i);variadic(false);variadic(true);std::cout<<"POST_STM_SC_VERSION_TEST cases=20 original_execution=0\n";}
