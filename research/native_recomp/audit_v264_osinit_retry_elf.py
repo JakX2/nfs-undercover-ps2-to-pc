@@ -5,6 +5,7 @@ import hashlib
 import struct
 import sys
 from pathlib import Path
+from functools import lru_cache
 from audit_v243_original_callback_branch import branch_target
 from make_private_elf_symbol_map import HEADER, SECTION, ORIGINAL_SHA256, parse_functions
 
@@ -15,20 +16,27 @@ RESTORE=0x805265d4
 GETTIME=0x8052a824
 ERRORS={"digest","symbols","caller","helper","section","geometry"}
 
-def read_words(data:bytes,addr:int,count:int)->list[int]:
-    if not 0<count<=8192 or addr&3: raise ValueError("geometry")
+@lru_cache(maxsize=2)
+def _text_sections(data:bytes)->tuple[tuple[int,int,int],...]:
     h=HEADER.unpack_from(data)
     off,unit,n=h[6],h[11],h[12]
     if unit!=SECTION.size or n<1 or n>9999 or off+n*unit>len(data):
         raise ValueError("section")
-    matches=[]
+    rows=[]
     for i in range(n):
         _,kind,flags,base,fo,size,*_=SECTION.unpack_from(data,off+i*unit)
-        if kind!=8 and flags&4 and base<=addr and addr+4*count<=base+size and fo+size<=len(data):
-            matches.append(fo+addr-base)
+        if kind!=8 and flags&4 and fo+size<=len(data):
+            rows.append((base,fo,size))
+    return tuple(rows)
+
+def read_words(data:bytes,addr:int,count:int)->list[int]:
+    if not 0<count<=8192 or addr&3:raise ValueError("geometry")
+    # Cache only immutable file bytes, in-process. Mutable synthetic input
+    # must be validated again. Keep the existing unique-section contract.
+    rows=_text_sections(data) if type(data) is bytes else _text_sections.__wrapped__(data)
+    matches=[fo+addr-base for base,fo,size in rows if base<=addr and addr+4*count<=base+size]
     if len(matches)!=1:raise ValueError("section")
-    at=matches[0]
-    return [struct.unpack_from(">I",data,at+4*i)[0] for i in range(count)]
+    return list(struct.unpack_from(">"+str(count)+"I",data,matches[0]))
 
 def classify(start:int,caller:list[int],helper:list[int])->dict[str,int]:
     if start>CALLSITE or (CALLSITE-start)&3 or (CALLSITE-start)//4>=len(caller):
