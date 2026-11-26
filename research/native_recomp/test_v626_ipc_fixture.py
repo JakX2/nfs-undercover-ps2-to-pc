@@ -16,11 +16,17 @@ class Tests(unittest.TestCase):
         blocks={start+4*i:(0x4e800020,) for i in range(53)}
         d=assemble(blocks,start,max_roots=53)
         self.assertEqual(words_at(d,start,53),(0x4e800020,)*53)
-        for cap in (32,51,52,54):
+        for cap in (32,51,52,56):
             with self.subTest(cap=cap),self.assertRaises(ValueError):
                 assemble(blocks,start,max_roots=cap)
         with self.assertRaises(ValueError):
             assemble({**blocks,start+53*4:(0x4e800020,)},start,max_roots=53)
+    def test_version_roots(self):
+        start=0x80510000
+        blocks={start+4*i:(0x4e800020,) for i in range(55)}
+        self.assertEqual(words_at(assemble(blocks,start,max_roots=55),start,55),(0x4e800020,)*55)
+        for cap in (53,54,56):
+            with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_isolated_sections(self):
         start=0x80510000
         blocks={start:(0x4e800020,),start+16:(0x4e800020,)}
