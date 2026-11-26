@@ -1,5 +1,5 @@
 import unittest
-from analyze_formatter_three_cell_path import admitted,validate
+from analyze_formatter_three_cell_path import admitted,validate,control_kind
 from analyze_formatter_nested_path import candidate_map
 R=0x80010000;A=0x80020000;B=0x80030000;C=0x80040000
 class Test(unittest.TestCase):
@@ -17,6 +17,11 @@ class Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'audit'):admitted(self.audit[:-1]+(0,),C,b'5678',self.cells[:2])
     def test_duplicate(self):
         with self.assertRaisesRegex(ValueError,'geometry'):admitted(self.audit,A,b'5678',self.cells[:2])
+    def test_controls(self):
+        for w,k,dst in ((0x4e800421,'ctr_call',A),(0x4e800420,'ctr_tail',A),(0x4e800020,'lr_return',B),(0x4d820420,'conditional_indirect',None),(0x4c000064,'exception_return',None),(0x44000002,'system_call',None),(0x60000000,'other_control',None)):
+            self.assertEqual(control_kind(w,A,('const',B)),(k,dst))
+        self.assertEqual(control_kind(0x4e800421,None,('lr',0)),('ctr_call',None))
+        self.assertEqual(control_kind(0x4e800020,A,('lr',0)),('lr_return',None))
     def test_exact(self):self.assertEqual(validate(self.path,self.sites,self.old,self.sites[:18],self.cells),(80,80))
     def test_prefix(self):
         with self.assertRaisesRegex(ValueError,'prefix'):validate(self.path[1:],self.sites,self.old,self.sites[:18],self.cells)

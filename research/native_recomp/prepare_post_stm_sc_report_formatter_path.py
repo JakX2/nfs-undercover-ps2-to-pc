@@ -27,7 +27,7 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
@@ -104,6 +104,8 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
                 result=(path,frame,accesses,len(saves),dst,tuple(gp),dict(mem))
                 state=(tuple(gp),dict(mem),dict(cr),ctr,lr,frame,frozenset(saves))
                 return result+(state,) if details else result
+            if control_refusal is not None:
+                control_refusal(pc,w,tuple(path),frame,tuple(accesses),tuple(gp),dict(mem),dict(cr),ctr,lr,frozenset(saves))
             raise ValueError('formatter other boundary')
         if op==37 and rs==ra==1:
             if frame or not -4096<=imm<=-8 or imm%8:raise ValueError('formatter frame identity')

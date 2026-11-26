@@ -32,12 +32,12 @@ def immutable_read(dol,elf,at,n):
     if data_at(dol,at,n)!=hits[0]:raise ValueError('nested data identity')
     return hits[0]
 
-def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None,read_refusal=None):
+def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None,read_refusal=None,control_refusal=None):
     if len(gp)!=32 or gp[1][0]!='stack' or gp[1][1]>=0:raise ValueError('nested caller stack')
     sp=gp[1][1]
     result=first_path(root,words,{i:v for i,v in enumerate(gp) if i!=1},{},readonly,sp,
                       details=True,seed_bytes=mem,initial_cr=state[2],initial_ctr=state[3],
-                      entry_lr=const(caller_pc),read_resolver=read_resolver,read_refusal=read_refusal)
+                      entry_lr=const(caller_pc),read_resolver=read_resolver,read_refusal=read_refusal,control_refusal=control_refusal)
     path,frame,sites,_,dst,out_gp,out_mem,_=result
     if any(out_mem.get(at)!=v for at,v in mem.items()):raise ValueError('nested parent memory changed')
     if out_gp[1]!=('stack',sp-frame):raise ValueError('nested stack identity')
@@ -54,7 +54,7 @@ def candidate_map(candidate,candidates,*,third=False):
         out[at,4]=blob
     return out
 
-def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,entry_observer=None,third=False):
+def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,entry_observer=None,third=False,control_refusal=None):
     allowed=candidate_map(candidate,candidates,third=third)
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
@@ -79,7 +79,7 @@ def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,en
         extra.add((at,n))
         if len(extra)>32:raise ValueError('nested data cap')
         return value
-    result=nested(root,exact_words(d,e,root,383),out_gp,parent,out_state,readonly,active[-1]+4,read_resolver=resolve,read_refusal=read_refusal)
+    result=nested(root,exact_words(d,e,root,383),out_gp,parent,out_state,readonly,active[-1]+4,read_resolver=resolve,read_refusal=read_refusal,control_refusal=control_refusal)
     if used!=set(allowed):raise ValueError('nested candidate unused')
     active,frame,sites,_,dst,*_=result
     n=sizes.get(dst,0)
