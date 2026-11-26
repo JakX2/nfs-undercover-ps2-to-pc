@@ -1,0 +1,3 @@
+# V1234: continue the admitted IPC call
+
+The V1233 live synthetic IPC entry has passed. Continue the same V623 witness from its already observed first call through the remaining sixteen ordered call entries and the OSInit return, without reinitializing the witness. Keep the old exact ACK tick/PI constraints intact. A separate read-only completed-SI guard permits unrelated PI mask/cause changes (necessary for IPC registration) but requires unchanged SI token, cause, mask bit, pending status, communication RAM and control registers. The guard does not authorize any SI mutation or retire the actual controller. Original-free tests model the full cold IPC path with the real native transport and rejection cases. Live continuation hooks and owner verification remain separate.

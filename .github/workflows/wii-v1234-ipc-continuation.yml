@@ -1,0 +1,24 @@
+name: Wii V1234 Post-ACK IPC Continuation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1234*'
+      - 'research/native_recomp/wii_post_ack_ipc_join_v1229.h'
+      - 'research/native_recomp/wii_second_completion_ack_v950.h'
+      - '.github/workflows/wii-v1234-ipc-continuation.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check full cold IPC and independent SI guard
+        run: |
+          set -euo pipefail
+          for test in test_second_completion_ack_v950 test_wii_ipc_client_witness_v623 test_post_ack_ipc_join_v1229 test_post_ack_ipc_continuation_v1234; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done

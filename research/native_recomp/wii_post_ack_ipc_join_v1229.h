@@ -16,6 +16,8 @@ public:
     unsigned cold_refusal()const{return cold_.entry_refusal();}
     unsigned cold_failure()const{return cold_.failure();}
     unsigned join_failure()const{return join_.failure();}
+    unsigned client_stage()const{return cold_.stage();}
+    uint32_t heap_size()const{return cold_.heap_size();}
     template<class C>bool pre_dispatch(C& c,uint32_t pc,bool leaf_dispatched,bool device_ok){
         if(stage_||error_||!leaf_dispatched||!device_ok||pc!=edge_.call||
            c.inst_count==UINT64_MAX||!cold_.begin(c))return fail(1);
@@ -30,6 +32,14 @@ public:
         if(stage_!=2||error_||cpu_!=&c||!device_ok||c.inst_count!=tick_+1u||
            !join_.entry(c,pc,true)||!cold_.observe(pc,c)||cold_.stage()!=2u)return fail(3);
         stage_=3;return true;
+    }
+    // The direct callee entry is already consumed. Never replay it or
+    // restart the heap witness. Later original call entries advance the
+    // same V623 witness, and the final caller return is its terminal seam.
+    template<class C>bool continuation(C& c,uint32_t pc,bool device_ok){
+        if((stage_!=3u&&stage_!=4u)||error_||cpu_!=&c||!device_ok||
+           !cold_.observe(pc,c))return fail(4);
+        stage_=cold_.stage()==19u?5u:4u;return true;
     }
 private:
     IpcClientWitness cold_;

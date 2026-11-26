@@ -62,7 +62,47 @@ static void response_provenance(){
     need(verified==8&&unknown==8&&refused==8);
     std::cout<<"V1019_COMPLETION_PROVENANCE verified=8 unknown=8 refused=8 status_clear=1 token_preserved=1 original_execution=0\n";
 }
+static void ipc_device_guard(){
+    unsigned valid=0,refused=0;
+    for(unsigned fault=0;fault<=9;++fault){
+        std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SecondCompletionAck w;Cpu c;
+        const uint32_t cfg=SiController::TC_MASK|0x00010300u;
+        const std::array<uint8_t,3> response{9,0,0};
+        for(unsigned n=0;n<3;++n){
+            ctl.write(SiController::Control,cfg|SiController::TSTART);
+            ctl.complete(ctl.pending()->token,response);
+            if(n!=2)ctl.write(SiController::Control,cfg|SiController::TC_INT);
+        }
+        c.gpr[3]=Base;c.mmu.words={{A,Load},{A+4,Store},{A+8,Nop}};
+        need(w.arm(ctl,cause,mask,c.inst_count,3,true));
+        need(!w.postack_device_quiescent(c.inst_count));
+        ++c.inst_count;need(w.before(c,A,Load,true));
+        uint32_t v=0;need(w.read(ctl,SiController::Control,v));
+        c.gpr[4]=v|SiController::TC_INT;++c.inst_count;
+        need(w.before(c,A+4,Store,true)&&w.write(ctl,SiController::Control,c.gpr[4]));
+        ++c.inst_count;need(w.before(c,A+8,Nop,true)&&w.resume_after_ack(c,A+8,Nop));
+        need(w.postack_held()&&w.postack_device_quiescent(c.inst_count));
+        // SI state remains frozen while the old exact tick/PI witness ends.
+        c.inst_count+=9000u;
+        mask.fetch_or(0x4000u);cause.fetch_or(0x200u);
+        if(fault==1)cause.fetch_or(SI);
+        if(fault==2)mask.fetch_and(~SI);
+        if(fault==3)ctl.write(SiController::Buffer,1);
+        if(fault==4)ctl.write(SiController::Poll,1);
+        if(fault==5)ctl.write(SiController::Control,cfg^2u);
+        if(fault==6)ctl.write(SiController::Control,cfg|SiController::TSTART);
+        if(fault==7){ctl.write(SiController::Control,cfg|SiController::TSTART);ctl.complete(ctl.pending()->token,response);ctl.write(SiController::Control,cfg|SiController::TC_INT);}
+        if(fault==8)c.inst_count=0;
+        need(!w.postack_held());
+        if(fault==9)need(!w.postack_device_quiescent(c.inst_count+1u));
+        else need(w.postack_device_quiescent(c.inst_count)==(fault==0));
+        if(fault)++refused;else ++valid;
+    }
+    need(valid==1&&refused==9);
+    std::cout<<"V1234_SI_QUIESCENCE valid=1 refused=9 unrelated_pi_allowed=1 token_preserved=1 original_execution=0\n";
+}
 int main(){
+    ipc_device_guard();
     response_provenance();
     unsigned valid=0,refused=0;
     for(unsigned i=0;i<36;++i){

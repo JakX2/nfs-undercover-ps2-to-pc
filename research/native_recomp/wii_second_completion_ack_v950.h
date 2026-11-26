@@ -66,6 +66,22 @@ public:
         return stage_==4u&&!armed_&&tick_&&*tick_==tick&&delta>=2u&&delta<=5u&&
             tick>=last_&&tick-last_==delta&&state(false);
     }
+    // The exact terminal IRQ witness must be authenticated by the caller
+    // before using this separate read-only SI guard. IPC initialization may
+    // legitimately change other PI sources and mask bits. It cannot change
+    // the completed SI token, pending bit, communication RAM or SI registers.
+    // Do not change the stronger state()/postack_leaf_at() contracts.
+    bool postack_device_quiescent(uint64_t tick)const{
+        if(stage_!=4u||error_||armed_||!ctl_||!cause_||!mask_||!tick_||
+           *tick_!=tick||tick<last_||ctl_->issued_tokens()!=token_||ctl_->pending()||
+           (cause_->load()&SiController::PI_SI)||
+           (mask_->load()&SiController::PI_SI)!=(mask_before_&SiController::PI_SI)||
+           ctl_->read(SiController::Control)!=control_||
+           ctl_->read(SiController::Status)!=status_||
+           ctl_->read(SiController::Poll)!=poll_)return false;
+        for(unsigned i=0;i<32;++i)if(ctl_->read(SiController::Buffer+4*i)!=buffer_[i])return false;
+        return true;
+    }
     bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
                       const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
         return &ctl==ctl_&&&cause==cause_&&&mask==mask_&&&tick==tick_&&postack_held();
