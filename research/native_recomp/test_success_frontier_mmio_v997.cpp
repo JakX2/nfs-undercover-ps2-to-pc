@@ -596,7 +596,37 @@ int main(int argc,char** argv){
                                                         need(SiBinding::write32(c.gpr[3]+C,c.gpr[4]^(af=="-write"?2u:0u)));
                                                         need(cause==Other&&ctl.issued_tokens()==3u&&scheduler.completed()==3u);
                                                         if(af=="-post-frame")c.mmu.words[v958::context+124]^=1u;
-                                                        visit(q3::Helper+16,Nop);need(false);
+                                                        visit(q3::Helper+16,Nop);
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+                                                        if(v958::ack_helper_enabled()){
+                                                            need(af.starts_with("-helper"));
+                                                            const auto hf=af.substr(std::string_view("-helper").size());
+                                                            namespace q4=v1175;
+                                                            need(v958::held_epilogue.stage()==10u&&v958::held_epilogue.helper_visits()==0u);
+                                                            for(const auto& row:q4::labels)c.mmu.words[row.pc]=row.word;
+                                                            if(hf=="-tick")scheduler.advance(++tick);
+                                                            if(hf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                            if(hf=="-bus")SiBinding::write32(Base+C,*val);
+                                                            if(hf=="-word")c.mmu.words[q3::Helper+20]^=4u;
+                                                            visit(q3::Helper+20,q4::link(q3::Helper+20,q4::Nested),hf=="-guard");
+                                                            c.pc=q4::Nested;c.lr=q3::Helper+24;v958::observe(c.pc,c);
+                                                            visit(q4::Nested,q4::link(q4::Nested,q4::Disable));
+                                                            c.pc=q4::Disable;c.lr=q4::Nested+4;v958::observe(hf=="-entry"?q4::Time:c.pc,c);
+                                                            c.gpr[3]=c.msr^(hf=="-msr"?0x8000u:0u);
+                                                            visit(q4::Disable,Mtmsr);visit(q4::Disable+4,Blr);
+                                                            visit(q4::Nested+4,q4::link(q4::Nested+4,q4::Time));
+                                                            c.pc=q4::Time;c.lr=q4::Nested+8;v958::observe(c.pc,c);
+                                                            visit(q4::Time,Nop);need(!v958::poll(c));visit(q4::Time+4,Blr);
+                                                            visit(q4::Nested+8,q4::link(q4::Nested+8,q4::Restore));
+                                                            c.pc=q4::Restore;c.lr=q4::Nested+12;v958::observe(c.pc,c);
+                                                            c.gpr[3]=c.msr;visit(q4::Restore,Mtmsr);visit(q4::Restore+4,Blr);
+                                                            c.lr=q3::Helper+24;visit(q4::Nested+12,Blr);
+                                                            c.lr=Handler+8;visit(q3::Helper+24,Blr);
+                                                            if(hf=="-abi")c.gpr[31]^=1u;
+                                                            visit(Handler+8,Nop);need(false);
+                                                        }
+#endif
+                                                        need(false);
                                                     }
 #endif
                                                     v958::observe(Handler,c);need(false);

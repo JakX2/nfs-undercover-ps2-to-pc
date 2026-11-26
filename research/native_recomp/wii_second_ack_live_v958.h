@@ -28,6 +28,9 @@
 #include "v1158_private_held_dispatch.h"
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 #include "v1167_private_third_ack.h"
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+#include "v1175_private_ack_helper.h"
+#endif
 #endif
 #endif
 #endif
@@ -85,7 +88,10 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u;}
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
+#endif
 #endif
 #endif
 [[noreturn]]inline void reject_held_epilogue(){
@@ -419,6 +425,9 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(held_dispatch_enabled()&&!held_epilogue_enabled())return false;
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
     if(third_ack_enabled()&&!held_dispatch_enabled())return false;
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+    if(ack_helper_enabled()&&!third_ack_enabled())return false;
+#endif
 #endif
 #endif
 #endif
@@ -477,7 +486,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
-            const auto owner=third_ack_native_owner(v1167::labels,pc,w);
+            auto owner=third_ack_native_owner(v1167::labels,pc,w);
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+            if(held_epilogue.stage()==10u)owner=third_ack_native_owner(v1175::labels,pc,w);
+#endif
             if(!owner||second_dispatch_mmio||!held_epilogue.ack_before(c,owner,pc,w,guard))reject_held_epilogue();
             if(held_epilogue.stage()==9u){
                 const auto& a=held_epilogue.completion_ack();const auto& calls3=held_epilogue.ack_calls();
@@ -485,8 +497,24 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 std::cout<<std::dec<<"V1167_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response="<<a.no_response_verified()
                          <<" visits="<<held_epilogue.ack_visits()<<" entries="<<calls3.entries()<<" returns="<<calls3.returns()
                          <<" reads="<<a.reads()<<" writes="<<a.writes()<<" saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+                if(ack_helper_enabled()){
+                    if(!held_epilogue.resume_ack(c,pc,w,v1175::expected))reject_held_epilogue();
+                    return;
+                }
+#endif
                 std::_Exit(0);
             }
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+            if(held_epilogue.stage()==11u){
+                const auto& calls3=held_epilogue.ack_calls();
+                if(!ack_helper_enabled()||ack.stage()!=5u||next_device.stage()!=3u||!held_epilogue.helper_saved(c))reject_held_epilogue();
+                std::cout<<std::dec<<"V1175_ACK_HELPER_RETURN original_helper=1 visits="<<held_epilogue.helper_visits()
+                         <<" entries="<<calls3.entries()<<" returns="<<calls3.returns()<<" msr="<<calls3.msr_writes()
+                         <<" token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+                std::_Exit(0);
+            }
+#endif
             return;
         }
 #endif
@@ -831,7 +859,13 @@ template<class C>void observe(uint32_t pc,C& c){
                      <<" token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
             if(third_ack_enabled()){
-                if(ack.stage()!=5u||!held_epilogue.begin_ack(c,v1167::spans,v1167::edges,v1167::msr))reject_held_epilogue();
+                if(ack.stage()!=5u)reject_held_epilogue();
+#ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
+                if(ack_helper_enabled()){
+                    if(!held_epilogue.begin_ack(c,v1175::spans,v1175::edges,v1175::msr))reject_held_epilogue();
+                }else
+#endif
+                if(!held_epilogue.begin_ack(c,v1167::spans,v1167::edges,v1167::msr))reject_held_epilogue();
                 return;
             }
 #endif
