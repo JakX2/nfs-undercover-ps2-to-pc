@@ -45,7 +45,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           reqs=(
-              Requirement(45864357413,'b9a7ad7909b008ca5b3a29c63051de63b4fcf3d7',
+              Requirement(45865397117,'34da0c9a2755f7cc1b673fcd710b46102c9769f3',
                           '.github/workflows/wii-stm-deferred-vector-owner.yml','owner-vector'),
               Requirement(45864147953,'7eefb53fcb744454577462c95180450c0913eafe',
                           '.github/workflows/wii-ipc-deferred-active-dispatch.yml','source'),
