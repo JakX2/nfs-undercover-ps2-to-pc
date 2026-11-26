@@ -1,0 +1,3 @@
+# V1248: focused original IOS submission after post-ACK Open
+
+Extend verified V1245 in the same CPU and transport, reusing the original V659 submission graph and the guest-constructed request. The original code flushes the request, executes a second native cache SC/RFI, disables interrupts, writes PPCMSG then PPCCTRL/X1, and reaches its actual sleep entry. Service exactly one native IOS transport boundary with EE disabled and validate Y2 ACK, queued reply, expected STM handle and preserved third SI token. Do not deliver the reply, wake the thread or execute the sleep instruction. Prior SI, caller/bridge and installed vector remain seeded. Eight focused owner trials required; no continuous boot claim. CI pending.
