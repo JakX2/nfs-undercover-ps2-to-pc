@@ -26,7 +26,7 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
@@ -66,8 +66,13 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         if len(matches)==1:return const(int.from_bytes(matches[0],'big'))
         if matches or read_resolver is None or any(at<base+len(blob) and base<at+n for base,blob in readonly):
             raise ValueError('formatter data read provenance')
-        value=read_resolver(at,n)
-        if not isinstance(value,bytes) or len(value)!=n:raise ValueError('formatter data read provenance')
+        try:
+            value=read_resolver(at,n)
+            if not isinstance(value,bytes) or len(value)!=n:raise ValueError('formatter data read provenance')
+        except ValueError:
+            if read_refusal is not None:
+                read_refusal(at,n,tuple(path),frame,tuple(accesses),tuple(gp),dict(mem),dict(cr),ctr,lr,frozenset(saves))
+            raise
         return const(int.from_bytes(value,'big'))
     def write(a,v,n=4):
         k,at=a
