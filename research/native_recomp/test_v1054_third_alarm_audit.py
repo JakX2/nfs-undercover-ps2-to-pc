@@ -244,4 +244,27 @@ class HeldEpilogueAudit(unittest.TestCase):
                 self.assertFalse(inspect(*rows))
             self.assertFalse(inspect(*prior,h.RFI,h.RESULT,rc=126))
 
+
+class HeldDispatchAudit(unittest.TestCase):
+    def test_exact_third_dispatch(self):
+        import audit_v1163_held_dispatch as h
+        r=h.ret;p=r.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=11 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,r.time.RESULT,r.frontier.RESULT,r.wireless.RESULT,r.suffix.RESULT,r.RESULT,h.handler.RESULT,h.returned.RESULT,h.epilogue.RFI,h.epilogue.RESULT)
+        def inspect(*rows,rc=0):return h.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,h.RESULT))
+            for old,new in ((b'visits=153',b'visits=10'),(b'entries=5',b'entries=4'),(b'pi_reads=2',b'pi_reads=1'),
+                            (b'polls=10',b'polls=4'),(b'original_leaves=4',b'original_leaves=3'),
+                            (b'original_indirect=1',b'original_indirect=0'),(b'token=3',b'token=4'),(b'held=1',b'held=0'),
+                            (b'saved_fields=38',b'saved_fields=37'),(b'handler_instruction_executed=0',b'handler_instruction_executed=1'),
+                            (b'boot_verified=0',b'boot_verified=1')):
+                self.assertFalse(inspect(*prior,h.RESULT.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],h.RESULT),(*prior[:-1],h.RESULT,h.epilogue.RESULT),
+                         (*prior,h.RESULT,h.RESULT),(*prior,h.epilogue.RESULT,h.RESULT),
+                         (*prior,b'V1151_HELD_EPILOGUE_FAULT stage=6 reason=7 epilogue=0 reentry=9',h.RESULT),
+                         (*prior,h.RESULT,b'V1163_HELD_DISPATCH_CENSUS verified=1'),(*prior,h.RESULT,b'V958_ACK_INVALID')):
+                self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,h.RESULT,rc=126))
+
 if __name__=='__main__':unittest.main()
