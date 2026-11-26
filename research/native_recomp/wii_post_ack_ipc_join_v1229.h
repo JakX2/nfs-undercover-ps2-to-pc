@@ -18,6 +18,13 @@ public:
     unsigned join_failure()const{return join_.failure();}
     unsigned client_stage()const{return cold_.stage();}
     uint32_t heap_size()const{return cold_.heap_size();}
+    // A successor may admit only the same observed CPU at the exact
+    // original return seam, before its first instruction executes.
+    template<class C>bool returned_at(C& c)const{
+        return stage_==5u&&!error_&&cpu_==&c&&c.is_running&&!c.in_callback&&
+            !c.dispatch_saved_ctx&&c.pc==IpcClientWitness::Return&&
+            c.lr==IpcClientWitness::Return&&c.inst_count==return_tick_;
+    }
     template<class C>bool pre_dispatch(C& c,uint32_t pc,bool leaf_dispatched,bool device_ok){
         if(stage_||error_||!leaf_dispatched||!device_ok||pc!=edge_.call||
            c.inst_count==UINT64_MAX||!cold_.begin(c))return fail(1);
@@ -50,14 +57,16 @@ public:
     template<class C>bool continuation(C& c,uint32_t pc,bool device_ok){
         if((stage_!=3u&&stage_!=4u)||error_||cpu_!=&c||!device_ok||
            !cold_.observe(pc,c))return fail(4);
-        stage_=cold_.stage()==19u?5u:4u;return true;
+        stage_=cold_.stage()==19u?5u:4u;
+        if(stage_==5u)return_tick_=c.inst_count;
+        return true;
     }
 private:
     IpcClientWitness cold_;
     IpcEntryJoinWitness join_;
     IpcEntryJoinExpectation edge_;
     const void* cpu_=nullptr;
-    uint64_t tick_=0;
+    uint64_t tick_=0,return_tick_=0;
     unsigned stage_=0,error_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
 };

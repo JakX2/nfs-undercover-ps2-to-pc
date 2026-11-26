@@ -1,0 +1,23 @@
+name: Wii V1239 IPC to STM Join
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1239*'
+      - 'research/native_recomp/wii_post_ack_ipc_join_v1229.h'
+      - '.github/workflows/wii-v1239-ipc-stm-join.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify same-context IPC to STM continuation and legacy witnesses
+        run: |
+          set -euo pipefail
+          for test in test_post_ack_ipc_join_v1229 test_post_ack_ipc_continuation_v1234 test_wii_stm_prefix_witness_v629 test_post_ack_stm_join_v1239; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done
