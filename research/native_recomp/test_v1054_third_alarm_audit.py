@@ -4,6 +4,18 @@ import audit_v1054_third_alarm as a
 from test_v1041_transfer_abi import D,H,T,A
 R=b'V1048_THIRD_ALARM_RETURN original_return=1 queue=1 token=3 lane=0 timer=0 calls=3 visits=33 suffix_visits=6 status_reads=0 status_writes=0 token_held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0'
 class Audit(unittest.TestCase):
+    def test_prefix_independent_of_alarm(self):
+        prior=b'\n'.join((D,H,T,A,a.third.third.RESULT))
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(a.transfer_prefix(prior))
+            self.assertTrue(a.transfer_prefix(prior+b'\nV1048_THIRD_ALARM_FAULT route=2 alarm=0 queue=0 stage=1'))
+            self.assertTrue(a.transfer_prefix(prior+b'\n'+R))
+            for bad in (prior+b'\n'+a.third.third.RESULT,
+                        prior.replace(b'token=3',b'token=2'),
+                        b'\n'.join((D,H,T,A)),
+                        prior.replace(A,b'V1040_TRANSFER_ABI admission=0 timing_only=0 unchanged_slot=0 call_executed=0 boot_verified=0')):
+                self.assertFalse(a.transfer_prefix(bad))
+            self.assertFalse(a.inspect(prior,126)[1])
     def test_order_and_exact_alarm(self):
         prior=b'\n'.join((D,H,T,A,a.third.third.RESULT))
         with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):

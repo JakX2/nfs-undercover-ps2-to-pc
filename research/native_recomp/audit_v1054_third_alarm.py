@@ -22,15 +22,27 @@ def inspect(raw,rc):
             prior,base=third.inspect(b'\n'.join(rows[:i]),rc)
             ok=bool(base and 'transfer_return=1' in prior)
     return f'V1054_ALARM_CENSUS verified={int(ok)} original_alarm_return={int(ok)} token_held={int(ok)} boot_verified=0',ok
+def transfer_prefix(raw):
+    # Independently certify the completed original transfer prefix even
+    # when a later native alarm or terminal audit fails. This is not a
+    # successful process exit or proof that the alarm ran.
+    if len(raw)>old.MAX_LOG:raise ValueError('geometry')
+    rows=raw.splitlines()
+    hits=[i for i,l in enumerate(rows) if l.startswith(b'V1028_')]
+    if len(hits)!=1 or rows[hits[0]]!=third.third.RESULT:return False
+    prior,ok=third.inspect(b'\n'.join(rows[:hits[0]+1]),0)
+    return bool(ok and 'transfer_return=1' in prior)
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('log',type=Path);p.add_argument('rc',type=int);a=p.parse_args()
     try:
         if a.log.stat().st_size>old.MAX_LOG:raise ValueError('size')
-        raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
+        raw=a.log.read_bytes();row,ok=inspect(raw,a.rc);prefix=transfer_prefix(raw)
     except (OSError,ValueError):print('V1054_ALARM_AUDIT inspected=0');return 1
     for l in raw.splitlines():
         if public_line(l,(old.ack.BEGIN,old.error.RESULT,old.DIRECT,old.INDIRECT),(old.FAULT,old.frontier.RESULT,old.frontier.FAULT,old.time.RESULT,old.transfer.RESULT,old.shared.DETAIL,old.shared.DIAG,old.shared.RESULT,old.post.RESULT,old.ack.RESULT,old.DETAIL,old.HISTORY,abi.ABI,abi.FAULT,third.third.DIAG,third.third.FAULT,DIAG,FAULT,ACKFAULT,HANDOFF,SEAM)):
             print(l.decode())
+    print(f'V1089_CONTINUOUS_PREFIX verified={int(prefix)} original_third_transfer={int(prefix)} terminal_boot=0')
     print(f'V1087_ALARM_EXIT native_rc={a.rc} audit_passed={int(ok)}')
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

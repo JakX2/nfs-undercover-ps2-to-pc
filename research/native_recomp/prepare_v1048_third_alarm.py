@@ -18,7 +18,7 @@ from prepare_v1029_third_transfer import replace_body,replace_stage,include_once
 
 # Include already-guarded statements: the preceding transfer installer
 # uses third_active(), which becomes false inside the resume label.
-LEGACY=re.compile(r'(?m)^    ((?:if\([^\n]*\)\s+)?undercover::wii::(?:v672::before|v680::before|v709::before|v693::before|v726::resume|v786::before|v768::(?:before|save_before|restore_before)|v807::before|v813::before|v850::(?:before|handler_resume|dispatch_resume))\(ctx,[^\n]+;\n)')
+LEGACY=re.compile(r'(?m)^    ((?:if\([^\n]*\)[ \t]+)?undercover::wii::(?:v672::before|v680::before|v709::before|v693::before|v726::resume|v786::before|v768::(?:before|save_before|restore_before)|v807::before|v813::before|v850::(?:before|handler_resume|dispatch_resume))\(ctx,[^\n]+;\n)')
 def suppress_legacy(block):
     return LEGACY.sub(lambda m:'    if(!undercover::wii::v958::third_active()&&!undercover::wii::v958::third_alarm_active()) { '+m[1].rstrip('\n')+' }\n',block)
 
@@ -35,8 +35,9 @@ def hook(body,pc,w,handoff=False):
     if handoff:
         # Same label is consumed by V1028 and V1047 in one before().
         # Do not add another tick or another observer call.
-        expected='    if(undercover::wii::v958::third_active()) '+current.lstrip()+'    else '+guard.lstrip()
-        if hits!=[expected] or block.index(expected)<block.index(SI):raise ValueError('third alarm handoff hook')
+        conditional='    if(undercover::wii::v958::third_active()) '+current.lstrip()
+        allowed=(current,conditional,conditional+'    else '+guard.lstrip())
+        if len(hits)!=1 or hits[0] not in allowed or block.index(hits[0])<block.index(SI):raise ValueError('third alarm handoff hook')
         return body[:i]+suppress_legacy(block)+body[j:]
     if len(hits)>1:raise ValueError('third alarm duplicate hook')
     if hits:

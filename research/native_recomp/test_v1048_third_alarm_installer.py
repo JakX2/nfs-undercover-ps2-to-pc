@@ -28,8 +28,10 @@ class Hooks(unittest.TestCase):
         self.assertEqual(out.count(SI),1)
         self.assertEqual(out.count('third_alarm_active()) {'),2)
         self.assertIn('if(!undercover::wii::v958::third_active()) '+legacy.strip(),out)
+        for mode in ('    '+B+'false);\n','    if(undercover::wii::v958::third_active()) '+B+'false);\n'):
+            self.assertEqual(hook(L+mode,P,W,handoff=True),L+mode)
         with self.assertRaisesRegex(ValueError,'third alarm handoff hook'):
-            hook(L+'    '+B+'false);\n',P,W,handoff=True)
+            hook(L+'    '+B+'true);\n',P,W,handoff=True)
     def test_composed_alarm_identity(self):
         base='#pragma once\nnamespace undercover::wii::v786 {\ninline constexpr unsigned marker=1;\n}\n'
         callback=(0x80006000,(0x60000000,0x4e800020),(0x80004000,0x80004004))
