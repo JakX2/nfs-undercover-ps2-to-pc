@@ -1,0 +1,23 @@
+name: Wii V1372 Second Wake and Return Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/V1372_SECOND_WAKE_RETURN.md'
+      - '.github/workflows/wii-v1372-second-wake-return.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          flags="-DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -DUNDERCOVER_TEST_NESTED_WAKE -DUNDERCOVER_TEST_REPLY_COMPLETION -DUNDERCOVER_TEST_REPLY_RETURN -DUNDERCOVER_TEST_READY_IDLE_RETURN -DUNDERCOVER_TEST_IDLE_SELECTION"
+          for mode in "" "-DUNDERCOVER_TEST_SECOND_FULL_EPOCH"; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie $flags $mode -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1372
+            /tmp/v1372
+          done

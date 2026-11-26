@@ -8,14 +8,17 @@ namespace undercover::wii {
 class ReadyIdleReturnJoin {
 public:
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned failure()const{return error_;}
     const WakeReadyWitness* ready()const{return ready_;}
     template<class C>bool begin(C& c,const ReplyReturnWitness& returned,
             const WakeReadyWitness& ready,ExternalReturnWitness& frame,bool held){
+        if(stage_||error_)return fail(1);
+        epoch_=OpenTransactionEpoch(returned.first_kind());
         const auto s=NativeIosBinding::cold_snapshot();
-        if(stage_||error_||!s||!returned.returned(c,held)||frame.stage()!=1u||
+        if(!epoch_held()||!s||!returned.returned(c,held)||frame.stage()!=1u||
            !ready.ready_context_held(c,held)||!ready.ready_storage_held(c,frame,held)||
-           s->steps!=2u||s->queued||s->replies||s->event||
+           s->steps!=epoch_.reply_steps()||s->queued||s->replies||s->event||
            (s->control&(IpcMailbox::X1|IpcMailbox::Y1|IpcMailbox::Y2))||
            (s->flags&HollywoodIrq::IPC_PPC)||(s->pi_cause&s->pi_mask))return fail(1);
         if(!s->arm||(s->arm&31u)||s->arm!=s->ppc)return fail(1);
@@ -23,7 +26,7 @@ public:
             auto w=NativeIosBinding::read_physical_word(s->arm+4u*i);if(!w)return fail(1);
             words_[i]=*w;
         }
-        if(words_[0]!=StmIos::Reply||words_[1]!=0u||words_[2]!=StmIos::Open)return fail(1);
+        if(words_[0]!=StmIos::Reply||words_[1]!=epoch_.result_fd()||words_[2]!=StmIos::Open)return fail(1);
         cpu_=&c;frame_=&frame;ready_=&ready;mail_=*s;tick_=c.inst_count;stage_=1;
         return true;
     }
@@ -31,7 +34,7 @@ public:
         const auto s=NativeIosBinding::cold_snapshot();
         return !error_&&stage_==1u&&cpu_==&c&&frame_&&ready_&&s&&
             c.inst_count>=tick_&&c.inst_count-tick_<=2048u&&
-            same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&ready_->ready_storage_held(c,*frame_,held);
+            epoch_held()&&same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&ready_->ready_storage_held(c,*frame_,held);
     }
     template<class C>bool finish(C& c,bool held){
         if(!boundary(c,held)||c.inst_count==tick_||
@@ -41,7 +44,7 @@ public:
     template<class C>bool resumed_idle(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
         return !error_&&stage_==2u&&cpu_==&c&&frame_&&ready_&&s&&
-            c.inst_count==end_&&same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&
+            c.inst_count==end_&&epoch_held()&&same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&
             frame_->cleared_restored(c,mail_.pi_cause,mail_.pi_mask)&&
             ready_->ready_storage_held(c,*frame_,held);
     }
@@ -52,7 +55,7 @@ public:
     // the old reply buffer. Keep the mailbox identity but not retired bytes.
     template<class C>bool completed_transport_held(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
-        return completed_cpu_held(c,held)&&s&&same_scheduler_ipc_snapshot(mail_,*s);
+        return completed_cpu_held(c,held)&&s&&epoch_held()&&same_scheduler_ipc_snapshot(mail_,*s);
     }
     // Only the completed CPU provenance here; the next transaction's
     // observer separately owns every subsequent mailbox transition.
@@ -61,6 +64,8 @@ public:
             c.inst_count>=end_&&c.inst_count-end_<=4096u;
     }
 private:
+    OpenTransactionEpoch epoch_{};
+    bool epoch_held()const{return epoch_.valid()&&(!epoch_.second()||epoch_.acknowledged_descriptors(3u-epoch_.first_kind()));}
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;ExternalReturnWitness* frame_=nullptr;
     ColdIpcSnapshot mail_{};std::array<uint32_t,8> words_{};uint64_t tick_=0,end_=0;unsigned stage_=0,error_=0;
     bool wire()const{

@@ -8,6 +8,7 @@ class ReplyCompletionGate{
 public:
     using B=NativeIosBinding;using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return epoch_.first_kind();}
     unsigned failure()const{return error_;}
     unsigned writes()const{return writes_;}
     unsigned x2_writes()const{return x2_writes_;}
@@ -18,10 +19,12 @@ public:
     template<class C>bool begin(C& c,const ReplyProcessorWitness& body,const WakeReadyWitness& ready,
                                 const NestedWakeReturnWitness& nested,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t request,bool authorized){
+        if(stage_||error_)return fail(1);
+        epoch_=OpenTransactionEpoch(body.first_kind());
         const auto s=B::cold_snapshot();
-        if(stage_||error_||!authorized||!s||!nested.returned_at(c,ready,true)||
+        if(!epoch_held()||!authorized||!s||!nested.returned_at(c,ready,true)||
            !body.postwake_ready(c,frame,queue,request,true)||!ready.ready_held(c,true)||
-           s->ppc!=request||s->arm!=request||s->steps!=2u||s->queued||s->replies||s->event||
+           s->ppc!=request||s->arm!=request||s->steps!=epoch_.reply_steps()||s->queued||s->replies||s->event||
            (s->control&(M::X1|M::Y1|M::Y2|M::X2))||!(s->control&M::IY1)||!(s->control&M::IY2)||
            !(s->irq_mask&H::IPC_PPC)||!request||(request&31u))return fail(1);
         const bool pending=bool(s->flags&H::IPC_PPC);
@@ -30,7 +33,7 @@ public:
         for(unsigned i=0;i<words_.size();++i){
             auto w=B::read_physical_word(request+4u*i);if(!w)return fail(1);words_[i]=*w;
         }
-        if(words_[0]!=S::Reply||words_[1]!=0u||words_[2]!=S::Open)return fail(1);
+        if(words_[0]!=S::Reply||words_[1]!=epoch_.result_fd()||words_[2]!=S::Open)return fail(1);
         cpu_=&c;ready_=&ready;mail_=*s;request_=request;tick_=c.inst_count;
         stage_=pending?1u:2u;return true;
     }
@@ -39,7 +42,7 @@ public:
         if(!ready_->ready_context_held(c,true))return 2u;
         auto s=B::cold_snapshot();
         if(!s)return 3u;
-        if(!same_scheduler_ipc_snapshot(*s,mail_))return 4u;
+        if(!epoch_held()||!same_scheduler_ipc_snapshot(*s,mail_))return 4u;
         if(c.inst_count<tick_||c.inst_count-tick_>2048u)return 5u;
         for(unsigned i=0;i<words_.size();++i)if(B::read_physical_word(request_+4u*i)!=words_[i])return 6u;
         return 0u;
@@ -96,6 +99,8 @@ public:
             !(mail_.pi_cause&mail_.pi_mask)&&!(mail_.control&(M::X1|M::Y1|M::Y2));
     }
 private:
+    OpenTransactionEpoch epoch_{};
+    bool epoch_held()const{return epoch_.valid()&&(!epoch_.second()||epoch_.acknowledged_descriptors(3u-epoch_.first_kind()));}
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;
     ColdIpcSnapshot mail_{};std::array<uint32_t,8> words_{};
     uint32_t request_=0;uint64_t tick_=0;unsigned stage_=0,error_=0,reads_=0,writes_=0,x2_writes_=0;

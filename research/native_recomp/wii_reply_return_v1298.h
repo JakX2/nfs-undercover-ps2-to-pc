@@ -31,6 +31,7 @@ class ReplyReturnWitness {
 public:
     explicit ReplyReturnWitness(ReplyReturnExpectation e):e_(e){}
     unsigned stage()const{return stage_;}
+    unsigned first_kind()const{return gate_.first_kind();}
     unsigned failure()const{return error_;}
     unsigned gate_failure()const{return gate_.failure();}
     unsigned visits()const{return visits_;}
