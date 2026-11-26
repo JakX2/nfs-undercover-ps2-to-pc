@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/wii_deferred_active_return.h'
       - 'research/native_recomp/test_deferred_active_return.cpp'
+      - 'research/native_recomp/wii_stm_resumed_restore.h'
+      - 'research/native_recomp/test_stm_resumed_restore.cpp'
       - '.github/workflows/wii-deferred-active-return.yml'
 permissions:
   contents: read
@@ -21,3 +23,5 @@ jobs:
           /tmp/deferred_active_return
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_live_epilogue_source_v1269.cpp -o /tmp/live_epilogue
           /tmp/live_epilogue
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_stm_resumed_restore.cpp -o /tmp/stm_resumed_restore
+          /tmp/stm_resumed_restore
