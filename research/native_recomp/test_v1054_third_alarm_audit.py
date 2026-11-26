@@ -131,4 +131,27 @@ class PostAlarmWirelessAudit(unittest.TestCase):
             self.assertFalse(inspect(*prior,result,rc=126))
             self.assertFalse(inspect(*prior[:-1],w.frontier.RESULT.replace(b'zero_id=1',b'zero_id=0'),result))
 
+class PostAlarmSuffixAudit(unittest.TestCase):
+    def test_order_and_exact_suffix(self):
+        import audit_v1127_postalarm_suffix as s
+        p=s.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=2 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,s.time.RESULT,s.frontier.RESULT,s.wireless.RESULT)
+        result=s.RESULT
+        def inspect(*rows,rc=0):return s.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,result))
+            for old,new in ((b'ordinal=13',b'ordinal=4'),(b'target_class=0',b'target_class=3'),
+                            (b'visits=37',b'visits=36'),(b'writes=0',b'writes=1'),(b'polls=4',b'polls=3'),
+                            (b'token=3',b'token=4'),(b'held=1',b'held=0'),(b'saved_fields=38',b'saved_fields=37'),
+                            (b'call_executed=0',b'call_executed=1'),(b'boot_verified=0',b'boot_verified=1')):
+                with self.subTest(old=old):self.assertFalse(inspect(*prior,result.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],result),(*prior[:-1],result,s.wireless.RESULT),
+                         (*prior,s.wireless.RESULT,result),(*prior,result,result),(*prior,result,b'V1127_POSTALARM_SUFFIX_CENSUS verified=1'),
+                         (*prior,b'V1123_POSTALARM_SUFFIX_FAULT route=16 witness=5 stage=10',result),
+                         (*prior,result,b'V958_ACK_INVALID'),(*prior,b'V1087_ALARM_SEAM kind=1 stage=2 reason=3',result)):
+                with self.subTest(rows=rows[-3:]):self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,result,rc=126))
+            self.assertFalse(inspect(*prior[:-1],s.wireless.RESULT.replace(b'visits=66',b'visits=65'),result))
+
 if __name__=='__main__':unittest.main()

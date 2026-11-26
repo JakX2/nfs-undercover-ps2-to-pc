@@ -185,4 +185,32 @@ class PostAlarmWirelessLaunch(unittest.TestCase):
             self.assertNotIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
             self.assertIn('V1114_POSTALARM_FRONTIER_BUILD_PLAN' if build else 'audit=audit_v1114_postalarm_frontier.py',p.stdout)
 
+class PostAlarmSuffixLaunch(PostAlarmWirelessLaunch):
+    def setUp(self):
+        super().setUp()
+        self.env.update(UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX='1',UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1127_POSTALARM_SUFFIX_BUILD_PLAN links=1 private_installer=1 wireless_predecessor=1' if build else 'audit=audit_v1127_postalarm_suffix.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1123_POSTALARM_SUFFIX=1',p.stdout)
+    def test_refusals(self):
+        super().test_refusals()
+        for key in ('UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX','UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX'):
+            for val in ('','2','true'):
+                env=self.env.copy();env[key]=val
+                for build in (False,True):
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_frontier_only_unchanged(self):
+        self.env.pop('UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX');self.env.pop('UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX')
+        super().test_frontier_only_unchanged()
+    def test_wireless_only_unchanged(self):
+        env=self.env.copy();env.pop('UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX');env.pop('UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX')
+        for build in (False,True):
+            p=self.launch.plan(env,build);self.assertEqual(p.returncode,0,p.stderr)
+            self.assertNotIn('V1127_POSTALARM_SUFFIX_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1123_POSTALARM_SUFFIX=1',p.stdout)
+            self.assertIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN' if build else 'audit=audit_v1121_postalarm_wireless.py',p.stdout)
+
 if __name__=='__main__':unittest.main()

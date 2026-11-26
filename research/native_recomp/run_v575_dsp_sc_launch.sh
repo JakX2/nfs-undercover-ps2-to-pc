@@ -185,6 +185,10 @@ third_postalarm_wireless="${UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS-0}"
 [[ "$third_postalarm_wireless" == 0 || "$third_postalarm_wireless" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS-0}" == "$third_postalarm_wireless" ]] || exit 2
 [[ "$third_postalarm_wireless" == 0 || "$third_postalarm_frontier" == 1 ]] || exit 2
+third_postalarm_suffix="${UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX-0}"
+[[ "$third_postalarm_suffix" == 0 || "$third_postalarm_suffix" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX-0}" == "$third_postalarm_suffix" ]] || exit 2
+[[ "$third_postalarm_suffix" == 0 || "$third_postalarm_wireless" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -200,6 +204,9 @@ if [[ "$third" == 1 ]]; then
           extra+=(UNDERCOVER_V1111_POSTALARM_FRONTIER=1);audit=audit_v1114_postalarm_frontier.py
           if [[ "$third_postalarm_wireless" == 1 ]]; then
             extra+=(UNDERCOVER_V1118_POSTALARM_WIRELESS=1);audit=audit_v1121_postalarm_wireless.py
+            if [[ "$third_postalarm_suffix" == 1 ]]; then
+              extra+=(UNDERCOVER_V1123_POSTALARM_SUFFIX=1);audit=audit_v1127_postalarm_suffix.py
+            fi
           fi
         fi
       fi
