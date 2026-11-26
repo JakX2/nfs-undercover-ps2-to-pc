@@ -162,6 +162,16 @@ if [[ "${UNDERCOVER_RUN_V1040_SIX_ARGS:-0}" == 1 ]]; then
   [[ "$audit" == audit_v1021_error_frontier.py && "${UNDERCOVER_RUN_V1034_QUEUE_DETAIL:-0}" == 1 ]] || exit 2
   extra+=(UNDERCOVER_V1040_SIX_ARGS=1);audit=audit_v1041_transfer_abi.py
 fi
+# The third-transfer continuation has its own strict terminal audit.
+# This explicit experiment never changes the cold SI profile.
+third="${UNDERCOVER_RUN_V1051_THIRD_TRANSFER:-0}"
+[[ "$third" == 0 || "$third" == 1 ]] || exit 2
+if [[ "$third" == 1 ]]; then
+  [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
+     "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
+     "${UNDERCOVER_PREPARE_V1048_THIRD_ALARM:-0}" != 1 ]] || exit 2
+  extra+=(UNDERCOVER_V1028_THIRD_TRANSFER=1);audit=audit_v1045_third_transfer_abi.py
+fi
 # Only the second-callback experiment may change the fixed cold SI profile.
 # Port zero must remain absent for the verified first completion.
 si_profile="${UNDERCOVER_RUN_V1012_SI_PROFILE-absent}"
