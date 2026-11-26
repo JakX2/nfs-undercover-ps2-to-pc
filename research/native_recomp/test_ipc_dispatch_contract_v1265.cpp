@@ -13,6 +13,9 @@
 #include "wii_reply_completion_v1293.h"
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
 #include "wii_reply_return_v1298.h"
+#ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
+#include "wii_ready_idle_return_v1304.h"
+#endif
 #endif
 #endif
 #endif
@@ -57,7 +60,10 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0,unsigned return_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0,unsigned return_case=0,unsigned idle_case=0){
+#ifndef UNDERCOVER_TEST_READY_IDLE_RETURN
+    (void)idle_case;
+#endif
 #ifndef UNDERCOVER_TEST_REPLY_RETURN
     (void)return_case;
 #endif
@@ -407,6 +413,46 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             c.pc=Dret;if(return_case==12)++c.inst_count;
             ok=ret.poll(c,true);if(return_case==12){no(ok,6);return;}assert(ok);
             assert(return_case==1&&ret.returned(c,true)&&ret.writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
+#ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
+            if(idle_case){
+                ReadyIdleReturnJoin join;
+                if(idle_case==2)++c.inst_count;
+                ok=join.begin(c,ret,ready,frame,true);
+                if(idle_case==2){assert(!ok&&join.failure()==1u);return;}assert(ok);
+                assert(join.boundary(c,true));
+                if(idle_case==3){assert(!join.finish(c,true)&&join.failure()==2u);return;}
+                if(idle_case==4)m.write32(Ready+4u,0u);
+                if(idle_case==5)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
+                if(idle_case==6)cause.fetch_or(H::PI_HOLLYWOOD);
+                if(idle_case>=4&&idle_case<=6){assert(!join.boundary(c,true));return;}
+                // Model the native loader's final integer state in this
+                // original-free test; the external return witness checks
+                // it against its independent pre-exception capture.
+                for(unsigned i=0;i<32;++i)c.gpr[i]=m.read32(Context+4u*i);
+                c.lr=m.read32(Context+132u);c.ctr=m.read32(Context+136u);c.xer=m.read32(Context+140u);
+                const uint32_t bits=m.read32(Context+128u);
+                for(unsigned i=0;i<8;++i){
+                    const unsigned f=(bits>>(28u-i*4u))&15u;
+                    c.cr[i]={bool(f&8u),bool(f&4u),bool(f&2u),bool(f&1u)};
+                }
+                c.srr0=m.read32(Context+408u);c.srr1=m.read32(Context+412u);
+                constexpr uint32_t Rfi=0x80020000u;c.pc=Rfi;m.write32(Rfi,0x4c000064u);++c.inst_count;
+                assert(frame.before_rfi(c,Rfi,0x4c000064u,cause.load(),mask.load()));
+                c.pc=c.srr0;c.msr=c.srr1;
+                assert(frame.poll(c,cause.load(),mask.load()));
+                if(idle_case==7){assert(!join.finish(c,true)&&join.failure()==2u);return;}
+                assert(frame.poll(c,cause.load(),mask.load()));
+                if(idle_case==8)++c.inst_count;
+                if(idle_case==9)c.gpr[31]^=1u;
+                if(idle_case==10)m.write32(0x800000d4u,Thread);
+                ok=join.finish(c,true);
+                if(idle_case>=8&&idle_case<=10){assert(!ok&&join.failure()==2u);return;}
+                assert(ok&&join.resumed_idle(c,true));
+                if(idle_case==11){++c.inst_count;assert(!join.resumed_idle(c,true));}
+                else assert(idle_case==1);
+                return;
+            }
+#endif
             return;
         }
 #endif
@@ -512,6 +558,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
     std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
+    for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,0,0,1,i);
+    std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=10 full_context=1 ready_queue=1 original_execution=0\n";
+#endif
 #endif
 #endif
 #endif

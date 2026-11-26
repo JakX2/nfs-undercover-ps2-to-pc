@@ -54,6 +54,12 @@ public:
         return stage_==3u&&pending_return_&&pending_common(c,cause,mask)&&restored(c)&&
                (c.msr&0x8000u)&&c.inst_count==rfi_tick_;
     }
+    // Exact cleared-IRQ handoff after both generated RFI polls, before
+    // a single resumed native instruction. Does not advance the witness.
+    template<class C>bool cleared_restored(C& c,uint32_t cause,uint32_t mask)const{
+        return stage_==4u&&!pending_return_&&common(c,cause,mask)&&restored(c)&&
+               (c.msr&0x8000u)&&c.inst_count==rfi_tick_;
+    }
     template<class C>bool before_pending_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         return before_rfi_impl(c,pc,word,cause,mask,true);
     }

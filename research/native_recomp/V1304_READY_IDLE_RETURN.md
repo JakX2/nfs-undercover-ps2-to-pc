@@ -1,0 +1,3 @@
+# V1304: ready storage and exact idle RFI handoff
+
+Authenticate the original handler-return boundary, snapshot its quiescent native transport, preserve the complete sleeping OSContext and READY queue through the original idle RFI. Require the same captured idle register state at the second RFI poll, before resumed instructions. The new storage-only observer does not independently claim execution; the existing strict pre-RFI context check remains required for handler execution. Eleven source-only cases added, CI pending. Historical V82 proves this route is legitimate; new focused owner execution still depends on V1302 post-wake MMIO correction.
