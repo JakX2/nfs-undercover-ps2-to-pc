@@ -1,0 +1,3 @@
+# V1160: recover V1140 private callback-return installation
+
+V1140 owner job 139724263997 failed before linking at V1134 `postalarm_return_legacy`, after successful wireless and suffix installation. Earlier bounded route labels can retain exact V1048 or V1097 legacy wrappers. Authenticate those exact wrappers and reuse the existing V958 observer, preserving all previous guards and the single outer dispatcher seam. Add composed-hook regression cases and safe bounded role/index diagnostics for any residual private mismatch. Rerun the same gated workflow; do not advance the full-image route until this passes.

@@ -9,7 +9,7 @@ from prepare_v668_si_ack import HANDLER,geometry
 from prepare_v789_alarm_suffix import expectations
 from prepare_v850_callback_return import render as render_old,BLOCK_END
 from prepare_v1124_postalarm_suffix import render as render_suffix
-from prepare_v1097_after_alarm import patch_label,fmt,ACTIVE,SI
+from prepare_v1097_after_alarm import patch_label,fmt,ACTIVE,SI,OLD_SUPPRESS,NEW_SUPPRESS,OLD_ACTIVE,OLD_THIRD
 from prepare_v1106_postalarm_time import verify_resume
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
@@ -23,6 +23,20 @@ def render(call,R,caller,restore,tail,w):
             'inline constexpr CallbackReturnExpectation expected{'+fmt((call,R,caller))+',{'+fmt(restore)+'},{'
             +fmt(tail)+'},'+fmt((w,))+'};\n}\n')
 
+def legacy_forms(hook):
+    # Exactly the wrappers already emitted by V1048/V1097, not arbitrary
+    # substring matches or arbitrary executable statements.
+    stmt=hook.strip()
+    return ('    '+stmt+'\n',OLD_SUPPRESS+stmt+' }\n',
+            NEW_SUPPRESS+stmt+' }\n',f'    if(!{ACTIVE}) {{ {stmt} }}\n')
+
+def select_legacy(block,hook,kind):
+    forms=legacy_forms(hook)
+    lines=[line for line in block.splitlines(keepends=True) if kind+'(' in line]
+    if len(lines)!=1 or lines[0] not in forms:
+        raise ValueError('postalarm return legacy')
+    return lines[0]
+
 def patch_return_label(body,pc,w,dispatch=False):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
     hits=list(pat.finditer(body))
@@ -32,20 +46,33 @@ def patch_return_label(body,pc,w,dispatch=False):
     tick='    ++ctx.inst_count;\n'
     args=f'ctx,0x{pc:08x}u,0x{w:08x}u'
     old_dispatch='    undercover::wii::v850::dispatch_resume('+args+');\n'
-    legacy='    undercover::wii::v850::'+('handler_resume' if dispatch else 'before')+'('+args+');\n'
-    if block.count(tick)!=1 or block.count(SI)!=1 or block.count(legacy)!=1 or not block.index(tick)<block.index(SI)<block.index(legacy):
+    role='handler_resume' if dispatch else 'before'
+    legacy='    undercover::wii::v850::'+role+'('+args+');\n'
+    old=select_legacy(block,legacy,'v850::'+role)
+    if block.count(tick)!=1 or block.count(SI)!=1 or not block.index(tick)<block.index(SI)<block.index(old):
         raise ValueError('postalarm return legacy')
+    pre=None
     if dispatch:
-        if not block.startswith(old_dispatch+tick) or block.count('v850::dispatch_resume(')!=1:
+        pre=select_legacy(block,old_dispatch,'v850::dispatch_resume')
+        if not block.startswith(pre+tick):
             raise ValueError('postalarm return dispatch hook')
     elif 'v850::dispatch_resume(' in block:raise ValueError('postalarm return dispatch hook')
-    # The existing v850 dispatch call must stay exactly at its old pre-tick
-    # seam. Suppress it through the shared owner patch, then insert the
-    # new observer at that same outer tick, not at the instruction tick.
-    out=patch_label(body,pc,w)
+    # An earlier bounded route can reach the same emitted label through an
+    # alternate branch. Verify and reuse its existing observer, not a new
+    # instruction tick. Otherwise extend the exact older legacy wrappers.
+    already=ACTIVE in block
+    if already:
+        verify_resume(body,pc,w)
+        if old not in legacy_forms(legacy)[2:] or (pre is not None and pre not in legacy_forms(old_dispatch)[2:]):
+            raise ValueError('postalarm return legacy')
+        out=body
+    else:out=patch_label(body,pc,w)
     if dispatch:
-        guarded=f'    if(!{ACTIVE}) {{ '+old_dispatch.strip()+' }\n'
-        if out.count(guarded)!=1:raise ValueError('postalarm return dispatch hook')
+        m=pat.search(out);assert m is not None
+        stop=BLOCK_END.search(out,m.end());updated=out[m.end():stop.start() if stop else len(out)]
+        guarded=select_legacy(updated,old_dispatch,'v850::dispatch_resume')
+        if guarded not in legacy_forms(old_dispatch)[2:] or not updated.startswith(guarded+tick):
+            raise ValueError('postalarm return dispatch hook')
         new='    undercover::wii::v958::postalarm_dispatch_resume('+args+');\n'
         out=out.replace(guarded,guarded+new,1)
     verify_resume(out,pc,w)
@@ -108,7 +135,19 @@ def install(dol,elf,root,host):
         if a==HANDLER:
             verify_indirect(body,site);verify_resume_dispatch(outer,HANDLER,caller);expected[site]=(a,word)
         if audit_native([body],outer,expected)!=len(expected):raise ValueError('postalarm return coverage')
-        for pc,w in sorted(rows.items()):out=patch_return_label(out,pc,w,a==HANDLER)
+        for pc,w in sorted(rows.items()):
+            try:out=patch_return_label(out,pc,w,a==HANDLER)
+            except ValueError:
+                # A bounded role/index and hook shape census, no proprietary
+                # code, addresses, registers or generated source.
+                role='handler' if a==HANDLER else 'restore' if a==R else 'tail'
+                block=body
+                pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
+                match=pat.search(body)
+                if match:
+                    stop=BLOCK_END.search(body,match.end());block=body[match.end():stop.start() if stop else len(body)]
+                print(f'V1160_RETURN_HOOK_REFUSAL role={role} index={(pc-min(rows))//4} tick={int(block.count("++ctx.inst_count;")==1)} si={int(block.count(SI)==1)} old={int("v850::" in block)} prior={int(ACTIVE in block)}')
+                raise
         changes[p]=include_once(replace_body(source,body,out),'#include "undercover/wii_second_ack_live_v958.h"')
     changes[private]=old.replace(macro,macro+newmacro,1)
     changes[result]=render(call,R,caller,restore,tail,caller_word)

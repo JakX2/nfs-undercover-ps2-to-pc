@@ -1,4 +1,4 @@
-name: Wii V1140 Gated Continuous Held Callback Return
+name: Wii V1160 Gated Continuous Held Callback Return Repair
 on:
   workflow_dispatch:
   push:
@@ -121,7 +121,7 @@ jobs:
           grep -Fx 'V1123_POSTALARM_SUFFIX ordinal=13 target_class=0 visits=37 writes=0 polls=4 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
           grep -Fx 'V1132_POSTALARM_RETURN original_restore=1 original_return=1 visits=12 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
           grep -Fx 'V1135_POSTALARM_RETURN_CENSUS verified=1 original_callback_return=1 token_held=1 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
-          echo 'V1140_CONTINUOUS_CALLBACK_RETURN verified=1 original_wireless=1 original_suffix=1 original_callback_return=1 boot_verified=0'
+          echo 'V1160_CONTINUOUS_CALLBACK_RETURN verified=1 original_wireless=1 original_suffix=1 original_callback_return=1 boot_verified=0'
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v1059-public.log"

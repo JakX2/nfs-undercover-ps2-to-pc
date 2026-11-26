@@ -618,4 +618,30 @@ class ReturnTree(unittest.TestCase):
                 with self.assertRaises(ValueError):self.install(root,f)
                 self.assertEqual(Tree.snapshot(root),before)
 
+
+class ReturnComposedLegacy(unittest.TestCase):
+    def test_inherited_wrappers(self):
+        from prepare_v1134_postalarm_return import patch_return_label,legacy_forms
+        from prepare_v1048_third_alarm import hook
+        from prepare_v1097_after_alarm import patch_label
+        from prepare_v1106_postalarm_time import verify_resume
+        a=f'ctx,0x{P:08x}u,0x{W:08x}u';tick='    ++ctx.inst_count;\n'
+        for dispatch in (False,True):
+            legacy=f'    undercover::wii::v850::{"handler_resume" if dispatch else "before"}({a});\n'
+            pre=f'    undercover::wii::v850::dispatch_resume({a});\n'
+            raw=L+legacy
+            if dispatch:raw=raw.replace(tick,pre+tick)
+            for earlier in (hook(raw,P,W),patch_label(raw,P,W),patch_label(hook(raw,P,W),P,W)):
+                with self.subTest(dispatch=dispatch,earlier=earlier):
+                    out=patch_return_label(earlier,P,W,dispatch)
+                    verify_resume(out,P,W)
+                    self.assertEqual(out.count(tick),1)
+                    self.assertEqual(out.count('v958::before(ctx,'),1)
+                    self.assertTrue(any(x in out for x in legacy_forms(legacy)[2:]))
+                    if dispatch:self.assertIn(f'postalarm_dispatch_resume({a});\n'+tick,out)
+                    else:self.assertNotIn('postalarm_dispatch_resume',out)
+                    for bad in (earlier.replace('v850::'+('handler_resume' if dispatch else 'before'),'v850::wrong'),
+                                earlier+legacy,earlier.replace(SI,'')):
+                        with self.assertRaises(ValueError):patch_return_label(bad,P,W,dispatch)
+
 if __name__=='__main__':unittest.main()

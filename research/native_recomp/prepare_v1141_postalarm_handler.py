@@ -5,7 +5,7 @@ from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
 from prepare_v668_si_ack import HANDLER
 from prepare_v868_handler_suffix import derive,render as render_prior
-from prepare_v1134_postalarm_return import derive as derive_return,render as render_return
+from prepare_v1134_postalarm_return import derive as derive_return,render as render_return,legacy_forms
 from prepare_v1097_after_alarm import patch_label,ACTIVE,SI,fmt,suffix_line
 from prepare_v1106_postalarm_time import verify_resume
 from prepare_v850_callback_return import BLOCK_END
@@ -42,8 +42,8 @@ def patch_handler(body,pc,w,o,k,caller):
         raise ValueError('held handler legacy')
     if pc==caller:
         pre=f'    undercover::wii::v958::postalarm_dispatch_resume({args});\n'
-        old=f'    if(!{ACTIVE}) {{ undercover::wii::v850::dispatch_resume({args}); }}\n'
-        if not block.startswith(old+pre+'    ++ctx.inst_count;\n') or block.count('postalarm_dispatch_resume(')!=1:
+        old=f'    undercover::wii::v850::dispatch_resume({args});\n'
+        if not any(block.startswith(line+pre+'    ++ctx.inst_count;\n') for line in legacy_forms(old)[2:]) or block.count('postalarm_dispatch_resume(')!=1:
             raise ValueError('held handler resume')
         out=body
     elif 'postalarm_dispatch_resume(' in block or 'v850::handler_resume(' in block or 'v850::dispatch_resume(' in block:
