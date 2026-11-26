@@ -858,6 +858,16 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_DISPATCH
+    // Shared interrupt leaves retain both installed hooks. The active
+    // dispatcher owns these original labels via v1261_before; do not
+    // send them to the retired asynchronous submission witness.
+    if(third_dispatch){
+        if(std::count_if(v1261::words.begin(),v1261::words.end(),
+            [&](auto x){return x.pc==pc&&x.word==w;})!=1)third_dispatch_refuse(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
     if(stm_outer){if(!stm_outer->before(c,pc,w,stm_outer_held(c)))stm_outer_refuse(2);return;}
 #endif

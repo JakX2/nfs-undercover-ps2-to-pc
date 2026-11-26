@@ -4,6 +4,7 @@ on:
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
       - '.github/workflows/wii-stm-deferred-dispatch-owner.yml'
 permissions:
   contents: read
