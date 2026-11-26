@@ -300,7 +300,14 @@ case "$si_profile" in
     ;;
   *) exit 2 ;;
 esac
+# The unchanged wireless setter experiment needs an explicit zero-ID
+# cold SRAM fixture, unlike the general nonzero SRAM coverage profile.
+sram_profile=pattern
+if [[ "$third_postalarm_wireless" == 1 ]]; then sram_profile=wireless-zero;fi
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
+if [[ "$sram_profile" == wireless-zero ]]; then
+  echo 'V1196_SRAM_PLAN selected=wireless-zero unchanged_setter=1 synthetic=1'
+fi
 if [[ "$si_profile" != absent ]]; then
   echo "V1012_SI_PROFILE selected=port1-present cold_port0_absent=1 synthetic=1"
 fi
@@ -311,7 +318,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 [[ "$(sha256sum "$dol" | cut -d ' ' -f1)" == 16a09adcf1987c1f3617d10f3a1cb830f32886afb583f9f8f88e0963ae5fe1f4 ]] || { echo 'V575_DSP_SC_INPUT accepted=0';exit 1; }
 mkdir -m 700 "$work"
 printf '%s\n' '[system]' 'platform = "Wii"' '[input]' 'mode = 6' > "$work/config.toml"
-python3 "$here/write_sram_profile_v536.py" "$work/exi-test-profile.txt"
+python3 "$here/write_sram_profile_v536.py" "$work/exi-test-profile.txt" --profile "$sram_profile"
 python3 "$here/write_si_profile_v1012.py" "$si_profile" "$work/si-test-profile.txt"
 echo 'V575_DSP_SC_INPUT accepted=1 dol_only=1 profiles=synthetic'
 rc=0

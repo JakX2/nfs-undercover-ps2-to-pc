@@ -164,7 +164,9 @@ class PostAlarmWirelessLaunch(unittest.TestCase):
             p=self.launch.plan(self.env,build)
             self.assertEqual(p.returncode,0,p.stderr+p.stdout)
             self.assertIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN links=1 private_installer=1 frontier_predecessor=1' if build else 'audit=audit_v1121_postalarm_wireless.py',p.stdout)
-            if not build:self.assertIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
+            if not build:
+                self.assertIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
+                self.assertIn('V1196_SRAM_PLAN selected=wireless-zero unchanged_setter=1 synthetic=1',p.stdout)
     def test_refusals(self):
         for key in tuple(self.env):
             if key.startswith(('UNDERCOVER_RUN_V11','UNDERCOVER_RUN_V112','UNDERCOVER_PREPARE_V11','UNDERCOVER_RUN_V1055','UNDERCOVER_PREPARE_V1048','UNDERCOVER_PREPARE_V1097')):
@@ -183,6 +185,7 @@ class PostAlarmWirelessLaunch(unittest.TestCase):
             p=self.launch.plan(env,build);self.assertEqual(p.returncode,0,p.stderr)
             self.assertNotIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
+            self.assertNotIn('V1196_SRAM_PLAN',p.stdout)
             self.assertIn('V1114_POSTALARM_FRONTIER_BUILD_PLAN' if build else 'audit=audit_v1114_postalarm_frontier.py',p.stdout)
 
 class PostAlarmSuffixLaunch(PostAlarmWirelessLaunch):
