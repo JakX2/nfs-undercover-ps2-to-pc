@@ -1,0 +1,23 @@
+name: Wii V1253 Cold IOS Reply Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1253*'
+      - 'research/native_recomp/wii_native_ios_binding.h'
+      - '.github/workflows/wii-v1253-ios-reply-gate.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify native mailbox ACK and reply with no original code
+        run: |
+          set -euo pipefail
+          for test in test_wii_native_ios_binding test_wii_native_ios_transport test_cold_open_reply_gate_v1253; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done

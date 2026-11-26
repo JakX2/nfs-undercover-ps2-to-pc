@@ -1,0 +1,3 @@
+# V1253: device-side first IOS reply gate
+
+After the first Open ACK, retain the physical request, eight wire words, original pathname, descriptor and transport snapshot. Require original-handler authorization at the caller boundary, PPCCTRL/Y2 W1C then separate Hollywood IPC latch W1C, stable unrelated PI causes and EE disabled before one native reply pump. Verify Y1, ARMMSG, successful native Open result, original command field, unchanged remaining wire words and descriptor. No guest PC/MSR/thread writes or automatic interrupt injection. Synthetic tests cover both STM paths and 18 invalid transitions, with no original execution claim. The live caller still needs original IRQ handler and return authentication. CI pending.

@@ -93,6 +93,15 @@ public:
             !s.queued&&!s.replies&&!s.event;
         self.cold_phase_=ok?3u:4u;return ok;
     }
+    // Bounded read-only physical RAM observation, never virtual/MMIO.
+    static std::optional<uint32_t> read_physical_word(uint32_t a){
+        if(!active_||(a&3u)||!active_->transport_.physical_ram().valid(a,4u))return std::nullopt;
+        return active_->transport_.physical_ram().read32(a);
+    }
+    static std::optional<uint8_t> read_physical_byte(uint32_t a){
+        if(!active_||!active_->transport_.physical_ram().valid(a,1u))return std::nullopt;
+        return active_->transport_.physical_ram().read8(a);
+    }
     // Read-only descriptor proof; no allocation or service.
     static bool is_open(unsigned fd,StmIos::Device kind) noexcept{
         return active_&&active_->transport_.services().is_open(fd,kind);
