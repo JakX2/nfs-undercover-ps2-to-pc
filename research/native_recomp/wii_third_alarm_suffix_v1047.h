@@ -1,5 +1,6 @@
 #pragma once
 #include "wii_handler_suffix_guard_v868.h"
+#include "wii_handler_index_branch_v911.h"
 #include "wii_alarm_cancel_return_v782.h"
 #include "wii_postack_transfer_device_v771.h"
 #include "wii_external_return_v706.h"
@@ -100,6 +101,84 @@ private:
     }
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool same(C& c)const{return cpu_==&c&&stage_&&!error_&&safe(c)&&c.msr==msr_&&c.srr0==srr0_&&c.srr1==srr1_;}
+};
+// Held completion is still owned by PostAckTransferDevice. This witness
+// observes the original handler suffix, including the real status MMIO;
+// it cannot acknowledge TC, issue a transfer, or perform a guest store.
+class HeldHandlerSuffixWitness {
+public:
+    explicit HeldHandlerSuffixWitness(HandlerIndexBranchExpectation e):index_(e){}
+    unsigned stage()const{return stage_;}
+    unsigned failure()const{return error_;}
+    unsigned visits()const{return guard_.visits();}
+    unsigned stores()const{return guard_.writes();}
+    bool taken()const{return index_.taken();}
+    unsigned reads()const{return reads_;}
+    unsigned writes()const{return writes_;}
+    template<class C>bool start(C& c,uint32_t pc,uint32_t w,PostAckTransferDevice& dev,
+            const ExternalReturnWitness& frame,uint32_t context,std::span<const HandlerSuffixLabel> rows,
+            uint32_t rd,uint32_t wr){
+        if(stage_||error_||c.pc!=pc||rd<=pc||wr<=rd||dev.suffix_status_reads()||dev.suffix_status_writes()||
+           !dev.held_now()||dev.token()!=3u||dev.follow_stage()!=3u||dev.pending()||
+           !frame.saved_integer(c,context).ok()||!guard_.start(c,rows,pc,64u,true)||!index_.start(c,pc))return fail(1);
+        cpu_=&c;dev_=&dev;frame_=&frame;context_=context;rows_=rows;rd_=rd;wr_=wr;last_=c.inst_count;stage_=1;
+        return step(c,pc,w);
+    }
+    template<class C>bool before(C& c,uint32_t pc,uint32_t w){
+        if(!common(c)||c.inst_count-last_!=1u||!dev_->after_return_at(c.inst_count))return fail(2);
+        last_=c.inst_count;return step(c,pc,w);
+    }
+private:
+    const void* cpu_=nullptr;PostAckTransferDevice* dev_=nullptr;const ExternalReturnWitness* frame_=nullptr;
+    std::span<const HandlerSuffixLabel> rows_{};
+    HandlerSuffixGuard guard_;HandlerIndexBranchWitness index_;
+    uint32_t context_=0,rd_=0,wr_=0;
+    uint64_t last_=0;
+    unsigned stage_=0,error_=0,reg_=32u,reads_=0,writes_=0;
+    bool write_due_=false;
+    bool fail(unsigned n){if(!error_)error_=n;return false;}
+    template<class C>bool common(C& c)const{
+        return stage_==1u&&!error_&&cpu_==&c&&dev_&&frame_&&dev_->stage()==2u&&dev_->token()==3u&&
+               dev_->follow_stage()==3u&&!dev_->pending()&&frame_->saved_integer(c,context_).ok();
+    }
+    template<class C>bool step(C& c,uint32_t pc,uint32_t w){
+        if(!common(c)||!dev_->held_now())return fail(2);
+        if(reg_<32u){
+            const auto v=dev_->suffix_status_value();
+            if(!v||c.gpr[reg_]!=*v)return fail(3);
+            reg_=32u;++reads_;
+        }
+        if(write_due_){
+            if(dev_->suffix_status_writes()!=1u)return fail(3);
+            write_due_=false;++writes_;
+        }
+        const HandlerSuffixLabel* row=nullptr;
+        for(const auto& x:rows_)if(x.pc==pc){row=&x;break;}
+        const bool rd=pc==rd_,wr=pc==wr_;
+        const auto a=PostAckTransferDevice::word_access(c,w);
+        const auto off=PostAckTransferDevice::offset(a.address);
+        const uint32_t phys=a.address&0x3fffffffu;
+        const bool overlaps=(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)||
+                            (phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u);
+        if(!row||((rd||wr)&&off!=SiController::Status)||(!rd&&!wr&&(off||overlaps))||
+           !guard_.before(c,pc,w,row->ordinal,row->kind,rd,wr)||!index_.before(c,pc,w))return fail(4);
+        if(row->kind){
+            if(row->ordinal!=12u||row->kind!=1u||index_.stage()!=5u||reads_!=1u||writes_!=1u||
+               dev_->suffix_status_reads()!=1u||dev_->suffix_status_writes()!=1u)return fail(5);
+            stage_=2;return true;
+        }
+        using Access=PostAckTransferDevice::Access;
+        if(rd){
+            if(reads_||writes_||a.kind!=Access::Read||a.store||
+               !dev_->arm_suffix_status_read(c.inst_count,a.address))return fail(6);
+            reg_=(w>>21)&31u;
+        }else if(wr){
+            if(reads_!=1u||writes_||a.kind!=Access::Write||!a.store||
+               !dev_->arm_suffix_status_write(c.inst_count,a.address,*a.store))return fail(6);
+            write_due_=true;
+        }
+        return true;
+    }
 };
 // Same held third token across the alarm return and callback prefix.
 // This route does not grant the retired ACK any bus ownership. Its
@@ -273,10 +352,29 @@ public:
            !callback_return_->dispatch_resume(c,pc,w,true))return fail(21);
         last_=c.inst_count;return true;
     }
+    // V1138: same-tick join from the authenticated callback return.
+    // The new observer owns subsequent device ticks, never the already
+    // charged handler resume label.
+    template<class C>bool start_handler_suffix(C& c,uint32_t pc,uint32_t w,
+            std::span<const HandlerSuffixLabel> rows,HandlerIndexBranchExpectation e,uint32_t rd,uint32_t wr){
+        if(stage_!=13u||handler_||!callback_return_||callback_return_->stage()!=5u||
+           !common(c)||!held()||c.inst_count!=last_||pc!=callback_site_+4u)return fail(22);
+        handler_.emplace(e);
+        if(!handler_->start(c,pc,w,*dev_,*frame_,context_,rows,rd,wr))return fail(22);
+        stage_=14u;return true;
+    }
+    template<class C>bool handler_before(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=14u||!handler_||!common(c)||!handler_->before(c,pc,w))return fail(23);
+        last_=c.inst_count;
+        if(handler_->stage()==2u)stage_=15u;
+        return true;
+    }
+    const HeldHandlerSuffixWitness* handler_witness()const{return handler_?&*handler_:nullptr;}
     unsigned callback_return_failure()const{return callback_return_?callback_return_->failure():0u;}
     const CallbackReturnWitness* callback_return_witness()const{return callback_return_?&*callback_return_:nullptr;}
 private:
     std::optional<CallbackReturnWitness> callback_return_;
+    std::optional<HeldHandlerSuffixWitness> handler_;
     std::array<uint32_t,32> callback_gp_{};
     uint32_t callback_cr_=0,callback_site_=0,suffix_site_=0,suffix_word_=0;
     std::optional<CallbackSuffixWitness> callback_suffix_;

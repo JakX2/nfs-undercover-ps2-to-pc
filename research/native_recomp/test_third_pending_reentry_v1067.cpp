@@ -1,4 +1,5 @@
 #include "wii_third_pending_reentry_v1067.h"
+#include "wii_third_alarm_suffix_v1047.h"
 #include "wii_callback_prefix_v800.h"
 #include "synthetic_callback_time_expectations_v1014.h"
 #include "wii_callback_frontier_v829.h"
@@ -47,7 +48,8 @@ int main(){
     unsigned handler_return_valid=0,handler_return_refused=0;
     unsigned ep_valid=0,ep_refused=0;
     unsigned rd_valid=0,rd_refused=0;
-    for(trial=0;trial<288;++trial){
+    unsigned held_valid=0,held_refused=0;
+    for(trial=0;trial<308;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -69,6 +71,7 @@ int main(){
         Cpu c;c.mmu.words={{H,Load},{H+4,Store},{H+8,Nop},{R,Rfi},{V,Vec[0]},{V+4,Vec[1]},{T,Tramp[0]},{T+4,Tramp[1]},{D,Nop}};
         for(unsigned i=0;i<32;++i)c.gpr[i]=17u*i+3u;
         c.gpr[3]=Base;
+        if(trial>=288){c.gpr[1]=0x80035000u;c.gpr[20]=ch;}
         const auto gp=c.gpr;const auto lr=c.lr,ctr=c.ctr,xer=c.xer;
         ExternalReturnWitness prior;need(prior.capture(c,cause,mask));
         c.msr=0x32u;c.srr0=H;c.srr1=0x8032u;
@@ -87,6 +90,63 @@ int main(){
         step(Access::Write,Base+C,cfg|1u);need(dev.write(ctl,C,cfg|1u));
         for(unsigned i=0;i<9;++i)step();
         need(dev.finish(c.inst_count,1)&&dev.token()==3u&&dev.held_now());
+        if(trial>=288){
+            const unsigned f=trial>=296?trial-295u:0u;
+            constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
+            constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
+            constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
+            const HandlerIndexBranchExpectation ix{A,Indexed,Compare,Branch,A+64u,
+                {Table,Table+4u,Table+8u,Table+12u},20u};
+            std::array<HandlerSuffixLabel,16> rows{};
+            for(unsigned i=0;i<14;++i)rows[i]={A+4u*i,Nop,0,0};
+            rows[1].word=Rd;rows[2].word=Wr;rows[11].word=Indexed;rows[12].word=Compare;rows[13].word=Branch;
+            rows[14]={A+56u,branch(A+56u,A+64u),0,0};
+            rows[15]={A+64u,branch(A+64u,A+128u)|1u,12u,1u};
+            for(auto x:rows)c.mmu.words[x.pc]=x.word;
+            const uint32_t datum=(trial&4u)?9u:7u;
+            for(unsigned i=0;i<4;++i)c.mmu.words[Table+4u*i]=i==ch?datum:13u;
+            for(unsigned i=0;i<32;++i)c.mmu.words[Context+4u*i]=gp[i];
+            c.mmu.words[Context+128]=0;c.mmu.words[Context+132]=lr;c.mmu.words[Context+136]=ctr;
+            c.mmu.words[Context+140]=xer;c.mmu.words[Context+408]=H;c.mmu.words[Context+412]=0x8032u;
+            c.pc=A;
+            HeldHandlerSuffixWitness held(ix);
+            auto refused_held=[&](bool bad){
+                need(bad&&ctl.issued_tokens()==3u&&cause==(Other|SI)&&dev.stage()==2u);++held_refused;
+            };
+            if(f==1)tick();
+            if(f==2)c.mmu.words[Context+124]^=1u;
+            if(f==3)c.mmu.words[A+44u]^=1u;
+            bool ok=held.start(c,A,Nop,dev,prior,Context,rows,A+4u,A+8u);
+            if(f>=1&&f<=3){refused_held(!ok);continue;}need(ok);
+            auto at=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return held.before(c,pc,w);};
+            c.gpr[3]=Base;
+            if(f==4)c.gpr[3]+=4u;
+            ok=at(A+4u,Rd);
+            if(f==4){refused_held(!ok);continue;}need(ok);
+            if(f!=5){need(dev.read(ctl,S,value));c.gpr[4]=value^(f==6?1u:0u);}
+            ok=at(A+8u,Wr);
+            if(f==5||f==6){refused_held(!ok);continue;}need(ok);
+            if(f==7){refused_held(!dev.write(ctl,S,value^1u));continue;}
+            if(f!=8)need(dev.write(ctl,S,value));
+            ok=at(A+12u,Nop);
+            if(f==8){refused_held(!ok);continue;}need(ok);
+            for(unsigned i=4;i<11;++i)need(at(A+4u*i,Nop));
+            c.gpr[3]=Table;c.gpr[4]=4u*ch;need(at(A+44u,Indexed));c.gpr[5]=datum^(f==9?1u:0u);
+            ok=at(A+48u,Compare);
+            if(f==9){refused_held(!ok);continue;}need(ok);
+            c.cr[0]={false,datum>7u,datum==7u,false};
+            if(f==10)c.cr[0].eq=!c.cr[0].eq;
+            ok=at(A+52u,Branch);
+            if(f==10){refused_held(!ok);continue;}need(ok);
+            if(f==11){refused_held(!at(datum==7u?A+56u:A+64u,Nop));continue;}
+            if(datum!=7u)need(at(A+56u,rows[14].word));
+            if(f==12)tick();
+            ok=at(A+64u,rows[15].word);
+            if(f==12){refused_held(!ok);continue;}need(ok);
+            need(held.stage()==2u&&held.taken()==(datum==7u)&&held.reads()==1u&&held.writes()==1u&&
+                 dev.held_now()&&ctl.issued_tokens()==3u&&cause==(Other|SI));
+            ++held_valid;continue;
+        }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
         c.gpr=gp;c.pc=R;
@@ -734,7 +794,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -750,4 +810,5 @@ int main(){
     std::cout<<"V1126_THIRD_ACK_HANDLER_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 original_execution=0\n";
     std::cout<<"V1130_THIRD_ACK_RFI_JOIN valid=8 refused=12 fresh_context=1 two_polls=1 original_execution=0\n";
     std::cout<<"V1136_THIRD_ACK_RESUME_JOIN valid=8 refused=12 dispatch_ticks=2 resume_instruction_executed=0 original_execution=0\n";
+    std::cout<<"V1138_HELD_HANDLER_SUFFIX valid=8 refused=12 actual_w1c=1 token_held=1 original_execution=0\n";
 }

@@ -1,0 +1,3 @@
+# V1138: device-bound held handler suffix
+
+Extract the held third-token handler suffix into a production witness and provide a same-tick join from V1132 callback return. The real PostAckTransferDevice owns the exact original status read and W1C write, while the strict suffix and index witnesses authenticate instruction order, RAM effects, branch choice and terminal restore call. The third TC remains asserted. No extra device tick at the handoff. Add 20 independent synthetic cases (8 valid across four ports and both branch outcomes, 12 refusals). No launch or generated-code activation yet; V1129 is still the prerequisite. CI pending.
