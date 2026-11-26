@@ -370,6 +370,31 @@ public:
     template<class C,class W>bool prefix_handler_return_saved(C& c,W& witness){
         return stage_==29u&&same(c)&&handler_return_==&witness&&next_.handler_return_boundary(c,witness);
     }
+    // A distinct epilogue for the now-cleared third SI interrupt.
+    // The earlier pending-RFI witness cannot be recycled.
+    template<class C,class W>bool begin_prefix_epilogue(C& c,W& prior,LiveEpilogueExpectation expectation,uint32_t pc,uint32_t w){
+        if(!prefix_handler_return_saved(c,prior)||final_ep_||!no_si(c,w))return fail(33);
+        final_ep_.emplace(expectation);
+        if(!next_.begin_epilogue(c,prior,*final_ep_,pc,w))return fail(33);
+        stage_=30u;return true;
+    }
+    template<class C>bool prefix_epilogue_before(C& c,uint32_t pc,uint32_t w,bool guard=false){
+        return stage_==30u&&!guard&&same(c)&&no_si(c,w)&&next_.epilogue_before(c,pc,w)?true:fail(34);
+    }
+    template<class C>bool prefix_epilogue_entry(C& c,uint32_t pc){
+        return stage_==30u&&same(c)&&next_.epilogue_entry(c,pc)?true:fail(34);
+    }
+    template<class C>bool prefix_epilogue_poll(C& c){
+        if(stage_!=30u||!same(c)||!final_ep_||!next_.epilogue_poll(c))return fail(34);
+        if(next_.stage()==28u)stage_=31u;
+        return true;
+    }
+    template<class C>bool prefix_epilogue_saved(C& c)const{
+        return stage_==31u&&same(c)&&final_ep_&&final_ep_->stage()==4u&&
+            next_.completion_ack().postack_held_after_rfi(c.inst_count,0u);
+    }
+    unsigned prefix_epilogue_visits()const{return final_ep_?final_ep_->visits():0u;}
+    unsigned prefix_epilogue_failure()const{return final_ep_?final_ep_->failure():0u;}
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -378,6 +403,7 @@ public:
 private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
+    std::optional<LiveEpilogueWitness> final_ep_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
     const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;const void* suffix_=nullptr;const void* return_=nullptr;const void* handler_return_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
