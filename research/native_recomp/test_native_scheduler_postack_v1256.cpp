@@ -48,6 +48,10 @@
 #endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
 #include "wii_ready_idle_return_v1304.h"
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+#include "v1321_private_selection.h"
+#include "wii_idle_route_v1327.h"
+#endif
 #endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
@@ -153,6 +157,12 @@ static LiveEpilogueWitness* idle_epilogue=nullptr;
 static uint64_t idle_tick=0;
 static unsigned idle_return_count=0;
 struct IdleRfiReturned{};
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+static IdleSelectionWitness* selection_witness=nullptr;
+static IdleRouteWitness* selection_route=nullptr;
+static unsigned selection_count=0;
+struct LoaderReached{};
+#endif
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -174,6 +184,18 @@ static bool device_ok(nw::CPUContext& c){
     return ok;
 #endif
 }
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+[[noreturn]]static void selection_refuse(unsigned kind){
+    std::cout<<"V1328_SELECTION_REFUSAL kind="<<kind<<" stage="<<selection_witness->stage()
+        <<" reason="<<selection_witness->failure()<<" route="<<selection_route->stage()
+        <<" route_reason="<<selection_route->failure()<<" visits="<<selection_route->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!selection_route)return;
+    if(!selection_witness->boundary(c,device_ok(c))||!selection_route->before(c,pc,w,device_ok(c)))selection_refuse(1);
+}
+#endif
 // The isolated caller and prior SI transaction are seeded, not original
 // execution. Exercise actual native SI W1C and the same shared guard used
 // by V1235. The subsequent IPC client and all its dependencies are original.
@@ -405,6 +427,16 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+    if(selection_route){
+        if(!selection_route->entry(c,pc,device_ok(c))||!selection_witness->entry(c,pc,device_ok(c)))selection_refuse(2);
+        if(selection_route->stage()==2u){
+            if(!selection_route->loader_at(c,device_ok(c))||!selection_witness->loader_ready(c,device_ok(c)))selection_refuse(3);
+            ++selection_count;throw LoaderReached{};
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     if(ready_idle){
         if(!ready_idle->boundary(c,device_ok(c))||!idle_epilogue->entry(c,pc,cause.load(),mask.load()))idle_return_refuse(4);
@@ -542,6 +574,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+    if(selection_route){
+        if(!selection_witness->boundary(c,device_ok(c))||!selection_route->poll(c,device_ok(c)))selection_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     if(ready_idle){
         if(!ready_idle->boundary(c,device_ok(c)))idle_return_refuse(5);
@@ -713,6 +751,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+    if(selection_route)selection_refuse(5);
+#endif
     const auto p=a&0x3fffffffu;
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     if(ready_idle)idle_return_refuse(7);
@@ -764,6 +805,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+    if(selection_route)selection_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     if(ready_idle)idle_return_refuse(8);
 #endif
@@ -905,6 +949,10 @@ int main(int argc,char** argv)try{
         for(auto w:v1299::words)need(c.mmu.read32(w.pc)==w.word);
         std::cout<<"V1323_HELPER_RAM_TRIAL n="<<trial<<" seeded_words=31 verified_route_words="<<v1299::words.size()<<"\n";
 #endif
+        #ifdef UNDERCOVER_V1328_IDLE_SELECTION
+        need(seed_private_expansion(c.mmu,v1321::ram_words,v1321::clear_root,9u));
+        need(verify_private_words(c.mmu,v1321::ram_words));
+        #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
         c.mmu.write32(W::Lo,lo);c.mmu.write32(W::Hi,hi);
@@ -1154,6 +1202,19 @@ int main(int argc,char** argv)try{
         need(coop_saved==&save_lane&&save_lane.preserved(c,device_ok(c))&&coop_idle_count==trial);
         ++coop_idle_count;
         std::cout<<"V1320_IDLE_SAVE_TRIAL n="<<trial<<" native_save=1 complete_context=1 second_idle_rfi=1 ready=1\n";
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+        IdleSelectionWitness selection(v1321::selection(Q::Thread,Q::Idle,uint32_t(nested_counter)));
+        IdleRouteWitness route({Q::Enable,v1256::resume,Q::Select,0x80529864u,v1321::direct[3].pc,
+            v1321::ram_words,v1321::direct,v1321::callbacks});
+        selection_witness=&selection;selection_route=&route;
+        if(!selection.begin(c,idle_join,device_ok(c))||!route.begin(c,device_ok(c)))selection_refuse(7);
+        bool loader_reached=false;try{run_game(c);}catch(const LoaderReached&){loader_reached=true;}
+        need(loader_reached&&route.loader_at(c,device_ok(c))&&selection.loader_ready(c,device_ok(c))&&
+            selection_count==trial+1u&&save_lane.preserved(c,device_ok(c))&&host.serviced_steps()==2u&&
+            !(cause.load()&mask.load()));
+        selection_route=nullptr;selection_witness=nullptr;
+        std::cout<<"V1328_SELECTION_TRIAL n="<<trial<<" original_clear=1 original_callback=1 original_set=1 loader_entry=1 preserved=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -1214,6 +1275,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
     need(coop_idle_count==8u);
     std::cout<<"V1320_IDLE_SAVE_NATIVE owner=1 trials=8 native_save=8 complete_context=8 second_idle_rfi=8 ready=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1328_IDLE_SELECTION
+    need(selection_count==8u);
+    std::cout<<"V1328_SELECTION_NATIVE owner=1 trials=8 original_clear=8 original_callback=8 original_set=8 loader_entry=8 preserved=8 thread_resumed=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

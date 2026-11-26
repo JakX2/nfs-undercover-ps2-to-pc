@@ -61,6 +61,7 @@ def render(result):
     return '\n'.join(('#pragma once','#include "wii_idle_selection_v1319.h"','#include "wii_cooperative_load_lane_v1317.h"','#include "wii_private_expansion_seed_v1323.h"','#include <array>','namespace v1321 {',
         f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> ram_words'+'{'+','.join('undercover::wii::ReplyNativeWord{'+','.join(map(f,row))+'}' for row in rows)+'};',
         'inline constexpr uint32_t clear_root='+f(CLEAR)+';',
+        'inline constexpr std::array<undercover::wii::VectorEdge,4> direct{'+','.join(map(row,selection))+'};',
         f'inline constexpr std::array<uint32_t,{len(loader)}> loader_words'+'{'+','.join(map(f,loader))+'};',
         f'inline constexpr std::array<undercover::wii::VectorEdge,{len(indirect)}> callbacks'+'{'+','.join(map(row,indirect))+'};',
         'inline constexpr undercover::wii::IdleSelectionExpectation selection(uint32_t thread,uint32_t idle,uint32_t counter){return {thread,idle,counter,'+

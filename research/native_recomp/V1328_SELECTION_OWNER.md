@@ -1,0 +1,3 @@
+# V1328: original idle scheduler selection
+
+V1326 (run 45815701037, job 139895070021) passed all eight second idle RFI trials with original save continuity. V1327 source route passed nine synthetic cases. Join the authenticated combined fixture, exact native instruction observer, and V1319 selection state witness. Expand only the private nine-word clear guard, verify 338-word RAM manifest, authenticate direct and indirect dispatch and stop at actual original OSLoadContext entry. No synthetic thread switch or extra IOS step. Owner lane pinned to V1326 and V1325. Source and original execution pending.
