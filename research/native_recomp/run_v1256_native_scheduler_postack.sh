@@ -555,7 +555,7 @@ grep -Ex 'FORMATTER_SECOND_TRIAL n=[0-7] native_prefix=1 frame=48 loads=2 stores
 grep -Ex 'FORMATTER_THIRD_TRIAL n=[0-7] native_prefix=1 frame=48 loads=5 stores=13 nonvolatile=([3-9]|1[0-8]) authenticated_loads=[3-5] conditional_loads=2 pre_load_stop=1 deferred=1 reply=0 visits=74' "$work/run.log" || true
 grep -Ex 'FORMATTER_CONTROL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 pre_transfer_stop=1 transfer_executed=0 deferred=1 reply=0 visits=76' "$work/run.log" || true
 grep -Ex 'FORMATTER_ARRIVAL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77' "$work/run.log" || true
-grep -Ex 'FORMATTER_POST_CTR_TRIAL n=[0-7] native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=[5-7] local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84' "$work/run.log" || true
+grep -Ex 'FORMATTER_POST_CTR_TRIAL n=[0-7] native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=5 local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 

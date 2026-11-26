@@ -89,7 +89,7 @@ class PostCtr(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'native totals'):verify(x,post_ctr=True)
     def test_details(self):
         x=post_ctr_log();x[1]=x[1].replace('authenticated_loads=5','authenticated_loads=6')
-        with self.assertRaisesRegex(ValueError,'details'):verify(x,post_ctr=True)
+        with self.assertRaisesRegex(ValueError,'native trial'):verify(x,post_ctr=True)
     def test_unresolved(self):
         x=post_ctr_log();x[0]=x[0].replace('unresolved_load=0','unresolved_load=1')
         with self.assertRaisesRegex(ValueError,'trial'):verify(x,post_ctr=True)

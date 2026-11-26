@@ -521,7 +521,8 @@ static constexpr unsigned nested_visits=76u,nested_loads=6u,nested_stores=13u;
 static_assert(formatter_post_ctr_private::path.size()==84u&&formatter_post_ctr_private::accesses.size()==21u);
 static_assert(formatter_post_ctr_private::expected.boundary.stack&&formatter_post_ctr_private::expected.boundary.width==4u);
 static constexpr unsigned post_ctr_authenticated=std::count_if(formatter_post_ctr_private::accesses.begin(),formatter_post_ctr_private::accesses.end(),[](auto a){return a.expected_value.has_value();});
-static_assert(post_ctr_authenticated>=5u&&post_ctr_authenticated<=7u);
+static_assert(post_ctr_authenticated==5u);
+static_assert(std::count_if(formatter_post_ctr_private::accesses.begin(),formatter_post_ctr_private::accesses.end(),[](auto a){return a.stack&&!a.write;})==3u);
 static_assert(formatter_post_ctr_private::slots.size()==4u);
 #endif
 #elif defined(UNDERCOVER_FORMATTER_THIRD)

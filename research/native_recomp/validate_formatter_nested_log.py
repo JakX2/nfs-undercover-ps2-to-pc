@@ -24,7 +24,7 @@ CONTROL_TOTAL='FORMATTER_CONTROL_NATIVE owner=1 trials=8 native_prefix=8 loads=4
 ARRIVAL_TRIAL=re.compile(r'FORMATTER_ARRIVAL_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77')
 ARRIVAL_TOTAL='FORMATTER_ARRIVAL_NATIVE owner=1 trials=8 native_prefix=8 loads=48 stores=104 nonvolatile=24 authenticated_loads=40 conditional_loads=24 ctr_match=8 destination_word=8 transfer_executed=8 destination_arrival=8 destination_body=0 deferred=8 reply=0 visits=616 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
 
-POST_CTR_TRIAL=re.compile(r'FORMATTER_POST_CTR_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=([5-7]) local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84')
+POST_CTR_TRIAL=re.compile(r'FORMATTER_POST_CTR_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=(5) local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84')
 POST_CTR_TOTAL=re.compile(r'FORMATTER_POST_CTR_NATIVE owner=1 trials=8 native_prefix=8 loads=64 stores=104 nonvolatile=24 authenticated_loads=([0-9]{2}) local_transfer=8 stack_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=672 ios_steps=5 fallback=0 complete_image=0 boot_verified=0')
 
 def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False):
