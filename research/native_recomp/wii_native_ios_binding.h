@@ -93,6 +93,10 @@ public:
             !s.queued&&!s.replies&&!s.event;
         self.cold_phase_=ok?3u:4u;return ok;
     }
+    // Read-only descriptor proof; no allocation or service.
+    static bool is_open(unsigned fd,StmIos::Device kind) noexcept{
+        return active_&&active_->transport_.services().is_open(fd,kind);
+    }
     // Caller owns the scheduling-boundary and CPU-exception policy.
     static std::optional<IosYieldState> service_at_guest_boundary(uint32_t msr){
         if(!active_)return std::nullopt;
