@@ -10,6 +10,11 @@ class Fixture(unittest.TestCase):
         b=merge(old,r,ws,path,d,0x60000000)
         self.assertEqual(b[r][17],GUARD);self.assertEqual(b[d],(0x60000000,GUARD))
         with self.assertRaises(ValueError):merge(old,r,ws,path[:-1],d,0)
+        earlier=path[-2];ws[22]=0x48000001|((d-earlier)&0x03fffffc)
+        backwards=(*path[:-2],path[-1],earlier)
+        b=merge(old,r,ws,backwards,d,0x60000000)
+        self.assertEqual(len(b[r]),25)
+        self.assertEqual(b[r][23],ws[23])
     def test_slots(self):
         mem={};sp=-160
         for at,reg in [(4,32)]+[(4*(i-32),i) for i in range(16,32)]:

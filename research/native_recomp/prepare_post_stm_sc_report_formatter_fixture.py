@@ -17,9 +17,12 @@ def merge(old,root,ws,path,dst,word):
     if old.get(root)!=(ws[0],GUARD) or dst in old or len(path)!=23 or len(set(path))!=23 or path[0]!=root:
         raise ValueError('SC formatter predecessor')
     site=path[-1]
-    if not root<=site<root+4*len(ws) or any(pc<root or pc>site or pc&3 for pc in path) or direct_bl(ws[(site-root)//4],site)!=dst:
+    if any(pc<root or pc>=root+4*len(ws) or pc&3 for pc in path) or direct_bl(ws[(site-root)//4],site)!=dst:
         raise ValueError('SC formatter path')
-    body=tuple(ws[(pc-root)//4] if pc in path else GUARD for pc in range(root,site+4,4))+(GUARD,)
+    # A finite authenticated path may branch backwards without revisiting
+    # a label. Preserve its whole extent, not only the final call's address.
+    limit=max(path)
+    body=tuple(ws[(pc-root)//4] if pc in path else GUARD for pc in range(root,limit+4,4))+(GUARD,)
     return {**old,root:body,dst:(word,GUARD)}
 
 def saved_slots(mem,caller_sp,frame):
