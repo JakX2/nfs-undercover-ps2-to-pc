@@ -344,6 +344,32 @@ public:
     unsigned prefix_handler_writes()const{return next_.handler_writes();}
     unsigned prefix_handler_ordinal()const{return next_.handler_ordinal();}
     bool prefix_handler_taken()const{return next_.handler_taken();}
+    template<class C,class W>bool begin_prefix_handler_return(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!prefix_handler_saved(c)||handler_return_||!no_si(c,w)||
+           !next_.begin_handler_return(c,witness,pc,w))return fail(31);
+        handler_return_=&witness;stage_=28u;return true;
+    }
+    template<class C,class W>bool prefix_handler_return_entry(C& c,W& witness,uint32_t pc){
+        return stage_==28u&&same(c)&&handler_return_==&witness&&next_.handler_return_entry(c,witness,pc)?true:fail(32);
+    }
+    template<class C,class W>bool prefix_handler_return_poll(C& c,W& witness){
+        return stage_==28u&&same(c)&&handler_return_==&witness&&next_.handler_return_poll(c,witness)?true:fail(32);
+    }
+    template<class C,class W>bool prefix_handler_return_dispatch(C& c,W& witness,uint32_t pc,uint32_t w){
+        return stage_==28u&&same(c)&&handler_return_==&witness&&no_si(c,w)&&next_.handler_return_resume(c,witness,pc,w)?true:fail(32);
+    }
+    template<class C,class W>bool prefix_handler_return_before(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=28u||guard||!same(c)||handler_return_!=&witness||!no_si(c,w)||
+           !next_.handler_return_before(c,witness,pc,w))return fail(32);
+        if(witness.stage()==5u){
+            if(!next_.handler_return_boundary(c,witness))return fail(32);
+            stage_=29u;
+        }
+        return true;
+    }
+    template<class C,class W>bool prefix_handler_return_saved(C& c,W& witness){
+        return stage_==29u&&same(c)&&handler_return_==&witness&&next_.handler_return_boundary(c,witness);
+    }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -353,7 +379,7 @@ private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
-    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;const void* suffix_=nullptr;const void* return_=nullptr;
+    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;const void* suffix_=nullptr;const void* return_=nullptr;const void* handler_return_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;

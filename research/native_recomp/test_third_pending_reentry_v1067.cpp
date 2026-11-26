@@ -73,7 +73,8 @@ int main(){
     unsigned held_suffix_valid=0,held_suffix_refused=0;
     unsigned held_restore_valid=0,held_restore_refused=0;
     unsigned held_handler_valid=0,held_handler_refused=0;
-    for(trial=0;trial<588;++trial){
+    unsigned held_hr_valid=0,held_hr_refused=0;
+    for(trial=0;trial<608;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -130,7 +131,8 @@ int main(){
             const unsigned hw=trial>=528?0u:trial>=516?trial-515u:0u;
             const unsigned hs=trial>=548?0u:trial>=536?trial-535u:0u;
             const unsigned hrestore=trial>=568?0u:trial>=556?trial-555u:0u;
-            const unsigned hhandler=trial>=576?trial-575u:0u;
+            const unsigned hhandler=trial>=588?0u:trial>=576?trial-575u:0u;
+            const unsigned hhandler_return=trial>=596?trial-595u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -387,6 +389,7 @@ int main(){
             if(ha==1)c.mmu.words[Context+124]^=1u;
             if(ha==2)tick();
             if(ha==3)c.lr^=4u;
+            const auto held_handler_gp=c.gpr;
             ok=ep.begin_ack(c,spans,edges);
             if(ha>=1&&ha<=3){refuse_ack(!ok);need(dev.stage()==2u);continue;}need(ok);
             need(dev.stage()==3u&&ep.stage()==8u&&ep.completion_ack().token()==3u&&
@@ -759,7 +762,7 @@ int main(){
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
                 if(trial<568){++held_restore_valid;continue;}
-                constexpr uint32_t Table2=0x8003f000u,StatusLoad2=0x80830038u,StatusStore2=0x90830038u;
+                constexpr uint32_t Table2=0x8003fa00u,StatusLoad2=0x80830038u,StatusStore2=0x90830038u;
                 const HandlerIndexBranchExpectation ix2{Caller2,Indexed,Compare,Branch,Caller2+64u,
                     {Table2,Table2+4u,Table2+8u,Table2+12u},20u};
                 std::array<HandlerSuffixLabel,16> handler_rows2{};
@@ -803,7 +806,59 @@ int main(){
                      ep.prefix_handler_visits()==15u&&ep.prefix_handler_reads()==1u&&ep.prefix_handler_writes()==1u&&
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==2u&&
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-                ++held_handler_valid;continue;
+                if(trial<588){++held_handler_valid;continue;}
+                constexpr uint32_t HandlerCall2=Caller2+64u,DispatcherResume2=0x8003fb00u;
+                constexpr std::array<uint32_t,3> hrestore_words{0x83cbfff8u,0x83ebfffcu,Blr};
+                constexpr std::array<uint32_t,4> htail{0x80010044u,0x7c0803a6u,0x38210040u,Blr};
+                const NativeReturnExpectation<2> hre{HandlerCall2,RestoreRoot2,DispatcherResume2,hrestore_words,htail,Nop};
+                put(RestoreRoot2,hrestore_words);put(HandlerCall2+4u,htail);c.mmu.words[DispatcherResume2]=Nop;
+                const uint32_t old_sp2=held_handler_gp[1];
+                // Synthetic handler prologue/save effects, independent of the
+                // callback frame above. Actual native restore remains observed.
+                c.gpr[1]=old_sp2-64u;c.gpr[11]=old_sp2;
+                c.mmu.words[old_sp2-8u]=held_handler_gp[30];c.mmu.words[old_sp2-4u]=held_handler_gp[31];
+                c.mmu.words[old_sp2+4u]=DispatcherResume2;
+                c.gpr[30]^=0x123u;c.gpr[31]^=0x456u;
+                NativeReturnWitness<2> hret(hre),foreign_hret(hre);
+                auto wrong_hre=hre;wrong_hre.caller_word=Blr;NativeReturnWitness<2> wrong_hret(wrong_hre);
+                auto reject_hr=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_hr_refused;
+                };
+                if(hhandler_return==4)tick();
+                if(hhandler_return==5)c.mmu.words[RestoreRoot2]^=1u;
+                if(hhandler_return==6)c.mmu.words[Context+124]^=1u;
+                const auto jt2=c.inst_count;
+                ok=ep.begin_prefix_handler_return(c,hhandler_return==1?wrong_hret:hret,
+                    HandlerCall2+(hhandler_return==2?4u:0u),hhandler_return==3?Nop:handler_rows2.back().word);
+                if(hhandler_return>=1&&hhandler_return<=6){reject_hr(!ok);continue;}
+                need(ok&&ep.stage()==28u&&c.inst_count==jt2);
+                c.pc=RestoreRoot2;c.lr=HandlerCall2+4u;
+                ok=ep.prefix_handler_return_entry(c,hret,hhandler_return==7?RestoreRoot2+4u:RestoreRoot2);
+                if(hhandler_return==7){reject_hr(!ok);continue;}need(ok);
+                auto at_hr2=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_handler_return_before(c,hret,pc,w);};
+                if(hhandler_return==8)c.mmu.words[old_sp2-8u]^=1u;
+                ok=at_hr2(RestoreRoot2,hrestore_words[0]);
+                if(hhandler_return==8){reject_hr(!ok);continue;}need(ok);
+                c.gpr[30]=c.mmu.words[old_sp2-8u];need(at_hr2(RestoreRoot2+4u,hrestore_words[1]));
+                c.gpr[31]=c.mmu.words[old_sp2-4u];need(at_hr2(RestoreRoot2+8u,Blr));
+                need(at_hr2(HandlerCall2+4u,htail[0]));c.gpr[0]=c.mmu.words[old_sp2+4u];
+                need(at_hr2(HandlerCall2+8u,htail[1]));c.lr=c.gpr[0];
+                need(at_hr2(HandlerCall2+12u,htail[2]));c.gpr[1]+=64u;
+                need(at_hr2(HandlerCall2+16u,Blr));c.pc=DispatcherResume2;
+                if(hhandler_return==9){tick();reject_hr(!ep.prefix_handler_return_poll(c,hret));continue;}
+                if(hhandler_return!=10)need(ep.prefix_handler_return_poll(c,hret));
+                tick();ok=ep.prefix_handler_return_dispatch(c,hret,DispatcherResume2,Nop);
+                if(hhandler_return==10){reject_hr(!ok);continue;}need(ok);
+                if(hhandler_return==11)c.gpr[31]^=1u;
+                if(hhandler_return==12){tick();reject_hr(!ep.prefix_handler_return_before(c,foreign_hret,DispatcherResume2,Nop));continue;}
+                ok=at_hr2(DispatcherResume2,Nop);
+                if(hhandler_return==11){reject_hr(!ok);continue;}need(ok);
+                need(ep.stage()==29u&&ep.prefix_handler_return_saved(c,hret)&&!ep.prefix_handler_return_saved(c,foreign_hret)&&
+                     hret.visits()==8u&&c.gpr[1]==held_handler_gp[1]&&c.gpr[30]==held_handler_gp[30]&&c.gpr[31]==held_handler_gp[31]&&
+                     ep.completion_ack().postack_held()&&ep.completion_ack().writes()==2u&&
+                     ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+                ++held_hr_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1453,7 +1508,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12&&held_suffix_valid==8&&held_suffix_refused==12&&held_restore_valid==8&&held_restore_refused==12&&held_handler_valid==8&&held_handler_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12&&held_suffix_valid==8&&held_suffix_refused==12&&held_restore_valid==8&&held_restore_refused==12&&held_handler_valid==8&&held_handler_refused==12&&held_hr_valid==8&&held_hr_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1484,4 +1539,5 @@ int main(){
     std::cout<<"V1200_ACK_CALLBACK_SUFFIX valid=8 refused=12 same_tick=1 restore_frontier=1 original_execution=0\n";
     std::cout<<"V1204_ACK_CALLBACK_RETURN valid=8 refused=12 restore_loads=2 stack_unwind=1 outer_dispatch=1 original_execution=0\n";
     std::cout<<"V1209_ACK_HANDLER_SUFFIX valid=8 refused=12 status_read=1 status_w1c=1 same_tick=1 original_execution=0\n";
+    std::cout<<"V1212_ACK_HANDLER_RETURN valid=8 refused=12 restore_loads=2 original_handler_abi=1 outer_dispatch=1 original_execution=0\n";
 }

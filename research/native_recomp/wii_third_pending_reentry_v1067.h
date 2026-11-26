@@ -379,6 +379,11 @@ public:
         return handler_return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
                witness.dispatch_resume(c,pc,w,true)?true:fail(48);
     }
+    template<class C,class W>bool handler_return_boundary(C& c,W& witness)const{
+        return stage_==26u&&!error_&&cpu_==&c&&handler_return_==&witness&&witness.stage()==5u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // The dispatcher return label has already been charged to the
     // fresh ACK owner. Continue its actual epilogue with the third frame.
     template<class C,class W>bool begin_epilogue(C& c,W& prior,LiveEpilogueWitness& ep,uint32_t pc,uint32_t w){
