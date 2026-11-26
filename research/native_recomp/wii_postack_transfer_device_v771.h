@@ -35,7 +35,7 @@ public:
            follow_.stage()!=3u||!held(tick)||ctl.pending()||token()<2u||
            ctl.issued_tokens()!=token()||(cause.load()&mask.load())!=SiController::PI_SI)
             return false;
-        if(!ack.arm(ctl,cause,mask,tick,token(),true))return false;
+        if(!ack.arm(ctl,cause,mask,tick,token(),true,!response_.has_value()))return false;
         stage_=3u;
         return true;
     }

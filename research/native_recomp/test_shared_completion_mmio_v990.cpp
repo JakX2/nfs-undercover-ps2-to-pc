@@ -34,7 +34,8 @@ int main(int argc,char** argv){
     need(v958::enabled()&&!v958::active());
     std::atomic<uint32_t> cause{Other},mask{SI};SiController ctl(cause);SiBinding binding(ctl);
     using Port=SiTypeScheduler::Port;
-    const SiTypeScheduler::Profile ports{Port::absent(),Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
+    const bool error=mode.starts_with("no-response")&&mode!="no-response-wrong-profile";
+    const SiTypeScheduler::Profile ports{Port::absent(),error?Port::absent():Port::present({1,2,3}),Port::absent(),Port::present({4,5,6})};
     SiTypeScheduler scheduler(ctl,ports,8);
     SiTickBinding ticks(scheduler);
     need(SiBinding::write32(Base+C,0xc0010301u));scheduler.advance(1);scheduler.advance(9);
@@ -82,6 +83,23 @@ int main(int argc,char** argv){
     need(v958::post_enabled()&&v958::ack.stage()==4u);
     if(mode=="missing-shared"){
         visit(Completion+20,Blr);visit(H+8,Nop);need(false);
+    }
+    if(mode.starts_with("no-response")&&mode!="no-response-shared"){
+        // Synthetic census test; use the first, not second nested edge.
+        c.mmu.words[Completion+24]=bl(Completion+24,Nested);
+        c.mmu.words[Completion+28]=Nop;
+        for(unsigned i=0;i<(mode=="no-response-short"?114u:115u);++i)visit(Completion+16,Nop);
+        visit(Completion+24,bl(Completion+24,Nested));c.pc=Nested;c.lr=Completion+28;v958::observe(c.pc,c);
+        visit(Nested,bl(Nested,Disable));c.pc=Disable;c.lr=Nested+4;v958::observe(c.pc,c);
+        c.gpr[3]=c.msr;visit(Disable,Mtmsr);visit(Disable+4,Blr);
+        visit(Nested+4,bl(Nested+4,Time));c.pc=Time;c.lr=Nested+8;v958::observe(c.pc,c);
+        visit(Time,Nop);visit(Time+4,Blr);
+        visit(Nested+8,bl(Nested+8,Restore));c.pc=Restore;c.lr=Nested+12;v958::observe(c.pc,c);
+        c.gpr[3]=c.msr;visit(Restore,Mtmsr);visit(Restore+4,Blr);
+        visit(Nested+12,Nop);c.lr=Completion+28;visit(Nested+16,Blr);visit(Completion+28,Nop);
+        c.lr=H+8;visit(Completion+20,Blr);
+        if(mode=="no-response-frame")c.mmu.words[v958::context+124]^=1u;
+        visit(H+8,Nop);need(false);
     }
     if(mode=="frame-after-ack")c.mmu.words[v958::context+124]^=1u;
     visit(Completion+12,bl(Completion+12,Nested),mode=="guard-shared");

@@ -48,6 +48,7 @@ inline bool callback_active(){
 inline bool success_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V995_SUCCESS_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 inline bool shared_enabled(){const char* v=std::getenv("UNDERCOVER_V989_SHARED_COMPLETION");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool error_completion_enabled(){const char* v=std::getenv("UNDERCOVER_V1015_ERROR_COMPLETION");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 inline thread_local bool time_seen=false;
@@ -92,6 +93,7 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frontier_enabled()&&(!time_enabled()||!post_enabled()))return false;
 #endif
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
+    if(error_completion_enabled()&&(!shared_enabled()||time_enabled()))return false;
     if(shared_enabled()){
         if(!post_enabled()||!calls.begin(c,time_spans,shared_edges,msr_sites))return false;
     }else
@@ -221,7 +223,18 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(ack.stage()==4u&&pc>=spans[0].root&&pc<spans[0].end&&calls.depth()==0u){
         if(!post_visits||visits<=post_visits||calls.returns()<=post_returns||!ack.postack_held())reject(9);
 #ifdef UNDERCOVER_V989_PRIVATE_SHARED
-        if(shared_enabled()&&!shared_seen)reject_shared(3);
+        if(shared_enabled()&&!shared_seen){
+            // V1013: 32 original no-response returns, never a waiver
+            // of the successful-response timing-call requirement.
+            if(!error_completion_enabled()||!ack.no_response_verified()||
+               shared_tick||calls.entries()!=6u||calls.returns()!=6u||
+               calls.msr_writes()!=2u||visits-post_visits!=130u)reject_shared(3);
+            std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
+                     <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::cout<<"V1015_ERROR_HELPER_RETURN original_helper_return=1 no_response=1 shared_time=0 entries=6 returns=6 msr=2 visits=130 token_preserved=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        if(error_completion_enabled()&&ack.no_response_verified())reject_shared(3);
 #endif
         std::cout<<std::dec<<"V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits="
                  <<visits-post_visits<<" handler_instruction_executed=0 boot_verified=0"<<std::endl;

@@ -10,16 +10,19 @@ public:
     unsigned reads()const{return reads_;}
     unsigned writes()const{return writes_;}
     uint64_t token()const{return token_;}
+    bool no_response_verified()const{return completion_no_response_.value_or(false);}
+    bool response_class_verified()const{return completion_no_response_.has_value();}
     bool arm(SiController& ctl,const std::atomic<uint32_t>& cause,const std::atomic<uint32_t>& mask,
-             const uint64_t& tick,uint64_t token,bool previous_held){
+             const uint64_t& tick,uint64_t token,bool previous_held,std::optional<bool> no_response=std::nullopt){
         const uint32_t ctrl=ctl.read(SiController::Control);
         if(stage_||error_||!previous_held||token<2u||ctl.issued_tokens()!=token||ctl.pending()||
            (cause.load()&mask.load())!=SiController::PI_SI||
            (ctrl&(SiController::TC_INT|SiController::TC_MASK|SiController::TSTART|SiController::RDST_MASK))!=
-                (SiController::TC_INT|SiController::TC_MASK)||tick>UINT64_MAX-8192u)return fail(1);
+                (SiController::TC_INT|SiController::TC_MASK)||tick>UINT64_MAX-8192u||
+           (no_response&&*no_response!=bool(ctrl&SiController::COM_ERR)))return fail(1);
         ctl_=&ctl;cause_=&cause;mask_=&mask;tick_=&tick;token_=token;
         cause_before_=cause.load();mask_before_=mask.load();control_=ctrl;status_=ctl.read(SiController::Status);
-        poll_=ctl.read(SiController::Poll);
+        completion_no_response_=no_response;poll_=ctl.read(SiController::Poll);
         for(unsigned i=0;i<32;++i)buffer_[i]=ctl.read(SiController::Buffer+4*i);
         start_=last_=tick;stage_=1;return true;
     }
@@ -129,6 +132,7 @@ private:
     const uint64_t* tick_=nullptr;uint64_t token_=0,start_=0,last_=0;
     uint32_t cause_before_=0,mask_before_=0,control_=0,status_=0,poll_=0,pc_=0,ack_pc_=0,successor_word_=0;
     std::array<uint32_t,32> buffer_{};std::optional<uint32_t> value_;
+    std::optional<bool> completion_no_response_;
     PostAckTransferDevice::Access access_=PostAckTransferDevice::Access::None;
     unsigned stage_=0,error_=0,reads_=0,writes_=0,off_=0;bool armed_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}

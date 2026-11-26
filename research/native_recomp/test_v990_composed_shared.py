@@ -31,7 +31,7 @@ class ComposedShared(unittest.TestCase):
             env=os.environ.copy();env['UNDERCOVER_V958_SECOND_ACK']='1'
             shared=b'V989_SHARED_TIME_RESULT original_time=1 leaves=3 unchanged_msr=2 visits=12 token_preserved=1 saved_fields=38 boot_verified=0'
             post=b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=15 handler_instruction_executed=0 boot_verified=0'
-            modes=('valid','wrong-leaf','changed-msr','missing-shared','extra-shared','corrupt-abi','frame-after-ack','guard-shared','ack-only','not-enabled')
+            modes=('valid','wrong-leaf','changed-msr','missing-shared','extra-shared','corrupt-abi','frame-after-ack','guard-shared','ack-only','not-enabled','no-response','no-response-short','no-response-wrong-profile','no-response-frame','no-response-disabled','no-response-shared')
             for mode in modes:
                 with self.subTest(mode=mode):
                     runenv=env.copy()
@@ -39,9 +39,20 @@ class ComposedShared(unittest.TestCase):
                         runenv.pop(k,None)
                     if mode!='ack-only':runenv['UNDERCOVER_V967_POST_ACK']='1'
                     if mode not in ('ack-only','not-enabled'):runenv['UNDERCOVER_V989_SHARED_COMPLETION']='1'
+                    runenv.pop('UNDERCOVER_V1015_ERROR_COMPLETION',None)
+                    if mode.startswith('no-response') and mode!='no-response-disabled':runenv['UNDERCOVER_V1015_ERROR_COMPLETION']='1'
                     got=subprocess.run([str(exe),mode],env=runenv,capture_output=True,timeout=10)
                     rows=got.stdout.splitlines()
-                    if mode=='valid':
+                    if mode=='no-response':
+                        from audit_v1015_error_completion import RESULT as ERROR
+                        self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
+                        self.assertEqual(rows,[RESULT,b'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=130 handler_instruction_executed=0 boot_verified=0',ERROR])
+                    elif mode.startswith('no-response'):
+                        self.assertEqual(got.returncode,126,(got.stdout+got.stderr).decode(errors='replace'))
+                        self.assertEqual(rows[0],RESULT)
+                        self.assertRegex(rows[-1],rb'^V958_ACK_INVALID kind=(?:1|12) stage=4 reason=[0-5] call_reason=[0-5] visits=[0-9]+$')
+                        self.assertFalse(any(row.startswith(b'V1015_') for row in rows))
+                    elif mode=='valid':
                         self.assertEqual(got.returncode,0,(got.stdout+got.stderr).decode(errors='replace'))
                         self.assertEqual(rows,[RESULT,shared,post])
                     elif mode=='ack-only':
