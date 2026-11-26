@@ -428,6 +428,5 @@ inline constexpr AlarmCancelExpectation expected{
             got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback-prefix-time-frontier-wireless-suffix-return-handler-return-final-resume-leaf'],env=env,capture_output=True,timeout=10)
             self.assertEqual(got.returncode,126,got.stdout+got.stderr)
             self.assertEqual(got.stderr,b'')
-            self.assertRegex(got.stdout.splitlines()[-1],rb'^V1230_ACK_IPC_INVALID stage=0 reason=1 cold=1 refusal=[1-9][0-9]{0,4} join=0
-)
+            self.assertRegex(got.stdout.splitlines()[-1],rb'^V1230_ACK_IPC_INVALID stage=0 reason=1 cold=1 refusal=[1-9][0-9]{0,4} join=0$')
 if __name__=='__main__':unittest.main()
