@@ -49,5 +49,14 @@ static void trial(unsigned fault){
     ok=w.entry(c,fault==10?T+4:T,fault!=11);
     if(fault>=9&&fault<=11){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.visits()==13&&w.stores()==5&&w.linkage_word()==L);
+    const auto parent=c.gpr[1];const auto child_link=R+52;
+    c.mmu.write32(parent+4,child_link);c.gpr[1]=parent-704;
+    assert(w.child_frame_held(c,true,c.gpr[1],child_link,704));
+    c.gpr[1]-=48;
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link,752));
+    assert(w.child_frame_held(c,true,c.gpr[1],child_link,752,48));
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link,752,56));
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link+4,752,48));
+    c.mmu.write32(Sp-4,0);assert(!w.child_frame_held(c,true,c.gpr[1],child_link,752,48));
 }
 int main(){for(unsigned i=0;i<=11;++i)trial(i);std::cout<<"POST_STM_SC_REPORT_HELPER_TEST cases=12 original_execution=0\n";}

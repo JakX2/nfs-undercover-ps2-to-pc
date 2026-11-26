@@ -5,6 +5,10 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/wii_post_stm_sc_report_helper.h'
+      - 'research/native_recomp/wii_post_stm_sc_report.h'
+      - 'research/native_recomp/test_post_stm_sc_report_helper.cpp'
+      - 'research/native_recomp/test_post_stm_sc_report.cpp'
       - 'research/native_recomp/test_post_stm_sc_formatter_boundary.cpp'
       - '.github/workflows/wii-formatter-nested-boundary.yml'
 permissions:
@@ -17,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          for test in test_post_stm_sc_formatter test_post_stm_sc_formatter_boundary test_register_continuation_join; do
+          for test in test_post_stm_sc_formatter test_post_stm_sc_formatter_boundary test_register_continuation_join test_post_stm_sc_report_helper test_post_stm_sc_report; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
           done

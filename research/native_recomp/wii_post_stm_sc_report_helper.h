@@ -84,9 +84,9 @@ public:
         for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
         return true;
     }
-    template<class C>bool child_frame_held(C& c,bool held,uint32_t child_sp,uint32_t child_link,uint32_t depth)const{
+    template<class C>bool child_frame_held(C& c,bool held,uint32_t child_sp,uint32_t child_link,uint32_t depth,uint32_t extra_frame=0u)const{
         if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
-           depth>704u||child_sp>frame_.base||frame_.base-child_sp>depth||(child_sp&7u)||
+           (extra_frame!=0u&&extra_frame!=48u)||depth>704u+extra_frame||child_sp>frame_.base||frame_.base-child_sp>depth||(child_sp&7u)||
            c.inst_count<last_||c.inst_count-last_>256u||!mapped(c,frame_))return false;
         for(unsigned i=0;i<shadow_.size();++i){
             if(i>=4u&&i<8u&&written_[i])return false;

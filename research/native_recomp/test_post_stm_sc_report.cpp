@@ -51,6 +51,15 @@ static void trial(unsigned fault){
     ok=w.entry(c,fault==12?T+4:T,fault!=13);
     if(fault>=10&&fault<=13){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.stores()==13&&w.visits()==path.size()&&w.linkage_word()==lr&&c.gpr[3]==incoming[3]);
+    const auto parent=c.gpr[1];const auto child_link=c.lr;
+    c.mmu.write32(parent+4,child_link);c.gpr[1]=parent-736;
+    assert(w.child_frame_held(c,true,c.gpr[1],child_link,736));
+    c.gpr[1]-=48;
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link,784));
+    assert(w.child_frame_held(c,true,c.gpr[1],child_link,784,48));
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link,784,56));
+    assert(!w.child_frame_held(c,true,c.gpr[1],child_link+4,784,48));
+    c.mmu.write32(Sp-4,1);assert(!w.child_frame_held(c,true,c.gpr[1],child_link,784,48));
 }
 static void branch_check(bool wrong){
     Cpu c;c.gpr[1]=Sp;
