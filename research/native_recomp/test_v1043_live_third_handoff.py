@@ -16,8 +16,9 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_wireless_wrapper_v1118.h',root/'v847_private_wireless_wrapper.h')
             shutil.copyfile(HOST/'synthetic_postalarm_suffix_v1123.h',root/'v1123_private_postalarm_suffix.h')
             shutil.copyfile(HOST/'synthetic_postalarm_return_v1132.h',root/'v1132_private_postalarm_return.h')
+            shutil.copyfile(HOST/'synthetic_postalarm_handler_v1139.h',root/'v1139_private_postalarm_handler.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text()
                 +'''
 namespace undercover::wii::v958 {
@@ -25,8 +26,15 @@ inline constexpr std::array<AckCallSpan,5> third_spans{{{0x80004000u,0x80004020u
 inline constexpr std::array<AckCallEdge,4> third_edges{{{0x80004014u,0x80004700u},{0x80004700u,0x80004800u},{0x80004704u,0x80004900u},{0x80004708u,0x80004a00u}}};
 }
 #include "wii_handler_suffix_guard_v868.h"
+#include <cstdlib>
 namespace undercover::wii::v958 {
-inline constexpr std::array<HandlerSuffixLabel,4> third_alarm_suffix{{{0x80004018u,0x60000000u,0,0},{0x8000401cu,0x80830038u,0,0},{0x80004020u,0x90830038u,0,0},{0x80004024u,0x48000addu,5,1}}};
+// Synthetic test metadata only: model the original owner route,
+ // where status MMIO is not consumed before the callback return.
+inline const std::array<HandlerSuffixLabel,4> third_alarm_suffix=[]{
+    const char* v=std::getenv("UNDERCOVER_V1139_SYNTHETIC_NO_PRIOR_STATUS");
+    const bool empty=v&&v[0]=='1'&&v[1]==0;
+    return std::array<HandlerSuffixLabel,4>{{{0x80004018u,0x60000000u,0,0},{0x8000401cu,empty?0x60000000u:0x80830038u,0,0},{0x80004020u,empty?0x60000000u:0x90830038u,0,0},{0x80004024u,0x48000addu,5,1}}};
+}();
 inline constexpr std::array<HandlerSuffixLabel,2> third_postalarm_suffix{{{0x80004028u,0x60000000u,0,0},{0x8000402cu,0x4e800421u,6,2}}};
 inline constexpr uint32_t third_postalarm_save_root=0x8000d100u;
 inline constexpr std::array<uint32_t,6> third_postalarm_prefix{0x9421ffc0u,0x7c0802a6u,0x90010044u,0x39610040u,0x480000f1u,0x60000000u};
@@ -166,4 +174,20 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1132_POSTALARM_RETURN_FAULT route=(0|18|19|20|21) witness=[0-6] stage=(11|12)$')
+            env['UNDERCOVER_V1139_POSTALARM_HANDLER']='1'
+            for fault in ('','-not-taken','-prior-status','-identity','-frame','-tick','-poll','-entry','-address','-missing-read','-load-value','-missing-write','-branch'):
+                with self.subTest(postalarm_handler=fault):
+                    e=env.copy()
+                    if fault!='-prior-status':e['UNDERCOVER_V1139_SYNTHETIC_NO_PRIOR_STATUS']='1'
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler'+fault],env=e,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1132_POSTALARM_RETURN original_restore=1 original_return=1 visits=12 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0',rows)
+                    if fault in ('','-not-taken'):
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        taken=int(fault=='')
+                        self.assertEqual(rows[-1],f'V1139_POSTALARM_HANDLER ordinal=12 branch_taken={taken} visits={16-taken} stores=0 status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0'.encode())
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1139_POSTALARM_HANDLER_FAULT route=(0|22|23) witness=[0-6] stage=(13|14)$')
 if __name__=='__main__':unittest.main()

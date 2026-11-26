@@ -193,8 +193,10 @@ int main(int argc,char** argv){
         const bool alarm_mode=mode.starts_with("error-abi-live-alarm");
         if(alarm_mode){
             constexpr uint32_t A=H+0xb00u,D=H+0xc00u,Q=H+0xd00u,Head=0x8000e000u,Tail=Head+4,Node=Head+0x100u;
-            constexpr uint32_t Rd=0x80830038u,Wr=0x90830038u,Site=H+36;
-            c.mmu.words[H+28]=Rd;c.mmu.words[H+32]=Wr;c.mmu.words[Site]=bl(Site,A);c.mmu.words[Site+4]=Nop;
+            constexpr uint32_t Site=H+36;
+            c.mmu.words[H+28]=v958::third_alarm_suffix[1].word;
+            c.mmu.words[H+32]=v958::third_alarm_suffix[2].word;
+            c.mmu.words[Site]=bl(Site,A);c.mmu.words[Site+4]=Nop;
             c.mmu.words[A]=bl(A,D);c.mmu.words[A+4]=Nop;c.mmu.words[A+8]=bl(A+8,Q);c.mmu.words[A+12]=Nop;c.mmu.words[A+16]=Blr;
             c.mmu.words[D]=Mtmsr;c.mmu.words[D+4]=Blr;c.mmu.words[Q]=Mtmsr;c.mmu.words[Q+4]=Blr;
             c.mmu.words[Head]=c.mmu.words[Tail]=0;for(unsigned i=0;i<10;++i)c.mmu.words[Node+4*i]=0;
@@ -220,13 +222,17 @@ int main(int argc,char** argv){
             c.gpr[3]=Base;
             if(mode=="error-abi-live-alarm-skip")visit(H+32,Wr);
             if(mode=="error-abi-live-alarm-frame")c.mmu.words[v958::context+124]^=1u;
-            visit(H+28,Rd);
-            if(mode!="error-abi-live-alarm-missing"){
-                auto status_read=SiBinding::read32(Base+S);need(status_read.has_value());c.gpr[4]=*status_read;
+            if(v958::third_alarm_suffix[1].word==Nop){
+                visit(H+28,Nop);visit(H+32,Nop);
+            }else{
+                visit(H+28,Rd);
+                if(mode!="error-abi-live-alarm-missing"){
+                    auto status_read=SiBinding::read32(Base+S);need(status_read.has_value());c.gpr[4]=*status_read;
+                }
+                if(mode=="error-abi-live-alarm-value")c.gpr[4]^=1u;
+                visit(H+32,Wr);
+                need(SiBinding::write32(Base+S,c.gpr[4]));
             }
-            if(mode=="error-abi-live-alarm-value")c.gpr[4]^=1u;
-            visit(H+32,Wr);
-            need(SiBinding::write32(Base+S,c.gpr[4]));
             c.gpr[3]=Node;visit(Site,bl(Site,A));
             c.pc=A;c.lr=Site+4;v958::observe(c.pc,c);
             visit(A,bl(A,D));c.pc=D;c.lr=A+4;v958::observe(c.pc,c);
@@ -254,6 +260,9 @@ int main(int argc,char** argv){
                 // the smaller existing prefix fixture saves only r30/r31.
                 if(mode.find("-suffix-return")!=std::string_view::npos)
                     for(unsigned i=26;i<30;++i)c.mmu.words[Stack-4u*(32u-i)]=c.gpr[i];
+#endif
+#ifdef UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER
+                if(v958::third_postalarm_handler_enabled())c.gpr[20]=2u;
 #endif
                 visit(Site+8,0x4e800421u);c.pc=Root;c.lr=Site+12;
                 if(mode!="error-abi-live-alarm-callback-poll")need(!v958::poll(c));
@@ -395,6 +404,39 @@ int main(int argc,char** argv){
                                         scheduler.advance(++tick);v958::postalarm_dispatch_resume(c,e.caller,e.caller_word);
                                     }
                                     if(rf=="-abi")c.gpr[31]^=1u;
+#ifdef UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER
+                                    if(rf.starts_with("-handler")){
+                                        const auto hf=rf.substr(std::string_view("-handler").size());
+                                        for(auto row:v1139::rows)c.mmu.words[row.pc]=row.word;
+                                        const uint32_t datum=hf=="-not-taken"?9u:7u;
+                                        for(unsigned i=0;i<4;++i)c.mmu.words[v1139::Table+4u*i]=i==2u?datum:13u;
+                                        if(hf=="-identity")c.mmu.words[v1139::A+44u]^=1u;
+                                        visit(e.caller,e.caller_word);
+                                        need(v958::third_postalarm.stage()==14u&&v958::third_postalarm.handler_witness()->visits()==1u);
+                                        if(hf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                        if(hf=="-tick")scheduler.advance(++tick);
+                                        if(hf=="-poll")v958::poll(c);
+                                        if(hf=="-entry")v958::observe(v1139::rd,c);
+                                        c.gpr[3]=Base;
+                                        if(hf=="-address")c.gpr[3]+=4u;
+                                        visit(v1139::rd,v1139::Rd);
+                                        if(hf!="-missing-read"){
+                                            const auto got=SiBinding::read32(Base+S);need(got.has_value());
+                                            c.gpr[4]=*got^(hf=="-load-value"?1u:0u);
+                                        }
+                                        visit(v1139::wr,v1139::Wr);
+                                        if(hf!="-missing-write")need(SiBinding::write32(Base+S,c.gpr[4]));
+                                        visit(v1139::A+12u,Nop);
+                                        for(unsigned i=4;i<11;++i)visit(v1139::A+4u*i,Nop);
+                                        c.gpr[3]=v1139::Table;c.gpr[4]=8u;visit(v1139::A+44u,v1139::Indexed);
+                                        c.gpr[5]=datum;visit(v1139::A+48u,v1139::Compare);
+                                        c.cr[0]={false,datum>7u,datum==7u,false};
+                                        if(hf=="-branch")c.cr[0].eq=!c.cr[0].eq;
+                                        visit(v1139::A+52u,v1139::Branch);
+                                        if(datum!=7u)visit(v1139::A+56u,v1139::rows[14].word);
+                                        visit(v1139::A+64u,v1139::rows[15].word);need(false);
+                                    }
+#endif
                                     visit(e.caller,e.caller_word);need(false);
                                 }
 #endif
