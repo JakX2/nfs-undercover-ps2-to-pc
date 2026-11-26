@@ -34,6 +34,10 @@ public:
     unsigned gate_failure()const{return gate_.failure();}
     unsigned visits()const{return visits_;}
     unsigned writes()const{return gate_.writes();}
+    unsigned write_detail()const{return gate_.write_detail();}
+    unsigned write_register()const{return gate_.write_register();}
+    unsigned write_control_bits()const{return gate_.write_control_bits();}
+    unsigned write_value_class()const{return gate_.write_value_class();}
     template<class C>bool begin(C& c,const ReplyProcessorWitness& body,const WakeReadyWitness& ready,
         const NestedWakeReturnWitness& nested,ExternalReturnWitness& frame,uint32_t queue,uint32_t request,
         ReplyReturnAbi handler,ReplyReturnAbi processor,bool held){

@@ -233,6 +233,9 @@ void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     std::cout<<"V1300_RETURN_REFUSAL kind="<<kind<<" stage="<<reply_return->stage()
              <<" reason="<<reply_return->failure()<<" gate="<<reply_return->gate_failure()
              <<" visits="<<reply_return->visits()<<'\n';
+    if(kind==5u)std::cout<<"V1302_RETURN_MMIO detail="<<reply_return->write_detail()
+        <<" reg="<<reply_return->write_register()<<" ctrl="<<reply_return->write_control_bits()
+        <<" value_class="<<reply_return->write_value_class()<<'\n';
     throw WitnessFailure{};
 }
 #endif

@@ -416,8 +416,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(finish_case>=1&&finish_case<=3){assert(!ok&&finish.failure()==1u);return;}
         assert(ok&&finish.stage()==1u&&!finish.finished(c,true));
         if(finish_case==4){assert(!finish.read(c,Bus::IPC+M::PPCMSG,true)&&finish.failure()==2u);return;}
-        if(finish_case==5){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1,true)&&finish.failure()==3u);return;}
-        if(finish_case==6){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,0,true)&&finish.failure()==3u);return;}
+        if(finish_case==5){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1,true)&&finish.failure()==3u&&finish.write_detail()==4u&&finish.write_register()==1u&&finish.write_control_bits()==49u);return;}
+        if(finish_case==6){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,0,true)&&finish.failure()==3u&&finish.write_detail()==5u&&finish.write_register()==2u&&finish.write_value_class()==2u);return;}
         if(finish_case==7)c.msr|=0x8000u;
         if(finish_case==8)m.write32(Ready+4u,0u);
         if(finish_case==9)ram.write32(Request+4u,1u);
@@ -429,7 +429,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         assert(finish.write(c,Bus::MIRROR+H::PPC_FLAG,H::IPC_PPC,true));
         assert(finish.stage()==2u&&finish.writes()==1u&&cause.load()==Other&&
                finish.finished(c,true)&&ready.ready_context_held(c,true)&&host.serviced_steps()==2u);
-        if(finish_case==10){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true)&&finish.failure()==3u);return;}
+        if(finish_case==10){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true)&&finish.failure()==3u&&finish.write_detail()==1u);return;}
         if(finish_case==11){cause.fetch_or(H::PI_HOLLYWOOD);assert(!finish.finished(c,true));return;}
         assert(!finish.finished(c,false));
 #endif

@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v1300*'
+      - 'research/native_recomp/V1302_REPLY_MMIO_DIAGNOSTIC.md'
       - '.github/workflows/wii-v1300-reply-return-owner.yml'
 permissions:
   contents: read

@@ -10,6 +10,10 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned writes()const{return writes_;}
+    unsigned write_detail()const{return write_detail_;}
+    unsigned write_register()const{return write_register_;}
+    unsigned write_control_bits()const{return write_control_bits_;}
+    unsigned write_value_class()const{return write_value_class_;}
     template<class C>bool begin(C& c,const ReplyProcessorWitness& body,const WakeReadyWitness& ready,
                                 const NestedWakeReturnWitness& nested,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t request,bool authorized){
@@ -48,13 +52,27 @@ public:
         ++reads_;return v;
     }
     template<class C>bool write(C& c,uint32_t address,uint32_t value,bool authorized){
-        if(stage_!=1u||!boundary(c,authorized)||bad_alias(address)||
-           !reg(address&0x3fffffffu,H::PPC_FLAG)||value!=H::IPC_PPC||writes_)return fail(3);
-        try{if(!B::write32(address,value))return fail(3);}
-        catch(const std::exception&){return fail(3);}
+        const auto p=address&0x3fffffffu;
+        write_register_=reg(p,M::PPCCTRL)?1u:reg(p,H::PPC_FLAG)?2u:reg(p,H::PPC_MASK)?3u:
+            reg(p,M::PPCMSG)?4u:reg(p,M::ARMMSG)?5u:0u;
+        // Report only public register classes and public control bits,
+        // never the guest PC, address, pointer, or arbitrary operand.
+        write_control_bits_=write_register_==1u?(value&0x3fu):0u;
+        write_value_class_=value==H::IPC_PPC?1u:value==0u?2u:
+            write_register_==1u&&value==mail_.control?3u:
+            write_register_==1u&&value==(mail_.control|M::X2)?4u:
+            write_register_==1u&&(value&~0x3fu)?5u:6u;
+        if(stage_!=1u)return write_fail(1);
+        if(!boundary(c,authorized))return write_fail(2);
+        if(bad_alias(address))return write_fail(3);
+        if(write_register_!=2u)return write_fail(4);
+        if(value!=H::IPC_PPC)return write_fail(5);
+        if(writes_)return write_fail(6);
+        try{if(!B::write32(address,value))return write_fail(7);}
+        catch(const std::exception&){return write_fail(7);}
         mail_.flags&=~H::IPC_PPC;mail_.pi_cause&=~H::PI_HOLLYWOOD;
         ++writes_;stage_=2;
-        return boundary(c,authorized)||fail(3);
+        return boundary(c,authorized)||write_fail(8);
     }
     template<class C>bool finished(C& c,bool authorized)const{
         return stage_==2u&&boundary(c,authorized)&&!(mail_.flags&H::IPC_PPC)&&
@@ -64,7 +82,9 @@ private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;
     ColdIpcSnapshot mail_{};std::array<uint32_t,8> words_{};
     uint32_t request_=0;uint64_t tick_=0;unsigned stage_=0,error_=0,reads_=0,writes_=0;
+    unsigned write_detail_=0,write_register_=0,write_control_bits_=0,write_value_class_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    bool write_fail(unsigned n){if(!write_detail_)write_detail_=n;return fail(3);}
     static bool bad_alias(uint32_t a){return (a&0xc0000000u)==0x40000000u;}
     static bool reg(uint32_t a,uint32_t offset){return a==IosBus::IPC+offset||a==IosBus::MIRROR+offset;}
 };
