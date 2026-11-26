@@ -2943,7 +2943,7 @@ int main(int argc,char** argv)try{
         // guest reply or invoking its callback.
         const auto pack_cr=[](const auto& cpu){uint32_t v=0;for(auto f:cpu.cr)
             v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|unsigned(f.eq)<<1|unsigned(f.so);return v;};
-        const auto gp=c.gpr,gqr=c.gqr;
+        const auto gp=c.gpr;const auto gqr=c.gqr;
         const auto pc=c.pc,lr=c.lr,ctr=c.ctr,xer=c.xer,msr=c.msr,srr0=c.srr0,srr1=c.srr1,cr=pack_cr(c);
         const auto ticks=c.inst_count;
         if(!ioctl_dispatch->reached(c,ioctl_dispatch_held(c))||ioctl_event_gate->stage()!=3u||
