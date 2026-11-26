@@ -1,0 +1,3 @@
+# V1319: original idle scheduler selection boundary
+
+Start from the verified cleared IRQ idle return, retain the native mailbox/response identity, scheduler-enable counter zero and original complete thread context. Require exact disable, clear, indirect callback, set and load call identities and ordered state transition. The original selected queue must be drained before callback, current/active/physical pointers must identify the same selected thread at loader entry. No guest writes. Nine synthetic joined cases. This is a state/entry witness: an intervening native instruction trace and the V1315 save-provenance join are still needed before owner execution. V1316 helper reached the next instruction boundary but not its return.

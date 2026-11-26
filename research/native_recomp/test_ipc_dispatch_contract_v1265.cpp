@@ -15,6 +15,9 @@
 #include "wii_reply_return_v1298.h"
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
 #include "wii_ready_idle_return_v1304.h"
+#ifdef UNDERCOVER_TEST_IDLE_SELECTION
+#include "wii_idle_selection_v1319.h"
+#endif
 #endif
 #endif
 #endif
@@ -463,6 +466,44 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                 if(idle_case>=8&&idle_case<=10){assert(!ok&&join.failure()==2u);return;}
                 assert(ok&&join.resumed_idle(c,true));
                 if(idle_case==11){++c.inst_count;assert(!join.resumed_idle(c,true));}
+#ifdef UNDERCOVER_TEST_IDLE_SELECTION
+                else if(idle_case>=13u){
+                    constexpr uint32_t D=0x80022000u,C=0x80022100u,Sx=0x80022200u,Lx=0x80022300u,
+                        CB=0x80022400u,CBP=0x80022500u,Caller=0x80022600u;
+                    auto edge=[&](uint32_t dst,uint32_t site,bool indirect=false){
+                        const auto w=indirect?0x4e800421u:bl(site,dst);m.write32(site,w);m.write32(dst,Nop);
+                        return VectorEdge{dst,site+4u,w,Nop};
+                    };
+                    auto d=edge(D,Caller),cl=edge(C,Caller+4u),set=edge(Sx,Caller+8u),load=edge(Lx,Caller+12u);
+                    const std::array<VectorEdge,1> cb{{edge(CB,Caller+16u,true)}};
+                    m.write32(CBP,CB);m.write32(Counter,idle_case==14?1u:0u);
+                    IdleSelectionWitness select({Thread,Context,Counter,CBP,CB,d,cl,set,load,cb});
+                    ok=select.begin(c,join,true);
+                    if(idle_case==14){assert(!ok&&select.failure()==1u);return;}assert(ok);
+                    auto enter=[&](VectorEdge e){c.pc=e.pc;c.lr=e.lr;++c.inst_count;return select.entry(c,e.pc,true);};
+                    if(idle_case==15)c.msr&=~0x8000u;
+                    ok=enter(d);if(idle_case==15){assert(!ok&&select.failure()==3u);return;}assert(ok);
+                    c.msr&=~0x8000u;c.gpr[3]=Context;
+                    if(idle_case==16)c.gpr[3]=Thread;
+                    ok=enter(cl);if(idle_case==16){assert(!ok&&select.failure()==3u);return;}assert(ok);
+                    m.write32(Thread+712u,2u<<16);m.write32(Ready,0u);m.write32(Ready+4u,0u);
+                    c.ctr=CB;c.gpr[4]=Thread;
+                    if(idle_case==17)m.write32(Ready+4u,Thread);
+                    ok=enter(cb[0]);if(idle_case==17){assert(!ok&&select.failure()==3u);return;}assert(ok);
+                    c.gpr[3]=Thread;m.write32(0x800000e4u,Thread);
+                    if(idle_case==18)ram.write32(Request+4u,1u);
+                    if(idle_case==19)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
+                    ok=enter(set);
+                    if(idle_case==18||idle_case==19){assert(!ok&&select.failure()==2u);return;}assert(ok);
+                    m.write32(0x800000d4u,Thread);m.write32(0x800000c0u,Thread&0x3fffffffu);
+                    if(idle_case==20)m.write32(0x800000c0u,Context&0x3fffffffu);
+                    ok=enter(load);if(idle_case==20){assert(!ok&&select.failure()==3u);return;}assert(ok);
+                    assert(select.loader_ready(c,true));
+                    if(idle_case==21){++c.inst_count;assert(!select.loader_ready(c,true));}
+                    else assert(idle_case==13u);
+                    return;
+                }
+#endif
                 else assert(idle_case==1);
                 return;
             }
@@ -587,6 +628,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
     std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_IDLE_SELECTION
+    for(unsigned i=13;i<=21;++i)trial(0,0,true,0,0,0,0,1,i);
+    std::cout<<"V1319_IDLE_SELECTION synthetic=1 valid=1 refused=8 ready_drained=1 native_loader_entry=0 original_execution=0\n";
+#endif
 #endif
 #endif
 #endif

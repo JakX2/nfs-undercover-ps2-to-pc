@@ -9,6 +9,7 @@ class ReadyIdleReturnJoin {
 public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    const WakeReadyWitness* ready()const{return ready_;}
     template<class C>bool begin(C& c,const ReplyReturnWitness& returned,
             const WakeReadyWitness& ready,ExternalReturnWitness& frame,bool held){
         const auto s=NativeIosBinding::cold_snapshot();
@@ -43,6 +44,11 @@ public:
             c.inst_count==end_&&same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&
             frame_->cleared_restored(c,mail_.pi_cause,mail_.pi_mask)&&
             ready_->ready_storage_held(c,*frame_,held);
+    }
+    template<class C>bool selection_transport_held(C& c,bool held)const{
+        const auto s=NativeIosBinding::cold_snapshot();
+        return held&&!error_&&stage_==2u&&cpu_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&s&&
+            c.inst_count>=end_&&c.inst_count-end_<=4096u&&same_scheduler_ipc_snapshot(mail_,*s)&&wire();
     }
 private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;ExternalReturnWitness* frame_=nullptr;

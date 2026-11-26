@@ -16,6 +16,9 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     uint32_t ready_queue()const{return ready_;}
+    uint32_t waiting_queue()const{return queue_;}
+    uint32_t thread()const{return e_.thread;}
+    uint32_t idle_context()const{return e_.context;}
     template<class C>bool begin(C& c,const ReplyProcessorWitness& prior,ExternalReturnWitness& frame,uint32_t queue,bool held){
         const auto s=NativeIosBinding::cold_snapshot();
         if(stage_||error_||!prior.wake_ready(c,frame,queue,e_.wake,held)||!s||
