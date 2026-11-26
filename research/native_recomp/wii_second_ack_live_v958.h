@@ -79,6 +79,7 @@ inline bool held_epilogue_enabled(){const char* v=std::getenv("UNDERCOVER_V1151_
 inline bool held_epilogue_active(){return held_epilogue.stage()!=0u;}
 #ifdef UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH
 inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_HELD_DISPATCH");return v&&v[0]=='1'&&v[1]==0;}
+inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #endif
 [[noreturn]]inline void reject_held_epilogue(){
     std::cout<<std::dec<<"V1151_HELD_EPILOGUE_FAULT stage="<<held_epilogue.stage()<<" reason="<<held_epilogue.failure()
