@@ -250,7 +250,42 @@ for mode in nonsplit split; do
       fi
       if [[ "$lane" == *ack-callback-rfi ]]; then
         [[ "$(grep -c '^V1130_THIRD_ACK_RFI ' "$work/run.log")" == 1 ]]
-        grep -Eq '^V1130_THIRD_ACK_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 polls=2 visits=[1-9][0-9]{0,2} token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0$' "$work/run.log"
+        grep -Eq '^V1130_THIRD_ACK_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 polls=2 visits=[1-9][0-9]{0,2} token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0
+      fi
+    done
+  done
+  echo "V1022_OWNER_ERROR_QUEUE mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
+  echo "V1032_OWNER_AFTER_ALARM mode=$mode classified=8 fallback=0 continuous_boot=0"
+  echo "V1034_OWNER_QUEUE_DETAIL_CENSUS mode=$mode baseline=16 nonzero_due=8 fallback=0 continuous_boot=0"
+  echo "V1037_OWNER_HISTORY mode=$mode baseline=16 discovery_delay=8 fallback=0 continuous_boot=0"
+  echo "V1039_OWNER_DELAY_FRONTIERS mode=$mode classified=16 call_executed=0 fallback=0 continuous_boot=0"
+  echo "V1052_OWNER_DUE_EXECUTION mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
+  echo "V1053_OWNER_THIRD_CALLBACK mode=$mode prefix=16 time=16 frontier=16 fallback=0 continuous_boot=0"
+  echo "V1058_OWNER_THIRD_WIRELESS mode=$mode unchanged_return=16 changed_lock=16 fallback=0 continuous_boot=0"
+  echo "V1060_OWNER_THIRD_CALLBACK_RETURN mode=$mode restored=16 original_handler_resume=16 fallback=0 continuous_boot=0"
+  echo "V1063_OWNER_THIRD_HANDLER_RETURN mode=$mode status_w1c=16 original_dispatcher_resume=16 fallback=0 continuous_boot=0"
+  echo "V1064_OWNER_THIRD_PENDING_RFI mode=$mode native_rfi=16 held_token=16 third_vector_executed=0 fallback=0 continuous_boot=0"
+  echo "V1069_OWNER_THIRD_VECTOR mode=$mode original_vector=16 original_trampoline=16 held_token=16 fallback=0 continuous_boot=0"
+  echo "V1070_OWNER_THIRD_VECTOR_FRAME mode=$mode stale_frame_rewritten=4 fields=38 fallback=0 continuous_boot=0"
+  echo "V1076_OWNER_THIRD_DISPATCH mode=$mode original_handler_entry=16 pi_reads=32 held_token=16 fallback=0 continuous_boot=0"
+  echo "V1079_OWNER_THIRD_ACK mode=$mode original_w1c=16 next_label=16 retired_transfer=16 fallback=0 continuous_boot=0"
+  echo "V1088_OWNER_THIRD_POSTACK mode=$mode helper_return=16 classified_branch=20 fallback=0 continuous_boot=0"
+  echo "V1092_OWNER_THIRD_ACK_CALLBACK mode=$mode original_prefix=16 save_return=16 fallback=0 continuous_boot=0"
+  echo "V1105_OWNER_THIRD_ACK_TIME mode=$mode original_time=16 pi_cleared=16 fallback=0 continuous_boot=0"
+  echo "V1108_OWNER_THIRD_ACK_FRONTIER mode=$mode classified=16 original_call_executed=0 fallback=0 continuous_boot=0"
+  echo "V1112_OWNER_THIRD_ACK_WIRELESS mode=$mode setter_return=16 unlock_return=16 fallback=0 continuous_boot=0"
+  echo "V1115_OWNER_THIRD_ACK_SUFFIX mode=$mode classified=16 call_executed=0 fallback=0 continuous_boot=0"
+  echo "V1117_OWNER_THIRD_ACK_RETURN mode=$mode callback_return=16 restored_abi=16 fallback=0 continuous_boot=0"
+  echo "V1122_OWNER_THIRD_ACK_HANDLER mode=$mode classified=16 status_read=16 status_w1c=16 fallback=0 continuous_boot=0"
+  echo "V1126_OWNER_THIRD_ACK_HANDLER_RETURN mode=$mode handler_return=16 restored_abi=16 fallback=0 continuous_boot=0"
+  echo "V1130_OWNER_THIRD_ACK_RFI mode=$mode native_rfi=16 post_rfi_polls=32 fallback=0 continuous_boot=0"
+  echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
+  echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
+done
+ "$work/run.log"
+         [[ "$(grep -c '^V1136_THIRD_ACK_RESUME ' "$work/run.log")" == 1 ]]
+         grep -Fx 'V1136_THIRD_ACK_RESUME synthetic_resume=1 dispatch_ticks=2 token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0' "$work/run.log"
+         [[ "$(grep -n '^V1130_THIRD_ACK_RFI ' "$work/run.log" | cut -d: -f1)" -lt "$(grep -n '^V1136_THIRD_ACK_RESUME ' "$work/run.log" | cut -d: -f1)" ]]
       fi
     done
   done

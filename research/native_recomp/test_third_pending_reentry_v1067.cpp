@@ -46,8 +46,10 @@ int main(){
     unsigned handler_valid=0,handler_refused=0;
     unsigned handler_return_valid=0,handler_return_refused=0;
     unsigned ep_valid=0,ep_refused=0;
-    for(trial=0;trial<268;++trial){
-        const unsigned ep_fault=trial>=256?trial-255u:0u;
+    unsigned rd_valid=0,rd_refused=0;
+    for(trial=0;trial<288;++trial){
+        const unsigned rd_fault=trial>=276?trial-275u:0u;
+        const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
         const unsigned handler_fault=trial>=228?0u:trial>=216?trial-215u:0u;
         const unsigned return_fault=trial>=208?0u:trial>=196?trial-195u:0u;
@@ -706,10 +708,33 @@ int main(){
         ok=route.epilogue_poll(c);
         if(ep_fault==12){reject_ep(!ok,52);continue;}need(ok);
         need(route.stage()==28u&&ep.stage()==4u&&route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
-        ++ep_valid;
+        if(trial<268){++ep_valid;continue;}
+        auto reject_resume=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++rd_refused;
+        };
+        const uint32_t resume_word=c.mmu.words.at(H);
+        if(rd_fault==1){reject_resume(!route.epilogue_resume_dispatch(c,H),53);continue;}
+        tick();
+        if(rd_fault==2)tick();
+        if(rd_fault==3)c.pc=H+4u;
+        if(rd_fault==4)c.srr0=H+4u;
+        if(rd_fault==5)mask=0;
+        ok=route.epilogue_resume_dispatch(c,H);
+        if(rd_fault>=2&&rd_fault<=5){reject_resume(!ok,53);continue;}
+        need(ok);
+        if(rd_fault==6){reject_resume(!route.epilogue_resume_dispatch(c,H),53);continue;}
+        if(rd_fault!=7)tick();
+        if(rd_fault==8)tick();
+        if(rd_fault==9)c.gpr[31]^=1u;
+        if(rd_fault==10)c.gqr[0]^=1u;
+        if(rd_fault==11)c.mmu.words[H]^=1u;
+        ok=route.epilogue_resume_label(c,rd_fault==12?H+4u:H,resume_word);
+        if(rd_fault>=7){reject_resume(!ok,54);continue;}need(ok);
+        need(route.stage()==30u&&ep.stage()==5u&&ctl.issued_tokens()==3u&&cause==Other);
+        ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -724,4 +749,5 @@ int main(){
     std::cout<<"V1122_THIRD_ACK_HANDLER_JOIN valid=8 refused=12 same_tick=1 status_read=1 status_w1c=1 original_execution=0\n";
     std::cout<<"V1126_THIRD_ACK_HANDLER_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 original_execution=0\n";
     std::cout<<"V1130_THIRD_ACK_RFI_JOIN valid=8 refused=12 fresh_context=1 two_polls=1 original_execution=0\n";
+    std::cout<<"V1136_THIRD_ACK_RESUME_JOIN valid=8 refused=12 dispatch_ticks=2 resume_instruction_executed=0 original_execution=0\n";
 }

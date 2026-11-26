@@ -366,6 +366,20 @@ public:
         }
         return true;
     }
+    // Separately account for the outer dispatch and first emitted label.
+    template<class C>bool epilogue_resume_dispatch(C& c,uint32_t pc){
+        if(stage_!=28u||error_||cpu_!=&c||!epilogue_||epilogue_->stage()!=4u||
+           !dev_||dev_->stage()!=3u||c.pc!=pc||c.srr0!=pc||
+           !ack_.postack_held_after_rfi(c.inst_count,1u))return fail(53);
+        resume_site_=pc;stage_=29u;return true;
+    }
+    template<class C>bool epilogue_resume_label(C& c,uint32_t pc,uint32_t w){
+        if(stage_!=29u||error_||cpu_!=&c||!epilogue_||!dev_||dev_->stage()!=3u||
+           pc!=resume_site_||!ack_.postack_held_after_rfi(c.inst_count,2u)||
+           !epilogue_->resume(c,pc,w,cause_->load(),mask_->load())||
+           next_.captured().stage()!=5u)return fail(54);
+        stage_=30u;return true;
+    }
     unsigned epilogue_failure()const{return epilogue_?epilogue_->failure():0u;}
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -445,6 +459,7 @@ private:
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
     LiveEpilogueWitness* epilogue_=nullptr;
+    uint32_t resume_site_=0;
     const void* handler_return_=nullptr;
     std::array<uint32_t,32> handler_gp_{};
     uint32_t handler_cr_=0,handler_site_=0,handler_word_=0,dispatcher_site_=0,dispatcher_word_=0;

@@ -454,6 +454,13 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 }
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(third_reentry.stage()){
+        if(third_reentry.stage()==29u){
+            need(third_ack_rfi_route&&owner==SecondResume&&pc==SecondResume&&w==0x60000000u);
+            third_vector_need(third_reentry.epilogue_resume_label(c,pc,w));
+            need(third_reentry.stage()==30u&&third_ack_epilogue.stage()==5u&&ctl->issued_tokens()==3u&&cause==Other);
+            std::cout<<"V1136_THIRD_ACK_RESUME synthetic_resume=1 dispatch_ticks=2 token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
         if(third_reentry.stage()==27u){
             const auto loader=std::find_if(EpilogueRoots.begin(),EpilogueRoots.end(),[](const auto& x){return x.root==SecondEpilogueExpected.loader;});
             const bool native_rfi=loader!=EpilogueRoots.end()&&!loader->words.empty()&&owner==loader->root&&
@@ -1013,6 +1020,7 @@ bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     if(third_reentry.stage()){
         scheduler->advance(c.inst_count);
+        if(third_reentry.stage()==28u){need(third_ack_rfi_route&&pc==SecondResume);third_vector_need(third_reentry.epilogue_resume_dispatch(c,pc));return;}
         if(third_reentry.stage()==27u){third_vector_need(third_reentry.epilogue_entry(c,pc));return;}
         if(third_reentry.stage()==25u){third_vector_need(third_reentry.handler_return_entry(c,third_ack_handler_return,pc));return;}
         if(third_reentry.stage()==21u){third_vector_need(third_reentry.callback_return_entry(c,third_ack_return,pc));return;}
@@ -1136,7 +1144,7 @@ bool process_pending_callbacks(CPUContext& c){
                      third_reentry.completion_ack().postack_held());
                 std::cout<<std::dec<<"V1130_THIRD_ACK_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 polls=2 visits="
                          <<third_ack_epilogue.visits()<<" token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0"<<std::endl;
-                std::_Exit(0);
+                // Continue to the generated synthetic resume label.
             }
             return false;
         }
