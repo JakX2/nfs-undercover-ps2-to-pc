@@ -1,0 +1,3 @@
+# V1344 original synchronous submit continuation
+
+V1340 actual sleeping function exit 8/8; V1342/V1343 source tests and V1341 private geometry passed. Capture original submit ABI and request before sleep; observe original resume through the exact outer interrupt restoration and allocator-free entry. Keep completed response and selected context invariant, allow EE only when predicted by the authenticated MSR write. Install original submit labels only, reuse existing restore hooks, no fixture expansion or guest writes. Stop before free body. Owner gate pinned to verified sleep exit and completion geometry.

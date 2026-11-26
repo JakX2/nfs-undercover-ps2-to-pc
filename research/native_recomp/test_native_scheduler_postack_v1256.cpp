@@ -55,6 +55,10 @@
 #include "wii_sleep_resume_v1335.h"
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
 #include "wii_sleep_exit_v1339.h"
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+#include "wii_submit_resume_v1342.h"
+#include "v1344_private_submit.h"
+#endif
 #endif
 #endif
 #endif
@@ -184,6 +188,12 @@ static SleepExitWitness* sleep_exit=nullptr;
 static bool exit_active=false;
 static unsigned sleep_exit_count=0;
 struct SleepExited{};
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+static SubmitResumeWitness* submit_resume=nullptr;
+static bool submit_resume_active=false;
+static unsigned release_count=0;
+struct ReleaseReached{};
+#endif
 #endif
 #endif
 #endif
@@ -242,6 +252,20 @@ static bool load_held(nw::CPUContext& c){
     std::cout<<"V1340_EXIT_REFUSAL kind="<<kind<<" stage="<<sleep_exit->stage()
         <<" reason="<<sleep_exit->failure()<<" visits="<<sleep_exit->visits()<<'\n';
     throw WitnessFailure{};
+}
+#endif
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+static bool submit_held(nw::CPUContext& c){
+    return selection_witness&&submit_resume&&!(cause.load()&mask.load())&&
+        selection_witness->selected_response_held(c,raw_device_ok(c),submit_resume->expected_msr());
+}
+[[noreturn]]static void submit_resume_refuse(unsigned kind){
+    std::cout<<"V1344_SUBMIT_REFUSAL kind="<<kind<<" stage="<<submit_resume->stage()
+        <<" reason="<<submit_resume->failure()<<" visits="<<submit_resume->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(submit_resume_active&&!submit_resume->before(c,pc,w,submit_held(c)))submit_resume_refuse(1);
 }
 #endif
 void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
@@ -452,6 +476,9 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    if(submit_resume_active){v1344_before(c,pc,w);return;}
+#endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active){if(!sleep_exit->before(c,pc,w,load_held(c)))sleep_exit_refuse(2);return;}
 #endif
@@ -501,6 +528,16 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    if(submit_resume_active){
+        if(!submit_resume->entry(c,pc,submit_held(c)))submit_resume_refuse(2);
+        if(submit_resume->stage()==3u){
+            if(!submit_resume->release_at(c,submit_held(c)))submit_resume_refuse(2);
+            ++release_count;throw ReleaseReached{};
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active)sleep_exit_refuse(3);
 #endif
@@ -672,12 +709,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    if(submit_resume_active){if(!submit_resume->poll(c,submit_held(c)))submit_resume_refuse(3);return false;}
+#endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active){
         if(!sleep_exit->poll(c,load_held(c)))sleep_exit_refuse(5);
         if(sleep_exit->stage()==3u){
             if(!sleep_exit->returned(c,load_held(c)))sleep_exit_refuse(5);
-            ++sleep_exit_count;throw SleepExited{};
+            ++sleep_exit_count;
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+            if(!submit_resume->begin(c,*sleep_exit,load_held(c)))submit_resume_refuse(4);
+            exit_active=false;submit_resume_active=true;return false;
+#else
+            throw SleepExited{};
+#endif
         }
         return false;
     }
@@ -880,6 +926,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    if(submit_resume_active)submit_resume_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active)sleep_exit_refuse(6);
 #endif
@@ -943,6 +992,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    if(submit_resume_active)submit_resume_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     if(exit_active)sleep_exit_refuse(6);
 #endif
@@ -1147,6 +1199,11 @@ int main(int argc,char** argv)try{
         const auto kind=open.path_kind();
         std::array<VectorEdge,v626::submit_edges.size()> edges{};
         for(unsigned i=0;i<edges.size();++i){auto e=v626::submit_edges[i];edges[i]={e.pc,e.lr,e.branch,e.entry};}
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+        SubmitResumeWitness submit_cont(v1344::expected);
+        submit_resume=&submit_cont;
+        if(!submit_cont.capture(c,device_ok(c)))submit_resume_refuse(6);
+#endif
         PostAckSubmitJoin next(edges,v626::vector);
         need(next.begin(c,open,device_ok(c)));
         open_witness=nullptr;stm_witness=nullptr;
@@ -1372,10 +1429,19 @@ int main(int argc,char** argv)try{
         CooperativeLoadLane load(v1321::load());coop_load=&load;load_save=&save_lane;
 #ifdef UNDERCOVER_V1336_SLEEP_RESUME
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+        bool release_reached=false;try{run_game(c);}catch(const ReleaseReached&){release_reached=true;}
+        need(release_reached&&submit_cont.release_at(c,submit_held(c))&&selection_count==trial+1u&&
+            load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
+            host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+        submit_resume_active=false;submit_resume=nullptr;
+        std::cout<<"V1344_SUBMIT_TRIAL n="<<trial<<" sleep_return=1 outer_restore=1 reply_held=1 free_entry=1\n";
+#else
         bool sleep_exited=false;try{run_game(c);}catch(const SleepExited&){sleep_exited=true;}
         need(sleep_exited&&exited.returned(c,load_held(c))&&selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&
             host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+#endif
         exit_active=false;sleep_exit=nullptr;
         std::cout<<"V1340_EXIT_TRIAL n="<<trial<<" nested_restore=1 sleep_return=1 submit_resume=1 caller_abi=1\n";
 #else
@@ -1475,6 +1541,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1340_SLEEP_EXIT
     need(sleep_exit_count==8u);
     std::cout<<"V1340_SLEEP_EXIT_NATIVE owner=1 trials=8 nested_restore=8 sleep_return=8 submit_resume=8 caller_abi=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1344_SUBMIT_RESUME
+    need(release_count==8u);
+    std::cout<<"V1344_SUBMIT_NATIVE owner=1 trials=8 outer_restore=8 reply_held=8 free_entry=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Authenticate original synchronous IOS_Open completion without execution."""
-import argparse,struct
+import argparse,struct,re
 from pathlib import Path
 from make_v651_open_fixture import submit_geometry,SUBMIT,OPEN
 from make_v639_open_geometry import geometry as open_geometry
@@ -97,11 +97,54 @@ def verify(dol,elf,raw,csv):
     rebuild(raw,expanded)
     print(f'V1337_COMPLETION_PREFLIGHT verified=1 roots={len(expanded)+2} shared_roots={len(shared)} direct_edges={len(edges)+2} stm_original_words={len(new)} continuation_labels={len(visits)} alternate_exits={len(exits)} additional_seed_bytes={len(data)-len(old_data)} original_execution=0')
 
+def install_submit(root,p):
+    from prepare_v625_ipc_client import audit_native
+    from prepare_v1299_reply_return import verify_resume
+    from prepare_owner_scheduler_v722 import reachable
+    from prepare_v680_si_helper import verify_direct
+    shared,edges,*_=p
+    resume=0x805197d8
+    expected={pc:(a,ws[(pc-a)//4]) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE)
+              for pc in reachable(a,ws)}
+    sources={f:f.read_text() for f in sorted(root.glob('output_*.cpp'))}
+    main=(root/'main_output.cpp').read_text()
+    audit_native(sources.values(),main,expected)
+    verify_resume(main,((resume,SUBMIT),))
+    for dst,lr,_,_ in edges[1:3]:
+        owners=[s for s in sources.values() if f'loc_{lr-4:X}: ;' in s]
+        if len(owners)!=1:raise ValueError('completion call')
+        verify_direct(owners[0],lr-4,dst)
+    wanted={pc:w for pc,(a,w) in expected.items() if a==SUBMIT}
+    seen=set();changes={}
+    for f,s in sources.items():
+        old=s
+        for pc,w in wanted.items():
+            pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
+            hits=list(pat.finditer(s))
+            if not hits:continue
+            if len(hits)!=1 or pc in seen:raise ValueError('completion hook')
+            seen.add(pc);i=hits[0].end();s=s[:i]+f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:]
+        if s!=old:
+            anchor='#include "runtime/cpu_context.h"'
+            if s.count(anchor)!=1:raise ValueError('completion hook')
+            changes[f]=s.replace(anchor,anchor+'\nvoid v1344_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
+    if seen!=set(wanted):raise ValueError('completion hook')
+    fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    rows=[(a,a+4*i,w) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE) for i,w in enumerate(ws)]
+    header='#pragma once\n#include "wii_submit_resume_v1342.h"\nnamespace v1344 {\n'
+    header+=f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> words'+'{'+','.join('undercover::wii::ReplyNativeWord{'+fmt(row)+'}' for row in rows)+'};\n'
+    header+='inline constexpr undercover::wii::SubmitResumeExpectation expected{'+fmt((SUBMIT,resume,edges[5][1],edges[5][2]))+','+','.join('undercover::wii::VectorEdge{'+fmt(e)+'}' for e in edges[1:3])+',words};\n}\n'
+    with (root.parent/'input'/'v1344_private_submit.h').open('x') as f:f.write(header)
+    for f,s in changes.items():f.write_text(s)
+    print(f'V1344_SUBMIT_TRANSLATION verified=1 submit_labels={len(wanted)} audited_labels={len(expected)} direct_edges=2')
+
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('out',type=Path);p.add_argument('--submit-install',action='store_true');a=p.parse_args()
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not 52<=a.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        verify(a.dol.read_bytes(),a.elf.read_bytes(),(a.out/'fixture.dol').read_bytes(),(a.out/'symbols.csv').read_text());return 0
+        d,e=a.dol.read_bytes(),a.elf.read_bytes()
+        if a.submit_install:install_submit(a.out,plan(d,e));return 0
+        verify(d,e,(a.out/'fixture.dol').read_bytes(),(a.out/'symbols.csv').read_text());return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip')
         print('V1337_COMPLETION_PREFLIGHT verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'prior_or_io'));return 1
