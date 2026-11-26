@@ -43,7 +43,19 @@ def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None,read_
     if out_gp[1]!=('stack',sp-frame):raise ValueError('nested stack identity')
     return result
 
-def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None,entry_observer=None):
+def candidate_map(candidate,candidates):
+    if candidate is not None and candidates:raise ValueError('nested candidate modes')
+    rows=(candidate,) if candidate is not None else tuple(candidates)
+    if len(rows)>2:raise ValueError('nested candidate cap')
+    out={}
+    for at,blob in rows:
+        if not isinstance(blob,bytes) or len(blob)!=4 or at&3 or not 0x80000000<=at<at+4<=0x81800000 or (at,4) in out:
+            raise ValueError('nested candidate geometry')
+        out[at,4]=blob
+    return out
+
+def plan(d,e,*,on_unknown=None,candidate=None,candidates=(),read_refusal=None,entry_observer=None):
+    allowed=candidate_map(candidate,candidates)
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
     if len(leaf[0])!=8 or len(leaf[1])!=1 or len(leaf[3])!=12:raise ValueError('nested predecessor')
@@ -55,12 +67,11 @@ def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None,entry_observer=N
     parent={at:v for at,v in out_mem.items() if at>=out_gp[1][1]}
     if entry_observer is not None:
         entry_observer(root,tuple(out_gp),dict(parent),active[-1]+4,tuple(readonly))
-    extra=set();candidate_used=False
+    extra=set();used=set()
     def resolve(at,n):
-        nonlocal candidate_used
-        if candidate is not None and (at,n)==(candidate[0],len(candidate[1])):
-            candidate_used=True
-            return candidate[1]
+        if (at,n) in allowed:
+            used.add((at,n))
+            return allowed[at,n]
         try:value=immutable_read(d,e,at,n)
         except ValueError:
             if on_unknown is not None:on_unknown(at,n)
@@ -69,7 +80,7 @@ def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None,entry_observer=N
         if len(extra)>32:raise ValueError('nested data cap')
         return value
     result=nested(root,exact_words(d,e,root,383),out_gp,parent,out_state,readonly,active[-1]+4,read_resolver=resolve,read_refusal=read_refusal)
-    if candidate is not None and not candidate_used:raise ValueError('nested candidate unused')
+    if used!=set(allowed):raise ValueError('nested candidate unused')
     active,frame,sites,_,dst,*_=result
     n=sizes.get(dst,0)
     if frame!=48 or not 4<=n<=65536 or n%4:raise ValueError('nested next geometry')
