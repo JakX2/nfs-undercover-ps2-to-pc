@@ -24,7 +24,7 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_third_ack_v1167.h',root/'v1167_private_third_ack.h')
             shutil.copyfile(HOST/'synthetic_ack_helper_v1175.h',root/'v1175_private_ack_helper.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n#define UNDERCOVER_V1240_PRIVATE_ACK_STM 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n#define UNDERCOVER_V1240_PRIVATE_ACK_STM 1\n#define UNDERCOVER_V1246_PRIVATE_ACK_OPEN 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
@@ -114,6 +114,17 @@ inline constexpr StmPrefixExpectations expected_stm=[]{
     e.paths[0]={0x80601000u,1};e.paths[1]={0x80602000u,2};e.path_count=2;e.irq_handler=0x80519094u;
     return e;
 }();
+}
+""")
+            (root/'v574_private_sc_expectations.h').write_text('#pragma once\n#include <array>\nnamespace undercover::wii::v574 { inline constexpr std::array<uint8_t,28> expected_vector{}; }\n')
+            (root/'v1246_private_ack_open.h').write_text("""
+#pragma once
+#include "wii_post_ack_open_join_v1242.h"
+namespace undercover::wii::v639 {
+using O=OpenRequestWitness;using R=OpenScRoute;
+inline constexpr OpenRequestExpectations expected_open{v629::expected_stm.open,
+ {O::Profile,0x8051998cu,3,4},{O::Disable,0x8051ab64u,5,6},{O::Restore,0x8051ad14u,7,8},
+ {O::Flush,R::Caller,9,10},{O::Submit,0x80519a3cu,11,12},13,0x44000002u,14};
 }
 """)
             exe=root/'probe'
@@ -511,4 +522,18 @@ inline constexpr StmPrefixExpectations expected_stm=[]{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertTrue(rows[-1].startswith(b'V1240_ACK_STM_INVALID '),rows[-1])
+            env['UNDERCOVER_V1247_ACK_OPEN']='1'
+            for fault in ('-open-immediate','-open-eventhook','-open-cache','-open-vector','-open-syscall','-open-request','-open-si','-open-transport'):
+                with self.subTest(open=fault):
+                    got=subprocess.run([str(exe),mode+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    if fault in ('-open-immediate','-open-eventhook'):
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        kind=1 if fault=='-open-immediate' else 2
+                        from audit_v1247_ack_open import EVENTS,RESULTS
+                        self.assertEqual(tuple(rows[-12:]),EVENTS+(RESULTS[kind-1],))
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertTrue(rows[-1].startswith(b'V1247_ACK_OPEN_INVALID '),rows[-1])
 if __name__=='__main__':unittest.main()

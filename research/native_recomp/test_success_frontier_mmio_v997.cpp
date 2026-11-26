@@ -50,6 +50,10 @@ struct Cpu{
     uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=Resume,srr1=0x8032u;
     bool is_running=true,in_callback=false,dec_irq_pending=true;
     uint32_t dec_value=300;uint64_t dec_written_tb=50;
+#ifdef UNDERCOVER_V1246_PRIVATE_ACK_OPEN
+    uint32_t hid0=0x100,guest_flush_count=18000,guest_last_flush=0,guest_sync_count=0,guest_isync_count=0;
+    OpenCacheRangeTrace open_cache_range;
+#endif
     uint64_t read_timebase()const{return 0x100000020ull;}
 };
 static void need(bool b,const std::source_location loc=std::source_location::current()){
@@ -1134,9 +1138,44 @@ int main(int argc,char** argv){
                                                                                                                     visit(S::Stm,e.stm.entry_word);c.gpr[1]-=32u;
                                                                                                                     scheduler.advance(++tick);
                                                                                                                     if(mode.ends_with("-stm-tick"))scheduler.advance(tick+=8193u);
-                                                                                                                    c.pc=S::Open;c.lr=e.open.lr;c.gpr[3]=e.paths[mode.ends_with("-stm-eventhook")?1:0].addr;c.gpr[4]=0;
+                                                                                                                    c.pc=S::Open;c.lr=e.open.lr;c.gpr[3]=e.paths[(mode.ends_with("-stm-eventhook")||mode.ends_with("-open-eventhook"))?1:0].addr;c.gpr[4]=0;
                                                                                                                     if(mode.ends_with("-stm-path"))*c.mmu.get_ptr(c.gpr[3])=0;
                                                                                                                     v958::observe(c.pc,c);
+#ifdef UNDERCOVER_V1246_PRIVATE_ACK_OPEN
+                                                                                                                    if(v958::ack_open_enabled()){
+                                                                                                                        using O=OpenRequestWitness;using R=OpenScRoute;
+                                                                                                                        const auto& op=v639::expected_open;
+                                                                                                                        const uint32_t path=c.gpr[3],req=0x93380020u;
+                                                                                                                        need(v958::ack_open.stage()==1u);
+                                                                                                                        for(auto x:{op.profile,op.disable,op.restore,op.flush,op.submit}){
+                                                                                                                            c.mmu.words[x.pc]=x.entry_word;c.mmu.words[x.lr-4u]=x.branch_word;
+                                                                                                                        }
+                                                                                                                        c.mmu.words[O::Alloc]=op.alloc_word;c.mmu.words[R::Call]=op.sc_word;c.mmu.words[R::Resume]=Blr;c.mmu.words[R::Caller]=op.flush_return_word;
+                                                                                                                        c.gpr[1]-=32;
+                                                                                                                        auto enter=[&](VectorEdge edge){scheduler.advance(++tick);c.pc=edge.pc;c.lr=edge.lr;};
+                                                                                                                        enter(op.profile);v958::observe(c.pc,c);
+                                                                                                                        scheduler.advance(++tick);c.pc=O::Alloc;c.gpr[4]=64;v958::observe(c.pc,c);
+                                                                                                                        enter(op.disable);v958::observe(c.pc,c);
+                                                                                                                        enter(op.restore);c.msr&=~0x8000u;c.gpr[3]=1;v958::observe(c.pc,c);
+                                                                                                                        enter(op.flush);c.msr|=0x8000u;c.gpr[3]=path;c.gpr[4]=19;v958::observe(c.pc,c);
+                                                                                                                        c.open_cache_range.on_flush(path+(mode.ends_with("-open-cache")?32u:0u));
+                                                                                                                        scheduler.advance(++tick);c.pc=R::Call;++c.guest_flush_count;c.guest_last_flush=path;v958::observe(c.pc,c);
+                                                                                                                        if(mode.ends_with("-open-vector"))v958::observe(R::Vector,c);
+                                                                                                                        scheduler.advance(++tick);
+                                                                                                                        if(mode.ends_with("-open-syscall"))++tick;
+                                                                                                                        need(v958::ack_open_syscall(c,[&](Cpu& cpu){
+                                                                                                                            v958::observe(R::Vector,cpu);cpu.gpr[9]=cpu.hid0;cpu.gpr[10]=cpu.hid0|8u;
+                                                                                                                            scheduler.advance(tick+=7);cpu.pc=cpu.srr0;cpu.msr=cpu.srr1;
+                                                                                                                        },[](const Cpu&,const auto&,uint32_t){return true;}));
+                                                                                                                        scheduler.advance(++tick);c.pc=R::Caller;v958::observe(c.pc,c);
+                                                                                                                        enter(op.submit);c.gpr[3]=req;
+                                                                                                                        c.mmu.words[req]=mode.ends_with("-open-request")?2u:1u;
+                                                                                                                        c.mmu.words[req+12]=path&0x3fffffffu;c.mmu.words[req+16]=0;
+                                                                                                                        if(mode.ends_with("-open-si"))ctl.write(SiController::Buffer,1u);
+                                                                                                                        if(mode.ends_with("-open-transport"))need(I::write32(IosBus::IPC+M::PPCMSG,0x100));
+                                                                                                                        v958::observe(c.pc,c);
+                                                                                                                    }
+#endif
                                                                                                                 }
 #endif
 #endif

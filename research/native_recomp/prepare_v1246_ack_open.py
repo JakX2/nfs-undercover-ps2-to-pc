@@ -93,7 +93,7 @@ def prepare(dol,elf,src,outer,edits,dest,host,ios_text,cpu_text,old):
     if 'UNDERCOVER_V1246_PRIVATE_ACK_OPEN' in old or dest.is_symlink():
         raise ValueError('ACK Open destination')
     files={dest/'v1246_private_ack_open.h':render(g)+'\n#include "wii_post_ack_open_join_v1242.h"\n'}
-    for name in ('wii_open_request_witness_v639.h','wii_open_sc_route_v637.h','open_cache_range_trace_v649.h','wii_post_ack_open_join_v1242.h'):
+    for name in ('wii_open_request_witness_v639.h','wii_open_sc_route_v637.h','open_cache_range_trace_v649.h','wii_post_ack_open_join_v1242.h','wii_post_ack_open_binding_v1246.h'):
         files[dest/name]=(host/name).read_text()
     for path,data in files.items():
         if path.is_symlink() or (path.exists() and (path.name=='v1246_private_ack_open.h' or not path.is_file() or path.read_text()!=data)):

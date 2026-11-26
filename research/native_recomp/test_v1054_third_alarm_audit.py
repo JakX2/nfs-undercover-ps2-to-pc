@@ -522,5 +522,20 @@ class AckStmAudit(unittest.TestCase):
                 self.assertFalse(inspect(*c.STAGES,r,rc=126))
         with patch.object(c.prior_complete,'inspect',return_value=('verified=0',False)):
             self.assertFalse(inspect(*c.STAGES,c.RESULTS[0]))
+class AckOpenAudit(unittest.TestCase):
+    def test_exact_chain(self):
+        import audit_v1247_ack_open as c
+        with patch.object(c.prior_stm,'inspect',return_value=('verified=1',True)):
+            for i,r in enumerate(c.RESULTS):
+                prefix=b'\n'.join((b'private',c.prior_stm.RESULTS[i]))
+                def inspect(*rows,rc=0):return c.inspect(prefix+b'\n'+b'\n'.join(rows),rc)[1]
+                self.assertTrue(inspect(*c.EVENTS,r))
+                for bad in ((*c.EVENTS[:-1],r),(*c.EVENTS,r,r),(*c.STAGES,r),
+                            (*c.EVENTS,c.RESULTS[1-i]),(*c.EVENTS,c.prior_stm.RESULTS[i],r),
+                            (*c.EVENTS,b'V1247_ACK_OPEN_INVALID kind=4 stage=7 reason=3 request=0',r)):
+                    self.assertFalse(inspect(*bad))
+                self.assertFalse(inspect(*c.EVENTS,r,rc=126))
+        with patch.object(c.prior_stm,'inspect',return_value=('verified=0',False)):
+            self.assertFalse(c.inspect(b'\n'.join((c.prior_stm.RESULTS[0],*c.EVENTS,c.RESULTS[0])),0)[1])
 if __name__=='__main__':unittest.main()
 

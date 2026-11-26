@@ -42,6 +42,7 @@ from prepare_v928_leaf_finish import plan as leaf_plan,RETURN
 from prepare_v922_irq_return import patch_label as legacy_leaf_patch
 from make_v624_ipc_geometry import geometry as ipc_geometry,render as ipc_render,CALL as IPC_CALL,ROOT as IPC_ROOT,SPANS as IPC_SPANS,RETURN as IPC_RETURN
 from audit_handler_third_v740 import edge as handler_edge
+from prepare_v1246_ack_open import prepare as prepare_open_native
 from prepare_v629_stm_open import geometry as stm_geometry,render as stm_render,expected_scopes as stm_scopes,BEGIN as STM_BEGIN,OSINIT as STM_OSINIT
 
 def compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected):
@@ -610,7 +611,7 @@ def prepare_stm_native(dol,elf,src,outer,leaf_meta,edits,dest,host,old):
         if not path.exists():files[path]=data
     return files
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False,leaf=False,ipc=False,ipc_complete=False,stm=False):
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False,leaf=False,ipc=False,ipc_complete=False,stm=False,opened=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
     if frontier and not time:raise ValueError('ACK frontier mode')
@@ -625,6 +626,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if ipc and not leaf:raise ValueError('ACK IPC mode')
     if ipc_complete and not ipc:raise ValueError('ACK IPC complete mode')
     if stm and not ipc_complete:raise ValueError('ACK STM mode')
+    if opened and not stm:raise ValueError('ACK Open mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -680,6 +682,12 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     ipc_files=prepare_ipc_native(dol,elf,src,outer,leaf_meta,dest,host,old) if ipc else {}
     if ipc_complete:resume_edits=prepare_ipc_complete_native(dol,elf,src,outer,leaf_meta,resume_edits)
     if stm:ipc_files.update(prepare_stm_native(dol,elf,src,outer,leaf_meta,resume_edits,dest,host,old))
+    if opened:
+        ios=root/'nWiiRuntime/src/hle/ios.cpp';cpu=root/'nWiiRuntime/include/runtime/cpu_context.h'
+        if any(p.is_symlink() or not p.is_file() for p in (ios,cpu)):raise ValueError('ACK Open destination')
+        resume_edits,open_files,new_ios,new_cpu=prepare_open_native(dol,elf,src,outer,resume_edits,dest,host,ios.read_text(),cpu.read_text(),old)
+        if set(open_files)&set(ipc_files):raise ValueError('ACK Open destination')
+        ipc_files.update(open_files);ipc_files[ios]=new_ios;ipc_files[cpu]=new_cpu
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -721,6 +729,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if ipc:extra+='#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n'
     if ipc_complete:extra+='#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n'
     if stm:extra+='#define UNDERCOVER_V1240_PRIVATE_ACK_STM 1\n'
+    if opened:extra+='#define UNDERCOVER_V1246_PRIVATE_ACK_OPEN 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
@@ -737,13 +746,14 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if ipc:print('V1230_ACK_IPC_METADATA installed=1 original_call=1 root_labels=45 entry_trace=1 cold_witness=1 execution=0')
     if ipc_complete:print('V1235_ACK_IPC_COMPLETE_METADATA installed=1 calls=17 spans=10 return_trace=1 execution=0')
     if stm:print('V1240_ACK_STM_METADATA installed=1 bridge_labels=7 prefix_labels=23 open_entry=1 direct_edges=2 execution=0')
+    if opened:print('V1247_ACK_OPEN_METADATA installed=1 direct_edges=6 allocator_tail=1 cache=1 native_sc=1 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');p.add_argument('--leaf',action='store_true');p.add_argument('--ipc',action='store_true');p.add_argument('--ipc-complete',action='store_true');p.add_argument('--stm',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');p.add_argument('--leaf',action='store_true');p.add_argument('--ipc',action='store_true');p.add_argument('--ipc-complete',action='store_true');p.add_argument('--stm',action='store_true');p.add_argument('--opened',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed,a.leaf,a.ipc,a.ipc_complete,a.stm)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed,a.leaf,a.ipc,a.ipc_complete,a.stm,a.opened)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
@@ -762,6 +772,8 @@ def main():
         safe|={'ACK IPC complete '+s for s in ('coverage','entry','edge','owner','mode')}
         safe.add('native IPC return label')
         safe|={'ACK STM '+s for s in ('predecessor','coverage','entry','edge','return trace','destination','mode')}
+        safe|={'ACK Open '+s for s in ('mode','destination','vector identity','IOS seam','IOS order','allocator tail','root word','geometry','coverage','entry','edge word','trace owner','shared extent')}
+        safe|={'open SC label','source shape','ambiguous patch','roundtrip'}
         safe|={'STM spans','STM return','STM call geometry','STM alternate geometry','STM span geometry','path census','data geometry','data overlap'}
         safe|={'IRQ leaf shape','caller owner','IRQ return label','IRQ return tick','IRQ return scheduler'}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}

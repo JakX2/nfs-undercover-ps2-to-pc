@@ -1,0 +1,5 @@
+# V1247: live post-ACK IOS_Open construction
+
+V1245 owner run 45785860005 passed 8/8 genuine IPC, STM and Open construction trials, each with native SC/RFI, stable SI token and zero interpreter fallback. All eight selected the immediate device path. The focused caller/bridge, prior SI and installed vector remain seeded.
+
+V1247 enables an opt-in continuous Open continuation. The original source planner authenticates six direct edges, allocator tail, precise pre-SC and return traces and existing vector metadata. The native SC delegate owns only the active Open witness; older boot and arena routes stay untouched. Both synthetic path kinds and invalid cache, vector, timing, request, SI and transport states are tested. Paired build/run flags require the full predecessor chain. Audit requires nine ordered stages, vector entry, native RFI and same original pathname. Stop before first submission; no IOS service or game boot claim. Original-free integration and source tests pending; no extra full owner build started.

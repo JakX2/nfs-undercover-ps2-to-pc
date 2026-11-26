@@ -265,6 +265,10 @@ ack_stm="${UNDERCOVER_RUN_V1240_ACK_STM-0}"
 [[ "$ack_stm" == 0 || "$ack_stm" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1240_ACK_STM-0}" == "$ack_stm" ]] || exit 2
 [[ "$ack_stm" == 0 || "$ipc_complete" == 1 ]] || exit 2
+ack_open="${UNDERCOVER_RUN_V1247_ACK_OPEN-0}"
+[[ "$ack_open" == 0 || "$ack_open" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1247_ACK_OPEN-0}" == "$ack_open" ]] || exit 2
+[[ "$ack_open" == 0 || "$ack_stm" == 1 ]] || exit 2
 private_preflight="${UNDERCOVER_PREPARE_V1232_ONLY-0}"
 [[ "$private_preflight" == 0 || "$private_preflight" == 1 ]] || exit 2
 [[ "$private_preflight" == 0 || ( "$ack_ipc" == 1 && "$third" == 1 && "$requested_mode" == --run-si-handler-suffix ) ]] || exit 2
@@ -335,6 +339,7 @@ if [[ "$third_postalarm" == 1 ]]; then
                                                 if [[ "$ack_ipc" == 1 ]]; then echo 'V1230_ACK_IPC_BUILD_PLAN links=1 private_installer=1 leaf_predecessor=1'; fi
                                                 if [[ "$ipc_complete" == 1 ]]; then echo 'V1235_ACK_IPC_COMPLETE_BUILD_PLAN links=1 private_installer=1 ipc_predecessor=1'; fi
                                                 if [[ "$ack_stm" == 1 ]]; then echo 'V1240_ACK_STM_BUILD_PLAN links=1 private_installer=1 ipc_return_predecessor=1'; fi
+                                                if [[ "$ack_open" == 1 ]]; then echo 'V1247_ACK_OPEN_BUILD_PLAN links=1 private_installer=1 stm_predecessor=1'; fi
                                               fi
                                             fi
                                           fi
@@ -415,6 +420,12 @@ if [[ "$external_entry" == 1 ]]; then
   [[ "$si_alarm" != 1 ]] || helper_args+=(--alarm)
   [[ "$si_callback_prefix" != 1 ]] || helper_args+=(--callback-prefix)
   python3 "$here/apply_si_roots_v669.py" "$nw" "$dol" "$elf" "${helper_args[@]}"
+fi
+if [[ "$ack_open" == 1 ]]; then
+  python3 "$here/apply_open_roots_v645.py" "$nw" "$dol" "$elf"
+  python3 "$here/apply_explicit_tail_roots_v71.py" "$nw"
+elif [[ "$ack_stm" == 1 ]]; then
+  python3 "$here/apply_stm_native_open_v632.py" "$nw" "$dol" "$elf"
 fi
 g++ -std=c++20 -O2 -DUNDERCOVER_NATIVE_SC_OVERLAY -I"$nw/nWiiRuntime/include" -I"$nw/nWiiAnalyzer/include" -I"$nw/nWiiRecomp/include" \
   "$here/offline_recompiler_driver_v6.cpp" "$nw/nWiiRuntime/src/core/loader.cpp" "$nw/nWiiAnalyzer/src/analyzer.cpp" \
@@ -542,6 +553,7 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                                     if [[ "$ack_ipc" == 1 ]]; then callback_args+=(--ipc); fi
                                                                     if [[ "$ipc_complete" == 1 ]]; then callback_args+=(--ipc-complete); fi
                                                                     if [[ "$ack_stm" == 1 ]]; then callback_args+=(--stm); fi
+                                                                    if [[ "$ack_open" == 1 ]]; then callback_args+=(--opened); fi
                                                                     python3 "$here/prepare_v1176_ack_helper.py" "$dol" "$elf" "$work/generated" "${callback_args[@]}"
                                                                 fi
                                                             fi
