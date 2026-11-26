@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/wii_stm_outer_restore.h'
       - 'research/native_recomp/test_stm_outer_restore.cpp'
+      - 'research/native_recomp/prepare_stm_outer_restore.py'
+      - 'research/native_recomp/test_stm_outer_restore.py'
       - '.github/workflows/wii-stm-outer-restore.yml'
 permissions:
   contents: read
@@ -19,3 +21,4 @@ jobs:
           cd research/native_recomp
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_stm_outer_restore.cpp -o /tmp/stm_outer_restore
           /tmp/stm_outer_restore
+          python3 test_stm_outer_restore.py
