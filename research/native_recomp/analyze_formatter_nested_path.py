@@ -43,7 +43,7 @@ def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None):
     if out_gp[1]!=('stack',sp-frame):raise ValueError('nested stack identity')
     return result
 
-def plan(d,e):
+def plan(d,e,*,on_unknown=None):
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
     if len(leaf[0])!=8 or len(leaf[1])!=1 or len(leaf[3])!=12:raise ValueError('nested predecessor')
@@ -55,7 +55,10 @@ def plan(d,e):
     parent={at:v for at,v in out_mem.items() if at>=out_gp[1][1]}
     extra=set()
     def resolve(at,n):
-        value=immutable_read(d,e,at,n)
+        try:value=immutable_read(d,e,at,n)
+        except ValueError:
+            if on_unknown is not None:on_unknown(at,n)
+            raise
         extra.add((at,n))
         if len(extra)>32:raise ValueError('nested data cap')
         return value
