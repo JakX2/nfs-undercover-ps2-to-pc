@@ -40,6 +40,9 @@
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
 #include "v1299_private_return.h"
 #endif
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+#include "wii_ready_idle_return_v1304.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -129,6 +132,13 @@ static ReplyReturnWitness* reply_return=nullptr;
 static nw::CPUContext* return_cpu=nullptr;
 static unsigned return_count=0;
 struct ReplyHandlerReturned{};
+#endif
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+static ReadyIdleReturnJoin* ready_idle=nullptr;
+static LiveEpilogueWitness* idle_epilogue=nullptr;
+static uint64_t idle_tick=0;
+static unsigned idle_return_count=0;
+struct IdleRfiReturned{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -300,7 +310,25 @@ static bool reply_held(nw::CPUContext& c){
         <<" entry="<<epilogue->entry_refusal()<<" visits="<<epilogue->visits()<<" select="<<epilogue->select_state()<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+[[noreturn]]static void idle_return_refuse(unsigned kind){
+    std::cout<<"V1305_IDLE_REFUSAL kind="<<kind<<" stage="<<idle_epilogue->stage()
+        <<" reason="<<idle_epilogue->failure()<<" entry="<<idle_epilogue->entry_refusal()
+        <<" join="<<ready_idle->failure()<<" visits="<<idle_epilogue->visits()
+        <<" select="<<idle_epilogue->select_state()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    if(ready_idle){
+        if(!ready_idle->boundary(c,device_ok(c)))idle_return_refuse(1);
+        if(!idle_epilogue->stage()&&(pc!=v1255::returned||c.pc!=pc||c.inst_count-idle_tick!=2u||
+           !idle_epilogue->begin_cleared_select(c,irq_capture,cause.load(),mask.load())))idle_return_refuse(2);
+        if(!idle_epilogue->before(c,pc,w,cause.load(),mask.load()))idle_return_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1292_NESTED_WAKE
     if(nested_wake){if(!nested_wake->before(c,pc,w,device_ok(c)))nested_refuse(1);return;}
 #endif
@@ -332,6 +360,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    if(ready_idle){
+        if(!ready_idle->boundary(c,device_ok(c))||!idle_epilogue->entry(c,pc,cause.load(),mask.load()))idle_return_refuse(4);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){if(!reply_return->entry(c,pc,device_ok(c)))return_refuse(2);return;}
 #endif
@@ -457,6 +491,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    if(ready_idle){
+        if(!ready_idle->boundary(c,device_ok(c)))idle_return_refuse(5);
+        if(!idle_epilogue->stage()){
+            if(c.pc!=v1255::returned||c.inst_count!=idle_tick)idle_return_refuse(5);
+            return false;
+        }
+        if(!idle_epilogue->poll(c,cause.load(),mask.load()))idle_return_refuse(5);
+        if(idle_epilogue->stage()==4u){
+            if(!ready_idle->finish(c,device_ok(c)))idle_return_refuse(6);
+            ++idle_return_count;throw IdleRfiReturned{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){
         if(!reply_return->poll(c,device_ok(c)))return_refuse(3);
@@ -614,6 +663,9 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    if(ready_idle)idle_return_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){auto v=reply_return->read(*return_cpu,a,device_ok(*return_cpu));if(!v)return_refuse(4);return *v;}
 #endif
@@ -661,6 +713,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    if(ready_idle)idle_return_refuse(8);
+#endif
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     if(reply_return){if(!reply_return->write(*return_cpu,a,v,device_ok(*return_cpu)))return_refuse(5);return;}
 #endif
@@ -1011,6 +1066,17 @@ int main(int argc,char** argv)try{
              !(cause.load()&mask.load())&&ready.ready_context_held(c,device_ok(c)));
         reply_return=nullptr;return_cpu=nullptr;
         std::cout<<"V1300_RETURN_TRIAL n="<<trial<<" original_processor_return=1 original_handler_return=1 latch_clear=1 ready=1\n";
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+        ReadyIdleReturnJoin idle_join;LiveEpilogueWitness idle(v1270::expected(Q::Idle));
+        ready_idle=&idle_join;idle_epilogue=&idle;idle_tick=c.inst_count;
+        if(!idle_join.begin(c,completed,ready,irq_capture,device_ok(c)))idle_return_refuse(6);
+        bool idle_returned=false;try{run_game(c);}catch(const IdleRfiReturned&){idle_returned=true;}
+        need(idle_returned&&idle_join.resumed_idle(c,device_ok(c))&&idle.stage()==4u&&
+             idle_return_count==trial+1u&&c.pc==v1256::resume&&(c.msr&0x8000u)&&
+             host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+        ready_idle=nullptr;idle_epilogue=nullptr;
+        std::cout<<"V1305_IDLE_TRIAL n="<<trial<<" original_epilogue=1 native_rfi=1 idle_restored=1 ready_preserved=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -1056,6 +1122,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1300_REPLY_RETURN
     need(return_count==8u);
     std::cout<<"V1300_REPLY_RETURN_NATIVE owner=1 trials=8 original_processor_return=8 original_handler_return=8 latch_clear=8 ready=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
+    need(idle_return_count==8u);
+    std::cout<<"V1305_READY_IDLE_NATIVE owner=1 trials=8 original_epilogue=8 native_rfi=8 idle_restored=8 ready_preserved=8 ios_steps=2 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

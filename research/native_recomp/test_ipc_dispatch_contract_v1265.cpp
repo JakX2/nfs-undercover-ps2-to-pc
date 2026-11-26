@@ -424,7 +424,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                 if(idle_case==4)m.write32(Ready+4u,0u);
                 if(idle_case==5)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
                 if(idle_case==6)cause.fetch_or(H::PI_HOLLYWOOD);
-                if(idle_case>=4&&idle_case<=6){assert(!join.boundary(c,true));return;}
+                if(idle_case==12)ram.write32(Request+4u,1u);
+                if((idle_case>=4&&idle_case<=6)||idle_case==12){assert(!join.boundary(c,true));return;}
                 // Model the native loader's final integer state in this
                 // original-free test; the external return witness checks
                 // it against its independent pre-exception capture.
@@ -559,8 +560,8 @@ int main(){
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
     std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
-    for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,0,0,1,i);
-    std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=10 full_context=1 ready_queue=1 original_execution=0\n";
+    for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,1,i);
+    std::cout<<"V1304_READY_IDLE_RETURN synthetic=1 valid=1 refused=11 full_context=1 ready_queue=1 original_execution=0\n";
 #endif
 #endif
 #endif

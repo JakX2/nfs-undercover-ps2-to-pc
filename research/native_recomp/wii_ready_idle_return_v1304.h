@@ -17,6 +17,12 @@ public:
            s->steps!=2u||s->queued||s->replies||s->event||
            (s->control&(IpcMailbox::X1|IpcMailbox::Y1|IpcMailbox::Y2))||
            (s->flags&HollywoodIrq::IPC_PPC)||(s->pi_cause&s->pi_mask))return fail(1);
+        if(!s->arm||(s->arm&31u)||s->arm!=s->ppc)return fail(1);
+        for(unsigned i=0;i<words_.size();++i){
+            auto w=NativeIosBinding::read_physical_word(s->arm+4u*i);if(!w)return fail(1);
+            words_[i]=*w;
+        }
+        if(words_[0]!=StmIos::Reply||words_[1]!=0u||words_[2]!=StmIos::Open)return fail(1);
         cpu_=&c;frame_=&frame;ready_=&ready;mail_=*s;tick_=c.inst_count;stage_=1;
         return true;
     }
@@ -24,7 +30,7 @@ public:
         const auto s=NativeIosBinding::cold_snapshot();
         return !error_&&stage_==1u&&cpu_==&c&&frame_&&ready_&&s&&
             c.inst_count>=tick_&&c.inst_count-tick_<=2048u&&
-            same_scheduler_ipc_snapshot(mail_,*s)&&ready_->ready_storage_held(c,*frame_,held);
+            same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&ready_->ready_storage_held(c,*frame_,held);
     }
     template<class C>bool finish(C& c,bool held){
         if(!boundary(c,held)||c.inst_count==tick_||
@@ -34,13 +40,17 @@ public:
     template<class C>bool resumed_idle(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
         return !error_&&stage_==2u&&cpu_==&c&&frame_&&ready_&&s&&
-            c.inst_count==end_&&same_scheduler_ipc_snapshot(mail_,*s)&&
+            c.inst_count==end_&&same_scheduler_ipc_snapshot(mail_,*s)&&wire()&&
             frame_->cleared_restored(c,mail_.pi_cause,mail_.pi_mask)&&
             ready_->ready_storage_held(c,*frame_,held);
     }
 private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;ExternalReturnWitness* frame_=nullptr;
-    ColdIpcSnapshot mail_{};uint64_t tick_=0,end_=0;unsigned stage_=0,error_=0;
+    ColdIpcSnapshot mail_{};std::array<uint32_t,8> words_{};uint64_t tick_=0,end_=0;unsigned stage_=0,error_=0;
+    bool wire()const{
+        for(unsigned i=0;i<words_.size();++i)if(NativeIosBinding::read_physical_word(mail_.arm+4u*i)!=words_[i])return false;
+        return true;
+    }
     bool fail(unsigned n){if(!error_)error_=n;return false;}
 };
 }

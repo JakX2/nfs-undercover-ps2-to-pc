@@ -1,0 +1,3 @@
+# V1305: integrate cleared reply IRQ's intermediate idle RFI
+
+Opt-in --irq-ready-idle-return reuses all prior native roots, original handler return, original dispatcher epilogue hooks and independent saved idle frame. Preserve the complete READY thread and request header across both RFI polls, stop at the original idle-loop resume before another native instruction. No host scheduler changes, MMIO or service calls permitted. Existing runner modes unchanged. Source checks pending; private execution mode intentionally not triggered until V1302's preceding handler return is verified. V1304 source tests expanded by one request-corruption case. No original execution claim.
