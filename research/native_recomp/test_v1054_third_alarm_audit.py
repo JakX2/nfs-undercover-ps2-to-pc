@@ -202,4 +202,28 @@ class PostAlarmHandlerAudit(unittest.TestCase):
             self.assertFalse(inspect(*prior,result,rc=126))
             self.assertFalse(inspect(*prior[:-1],r.RESULT.replace(b'visits=12',b'visits=11'),result))
 
+
+class PostAlarmHandlerReturnAudit(unittest.TestCase):
+    def test_exact_return(self):
+        import audit_v1148_postalarm_handler_return as h
+        r=h.ret;p=r.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=11 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,r.time.RESULT,r.frontier.RESULT,r.wireless.RESULT,r.suffix.RESULT,r.RESULT,h.handler.RESULT)
+        result=h.RESULT
+        def inspect(*rows,rc=0):return h.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,result))
+            for old,new in ((b'original_restore=1',b'original_restore=0'),(b'original_return=1',b'original_return=0'),
+                            (b'visits=21',b'visits=20'),(b'restored_gprs=15',b'restored_gprs=14'),
+                            (b'token=3',b'token=4'),(b'held=1',b'held=0'),(b'saved_fields=38',b'saved_fields=37'),
+                            (b'dispatcher_instruction_executed=0',b'dispatcher_instruction_executed=1'),(b'boot_verified=0',b'boot_verified=1')):
+                with self.subTest(old=old):self.assertFalse(inspect(*prior,result.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],result),(*prior[:-1],result,h.handler.RESULT),
+                         (*prior,h.handler.RESULT,result),(*prior,result,result),(*prior,result,b'V1148_POSTALARM_HANDLER_RETURN_CENSUS verified=1'),
+                         (*prior,b'V1145_POSTALARM_HANDLER_RETURN_FAULT route=26 witness=3 native=4 stage=16',result),
+                         (*prior,result,b'V958_ACK_INVALID')):
+                with self.subTest(rows=rows[-3:]):self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,result,rc=126))
+            self.assertFalse(inspect(*prior[:-1],h.handler.RESULT.replace(b'visits=20',b'visits=19'),result))
+
 if __name__=='__main__':unittest.main()
