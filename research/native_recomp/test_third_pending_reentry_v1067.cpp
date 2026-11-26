@@ -128,7 +128,7 @@ int main(){
             const unsigned hf=trial>=508?0u:trial>=496?trial-495u:0u;
             const unsigned hw=trial>=528?0u:trial>=516?trial-515u:0u;
             const unsigned hs=trial>=548?0u:trial>=536?trial-535u:0u;
-            const unsigned hr=trial>=556?trial-555u:0u;
+            const unsigned hrestore=trial>=556?trial-555u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -721,22 +721,22 @@ int main(){
                     need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
                         ctl.read(C)==(control&~SiController::TC_INT));++held_restore_refused;
                 };
-                if(hr==4)tick();
-                if(hr==5)c.mmu.words[RestoreRoot2]^=1u;
-                if(hr==6)c.mmu.words[Context+124]^=1u;
+                if(hrestore==4)tick();
+                if(hrestore==5)c.mmu.words[RestoreRoot2]^=1u;
+                if(hrestore==6)c.mmu.words[Context+124]^=1u;
                 c.gpr[30]^=0x55u;c.gpr[31]^=0xaau;c.gpr[11]=Stack;
                 const auto join_tick3=c.inst_count;
-                ok=ep.begin_prefix_return(c,hr==1?foreign_suffix:suffix,ret,
-                                          RestoreCall2+(hr==2?4u:0u),hr==3?Nop:suffix_rows[3].word);
-                if(hr>=1&&hr<=6){reject_restore(!ok);continue;}
+                ok=ep.begin_prefix_return(c,hrestore==1?foreign_suffix:suffix,ret,
+                                          RestoreCall2+(hrestore==2?4u:0u),hrestore==3?Nop:suffix_rows[3].word);
+                if(hrestore>=1&&hrestore<=6){reject_restore(!ok);continue;}
                 need(ok&&ep.stage()==24u&&c.inst_count==join_tick3);
                 c.pc=RestoreRoot2;c.lr=RestoreCall2+4u;
-                ok=ep.prefix_return_entry(c,ret,hr==7?RestoreRoot2+4u:RestoreRoot2);
-                if(hr==7){reject_restore(!ok);continue;}need(ok);
+                ok=ep.prefix_return_entry(c,ret,hrestore==7?RestoreRoot2+4u:RestoreRoot2);
+                if(hrestore==7){reject_restore(!ok);continue;}need(ok);
                 auto at_return=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_return_before(c,ret,pc,w);};
-                if(hr==8)c.mmu.words[Stack-8u]^=1u;
+                if(hrestore==8)c.mmu.words[Stack-8u]^=1u;
                 ok=at_return(RestoreRoot2,restore_words[0]);
-                if(hr==8){reject_restore(!ok);continue;}need(ok);
+                if(hrestore==8){reject_restore(!ok);continue;}need(ok);
                 c.gpr[30]=c.mmu.words[Stack-8u];
                 need(at_return(RestoreRoot2+4u,restore_words[1]));c.gpr[31]=c.mmu.words[Stack-4u];
                 need(at_return(RestoreRoot2+8u,Blr));
@@ -744,14 +744,14 @@ int main(){
                 need(at_return(RestoreCall2+8u,tail[1]));c.lr=c.gpr[0];
                 need(at_return(RestoreCall2+12u,tail[2]));c.gpr[1]+=64u;
                 need(at_return(RestoreCall2+16u,tail[3]));c.pc=Caller2;
-                if(hr==9){tick();reject_restore(!ep.prefix_return_poll(c,ret));continue;}
-                if(hr!=10)need(ep.prefix_return_poll(c,ret));
+                if(hrestore==9){tick();reject_restore(!ep.prefix_return_poll(c,ret));continue;}
+                if(hrestore!=10)need(ep.prefix_return_poll(c,ret));
                 tick();ok=ep.prefix_return_dispatch(c,ret,Caller2,Nop);
-                if(hr==10){reject_restore(!ok);continue;}need(ok);
-                if(hr==11)c.gpr[30]^=1u;
-                if(hr==12){tick();reject_restore(!ep.prefix_return_before(c,foreign_ret,Caller2,Nop));continue;}
+                if(hrestore==10){reject_restore(!ok);continue;}need(ok);
+                if(hrestore==11)c.gpr[30]^=1u;
+                if(hrestore==12){tick();reject_restore(!ep.prefix_return_before(c,foreign_ret,Caller2,Nop));continue;}
                 ok=at_return(Caller2,Nop);
-                if(hr==11){reject_restore(!ok);continue;}need(ok);
+                if(hrestore==11){reject_restore(!ok);continue;}need(ok);
                 need(ep.stage()==25u&&ep.prefix_return_saved(c,ret)&&!ep.prefix_return_saved(c,foreign_ret)&&
                      ret.visits()==8u&&c.gpr[1]==Stack&&c.gpr[30]==c.mmu.words[Stack-8u]&&c.gpr[31]==c.mmu.words[Stack-4u]&&
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
