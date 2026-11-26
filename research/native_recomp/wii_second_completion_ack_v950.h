@@ -43,6 +43,13 @@ public:
            !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w)return fail(5);
         stage_=4u;return arm_access(c,pc,w);
     }
+    // A separately witnessed native indirect dispatch consumes one outer
+    // dispatcher tick, but performs no guest instruction or device access.
+    template<class C>bool accept_dispatch_tick(C& c){
+        if(stage_!=4u||error_||armed_||!safe(c)||!tick_||&c.inst_count!=tick_||
+           c.inst_count-last_!=1u||!state(false))return fail(5);
+        last_=c.inst_count;return true;
+    }
     bool postack_held()const{return stage_==4u&&!armed_&&tick_&&*tick_==last_&&state(false);}
     bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
                       const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
