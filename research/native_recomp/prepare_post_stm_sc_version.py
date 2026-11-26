@@ -3,6 +3,7 @@
 import argparse
 import struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_restore import plan as restore_plan,version_region,ROOT,EDGES
 from prepare_v419_full_start import MAX_DOL,EXPECTED_GPRS,direct_bl
 from make_private_elf_symbol_map import HEADER,SECTION,parse_functions
@@ -66,6 +67,7 @@ def thunk(root,words,report,sda,ptr):
             raise ValueError(f'SC version thunk opcode {kind} {i+1}')
     raise ValueError('SC version tail')
 
+@memoized_plan
 def plan(d,e):
     p=restore_plan(d,e);rows,loads=version_region(d,e,p)
     pc,rs,addr,ptr=loads[0]

@@ -2,6 +2,7 @@
 """Private finite nested fixture. The unresolved load is an observed stop."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import plan_cache_scope
 from prepare_formatter_nested_contract import plan as nested_plan
 from prepare_formatter_second_contract import plan as second_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
@@ -92,7 +93,8 @@ def main():
     safe={'size','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e,second=q.second)
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope(): p=plan(d,e,second=q.second)
         if q.fixture:extend(q.fixture,p);return 0
         if q.install:install(q.install,p);return 0
         if q.analyzer:

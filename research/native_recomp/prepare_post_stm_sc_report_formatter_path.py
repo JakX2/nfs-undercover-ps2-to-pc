@@ -2,6 +2,7 @@
 """Private symbolic first formatter path with exact initialized input provenance."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_helper_resume import plan as resume_plan
 from prepare_post_stm_sc_report_formatter import closure
 from prepare_post_stm_sc_report_abi import model as report_model
@@ -194,6 +195,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         if op==31 and xo in (444,922,954,266,40) and w&1:record(gp[rs if xo in (266,40) else ra])
         pc=nxt
 
+@memoized_plan
 def plan(d,e,*,details=False):
     _,_,_,_,root,args,_,_,_=resume_plan(d,e,details=True)
     sizes=parse_functions(e);ws=exact_words(d,e,root,535)

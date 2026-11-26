@@ -2,6 +2,7 @@
 """Build a bounded continuation contract in memory. Emit only safe counts."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from guarded_continuation import extend_guarded,saved_mask
 from prepare_post_stm_sc_formatter_leaf_fixture import plan as fixture_plan
 from prepare_post_stm_sc_report_formatter_path import plan as prefix_plan
@@ -27,6 +28,7 @@ def contract(prior,root,words,result,target_word):
         raise ValueError('continuation arguments')
     return blocks,root,start,dst,target_word,rows,mask,args
 
+@memoized_plan
 def plan(d,e,*,details=False):
     prior=fixture_plan(d,e)
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)

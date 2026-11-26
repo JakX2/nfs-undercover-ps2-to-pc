@@ -2,6 +2,7 @@
 """Private reference for actual helper continuation following the first dependency."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_helper_fixture import plan as helper_plan
 from prepare_post_stm_sc_report_helper_prefix import prefix
 from prepare_post_stm_sc_report_dependency_abi import arguments,compose,plan as dependency_abi
@@ -62,6 +63,7 @@ def formatter_args(args,object_pointer,format_pointer,va):
         raise ValueError('helper resume argument identity')
     return args[0][1]
 
+@memoized_plan
 def plan(d,e,*,details=False):
     prior=helper_plan(d,e);root,_,leaf,_,frame=prior[3]
     sizes=parse_functions(e);ws=exact_words(d,e,root,30)

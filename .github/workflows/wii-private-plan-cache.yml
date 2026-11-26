@@ -1,0 +1,24 @@
+name: Wii Private Plan Cache
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/private_plan_cache.py'
+      - 'research/native_recomp/test_private_plan_cache.py'
+      - '.github/workflows/wii-private-plan-cache.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 research/native_recomp/test_private_plan_cache.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
+          python3 research/native_recomp/test_formatter_continuation_fixture.py
+          python3 research/native_recomp/test_formatter_second_contract.py
+          python3 research/native_recomp/test_post_stm_sc_report_formatter_path.py

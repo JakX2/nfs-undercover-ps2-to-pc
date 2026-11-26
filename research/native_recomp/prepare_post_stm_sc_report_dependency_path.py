@@ -2,6 +2,7 @@
 """Independent concrete reference for the initialized diagnostic object's native leaf."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_dependency_abi import plan as abi_plan
 from prepare_v419_full_start import MAX_DOL
 from audit_handler_suffix_v728 import target
@@ -71,6 +72,7 @@ def execute(root,ws,args,obj,sites,initial):
         pc=next_pc
     return len(seen),loads,stores,reg(3),bytes(data)
 
+@memoized_plan
 def plan(d,e):
     _,args,obj,sites,kind,blob,fields,ws=abi_plan(d,e)
     result=execute(fields[0],ws,(args[0][1],args[1][1]),obj,sites,blob)

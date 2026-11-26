@@ -2,6 +2,7 @@
 """Trace only the actual call arguments into the first diagnostic leaf."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_helper_fixture import plan as helper_plan
 from prepare_post_stm_sc_report_helper_prefix import prefix
 from prepare_post_stm_sc_report_abi import model
@@ -72,6 +73,7 @@ def memory_sites(root,ws,base):
     if len(out)!=3 or sum(x[3] for x in out)!=2:raise ValueError('dependency memory count')
     return tuple(out)
 
+@memoized_plan
 def plan(d,e):
     prior=helper_plan(d,e);helper,_,root,_,_=prior[3]
     sizes=parse_functions(e)

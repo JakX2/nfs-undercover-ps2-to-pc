@@ -2,6 +2,7 @@
 """Private full formatter dependency fixture. Public logs contain counts only."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_formatter_fixture import plan as prefix_plan,scope as prefix_scope
 from prepare_post_stm_sc_report_formatter_path import plan as path_plan
 from prepare_post_stm_sc_formatter_leaf_path import run
@@ -39,6 +40,7 @@ def read_source(read,readonly,stack,sp):
     if len(data)!=1:raise ValueError('formatter leaf read bytes')
     return pc,False,at,width,data[0]
 
+@memoized_plan
 def plan(d,e):
     prior=prefix_plan(d,e);old=prior[2]
     path,frame,accesses,saved,root,gp,mem,ws=path_plan(d,e)

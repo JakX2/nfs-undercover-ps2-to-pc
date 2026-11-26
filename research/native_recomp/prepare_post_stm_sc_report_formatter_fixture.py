@@ -2,6 +2,7 @@
 """Private native formatter first path, exact 704-byte frame and next callee."""
 import argparse,re,struct
 from pathlib import Path
+from private_plan_cache import memoized_plan
 from prepare_post_stm_sc_report_helper_resume_fixture import plan as resume_plan,scope as resume_scope
 from prepare_post_stm_sc_report_formatter_path import plan as path_plan
 from prepare_post_stm_sc_join import GUARD,check_spans
@@ -38,6 +39,7 @@ def saved_slots(mem,caller_sp,frame):
     if len(saved)!=17 or len({r for _,r in saved})!=17 or (4,32) not in saved:raise ValueError('SC formatter saved slot count')
     return tuple(saved)
 
+@memoized_plan
 def plan(d,e):
     prior=resume_plan(d,e);old=prior[2]
     path,frame,accesses,saved,dst,gp,mem,ws=path_plan(d,e)

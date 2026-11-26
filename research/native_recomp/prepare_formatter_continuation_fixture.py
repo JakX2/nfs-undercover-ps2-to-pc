@@ -2,6 +2,7 @@
 """Private in-process adapter for the verified finite continuation contract."""
 import argparse,re,struct
 from pathlib import Path
+from private_plan_cache import plan_cache_scope
 from prepare_formatter_continuation_plan import plan
 from prepare_post_stm_sc_formatter_leaf_fixture import scope as leaf_scope,render as leaf_render
 from prepare_post_stm_sc_join import check_spans
@@ -102,7 +103,8 @@ def main():
     safe={'size','continuation leaf link','continuation fixture predecessor','continuation leaf header','continuation fixture extent','continuation entry trace','continuation native owner','continuation native hook','continuation native coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e,details=True)
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        with plan_cache_scope(): p=plan(d,e,details=True)
         if q.fixture:extend(q.fixture,p);return 0
         if q.install:install(q.install,p);return 0
         if q.analyzer:
