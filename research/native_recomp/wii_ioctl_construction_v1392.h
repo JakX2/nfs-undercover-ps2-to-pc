@@ -107,6 +107,11 @@ public:
     // and exact wire/callback identities; do not require the old SP.
     template<class C>bool identity_preserved(C& c,bool held){return stage_==3u&&base(c,held)&&wire(c)&&outside_storage(c);}
     // Only the independently observed original outer restore may change EE.
+    // The IRQ vector owns integer registers and saved context now.
+    // The already authenticated request/allocator/buffers remain immutable.
+    template<class C>bool identity_storage_after_irq(C& c,bool held){
+        return stage_==3u&&!error_&&cpu_==&c&&held&&safe(c)&&wire(c)&&outside_storage(c);
+    }
     template<class C>bool identity_after_enable(C& c,bool held,uint32_t expected){
         return stage_==3u&&!error_&&cpu_==&c&&held&&safe(c)&&!(msr_&0x8000u)&&
             expected==(msr_|0x8000u)&&c.msr==expected&&c.gpr[2]==r2_&&c.gpr[13]==r13_&&wire(c)&&outside_storage(c);

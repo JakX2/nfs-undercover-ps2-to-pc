@@ -97,6 +97,9 @@
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
 #include "private_stm_outer_restore.h"
 #include "wii_deferred_stm_irq_entry.h"
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+#include "wii_ipc_deferred_ack_memory.h"
+#endif
 #endif
 #endif
 #endif
@@ -345,6 +348,17 @@ static unsigned stm_event_return_count=0;
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
 static std::unique_ptr<StmOuterRestoreWitness> stm_outer;
 static unsigned stm_outer_count=0,stm_irq_entry_count=0;
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+static SecondVectorWitness* third_vector=nullptr;
+static ExternalReturnWitness* third_frame_ptr=nullptr;
+static IpcDeferredAckMemory* third_memory=nullptr;
+static uint64_t third_vector_tick=0;
+static uint32_t third_context=0,third_wait=0;
+static std::array<uint32_t,8> third_thread_tail{};
+static unsigned third_vector_count=0;
+static bool third_irq_held(nw::CPUContext&);
+[[noreturn]]static void third_vector_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -618,6 +632,29 @@ static bool stm_outer_held(nw::CPUContext& c){
     return ioctl_event_gate&&ioctl_event_gate->deferred_held(ioctl_dispatch_storage_held(c,true,restored))&&
         ioctl_dispatch&&ioctl_dispatch->storage_preserved(c);
 }
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+static bool third_irq_held(nw::CPUContext& c){
+    // Retired wrapper frames are no longer owned by the submit observer.
+    // The interrupt may update the active OSContext; its scheduler tail
+    // and all independently authenticated IPC objects remain immutable.
+    if(!third_vector||!third_frame_ptr||!third_memory||!ioctl_event_gate||!ioctl_build||!stm_event_return||
+       !raw_device_ok(c)||!ioctl_event_gate->deferred_held(true)||!third_memory->settled(c)||
+       !stm_event_return->flag_preserved(c)||!ioctl_build->identity_storage_after_irq(c,true)||
+       !allocator_descriptor||!allocator_descriptor->identity_after_release(c)||
+       c.mmu.read32(0x800000c0u)!=(third_context&0x3fffffffu)||c.mmu.read32(0x800000d4u)!=third_context||
+       c.mmu.read32(0x800000e4u)!=third_context||c.mmu.read32(third_wait)||c.mmu.read32(third_wait+4u)||
+       !third_frame_ptr->pending_source(c,cause.load(),mask.load()))return false;
+    for(unsigned i=0;i<third_thread_tail.size();++i)
+        if(c.mmu.read32(third_context+712u+4u*i)!=third_thread_tail[i])return false;
+    return true;
+}
+[[noreturn]]static void third_vector_refuse(unsigned kind){
+    std::cout<<"STM_DEFERRED_VECTOR_REFUSAL kind="<<kind<<" stage="<<(third_vector?third_vector->stage():0u)
+             <<" reason="<<(third_vector?third_vector->failure():0u)
+             <<" memory="<<(third_memory?third_memory->failure():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 static bool stm_outer_pending(nw::CPUContext& c){
     return (c.msr&0x8000u)&&(cause.load()&mask.load())==H::PI_HOLLYWOOD;
 }
@@ -944,6 +981,9 @@ static void vector_refuse(unsigned kind){
     throw WitnessFailure{};
 }
 void v1260_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+    if(third_vector){if(!third_vector->before(c,pc,w,cause.load(),mask.load(),third_irq_held(c)))third_vector_refuse(1);return;}
+#endif
     if(!ipc_vector.before(c,pc,w,cause.load(),mask.load(),vector_held(c)))vector_refuse(1);
 }
 #endif
@@ -1150,6 +1190,18 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+    if(third_vector){
+        if(!third_vector->stage()){
+            if(pc!=ExternalVector||c.inst_count-third_vector_tick!=1u||
+               !third_vector->begin_captured(c,*third_frame_ptr,cause.load(),mask.load(),third_irq_held(c)))third_vector_refuse(2);
+        }else{
+            if(!third_vector->entry(c,pc,cause.load(),mask.load(),third_irq_held(c)))third_vector_refuse(3);
+            if(third_vector->stage()==3u){++third_vector_count;throw VectorStop{};}
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
     if(stm_outer)stm_outer_refuse(3);
 #endif
@@ -1658,6 +1710,14 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+    if(third_vector){
+        if(!third_vector->stage()){
+            if(c.pc!=ExternalVector||c.inst_count!=third_vector_tick||!third_irq_held(c))third_vector_refuse(4);
+        }else if(!third_vector->poll(c,cause.load(),mask.load(),third_irq_held(c)))third_vector_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
     if(stm_outer){
         if(!stm_outer->poll(c,stm_outer_held(c),stm_outer_pending(c)))stm_outer_refuse(4);
@@ -3138,6 +3198,25 @@ int main(int argc,char** argv)try{
         ++stm_irq_entry_count;
         std::cout<<"STM_DEFERRED_IRQ_TRIAL n="<<trial<<" entered=1 active_thread=1 srr=1 deferred=1 pending_ack=1 vector_executed=0\n";
         stm_outer.reset();
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+        // At entry no original vector instruction has executed yet.
+        // Transfer protected IPC memory to the independent ACK observer.
+        IpcDeferredAckMemory ack_memory3;
+        const auto dx=ipc_dispatch_private::expected;
+        const auto req3=ioctl_build->request();
+        if(!ack_memory3.begin(c,dx.ring,dx.credit,dx.profile,{req3,ioctl_build->allocated_size()},
+            {c.gpr[1]-512u,520u},dx.slots,c.mmu.read32(req3+8u),ioctl_event_gate->deferred_held(true)))third_vector_refuse(5);
+        SecondVectorWitness vec3({v1260::trampoline,v1260::dispatcher,Q::Thread,
+            v1260::dispatcher_word,v1260::vector_words,v1260::trampoline_words});
+        third_context=Q::Thread;third_wait=sleep2.queue();
+        for(unsigned i=0;i<third_thread_tail.size();++i)third_thread_tail[i]=c.mmu.read32(third_context+712u+4u*i);
+        third_memory=&ack_memory3;third_frame_ptr=&third_frame;third_vector=&vec3;third_vector_tick=c.inst_count;
+        bool vector3=false;try{run_game(c);}catch(const VectorStop&){vector3=true;}
+        if(!vector3||vec3.stage()!=3u||third_vector_count!=trial+1u||!third_irq_held(c)||
+           c.pc!=v1260::dispatcher||!third_frame.saved_integer(c,Q::Thread).ok()||host.serviced_steps()!=5u)third_vector_refuse(5);
+        std::cout<<"STM_DEFERRED_VECTOR_TRIAL n="<<trial<<" original_vector=1 original_trampoline=1 active_context=1 saved_fields=38 deferred=1 pending_ack=1 dispatcher_executed=0 visits="<<vec3.vector_visits()+vec3.trampoline_visits()<<'\n';
+        third_vector=nullptr;third_frame_ptr=nullptr;third_memory=nullptr;third_context=third_wait=0;
+#endif
 #else
         need(stm_event_return->reached(c,async_held(c))&&host.serviced_steps()==5u&&
              host.services().event_pending()&&!host.exception_pending(c.msr));
@@ -3345,6 +3424,10 @@ int main(int argc,char** argv)try{
     need(stm_event_return_count==8u);
 #ifdef UNDERCOVER_STM_OUTER_RESTORE
     need(stm_outer_count==8u&&stm_irq_entry_count==8u);
+#ifdef UNDERCOVER_STM_DEFERRED_VECTOR
+    need(third_vector_count==8u);
+    std::cout<<"STM_DEFERRED_VECTOR_NATIVE owner=1 trials=8 original_vector=8 original_trampoline=8 active_context=8 saved_fields=38 deferred=8 pending_ack=8 dispatcher_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_DEFERRED_IRQ_NATIVE owner=1 trials=8 original_mtmsr=8 ee=8 entered=8 active_thread=8 pending_ack=8 deferred=8 ios_steps=5 vector_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_EVENT_RETURN_NATIVE owner=1 trials=8 original_flag=8 restore_entry=8 masked=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
