@@ -56,7 +56,7 @@ def render(p):
     rows=','.join('undercover::wii::IpcDispatchWord{'+fmt((owner,pc,w))+'}' for pc,(owner,w) in sorted(words.items()))
     calls=','.join('undercover::wii::IpcDispatchEdge{'+fmt(row)+'}' for row in edges)
     objs=','.join('undercover::wii::AllocatorRange{'+fmt(x)+'}' for x in profile)
-    return ('#pragma once\n#include "wii_ipc_dispatch_execution.h"\nnamespace ipc_dispatch {\n'
+    return ('#pragma once\n#include "wii_ipc_dispatch_execution.h"\nnamespace ipc_dispatch_private {\n'
         f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(words)}> words'+'{'+rows+'};\n'
         'inline constexpr undercover::wii::IpcDispatchExpectation expected{'+fmt((SUBMIT,start,stop))+
         ',{{'+calls+'}},words,undercover::wii::AllocatorRange{'+fmt(ring[:2])+'},undercover::wii::AllocatorRange{'+

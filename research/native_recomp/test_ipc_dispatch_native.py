@@ -89,6 +89,7 @@ class HookInstaller(unittest.TestCase):
     def test_render(self):
         from prepare_ipc_dispatch_native import render
         _,_,p=self.fixture();h=render(p)
+        self.assertIn('namespace ipc_dispatch_private {',h)
         self.assertEqual(h.count('IpcDispatchWord{'),12)
         self.assertEqual(h.count('IpcDispatchEdge{'),3)
         self.assertEqual(h.count('AllocatorRange{'),6)

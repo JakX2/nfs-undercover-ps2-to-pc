@@ -567,7 +567,7 @@ void ipc_profile_return(nw::CPUContext& c,uint32_t pc){
     if(caller_sp<=sp||caller_sp-sp>512u)ioctl_dispatch_refuse(1);
     ioctl_dispatch_cpu=&c;
     ioctl_event_gate=std::make_unique<StmDeferredEventGate>();
-    ioctl_dispatch=std::make_unique<IpcDispatchExecution>(ipc_dispatch::expected);
+    ioctl_dispatch=std::make_unique<IpcDispatchExecution>(ipc_dispatch_private::expected);
     if(!ioctl_event_gate->begin({req&0x3fffffffu,c.mmu.read32(req+8u),c.mmu.read32(req+16u),c.mmu.read32(req+20u),
                                 c.mmu.read32(req+24u),c.mmu.read32(req+28u)},second_irq_kind,ioctl_dispatch_storage_held(c))||
        !ioctl_dispatch->begin(c,ioctl_dispatch_held(c),{req,ioctl_build->allocated_size()},{sp,caller_sp-sp+8u}))
