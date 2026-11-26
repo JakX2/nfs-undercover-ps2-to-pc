@@ -53,8 +53,9 @@ static unsigned seed_kind=0;
 static bool suffix_route=false,alarm_route=false,shared_route=false,shared_seen=false,shared_continue=false;
 static unsigned shared_tick=0,shared_entries=0,shared_returns=0,shared_msr=0;
 static bool callback_route=false,callback_time_route=false,callback_frontier_route=false;
-static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route=false,error_due=false;
+static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route=false,error_due=false,error_delay=false;
 static HandlerSuffixGuard after_alarm;
+static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
@@ -250,6 +251,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     }
     if(ack.stage()){
         need(captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
+        if(error_queue&&!third.stage())need(queue_history.sample(c));
         if(handler_return.stage()){
             need(ack.before(c,pc,w,true)&&ack.postack_held()&&handler_return.before(c,pc,w,true));
             if(handler_return.stage()==5u){
@@ -479,6 +481,10 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 need(error_helper_visit&&!shared_seen&&time_seen&&ack_visits-error_helper_visit==78u&&c.mmu.read32(TransferData)==0xffffffffu);
                 const auto inspected=inspect_si_transfer_arguments(c,TransferData,0x806fe340u,CallbackRoot);
                 need(inspected.type&&inspected.idle&&inspected.callback_known);
+                const auto hist=queue_history.finish(c,inspected);need(hist.valid);
+                std::cout<<"V1037_OWNER_QUEUE_HISTORY delay="<<error_delay<<" due="<<error_due<<" prior_absent="<<error_cold<<" profile="<<trial
+                    <<" initial_mismatch="<<hist.initial_mismatch<<" current_mismatch="<<hist.current_mismatch<<" changed="<<hist.changed
+                    <<" initial_slot_kind="<<hist.initial_slot_kind<<" samples="<<hist.samples<<std::endl;
                 std::cout<<"V1034_OWNER_QUEUE_DETAIL due="<<error_due<<" prior_absent="<<error_cold<<" profile="<<trial
                     <<" mismatch_mask="<<inspected.mismatch_mask<<" slot_kind="<<inspected.slot_kind
                     <<" arg_time_zero="<<inspected.argument_time_zero<<" queue_time_zero="<<inspected.queued_time_zero
@@ -574,6 +580,7 @@ void trace_call(uint32_t pc,CPUContext& c){
         need(witness.stage()==6u&&entries==5u&&reads>=2u&&captured.saved_integer(c,Context).ok());
         handler_gp=c.gpr;handler_lr=c.lr;handler_cr=pack_cr(c);
         need(call_route.begin(c,ack_spans,ack_edges,AckMsr,true));
+        if(error_queue)need(queue_history.begin(c,0x806fe340u));
         need(ack.arm(*ctl,cause,bank_mask,c.inst_count,ctl->issued_tokens(),held()));
         ++entries;return;
     }
@@ -629,8 +636,9 @@ int main(int argc,char** argv)try{
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
     after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm";
     error_due=mode=="error-queue-due"||mode=="error-queue-cold-due";
-    error_queue=mode=="error-queue"||mode=="error-queue-cold"||after_alarm_route||error_due;
-    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due";
+    error_delay=mode=="error-queue-delay"||mode=="error-queue-cold-delay";
+    error_queue=mode=="error-queue"||mode=="error-queue-cold"||after_alarm_route||error_due||error_delay;
+    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due"||mode=="error-queue-cold-delay";
     if(error_rfi||error_queue){need(trial&4u);mode=error_rfi?"second-rfi":"successful-alarm";}
     need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";
@@ -710,7 +718,7 @@ int main(int argc,char** argv)try{
             c.mmu.write32(Slot+160u+8u*ch,0u);c.mmu.write32(Slot+164u+8u*ch,0u);
         }
         if(seed_kind&1u){
-            const std::array<uint32_t,8> packet{next,Command,1u,TypeData+4u*next,3u,Callback,0u,error_due?1u:0u};
+            const std::array<uint32_t,8> packet{next,Command,1u,TypeData+4u*next,3u,Callback,0u,error_delay?3948u:error_due?1u:0u};
             for(unsigned i=0;i<packet.size();++i)c.mmu.write32(Slot+32u*next+4u*i,packet[i]);
         }
     }

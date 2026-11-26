@@ -14,7 +14,8 @@ DIRECT=b'V1021_ERROR_FRONTIER branch=4 visits=78 handler_time=1 token_preserved=
 INDIRECT=b'V1021_ERROR_FRONTIER branch=6 visits=71 handler_time=0 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0'
 FAULT=rb'V958_ACK_INVALID kind=16 stage=[0-4] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}'
 DETAIL=rb'V1034_QUEUE_DETAIL mismatch_mask=([0-9]{1,3}) slot_kind=([0-2]) arg_time_zero=([01]) queue_time_zero=([01])'
-TAGS=frontier.TAGS+(b'V1009_',b'V1014_',b'V1015_',b'V1021_',b'V1034_')
+HISTORY=rb'V1037_QUEUE_HISTORY initial_mismatch=([0-9]{1,3}) current_mismatch=([0-9]{1,3}) changed=([0-9]{1,3}) initial_slot_kind=([0-2]) samples=([0-9]{1,4})'
+TAGS=frontier.TAGS+(b'V1009_',b'V1014_',b'V1015_',b'V1021_',b'V1034_',b'V1037_')
 MAX_LOG=shared.old.old.old.capture.MAX_LOG
 def inspect(raw,rc):
     if len(raw)>MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
@@ -24,12 +25,17 @@ def inspect(raw,rc):
         i=hits[0]
         prior,base,_=error.inspect(b'\n'.join(rows[:i+1]),0)
         tail=[l for l in rows[i+1:] if l.startswith(TAGS)]
-        detail=None;shape=True
+        detail=None;history=None;shape=True
+        if any(l.startswith(b'V1037_') for l in tail):
+            if len(tail)==5 and (history:=re.fullmatch(HISTORY,tail[3])) and all(int(v)<=255 for v in history.groups()[:3]) and 1<=int(history[5])<=8192:
+                tail.pop(3)
+            else:shape=False
         if any(l.startswith(b'V1034_') for l in tail):
             if len(tail)==4 and (detail:=re.fullmatch(DETAIL,tail[2])) and int(detail[1])<=255:
                 tail.pop(2)
             else:shape=False
-        if base and shape and 'no_response=1' in prior and not any(l.startswith((b'V1021_',b'V1034_')) for l in rows[:i+1]):
+        if history and (not detail or int(history[2])!=int(detail[1]) or ((int(history[1])^int(history[2]))&~int(history[3]))):shape=False
+        if base and shape and 'no_response=1' in prior and not any(l.startswith((b'V1021_',b'V1034_',b'V1037_')) for l in rows[:i+1]):
             if len(tail)==2 and tail[0]==INDIRECT:
                 m=re.fullmatch(frontier.RESULT,tail[1])
                 if m and 1<=int(m[1])<=4 and int(m[3])==71:
@@ -46,7 +52,7 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V1021_ERROR_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if public_line(l,(ack.BEGIN,error.RESULT,DIRECT,INDIRECT),(FAULT,frontier.RESULT,frontier.FAULT,time.RESULT,transfer.RESULT,shared.DETAIL,shared.DIAG,shared.RESULT,post.RESULT,ack.RESULT,DETAIL)):
+        if public_line(l,(ack.BEGIN,error.RESULT,DIRECT,INDIRECT),(FAULT,frontier.RESULT,frontier.FAULT,time.RESULT,transfer.RESULT,shared.DETAIL,shared.DIAG,shared.RESULT,post.RESULT,ack.RESULT,DETAIL,HISTORY)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

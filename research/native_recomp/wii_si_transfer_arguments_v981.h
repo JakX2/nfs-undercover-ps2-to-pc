@@ -10,6 +10,52 @@ struct SiTransferArguments {
     unsigned mismatch_mask=255u,slot_kind=0u;bool argument_time_zero=false,queued_time_zero=false;
     bool admitted()const{return type&&idle&&queue_match&&callback_known;}
 };
+// Read-only, per-handler queue lifetime census. Captures every slot before
+// the original handler enters, then observes changes on authenticated labels.
+// No guest address or value is emitted by the public summary.
+struct SiQueueHistoryResult{
+    unsigned initial_mismatch=255u,current_mismatch=255u,changed=0u,initial_slot_kind=0u,samples=0u;
+    bool valid=false;
+};
+class SiQueueHistory{
+public:
+    template<class C>bool begin(C& c,uint32_t slots){
+        if(cpu_||slots&3u||slots<0x80000000u||uint64_t(slots)+128u>0x81800000u)return false;
+        for(unsigned i=0;i<128u;++i)if(!c.mmu.get_ptr(slots+i))return false;
+        cpu_=&c;base_=slots;first_=last_=c.inst_count;
+        for(unsigned i=0;i<32u;++i)initial_[i]=latest_[i]=c.mmu.read32(base_+4u*i);
+        return true;
+    }
+    template<class C>bool sample(C& c){
+        if(cpu_!=&c||c.inst_count<last_||c.inst_count-first_>8192u||samples_>=8192u)return false;
+        // Capture only one sample per scheduler tick, even at a shared
+        // native call/return label.
+        if(samples_&&last_==c.inst_count)return true;
+        for(unsigned i=0;i<128u;++i)if(!c.mmu.get_ptr(base_+i))return false;
+        for(unsigned i=0;i<32u;++i){
+            const auto v=c.mmu.read32(base_+4u*i);
+            if(v!=latest_[i])changed_[i/8u]|=1u<<(i%8u);
+            latest_[i]=v;
+        }
+        last_=c.inst_count;++samples_;return true;
+    }
+    template<class C>SiQueueHistoryResult finish(C& c,const SiTransferArguments& a){
+        SiQueueHistoryResult out;
+        if(a.channel>=4u||!sample(c)||!samples_)return out;
+        const unsigned at=8u*a.channel;out.initial_mismatch=out.current_mismatch=0u;
+        for(unsigned i=0;i<8u;++i){
+            if(initial_[at+i]!=a.packet[i])out.initial_mismatch|=1u<<i;
+            if(latest_[at+i]!=a.packet[i])out.current_mismatch|=1u<<i;
+        }
+        out.changed=changed_[a.channel];
+        out.initial_slot_kind=initial_[at]==a.channel?1u:initial_[at]==0xffffffffu?2u:0u;
+        out.samples=samples_;out.valid=out.current_mismatch==a.mismatch_mask;return out;
+    }
+private:
+    const void* cpu_=nullptr;uint32_t base_=0;uint64_t first_=0,last_=0;unsigned samples_=0;
+    std::array<uint32_t,32> initial_{},latest_{};
+    std::array<unsigned,4> changed_{};
+};
 template<class C>SiTransferArguments inspect_si_transfer_arguments(C& c,uint32_t data,uint32_t slots,uint32_t callback){
     SiTransferArguments a;
     auto mapped=[&](uint32_t p,unsigned n){

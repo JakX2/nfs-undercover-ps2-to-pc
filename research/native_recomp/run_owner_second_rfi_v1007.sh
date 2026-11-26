@@ -106,7 +106,7 @@ for mode in nonsplit split; do
     done
   done
   echo "V1020_OWNER_ERROR_RFI mode=$mode native_rfi=8 fallback=0 continuous_boot=0"
-  for lane in error-queue error-queue-cold error-queue-after-alarm error-queue-cold-after-alarm error-queue-due error-queue-cold-due; do
+  for lane in error-queue error-queue-cold error-queue-after-alarm error-queue-cold-after-alarm error-queue-due error-queue-cold-due error-queue-delay error-queue-cold-delay; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -118,6 +118,8 @@ for mode in nonsplit split; do
       grep -Fx "V1020_ERROR_HELPER_RETURN prior_absent=$prior profile=$trial original_return=1 shared_time=0 visits=130 token_preserved=1 saved_fields=38" "$work/run.log"
       grep -Fx "V1022_ERROR_TRANSFER_ENTRY prior_absent=$prior profile=$trial original_call=1 visits=78 handler_time=1 token_preserved=1 saved_fields=38" "$work/run.log"
       due=0; [[ "$lane" != *due ]] || due=1
+      delay=0; [[ "$lane" != *delay ]] || delay=1
+      grep -Ex "V1037_OWNER_QUEUE_HISTORY delay=$delay due=$due prior_absent=$prior profile=$trial initial_mismatch=[0-9]{1,3} current_mismatch=[0-9]{1,3} changed=[0-9]{1,3} initial_slot_kind=[0-2] samples=[1-9][0-9]{0,3}" "$work/run.log"
       grep -Ex "V1034_OWNER_QUEUE_DETAIL due=$due prior_absent=$prior profile=$trial mismatch_mask=[0-9]{1,3} slot_kind=[0-2] arg_time_zero=[01] queue_time_zero=[01] admitted=[01]" "$work/run.log"
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Ex 'V985_ALARM_RETURN original_return=1 queue=1 lane=[0-4] timer=[01] calls=[0-9]+ visits=[1-9][0-9]* token_held=1 saved_fields=38 handler_instruction_executed=0' "$work/run.log"
@@ -129,7 +131,8 @@ for mode in nonsplit split; do
   done
   echo "V1022_OWNER_ERROR_QUEUE mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
   echo "V1032_OWNER_AFTER_ALARM mode=$mode classified=8 fallback=0 continuous_boot=0"
-  echo "V1034_OWNER_QUEUE_DETAIL_CENSUS mode=$mode classified=24 nonzero_due=8 fallback=0 continuous_boot=0"
+  echo "V1034_OWNER_QUEUE_DETAIL_CENSUS mode=$mode classified=32 nonzero_due=8 fallback=0 continuous_boot=0"
+  echo "V1037_OWNER_HISTORY mode=$mode classified=32 discovery_delay=8 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

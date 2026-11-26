@@ -1,0 +1,3 @@
+# V1037: read-only queue lifetime witness
+
+Both absent and mixed-controller complete-image runs reach the same queued-transfer mismatch. Capture all four original queue slots at the second handler entry and observe them at each existing authenticated native instruction boundary. Emit only selected-slot initial/current mismatch bitmasks, cumulative changed mask, initial slot class and sample count. No guest data changes or raw addresses/values. Add synthetic register-only, sentinel consumption/restoration, CPU identity and missing-memory checks. Extend the focused original matrix with the V529 discovery delay (3948) and identical lifecycle census. The existing admission rule remains intact; the audit rejects contradictory masks or missing geometry. Pending CI.

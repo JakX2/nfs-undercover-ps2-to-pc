@@ -18,6 +18,20 @@ class ErrorFrontier(unittest.TestCase):
                          (detail.replace(b'slot_kind=1',b'slot_kind=3'),mismatch),
                          (detail.replace(b'128',b'0'),mismatch)):
                 self.assertFalse(inspect(*tail)[1])
+    def test_queue_history(self):
+        detail=b'V1034_QUEUE_DETAIL mismatch_mask=128 slot_kind=1 arg_time_zero=1 queue_time_zero=0'
+        history=b'V1037_QUEUE_HISTORY initial_mismatch=128 current_mismatch=128 changed=0 initial_slot_kind=1 samples=256'
+        mismatch=D.replace(b'queue_match=1',b'queue_match=0').replace(b'admitted=1',b'admitted=0')
+        with patch.object(a.error,'inspect',return_value=('verified=1 no_response=1',True,b'')):
+            def inspect(*tail):return a.inspect(b'\n'.join((a.error.RESULT,T,a.DIRECT,*tail)),0)
+            self.assertTrue(inspect(detail,history,mismatch)[1])
+            for bad in (history.replace(b'current_mismatch=128',b'current_mismatch=0'),
+                        history.replace(b'initial_mismatch=128',b'initial_mismatch=0'),
+                        history.replace(b'samples=256',b'samples=0'),
+                        history.replace(b'changed=0',b'changed=256')):
+                self.assertFalse(inspect(detail,bad,mismatch)[1])
+            self.assertFalse(inspect(history,mismatch)[1])
+            self.assertFalse(inspect(detail,history,history,mismatch)[1])
     def test_exact_branches(self):
         with patch.object(a.error,'inspect',return_value=('verified=1 no_response=1',True,b'')):
             for tail,branch in (((a.INDIRECT,C),6),((T,a.DIRECT,D),4)):

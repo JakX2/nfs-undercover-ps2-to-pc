@@ -11,7 +11,7 @@ struct Mmu{
     uint32_t read32(uint32_t p){uint32_t w=0;for(unsigned i=0;i<4;++i)w=(w<<8)|read8(p+i);return w;}
     void write(uint32_t p,uint32_t w){for(unsigned i=0;i<4;++i)mem[p+i]=uint8_t(w>>(24-8*i));}
 };
-struct Cpu{Mmu mmu;std::array<uint32_t,32> gpr{};};
+struct Cpu{Mmu mmu;std::array<uint32_t,32> gpr{};uint64_t inst_count=100;};
 static void need(bool ok){if(!ok)throw std::runtime_error("V981 arguments");}
 int main(){
     unsigned good=0,bad=0;
@@ -42,5 +42,30 @@ int main(){
         else{need(!a.admitted());++bad;}
     }
     need(good==4&&bad==12);
+    for(unsigned ch=0;ch<4;++ch){
+        Cpu c;
+        for(unsigned i=0;i<5;++i)c.mmu.write(Data+4*i,0xffffffffu);
+        for(unsigned i=0;i<32;++i)c.mmu.write(Slots+4*i,0);
+        c.mmu.write(Cmd,0);c.mmu.write(Resp,0);c.mmu.write(Callback,0x60000000u);
+        const std::array<uint32_t,8> req{ch,Cmd,1,Resp,3,Callback,0,3948};
+        for(unsigned i=0;i<8;++i){c.gpr[3+i]=req[i];c.mmu.write(Slots+ch*32+4*i,req[i]);}
+        SiQueueHistory hist;need(hist.begin(c,Slots)&&!hist.begin(c,Slots));++c.inst_count;
+        need(hist.sample(c)&&hist.sample(c));
+        // Register-only mismatch; all eight original queued words remain.
+        c.gpr[10]=0;
+        auto a=inspect_si_transfer_arguments(c,Data,Slots,Callback);
+        auto x=hist.finish(c,a);need(x.valid&&x.initial_mismatch==128u&&x.current_mismatch==128u&&!x.changed&&x.initial_slot_kind==1u&&x.samples==1u);
+        // Observe actual sentinel consumption, then restoration. The
+        // cumulative change mask is not erased by the restored value.
+        c.mmu.write(Slots+32u*ch,0xffffffffu);++c.inst_count;need(hist.sample(c));
+        a=inspect_si_transfer_arguments(c,Data,Slots,Callback);x=hist.finish(c,a);
+        need(x.valid&&x.initial_mismatch==128u&&x.current_mismatch==129u&&x.changed==1u);
+        c.mmu.write(Slots+32u*ch,ch);++c.inst_count;need(hist.sample(c));
+        a=inspect_si_transfer_arguments(c,Data,Slots,Callback);x=hist.finish(c,a);
+        need(x.valid&&x.current_mismatch==128u&&x.changed==1u&&x.samples==3u);
+        Cpu other;need(!hist.sample(other));
+        c.mmu.mem.erase(Slots+127);++c.inst_count;need(!hist.sample(c));
+    }
+    std::cout<<"V1037_QUEUE_HISTORY channels=4 register_only=4 consumed=4 restored=4 read_only=1 original_execution=0\n";
     std::cout<<"V981_TRANSFER_ARGUMENTS valid=4 refused=12 read_only=1 original_execution=0\n";
 }

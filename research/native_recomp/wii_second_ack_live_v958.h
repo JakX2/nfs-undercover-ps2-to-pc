@@ -68,6 +68,8 @@ inline bool error_completion_enabled(){const char* v=std::getenv("UNDERCOVER_V10
 #ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
 inline thread_local bool time_seen=false;
 inline thread_local unsigned time_return_visits=0;
+inline thread_local SiQueueHistory queue_history;
+inline bool queue_detail_enabled(){const char* v=std::getenv("UNDERCOVER_V1034_QUEUE_DETAIL");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V981_SECOND_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 inline bool time_enabled(){const char* v=std::getenv("UNDERCOVER_V975_SECOND_TIME");return v&&v[0]=='1'&&v[1]=='\0';}
@@ -128,10 +130,17 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     }else
 #endif
     if(!calls.begin(c,spans,edges))return false;
-    frame=&captured;return true;
+    frame=&captured;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+    if(queue_detail_enabled()&&!queue_history.begin(c,transfer_slots))return false;
+#endif
+    return true;
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V981_PRIVATE_FRONTIER
+    if(queue_detail_enabled()&&!queue_history.sample(c))reject(18);
+#endif
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
     if(third_active()){
         if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
@@ -214,10 +223,14 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         }
 #endif
         const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
-        const char* queue_detail=std::getenv("UNDERCOVER_V1034_QUEUE_DETAIL");
-        if(queue_detail&&queue_detail[0]=='1'&&queue_detail[1]=='\0')
+        if(queue_detail_enabled()){
+            const auto hist=queue_history.finish(c,a);
+            if(!hist.valid)reject(18);
             std::cout<<std::dec<<"V1034_QUEUE_DETAIL mismatch_mask="<<a.mismatch_mask<<" slot_kind="<<a.slot_kind
                 <<" arg_time_zero="<<a.argument_time_zero<<" queue_time_zero="<<a.queued_time_zero<<std::endl;
+            std::cout<<"V1037_QUEUE_HISTORY initial_mismatch="<<hist.initial_mismatch<<" current_mismatch="<<hist.current_mismatch
+                <<" changed="<<hist.changed<<" initial_slot_kind="<<hist.initial_slot_kind<<" samples="<<hist.samples<<std::endl;
+        }
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
             <<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
