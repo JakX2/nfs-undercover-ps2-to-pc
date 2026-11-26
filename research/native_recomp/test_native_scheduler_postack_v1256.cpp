@@ -31,6 +31,9 @@
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
 #include "v1281_private_reply.h"
 #endif
+#ifdef UNDERCOVER_V1289_WAKE_READY
+#include "v1289_private_wake.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -105,6 +108,11 @@ static nw::CPUContext* body_cpu=nullptr;
 static unsigned wake_entry_count=0;
 struct WakeEntryReached{};
 #endif
+#ifdef UNDERCOVER_V1289_WAKE_READY
+static WakeReadyWitness* wake_ready=nullptr;
+static unsigned ready_count=0;
+struct ReadyReached{};
+#endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
 static PostAckSubmitJoin* submit_join=nullptr;
@@ -171,6 +179,16 @@ void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     auto s=B::cold_snapshot();
     const bool guard=std::find(v1261::guard.begin(),v1261::guard.end(),pc)!=v1261::guard.end();
     if(!s||!ipc_dispatch->before(c,pc,w,guard,*s,device_ok(c)))dispatch_refuse(1);
+}
+#endif
+#ifdef UNDERCOVER_V1289_WAKE_READY
+[[noreturn]]static void wake_refuse(unsigned kind){
+    std::cout<<"V1289_WAKE_REFUSAL kind="<<kind<<" stage="<<wake_ready->stage()
+             <<" reason="<<wake_ready->failure()<<" visits="<<wake_ready->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(wake_ready&&!wake_ready->before(c,pc,w,device_ok(c)))wake_refuse(1);
 }
 #endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
@@ -259,6 +277,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1289_WAKE_READY
+    if(wake_ready){
+        if(!wake_ready->entry(c,pc,device_ok(c)))wake_refuse(2);
+        if(wake_ready->stage()==2u){++ready_count;throw ReadyReached{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     if(reply_body){
         if(!reply_body->entry(c,pc,device_ok(c)))body_refuse(2);
@@ -371,6 +396,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1289_WAKE_READY
+    if(wake_ready){if(!wake_ready->poll(c,device_ok(c)))wake_refuse(3);return false;}
+#endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     if(reply_body){
         if(!reply_body->poll(c,device_ok(c)))body_refuse(3);
@@ -511,6 +539,9 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1289_WAKE_READY
+    if(wake_ready){wake_ready->refuse_mmio();wake_refuse(4);}
+#endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     if(reply_body){
         auto v=reply_body->read(*body_cpu,a,device_ok(*body_cpu));
@@ -549,6 +580,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1289_WAKE_READY
+    if(wake_ready){wake_ready->refuse_mmio();wake_refuse(5);}
+#endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     if(reply_body){
         if(!reply_body->write(*body_cpu,a,v,device_ok(*body_cpu)))body_refuse(5);
@@ -665,6 +699,9 @@ int main(int argc,char** argv)try{
 #endif
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
         for(auto w:v1281::words)c.mmu.write32(w.pc,w.word);
+#endif
+#ifdef UNDERCOVER_V1289_WAKE_READY
+        for(auto w:v1289::words)c.mmu.write32(w.pc,w.word);
 #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
@@ -851,6 +888,17 @@ int main(int argc,char** argv)try{
              device_ok(c));
         reply_body=nullptr;body_cpu=nullptr;
         std::cout<<"V1282_WAKE_ENTRY_TRIAL n="<<trial<<" original_processor=1 armmsg=1 native_dcbi=1 y1_w1c=1 queue=1 wake_executed=0\n";
+#ifdef UNDERCOVER_V1289_WAKE_READY
+        WakeReadyWitness ready(v1289::expected(Q::Idle,Q::Thread));wake_ready=&ready;
+        if(!ready.begin(c,body,irq_capture,sleep.queue(),device_ok(c)))wake_refuse(6);
+        bool selected=false;try{run_game(c);}catch(const ReadyReached&){selected=true;}
+        need(selected&&ready.stage()==2u&&ready_count==trial+1u&&ready.ready_queue()&&
+             c.pc==Q::Select&&c.lr==0x8052a5f0u&&c.gpr[3]==0u&&host.serviced_steps()==2u&&
+             c.mmu.read16(Q::Thread+712u)==1u&&c.mmu.read32(sleep.queue())==0u&&
+             c.mmu.read32(sleep.queue()+4u)==0u&&irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
+        wake_ready=nullptr;
+        std::cout<<"V1289_READY_TRIAL n="<<trial<<" original_wake=1 nested_disable=1 drained=1 ready=1 enrolled=1 select_executed=0\n";
+#endif
 #endif
 #endif
 #endif
@@ -884,6 +932,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1282_REPLY_WAKE
     need(wake_entry_count==8u);
     std::cout<<"V1282_REPLY_WAKE_NATIVE owner=1 trials=8 original_processor=8 armmsg=8 native_dcbi=8 y1_w1c=8 original_wake_entry=8 waiting=8 ios_steps=2 wake_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1289_WAKE_READY
+    need(ready_count==8u);
+    std::cout<<"V1289_WAKE_READY_NATIVE owner=1 trials=8 original_wake=8 nested_disable=8 drained=8 ready=8 enrolled=8 select_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

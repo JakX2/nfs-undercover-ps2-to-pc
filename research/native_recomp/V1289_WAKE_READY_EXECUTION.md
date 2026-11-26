@@ -1,0 +1,3 @@
+# V1289: focused original wake-to-ready execution lane
+
+Replace only the existing wake guard with its owner-authenticated original 0xf4-byte function; keep existing scheduler, disable and restore roots intact. Authenticate all three direct calls, all reachable native labels, and the exact entry into SelectThread without allowing it to execute. Existing V1282 body witness hands off without state edits. Native wake witness observes original READY stores and queue linkage while retaining idle and sleeping contexts and unchanged device state. New source-only geometry tests and sanitizer regression run automatically; private owner launch remains manual until V1282 verifies. The old V81 ready proof was on a different fixture, not evidence for this joined path.

@@ -1,0 +1,86 @@
+name: Wii V1289 Original Wake Ready Queue
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1289*'
+      - '.github/workflows/wii-v1289-wake-ready-owner.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate private fixture geometry and runner syntax
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v626_ipc_fixture.py -v
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v1256_scheduler_fixture.py -v
+          python3 -m py_compile research/native_recomp/prepare_v1259_scheduler_vector.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_scheduler_irq_entry_v1259.cpp -o /tmp/v1259-test
+          /tmp/v1259-test
+          python3 -m unittest discover -s research/native_recomp -p test_v1260_scheduler_vector.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_external_return_v706.cpp -o /tmp/v706-test
+          /tmp/v706-test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_initialized_dol_data_v1264.cpp -o /tmp/v1264-data
+          /tmp/v1264-data
+          python3 -m unittest discover -s research/native_recomp -p test_v1261_ipc_dispatch.py -v
+          python3 -m py_compile research/native_recomp/prepare_v1266_joined_ack.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1267-ack
+          /tmp/v1267-ack
+          python3 -m unittest discover -s research/native_recomp -p test_v1270_ipc_epilogue.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_live_epilogue_source_v1269.cpp -o /tmp/v1269
+          /tmp/v1269
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_live_epilogue_select_v1284.cpp -o /tmp/v1284
+          /tmp/v1284
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_scheduler_reply_irq_v1268.cpp -o /tmp/v1268
+          /tmp/v1268
+          python3 -m unittest discover -s research/native_recomp -p test_v1279_reply_geometry.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1281_reply_fixture.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1276_isolated_dcbi.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cold_reply_consume_v1278.cpp -o /tmp/v1278
+          /tmp/v1278
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1280
+          /tmp/v1280
+          python3 -m unittest discover -s research/native_recomp -p test_v1289_wake_fixture.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1288
+          /tmp/v1288
+          printf '#include "wii_joined_ipc_ack_v1266.h"\nint main(){}\n' | g++ -x c++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp -fsyntax-only -
+  owner-ready-queue:
+    needs: original-free
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original wake routine through ready queue enrollment
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw1289"
+          git -C "$RUNNER_TEMP/nw1289" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1289" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1289" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nw1289" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --irq-wake-ready
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw1289"
