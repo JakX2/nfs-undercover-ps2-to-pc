@@ -645,6 +645,11 @@ int main(int argc,char** argv){
                                                                     c.mmu.words[v958::transfer_callback+4u*i]=q4::callback_words[i];
                                                                 c.ctr=v958::transfer_callback+(cf=="-target"?4u:cf=="-unaligned"?1u:0u);
                                                                 c.gpr[3]=cf=="-channel"?4u:2u;
+#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER
+                                                                // Model the handler's channel selection before the indirect
+                                                                // callback captures its ABI. RFI restored the old r20.
+                                                                if(v958::ack_handler_enabled())c.gpr[20]=2u;
+#endif
                                                                 if(cf=="-frame")c.mmu.words[v958::context+124]^=1u;
                                                                 if(cf=="-word")c.mmu.words[v958::transfer_callback+4u]^=1u;
                                                                 if(cf=="-siteword")c.mmu.words[q4::callback_sites[0]]^=1u;

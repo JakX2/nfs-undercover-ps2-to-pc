@@ -34,7 +34,8 @@ inline constexpr auto handler_rows=[]{
 }();
 inline constexpr uint32_t handler_rd=Handler+20u,handler_wr=Handler+24u;
 inline constexpr auto handler_index=[]{
-    auto e=v1139::index;e.resume=Handler+16u;e.destination=e.resume+64u;return e;
+    auto e=v1139::index;e.resume=Handler+16u;e.destination=e.resume+64u;
+    e.table={0x8003fa00u,0x8003fa04u,0x8003fa08u,0x8003fa0cu};return e;
 }();
 #endif
 }
