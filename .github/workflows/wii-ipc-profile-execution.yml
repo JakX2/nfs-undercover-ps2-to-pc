@@ -1,0 +1,22 @@
+name: Wii Native IPC Profiling Execution Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ipc_profile_execution.h'
+      - 'research/native_recomp/test_ipc_profile_execution.cpp'
+      - 'research/native_recomp/wii_ipc_profile_enqueue_v1415.h'
+      - '.github/workflows/wii-ipc-profile-execution.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_ipc_profile_execution.cpp -o /tmp/profile_execution
+          /tmp/profile_execution
