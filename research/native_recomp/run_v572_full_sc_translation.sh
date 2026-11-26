@@ -197,6 +197,10 @@ held_dispatch="${UNDERCOVER_RUN_V1163_HELD_DISPATCH-0}"
 [[ "$held_dispatch" == 0 || "$held_dispatch" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1161_HELD_DISPATCH-0}" == "$held_dispatch" ]] || exit 2
 [[ "$held_dispatch" == 0 || "$held_epilogue" == 1 ]] || exit 2
+third_ack="${UNDERCOVER_RUN_V1171_THIRD_ACK-0}"
+[[ "$third_ack" == 0 || "$third_ack" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1169_THIRD_ACK-0}" == "$third_ack" ]] || exit 2
+[[ "$third_ack" == 0 || "$held_dispatch" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -233,6 +237,9 @@ if [[ "$third_postalarm" == 1 ]]; then
                   echo 'V1156_HELD_EPILOGUE_BUILD_PLAN links=1 private_installer=1 handler_return_predecessor=1'
                   if [[ "$held_dispatch" == 1 ]]; then
                     echo 'V1163_HELD_DISPATCH_BUILD_PLAN links=1 private_installer=1 vector_predecessor=1'
+                    if [[ "$third_ack" == 1 ]]; then
+                      echo 'V1171_THIRD_ACK_BUILD_PLAN links=1 private_installer=1 dispatch_predecessor=1'
+                    fi
                   fi
                 fi
               fi
@@ -404,6 +411,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                         python3 "$here/prepare_v1152_held_epilogue.py" "$dol" "$elf" "$work/generated"
                                                         if [[ "$held_dispatch" == 1 ]]; then
                                                             python3 "$here/prepare_v1161_held_dispatch.py" "$dol" "$elf" "$work/generated"
+                                                            if [[ "$third_ack" == 1 ]]; then
+                                                                python3 "$here/prepare_v1169_third_ack.py" "$dol" "$elf" "$work/generated"
+                                                            fi
                                                         fi
                                                     fi
                                                 fi
