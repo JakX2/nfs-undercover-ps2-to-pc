@@ -17,6 +17,9 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned store_failure()const{return fence_.failure();}
+    unsigned store_range_failure()const{return fence_.range_failure();}
+    unsigned store_base_class()const{return fence_.base_class();}
+    unsigned store_site_ordinal()const{return store_site_ordinal_;}
     bool inline_completed()const{return stage_==2u&&!error_&&inline_completed_;}
     unsigned stores()const{return fence_.stores();}
     unsigned heap_stores()const{return fence_.heap_stores();}
@@ -35,7 +38,11 @@ public:
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(!live(c,held)||entry_due_||poll_due_||outer_||pc!=next_||
            c.inst_count-last_!=1u||!known(c,active_,pc,w)||++visits_>512u)return fail(2);
-        if(!fence_.before(c,w))return fail(3);
+        if(!fence_.before(c,w)){
+            // Ordinal within the authenticated root, not an absolute PC.
+            if(active_==e_.root&&pc>=e_.root)store_site_ordinal_=(pc-e_.root)/4u+1u;
+            return fail(3);
+        }
         last_=c.inst_count;next_=pc+4u;
         const unsigned op=w>>26,xo=(w>>1)&1023u;
         if(op==18u&&(w&1u)){
@@ -110,7 +117,7 @@ public:
 private:
     AllocatorReleaseExpectation e_;AllocatorStoreFence fence_;const void* cpu_=nullptr;
     std::array<uint32_t,32> gp_{};uint32_t cr_=0,msr_=0,active_=0,next_=0,poll_pc_=0;
-    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0;
+    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,store_site_ordinal_=0;
     bool disabled_=false,enabled_=false,disable_returned_=false,restore_polled_=false,restore_returned_=false;
     bool entry_due_=false,poll_due_=false,outer_=false,inline_completed_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}

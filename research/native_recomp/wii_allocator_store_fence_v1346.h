@@ -19,6 +19,9 @@ public:
     unsigned heap_stores()const{return heap_stores_;}
     unsigned stack_stores()const{return stack_stores_;}
     unsigned metadata_stores()const{return metadata_stores_;}
+    // Bounded diagnostic categories only; no guest addresses or values.
+    unsigned range_failure()const{return range_error_;}
+    unsigned base_class()const{return base_class_;}
     template<class C>bool begin(C& c,AllocatorRange stack,AllocatorRange heap,AllocatorRange meta={}){
         if(cpu_||error_||stack.size<8u||stack.size>2048u||heap.size<64u||heap.size>0x10000u||
            !ram(c,stack.base,stack.size)||!heap.base||!ram(c,heap.base-1u,heap.size+2u)||
@@ -62,17 +65,27 @@ public:
             default:return true;
         }
         if(update&&!ra)return fail(4);
+        base_class_=ra==1u?1u:(ra==2u||ra==13u)?2u:ra?3u:0u;
         const uint32_t base=ra?c.gpr[ra]:0u;
         const int64_t offset=indexed?int64_t(c.gpr[rb]):int64_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
         const int64_t ea=int64_t(base)+offset;
-        if(ea<0||ea>0xffffffffll||uint64_t(ea)+n>0x100000000ull)return fail(5);
+        if(ea<0||ea>0xffffffffll||uint64_t(ea)+n>0x100000000ull)return range_fail(1);
         const uint32_t a=uint32_t(ea);const unsigned alignment=multiple?4u:n;
-        if(a&(alignment-1u)||!ram(c,a,n))return fail(5);
+        if(a&(alignment-1u))return range_fail(2);
+        if(!ram(c,a,n))return range_fail(3);
         if(stack_.contains(a,n))++stack_stores_;
         else if(heap_.contains(a,n))++heap_stores_;
         else if(meta_.contains(a,n))++metadata_stores_;
-        else return fail(5);
-        if(++stores_>1024u)return fail(5);
+        else {
+            // Distinguish a boundary overlap from an entirely separate
+            // mapped region, without widening the permitted write set.
+            const AllocatorRange dest{a,n};
+            if(overlap(dest,stack_))return range_fail(4);
+            if(overlap(dest,heap_))return range_fail(5);
+            if(meta_.size&&overlap(dest,meta_))return range_fail(6);
+            return range_fail(a<0x90000000u?7u:8u);
+        }
+        if(++stores_>1024u)return range_fail(9);
         if(multiple){
             for(unsigned i=0;i<n;++i)bytes_[i]=uint8_t(c.gpr[rs+i/4u]>>(24u-8u*(i%4u)));
         }else for(unsigned i=0;i<n;++i)bytes_[i]=uint8_t(c.gpr[rs]>>(8u*(n-1u-i)));
@@ -90,7 +103,9 @@ private:
     const void* cpu_=nullptr;AllocatorRange stack_{},heap_{},meta_{};
     std::array<uint8_t,128> bytes_{};std::vector<uint8_t> heap_shadow_;uint8_t lower_=0,upper_=0;
     uint32_t addr_=0;unsigned width_=0,ra_=0,error_=0,stores_=0,heap_stores_=0,stack_stores_=0,metadata_stores_=0;
+    unsigned range_error_=0,base_class_=0;
     bool pending_=false,update_=false;
+    bool range_fail(unsigned n){range_error_=n;return fail(5);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool overlap(AllocatorRange a,AllocatorRange b){return a.base<b.end()&&b.base<a.end();}
     template<class C>static bool ram(C& c,uint32_t a,unsigned n){

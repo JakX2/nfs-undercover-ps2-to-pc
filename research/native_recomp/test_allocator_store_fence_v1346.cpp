@@ -23,7 +23,7 @@ static void trial(unsigned f){
     ok=w.settled(c);if(f==2){assert(!ok&&w.failure()==3);return;}assert(ok);
     if(f==3)c.gpr[5]=H+254;
     if(f==4)c.gpr[5]=0xcd006400u;
-    ok=w.before(c,d(36,4,5,0));if(f==3||f==4){assert(!ok&&w.failure()==5);return;}assert(ok);
+    ok=w.before(c,d(36,4,5,0));if(f==3||f==4){assert(!ok&&w.failure()==5&&w.range_failure()==(f==3?2u:3u)&&w.base_class()==3u);return;}assert(ok);
     c.mmu.write(H,f==5?0x12345679:0x12345678);
     ok=w.settled(c);if(f==5){assert(!ok&&w.failure()==3);return;}assert(ok);
     if(f==6){assert(!w.before(c,d(54,4,5,0))&&w.failure()==4);return;}
@@ -39,4 +39,23 @@ static void trial(unsigned f){
     assert(ok);
     assert(w.stores()==5&&w.stack_stores()==1&&w.heap_stores()==3&&w.metadata_stores()==1);
 }
-int main(){for(unsigned f=0;f<=9;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1350_ALLOCATOR_STORE_FENCE synthetic=1 valid=1 refused=10 exact_bytes=1 complete_heap_shadow=1 original_execution=0\n";}
+static void range_trial(unsigned f){
+    Cpu c;c.gpr[1]=S+128;c.gpr[4]=0x12345678;c.gpr[5]=H;c.gpr[6]=4;c.gpr[13]=M;
+    AllocatorStoreFence w;assert(w.begin(c,{S,134},{H,258},{M,6}));
+    unsigned expect=0;uint32_t addr=0;
+    switch(f){
+        case 0:addr=0xffffffffu;expect=1;break;
+        case 1:addr=H+1;expect=2;break;
+        case 2:addr=0xcd006400u;expect=3;break;
+        case 3:addr=S+132;expect=4;break;
+        case 4:addr=H+256;expect=5;break;
+        case 5:addr=M+4;expect=6;break;
+        case 6:addr=M+32;expect=7;break;
+        case 7:addr=H+512;expect=8;break;
+        default:assert(false);
+    }
+    c.gpr[5]=addr;
+    assert(!w.before(c,d(36,4,5,0))&&w.failure()==5&&w.range_failure()==expect&&w.base_class()==3u);
+    assert(!w.stores()&&!w.heap_stores());
+}
+int main(){for(unsigned f=0;f<8;++f)range_trial(f);for(unsigned f=0;f<=9;++f)trial(f);Cpu c;AllocatorStoreFence empty;assert(empty.begin(c,{S,136},{H,256}));assert(!empty.finished(c));std::cout<<"V1354_ALLOCATOR_STORE_FENCE synthetic=1 valid=1 refused=18 exact_bytes=1 complete_heap_shadow=1 range_diagnostics=8 original_execution=0\n";}
