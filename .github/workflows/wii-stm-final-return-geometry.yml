@@ -74,7 +74,12 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 research/native_recomp/prepare_stm_final_return.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          mkdir -m 700 "$RUNNER_TEMP/stm-final"
+          python3 research/native_recomp/prepare_stm_final_return.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --out "$RUNNER_TEMP/stm-final"
+          printf '%s\n' '#include "private_stm_final_return.h"' 'int main(){return stm_final_private::expected.words.empty();}' > "$RUNNER_TEMP/stm-final/check.cpp"
+          g++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp -I"$RUNNER_TEMP/stm-final" "$RUNNER_TEMP/stm-final/check.cpp" -o "$RUNNER_TEMP/stm-final/check" > "$RUNNER_TEMP/stm-final/compile.log" 2>&1 || { echo 'STM_FINAL_RETURN_HEADER compiled=0'; exit 1; }
+          "$RUNNER_TEMP/stm-final/check"
+          echo 'STM_FINAL_RETURN_HEADER compiled=1'
       - name: Clean private originals
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/originals"
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/stm-final"

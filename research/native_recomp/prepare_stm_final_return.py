@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Private read-only STM post-restore ABI geometry. No original data exported."""
 import argparse
+import re
 import struct
 from pathlib import Path
 from prepare_v629_stm_open import geometry,STM,EDGES
@@ -11,6 +12,9 @@ from prepare_ipc_profile_geometry import layout
 from prepare_v1414_ipc_ring import ring_object
 from prepare_stm_outer_restore import plan as outer_plan
 from make_v624_ipc_geometry import exact_words
+from prepare_v625_ipc_client import audit_native
+from prepare_v680_si_helper import exact_function,verify_direct
+from prepare_v1337_open_completion import ensure_resume,hook_submit
 
 BLR=0x4e800020
 
@@ -110,7 +114,7 @@ def tail(words,frame,slots,store_sites=()):
     if words.count(BLR)!=1:raise ValueError('tail return count')
     return loads,sum(isinstance(v,int) for v in loaded)
 
-def derive(d,e):
+def plan(d,e):
     _,body,edge,_,_,_=geometry(d,e)
     caller,caller_word,*_=outer_plan(d,e)
     if caller!=EDGES[-1][0]+4 or caller_word!=body[(caller-STM)//4]:
@@ -130,23 +134,78 @@ def derive(d,e):
         protected=[ring_object(d,e)[:2],credit_object(d,e),*layout(d,e),*event_plan(d,e)[3]]
         if any(obj[0]<b+n and b<obj[0]+obj[1] for b,n in protected):
             raise ValueError('tail store overlap')
-        stores.append(i)
+        stores.append((i,caller+4*(i-1),a,(w>>21)&31,obj))
     if len(stores)!=1:raise ValueError('tail store count')
-    loads,saved=tail(body[start:],frame,slots,stores)
+    loads,saved=tail(body[start:],frame,slots,tuple(row[0] for row in stores))
     # Caller identity is authenticated privately; the focused fixture
     # still models the OSInit bridge and must stop before its continuation.
-    exact_words(d,e,edge[1],1)
-    return len(body[start:]),loads,saved,len(stores)
+    returned=edge[1];ret=exact_words(d,e,returned,1)[0]
+    _,site,address,reg,obj=stores[0]
+    words={caller+4*i:(STM,w) for i,w in enumerate(body[start:])}
+    return (STM,caller,returned,ret,frame,site,address,reg),obj,slots,words,loads,saved
+
+def derive(d,e):
+    p=plan(d,e)
+    return len(p[3]),p[4],p[5],1
+
+def render(p):
+    fields,obj,slots,words,*_=p
+    fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    slot_rows=','.join('undercover::wii::StmFinalSlot{'+str(off)+','+str(32 if reg=='lr' else reg)+'u}'
+                       for off,reg in sorted(slots.items()))
+    word_rows=','.join('undercover::wii::IpcDispatchWord{'+fmt((owner,pc,w))+'}'
+                       for pc,(owner,w) in sorted(words.items()))
+    return ('#pragma once\n#include "wii_stm_final_return.h"\nnamespace stm_final_private {\n'
+            f'inline constexpr std::array<undercover::wii::StmFinalSlot,{len(slots)}> slots'+'{'+slot_rows+'};\n'
+            f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(words)}> words'+'{'+word_rows+'};\n'
+            'inline constexpr undercover::wii::StmFinalExpectation expected{'+fmt(fields)+
+            ',undercover::wii::AllocatorRange{'+fmt(obj)+'},slots,words};\n}\n')
+
+def install(root,p):
+    fields,_,_,words,*_=p
+    owner,start,*_=fields
+    paths=sorted(root.glob('output_*.cpp'));sources={x:x.read_text() for x in paths}
+    main=root/'main_output.cpp';text=main.read_text()
+    audit_native(sources.values(),text,words)
+    owners=[s for s in sources.values() if re.search(r'(?mi)^void (?:fn|func)_'+f'{owner:X}'+r'\(CPUContext& ctx\) \{',s)]
+    if len(owners)!=1:raise ValueError('tail native owner')
+    verify_direct(owners[0],start-4,EDGES[-1][1])
+    out,added=ensure_resume(text,exact_function(owners[0],owner),owner,start)
+    done=set();changed={}
+    for path,s in sources.items():
+        old=s
+        for pc,(_,word) in words.items():
+            s,found=hook_submit(s,pc,word)
+            if not found:continue
+            hook=f'    v1344_before(ctx,0x{pc:08x}u,0x{word:08x}u);'
+            if pc in done or s.count(hook)!=1:raise ValueError('tail native hook')
+            done.add(pc);s=s.replace(hook,hook.replace('v1344_before','stm_final_before'))
+        if s!=old:
+            anchor='#include "runtime/cpu_context.h"'
+            if s.count(anchor)!=1:raise ValueError('tail native hook')
+            changed[path]=s.replace(anchor,anchor+'\nvoid stm_final_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
+    if done!=set(words):raise ValueError('tail native coverage')
+    for path,s in changed.items():path.write_text(s)
+    if added:main.write_text(out)
+    print(f'STM_FINAL_RETURN_TRANSLATION verified=1 labels={len(done)} outer_resume=1 added={int(added)}')
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
+    m=a.add_mutually_exclusive_group();m.add_argument('--out',type=Path);m.add_argument('--install',type=Path);q=a.parse_args()
     allowed={'size','prologue frame','prologue store before frame','prologue slot','prologue duplicate register',
              'prologue identity','tail extent','tail ABI','tail load','tail stack','tail LR','tail opcode','tail return count','tail caller','tail store identity','tail store value',
-             'tail store base','tail store overlap','tail store count'}
+             'tail store base','tail store overlap','tail store count','tail native owner','tail native hook','tail native coverage',
+             'completion local resume','completion root dispatch','completion outer resume','completion hook label',
+             'native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch',
+             'helper exact root','helper call label','helper direct native call','helper native return edge'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:
             raise ValueError('size')
-        labels,loads,saved,stores=derive(q.dol.read_bytes(),q.elf.read_bytes())
+        p=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        if q.install:install(q.install,p);return 0
+        if q.out:
+            with (q.out/'private_stm_final_return.h').open('x') as f:f.write(render(p))
+        labels,loads,saved,stores=len(p[3]),p[4],p[5],1
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         reason=str(ex)
         if reason.startswith('tail opcode '):
