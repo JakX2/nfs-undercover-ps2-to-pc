@@ -468,4 +468,18 @@ class AckResumeAudit(unittest.TestCase):
             for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.prior_final.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.prior_final.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=32 reason=36 epilogue=0 reentry=54',c.RESULT)):
                 self.assertFalse(inspect(*rows))
             self.assertFalse(inspect(*prior,c.RESULT,rc=126))
+class AckLeafAudit(unittest.TestCase):
+    def test_exact_leaf(self):
+        import audit_v1228_ack_leaf as c
+        h=c.helper;r=h.ret;p=r.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=11 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,r.time.RESULT,r.frontier.RESULT,r.wireless.RESULT,r.suffix.RESULT,r.RESULT,h.handler.RESULT,h.returned.RESULT,h.epilogue.RFI,h.epilogue.RESULT,h.dispatch.RESULT,h.ack.RESULT,h.RESULT,c.callback.RESULT,c.prior_prefix.RESULT,c.prior_time.RESULT,c.prior_frontier.RESULT,c.prior_wireless.RESULT,c.prior_suffix.RESULT,c.prior_return.RESULT,c.prior_handler.RESULT,c.prior_handler_return.RESULT,c.prior_final.RESULT,c.prior_resume.RESULT)
+        def inspect(*rows,rc=0):return c.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,c.RESULT))
+            for old,new in ((b'original_extract=1',b'original_extract=0'),(b'original_blr=1',b'original_blr=0'),(b'osinit_resume=1',b'osinit_resume=0'),(b'previous_ee=0',b'previous_ee=1'),(b'integer_state=1',b'integer_state=0'),(b'gqr=1',b'gqr=0'),(b'token=3',b'token=4'),(b'pi_cleared=1',b'pi_cleared=0'),(b'caller_instruction_executed=0',b'caller_instruction_executed=1')):
+                self.assertFalse(inspect(*prior,c.RESULT.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],c.RESULT),(*prior[:-1],c.RESULT,c.prior_resume.RESULT),(*prior,c.RESULT,c.RESULT),(*prior,c.prior_resume.RESULT,c.RESULT),(*prior,b'V1151_HELD_EPILOGUE_FAULT stage=34 reason=38 epilogue=0 reentry=56',c.RESULT)):
+                self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,c.RESULT,rc=126))
 if __name__=='__main__':unittest.main()

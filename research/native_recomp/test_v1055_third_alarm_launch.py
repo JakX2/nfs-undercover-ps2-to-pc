@@ -720,4 +720,28 @@ class ColdFailureDiagnostic(unittest.TestCase):
         from cold_launch_diagnostic_v1225 import diagnostic,MAX_LOG
         for raw,rc,audit in ((b'x'*(MAX_LOG+1),1,1),(b'',-1,1),(b'',256,1),(b'',1,-1),(b'',1,256)):
             with self.assertRaises(ValueError):diagnostic(raw,rc,audit)
+class AckLeafLaunch(unittest.TestCase):
+    def setUp(self):
+        base=AckResumeLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1228_ACK_LEAF='1',UNDERCOVER_PREPARE_V1228_ACK_LEAF='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1228_ACK_LEAF_BUILD_PLAN links=1 private_installer=1 resume_predecessor=1' if build else 'audit=audit_v1228_ack_leaf.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1227_ACK_LEAF=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1228_ACK_LEAF','UNDERCOVER_PREPARE_V1228_ACK_LEAF','UNDERCOVER_RUN_V1221_ACK_RESUME','UNDERCOVER_PREPARE_V1221_ACK_RESUME'):
+            for val in ('','0','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_resume_only(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertNotIn('V1228_ACK_LEAF_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1227_ACK_LEAF=1',p.stdout)
+            self.assertIn('V1221_ACK_RESUME_BUILD_PLAN' if build else 'audit=audit_v1221_ack_resume.py',p.stdout)
 if __name__=='__main__':unittest.main()

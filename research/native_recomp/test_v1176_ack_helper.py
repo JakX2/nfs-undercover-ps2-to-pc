@@ -386,4 +386,34 @@ class AckResumeMetadata(unittest.TestCase):
     def test_requires_final(self):
         with self.assertRaisesRegex(ValueError,'ACK resume mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,False,True)
+class AckLeafMetadata(unittest.TestCase):
+    def test_metadata(self):
+        pc=ins.ENTRY+12;w=0x54038ffe;caller=H;cw=W
+        old='#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td)
+            with patch.object(ins,'leaf_plan',return_value=(pc,[w,BLR],caller,cw)):
+                self.assertEqual(ins.verify_leaf_metadata(b'',b'',old,dest,(pc,w)),(pc,w,caller,cw))
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_leaf_metadata(b'',b'',old,dest,(pc,W))
+                with self.assertRaisesRegex(ValueError,'destination'):
+                    ins.verify_leaf_metadata(b'',b'',old+'#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n',dest,(pc,w))
+                (dest/'wii_irq_leaf_finish_v927.h').write_text('already exists')
+                with self.assertRaisesRegex(ValueError,'destination'):
+                    ins.verify_leaf_metadata(b'',b'',old,dest,(pc,w))
+    def test_hook(self):
+        pc=H+16;arg=f'ctx,0x{pc:08x}u,0x{W:08x}u'
+        trace=f'    if (nwii::runtime::g_trace_calls) nwii::runtime::trace_call(0x{pc:X}, ctx); // V616 native IRQ resume\n'
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {W:08X}\n'
+        hook=f'    if({ins.FINAL_ACTIVE}) undercover::wii::v958::before({arg},false);\n'
+        for caller in (False,True):
+            pre=trace if caller else ''
+            source=label+pre+T+SI
+            self.assertEqual(ins.patch_leaf_label(source,pc,W,caller),source+hook)
+            for bad in (pre+T+T+SI,pre+T+SI+hook,pre+T,pre+T+'    ctx.gpr[3]=0;\n'+SI):
+                with self.assertRaises(ValueError):ins.patch_leaf_label(label+bad,pc,W,caller)
+        with self.assertRaises(ValueError):ins.patch_leaf_label(label+T+SI,pc,W,True)
+    def test_requires_resume(self):
+        with self.assertRaisesRegex(ValueError,'ACK leaf mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()

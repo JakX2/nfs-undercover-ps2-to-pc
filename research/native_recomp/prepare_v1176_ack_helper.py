@@ -38,6 +38,8 @@ from prepare_v1152_held_epilogue import metadata as final_metadata,render as fin
 from prepare_v1097_after_alarm import SI
 from prepare_v767_live_epilogue import geometry as final_geometry,ENTRY
 from prepare_v1029_third_transfer import replace_body,include_once
+from prepare_v928_leaf_finish import plan as leaf_plan,RETURN
+from prepare_v922_irq_return import patch_label as legacy_leaf_patch
 from audit_handler_third_v740 import edge as handler_edge
 
 def compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected):
@@ -489,7 +491,47 @@ def prepare_resume_native(src,outer,meta):
     out=patch_final_resume(body,pc,w)
     return p,include_once(replace_body(src[p],body,out),'#include "undercover/wii_second_ack_live_v958.h"')
 
-def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False):
+def render_leaf(pc,w,caller_word):
+    return ('#pragma once\n#include "wii_irq_leaf_finish_v927.h"\nnamespace undercover::wii::v1227 {\n'
+            'inline constexpr IrqLeafFinishExpectation expected{'+fmt((pc,w,RETURN,caller_word))+'};\n}\n')
+
+def verify_leaf_metadata(dol,elf,old,dest,resume_meta):
+    pc,leaf,caller,caller_word=leaf_plan(dol,elf)
+    if tuple(resume_meta)!=(pc,leaf[0]) or pc!=ENTRY+12 or len(leaf)!=2 or leaf[1]!=0x4e800020 or caller==ENTRY:
+        raise ValueError('ACK leaf predecessor')
+    if 'UNDERCOVER_V1227_PRIVATE_ACK_LEAF' in old or any((dest/n).exists() or (dest/n).is_symlink() for n in
+        ('v1227_private_ack_leaf.h','wii_irq_leaf_finish_v927.h')):
+        raise ValueError('ACK leaf destination')
+    return pc,leaf[0],caller,caller_word
+
+def patch_leaf_label(body,pc,w,caller=False):
+    block=block_at(body,pc,w)
+    if 'v958::' in block:raise ValueError('ACK leaf hook')
+    # The original V928 installer already validates the scheduler prefix,
+    # tick and caller's existing V616 pre-label trace. Reuse that check,
+    # but activate only the new third-ACK observer, not the old leaf mode.
+    checked=legacy_leaf_patch(body,pc,w,caller)
+    arg=f'ctx,0x{pc:08x}u,0x{w:08x}u'
+    old=f'    undercover::wii::v922::{"resume" if caller else "before"}({arg});\n'
+    new=f'    if({FINAL_ACTIVE}) undercover::wii::v958::before({arg},false);\n'
+    if checked.count(old)!=1:raise ValueError('ACK leaf hook')
+    return checked.replace(old,new,1)
+
+def prepare_leaf_native(src,outer,meta,resume_edit):
+    pc,w,caller,cw=meta
+    labels={pc:(ENTRY,w),pc+4:(ENTRY,0x4e800020),RETURN:(caller,cw)}
+    if audit_native(src.values(),outer,labels)!=3:raise ValueError('ACK leaf coverage')
+    verify_resume_dispatch(outer,ENTRY,pc);verify_resume_dispatch(outer,caller,RETURN)
+    edits={resume_edit[0]:resume_edit[1]}
+    for a,label,word,is_caller in ((ENTRY,pc+4,0x4e800020,False),(caller,RETURN,cw,True)):
+        hits=[p for p,s in src.items() if owns_root(s,a)]
+        if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK leaf owner')
+        p=hits[0];s=edits.get(p,src[p]);body=exact_function(s,a)
+        out=patch_leaf_label(body,label,word,is_caller)
+        edits[p]=include_once(replace_body(s,body,out),'#include "undercover/wii_second_ack_live_v958.h"')
+    return edits
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=False,wireless=False,suffix=False,returned=False,handler=False,handler_return=False,final=False,resumed=False,leaf=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
     if time and not prefix:raise ValueError('ACK time mode')
     if frontier and not time:raise ValueError('ACK frontier mode')
@@ -500,6 +542,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if handler_return and not handler:raise ValueError('ACK handler return mode')
     if final and not handler_return:raise ValueError('ACK final mode')
     if resumed and not final:raise ValueError('ACK resume mode')
+    if leaf and not resumed:raise ValueError('ACK leaf mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -535,6 +578,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     handler_return_meta=verify_handler_return_metadata(dol,elf,old,dest,host,handler_meta) if handler_return else None
     final_meta=verify_final_metadata(dol,elf,old,dest,host,handler_return_meta) if final else None
     resume_meta=verify_resume_metadata(dol,elf,old,dest,final_meta) if resumed else None
+    leaf_meta=verify_leaf_metadata(dol,elf,old,dest,resume_meta) if leaf else None
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
@@ -550,6 +594,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if handler_return_meta:verify_handler_return_native(src,outer,handler_return_meta)
     if final_meta:verify_final_native(src,outer,final_meta)
     resume_edit=prepare_resume_native(src,outer,resume_meta) if resume_meta else None
+    resume_edits=prepare_leaf_native(src,outer,leaf_meta,resume_edit) if leaf_meta else dict([resume_edit]) if resume_edit else {}
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -569,7 +614,10 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
                 raise
     # All checks are complete. Only the opt-in final resume redirects the
     # existing post-tick observer; no original instruction is modified.
-    if resume_edit:resume_edit[0].write_text(resume_edit[1])
+    for path,content in resume_edits.items():path.write_text(content)
+    if leaf_meta:
+        (dest/'v1227_private_ack_leaf.h').write_text(render_leaf(leaf_meta[0],leaf_meta[1],leaf_meta[3]))
+        (dest/'wii_irq_leaf_finish_v927.h').write_text((host/'wii_irq_leaf_finish_v927.h').read_text())
     result.write_text(render(spans,edges,rows,msr,expected,callback_guard))
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
@@ -583,6 +631,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if handler_return:extra+='#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n'
     if final:extra+='#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n'
     if resumed:extra+='#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n'
+    if leaf:extra+='#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
@@ -595,13 +644,14 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     if handler_return:print('V1215_ACK_HANDLER_RETURN_METADATA installed=1 restore_labels=16 tail_labels=4 dispatcher_resume=1 outer_tick=1 execution=0')
     if final:print(f'V1218_ACK_FINAL_METADATA installed=1 labels={len(final_meta[0])} original_rfi=1 separate_witness=1 execution=0')
     if resumed:print('V1221_ACK_RESUME_METADATA installed=1 original_label=1 outer_dispatch=1 legacy_preserved=1 execution=0')
+    if leaf:print('V1228_ACK_LEAF_METADATA installed=1 original_labels=3 caller_dispatch=1 original_extract=1 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');p.add_argument('--frontier',action='store_true');p.add_argument('--wireless',action='store_true');p.add_argument('--suffix',action='store_true');p.add_argument('--returned',action='store_true');p.add_argument('--handler',action='store_true');p.add_argument('--handler-return',action='store_true');p.add_argument('--final',action='store_true');p.add_argument('--resumed',action='store_true');p.add_argument('--leaf',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time,a.frontier,a.wireless,a.suffix,a.returned,a.handler,a.handler_return,a.final,a.resumed,a.leaf)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
@@ -615,6 +665,8 @@ def main():
         safe|={'ACK handler return '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode','hook','dispatch')}
         safe|={'ACK final '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode','hook')}
         safe|={'ACK resume '+s for s in ('predecessor','metadata','owner','coverage','mode','hook')}
+        safe|={'ACK leaf '+s for s in ('predecessor','destination','owner','coverage','mode','hook')}
+        safe|={'IRQ leaf shape','caller owner','IRQ return label','IRQ return tick','IRQ return scheduler'}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1
