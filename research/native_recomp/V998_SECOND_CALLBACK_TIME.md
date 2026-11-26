@@ -1,0 +1,3 @@
+# V998: original second-handler callback time return
+
+V996 private job 139597213815 verified all eight original callback prefix and eight successful queued transfer/alarm profiles, with zero interpreter fallback. V997 compiled all ten dual-frontier cases and five outer-dispatch tick controls. V998 extends the same original callback through its next direct time call, independently authenticating the continuation and reusing the original shared time root and leaves. Join CallbackTimeWitness at the same authenticated prologue-return tick, preserving ACK ownership and saved context; check exact leaves, timebase reads, offset and ABI. Keep previous prefix and successful alarm profiles as regressions. Private tests pending. No continuous boot claim.
