@@ -1,0 +1,5 @@
+# V1413 independently written IPC request-ring contract
+
+The V1411 owner refusal occurred before the IPC helper, at the first unadmitted store. V1412 adds bounded diagnostics. As a cross-version hypothesis, the public zeldaret/tp Wii SDK reconstruction (libs/revolution/src/ipc/ipcclt.c) describes an inlined request-ring enqueue followed by an IPC profiling helper. This is a comparative reference, not proof of Undercover's object identity or exact layout.
+
+V1413 implements a separate source-only read-only observer for exactly one enqueue: one request slot, one write index, one write counter, preserving every other cell including the read cursor and occupied slots. It validates occupancy, index consistency, address bounds, identity, wrapping counters and cursor values. Tests exercise 16- and 48-entry synthetic rings, normal and wrapped counters, invalid destination, wrong values, missing/duplicate stores and unexpected mutation. No original code or private bytes are included. No owner integration or execution is claimed until the actual owner geometry is authenticated.
