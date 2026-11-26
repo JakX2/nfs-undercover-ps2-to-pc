@@ -1,0 +1,21 @@
+name: Wii V1306 Cooperative Context Provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1306*'
+      - '.github/workflows/wii-v1306-cooperative-context.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify cooperative save and RFI ABI separately from IRQ context
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_cooperative_context_v1306.cpp -o /tmp/v1306
+          /tmp/v1306
