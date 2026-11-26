@@ -13,6 +13,9 @@
 #include "wii_second_vector_v939.h"
 #include "v1260_private_vector.h"
 #endif
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+#include "v1261_private_dispatch.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -50,6 +53,12 @@ static unsigned vector_count=0;
 static uint64_t vector_tick=0;
 static ColdIpcSnapshot vector_mail{};
 struct VectorStop{};
+#endif
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+static IpcDispatchWitness* ipc_dispatch=nullptr;
+static uint32_t dispatch_queue=0;
+static unsigned dispatch_count=0;
+struct DispatchStop{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -105,6 +114,19 @@ void v1260_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!ipc_vector.before(c,pc,w,cause.load(),mask.load(),vector_held(c)))vector_refuse(1);
 }
 #endif
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+static void dispatch_refuse(unsigned kind){
+    std::cout<<"V1261_DISPATCH_REFUSAL kind="<<kind<<" stage="<<ipc_dispatch->stage()
+        <<" reason="<<ipc_dispatch->failure()<<" reads="<<ipc_dispatch->cause_reads()+ipc_dispatch->mask_reads()<<'\n';
+    throw WitnessFailure{};
+}
+void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!ipc_dispatch)return; // shared interrupt helpers run earlier
+    auto s=B::cold_snapshot();
+    const bool guard=std::find(v1261::guard.begin(),v1261::guard.end(),pc)!=v1261::guard.end();
+    if(!s||!ipc_dispatch->before(c,pc,w,guard,*s,device_ok(c)))dispatch_refuse(1);
+}
+#endif
 static void submit_trace(uint32_t pc,nw::CPUContext& c){
     need(submit_join);
     const bool ok=submit_join->observe(c,pc,device_ok(c));
@@ -124,6 +146,18 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    if(ipc_dispatch){
+        auto s=B::cold_snapshot();need(s.has_value());
+        if(!ipc_dispatch->stage()){
+            if(!ipc_dispatch->begin(c,irq_capture,*s,dispatch_queue,device_ok(c)))dispatch_refuse(2);
+        }else{
+            if(!ipc_dispatch->observe(c,pc,*s,device_ok(c)))dispatch_refuse(3);
+            if(ipc_dispatch->stage()==6u){++dispatch_count;throw DispatchStop{};}
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1260_IRQ_VECTOR
     if(vector_active){
         if(!ipc_vector.stage()){
@@ -181,6 +215,15 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    if(ipc_dispatch){
+        auto s=B::cold_snapshot();need(s.has_value());
+        if(!ipc_dispatch->stage()){
+            if(c.pc!=v1260::dispatcher||!same_scheduler_ipc_snapshot(*s,vector_mail)||!device_ok(c))dispatch_refuse(4);
+        }else if(!ipc_dispatch->poll(c,*s,device_ok(c)))dispatch_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1260_IRQ_VECTOR
     if(vector_active){
         if(!ipc_vector.stage()){
@@ -272,6 +315,14 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    if(ipc_dispatch){
+        if(p!=IosBus::PI_CAUSE&&p!=IosBus::PI_MASK)dispatch_refuse(5);
+        B::refresh_pi(a);const auto v=p==IosBus::PI_CAUSE?cause.load():mask.load();
+        if(!ipc_dispatch->read(a,v))dispatch_refuse(5);
+        return v;
+    }
+#endif
     if(p==IosBus::PI_MASK)return mask.load();
     if(submit_host&&(p==IosBus::IPC+M::PPCCTRL||p==IosBus::MIRROR+M::PPCCTRL)){auto v=B::read32(a);need(v.has_value());return *v;}
     if(p==IosBus::IPC+H::PPC_MASK||p==IosBus::MIRROR+H::PPC_MASK){
@@ -280,6 +331,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    if(ipc_dispatch)dispatch_refuse(6);
+#endif
     const auto p=a&0x3fffffffu;
     if(submit_host){
         // The guest CPU is available only in this isolated harness; keep
@@ -349,6 +403,10 @@ int main()try{
         // Previously installed OS exception-handler metadata, not guest context.
         c.mmu.write32(0x80000048u,0x004e5090u);
         c.mmu.write32(0x80003010u,v1260::trampoline);
+#endif
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+        for(auto w:v1261::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(W::Sda+v1261::counter_disp,0u);
 #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
@@ -443,6 +501,17 @@ int main()try{
              c.mmu.read32(sleep.queue())==Q::Thread&&c.mmu.read32(sleep.queue()+4u)==Q::Thread);
         vector_active=false;
         std::cout<<"V1260_VECTOR_TRIAL n="<<trial<<" saved_fields=38 original_vector=1 trampoline=1 pending_ack=1 dispatcher_executed=0\n";
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+        IpcDispatchWitness dispatch({v1261::code,v1261::handler,Q::Idle,Q::Thread,W::Table,W::IrqGlobal,W::Sda+v1261::counter_disp});
+        ipc_dispatch=&dispatch;dispatch_queue=sleep.queue();bool handler_reached=false;
+        try{run_game(c);}catch(const DispatchStop&){handler_reached=true;}
+        need(handler_reached&&dispatch.stage()==6u&&dispatch_count==trial+1u&&
+             dispatch.cause_reads()&&dispatch.mask_reads()&&c.pc==v1261::handler&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&
+             irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
+        ipc_dispatch=nullptr;
+        std::cout<<"V1261_DISPATCH_TRIAL n="<<trial<<" original_dispatcher=1 index=27 context=1 pi_reads=1 handler_entry=1 handler_executed=0\n";
+#endif
 #endif
 #endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
@@ -456,6 +525,10 @@ int main()try{
 #ifdef UNDERCOVER_V1260_IRQ_VECTOR
     need(vector_count==8u);
     std::cout<<"V1260_VECTOR_NATIVE owner=1 trials=8 original_vector=8 trampoline=8 saved_fields=38 dispatcher_entry=8 dispatcher_executed=0 pending_ack=8 reply=0 fallback=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    need(dispatch_count==8u);
+    std::cout<<"V1261_DISPATCH_NATIVE owner=1 trials=8 dispatcher=8 ipc_index=27 handler_entry=8 handler_executed=0 pending_ack=8 reply=0 fallback=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 }catch(const WitnessFailure&){

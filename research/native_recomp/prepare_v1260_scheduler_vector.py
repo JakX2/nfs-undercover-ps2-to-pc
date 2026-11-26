@@ -48,8 +48,9 @@ def render(v,t,d):
         f'inline constexpr std::array<uint32_t,38> vector_words{{{f(v)}}};\n'
         f'inline constexpr std::array<uint32_t,20> trampoline_words{{{f(t)}}};\n}}\n')
 
-def analyzer(s):
-    spans=((VECTOR,152),(TRAMP,80),(DISPATCH,8))
+def analyzer(s,dispatcher_size=8):
+    if dispatcher_size not in (8,0x2a4):raise ValueError('dispatcher extent')
+    spans=((VECTOR,152),(TRAMP,80),(DISPATCH,dispatcher_size))
     roots=ANALYZE_ROOT+'\n    const auto ipc_vector_owner=[](uint32_t a)->uint32_t {\n'+''.join(
         f'      if(a>=0x{pc:08x}u&&a<0x{pc+n:08x}u)return 0x{pc:08x}u;\n' for pc,n in spans)+
         '      return 0;\n    };\n    if(ipc_vector_owner(func_start)&&ipc_vector_owner(func_start)!=func_start)continue;'
