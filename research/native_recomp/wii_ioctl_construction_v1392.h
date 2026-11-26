@@ -20,6 +20,9 @@ public:
     unsigned base_class()const{return fence_.base_class();}
     unsigned ordinal()const{return ordinal_;}
     unsigned flush_kind()const{return flush_kind_;}
+    uint32_t request()const{return request_;}
+    uint32_t output()const{return output_;}
+    uint32_t output_size()const{return out_size_;}
     unsigned wire_failure()const{return wire_error_;}
     unsigned control_failure()const{return control_error_;}
     template<class C>bool capture(C& c,bool held,unsigned first){

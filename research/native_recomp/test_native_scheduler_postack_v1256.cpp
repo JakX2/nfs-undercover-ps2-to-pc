@@ -77,6 +77,9 @@
 #include "v1392_private_ioctl_construction.h"
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
 #include "v1398_private_ioctl_flush.h"
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+#include "v1401_private_ioctl_output.h"
+#endif
 #endif
 #endif
 #endif
@@ -282,6 +285,10 @@ static unsigned ioctl_build_count=0;
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
 static std::unique_ptr<IoctlFirstFlushWitness> ioctl_flush;
 static unsigned ioctl_flush_count=0;
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+static std::unique_ptr<IoctlFlushTailWitness> ioctl_tail;
+static unsigned ioctl_output_count=0,ioctl_submit_count=0,ioctl_input_lines=0,ioctl_output_lines=0;
+#endif
 #endif
 #endif
 #endif
@@ -416,7 +423,17 @@ static bool ioctl_flush_held(nw::CPUContext& c){return ioctl_build&&ioctl_build-
     throw WitnessFailure{};
 }
 #endif
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+[[noreturn]]static void ioctl_tail_refuse(unsigned kind){
+    std::cout<<"V1401_TAIL_REFUSAL kind="<<kind<<" stage="<<(ioctl_tail?ioctl_tail->stage():0u)
+        <<" reason="<<(ioctl_tail?ioctl_tail->failure():0u)<<" visits="<<(ioctl_tail?ioctl_tail->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1392_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+    if(ioctl_tail){if(!ioctl_tail->before(c,pc,w,ioctl_flush_held(c)))ioctl_tail_refuse(2);return;}
+#endif
     if(!ioctl_build||!ioctl_build->before(c,pc,w,ioctl_alloc_held(c)))ioctl_build_refuse(2);
 }
 #endif
@@ -844,10 +861,38 @@ void trace_call(uint32_t pc,CPUContext& c){
     #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
     if(ioctl_flush){
         if(!ioctl_flush->trace(c,pc,pc==OpenScRoute::Vector||ioctl_flush_held(c)))ioctl_flush_refuse(2);
-        if(ioctl_flush->stage()==4u){++ioctl_flush_count;throw StmIoctlReached{};}
+        if(ioctl_flush->stage()==4u){
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+            if(!ioctl_flush->returned(c,ioctl_flush_held(c)))ioctl_flush_refuse(2);
+            if(!ioctl_tail){
+                if(ioctl_build->flush_kind()!=1u)ioctl_tail_refuse(1);
+                ++ioctl_flush_count;ioctl_input_lines=ioctl_flush->lines();
+                ioctl_tail=std::make_unique<IoctlFlushTailWitness>(v1401::expected);
+                if(!ioctl_tail->begin(c,ioctl_flush_held(c),ioctl_build->request(),ioctl_build->output(),ioctl_build->output_size()))ioctl_tail_refuse(1);
+            }else{
+                ++ioctl_output_count;ioctl_output_lines=ioctl_flush->lines();
+                if(!ioctl_tail->output_return(c,ioctl_flush_held(c)))ioctl_tail_refuse(3);
+            }
+            ioctl_flush.reset();
+#else
+            ++ioctl_flush_count;throw StmIoctlReached{};
+#endif
+        }
         return;
     }
     #endif
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+    if(ioctl_tail){
+        if(!ioctl_tail->entry(c,pc,ioctl_flush_held(c)))ioctl_tail_refuse(4);
+        if(ioctl_tail->stage()==2u){
+            ioctl_flush=std::make_unique<IoctlFirstFlushWitness>(v1398::expected,v626::vector,second_irq_kind,2u);
+            if(!ioctl_flush->begin(c,ioctl_flush_held(c)))ioctl_flush_refuse(1);
+            return;
+        }
+        if(ioctl_tail->stage()==4u){++ioctl_submit_count;throw StmIoctlReached{};}
+        ioctl_tail_refuse(4);
+    }
+#endif
     if(ioctl_build&&ioctl_build->stage()==2u){
         if(!ioctl_build->entry(c,pc,ioctl_alloc_held(c)))ioctl_build_refuse(3);
         ++ioctl_build_count;
@@ -1215,6 +1260,9 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
     if(ioctl_flush){if(!ioctl_flush->poll(c,ioctl_flush_held(c)))ioctl_flush_refuse(3);return false;}
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+    if(ioctl_tail)ioctl_tail_refuse(5);
+#endif
 #endif
     if(ioctl_build&&ioctl_build->stage()==2u){
         if(!ioctl_build->poll(c,ioctl_alloc_held(c)))ioctl_build_refuse(4);
@@ -2513,7 +2561,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
 #ifdef UNDERCOVER_V1392_IOCTL_CONSTRUCTION
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+        need(ioctl_reached&&ioctl_tail&&ioctl_tail->reached(c,ioctl_flush_held(c))&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_flush&&ioctl_flush->returned(c,ioctl_flush_held(c))&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&build3.reached(c,ioctl_alloc_held(c))&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -2539,8 +2591,14 @@ int main(int argc,char** argv)try{
         std::cout<<"V1392_CONSTRUCTION_TRIAL n="<<trial<<" original_request=1 callback=1 first_flush=1 flush_kind="<<build3.flush_kind()
                  <<" stores="<<build3.stores()<<" request="<<build3.request_stores()<<'\n';
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+        std::cout<<"V1398_FLUSH_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 lines="<<ioctl_input_lines<<" empty=0\n";
+        std::cout<<"V1401_OUTPUT_TRIAL n="<<trial<<" second_flush=1 native_rfi=1 submit_entry=1 lines="<<ioctl_output_lines<<" visits="<<ioctl_tail->visits()<<'\n';
+        ioctl_tail.reset();
+#else
         std::cout<<"V1398_FLUSH_TRIAL n="<<trial<<" original_flush=1 native_rfi=1 masked=1 lines="<<ioctl_flush->lines()<<" empty="<<ioctl_flush->zero()<<'\n';
         ioctl_flush.reset();
+#endif
 #endif
         ioctl_build=nullptr;
 #endif
@@ -2661,6 +2719,10 @@ int main(int argc,char** argv)try{
     need(ioctl_build_count==8u);
 #ifdef UNDERCOVER_V1398_IOCTL_FLUSH
     need(ioctl_flush_count==8u);
+#ifdef UNDERCOVER_V1401_IOCTL_OUTPUT
+    need(ioctl_output_count==8u&&ioctl_submit_count==8u);
+    std::cout<<"V1401_OUTPUT_NATIVE owner=1 trials=8 second_flush_return=8 native_rfi=8 submit_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1398_FLUSH_NATIVE owner=1 trials=8 first_flush_return=8 native_rfi=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1392_CONSTRUCTION_NATIVE owner=1 trials=8 request=8 first_flush_entry=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
