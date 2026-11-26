@@ -29,6 +29,9 @@ public:
         for(auto s:e_.sites){
             if(s.width!=4u||s.reg>31u||!e_.flag.contains(s.address,4u)||!known(c,s.pc)||
                (s.address&3u)||c.mmu.read32(s.pc)>>26!=36u)return fail(1);
+            const auto w=c.mmu.read32(s.pc);const unsigned ra=(w>>16)&31u;
+            if((ra!=2u&&ra!=13u)||((w>>21)&31u)!=s.reg||
+               c.gpr[ra]+uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000)!=s.address)return fail(1);
         }
         if(e_.sites[0].pc==e_.sites[1].pc||e_.sites[0].address!=e_.sites[1].address)return fail(1);
         for(unsigned i=0;i<e_.flag.size;++i)shadow_.push_back(c.mmu.read8(e_.flag.base+i));
