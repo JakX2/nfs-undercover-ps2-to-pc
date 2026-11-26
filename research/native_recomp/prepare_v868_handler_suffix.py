@@ -92,7 +92,7 @@ def verify_handler_label(body,pc,w,o,k,resume):
     elif 'v850::handler_resume' in block or 'v850::dispatch_resume' in block:
         raise ValueError('handler suffix resume order')
 
-def install(dol,elf,root,host):
+def derive(dol,elf):
     n,*_=geometry(dol,elf);words=exact(dol,elf,HANDLER,n)
     _,_,sites=expectations(dol,elf)
     rows=[lane(HANDLER,words,pc+4,expect) for pc,expect in zip(sites,
@@ -116,6 +116,10 @@ def install(dol,elf,root,host):
     table=candidates[0][1]
     if any(a&3 or sum(lo<=a and a+4<=hi for lo,hi in spans)!=1 for a in table):raise ValueError('index branch data')
     index=(start,branch_code,table,channel_register(branch_code),target(start+52,branch_code[13]))
+    return words,sites,rows,status_site,status_write_site,index
+
+def install(dol,elf,root,host):
+    words,sites,rows,status_site,status_write_site,index=derive(dol,elf)
     merged={}
     for r in rows:
         for pc,row in r.items():

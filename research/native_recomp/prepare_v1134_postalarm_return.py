@@ -51,7 +51,7 @@ def patch_return_label(body,pc,w,dispatch=False):
     verify_resume(out,pc,w)
     return out
 
-def install(dol,elf,root,host):
+def derive(dol,elf):
     joined,C,resume,seen,stops=plan(dol,elf,True)
     roots=joined[1][0][0]
     original=exact(dol,elf,C,172);candidate,words,sites=expectations(dol,elf)
@@ -69,6 +69,11 @@ def install(dol,elf,root,host):
     if any(w!=0x4e800421 for _,w,_,_ in callers):raise ValueError('postalarm return caller')
     site,word,ordinal,caller_word=callers[0];caller=site+4
     suffix_words={pc:original[(pc-C)//4] for pc in seen}
+    return C,resume,suffix_words,stops,words,call,R,caller,restore,tail,caller_word,callers
+
+def install(dol,elf,root,host):
+    C,resume,suffix_words,stops,words,call,R,caller,restore,tail,caller_word,callers=derive(dol,elf)
+    site,word,_,_=callers[0]
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     suffix_header=dest/'v1123_private_postalarm_suffix.h';prior=dest/'v850_private_callback_return.h'
     result=dest/'v1132_private_postalarm_return.h'
