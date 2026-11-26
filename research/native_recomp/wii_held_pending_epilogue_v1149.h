@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_third_alarm_suffix_v1047.h"
 #include "wii_third_pending_reentry_v1067.h"
+#include "wii_callback_identity_v796.h"
 namespace undercover::wii {
 struct ThirdAckNativeLabel {uint32_t pc,word,owner;bool guard;};
 inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labels,uint32_t pc,uint32_t w){
@@ -12,6 +13,7 @@ inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labe
     return owner;
 }
 struct HeldAckHelperExpectation {uint32_t pc,word;unsigned visits,entries,returns,msr;};
+struct HeldAckCallbackExpectation {uint32_t site,word;unsigned visits,ordinal;};
 // Join the actual held handler return to the real scheduler/context loader.
 // Only the existing external-exception entry routine changes CPU state;
 // the native RFI and all guest instructions remain emitter-owned.
@@ -43,7 +45,7 @@ public:
         cpu_=&c;frame_=&frame;dev_=&dev;ctl_=&ctl;cause_=&cause;mask_=&mask;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w){
-        if(stage_==8u||stage_==10u)return ack_before(c,0u,pc,w,false);
+        if(stage_==8u||stage_==10u||stage_==12u)return ack_before(c,0u,pc,w,false);
         if(stage_==6u)return dispatch_before(c,pc,w,false);
         if(stage_==4u)return same(c)&&no_si(c,w)&&next_.before(c,pc,w)?true:fail(5);
         if(stage_!=1u||!same(c)||!no_si(c,w)||c.inst_count-last_!=1u||
@@ -54,7 +56,7 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc){
-        if(stage_==8u||stage_==10u)return same(c)&&next_.ack_entry(c,pc)?true:fail(10);
+        if(stage_==8u||stage_==10u||stage_==12u)return same(c)&&next_.ack_entry(c,pc)?true:fail(10);
         if(stage_==6u){
             if(!same(c)||!dispatch_||!next_.dispatch_entry(c,pc)||++dispatch_entries_>5u)return fail(7);
             if(next_.stage()==6u){
@@ -77,7 +79,7 @@ public:
                ep_.entry(c,pc,cause_->load(),mask_->load())?true:fail(3);
     }
     template<class C,size_t N>PollResult poll(C& c,const std::array<uint8_t,N>& image){
-        if(stage_==8u||stage_==10u)return same(c)&&next_.ack_poll(c)?PollResult::Continue:reject(10);
+        if(stage_==8u||stage_==10u||stage_==12u)return same(c)&&next_.ack_poll(c)?PollResult::Continue:reject(10);
         if(stage_==6u)return same(c)&&dispatch_&&++dispatch_polls_<=256u&&next_.dispatch_poll(c)?PollResult::Continue:reject(8);
         if(stage_==4u)return same(c)&&next_.poll(c)?PollResult::Continue:reject(5);
         if(stage_==3u)return same(c)&&next_.outer_poll(c)?PollResult::Continue:reject(5);
@@ -121,7 +123,10 @@ public:
         stage_=8u;return true;
     }
     template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w,bool guard){
-        if((stage_!=8u&&stage_!=10u)||guard||!same(c)||++ack_visits_>2048u||!next_.ack_before(c,owner,pc,w))return fail(10);
+        if((stage_!=8u&&stage_!=10u&&stage_!=12u)||guard||!same(c)||++ack_visits_>2048u)return fail(10);
+        if(stage_==12u&&(!callback_||pc==callback_->site||ack_visits_-helper_boundary_visits_>=callback_->visits))return fail(16);
+        if(!next_.ack_before(c,owner,pc,w))return fail(10);
+        if(stage_==12u)return true;
         if(stage_==10u){
             const auto& calls=next_.ack_calls();
             if(!helper_||ack_visits_-ack_boundary_visits_>helper_->visits)return fail(14);
@@ -130,7 +135,7 @@ public:
                 if(pc!=helper_->pc||w!=helper_->word||ack_visits_-ack_boundary_visits_!=helper_->visits||
                    calls.entries()!=helper_->entries||calls.returns()!=helper_->returns||calls.msr_writes()!=helper_->msr||
                    !next_.postack_held(c))return fail(14);
-                stage_=11u;
+                helper_boundary_visits_=ack_visits_;stage_=11u;
             }else if(ack_visits_-ack_boundary_visits_==helper_->visits)return fail(14);
             return true;
         }
@@ -141,10 +146,10 @@ public:
         return true;
     }
     bool ack_read(SiController& ctl,unsigned off,uint32_t& v){
-        return (stage_==8u||stage_==10u)&&!error_&&ctl_==&ctl&&next_.ack_read(off,v)?true:fail(11);
+        return (stage_==8u||stage_==10u||stage_==12u)&&!error_&&ctl_==&ctl&&next_.ack_read(off,v)?true:fail(11);
     }
     bool ack_write(SiController& ctl,unsigned off,uint32_t v){
-        return (stage_==8u||stage_==10u)&&!error_&&ctl_==&ctl&&next_.ack_write(off,v)?true:fail(12);
+        return (stage_==8u||stage_==10u||stage_==12u)&&!error_&&ctl_==&ctl&&next_.ack_write(off,v)?true:fail(12);
     }
     template<class C>bool ack_saved(C& c){return stage_==9u&&same(c)&&next_.ack_boundary(c);}
     template<class C>bool resume_ack(C& c,uint32_t pc,uint32_t w,HeldAckHelperExpectation e){
@@ -156,14 +161,34 @@ public:
     template<class C>bool helper_saved(C& c){
         return stage_==11u&&same(c)&&next_.postack_held(c);
     }
-    unsigned helper_visits()const{return ack_boundary_visits_?ack_visits_-ack_boundary_visits_:0u;}
+    template<class C>bool resume_helper(C& c,uint32_t pc,uint32_t w,HeldAckCallbackExpectation e){
+        if(!helper_saved(c)||!helper_||callback_||pc!=helper_->pc||w!=helper_->word||
+           e.site==pc||(e.site&3u)||e.site<0x80000000u||e.site>0x817ffffcu||
+           e.word!=0x4e800421u||!e.visits||e.visits>1024u||e.ordinal!=6u||
+           !next_.ack_calls().can_poll())return fail(15);
+        callback_=e;stage_=12u;return true;
+    }
+    template<class C,std::size_t N>bool callback_frontier(C& c,uint32_t owner,uint32_t pc,uint32_t w,uint32_t target,
+            const std::array<uint32_t,N>& words,const std::array<uint32_t,2>& sites){
+        if(stage_!=12u||!same(c)||!callback_||!helper_||pc!=callback_->site||w!=callback_->word||
+           owner!=SiDispatchWitness::Handler||++ack_visits_>2048u||ack_visits_-helper_boundary_visits_!=callback_->visits||
+           c.gpr[3]>=4u||c.ctr!=target||next_.ack_calls().entries()!=helper_->entries||
+           next_.ack_calls().returns()!=helper_->returns||next_.ack_calls().msr_writes()!=helper_->msr||
+           classify_callback_identity(c,pc,w,callback_->ordinal,2u,target,words,sites)!=2u||
+           !next_.stop_before_callback(c,owner,pc,w)||!next_.callback_boundary(c))return fail(16);
+        stage_=13u;return true;
+    }
+    template<class C>bool callback_saved(C& c){return stage_==13u&&same(c)&&next_.callback_boundary(c);}
+    unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
+    unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
     const SecondCompletionAck& completion_ack()const{return next_.completion_ack();}
     const BoundedAckCallRoute& ack_calls()const{return next_.ack_calls();}
 private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
-    std::optional<HeldAckHelperExpectation> helper_;unsigned ack_boundary_visits_=0;
+    std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
+    unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
     const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;

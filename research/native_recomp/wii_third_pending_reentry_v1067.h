@@ -146,6 +146,10 @@ public:
            !ack_calls_.stop_before_indirect(c,pc,w))return fail(18);
         callback_site_=pc;callback_word_=w;stage_=10u;return true;
     }
+    template<class C>bool callback_boundary(C& c)const{
+        return stage_==10u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()&&ack_calls_.depth()==0u&&ack_calls_.can_poll();
+    }
     // A fresh callback witness takes over the exact unexecuted indirect
     // call. The cleared third ACK retains exclusive device ownership.
     template<class C,class W>bool begin_callback(C& c,W& witness,uint32_t pc,uint32_t w,bool identity){

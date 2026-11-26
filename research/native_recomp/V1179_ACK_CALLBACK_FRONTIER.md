@@ -1,0 +1,3 @@
+# V1179: post-ACK alternate callback frontier witness
+
+Resume the exact original helper-return label without replaying its native observation, verify the same token and saved frame, then stop before the ordinal-six original indirect callback. Require original target words, exact callback site, aligned CTR identity, valid channel, unchanged helper call/return/MSR census and no extra handler timing route. The focused original reference is 71 additional visits. Eight positive and twelve negative original-free scenarios. Move source-only installer/audit checks before the expensive live fixture so failures are independently visible. CI pending; no new original execution claim.
