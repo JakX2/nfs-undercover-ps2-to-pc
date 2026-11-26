@@ -23,13 +23,14 @@ def validate(record):
         raise ValueError('frontier frame missing')
     return len(path)-1,len(set(path[:-1])),frame,sites,n,len(saves)
 
-def plan(d,e):
-    missed=[]
-    try:nested(d,e,read_refusal=lambda *args:missed.append(args))
+def plan(d,e,*,details=False):
+    missed=[];entries=[]
+    try:nested(d,e,read_refusal=lambda *args:missed.append(args),entry_observer=lambda *args:entries.append(args))
     except ValueError:
-        if len(missed)!=1:raise ValueError('frontier refusal')
+        if len(missed)!=1 or len(entries)!=1:raise ValueError('frontier refusal')
     else:raise ValueError('frontier no refusal')
-    return validate(missed[0]),classify_section(e,missed[0][0],missed[0][1])
+    result=validate(missed[0]),classify_section(e,missed[0][0],missed[0][1])
+    return (*result,entries[0],missed[0]) if details else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

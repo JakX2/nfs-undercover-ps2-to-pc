@@ -43,7 +43,7 @@ def nested(root,words,gp,mem,state,readonly,caller_pc,*,read_resolver=None,read_
     if out_gp[1]!=('stack',sp-frame):raise ValueError('nested stack identity')
     return result
 
-def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None):
+def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None,entry_observer=None):
     path,frame,accesses,saved,leaf_root,gp,mem,ws,state,readonly=prefix_plan(d,e,details=True)
     leaf=leaf_run(leaf_root,exact_words(d,e,leaf_root,12),gp,readonly,mem,initial_cr=state[2],details=True)
     if len(leaf[0])!=8 or len(leaf[1])!=1 or len(leaf[3])!=12:raise ValueError('nested predecessor')
@@ -53,6 +53,8 @@ def plan(d,e,*,on_unknown=None,candidate=None,read_refusal=None):
     if sizes.get(root)!=383*4:raise ValueError('nested function geometry')
     # Only pass parent cells at or above the live caller stack pointer.
     parent={at:v for at,v in out_mem.items() if at>=out_gp[1][1]}
+    if entry_observer is not None:
+        entry_observer(root,tuple(out_gp),dict(parent),active[-1]+4,tuple(readonly))
     extra=set();candidate_used=False
     def resolve(at,n):
         nonlocal candidate_used
