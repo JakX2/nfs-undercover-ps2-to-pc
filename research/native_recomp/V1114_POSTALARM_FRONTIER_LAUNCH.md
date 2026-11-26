@@ -1,0 +1,3 @@
+# V1114: continuous wireless frontier launch and audit
+
+The original acknowledged wireless frontier passed 32/32 in V1108; the exact 17 visits, three stores, zero ID and ordinal 3 are required as the expected held-token result, not claimed as a continuous observation. Match explicit V1114 run and V1113 prepare flags and require V1107 time predecessor. Strict audit verifies all earlier markers and this exact terminal, with an allowlisted diagnostic for unexpected original branch geometry. Existing time-only and alarm-only modes remain default-compatible. No owner full-image rerun enabled; source-only verification pending.

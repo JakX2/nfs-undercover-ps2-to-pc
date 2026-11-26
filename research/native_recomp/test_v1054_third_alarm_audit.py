@@ -85,4 +85,27 @@ class PostAlarmTimeAudit(unittest.TestCase):
             self.assertFalse(inspect(*prior,result,rc=126))
             self.assertFalse(inspect(*prior[:-1],prefix.replace(b'visits=13',b'visits=12'),result))
 
+class PostAlarmFrontierAudit(unittest.TestCase):
+    def test_order_and_exact_frontier(self):
+        import audit_v1114_postalarm_frontier as f
+        p=f.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=2 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,f.time.RESULT)
+        result=f.RESULT
+        def inspect(*rows,rc=0):return f.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,result))
+            for old,new in ((b'ordinal=3',b'ordinal=5'),(b'visits=17',b'visits=16'),(b'writes=3',b'writes=2'),
+                            (b'zero_id=1',b'zero_id=0'),(b'token=3',b'token=4'),(b'held=1',b'held=0'),
+                            (b'saved_fields=38',b'saved_fields=37'),(b'call_executed=0',b'call_executed=1'),
+                            (b'boot_verified=0',b'boot_verified=1')):
+                with self.subTest(old=old):self.assertFalse(inspect(*prior,result.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],result),(*prior[:-1],result,f.time.RESULT),
+                         (*prior,f.time.RESULT,result),(*prior,result,result),(*prior,result,b'V1114_POSTALARM_FRONTIER_CENSUS verified=1'),
+                         (*prior,b'V1111_POSTALARM_FRONTIER_FAULT route=11 witness=3 stage=6',result),
+                         (*prior,result,b'V958_ACK_INVALID'),(*prior,b'V1087_ALARM_SEAM kind=1 stage=2 reason=3',result)):
+                with self.subTest(rows=rows[-3:]):self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,result,rc=126))
+            self.assertFalse(inspect(*prior[:-1],f.time.RESULT.replace(b'reads=3',b'reads=2'),result))
+
 if __name__=='__main__':unittest.main()
