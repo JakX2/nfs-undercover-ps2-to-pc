@@ -26,6 +26,22 @@ CALLBACK='undercover::wii::v958::callback_active()'
 OLD_SUPPRESS=f'    if(!{OLD_THIRD}&&!{OLD_ACTIVE}) {{ '
 NEW_SUPPRESS=f'    if(!{OLD_THIRD}&&!{OLD_ACTIVE}&&!{ACTIVE}) {{ '
 
+def inherited_hooks(pc,w):
+    # Exact forms emitted by V958, V1009, V1029 and V1048.
+    # V1029 can share the compiler save alias with the third callback.
+    # Preserve its prior owner, and collapse an adjacent pair of
+    # mutually exclusive owners into one observer at the original tick.
+    base=f'undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{w:08x}u,'
+    current='    '+base+'false);\n';guard='    '+base+'true);\n'
+    cond=lambda name:'    if('+name+') '+current.lstrip()
+    allowed={current:current,guard:cond(ACTIVE)+'    else '+guard.lstrip()}
+    for prior in (CALLBACK,OLD_ACTIVE,OLD_ACTIVE+'||'+CALLBACK,OLD_THIRD):
+        allowed[cond(prior)]=cond(prior+'||'+ACTIVE)
+    for prior in (OLD_ACTIVE,OLD_THIRD):
+        allowed[cond(prior)+'    else '+guard.lstrip()]=cond(prior+'||'+ACTIVE)+'    else '+guard.lstrip()
+    allowed[cond(OLD_THIRD)+cond(CALLBACK)]=cond(OLD_THIRD+'||'+CALLBACK+'||'+ACTIVE)
+    return allowed
+
 def patch_label(body,pc,w):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
     hits=list(pat.finditer(body))
@@ -41,10 +57,7 @@ def patch_label(body,pc,w):
     observed=''.join(hits)
     if hits:
         if block.count(observed)!=1 or block.index(observed)<block.index(SI):raise ValueError('postalarm hook')
-        allowed={current:current,guard:cond(ACTIVE)+'    else '+guard.lstrip()}
-        for prior in (CALLBACK,OLD_ACTIVE,OLD_ACTIVE+'||'+CALLBACK):
-            allowed[cond(prior)]=cond(prior+'||'+ACTIVE)
-            if prior==OLD_ACTIVE:allowed[cond(prior)+'    else '+guard.lstrip()]=cond(prior+'||'+ACTIVE)+'    else '+guard.lstrip()
+        allowed=inherited_hooks(pc,w)
         if observed not in allowed:raise ValueError('postalarm hook')
         block=block.replace(observed,allowed[observed],1)
     else:
@@ -104,7 +117,13 @@ def install(dol,elf,root,host):
             if addr==C:verify_direct(body,save_site,S)
         expected={pc:(addr,expected_words[(pc-addr)//4]) for pc in pcs}
         if audit_native([body],outer,expected)!=len(expected):raise ValueError('postalarm coverage')
-        for pc,(_,w) in sorted(expected.items()):out=patch_label(out,pc,w)
+        for pc,(_,w) in sorted(expected.items()):
+            try:out=patch_label(out,pc,w)
+            except ValueError as e:
+                # Only a bounded role and ordinal, never private words/PCs.
+                role='handler' if addr==HANDLER else 'callback' if addr==C else 'save'
+                print(f'V1128_POSTALARM_INSTALL_REFUSAL role={role} index={(pc-addr)//4} hook={int(str(e)=="postalarm hook")}')
+                raise
         changes[path]=include_once(replace_body(source,body,out),'#include "undercover/wii_second_ack_live_v958.h"')
         count+=len(expected)
     old=old.replace(macro,macro+'#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n',1)

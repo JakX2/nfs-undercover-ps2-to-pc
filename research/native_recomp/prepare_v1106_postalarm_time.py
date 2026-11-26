@@ -14,7 +14,7 @@ from prepare_v709_os_leaves import owns_root,entry_count
 from prepare_v625_ipc_client import audit_native
 from prepare_v850_callback_return import BLOCK_END
 from prepare_v1029_third_transfer import replace_body,include_once
-from prepare_v1097_after_alarm import patch_label,ACTIVE,OLD_ACTIVE,CALLBACK,OLD_SUPPRESS,fmt,LEGACY
+from prepare_v1097_after_alarm import patch_label,ACTIVE,OLD_ACTIVE,CALLBACK,OLD_SUPPRESS,fmt,LEGACY,inherited_hooks
 
 def verify_resume(body,pc,w):
     pat=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n')
@@ -27,10 +27,7 @@ def verify_resume(body,pc,w):
     base=f'undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{w:08x}u,'
     current='    '+base+'false);\n';guard='    '+base+'true);\n'
     cond=lambda name:'    if('+name+') '+current.lstrip()
-    allowed={current,cond(ACTIVE),cond(ACTIVE)+'    else '+guard.lstrip()}
-    for prior in (CALLBACK,OLD_ACTIVE,OLD_ACTIVE+'||'+CALLBACK):
-        allowed.add(cond(prior+'||'+ACTIVE))
-    allowed.add(cond(OLD_ACTIVE+'||'+ACTIVE)+'    else '+guard.lstrip())
+    allowed=set(inherited_hooks(pc,w).values())|{cond(ACTIVE)}
     observed=''.join(re.findall(r'(?m)^    [^\n]*v958::before\(ctx,[^\n]+\n',block))
     if observed not in allowed or block.count(observed)!=1 or block.index(observed)<block.index(SI) or OLD_SUPPRESS in block or LEGACY.search(block):
         raise ValueError('postalarm time resume')

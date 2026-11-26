@@ -22,7 +22,10 @@ class Hooks(unittest.TestCase):
             (conditional(CALLBACK),conditional(CALLBACK+'||'+ACTIVE)),
             (conditional(OLD_ACTIVE),conditional(OLD_ACTIVE+'||'+ACTIVE)),
             (conditional(OLD_ACTIVE+'||'+CALLBACK),conditional(OLD_ACTIVE+'||'+CALLBACK+'||'+ACTIVE)),
-            (conditional(OLD_ACTIVE)+'    else '+GUARD.lstrip(),conditional(OLD_ACTIVE+'||'+ACTIVE)+'    else '+GUARD.lstrip())):
+            (conditional(OLD_ACTIVE)+'    else '+GUARD.lstrip(),conditional(OLD_ACTIVE+'||'+ACTIVE)+'    else '+GUARD.lstrip()),
+            (conditional(OLD_THIRD),conditional(OLD_THIRD+'||'+ACTIVE)),
+            (conditional(OLD_THIRD)+'    else '+GUARD.lstrip(),conditional(OLD_THIRD+'||'+ACTIVE)+'    else '+GUARD.lstrip()),
+            (conditional(OLD_THIRD)+conditional(CALLBACK),conditional(OLD_THIRD+'||'+CALLBACK+'||'+ACTIVE))):
             with self.subTest(shape=old):
                 self.assertEqual(patch_label(L+old,P,W),L+expected)
     def test_legacy_order(self):
@@ -34,11 +37,29 @@ class Hooks(unittest.TestCase):
     def test_refusals(self):
         for bad in (L+SI,L.replace(SI,''),L+CURRENT+CURRENT,L+conditional('untrusted()'),
                     L+conditional(OLD_ACTIVE)+'    unrelated();\n    else '+GUARD.lstrip(),
-                    L+conditional(OLD_THIRD),L+conditional(ACTIVE),
+                    L+conditional(OLD_THIRD)+'    unrelated();\n'+conditional(CALLBACK),
+                    L+conditional(OLD_THIRD)+conditional(OLD_THIRD),L+conditional(ACTIVE),
                     L.replace(SI,CURRENT+SI),L.replace('++ctx.inst_count;',''),
                     L.replace('60000000','60000001')):
             with self.subTest(shape=bad):
                 with self.assertRaises(ValueError):patch_label(bad,P,W)
+    def test_real_predecessor_save_hook(self):
+        from prepare_v1029_third_transfer import hook
+        from prepare_v1106_postalarm_time import verify_resume
+        old=hook(L+conditional(CALLBACK),P,W,'body')
+        self.assertEqual(old,L+conditional(OLD_THIRD)+conditional(CALLBACK))
+        new=patch_label(old,P,W)
+        self.assertEqual(new,L+conditional(OLD_THIRD+'||'+CALLBACK+'||'+ACTIVE))
+        self.assertEqual(new.count('v958::before(ctx,'),1)
+        verify_resume(new,P,W)
+        old=hook(L,P,W,'body')
+        new=patch_label(old,P,W)
+        self.assertEqual(new,L+conditional(OLD_THIRD+'||'+ACTIVE))
+        verify_resume(new,P,W)
+        old=hook(L+GUARD,P,W,'resume')
+        new=patch_label(old,P,W)
+        self.assertEqual(new,L+conditional(OLD_THIRD+'||'+ACTIVE)+'    else '+GUARD.lstrip())
+        verify_resume(new,P,W)
     def test_metadata(self):
         rows={P+4:(0x4e800421,6,2),P:(W,0,0)}
         self.assertEqual(suffix_line('third_postalarm_suffix',rows),
@@ -82,7 +103,8 @@ class Tree(unittest.TestCase):
                     body+='    if('+OLD_ACTIVE+') '+call+'false);\n'
                     body+=OLD_SUPPRESS+f'undercover::wii::v786::before(ctx,0x{pc:08x}u,0x{w:08x}u); }}\n'
                 elif addr==H:body+='    '+call+'true);\n'
-                elif addr in (C,S):body+='    if('+CALLBACK+') '+call+'false);\n'
+                elif addr==C:body+='    if('+CALLBACK+') '+call+'false);\n'
+                elif addr==S:body+='    if('+OLD_THIRD+') '+call+'false);\n'
                 if w>>26==18 and w&3==1:
                     delta=((w&0x03fffffc)^0x02000000)-0x02000000;target=pc+delta
                     body+=f'    ctx.pc = 0x{target:X}; fn_{target:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
