@@ -52,8 +52,13 @@ public:
     // the old reply buffer. Keep the mailbox identity but not retired bytes.
     template<class C>bool completed_transport_held(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
-        return held&&!error_&&stage_==2u&&cpu_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&s&&
-            c.inst_count>=end_&&c.inst_count-end_<=4096u&&same_scheduler_ipc_snapshot(mail_,*s);
+        return completed_cpu_held(c,held)&&s&&same_scheduler_ipc_snapshot(mail_,*s);
+    }
+    // Only the completed CPU provenance here; the next transaction's
+    // observer separately owns every subsequent mailbox transition.
+    template<class C>bool completed_cpu_held(C& c,bool held)const{
+        return held&&!error_&&stage_==2u&&cpu_==&c&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
+            c.inst_count>=end_&&c.inst_count-end_<=4096u;
     }
 private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;ExternalReturnWitness* frame_=nullptr;

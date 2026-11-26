@@ -515,6 +515,12 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                         if(idle_case==28)m.write32(Queue,Thread);
                         assert(select.selected_response_held(c,true,enabled)==(idle_case==24u));
                         assert(select.selected_after_release(c,true)==(idle_case==24u||idle_case==25u));
+                        assert(select.selected_storage_after_release(c,true)==(idle_case==24u||idle_case==25u));
+                        if(idle_case==24u){
+                            assert(NativeIosBinding::write32(Bus::IPC+M::PPCMSG,Request+32u));
+                            assert(!select.selected_after_release(c,true)&&select.selected_storage_after_release(c,true));
+                            assert(!select.selected_storage_after_release(c,false));
+                        }
                     }
                     else assert(idle_case==13u||idle_case==22u);
                     return;

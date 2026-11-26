@@ -228,6 +228,13 @@ static PostAckOpenJoin* second_request=nullptr;
 static bool second_request_active=false;
 static unsigned second_request_count=0,second_request_vectors=0,second_request_returns=0,second_request_polls=0;
 struct SecondRequestReached{};
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+static PostAckSubmitJoin* second_submit=nullptr;
+static nw::CPUContext* second_submit_cpu=nullptr;
+static bool second_submit_active=false;
+static unsigned second_submit_count=0,second_submit_vectors=0,second_submit_returns=0,second_submit_polls=0;
+struct SecondSubmitAcked{};
+#endif
 #endif
 #endif
 #endif
@@ -324,6 +331,20 @@ static bool second_request_held(nw::CPUContext& c){
         selection_witness->selected_after_release(c,raw_device_ok(c))&&
         B::is_open(0u,open_return_device);
 }
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+static bool second_submit_held(nw::CPUContext& c){
+    // At handoff the completed first transport was exact. Subsequent
+    // transport changes are owned by PostAckSubmitJoin, not this guard.
+    return second_submit&&second_submit_cpu==&c&&selection_witness&&allocator_descriptor&&
+        selection_witness->selected_storage_after_release(c,raw_device_ok(c))&&
+        allocator_descriptor->identity_after_release(c)&&B::is_open(0u,open_return_device);
+}
+[[noreturn]]static void second_submit_refuse(unsigned kind){
+    std::cout<<"V1366_SUBMIT_REFUSAL kind="<<kind<<" stage="<<(second_submit?second_submit->stage():0u)
+        <<" reason="<<(second_submit?second_submit->failure():0u)<<" write="<<(second_submit?second_submit->write_failure():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void second_request_refuse(unsigned kind){
     std::cout<<"V1364_REQUEST_REFUSAL kind="<<kind<<" stage="<<(second_request?second_request->stage():0u)
         <<" reason="<<(second_request?second_request->failure():0u)<<" request="<<(second_request?second_request->request_failure():0u)<<'\n';
@@ -665,6 +686,18 @@ void trace_call(uint32_t pc,CPUContext& c){
 #endif
     }
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    if(second_submit_active){
+        if(!second_submit->observe(c,pc,second_submit_held(c)))second_submit_refuse(2);
+        if(pc==OpenScRoute::Vector)++second_submit_vectors;
+        if(second_submit->stage()==8u){
+            if(!second_submit->acknowledge(c,second_submit_held(c))||
+               !second_submit->ack_at(c,second_submit_held(c)))second_submit_refuse(3);
+            ++second_submit_count;throw SecondSubmitAcked{};
+        }
+        return;
+    }
+#endif
     if(second_request_active){
         if(pc==OpenScRoute::Vector){
             if(!second_request->vector_trace(c,pc,second_request_held(c)))second_request_refuse(2);
@@ -674,7 +707,15 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(second_request->stage()==9u){
             if(!second_request->submit_at(c,second_request_held(c))||
                !allocator_descriptor->identity_after_release(c))second_request_refuse(4);
-            ++second_request_count;throw SecondRequestReached{};
+            ++second_request_count;
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+            std::cout<<"V1364_REQUEST_TRIAL n="<<last_trial<<" request=1 opposite_path=1 native_rfi=1 first_fd_held=1 reused="<<(second_request->request()==allocator_request)<<"\n";
+            if(!second_submit||!second_submit->begin(c,*second_request,second_request_held(c))||
+               !second_submit->observe(c,pc,second_submit_held(c)))second_submit_refuse(1);
+            second_request_active=false;second_submit_active=true;return;
+#else
+            throw SecondRequestReached{};
+#endif
         }
         return;
     }
@@ -886,6 +927,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    if(second_submit_active){
+        if(!second_submit->boundary(c,second_submit_held(c))||++second_submit_polls>8192u)second_submit_refuse(4);
+        const auto stage=second_submit->stage();
+        const bool allowed=(c.pc==OpenScRoute::Resume&&stage==4u&&(c.msr&0x8000u))||
+            std::find(v626::backward_polls.begin(),v626::backward_polls.end(),c.pc)!=v626::backward_polls.end();
+        if(!allowed)second_submit_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
     if(second_request_active){
         if(!second_request->boundary(c,second_request_held(c))||++second_request_polls>8192u)second_request_refuse(5);
@@ -1115,6 +1166,16 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    if(second_submit_active){
+        if(!second_submit->dispatch(c,second_submit_held(c),[](auto& cpu){func_80000C00(cpu);},
+            [](auto& cpu,const auto& gp,uint32_t hid){
+                for(unsigned i=0;i<32;++i)if(cpu.gpr[i]!=(i==9?hid:i==10?(hid|8u):gp[i]))return false;
+                return true;
+            }))second_submit_refuse(5);
+        ++second_submit_returns;return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
     if(second_request_active){
         if(!second_request->dispatch(c,second_request_held(c),[](auto& cpu){func_80000C00(cpu);},
@@ -1152,6 +1213,17 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    if(second_submit_active){
+        const auto phys=a&0x3fffffffu;
+        if(!second_submit_cpu||second_submit->stage()!=7u||
+           !second_submit->boundary(*second_submit_cpu,second_submit_held(*second_submit_cpu))||
+           (phys!=IosBus::IPC+M::PPCCTRL&&phys!=IosBus::MIRROR+M::PPCCTRL))second_submit_refuse(6);
+        const auto v=B::read32(a);
+        if(!v||!second_submit->boundary(*second_submit_cpu,second_submit_held(*second_submit_cpu)))second_submit_refuse(6);
+        return *v;
+    }
+#endif
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
     if(second_request_active)second_request_refuse(7);
 #endif
@@ -1230,6 +1302,12 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    if(second_submit_active){
+        if(!second_submit_cpu||!second_submit->write(*second_submit_cpu,a,v,second_submit_held(*second_submit_cpu)))second_submit_refuse(7);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
     if(second_request_active)second_request_refuse(7);
 #endif
@@ -1478,6 +1556,10 @@ int main(int argc,char** argv)try{
 #endif
         std::array<VectorEdge,v626::submit_edges.size()> edges{};
         for(unsigned i=0;i<edges.size();++i){auto e=v626::submit_edges[i];edges[i]={e.pc,e.lr,e.branch,e.entry};}
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+        PostAckSubmitJoin second_submission(edges,v626::vector,kind);
+        second_submit=&second_submission;second_submit_cpu=&c;second_submit_polls=0;
+#endif
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
         SubmitResumeWitness submit_cont(v1344::expected);
         submit_resume=&submit_cont;
@@ -1718,12 +1800,23 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+        try{run_game(c);}catch(const SecondSubmitAcked&){allocator_returned=true;}
+        need(allocator_returned&&second_submission.ack_at(c,second_submit_held(c))&&second_submit_count==trial+1u&&
+            second_submit_vectors==trial+1u&&second_submit_returns==trial+1u&&
+            second_submission.writes()==2u&&second_request_count==trial+1u&&second_request_vectors==trial+1u&&
+            second_request_returns==trial+1u&&second_open_count==trial+1u&&open_return_count==trial+1u&&host.serviced_steps()==3u&&
+            host.exception_pending(0x8000u)&&!host.exception_pending(c.msr));
+        std::cout<<"V1366_SUBMIT_TRIAL n="<<trial<<" submitted=1 ack=1 second_fd=1 first_fd_held=1 native_rfi=1 reply_pending=1\n";
+        second_submit_active=false;second_submit=nullptr;second_submit_cpu=nullptr;
+#else
         try{run_game(c);}catch(const SecondRequestReached&){allocator_returned=true;}
         need(allocator_returned&&second_build.submit_at(c,second_request_held(c))&&
             descriptor.identity_after_release(c)&&second_request_count==trial+1u&&
             second_request_vectors==trial+1u&&second_request_returns==trial+1u&&
             second_open_count==trial+1u&&open_return_count==trial+1u&&host.serviced_steps()==2u);
         std::cout<<"V1364_REQUEST_TRIAL n="<<trial<<" request=1 opposite_path=1 native_rfi=1 first_fd_held=1 reused="<<(second_build.request()==open.request())<<"\n";
+ #endif
         second_request_active=false;second_request=nullptr;
 #else
         try{run_game(c);}catch(const SecondOpenReached&){allocator_returned=true;}
@@ -1743,7 +1836,12 @@ int main(int argc,char** argv)try{
 #endif
         need(selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
-            allocator_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+            allocator_count==trial+1u);
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+        need(host.serviced_steps()==3u&&(cause.load()&mask.load())==H::PI_HOLLYWOOD);
+#else
+        need(host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+#endif
 #ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
         // The completed descriptor and full heap shadow were verified
@@ -1882,6 +1980,10 @@ int main(int argc,char** argv)try{
     need(second_open_count==8u);
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
     need(second_request_count==8u&&second_request_vectors==8u&&second_request_returns==8u);
+#ifdef UNDERCOVER_V1366_SECOND_SUBMIT
+    need(second_submit_count==8u&&second_submit_vectors==8u&&second_submit_returns==8u);
+    std::cout<<"V1366_SUBMIT_NATIVE owner=1 trials=8 submitted=8 ack=8 second_fd=8 first_fd_held=8 native_rfi=8 ios_steps=3 second_reply=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1364_REQUEST_NATIVE owner=1 trials=8 request=8 opposite_path=8 native_rfi=8 first_fd_held=8 ios_steps=2 second_submitted=0 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1359_SECOND_NATIVE owner=1 trials=8 second_entry=8 opposite_path=8 descriptor_store=8 first_fd_held=8 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
