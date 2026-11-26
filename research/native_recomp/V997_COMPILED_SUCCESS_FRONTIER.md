@@ -1,0 +1,3 @@
+# V997: compile both live successful-response branches
+
+V995 source/audit tests passed in run 45726172522. V997 exercises the actual live SI binding and combined shared/handler time observer using independently authored synthetic events. Verify known callback, other mapped target, unmapped target, corrupt callback bytes, unaligned CTR, corrupted saved context, missing guard, valid and mismatched direct queue, and the earlier shared-only stop. The ACK witness also tests one exact outer-dispatch tick and four refusals (duplicate tick, skipped tick, mask drift, interrupt enable). No original code claim. Pending CI.
