@@ -141,7 +141,20 @@ elif [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then
   [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" != 1 && "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" != 1 ]] || exit 2
   extra+=(UNDERCOVER_V989_SHARED_COMPLETION=1);audit=audit_v989_shared_time.py
 fi
+# Only the second-callback experiment may change the fixed cold SI profile.
+# Port zero must remain absent for the verified first completion.
+si_profile="${UNDERCOVER_RUN_V1012_SI_PROFILE-absent}"
+case "$si_profile" in
+  absent) ;;
+  port1-present)
+    [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1009_second_callback.py ]] || exit 2
+    ;;
+  *) exit 2 ;;
+esac
 echo "V875_LAUNCH_PLAN requested=$requested_mode base=$mode audit=$audit flags=${extra[*]}"
+if [[ "$si_profile" != absent ]]; then
+  echo "V1012_SI_PROFILE selected=port1-present cold_port0_absent=1 synthetic=1"
+fi
 if [[ "$describe" == 1 ]]; then exit 0;fi
 exe="$(realpath "$1")";dol="$(realpath "$2")";work="$(realpath -m "$3")"
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -150,7 +163,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 mkdir -m 700 "$work"
 printf '%s\n' '[system]' 'platform = "Wii"' '[input]' 'mode = 6' > "$work/config.toml"
 python3 "$here/write_sram_profile_v536.py" "$work/exi-test-profile.txt"
-printf '%s\n' UNDERCOVER_SI_PROFILE_V1 latency=00000008 port0=absent port1=absent port2=absent port3=absent > "$work/si-test-profile.txt"
+python3 "$here/write_si_profile_v1012.py" "$si_profile" "$work/si-test-profile.txt"
 echo 'V575_DSP_SC_INPUT accepted=1 dol_only=1 profiles=synthetic'
 rc=0
 (
