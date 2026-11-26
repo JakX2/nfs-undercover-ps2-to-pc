@@ -31,6 +31,9 @@ public:
     unsigned reads()const{return reads_;}
     unsigned ordinal()const{return ordinal_;}
     unsigned detail()const{return detail_;}
+    template<class C>bool storage_preserved(C& c){
+        return stage_==2u&&!error_&&cpu_==&c&&ring_.complete(c)&&protected_unchanged(c);
+    }
     template<class C>bool begin(C& c,bool held,AllocatorRange request,AllocatorRange stack){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.start||!known(c,e_.submit,e_.start)||
            !known(c,e_.submit,e_.stop)||e_.start>=e_.calls[0].call||

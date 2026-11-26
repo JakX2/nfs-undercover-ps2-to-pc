@@ -28,7 +28,8 @@ static void trial(unsigned fault){
     c.pc=R;c.lr=fault==4?S:S+8;ok=w.entry(c,R,true);if(fault==4){assert(!ok);return;}assert(ok);
     c.gpr[0]=fault==5?0x8032u:c.msr;ok=step(R,MSR);if(fault==5){assert(!ok);return;}assert(ok);
     c.pc=R+4;assert(w.poll(c,true));if(fault==6){assert(!w.poll(c,true));return;}
-    if(fault==7)c.gpr[31]=1;ok=step(R+4,Ret);if(fault==7){assert(!ok);return;}assert(ok);
+    if(fault==7)c.gpr[31]=1;
+    ok=step(R+4,Ret);if(fault==7){assert(!ok);return;}assert(ok);
     c.gpr[0]=fault==8?C+4:C;ok=step(S+8,MTLR);if(fault==8){assert(!ok);return;}assert(ok);
     c.lr=C;assert(step(S+12,N));c.gpr[1]=fault==9?Sp:Sp+64;
     ok=step(S+16,Ret);if(fault==9){assert(!ok);return;}assert(ok);

@@ -88,6 +88,9 @@
 #ifdef UNDERCOVER_IPC_DISPATCH
 #include "private_ipc_dispatch.h"
 #include "wii_stm_deferred_event_gate.h"
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+#include "private_async_submit_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -320,6 +323,10 @@ static nw::CPUContext* ioctl_dispatch_cpu=nullptr;
 static unsigned ioctl_dispatch_count=0;
 #ifdef UNDERCOVER_IPC_DEFERRED
 static unsigned ioctl_deferred_count=0;
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+static std::unique_ptr<AsyncSubmitReturnWitness> async_return;
+static unsigned async_return_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -551,12 +558,44 @@ static bool ioctl_dispatch_held(nw::CPUContext& c){
 void ipc_dispatch_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(ioctl_dispatch&&!ioctl_dispatch->before(c,pc,w,ioctl_dispatch_held(c)))ioctl_dispatch_refuse(2);
 }
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+static bool async_held(nw::CPUContext& c){
+    return ioctl_event_gate&&ioctl_event_gate->deferred_held(ioctl_dispatch_storage_held(c,true))&&
+        ioctl_dispatch&&ioctl_dispatch->storage_preserved(c);
+}
+[[noreturn]]static void async_refuse(unsigned kind){
+    std::cout<<"ASYNC_SUBMIT_REFUSAL kind="<<kind<<" stage="<<(async_return?async_return->stage():0u)
+             <<" reason="<<(async_return?async_return->failure():0u)<<" visits="<<(async_return?async_return->visits():0u)
+             <<" polls="<<(async_return?async_return->polls():0u)<<" ordinal="<<(async_return?async_return->ordinal():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void async_submit_return(nw::CPUContext& c,uint32_t pc){
+    if(!async_return)return;
+    if(!async_return->returned(c,pc,async_held(c),ioctl_submit_prefix->caller_abi(c)))async_refuse(4);
+    ++async_return_count;throw StmIoctlReached{};
+}
+#endif
 void ipc_dispatch_return(nw::CPUContext& c,uint32_t pc){
     if(!ioctl_dispatch)return;
     if(!ioctl_dispatch->returned(c,pc,ioctl_dispatch_held(c)))ioctl_dispatch_refuse(3);
     if(ioctl_dispatch->stage()==2u){
         if(!ioctl_dispatch->reached(c,ioctl_dispatch_held(c))||ioctl_event_gate->stage()!=3u)ioctl_dispatch_refuse(3);
-        ++ioctl_dispatch_count;throw StmIoctlReached{};
+        ++ioctl_dispatch_count;
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+        const auto gp=c.gpr;const auto gqr=c.gqr;
+        const auto pc0=c.pc,lr=c.lr,ctr=c.ctr,xer=c.xer,msr=c.msr,srr0=c.srr0,srr1=c.srr1;
+        const auto ticks=c.inst_count;const auto cr=c.cr;
+        if(!ioctl_event_gate->accept(c.msr,ioctl_dispatch_storage_held(c))||
+           !async_held(c)||c.gpr!=gp||c.gqr!=gqr||c.pc!=pc0||c.lr!=lr||c.ctr!=ctr||c.xer!=xer||
+           c.msr!=msr||c.srr0!=srr0||c.srr1!=srr1||c.inst_count!=ticks)async_refuse(1);
+        for(unsigned i=0;i<8;++i)if(c.cr[i].lt!=cr[i].lt||c.cr[i].gt!=cr[i].gt||
+            c.cr[i].eq!=cr[i].eq||c.cr[i].so!=cr[i].so)async_refuse(1);
+        ++ioctl_deferred_count;
+        async_return=std::make_unique<AsyncSubmitReturnWitness>(async_submit_private::expected);
+        if(!async_return->begin(c,async_held(c),ioctl_submit_prefix->caller_sp()))async_refuse(1);
+#else
+        throw StmIoctlReached{};
+#endif
     }
 }
 #endif
@@ -685,6 +724,9 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+    if(async_return){if(!async_return->before(c,pc,w,async_held(c)))async_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_IPC_DISPATCH
     if(ioctl_dispatch){ipc_dispatch_before(c,pc,w);return;}
 #endif
@@ -1023,6 +1065,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+    if(async_return){if(!async_return->entry(c,pc,async_held(c)))async_refuse(3);return;}
+#endif
 #ifdef UNDERCOVER_IPC_DISPATCH
     if(ioctl_dispatch){
         if(!ioctl_dispatch->entry(c,pc,ioctl_dispatch_held(c)))ioctl_dispatch_refuse(4);
@@ -1508,6 +1553,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+    if(async_return){if(!async_return->poll(c,async_held(c)))async_refuse(5);return false;}
+#endif
 #ifdef UNDERCOVER_IPC_DISPATCH
     if(ioctl_dispatch){
         if(!ioctl_dispatch->poll(c,ioctl_dispatch_held(c)))ioctl_dispatch_refuse(5);
@@ -2874,7 +2922,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1410_IOCTL_QUEUE
 #ifdef UNDERCOVER_IPC_PROFILE
 #ifdef UNDERCOVER_IPC_DISPATCH
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&ioctl_dispatch->reached(c,ioctl_dispatch_held(c))&&ioctl_event_gate->stage()==3u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->reached(c,ioctl_flush_held(c))&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -2907,7 +2959,11 @@ int main(int argc,char** argv)try{
         need(ioctl_reached&&ioctl_entry.reached(c,stm_ioctl_held(c))&&
 #endif
              stm_ioctl_count==trial+1u&&
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+             host.serviced_steps()==5u&&epoch.acknowledged_descriptors(3u-kind)&&(cause.load()&mask.load())==H::PI_HOLLYWOOD);
+#else
              host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
+#endif
         std::cout<<"V1383_IOCTL_TRIAL n="<<trial<<" original_stm=1 native_disable=1 event_fd=1 buffers=1 callback=1 stores="<<ioctl_entry.stores()<<'\n';
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
         std::cout<<"V1386_PREFIX_TRIAL n="<<trial<<" original_prefix=1 save_return=1 allocator_entry=1 saved="<<prefix.saved()<<" stores="<<prefix.stores()<<'\n';
@@ -2936,7 +2992,13 @@ int main(int argc,char** argv)try{
         std::cout<<"IPC_DISPATCH_TRIAL n="<<trial<<" original_return=1 masked=1 ring_dequeued=1 credit_consumed=1 message=1 control=1 queued=1 serviced=0 visits="
                  <<ioctl_dispatch->visits()<<" stores="<<ioctl_dispatch->stores()<<" calls="<<ioctl_dispatch->calls()
                  <<" writes="<<ioctl_dispatch->writes()<<" reads="<<ioctl_dispatch->reads()<<" polls="<<ioctl_dispatch->polls()<<'\n';
-#ifdef UNDERCOVER_IPC_DEFERRED
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+        need(async_return->reached(c,async_held(c),ioctl_submit_prefix->caller_abi(c))&&host.serviced_steps()==5u&&
+             host.services().event_pending()&&!host.exception_pending(c.msr));
+        std::cout<<"IPC_DEFERRED_TRIAL n="<<trial<<" original_boundary=1 deferred=1 pending_ack=1 masked=1 cpu_preserved=1 ring_preserved=1 request_preserved=1 reply=0 ios_steps=5\n";
+        std::cout<<"ASYNC_SUBMIT_TRIAL n="<<trial<<" original_return=1 masked=1 abi=1 deferred=1 visits="<<async_return->visits()<<" polls="<<async_return->polls()<<'\n';
+        async_return.reset();
+#elif defined(UNDERCOVER_IPC_DEFERRED)
         // At this exact original local return, all preceding native
         // instructions and both actual mailbox writes have been proved.
         // Accept at the masked device boundary, not by synthesizing a
@@ -3114,6 +3176,10 @@ int main(int argc,char** argv)try{
     need(ioctl_dispatch_count==8u);
 #ifdef UNDERCOVER_IPC_DEFERRED
     need(ioctl_deferred_count==8u);
+#ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
+    need(async_return_count==8u);
+    std::cout<<"ASYNC_SUBMIT_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"IPC_DEFERRED_NATIVE owner=1 trials=8 original_boundary=8 deferred=8 pending_ack=8 cpu_preserved=8 request_preserved=8 reply=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"IPC_DISPATCH_NATIVE owner=1 trials=8 original_return=8 ring_dequeued=8 mailbox_submitted=8 queued=8 ios_steps=4 deferred=0 fallback=0 complete_image=0 boot_verified=0\n";

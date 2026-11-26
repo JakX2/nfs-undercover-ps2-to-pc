@@ -22,12 +22,19 @@ public:
     unsigned queue_path()const{return queue_returned_?1u:queue_skipped_?2u:0u;}
     unsigned queue_class()const{return queue_class_;}
     uint32_t caller_sp()const{return sp0_;}
+    template<class C>bool caller_abi(C& c)const{
+        if(stage_!=2u||error_||cpu_!=&c||c.gpr[1]!=sp0_||c.lr!=e_.submit.lr||
+           c.gpr[2]!=r2_||c.gpr[13]!=r13_||c.msr!=msr_||c.gpr[3]!=0u||pack(c)!=caller_cr_)return false;
+        for(unsigned i=14;i<32;++i)if(c.gpr[i]!=caller_gp_[i])return false;
+        return true;
+    }
     template<class C>bool begin(C& c,bool held,uint32_t request,uint32_t size,uint32_t callback=0){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.submit.pc||c.lr!=e_.submit.lr||
            canonical(c.gpr[3])!=request||(request&31u)||size<64u||size>4096u||
            c.gpr[1]<0x80000200u||c.gpr[1]>0x817fff70u||(c.gpr[1]&7u)||
            !known(c,e_.submit.pc,c.pc)||!edge(c,e_.submit)||!edge(c,e_.queue)||!edge(c,e_.flush))return fail(1);
         sp0_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;
+        caller_gp_=c.gpr;caller_cr_=pack(c);
         stack_={sp0_-512u,520u};req_={request,size};callback_=callback;
         if(!fence_.begin(c,stack_,req_))return fail(1);
         for(unsigned i=0;i<size;++i)shadow_.push_back(c.mmu.read8(request+i));
@@ -108,6 +115,12 @@ public:
 private:
     IoctlSubmitPrefixExpectation e_;AllocatorStoreFence fence_;AllocatorRange req_{},stack_{};
     std::vector<uint8_t> shadow_;const void* cpu_=nullptr;
+    std::array<uint32_t,32> caller_gp_{};
+    uint32_t caller_cr_=0;
+    template<class C>static uint32_t pack(C& c){
+        uint32_t v=0;for(auto f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);
+        return v&0x00fff000u;
+    }
     uint32_t sp0_=0,r2_=0,r13_=0,msr_=0,active_=0,next_=0,queue_=0,callback_=0;
     uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,queue_mask_=0,detail_=0,queue_class_=0;
     bool due_=false,queue_returned_=false,queue_skipped_=false;
