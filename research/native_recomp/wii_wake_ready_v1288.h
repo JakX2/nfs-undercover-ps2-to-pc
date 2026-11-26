@@ -28,7 +28,8 @@ public:
         for(auto x:e_.words)if(std::count_if(e_.words.begin(),e_.words.end(),[&](auto y){return x.pc==y.pc;})!=1)
             return fail(1);
         cpu_=&c;frame_=&frame;queue_=queue;mail_=*s;msr_=c.msr;tick_=last_=c.inst_count;
-        sp_=c.gpr[1];lr_=c.lr;active_=next_=e_.wake;priority_=c.mmu.read32(e_.thread+720u);
+        sp_=c.gpr[1];lr_=c.lr;caller_gp_=c.gpr;caller_cr_=pack(c)&0x00fff000u;
+        active_=next_=e_.wake;priority_=c.mmu.read32(e_.thread+720u);
         for(unsigned i=0;i<saved_.size();++i)saved_[i]=c.mmu.read32(e_.thread+4u*i);
         if(priority_>31u||!waiting(c)||!common(c,held))return fail(1);
         stage_=1;return true;
@@ -50,7 +51,7 @@ public:
         }
         if(pc!=e_.select||!disable_returned_||!edge(c,e_.select_edge)||c.gpr[3]!=0u||
            c.gpr[1]>=sp_||sp_-c.gpr[1]>256u||!ready(c))return fail(4);
-        ready_=c.mmu.read32(e_.thread+732u);stage_=2;return true;
+        ready_=c.mmu.read32(e_.thread+732u);select_sp_=c.gpr[1];stage_=2;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!common(c,held)||!entered_||entry_due_||poll_due_||
@@ -94,10 +95,26 @@ public:
         return fail(7);
     }
     bool refuse_mmio(){return fail(8);}
+    uint32_t wake_return()const{return lr_;}
+    template<class C>bool ready_held(C& c,bool held)const{
+        return stage_==2u&&common(c,held)&&ready(c)&&word(c,e_.thread+732u,ready_);
+    }
+    template<class C>bool select_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,uint32_t select,bool held)const{
+        return ready_held(c,held)&&frame_==&frame&&queue==queue_&&select==e_.select&&
+            c.pc==select&&c.lr==e_.select_edge.lr&&c.gpr[3]==0u&&c.gpr[1]==select_sp_&&
+            c.inst_count==last_&&last_pc_==e_.select_edge.lr-4u&&edge(c,e_.select_edge);
+    }
+    template<class C>bool wake_return_abi(C& c,bool held)const{
+        if(!ready_held(c,held)||c.lr!=lr_||c.gpr[1]!=sp_||c.gpr[2]!=caller_gp_[2]||
+           c.gpr[13]!=caller_gp_[13]||(pack(c)&0x00fff000u)!=caller_cr_)return false;
+        for(unsigned i=14;i<32;++i)if(c.gpr[i]!=caller_gp_[i])return false;
+        return true;
+    }
 private:
     WakeReadyExpectation e_;
     ExternalReturnWitness* frame_=nullptr;const void* cpu_=nullptr;
     ColdIpcSnapshot mail_{};std::array<uint32_t,106> saved_{};
+    std::array<uint32_t,32> caller_gp_{};uint32_t caller_cr_=0,select_sp_=0;
     uint32_t queue_=0,ready_=0,priority_=0,msr_=0,sp_=0,lr_=0,active_=0,next_=0,ret_=0,last_pc_=0;
     uint64_t tick_=0,last_=0;unsigned stage_=0,error_=0,visits_=0;
     bool entered_=false,entry_due_=false,poll_due_=false,disable_seen_=false,disable_return_due_=false,disable_returned_=false;
@@ -146,6 +163,7 @@ private:
         for(unsigned i=0;i<saved_.size();++i)if(!word(c,e_.thread+4u*i,saved_[i]))return false;
         return true;
     }
+    template<class C>static uint32_t pack(C& c){uint32_t v=0;for(auto f:c.cr)v=(v<<4)|(unsigned(f.lt)<<3)|(unsigned(f.gt)<<2)|(unsigned(f.eq)<<1)|unsigned(f.so);return v;}
     static uint32_t target(uint32_t pc,uint32_t w){
         const bool bc=w>>26==16u;const uint32_t m=bc?0xfffcu:0x03fffffcu,s=bc?0x8000u:0x02000000u;
         return pc+(((w&m)^s)-s);

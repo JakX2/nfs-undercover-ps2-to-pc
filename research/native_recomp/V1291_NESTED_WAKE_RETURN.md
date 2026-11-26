@@ -1,0 +1,3 @@
+# V1291: nested wake scheduler return
+
+V1288 and V1289 original-free gates passed in runs 45807713027 and 45807946554. Add exact same-tick SelectThread handoff, retain READY queue and original saved contexts, require scheduler disable counter unchanged, admit only the authenticated optional context getter and original wake interrupt restore. Verify outer native dispatcher continuation and original wake return ABI, stopping before the reply processor resumes. No host context/queue/device mutation. Synthetic tests model the native instruction boundaries and guest stores; 12 intended cases. Owner geometry/hook integration is gated on V1290/V1289 owner execution. Complete-image execution separate.

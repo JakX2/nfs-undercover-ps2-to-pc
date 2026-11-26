@@ -1,0 +1,19 @@
+name: Wii V1291 Nested Wake Return Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1291*'
+      - '.github/workflows/wii-v1291-nested-wake.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Joined wake and nested scheduler return regression
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -DUNDERCOVER_TEST_NESTED_WAKE -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1291
+          /tmp/v1291

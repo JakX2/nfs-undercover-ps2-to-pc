@@ -7,6 +7,9 @@
 #include "wii_reply_processor_v1280.h"
 #ifdef UNDERCOVER_TEST_WAKE_READY
 #include "wii_wake_ready_v1288.h"
+#ifdef UNDERCOVER_TEST_NESTED_WAKE
+#include "wii_nested_wake_return_v1291.h"
+#endif
 #endif
 #endif
 #endif
@@ -48,7 +51,10 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0){
+#ifndef UNDERCOVER_TEST_NESTED_WAKE
+    (void)nested_case;
+#endif
 #ifndef UNDERCOVER_TEST_WAKE_READY
     (void)wake_case;
 #endif
@@ -287,6 +293,52 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if((wake_case>=6&&wake_case<=8)||wake_case==10){refuse_wake(ok,4);return;}
         assert(ok&&ready.stage()==2u&&ready.ready_queue()==Ready&&host.serviced_steps()==2u);
         (void)saved_sp;
+#ifdef UNDERCOVER_TEST_NESTED_WAKE
+        constexpr uint32_t Getter=0x80522928u,Restore=0x805265d4u;
+        constexpr std::array<ReplyNativeWord,12> suffix{{
+            {Select,Select,Nop},{Select,Select+4u,bl(Select+4u,Getter)},{Select,Select+8u,Nop},{Select,Select+12u,Blr},
+            {Getter,Getter,Nop},{Getter,Getter+4u,Blr},
+            {Wake,Wake+20u,Nop},{Wake,Wake+24u,bl(Wake+24u,Restore)},{Wake,Wake+28u,Nop},{Wake,Wake+32u,Blr},
+            {Restore,Restore,Nop},{Restore,Restore+4u,Blr}}};
+        for(auto x:suffix)m.write32(x.pc,x.word);
+        m.write32(Counter,1u);
+        NestedWakeReturnWitness nested({Wake,Select,Getter,Restore,Context,Counter,
+            {Getter,Select+8u,suffix[1].word,Nop},{Restore,Wake+28u,suffix[7].word,Nop},suffix});
+        auto nr=[&](bool ok,unsigned reason){assert(!ok&&nested.failure()==reason&&host.serviced_steps()==2u);};
+        if(nested_case==1)++c.inst_count;
+        if(nested_case==2)m.write32(Counter,0u);
+        ok=nested.begin(c,ready,frame,Queue,true);
+        if(nested_case==1||nested_case==2){nr(ok,1);return;}assert(ok);
+        assert(nested.poll(c,true));++c.inst_count;assert(nested.entry(c,Select,true));
+        auto ns=[&](uint32_t pc){c.pc=pc;++c.inst_count;return nested.before(c,pc,m.read32(pc),true);};
+        auto ne=[&](uint32_t pc,uint32_t lr){c.pc=pc;c.lr=lr;return nested.entry(c,pc,true);};
+        assert(ns(Select)&&ns(Select+4u));
+        if(nested_case==3){nr(ne(Getter,Select+12u),2);return;}
+        assert(ne(Getter,Select+8u)&&ns(Getter)&&ns(Getter+4u));
+        c.gpr[3]=nested_case==4?Context+4u:Context;c.lr=Select+8u;
+        // The real scheduler restores its caller LR before its final BLR.
+        // Model a separate instruction for that restoration below.
+        if(nested_case==4){nr(ns(Select+8u),3);return;}
+
+        assert(ns(Select+8u));c.lr=Wake+20u;
+        if(nested_case==5)c.gpr[31]^=1u;
+        ok=ns(Select+12u);if(nested_case==5){nr(ok,5);return;}assert(ok);
+        c.pc=Wake+20u;if(nested_case==6)++c.inst_count;
+        ok=nested.poll(c,true);if(nested_case==6){nr(ok,7);return;}assert(ok);
+        if(nested_case!=7)++c.inst_count;
+        ok=ns(Wake+20u);if(nested_case==7){nr(ok,4);return;}assert(ok);
+        assert(ns(Wake+24u));c.gpr[3]=nested_case==8?1u:0u;
+        ok=ne(Restore,Wake+28u);if(nested_case==8){nr(ok,3);return;}assert(ok&&ns(Restore)&&ns(Restore+4u));
+        if(nested_case==9)m.write32(Ready,0u);
+        ok=ns(Wake+28u);if(nested_case==9){nr(ok,4);return;}assert(ok);
+        c.gpr[1]=0x8000c000u;c.lr=Reply+24u;
+        if(nested_case==10)c.gpr[1]-=4u;
+        ok=ns(Wake+32u);if(nested_case==10){nr(ok,5);return;}assert(ok);
+        c.pc=Reply+24u;
+        if(nested_case==11)c.pc+=4u;
+        ok=nested.poll(c,true);if(nested_case==11){nr(ok,7);return;}
+        assert(ok&&nested.stage()==2u&&ready.ready_held(c,true)&&host.serviced_steps()==2u);
+#endif
 #endif
 #endif
 #endif
@@ -356,6 +408,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_WAKE_READY
     for(unsigned i=1;i<=10;++i)trial(0,0,true,0,i);
     std::cout<<"V1288_WAKE_READY synthetic=1 valid=1 refused=10 ready_queue=1 modeled_stores=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_NESTED_WAKE
+    for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,i);
+    std::cout<<"V1291_NESTED_WAKE synthetic=1 valid=1 refused=11 no_switch=1 wake_return=1 original_execution=0\n";
+#endif
 #endif
 #endif
 #endif
