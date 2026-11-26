@@ -313,7 +313,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         m.write32(Thread+732u,wake_case==7?Queue:Ready);
         m.write32(Ready,Thread);m.write32(Ready+4u,wake_case==8?0u:Thread);
         if(wake_case==9)m.write32(Thread+4u,0x1234u);
-        ok=ws(Wake+12u);if(wake_case==9){refuse_wake(ok,5);return;}assert(ok&&ws(Wake+16u));
+        if(wake_case==11)m.write32(Thread+0x1c0u,m.read32(Thread+0x1c0u)^1u);
+        if(wake_case==12)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
+        ok=ws(Wake+12u);if(wake_case==9||wake_case==11||wake_case==12){refuse_wake(ok,5);return;}assert(ok&&ws(Wake+16u));
         c.gpr[3]=wake_case==10?1u:0u;
         ok=we(Select,Wake+20u);
         if((wake_case>=6&&wake_case<=8)||wake_case==10){refuse_wake(ok,4);return;}
@@ -419,7 +421,9 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(finish_case==7)c.msr|=0x8000u;
         if(finish_case==8)m.write32(Ready+4u,0u);
         if(finish_case==9)ram.write32(Request+4u,1u);
-        if(finish_case>=7&&finish_case<=9){assert(!finish.boundary(c,true));return;}
+        if(finish_case==12)m.write32(Thread+0x1c0u,m.read32(Thread+0x1c0u)^1u);
+        if(finish_case==13)m.write32(Thread+0x2c4u,m.read32(Thread+0x2c4u)^1u);
+        if((finish_case>=7&&finish_case<=9)||finish_case==12||finish_case==13){assert(!finish.boundary(c,true));return;}
         assert(finish.read(c,Bus::MIRROR+M::PPCCTRL,true)==(M::IY1|M::IY2));
         assert(finish.read(c,Bus::IPC+H::PPC_FLAG,true)==H::IPC_PPC);
         assert(finish.write(c,Bus::MIRROR+H::PPC_FLAG,H::IPC_PPC,true));
@@ -497,14 +501,14 @@ int main(){
     for(unsigned i=1;i<=15;++i)trial(0,0,true,i);
     std::cout<<"V1280_REPLY_BODY synthetic=1 valid=1 refused=15 native_mmio=1 modeled_instructions=1 wakeup=0 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_WAKE_READY
-    for(unsigned i=1;i<=10;++i)trial(0,0,true,0,i);
-    std::cout<<"V1288_WAKE_READY synthetic=1 valid=1 refused=10 ready_queue=1 modeled_stores=1 original_execution=0\n";
+    for(unsigned i=1;i<=12;++i)trial(0,0,true,0,i);
+    std::cout<<"V1288_WAKE_READY synthetic=1 valid=1 refused=12 ready_queue=1 modeled_stores=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_NESTED_WAKE
     for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,i);
     std::cout<<"V1291_NESTED_WAKE synthetic=1 valid=1 refused=11 no_switch=1 wake_return=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_COMPLETION
-    for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,0,i);
-    std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=1 refused=11 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
+    for(unsigned i=1;i<=13;++i)trial(0,0,true,0,0,0,i);
+    std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=1 refused=13 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
     std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";

@@ -116,7 +116,11 @@ public:
 private:
     WakeReadyExpectation e_;
     ExternalReturnWitness* frame_=nullptr;const void* cpu_=nullptr;
-    ColdIpcSnapshot mail_{};std::array<uint32_t,106> saved_{};
+    // OSContext occupies the entire prefix before OSThread.state (0x2c8).
+    // Include every GQR and paired-single/FPU save slot, not just the
+    // integer frame and the first quantization register.
+    static constexpr unsigned ContextBytes=0x2c8u;
+    ColdIpcSnapshot mail_{};std::array<uint32_t,ContextBytes/4u> saved_{};
     std::array<uint32_t,32> caller_gp_{};uint32_t caller_cr_=0,select_sp_=0;
     uint32_t queue_=0,ready_=0,priority_=0,msr_=0,sp_=0,lr_=0,active_=0,next_=0,ret_=0,last_pc_=0;
     uint64_t tick_=0,last_=0;unsigned stage_=0,error_=0,visits_=0;

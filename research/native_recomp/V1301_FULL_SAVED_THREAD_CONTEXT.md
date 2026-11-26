@@ -1,0 +1,3 @@
+# V1301 preserve complete cooperatively saved OSContext
+
+The existing wake witness compared 106 words, ending immediately after GQR0. The saved OSContext precedes OSThread.state at byte 712 (0x2c8), so preserve all 178 words across wake, nested scheduler and handler continuation, without asserting that FPU/paired-single state was originally saved or restored by those routines. Four extra synthetic negative cases cover GQR7 and the final context word during wake and final reply acknowledgment. Original-free CI pending; the already verified V1297 original run used the shorter witness and is not retrospectively relabeled. V1300 owner workflow remains on its pinned earlier revision. No duplicate private build launched.
