@@ -17,3 +17,5 @@ The new original active-vector mode (b9a7ad7) hands off the original IPC ring, c
 ## Next bounded milestones
 
 Authenticate the original active-context vector/trampoline save and dispatcher entry. Then execute the original IPC dispatch to handler index 27, clear Y2 and Hollywood IPC through the actual native MMIO sites, observe original mailbox credit increment and unissued-profile decrement, and return via the real active-context RFI. Do not publish a reply or invoke the deferred callback merely because the ACK cleared. The original STM routine and the complete game have not yet returned or booted.
+
+The next optional original dispatcher mode (6299867, owner run 45864578298) is also implemented. It is gated on successful active-vector execution and the 24-case deferred dispatch contract. It permits only native PI cause/mask reads while verifying the original handler-table selection, active thread, saved integer context and preserved pending event. It stops before the IPC handler executes. Both owner checkpoints are pending at this documentation update; the last verified owner boundary remains third hardware IRQ entry.
