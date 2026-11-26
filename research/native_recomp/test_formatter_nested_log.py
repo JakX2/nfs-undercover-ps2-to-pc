@@ -30,4 +30,24 @@ class Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'refusal'):verify(log()+['FORMATTER_NESTED_REFUSAL kind=2'])
     def test_cross_mode(self):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(log(True))
+def third_log():
+    rows=log()
+    for i in range(8):
+        rows[2*i]=f'FORMATTER_THIRD_TRIAL n={i} native_prefix=1 frame=48 loads=5 stores=13 nonvolatile=3 authenticated_loads=4 conditional_loads=2 pre_load_stop=1 deferred=1 reply=0 visits=74'
+    rows[-1]='FORMATTER_THIRD_NATIVE owner=1 trials=8 native_prefix=8 loads=40 stores=104 nonvolatile=24 authenticated_loads=32 conditional_loads=16 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=592 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
+    return rows
+class Third(unittest.TestCase):
+    def test_exact(self):self.assertEqual(verify(third_log(),third=True),tuple(third_log()[-2:]))
+    def test_details(self):
+        x=third_log();x[2]=x[2].replace('authenticated_loads=4','authenticated_loads=3')
+        with self.assertRaisesRegex(ValueError,'details'):verify(x,third=True)
+    def test_totals(self):
+        x=third_log();x[-1]=x[-1].replace('authenticated_loads=32','authenticated_loads=24')
+        with self.assertRaisesRegex(ValueError,'native totals'):verify(x,third=True)
+    def test_counts(self):
+        x=third_log();x[0]=x[0].replace('authenticated_loads=4','authenticated_loads=2')
+        with self.assertRaisesRegex(ValueError,'native trial'):verify(x,third=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(third_log(),second=True)
+        with self.assertRaisesRegex(ValueError,'mode'):verify(third_log(),second=True,third=True)
 if __name__=='__main__':unittest.main(verbosity=2)
