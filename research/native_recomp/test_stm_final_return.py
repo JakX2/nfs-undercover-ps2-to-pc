@@ -19,6 +19,11 @@ class ReturnGeometry(unittest.TestCase):
     def test_individual_loads(self):
         f,s=prologue(SAVE)
         self.assertEqual(tail((REST[0],ins(32,30,1,24),ins(32,31,1,28),*REST[2:]),f,s),(3,2))
+    def test_volatile_return_arithmetic(self):
+        f,s=prologue(SAVE)
+        self.assertEqual(tail((REST[0],REST[1],ins(14,3,30,0),REST[2],*REST[3:]),f,s),(3,2))
+        with self.assertRaises(ValueError):tail((REST[0],REST[1],ins(14,0,0,7),REST[2],*REST[3:]),f,s)
+        with self.assertRaises(ValueError):tail((REST[0],REST[1],ins(14,30,0,7),REST[2],*REST[3:]),f,s)
     def test_bad_prologue(self):
         for bad in ((MFLR,), (ST,MFLR,ins(36,0,1,40)),
                     (ST,MFLR,ins(36,0,1,36),ins(36,0,1,28)),

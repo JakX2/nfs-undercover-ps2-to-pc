@@ -61,7 +61,7 @@ def tail(words,frame,slots):
     sp=-frame;values=[None]*32;lr=False;loaded=set();loads=0
     if not words or len(words)>32 or words[-1]!=BLR:
         raise ValueError('tail extent')
-    for w in words:
+    for ordinal,w in enumerate(words,1):
         op=w>>26;rs=(w>>21)&31;ra=(w>>16)&31;xo=(w>>1)&1023
         if w==BLR:
             if w!=words[-1] or sp or not lr or loaded!=set(slots.values()):
@@ -78,14 +78,20 @@ def tail(words,frame,slots):
         elif op==31 and xo==467 and spr(w)==8:
             if values[rs]!='lr' or lr:raise ValueError('tail LR')
             lr=True
-        elif op==14 and rs==3 and ra==0:
-            values[3]=None
-        elif op==31 and xo==444 and ra==3 and rs==((w>>11)&31):
-            values[3]=values[rs]
-        elif w==0x60000000:
-            pass
+        elif op in (14,15) and rs in (0,*range(3,13)):
+            values[rs]=values[ra] if op==14 and ra and not imm(w) else None
+        elif op==31 and xo==444 and ra in (0,*range(3,13)):
+            values[ra]=values[rs] if rs==((w>>11)&31) else None
+        elif op in (20,21,23,24,25,26,27,28,29) and ra in (0,*range(3,13)):
+            # An integer return-value computation is not LR provenance.
+            # Reserved SDA/SP and nonvolatile registers cannot be changed.
+            values[ra]=None
         else:
-            raise ValueError('tail opcode')
+            category=('branch' if op in (16,18,19) else 'load' if op in (32,33,34,35,40,41,42,43,46)
+                      else 'store' if op in (36,37,38,39,44,45,47,52,53,54,55)
+                      else 'integer' if op in (7,8,10,11,12,13,14,15,20,21,23,24,25,26,27,28,29,31)
+                      else 'other')
+            raise ValueError(f'tail opcode {category} {ordinal}')
     if words.count(BLR)!=1:raise ValueError('tail return count')
     return loads,sum(isinstance(v,int) for v in loaded)
 
@@ -111,7 +117,13 @@ def main():
             raise ValueError('size')
         labels,loads,saved=derive(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        print('STM_FINAL_RETURN_GEOMETRY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input'))
+        reason=str(ex)
+        if reason.startswith('tail opcode '):
+            _,_,category,ordinal=reason.split()
+            if category in {'branch','load','store','integer','other'} and ordinal.isdecimal() and 1<=int(ordinal)<=32:
+                print(f'STM_FINAL_RETURN_GEOMETRY verified=0 reason=tail_opcode category={category} ordinal={ordinal}')
+                return 1
+        print('STM_FINAL_RETURN_GEOMETRY verified=0 reason='+(reason.replace(' ','_') if reason in allowed else 'private_input'))
         return 1
     print(f'STM_FINAL_RETURN_GEOMETRY verified=1 labels={labels} stack_loads={loads} saved_gprs={saved} lr=1 caller=1 original_execution=0')
     return 0
