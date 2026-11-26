@@ -116,6 +116,12 @@ public:
         return (common(c,held)&&active_==e_.write_leaf&&c.inst_count==last_&&
                 (op==36u||(op==31u&&xo==151u))&&gate_.write(a,v,c.msr,true))||fail(8);
     }
+    template<class C>bool wake_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,uint32_t wake,bool held)const{
+        return stage_==2u&&live(c,held)&&frame_==&frame&&queue_==queue&&wake==e_.wake&&
+            c.pc==wake&&c.lr==e_.wake_lr&&c.gpr[3]==queue&&c.inst_count==last_&&
+            last_pc_==e_.wake_lr-4u&&known(c,e_.processor,last_pc_,last_word_)&&
+            edge(c,wake,c.lr,last_word_)&&gate_.ready_for_wakeup(c,true);
+    }
 private:
     ReplyProcessorExpectation e_;ColdReplyConsumeGate gate_;
     ExternalReturnWitness* frame_=nullptr;const void* cpu_=nullptr;
@@ -140,8 +146,9 @@ private:
             return e.pc==dst&&e.lr==lr&&e.branch_word==w&&word(c,dst,e.entry_word)&&word(c,lr-4u,w);
         })==1;
     }
-    template<class C>bool common(C& c,bool held)const{
-        return stage_==1u&&!error_&&held&&cpu_==&c&&frame_&&c.is_running&&!c.in_callback&&
+    template<class C>bool common(C& c,bool held)const{return stage_==1u&&live(c,held);}
+    template<class C>bool live(C& c,bool held)const{
+        return !error_&&held&&cpu_==&c&&frame_&&c.is_running&&!c.in_callback&&
             !c.dispatch_saved_ctx&&c.msr==msr_&&!(c.msr&0x8000u)&&
             c.inst_count>=tick_&&c.inst_count-tick_<=8192u&&gate_.boundary(true)&&
             frame_->saved_integer(c,e_.context).ok()&&word(c,0x800000d4u,e_.context)&&

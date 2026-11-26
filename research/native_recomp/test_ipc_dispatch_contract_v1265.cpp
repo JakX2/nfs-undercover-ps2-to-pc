@@ -5,6 +5,9 @@
 #include "wii_joined_ipc_reply_entry_v1273.h"
 #ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
 #include "wii_reply_processor_v1280.h"
+#ifdef UNDERCOVER_TEST_WAKE_READY
+#include "wii_wake_ready_v1288.h"
+#endif
 #endif
 #endif
 #include <cassert>
@@ -45,7 +48,10 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0){
+#ifndef UNDERCOVER_TEST_WAKE_READY
+    (void)wake_case;
+#endif
 #ifndef UNDERCOVER_TEST_REPLY_PROCESSOR
     (void)processor_case;
 #endif
@@ -245,6 +251,43 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(processor_case==11){reject(ok,3);return;}
         assert(ok&&body.stage()==2u&&body.arm_reads()==1u&&body.invalidations()==2u&&
             host.serviced_steps()==2u&&m.read16(Thread+712u)==4u&&m.read32(Queue)==Thread);
+#ifdef UNDERCOVER_TEST_WAKE_READY
+        constexpr uint32_t Disable=0x805265acu,Select=0x80529718u,Ready=0x8000b000u;
+        constexpr std::array<ReplyNativeWord,8> wake_words{{
+            {Wake,Wake,Nop},{Wake,Wake+4u,bl(Wake+4u,Disable)},
+            {Wake,Wake+8u,Nop},{Wake,Wake+12u,Nop},{Wake,Wake+16u,bl(Wake+16u,Select)},
+            {Disable,Disable,Nop},{Disable,Disable+4u,Blr},{Select,Select,Nop}}};
+        for(auto x:wake_words)m.write32(x.pc,x.word);
+        WakeReadyWitness ready({Wake,Disable,Select,Context,Thread,
+            {Disable,Wake+8u,wake_words[1].word,Nop},{Select,Wake+20u,wake_words[4].word,Nop},wake_words});
+        const auto saved_sp=c.gpr[1];c.gpr[1]=0x8000c000u;
+        if(wake_case==1)++c.inst_count;
+        auto refuse_wake=[&](bool ok,unsigned reason){assert(!ok&&ready.failure()==reason&&host.serviced_steps()==2u);};
+        ok=ready.begin(c,body,frame,Queue,true);
+        if(wake_case==1){refuse_wake(ok,1);return;}assert(ok);
+        assert(ready.poll(c,true));++c.inst_count;assert(ready.entry(c,Wake,true));
+        auto ws=[&](uint32_t pc){c.pc=pc;++c.inst_count;return ready.before(c,pc,m.read32(pc),true);};
+        auto we=[&](uint32_t pc,uint32_t lr){c.pc=pc;c.lr=lr;return ready.entry(c,pc,true);};
+        if(wake_case==2){refuse_wake(ws(Wake+4u),5);return;}
+        assert(ws(Wake)&&ws(Wake+4u));c.gpr[1]-=32u;
+        if(wake_case==3){refuse_wake(we(Disable,Wake+12u),2);return;}
+        assert(we(Disable,Wake+8u)&&ws(Disable)&&ws(Disable+4u));
+        c.gpr[3]=wake_case==4?1u:0u;
+        ok=ws(Wake+8u);if(wake_case==4){refuse_wake(ok,3);return;}assert(ok);
+        if(wake_case==5){refuse_wake(ready.refuse_mmio(),8);return;}
+        // Model only the guest's wake stores in the source-only test.
+        m.write32(Thread+712u,1u<<16);
+        m.write32(Queue,wake_case==6?Thread:0u);m.write32(Queue+4u,0u);
+        m.write32(Thread+732u,wake_case==7?Queue:Ready);
+        m.write32(Ready,Thread);m.write32(Ready+4u,wake_case==8?0u:Thread);
+        if(wake_case==9)m.write32(Thread+4u,0x1234u);
+        ok=ws(Wake+12u);if(wake_case==9){refuse_wake(ok,5);return;}assert(ok&&ws(Wake+16u));
+        c.gpr[3]=wake_case==10?1u:0u;
+        ok=we(Select,Wake+20u);
+        if((wake_case>=6&&wake_case<=8)||wake_case==10){refuse_wake(ok,4);return;}
+        assert(ok&&ready.stage()==2u&&ready.ready_queue()==Ready&&host.serviced_steps()==2u);
+        (void)saved_sp;
+#endif
 #endif
 #endif
         return;
@@ -310,6 +353,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_REPLY_PROCESSOR
     for(unsigned i=1;i<=11;++i)trial(0,0,true,i);
     std::cout<<"V1280_REPLY_BODY synthetic=1 valid=1 refused=11 native_mmio=1 modeled_instructions=1 wakeup=0 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_WAKE_READY
+    for(unsigned i=1;i<=10;++i)trial(0,0,true,0,i);
+    std::cout<<"V1288_WAKE_READY synthetic=1 valid=1 refused=10 ready_queue=1 modeled_stores=1 original_execution=0\n";
+#endif
 #endif
 #endif
 }

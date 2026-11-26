@@ -1,0 +1,3 @@
+# V1288: wake entry to original ready queue
+
+Read-only WakeReadyWitness consumes the exact same-tick V1280 reply processor witness, tracks native wake function/interrupt-disable call and strict label/branch/tick sequence, requires the original wait queue to drain and the original thread to be READY and enrolled in a different queue at the authenticated SelectThread entry. Retains both saved CPU contexts, device snapshot, thread priority and disabled interrupt state; no IOS service, host writes or forced switch. Source-only tests model stores explicitly; 10 adversarial mutations plus the positive path, with ASan/UBSan. Original execution not claimed. The private V1282 predecessor is running; the wake fixture extension remains gated on it.

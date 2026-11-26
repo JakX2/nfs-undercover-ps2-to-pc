@@ -1,0 +1,21 @@
+name: Wii V1288 Wake Ready Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_wake_ready_v1288.h'
+      - 'research/native_recomp/wii_reply_processor_v1280.h'
+      - 'research/native_recomp/test_ipc_dispatch_contract_v1265.cpp'
+      - '.github/workflows/wii-v1288-wake-ready.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate joined wake handoff and original-free state transitions
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -DUNDERCOVER_TEST_REPLY_PROCESSOR -DUNDERCOVER_TEST_WAKE_READY -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1288
+          /tmp/v1288
