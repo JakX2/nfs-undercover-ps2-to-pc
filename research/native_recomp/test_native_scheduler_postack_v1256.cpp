@@ -101,6 +101,9 @@
 #include "wii_ipc_deferred_ack_memory.h"
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
 #include "private_deferred_ack_execution.h"
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+#include "wii_deferred_active_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -369,6 +372,15 @@ static unsigned third_ack_count=0;
 struct DeferredAckStop{};
 static bool third_ack_held(nw::CPUContext&);
 [[noreturn]]static void third_ack_refuse(unsigned);
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+static LiveEpilogueWitness* third_return_route=nullptr;
+static DeferredActiveReturnJoin* third_return_join=nullptr;
+static unsigned third_return_count=0;
+static uint64_t third_return_tick=0;
+struct DeferredActiveRfiStop{};
+static bool third_return_storage(nw::CPUContext&);
+[[noreturn]]static void third_return_refuse(unsigned);
+#endif
 #endif
 [[noreturn]]static void third_dispatch_refuse(unsigned);
 #endif
@@ -609,6 +621,9 @@ static bool ioctl_dispatch_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 void ipc_dispatch_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    if(third_return_route)third_return_refuse(1); // no IPC submit leaf is expected here
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){
         if(std::count_if(deferred_ack_private::words.begin(),deferred_ack_private::words.end(),
@@ -674,6 +689,26 @@ static bool third_storage_held(nw::CPUContext& c,bool ack){
 static bool third_irq_held(nw::CPUContext& c){return third_storage_held(c,false);}
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
 static bool third_ack_held(nw::CPUContext& c){return third_storage_held(c,true);}
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+static bool third_return_storage(nw::CPUContext& c){
+    // Once the original loader starts, its RFI witness owns the saved
+    // integer context. Do not compare a retired pre-RFI frame afterwards.
+    return third_return_route&&third_return_join&&raw_device_ok(c)&&
+        ioctl_build&&ioctl_build->identity_storage_after_irq(c,true)&&
+        stm_event_return&&stm_event_return->flag_preserved(c)&&
+        allocator_descriptor&&allocator_descriptor->identity_after_release(c);
+}
+[[noreturn]]static void third_return_refuse(unsigned kind){
+    std::cout<<"STM_DEFERRED_ACTIVE_RETURN_REFUSAL kind="<<kind
+        <<" stage="<<(third_return_route?third_return_route->stage():0u)
+        <<" reason="<<(third_return_route?third_return_route->failure():0u)
+        <<" entry="<<(third_return_route?third_return_route->entry_refusal():0u)
+        <<" join="<<(third_return_join?third_return_join->failure():0u)
+        <<" visits="<<(third_return_route?third_return_route->visits():0u)
+        <<" select="<<(third_return_route?third_return_route->select_state():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 [[noreturn]]static void third_ack_refuse(unsigned kind){
     std::cout<<"STM_DEFERRED_ACK_REFUSAL kind="<<kind<<" stage="<<(third_ack?third_ack->stage():0u)
              <<" reason="<<(third_ack?third_ack->failure():0u)<<" visits="<<(third_ack?third_ack->visits():0u)
@@ -887,6 +922,15 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    if(third_return_route){
+        // The shared original restore helper is already observed by
+        // v1270_before. Never reactivate a retired submission witness.
+        if(!third_return_storage(c)||std::count_if(v1270::words.begin(),v1270::words.end(),
+            [&](auto x){return x.pc==pc&&x.word==w;})!=1)third_return_refuse(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){
         if(std::count_if(deferred_ack_private::words.begin(),deferred_ack_private::words.end(),
@@ -1204,6 +1248,16 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    if(third_return_route){
+        if(!third_return_join->held(c,third_return_storage(c)))third_return_refuse(1);
+        if(!third_return_route->stage()&&(pc!=v1255::returned||c.pc!=pc||
+           c.inst_count-third_return_tick!=2u||
+           !third_return_route->begin_cleared_select(c,*third_frame_ptr,cause.load(),mask.load())))third_return_refuse(2);
+        if(!third_return_route->before(c,pc,w,cause.load(),mask.load()))third_return_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
     if(stm_ioctl){v1344_before(c,pc,w);return;}
 #endif
@@ -1262,6 +1316,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    if(third_return_route){
+        if(!third_return_join->held(c,third_return_storage(c))||
+           !third_return_route->entry(c,pc,cause.load(),mask.load()))third_return_refuse(4);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){if(!third_ack->entry(c,pc,third_ack_held(c)))third_ack_refuse(3);return;}
 #endif
@@ -1799,6 +1860,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    if(third_return_route){
+        if(!third_return_join->held(c,third_return_storage(c)))third_return_refuse(5);
+        if(!third_return_route->stage()){
+            if(c.pc!=v1255::returned||c.inst_count!=third_return_tick)third_return_refuse(5);
+            return false;
+        }
+        if(!third_return_route->poll(c,cause.load(),mask.load()))third_return_refuse(5);
+        if(third_return_route->stage()==4u){
+            if(!third_return_join->finish(c,third_return_storage(c)))third_return_refuse(6);
+            ++third_return_count;throw DeferredActiveRfiStop{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     if(third_ack){
         if(!third_ack->poll(c,third_ack_held(c)))third_ack_refuse(4);
@@ -3321,6 +3397,9 @@ int main(int argc,char** argv)try{
              host.services().event_pending());
         std::cout<<"STM_OUTER_RESTORE_TRIAL n="<<trial<<" original_mtmsr=1 ee=1 pending_ack=1 deferred=1 visits="<<stm_outer->visits()<<'\n';
         ExternalReturnWitness third_frame;
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+        const auto third_gqr=c.gqr;
+#endif
         const auto ex=stm_outer_private::expected;
         if(!enter_deferred_stm_irq(c,host,*ioctl_event_gate,third_frame,v1259::vector,
               ioctl_build->request()&0x3fffffffu,Q::Thread,ex.resume,ex.resume_word,stm_outer_held(c)))stm_outer_refuse(5);
@@ -3375,6 +3454,22 @@ int main(int argc,char** argv)try{
         std::cout<<"STM_DEFERRED_ACK_TRIAL n="<<trial<<" original_return=1 guest_w1c=1 credit=1 unissued=1 deferred=1 reply=0 active_context=1 visits="
                  <<ack3.visits()<<" reads="<<ack3.reads()<<" writes="<<ack3.writes()<<" stack="<<ack3.stack_stores()<<" calls="<<ack3.calls()<<'\n';
         third_ack=nullptr;
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+        DeferredActiveReturnJoin active_join;
+        LiveEpilogueWitness active_route(v1270::expected(Q::Thread));
+        third_return_route=&active_route;third_return_join=&active_join;third_return_tick=c.inst_count;
+        if(!active_join.begin(c,third_frame,*ioctl_event_gate,ack_memory3,Q::Thread,third_wait,
+             W::Sda+v1261::counter_disp,third_gqr,third_return_storage(c)))third_return_refuse(6);
+        bool active_returned=false;try{run_game(c);}catch(const DeferredActiveRfiStop&){active_returned=true;}
+        if(!active_returned||third_return_count!=trial+1u||active_route.stage()!=4u||
+           !active_join.resumed(c,third_return_storage(c))||c.pc!=ex.resume||!(c.msr&0x8000u)||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)third_return_refuse(7);
+        std::cout<<"STM_DEFERRED_ACTIVE_RETURN_TRIAL n="<<trial
+            <<" native_rfi=1 original_epilogue=1 active_context=1 deferred=1 reply=0 resume_instruction_executed=0 visits="
+            <<active_route.visits()<<'\n';
+        third_return_route=nullptr;third_return_join=nullptr;
+#endif
 #endif
 #endif
         third_vector=nullptr;third_frame_ptr=nullptr;third_memory=nullptr;third_context=third_wait=0;
@@ -3597,6 +3692,10 @@ int main(int argc,char** argv)try{
     need(third_dispatch_count==8u);
 #ifdef UNDERCOVER_STM_DEFERRED_ACK
     need(third_ack_count==8u);
+#ifdef UNDERCOVER_STM_DEFERRED_ACTIVE_RETURN
+    need(third_return_count==8u);
+    std::cout<<"STM_DEFERRED_ACTIVE_RETURN_NATIVE owner=1 trials=8 native_rfi=8 original_epilogue=8 active_context=8 deferred=8 reply=0 resume_instruction_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_DEFERRED_ACK_NATIVE owner=1 trials=8 original_return=8 guest_w1c=8 credit=8 unissued=8 deferred=8 reply=0 active_context=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"STM_DEFERRED_DISPATCH_NATIVE owner=1 trials=8 original_dispatch=8 handler_index=27 active_context=8 pending_ack=8 deferred=8 handler_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
