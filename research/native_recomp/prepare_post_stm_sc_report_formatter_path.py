@@ -25,12 +25,18 @@ def add(a,n):
 def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
-def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False):
+def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0)):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
     for r,v in args.items():gp[r]=v
-    mem={};cr={};ctr=None;lr=('lr',0);path=[];accesses=[];frame=0;saves=set();protected=set()
+    mem=dict(seed_bytes or {});cr=dict(initial_cr or {});ctr=initial_ctr;lr=entry_lr
+    path=[];accesses=[];frame=0;saves=set();protected=set()
+    if seed_bytes is not None and (stack_slots or resume is not None or any(not caller_sp<=at<0 for at in mem)):
+        raise ValueError('formatter nested memory geometry')
+    if resume is not None and (initial_cr is not None or initial_ctr is not None or entry_lr!=('lr',0)):
+        raise ValueError('formatter nested state')
     if resume is not None:
         rg,rm,rc,ctr,lr,frame,rs=resume
         gp=list(rg);mem=dict(rm);cr=dict(rc);saves=set(rs)
@@ -63,7 +69,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         k,at=a
         if k!='stack' or not frame or n not in (1,2,4) or at%n or not caller_sp-frame<=at<at+n<=caller_sp+8:
             raise ValueError('formatter stack write provenance')
-        if at>=caller_sp and (at!=caller_sp+4 or n!=4 or v!=('lr',0)):
+        if at>=caller_sp and (at!=caller_sp+4 or n!=4 or v!=entry_lr):
             raise ValueError('formatter caller linkage provenance')
         if resume is None and any(at+i in mem for i in range(n)):
             raise ValueError('formatter duplicate stack write')
@@ -82,7 +88,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         imm=((w&0xffff)^0x8000)-0x8000;nxt=pc+4
         if pc in bounds:
             if w>>26==18 and w&3==1 or (resume is not None and w==0x4e800421 and ctr is not None):
-                if not frame or stack_read(caller_sp-frame,4)!=('stack',caller_sp) or stack_read(caller_sp+4,4)!=('lr',0):
+                if not frame or stack_read(caller_sp-frame,4)!=('stack',caller_sp) or stack_read(caller_sp+4,4)!=entry_lr:
                     raise ValueError('formatter frame identity')
                 dst=direct_bl(w,pc) if w>>26==18 else ctr
                 result=(path,frame,accesses,len(saves),dst,tuple(gp),dict(mem))
