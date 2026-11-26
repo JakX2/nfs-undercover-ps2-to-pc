@@ -1,0 +1,3 @@
+# V1252: original thread sleep with pending native IOS ACK
+
+Use V1251's exact ACK handoff and the authenticated original V73 sleep extent (59 words), nested interrupt disable and actual SelectThread entry. Keep the pending IOS notification unchanged, execute original queue insertion and verify the default thread becomes WAITING, both queue links point to it, its own links are null, and no reply was published. The default current thread pointer and initial thread state are seeded before original IPC execution in this isolated fixture; no wait-queue result is injected. Stop before SelectThread executes. Source fixture and owner tests pending; no full-image link or boot claim.
