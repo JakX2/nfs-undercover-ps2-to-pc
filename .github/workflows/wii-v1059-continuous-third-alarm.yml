@@ -1,4 +1,4 @@
-name: Wii V1116 Gated Continuous Wireless Frontier
+name: Wii V1129 Gated Continuous Wireless Frontier Retry
 on:
   workflow_dispatch:
   push:
@@ -53,7 +53,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Link once and execute through original held wireless frontier
+      - name: Revalidate private hook composition, link once and execute through original held wireless frontier
         env:
           UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
           UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"
@@ -108,7 +108,7 @@ jobs:
           grep -Fx 'V1103_POSTALARM_TIME_RETURN original_return=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 offset=1 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
           grep -Fx 'V1111_POSTALARM_FRONTIER ordinal=3 visits=17 writes=3 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
           grep -Fx 'V1114_POSTALARM_FRONTIER_CENSUS verified=1 original_wireless_frontier=1 token_held=1 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
-          echo 'V1116_CONTINUOUS_WIRELESS_FRONTIER verified=1 original_transfer=1 original_alarm=1 original_callback_time=1 original_wireless_frontier=1 boot_verified=0'
+          echo 'V1129_CONTINUOUS_WIRELESS_FRONTIER verified=1 original_transfer=1 original_alarm=1 original_callback_time=1 original_wireless_frontier=1 boot_verified=0'
       - name: Clean private files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v1059-public.log"
