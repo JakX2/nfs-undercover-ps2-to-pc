@@ -13,14 +13,16 @@ int main(){
         auto q=WordMmioInstruction::decode(c,d(op,3,4,0xfff4u));
         assert(q.kind==(op<36?K::Read:K::Write)&&q.address(0x0d000004u)&&q.address(0xcd000004u)&&
             !q.address(0x0d000008u)&&!q.address(0x4d000004u));
-        assert(q.form==((op&1u)?3u:1u));if(op>=36)assert(q.value==c.gpr[3]);++n;
+        assert(q.form==((op&1u)?3u:1u));if(op>=36){assert(q.value==c.gpr[3]);}
+        ++n;
     }
     for(unsigned xo:{23u,55u,151u,183u,534u,662u}){
         auto q=WordMmioInstruction::decode(c,x(xo,3,4,5));
         const bool read=xo==23||xo==55||xo==534;
         assert(q.kind==(read?K::Read:K::Write)&&q.address(0x0d000004u));
         assert(q.form==(xo==534||xo==662?4u:xo==55||xo==183?3u:2u));
-        if(!read)assert(q.value==(xo==662?0x78563412u:0x12345678u));++n;
+        if(!read){assert(q.value==(xo==662?0x78563412u:0x12345678u));}
+        ++n;
     }
     c.gpr[0]=0xdeadbeefu;c.gpr[5]=0xcd000004u;
     auto q=WordMmioInstruction::decode(c,x(151,3,0,5));assert(q.address(0x0d000004u));++n;
