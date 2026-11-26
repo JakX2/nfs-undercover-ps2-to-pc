@@ -18,6 +18,7 @@ public:
     unsigned restored()const{return restored_;}
     unsigned ordinal()const{return ordinal_;}
     unsigned polls()const{return polls_;}
+    unsigned return_detail()const{return return_detail_;}
     template<class C>bool begin(C& c,bool held,uint32_t caller_sp){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.start||c.gpr[3]!=0u||
            !known(c,e_.wrapper,e_.start)||!word(c,e_.caller,e_.caller_word)||
@@ -82,9 +83,14 @@ public:
         ++polls_;return true;
     }
     template<class C>bool returned(C& c,uint32_t pc,bool held,bool caller_abi){
-        if(stage_!=1u||!live(c,held)||!return_due_||!caller_abi||pc!=e_.caller||c.pc!=pc||c.lr!=pc||
-           c.inst_count!=last_||!word(c,pc,e_.caller_word)||c.gpr[1]!=caller_sp_||c.gpr[3]!=0u||!settled(c))return fail(6);
-        stage_=2;return true;
+        if(stage_!=1u||!live(c,held)||!return_due_)return bad_return(1);
+        if(!caller_abi)return bad_return(2);
+        if(pc!=e_.caller||c.pc!=pc||c.lr!=pc||!word(c,pc,e_.caller_word))return bad_return(3);
+        // The authenticated outer dispatcher polls before its own dispatch
+        // tick. A direct local continuation has no extra tick.
+        if(c.inst_count-last_!=unsigned(polls_==1u))return bad_return(4);
+        if(c.gpr[1]!=caller_sp_||c.gpr[3]!=0u||!settled(c))return bad_return(5);
+        last_=c.inst_count;stage_=2;return true;
     }
     template<class C>bool reached(C& c,bool held,bool caller_abi){
         return stage_==2u&&live(c,held)&&caller_abi&&c.pc==e_.caller&&c.lr==e_.caller&&
@@ -98,8 +104,9 @@ private:
     std::array<uint32_t,32> helper_{};
     uint32_t sp_=0,caller_sp_=0,msr_=0,r2_=0,r13_=0,owner_=0,next_=0,load_reg_=0,load_value_=0;
     uint64_t tick_=0,last_=0;
-    unsigned stage_=0,error_=0,visits_=0,loads_=0,restored_=0,ordinal_=0,polls_=0;
+    unsigned stage_=0,error_=0,visits_=0,loads_=0,restored_=0,ordinal_=0,polls_=0,return_detail_=0;
     bool entry_due_=false,entered_=false,return_due_=false,pending_=false;
+    bool bad_return(unsigned n){return_detail_=n;return fail(6);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>bool live(C& c,bool held)const{

@@ -45,10 +45,15 @@ static void trial(unsigned fault){
     c.pc=C;
     if(fault==12){assert(!w.poll(c,true,false));return;}
     if(fault==13){++c.inst_count;assert(!w.poll(c,true,true));return;}
-    assert(w.poll(c,true,true));
-    if(fault==14){assert(!w.poll(c,true,true));return;}
-    ok=w.returned(c,C,true,fault!=9);if(fault==9){assert(!ok);return;}assert(ok);
-    assert(w.reached(c,true,true)&&w.visits()==9&&w.loads()==3&&w.restored()==2&&w.polls()==1);
+    if(fault!=15){
+        assert(w.poll(c,true,true));
+        if(fault==14){assert(!w.poll(c,true,true));return;}
+        ++c.inst_count;
+    }
+    if(fault==16)++c.inst_count;
+    ok=w.returned(c,C,true,fault!=9);
+    if(fault==9||fault==16){assert(!ok);return;}assert(ok);
+    assert(w.reached(c,true,true)&&w.visits()==9&&w.loads()==3&&w.restored()==2&&w.polls()==unsigned(fault!=15));
     if(fault==10){c.msr|=0x8000;assert(!w.reached(c,true,true));}
 }
-int main(){for(unsigned f=0;f<=14;++f)trial(f);std::cout<<"ASYNC_WRAPPER_RETURN_TEST cases=15 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=16;++f)trial(f);std::cout<<"ASYNC_WRAPPER_RETURN_TEST cases=17 original_execution=0\n";}

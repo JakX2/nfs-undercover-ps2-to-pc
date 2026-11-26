@@ -581,7 +581,8 @@ static bool async_held(nw::CPUContext& c){
     std::cout<<"ASYNC_WRAPPER_REFUSAL kind="<<kind<<" stage="<<(async_wrapper?async_wrapper->stage():0u)
              <<" reason="<<(async_wrapper?async_wrapper->failure():0u)<<" visits="<<(async_wrapper?async_wrapper->visits():0u)
              <<" loads="<<(async_wrapper?async_wrapper->loads():0u)<<" restored="<<(async_wrapper?async_wrapper->restored():0u)
-             <<" ordinal="<<(async_wrapper?async_wrapper->ordinal():0u)<<'\n';
+             <<" ordinal="<<(async_wrapper?async_wrapper->ordinal():0u)
+             <<" detail="<<(async_wrapper?async_wrapper->return_detail():0u)<<'\n';
     throw WitnessFailure{};
 }
 void async_wrapper_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
