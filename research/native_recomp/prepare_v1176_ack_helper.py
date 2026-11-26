@@ -12,6 +12,9 @@ from prepare_v1169_third_ack import metadata as ack_metadata,render as render_ac
 from prepare_v1097_after_alarm import fmt,ACTIVE,inherited_hooks
 from prepare_owner_callback_prefix_v797 import plan as prefix_plan
 from prepare_owner_indirect_callback_v806 import verify_indirect
+from prepare_owner_callback_time_v802 import plan as callback_time_plan
+from prepare_v813_callback_time import render as time_render
+from prepare_owner_scheduler_v722 import reachable as callback_reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
@@ -123,8 +126,50 @@ def verify_prefix_native(src,outer,meta):
         if addr==C:verify_direct(body,site,S)
         for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
 
-def install(dol,elf,root,host,callback=False,prefix=False):
+def verify_time_metadata(dol,elf,old,dest,host,prefix_meta):
+    q,T,D,U,R,ts,leaves=callback_time_plan(dol,elf)
+    roots,C,S,site,_,_=q
+    resume=site+4;continuation=roots[C][(resume-C)//4:-1]
+    prior_C,prior_S,prior_site,prior_prefix,prior_save=prefix_meta
+    if (C,S,site)!=(prior_C,prior_S,prior_site) or tuple(roots[C][:(resume-C)//4+1])!=tuple(prior_prefix) or tuple(roots[S])!=tuple(prior_save):
+        raise ValueError('ACK time predecessor')
+    if len(roots[T])!=25 or len(leaves)!=3 or [x[1] for x in leaves]!=[D,U,R] or [x[4] for x in leaves]!=[1,2,3]:
+        raise ValueError('ACK time geometry')
+    if tuple(continuation)!=tuple(exact(dol,elf,C,172)[(resume-C)//4:(ts-C)//4+2]):
+        raise ValueError('ACK time geometry')
+    if old.splitlines().count('#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1')!=1 or 'UNDERCOVER_V1189_PRIVATE_ACK_TIME' in old:
+        raise ValueError('ACK time mode')
+    expected={'v813_private_callback_time.h':time_render(C,ts,continuation,T,roots[T],leaves),
+              'wii_callback_time_v810.h':(host/'wii_callback_time_v810.h').read_text(),
+              'wii_postack_os_leaf_v703.h':(host/'wii_postack_os_leaf_v703.h').read_text()}
+    for n,s in expected.items():
+        h=dest/n
+        if h.is_symlink() or not h.is_file() or h.read_text()!=s:raise ValueError('ACK time metadata')
+    return roots,C,T,D,U,R,resume,ts,leaves
+
+def verify_time_native(src,outer,meta):
+    roots,C,T,D,U,R,resume,ts,leaves=meta
+    callback_pcs={pc for pc in callback_reachable(C,roots[C]) if resume<=pc<=ts+4}
+    if len(callback_pcs)!=13 or resume not in callback_pcs or ts+4 not in callback_pcs:
+        raise ValueError('ACK time geometry')
+    total=0
+    for addr in (C,T,D,U,R):
+        hits=[s for s in src.values() if owns_root(s,addr)]
+        if len(hits)!=1 or sum(entry_count(s,addr) for s in src.values())!=1:
+            raise ValueError('ACK time owner')
+        body=exact_function(hits[0],addr)
+        labels=callback_pcs if addr==C else callback_reachable(addr,roots[addr])
+        rows={pc:(addr,roots[addr][(pc-addr)//4]) for pc in labels}
+        if audit_native([body],outer,rows)!=len(rows):raise ValueError('ACK time coverage')
+        for a,t in ([(ts,T)] if addr==C else [(x[0],x[1]) for x in leaves] if addr==T else []):
+            verify_direct(body,a,t)
+        for pc,(_,w) in rows.items():verify_label(body,pc,w,False)
+        total+=len(rows)
+    if total-len(callback_pcs)!=45:raise ValueError('ACK time geometry')
+
+def install(dol,elf,root,host,callback=False,prefix=False,time=False):
     if prefix and not callback:raise ValueError('ACK prefix mode')
+    if time and not prefix:raise ValueError('ACK time mode')
     spans,edges,rows,msr,expected,ack,prior=metadata(dol,elf)
     dest=root/'nWiiRuntime/include/undercover';private=dest/'v958_private_second_ack.h'
     result=dest/'v1175_private_ack_helper.h';bus=dest/'wii_si_binding_v512.h'
@@ -151,12 +196,14 @@ def install(dol,elf,root,host,callback=False,prefix=False):
         h=dest/'wii_callback_prefix_v800.h'
         if h.is_symlink() or not h.is_file() or h.read_text()!=(host/h.name).read_text() or 'UNDERCOVER_V1184_PRIVATE_ACK_PREFIX' in old:
             raise ValueError('ACK prefix metadata')
+    time_meta=verify_time_metadata(dol,elf,old,dest,host,prefix_meta) if time else None
     paths=sorted(root.glob('output_*.cpp'));main=root/'main_output.cpp'
     if len(paths)<20 or any(x.is_symlink() or not x.is_file() or x.stat().st_size>64*1024*1024 for x in paths+[main]):
         raise ValueError('ACK helper tree')
     src={x:x.read_text() for x in paths};outer=main.read_text()
     callback_guard=True
     if prefix_meta:verify_prefix_native(src,outer,prefix_meta)
+    if time_meta:verify_time_native(src,outer,time_meta)
     for index,(a,end,_) in enumerate(spans):
         hits=[p for p,s in src.items() if owns_root(s,a)]
         if len(hits)!=1 or sum(entry_count(s,a) for s in src.values())!=1:raise ValueError('ACK helper owner')
@@ -180,20 +227,23 @@ def install(dol,elf,root,host,callback=False,prefix=False):
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'
+    if time:extra+='#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n'
     private.write_text(old.replace(macro,macro+extra,1))
     if callback:print('V1182_ACK_CALLBACK_METADATA installed=1 original_words=172 guarded_site=1 execution=0')
     if prefix:print('V1186_ACK_PREFIX_METADATA installed=1 original_prefix=6 original_save=7 native_edges=2 execution=0')
+    if time:print('V1190_ACK_TIME_METADATA installed=1 callback_labels=13 shared_labels=45 native_edges=4 execution=0')
     print(f'V1176_ACK_HELPER_ROUTE installed=1 native_labels={len(rows)} roots=7 direct_edges=8 msr_sites=2 bus_reused=1 execution=0')
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('generated',type=Path);p.add_argument('--callback',action='store_true');p.add_argument('--prefix',action='store_true');p.add_argument('--time',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>MAX_DOL or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
-        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix)
+        install(a.dol.read_bytes(),a.elf.read_bytes(),a.generated,Path(__file__).parent,a.callback,a.prefix,a.time)
     except (OSError,ValueError,UnicodeError,struct.error,IndexError,KeyError,TypeError,StopIteration) as e:
         safe={'ACK helper '+s for s in ('geometry','predecessor','MSR','return','edge','render','destination','identity','mode','metadata','tree','owner','coverage')}
         safe|={'ACK callback geometry','ACK callback metadata','ACK callback guard'}
         safe|={'ACK prefix '+s for s in ('geometry','metadata','owner','coverage','mode')}
+        safe|={'ACK time '+s for s in ('predecessor','geometry','metadata','owner','coverage','mode')}
         safe|={'indirect label','indirect LR','indirect dispatch','indirect fallback'}
         safe|={'third ACK bus','third ACK hook','third ACK tick','held handler label','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper call label','helper direct native call','helper native return edge'}
         print('V1176_ACK_HELPER_ROUTE installed=0 reason='+(str(e).replace(' ','_') if str(e) in safe else 'other'));return 1

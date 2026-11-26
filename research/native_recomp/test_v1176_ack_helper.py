@@ -129,4 +129,31 @@ class AckPrefixMetadata(unittest.TestCase):
     def test_requires_callback(self):
         with self.assertRaisesRegex(ValueError,'ACK prefix mode'):
             ins.install(b'',b'',Path('.'),Path('.'),False,True)
+class AckTimeMetadata(unittest.TestCase):
+    def test_metadata(self):
+        C=H+0x1000;S=C+0x100;T=C+0x200;D=T+0x100;U=T+0x200;R=T+0x300
+        site=C+16;resume=site+4;ts=resume+44
+        prefix=[W]*6;save=[W]*6+[BLR];code=[W]*18
+        roots={C:code+[BLR],S:save,T:[W]*25,D:[BLR],U:[BLR],R:[BLR]}
+        leaves=[(T+4,D,D+4,W,1,[BLR]),(T+16,U,U+4,W,2,[BLR]),(T+28,R,R+4,W,3,[BLR])]
+        plan=((roots,C,S,site,11,-24),T,D,U,R,ts,leaves)
+        old='#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td)
+            (dest/'v813_private_callback_time.h').write_text(ins.time_render(C,ts,code[5:],T,roots[T],leaves))
+            for n in ('wii_callback_time_v810.h','wii_postack_os_leaf_v703.h'):
+                (dest/n).write_bytes((HOST/n).read_bytes())
+            prior=(C,S,site,prefix,save)
+            with patch.object(ins,'callback_time_plan',return_value=plan),patch.object(ins,'exact',return_value=code+[W]*154):
+                meta=ins.verify_time_metadata(b'',b'',old,dest,HOST,prior)
+                self.assertEqual(meta,(roots,C,T,D,U,R,resume,ts,leaves))
+                for bad in (old+old,old.replace('TIME 1','TIME 0'),old+'#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_time_metadata(b'',b'',bad,dest,HOST,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_time_metadata(b'',b'',old,dest,HOST,(C,S,site+4,prefix,save))
+                h=dest/'v813_private_callback_time.h';h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_time_metadata(b'',b'',old,dest,HOST,prior)
+    def test_requires_prefix(self):
+        with self.assertRaisesRegex(ValueError,'ACK time mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,False,True)
 if __name__=='__main__':unittest.main()
