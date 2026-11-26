@@ -162,6 +162,13 @@ static IdleSelectionWitness* selection_witness=nullptr;
 static IdleRouteWitness* selection_route=nullptr;
 static unsigned selection_count=0;
 struct LoaderReached{};
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+static CooperativeLoadLane* coop_load=nullptr;
+static CooperativeSaveLane* load_save=nullptr;
+static bool load_active=false;
+static unsigned load_count=0;
+struct CooperativeReturned{};
+#endif
 #endif
 #endif
 static NativeIosTransport* submit_host=nullptr;
@@ -176,8 +183,11 @@ struct WitnessFailure:std::runtime_error{WitnessFailure():std::runtime_error("wi
 static void need(bool b,const std::source_location l=std::source_location::current()){
     if(!b)throw HarnessFailure(l.line());
 }
+static bool raw_device_ok(nw::CPUContext& c){
+    return si_ack&&si_ack->token()==3u&&si_ack->postack_device_quiescent(c.inst_count);
+}
 static bool device_ok(nw::CPUContext& c){
-    const bool ok=si_ack&&si_ack->token()==3u&&si_ack->postack_device_quiescent(c.inst_count);
+    const bool ok=raw_device_ok(c);
 #ifdef UNDERCOVER_V1320_SAVE_CONTINUITY
     return ok&&(!coop_saved||coop_saved->preserved(c,true));
 #else
@@ -191,6 +201,17 @@ static bool device_ok(nw::CPUContext& c){
         <<" route_reason="<<selection_route->failure()<<" visits="<<selection_route->visits()<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+static bool load_held(nw::CPUContext& c){
+    return selection_witness&&selection_witness->loader_boundary(c,raw_device_ok(c));
+}
+[[noreturn]]static void load_refuse(unsigned kind){
+    std::cout<<"V1334_LOAD_REFUSAL kind="<<kind<<" stage="<<coop_load->stage()
+        <<" reason="<<coop_load->failure()<<" abi="<<load_save->context().failure()
+        <<" visits="<<coop_load->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void v1328_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!selection_route)return;
     if(!selection_witness->boundary(c,device_ok(c))||!selection_route->before(c,pc,w,device_ok(c)))selection_refuse(1);
@@ -387,6 +408,12 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    if(load_active){
+        if(!coop_load->before(c,pc,w,load_held(c)))load_refuse(1);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1305_READY_IDLE_RETURN
     if(ready_idle){
         if(!ready_idle->boundary(c,device_ok(c)))idle_return_refuse(1);
@@ -427,12 +454,21 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    if(load_active)load_refuse(2);
+#endif
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     if(selection_route){
         if(!selection_route->entry(c,pc,device_ok(c))||!selection_witness->entry(c,pc,device_ok(c)))selection_refuse(2);
         if(selection_route->stage()==2u){
             if(!selection_route->loader_at(c,device_ok(c))||!selection_witness->loader_ready(c,device_ok(c)))selection_refuse(3);
-            ++selection_count;throw LoaderReached{};
+            ++selection_count;
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+            if(!coop_load->begin(c,*load_save,load_held(c)))load_refuse(3);
+            selection_route=nullptr;load_active=true;return;
+#else
+            throw LoaderReached{};
+#endif
         }
         return;
     }
@@ -574,6 +610,16 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    if(load_active){
+        if(!coop_load->poll(c,load_held(c)))load_refuse(4);
+        if(coop_load->stage()==4u){
+            if(!coop_load->restored(c,load_held(c)))load_refuse(5);
+            ++load_count;throw CooperativeReturned{};
+        }
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     if(selection_route){
         const auto detail=selection_witness->boundary_detail(c,device_ok(c));
@@ -753,6 +799,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    if(load_active)load_refuse(6);
+#endif
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     if(selection_route)selection_refuse(5);
 #endif
@@ -807,6 +856,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    if(load_active)load_refuse(7);
+#endif
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     if(selection_route)selection_refuse(6);
 #endif
@@ -1210,10 +1262,20 @@ int main(int argc,char** argv)try{
             v1321::ram_words,v1321::direct,v1321::callbacks});
         selection_witness=&selection;selection_route=&route;
         if(!selection.begin(c,idle_join,device_ok(c))||!route.begin(c,device_ok(c)))selection_refuse(7);
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+        CooperativeLoadLane load(v1321::load());coop_load=&load;load_save=&save_lane;
+        bool cooperative_returned=false;try{run_game(c);}catch(const CooperativeReturned&){cooperative_returned=true;}
+        need(cooperative_returned&&load.restored(c,load_held(c))&&selection_count==trial+1u&&
+            load_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load())&&
+            c.pc==save_lane.expectation().geometry.save_return&&!(c.msr&0x8000u));
+        load_active=false;coop_load=nullptr;load_save=nullptr;coop_saved=nullptr;
+        std::cout<<"V1334_LOAD_TRIAL n="<<trial<<" original_loader=1 native_rfi=1 saved_abi=1 gqr=1 cooperative_return=1\n";
+#else
         bool loader_reached=false;try{run_game(c);}catch(const LoaderReached&){loader_reached=true;}
         need(loader_reached&&route.loader_at(c,device_ok(c))&&selection.loader_ready(c,device_ok(c))&&
             selection_count==trial+1u&&save_lane.preserved(c,device_ok(c))&&host.serviced_steps()==2u&&
             !(cause.load()&mask.load()));
+#endif
         selection_route=nullptr;selection_witness=nullptr;
         std::cout<<"V1328_SELECTION_TRIAL n="<<trial<<" original_clear=1 original_callback=1 original_set=1 loader_entry=1 preserved=1\n";
 #endif
@@ -1280,6 +1342,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1328_IDLE_SELECTION
     need(selection_count==8u);
     std::cout<<"V1328_SELECTION_NATIVE owner=1 trials=8 original_clear=8 original_callback=8 original_set=8 loader_entry=8 preserved=8 thread_resumed=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1334_COOP_LOAD
+    need(load_count==8u);
+    std::cout<<"V1334_COOPERATIVE_LOAD_NATIVE owner=1 trials=8 original_loader=8 native_rfi=8 saved_abi=8 gqr=8 cooperative_return=8 sleep_return=0 ios_steps=2 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif

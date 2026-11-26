@@ -72,6 +72,11 @@ public:
         }else return fail(3);
         last_=c.inst_count;return true;
     }
+    // After loader entry, the native CPU registers change. Retain the
+    // authenticated queue, selected context, wire and saved image checks.
+    template<class C>bool loader_boundary(C& c,bool held)const{
+        return stage_==6u&&boundary(c,held)&&word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
+    }
     template<class C>bool loader_ready(C& c,bool held)const{
         return stage_==6u&&boundary(c,held)&&c.inst_count==last_&&c.pc==e_.load.pc&&
             c.lr==e_.load.lr&&c.gpr[3]==e_.thread&&word(c,0x800000e4u,e_.thread)&&active(c,e_.thread);
