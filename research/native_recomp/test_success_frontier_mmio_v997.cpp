@@ -928,7 +928,47 @@ int main(int argc,char** argv){
                                                                                                 if(hrf=="-double-poll")v958::poll(c);
                                                                                                 if(hrf!="-dispatch"){scheduler.advance(++tick);v958::postalarm_handler_dispatch_resume(c,hre.caller,hre.caller_word);}
                                                                                                 if(hrf=="-abi")c.gpr[31]^=1u;
+#ifdef UNDERCOVER_V1217_PRIVATE_ACK_FINAL
+                                                                                                const bool final_mode=v958::ack_final_enabled();
+                                                                                                const auto zf=hrf.starts_with("-final")?hrf.substr(std::string_view("-final").size()):std::string_view{};
+                                                                                                if(final_mode){
+                                                                                                    need(hrf.starts_with("-final"));
+                                                                                                    c.mmu.words[c.gpr[13]+4u]=2;c.mmu.words[c.gpr[13]+8u]=0;
+                                                                                                    if(zf=="-counter")c.mmu.words[c.gpr[13]+4u]=0;
+
+                                                                                                }
+#endif
                                                                                                 visit(hre.caller,hre.caller_word);
+#ifdef UNDERCOVER_V1217_PRIVATE_ACK_FINAL
+                                                                                                if(final_mode){
+                                                                                                    need(v958::held_epilogue.stage()==30u);
+                                                                                                    auto ent3=[&](uint32_t pc,uint32_t link){c.pc=pc;c.lr=link;v958::observe(pc,c);};
+                                                                                                    ent3(zf=="-entry"?q::Di:q::En,q::Dest+4u);
+                                                                                                    if(zf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                                                    if(zf=="-tick")scheduler.advance(++tick);
+                                                                                                    if(zf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                                    if(zf=="-device")mask=0;
+                                                                                                    if(zf=="-early-poll")v958::poll(c);
+                                                                                                    visit(q::En,q::branch(q::En,q::Di)|1u,zf=="-guard");
+                                                                                                    ent3(q::Di,q::En+4u);visit(q::Di,Blr);
+                                                                                                    visit(q::En+4u,q::branch(q::En+4u,q::Rs)|1u);
+                                                                                                    ent3(q::Rs,q::En+8u);visit(q::Rs,Blr);
+                                                                                                    c.lr=q::Dest+4u;c.gpr[3]=2;c.mmu.words[c.gpr[13]+4u]=1;
+                                                                                                    visit(q::En+8u,Blr);visit(q::Dest+4u,q::branch(q::Dest+4u,q::Re)|1u);
+                                                                                                    ent3(q::Re,q::Dest+8u);visit(q::Re,Blr);
+                                                                                                    visit(q::Dest+8u,Nop);c.gpr[3]=v958::context;
+                                                                                                    visit(q::Dest+12u,q::branch(q::Dest+12u,q::Lo)|1u);ent3(q::Lo,q::Dest+16u);
+                                                                                                    c.gpr=interrupted_gp;c.lr=interrupted_lr;c.ctr=interrupted_ctr;c.xer=interrupted_xer;
+                                                                                                    c.cr.fill({});c.srr0=Resume;c.srr1=0x8032u;
+                                                                                                    if(zf=="-restore")c.gpr[31]^=1u;
+                                                                                                    visit(q::Lo,q::Rfi);c.pc=Resume;c.msr=c.srr1;
+                                                                                                    if(zf=="-gqr")c.gqr[0]^=1u;
+                                                                                                    if(zf=="-rfi-tick")scheduler.advance(++tick);
+                                                                                                    need(!v958::poll(c));
+                                                                                                    if(zf=="-second-gqr")c.gqr[7]^=1u;
+                                                                                                    v958::poll(c);
+                                                                                                }
+#endif
                                                                                             }
 #endif
                                                                                         }
