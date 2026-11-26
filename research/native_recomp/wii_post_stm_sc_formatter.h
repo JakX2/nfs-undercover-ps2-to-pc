@@ -10,12 +10,14 @@ struct ScFormatterAccess {
     std::optional<uint32_t> expected_value{}; // independently authenticated raw load value
 };
 struct ScFormatterBoundary {uint32_t address=0,width=0;};
+struct ScFormatterControlBoundary {uint32_t destination=0,word=0,owner_size=0;};
 struct ScFormatterExpectation {
     uint32_t root,entry_lr,target,target_word,frame_size;
     std::span<const IpcDispatchWord> path;
     std::span<const ScFormatterAccess> accesses;
     std::span<const StmFinalSlot> slots;
     ScFormatterBoundary boundary{}; // optional local load that must not execute
+    ScFormatterControlBoundary control{}; // optional authenticated local bctr stop
 };
 class ScFormatterWitness {
 public:
@@ -30,8 +32,8 @@ public:
     template<class C>bool begin(C& c,bool held){
         if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.root||c.lr!=e_.entry_lr||
            e_.frame_size<32u||e_.frame_size>704u||(e_.frame_size&7u)||(c.gpr[1]&7u)||
-           c.gpr[1]<0x80000000u+e_.frame_size||e_.path.empty()||e_.path.size()>(e_.boundary.width?128u:64u)||
-           e_.accesses.size()>(e_.boundary.width?24u:8u)||e_.slots.empty()||e_.slots.size()>19u||
+           c.gpr[1]<0x80000000u+e_.frame_size||e_.path.empty()||e_.path.size()>(local_stop()?128u:64u)||
+           e_.accesses.size()>(local_stop()?24u:8u)||e_.slots.empty()||e_.slots.size()>19u||
            e_.path.front().pc!=e_.root||!word(c,e_.target,e_.target_word))return fail(1);
         frame_={c.gpr[1]-e_.frame_size,e_.frame_size+8u};
         if(!mapped(c,frame_))return fail(1);
@@ -44,6 +46,14 @@ public:
                std::count_if(e_.slots.begin(),e_.slots.end(),[&](auto x){return x.reg==s.reg||x.caller_offset==s.caller_offset;})!=1)return fail(1);
         }
         if(std::count_if(e_.slots.begin(),e_.slots.end(),[](auto s){return s.reg==32u;})!=1)return fail(1);
+        if(e_.control.destination){
+            const auto dst=e_.control.destination,n=e_.control.owner_size;
+            const auto inside=[&](uint32_t a){return !(a&3u)&&a>=e_.root&&uint64_t(a)+4u<=uint64_t(e_.root)+n;};
+            if(e_.boundary.width||n<8u||n>65536u||(n&3u)||e_.target_word!=0x4e800420u||
+               !inside(e_.target)||!inside(dst)||dst==e_.root||dst==e_.target||
+               !word(c,dst,e_.control.word)||
+               std::any_of(e_.path.begin(),e_.path.end(),[&](auto x){return !inside(x.pc)||x.pc==dst||x.pc==e_.target;}))return fail(1);
+        }else if(e_.control.word||e_.control.owner_size)return fail(1);
         if(e_.boundary.width){
             const auto form=decode_load(e_.target_word);
             const unsigned n=form.width;
@@ -75,7 +85,7 @@ public:
             if(!initial_poll_||entry_seen_||pc!=e_.root||c.inst_count-last_!=1u)return fail(3);
             entry_seen_=true;return true;
         }
-        if(e_.boundary.width||!due_||pc!=e_.target||c.inst_count!=last_||!word(c,pc,e_.target_word)||!abi(c))return fail(3);
+        if(local_stop()||!due_||pc!=e_.target||c.inst_count!=last_||!word(c,pc,e_.target_word)||!abi(c))return fail(3);
         stage_=2;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
@@ -139,7 +149,7 @@ public:
         }else if(op==31u&&(xo==266u||xo==40u)&&rs!=1u){
             gp_[rs]=xo==266u?gp_[ra]+gp_[rb]:gp_[rb]-gp_[ra];if(w&1u)record(gp_[rs]);
         }else if(op==18u&&(w&3u)==1u){
-            if(e_.boundary.width||visits_!=e_.path.size()||target(pc,w)!=e_.target||!abi(c))return fail(6);
+            if(local_stop()||visits_!=e_.path.size()||target(pc,w)!=e_.target||!abi(c))return fail(6);
             lr_=pc+4u;due_=true;return true;
         }else if(op==16u||op==18u){
             if(w&3u)return fail(6);
@@ -151,7 +161,7 @@ public:
             if(op==16u&&!(bo&4u)){--ctr_;ct=bool(ctr_)!=bool(bo&2u);}
             if(op==18u||(ct&&((bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u))))next=target(pc,w);
         }else return fail(6);
-        if(visits_==e_.path.size()&&e_.boundary.width){
+        if(visits_==e_.path.size()&&local_stop()){
             if(next!=e_.target)return fail(6);
             boundary_due_=true;return true;
         }
@@ -173,11 +183,24 @@ public:
         last_=c.inst_count;stage_=2;return true;
     }
     template<class C>bool reached_load_boundary(C& c,bool held)const{
-        return stage_==2u&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&
+        return stage_==2u&&e_.boundary.width&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&
             c.inst_count==last_&&abi(c)&&word(c,e_.target,e_.target_word);
     }
+    // Stop at the instrumented bctr label before executing its native body.
+    template<class C>bool stop_before_control(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=1u||!e_.control.destination||!boundary_due_||back_poll_due_||due_||
+           visits_!=e_.path.size()||pc!=e_.target||w!=0x4e800420u||w!=e_.target_word||
+           c.inst_count-last_!=1u||!common(c,held)||!word(c,pc,w)||!abi(c)||
+           ctr_!=e_.control.destination||!word(c,e_.control.destination,e_.control.word))return fail(6);
+        last_=c.inst_count;stage_=2;return true;
+    }
+    template<class C>bool reached_control_boundary(C& c,bool held)const{
+        return stage_==2u&&e_.control.destination&&boundary_due_&&!due_&&!back_poll_due_&&
+            common(c,held)&&c.inst_count==last_&&abi(c)&&ctr_==e_.control.destination&&
+            word(c,e_.target,e_.target_word)&&word(c,e_.control.destination,e_.control.word);
+    }
     template<class C>bool reached(C& c,bool held)const{
-        return stage_==2u&&!e_.boundary.width&&due_&&common(c,held)&&c.pc==e_.target&&c.inst_count==last_&&abi(c);
+        return stage_==2u&&!local_stop()&&due_&&common(c,held)&&c.pc==e_.target&&c.inst_count==last_&&abi(c);
     }
     // A frameless descendant may change volatile registers but must not
     // alter any byte of this completed formatter prologue frame.
@@ -225,6 +248,7 @@ private:
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0,seen_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
+    bool local_stop()const{return e_.boundary.width||e_.control.destination;}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t mask(unsigned mb,unsigned me){
         uint32_t v=0;for(unsigned i=0;i<32u;++i)if(mb<=me?(i>=mb&&i<=me):(i>=mb||i<=me))v|=1u<<(31u-i);return v;

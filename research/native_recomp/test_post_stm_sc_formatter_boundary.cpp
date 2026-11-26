@@ -191,6 +191,46 @@ static void mixed_third(unsigned fault){
     assert(stopped&&w.reached_load_boundary(c,true)&&w.visits()==74&&w.loads()==5&&
            w.stores()==13&&w.authenticated_loads()==4&&c.gpr[7]==0x55555555u&&c.gpr[9]==0&&c.mmu.data_reads==0);
 }
+// An authenticated local CTR transfer is observed before its body executes.
+static void control_stop(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[14]=0x1234;
+    const auto target=R+20u,dst=R+0x100u;
+    const uint32_t branch=0x4e800420u,body=ins(14,7,7,1);
+    c.mmu.write32(A,dst);c.mmu.write32(dst,body);
+    std::array<IpcDispatchWord,5> path{{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},
+        {R,R+8,ins(36,0,1,52)},{R,R+12,ins(32,6,3,0)},{R,R+16,0x7cc903a6}}};
+    const std::array<ScFormatterAccess,3> access{{{R,4,-48,true,true},{R+8,4,4,true,true},{R+12,4,A,false,false,dst}}};
+    const std::array<StmFinalSlot,1> slots{{{4,32}}};
+    for(auto x:path)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(target,branch);
+    ScFormatterExpectation spec{R,L,target,branch,48,path,access,slots,{}, {dst,body,0x200u}};
+    if(fault==1)spec.control.destination=target;
+    if(fault==2)spec.control.owner_size=0x100u;
+    if(fault==3)spec.control.word^=1u;
+    if(fault==4)spec.boundary={A,4};
+    if(fault==5){spec.target_word=0x4e800421u;c.mmu.write32(target,spec.target_word);}
+    ScFormatterWitness w(spec);
+    const bool began=w.begin(c,true);
+    if(fault>=1&&fault<=5){assert(!began);return;}
+    assert(began&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:path){
+        ++c.inst_count;assert(w.before(c,x.pc,x.word,true));
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else if(x.pc==R+12)c.gpr[6]=dst;
+        else c.ctr=c.gpr[6];
+    }
+    if(fault==6)c.ctr+=4u;
+    if(fault==7)c.mmu.write32(dst,body^1u);
+    if(fault==8)c.mmu.write32(SP+4,0);
+    if(fault!=9)++c.inst_count;
+    const bool stopped=w.stop_before_control(c,target,branch,fault!=10);
+    if(fault){assert(!stopped);return;}
+    assert(stopped&&w.reached_control_boundary(c,true)&&!w.reached_load_boundary(c,true)&&!w.reached(c,true));
+    assert(w.visits()==5&&w.authenticated_loads()==1&&c.ctr==dst&&c.gpr[7]==0&&c.lr==L);
+    ++c.inst_count;assert(!w.reached_control_boundary(c,true));
+}
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
         const unsigned n=xo<=55?4:xo<=119?1:2;
@@ -200,4 +240,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
     for(unsigned i=1;i<=4;++i)indexed(23,4,0x81ff1234u,i);
     long_prefix(74,0);long_prefix(128,0);long_prefix(129,0);long_prefix(74,1);long_prefix(74,2);
     for(unsigned i=0;i<=4;++i)mixed_third(i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=36 original_execution=0\n";}
+    for(unsigned i=0;i<=10;++i)control_stop(i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=47 original_execution=0\n";}
