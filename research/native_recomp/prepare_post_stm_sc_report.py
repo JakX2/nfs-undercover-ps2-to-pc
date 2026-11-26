@@ -18,7 +18,7 @@ from prepare_ipc_dispatch_geometry import credit_object
 from prepare_v1414_ipc_ring import ring_object
 from prepare_post_stm_sc_state import overlap
 
-def report_prefix(root,words):
+def report_trace(root,words):
     rows,backs,_,stops=first_region(root,words,root)
     if backs or len(stops)!=1 or stops[0][1]!=1:raise ValueError('SC report boundary')
     # The version thunk established CR6=0. Only use that fact for
@@ -53,7 +53,11 @@ def report_prefix(root,words):
         else:raise ValueError('SC report opcode')
         pc+=4
     if not sp:raise ValueError('SC report frame')
-    return len(rows),len(seen),len(slots),fp,-sp,stops[0][3]
+    return rows,tuple(seen),tuple(slots),fp,-sp,stops[0][3]
+
+def report_prefix(root,words):
+    rows,seen,slots,fp,frame,dst=report_trace(root,words)
+    return len(rows),len(seen),len(slots),fp,frame,dst
 
 def queue_plan(d,e):
     caller=EDGES[3][0]+4;site,root=EDGES[4]
