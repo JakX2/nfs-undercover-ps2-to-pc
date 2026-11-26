@@ -672,7 +672,7 @@ int main(){
                 constexpr uint32_t RestoreRoot2=0x8003e800u;
                 const std::array<CallbackSuffixWord,5> suffix_rows{{{Return2,Nop},{Return2+4u,0x90810008u},
                     {Return2+8u,0x4182fffcu},{Return2+12u,branch(Return2+12u,RestoreRoot2)|1u},
-                    {Return2+16u,IndirectCall}}};
+                    {Return2+16u,IndirectWord}}};
                 const CallbackSuffixExpectation sx{Target,Target+688u,Return2,suffix_rows,
                     {{{Return2+16u,0u,4u},{Return2+12u,RestoreRoot2,13u}}}};
                 for(const auto& row:suffix_rows)c.mmu.words[row.pc]=row.word;
