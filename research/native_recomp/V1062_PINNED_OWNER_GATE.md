@@ -1,0 +1,3 @@
+# V1062: locally tested pinned-attempt owner gate
+
+Replace the shell metadata gate with a source-only Python verifier. Pin the successful run attempt when retrieving its complete owner-job census so a later rerun cannot mix metadata across attempts. Reject skipped, duplicate, incomplete, malformed, wrong-identity and unsuccessful records before private inputs are staged. The local Python unit suite passed 5/5 methods (including negative-control subtests) and py_compile. Integrate the same tests in both the manual continuous workflow and automatic V958 regression. The live GitHub API invocation and continuous execution remain unverified in this session.

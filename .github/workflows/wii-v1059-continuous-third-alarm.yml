@@ -17,6 +17,7 @@ jobs:
           set -euo pipefail
           bash -n research/native_recomp/run_v572_full_sc_translation.sh
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v1062_owner_gate.py -v
           for n in 1041_transfer_abi 1043_live_third_handoff 1045_third_transfer_abi 1048_third_alarm_installer 1051_third_launch 1054_third_alarm_audit 1055_third_alarm_launch; do
             python3 -m unittest discover -s research/native_recomp -p "test_v$n.py" -v
           done
@@ -26,27 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
+      - uses: actions/checkout@v4
       - name: Require prior owner verification before private work
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          check() {
-            gh api "repos/$GH_REPO/actions/runs/$1" --jq '[.head_sha,.status,.conclusion,.head_branch,.path] | @tsv' |
-              grep -Fx "$(printf '%s\tcompleted\tsuccess\tresearch/wii-native-recomp-preflight\t%s' "$2" "$3")"
-            # A workflow may succeed when its private job was skipped.
-            # Require the particular owner job, not only the run conclusion.
-            gh api "repos/$GH_REPO/actions/runs/$1/jobs?filter=latest&per_page=100" --jq '[.jobs[] | select(.name == "'"$4"'")] | length' |
-              grep -Fx 1
-            gh api "repos/$GH_REPO/actions/runs/$1/jobs?filter=latest&per_page=100" --jq '.jobs[] | select(.name == "'"$4"'") | [.status,.conclusion] | @tsv' |
-              grep -Fx "$(printf 'completed\tsuccess')"
-          }
-          check 45741527878 65a7300bc1555e3e94e692132e9813671ee4e670 .github/workflows/wii-v1029-third-transfer-preflight.yml owner-execution
-          check 45740655991 0b8dec7547f2245b37bd9d227b397a6ee0976812 .github/workflows/wii-v1038-continuous-queue-history.yml owner-execution
-          check 45742746303 90b71ec01b245095278cb528a5d1be69c8753245 .github/workflows/wii-v1007-second-rfi.yml owner-context
-          echo 'V1059_PREREQUISITES verified=1 historical_installer=1 queue=1 focused_alarm=1'
-      - uses: actions/checkout@v4
+        run: python3 research/native_recomp/verify_v1062_owner_gate.py
       - uses: actions/checkout@v4
         with:
           ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
