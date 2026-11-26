@@ -35,6 +35,7 @@ on:
       - 'research/native_recomp/*v1055*'
       - 'research/native_recomp/*v1062*'
       - 'research/native_recomp/*v1067*'
+      - 'research/native_recomp/*v1097*'
       - 'research/native_recomp/wii_external_return_v706.h'
       - 'research/native_recomp/wii_pending_external_reentry_v932.h'
       - 'research/native_recomp/wii_second_vector_v939.h'
@@ -71,6 +72,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v1041_transfer_abi.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1043_live_third_handoff.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1048_third_alarm_installer.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1097_after_alarm_installer.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1051_third_launch.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1054_third_alarm_audit.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1055_third_alarm_launch.py -v
