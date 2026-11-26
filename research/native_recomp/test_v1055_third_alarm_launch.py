@@ -150,4 +150,39 @@ class PostAlarmFrontierLaunch(unittest.TestCase):
             self.assertNotIn('UNDERCOVER_V1111_POSTALARM_FRONTIER=1',p.stdout)
             self.assertIn('V1107_POSTALARM_TIME_BUILD_PLAN' if build else 'audit=audit_v1107_postalarm_time.py',p.stdout)
 
+class PostAlarmWirelessLaunch(unittest.TestCase):
+    def setUp(self):
+        self.launch=Launch()
+        self.env=self.launch.setup_env()
+        self.env.update(UNDERCOVER_RUN_V1055_THIRD_ALARM='1',UNDERCOVER_PREPARE_V1048_THIRD_ALARM='1',
+                        UNDERCOVER_RUN_V1102_AFTER_ALARM='1',UNDERCOVER_PREPARE_V1097_AFTER_ALARM='1',
+                        UNDERCOVER_RUN_V1107_POSTALARM_TIME='1',UNDERCOVER_PREPARE_V1106_POSTALARM_TIME='1',
+                        UNDERCOVER_RUN_V1114_POSTALARM_FRONTIER='1',UNDERCOVER_PREPARE_V1113_POSTALARM_FRONTIER='1',
+                        UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS='1',UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN links=1 private_installer=1 frontier_predecessor=1' if build else 'audit=audit_v1121_postalarm_wireless.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
+    def test_refusals(self):
+        for key in tuple(self.env):
+            if key.startswith(('UNDERCOVER_RUN_V11','UNDERCOVER_RUN_V112','UNDERCOVER_PREPARE_V11','UNDERCOVER_RUN_V1055','UNDERCOVER_PREPARE_V1048','UNDERCOVER_PREPARE_V1097')):
+                env=self.env.copy();env.pop(key)
+                for build in (False,True):
+                    with self.subTest(key=key,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+        for key,val in (('UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS','2'),('UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS',''),
+                        ('UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS','2'),('UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS',''),
+                        ('UNDERCOVER_RUN_V1018_SECOND_IRQ_MATRIX','1'),('UNDERCOVER_RUN_V1012_SI_PROFILE','port1-present')):
+            env=self.env.copy();env[key]=val
+            for build in (False,True):
+                with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_frontier_only_unchanged(self):
+        env=self.env.copy();env.pop('UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS');env.pop('UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS')
+        for build in (False,True):
+            p=self.launch.plan(env,build);self.assertEqual(p.returncode,0,p.stderr)
+            self.assertNotIn('V1121_POSTALARM_WIRELESS_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1118_POSTALARM_WIRELESS=1',p.stdout)
+            self.assertIn('V1114_POSTALARM_FRONTIER_BUILD_PLAN' if build else 'audit=audit_v1114_postalarm_frontier.py',p.stdout)
+
 if __name__=='__main__':unittest.main()

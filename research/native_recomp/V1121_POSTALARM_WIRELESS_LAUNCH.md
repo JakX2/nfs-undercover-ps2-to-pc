@@ -1,0 +1,3 @@
+# V1121: held wireless setter launch and terminal proof
+
+V1118 live-binding synthetic cases passed. V1119 installer is gated by its source-only generated-tree tests. Add matched run/prepare flags, disabled by default, requiring V1114 and all earlier prerequisites. The new audit requires the exact full predecessor chain and original unchanged setter/unlock return (66 visits, 12 stores, held token 3). These counts come from previously verified focused original held and acknowledged trials and are not yet established in full-image execution. Refuse changed geometry, missing/reordered/duplicate markers, premature boot claims and nonzero exit. V1116 remains unchanged; do not start a second full-image job until it completes.

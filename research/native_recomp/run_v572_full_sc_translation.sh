@@ -169,6 +169,10 @@ third_postalarm_frontier="${UNDERCOVER_RUN_V1114_POSTALARM_FRONTIER-0}"
 [[ "$third_postalarm_frontier" == 0 || "$third_postalarm_frontier" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1113_POSTALARM_FRONTIER-0}" == "$third_postalarm_frontier" ]] || exit 2
 [[ "$third_postalarm_frontier" == 0 || "$third_postalarm_time" == 1 ]] || exit 2
+third_postalarm_wireless="${UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS-0}"
+[[ "$third_postalarm_wireless" == 0 || "$third_postalarm_wireless" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS-0}" == "$third_postalarm_wireless" ]] || exit 2
+[[ "$third_postalarm_wireless" == 0 || "$third_postalarm_frontier" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -191,6 +195,9 @@ if [[ "$third_postalarm" == 1 ]]; then
     echo 'V1107_POSTALARM_TIME_BUILD_PLAN links=1 private_installer=1 prefix_predecessor=1'
     if [[ "$third_postalarm_frontier" == 1 ]]; then
       echo 'V1114_POSTALARM_FRONTIER_BUILD_PLAN links=1 private_installer=1 time_predecessor=1'
+      if [[ "$third_postalarm_wireless" == 1 ]]; then
+        echo 'V1121_POSTALARM_WIRELESS_BUILD_PLAN links=1 private_installer=1 frontier_predecessor=1'
+      fi
     fi
   fi
 fi
@@ -341,6 +348,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                             python3 "$here/prepare_v1106_postalarm_time.py" "$dol" "$elf" "$work/generated"
                             if [[ "$third_postalarm_frontier" == 1 ]]; then
                                 python3 "$here/prepare_v1113_postalarm_frontier.py" "$dol" "$elf" "$work/generated"
+                                if [[ "$third_postalarm_wireless" == 1 ]]; then
+                                    python3 "$here/prepare_v1119_postalarm_wireless.py" "$dol" "$elf" "$work/generated"
+                                fi
                             fi
                         fi
                     fi

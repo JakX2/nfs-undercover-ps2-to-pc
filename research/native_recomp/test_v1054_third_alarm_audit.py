@@ -108,4 +108,27 @@ class PostAlarmFrontierAudit(unittest.TestCase):
             self.assertFalse(inspect(*prior,result,rc=126))
             self.assertFalse(inspect(*prior[:-1],f.time.RESULT.replace(b'reads=3',b'reads=2'),result))
 
+class PostAlarmWirelessAudit(unittest.TestCase):
+    def test_order_and_exact_wireless(self):
+        import audit_v1121_postalarm_wireless as w
+        p=w.prefix
+        prefix=b'V1095_AFTER_ALARM_PREFIX original_indirect=1 original_prologue=1 save_return=1 suffix_visits=2 visits=13 writes=8 token=3 held=1 saved_fields=38 continuation_executed=0 boot_verified=0'
+        prior=(D,H,T,A,a.third.third.RESULT,p.HANDOFF,R,prefix,w.time.RESULT,w.frontier.RESULT)
+        result=w.RESULT
+        def inspect(*rows,rc=0):return w.inspect(b'\n'.join(rows),rc)[1]
+        with patch.object(a.old,'inspect',return_value=('verified=1 branch=4 admitted=0',True)):
+            self.assertTrue(inspect(*prior,result))
+            for old,new in ((b'original_setter=1',b'original_setter=0'),(b'original_unlock=1',b'original_unlock=0'),
+                            (b'changed=0',b'changed=1'),(b'visits=66',b'visits=65'),(b'stores=12',b'stores=11'),
+                            (b'token=3',b'token=4'),(b'held=1',b'held=0'),(b'saved_fields=38',b'saved_fields=37'),
+                            (b'continuation_executed=0',b'continuation_executed=1'),(b'boot_verified=0',b'boot_verified=1')):
+                with self.subTest(old=old):self.assertFalse(inspect(*prior,result.replace(old,new)))
+            for rows in ((*prior,),(*prior[:-1],result),(*prior[:-1],result,w.frontier.RESULT),
+                         (*prior,w.frontier.RESULT,result),(*prior,result,result),(*prior,result,b'V1121_POSTALARM_WIRELESS_CENSUS verified=1'),
+                         (*prior,b'V1118_POSTALARM_WIRELESS_FAULT route=13 witness=5 stage=8',result),
+                         (*prior,result,b'V958_ACK_INVALID'),(*prior,b'V1087_ALARM_SEAM kind=1 stage=2 reason=3',result)):
+                with self.subTest(rows=rows[-3:]):self.assertFalse(inspect(*rows))
+            self.assertFalse(inspect(*prior,result,rc=126))
+            self.assertFalse(inspect(*prior[:-1],w.frontier.RESULT.replace(b'zero_id=1',b'zero_id=0'),result))
+
 if __name__=='__main__':unittest.main()
