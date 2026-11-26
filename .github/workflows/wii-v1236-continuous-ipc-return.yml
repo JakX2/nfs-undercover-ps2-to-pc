@@ -1,0 +1,166 @@
+name: Wii V1236 Continuous Original IPC Return
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-v1236-continuous-ipc-return.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-v1236-continuous-ipc-return
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify IPC launch and integration contract
+        run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v572_full_sc_translation.sh
+          bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
+          python3 -m unittest discover -s research/native_recomp -p test_v1236_ipc_owner_gate.py -v
+          for n in 1051_third_launch 1055_third_alarm_launch 1054_third_alarm_audit 1176_ack_helper 1043_live_third_handoff; do
+            python3 -m unittest discover -s research/native_recomp -p "test_v$n.py" -v
+          done
+  prerequisites:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require both outstanding owner proofs before allocating a new private build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 research/native_recomp/verify_v1236_ipc_owner_gate.py --wait
+  owner-execution:
+    needs: prerequisites
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require prior owner verification before private work
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 research/native_recomp/verify_v1062_owner_gate.py
+          python3 research/native_recomp/verify_v1236_ipc_owner_gate.py
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Authenticate, link once and execute through the original IPC client return
+        env:
+          UNDERCOVER_RUN_V919_HANDLER_EPILOGUE: "1"
+          UNDERCOVER_RUN_V920_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V921_CAPTURE_JOIN: "1"
+          UNDERCOVER_RUN_V922_IRQ_RETURN: "1"
+          UNDERCOVER_RUN_V932_PENDING_RFI: "1"
+          UNDERCOVER_RUN_V939_SECOND_VECTOR: "1"
+          UNDERCOVER_RUN_V951_SECOND_DISPATCH: "1"
+          UNDERCOVER_RUN_V958_SECOND_ACK: "1"
+          UNDERCOVER_RUN_V967_POST_ACK: "1"
+          UNDERCOVER_RUN_V989_SHARED_COMPLETION: "1"
+          UNDERCOVER_RUN_V1015_ERROR_COMPLETION: "1"
+          UNDERCOVER_RUN_V975_SECOND_TIME: "1"
+          UNDERCOVER_RUN_V981_SECOND_FRONTIER: "1"
+          UNDERCOVER_RUN_V995_SUCCESS_FRONTIER: "1"
+          UNDERCOVER_RUN_V1021_ERROR_FRONTIER: "1"
+          UNDERCOVER_RUN_V1034_QUEUE_DETAIL: "1"
+          UNDERCOVER_RUN_V1040_SIX_ARGS: "1"
+          UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER: "1"
+          UNDERCOVER_RUN_V1051_THIRD_TRANSFER: "1"
+          UNDERCOVER_PREPARE_V1048_THIRD_ALARM: "1"
+          UNDERCOVER_RUN_V1055_THIRD_ALARM: "1"
+          UNDERCOVER_RUN_V1102_AFTER_ALARM: "1"
+          UNDERCOVER_PREPARE_V1097_AFTER_ALARM: "1"
+          UNDERCOVER_RUN_V1107_POSTALARM_TIME: "1"
+          UNDERCOVER_PREPARE_V1106_POSTALARM_TIME: "1"
+          UNDERCOVER_RUN_V1114_POSTALARM_FRONTIER: "1"
+          UNDERCOVER_PREPARE_V1113_POSTALARM_FRONTIER: "1"
+          UNDERCOVER_RUN_V1121_POSTALARM_WIRELESS: "1"
+          UNDERCOVER_PREPARE_V1119_POSTALARM_WIRELESS: "1"
+          UNDERCOVER_RUN_V1127_POSTALARM_SUFFIX: "1"
+          UNDERCOVER_PREPARE_V1124_POSTALARM_SUFFIX: "1"
+          UNDERCOVER_RUN_V1135_POSTALARM_RETURN: "1"
+          UNDERCOVER_PREPARE_V1134_POSTALARM_RETURN: "1"
+          UNDERCOVER_RUN_V1012_SI_PROFILE: absent
+          UNDERCOVER_RUN_V1143_POSTALARM_HANDLER: "1"
+          UNDERCOVER_PREPARE_V1141_POSTALARM_HANDLER: "1"
+          UNDERCOVER_RUN_V1148_POSTALARM_HANDLER_RETURN: "1"
+          UNDERCOVER_PREPARE_V1146_POSTALARM_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V1156_HELD_EPILOGUE: "1"
+          UNDERCOVER_PREPARE_V1152_HELD_EPILOGUE: "1"
+          UNDERCOVER_RUN_V1163_HELD_DISPATCH: "1"
+          UNDERCOVER_PREPARE_V1161_HELD_DISPATCH: "1"
+          UNDERCOVER_RUN_V1171_THIRD_ACK: "1"
+          UNDERCOVER_PREPARE_V1169_THIRD_ACK: "1"
+          UNDERCOVER_RUN_V1177_ACK_HELPER: "1"
+          UNDERCOVER_PREPARE_V1176_ACK_HELPER: "1"
+          UNDERCOVER_RUN_V1182_ACK_CALLBACK: "1"
+          UNDERCOVER_PREPARE_V1182_ACK_CALLBACK: "1"
+          UNDERCOVER_RUN_V1187_ACK_PREFIX: "1"
+          UNDERCOVER_PREPARE_V1186_ACK_PREFIX: "1"
+          UNDERCOVER_RUN_V1191_ACK_TIME: "1"
+          UNDERCOVER_PREPARE_V1190_ACK_TIME: "1"
+          UNDERCOVER_RUN_V1194_ACK_FRONTIER: "1"
+          UNDERCOVER_PREPARE_V1194_ACK_FRONTIER: "1"
+          UNDERCOVER_RUN_V1198_ACK_WIRELESS: "1"
+          UNDERCOVER_PREPARE_V1198_ACK_WIRELESS: "1"
+          UNDERCOVER_RUN_V1203_ACK_SUFFIX: "1"
+          UNDERCOVER_PREPARE_V1203_ACK_SUFFIX: "1"
+          UNDERCOVER_RUN_V1207_ACK_RETURN: "1"
+          UNDERCOVER_PREPARE_V1207_ACK_RETURN: "1"
+          UNDERCOVER_RUN_V1211_ACK_HANDLER: "1"
+          UNDERCOVER_PREPARE_V1211_ACK_HANDLER: "1"
+          UNDERCOVER_RUN_V1215_ACK_HANDLER_RETURN: "1"
+          UNDERCOVER_PREPARE_V1215_ACK_HANDLER_RETURN: "1"
+          UNDERCOVER_RUN_V1218_ACK_FINAL: "1"
+          UNDERCOVER_PREPARE_V1218_ACK_FINAL: "1"
+          UNDERCOVER_RUN_V1221_ACK_RESUME: "1"
+          UNDERCOVER_PREPARE_V1221_ACK_RESUME: "1"
+          UNDERCOVER_RUN_V1228_ACK_LEAF: "1"
+          UNDERCOVER_PREPARE_V1228_ACK_LEAF: "1"
+          UNDERCOVER_RUN_V1230_ACK_IPC: "1"
+          UNDERCOVER_PREPARE_V1230_ACK_IPC: "1"
+          UNDERCOVER_RUN_V1235_ACK_IPC_COMPLETE: "1"
+          UNDERCOVER_PREPARE_V1235_ACK_IPC_COMPLETE: "1"
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw876"
+          git -C "$RUNNER_TEMP/nw876" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw876" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw876" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v572_full_sc_translation.sh "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --run-si-handler-suffix | tee "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1228_ACK_LEAF_METADATA installed=1 original_labels=3 caller_dispatch=1 original_extract=1 execution=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1230_ACK_IPC_METADATA installed=1 original_call=1 root_labels=45 entry_trace=1 cold_witness=1 execution=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V574_FULL_SC_PREP owner=1 full_image=1 observer=1 syntax=1 link=0 execution=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1235_ACK_IPC_COMPLETE_METADATA installed=1 calls=17 spans=10 return_trace=1 execution=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V415_FULL_LINK_GATE linked=1 platform=linux-x64 launch=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1230_ACK_IPC_ENTRY original_bl=1 original_target=1 cold_prerequisites=1 same_tick=1 token=3 pi_cleared=1 ipc_instruction_executed=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1235_ACK_IPC_RETURN calls=17 heap=1 handler=1 mailbox=1 returned=1 token=3 si_quiescent=1 queued=0 serviced=0 actual_ios=0 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          grep -Fx 'V1235_ACK_IPC_COMPLETE_CENSUS verified=1 original_return=1 si_quiescent=1 boot_verified=0' "$RUNNER_TEMP/v1059-public.log"
+          echo 'V1236_CONTINUOUS_IPC_RETURN verified=1 original_ipc=1 original_return=1 si_quiescent=1 boot_verified=0'
+      - name: Clean private files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw876" "$RUNNER_TEMP/v1059-public.log"
