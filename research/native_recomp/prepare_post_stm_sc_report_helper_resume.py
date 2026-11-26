@@ -4,7 +4,7 @@ import argparse,struct
 from pathlib import Path
 from prepare_post_stm_sc_report_helper_fixture import plan as helper_plan
 from prepare_post_stm_sc_report_helper_prefix import prefix
-from prepare_post_stm_sc_report_dependency_abi import arguments,compose
+from prepare_post_stm_sc_report_dependency_abi import arguments,compose,plan as dependency_abi
 from prepare_post_stm_sc_report_dependency_path import plan as leaf_path,signed
 from prepare_post_stm_sc_report_abi import model as report_model
 from prepare_post_stm_sc_report import REPORT
@@ -55,6 +55,13 @@ def resume(root,words,start,registers,result):
         else:raise ValueError('helper resume opcode')
         pc=nxt
 
+def formatter_args(args,object_pointer,format_pointer,va):
+    if len(args)!=4 or args[0][0]!='const' or args[0][1]&3 or not 0x80004000<=args[0][1]<0x81800000:
+        raise ValueError('helper resume callback')
+    if args[1]!=('const',object_pointer) or args[2]!=('const',format_pointer) or args[3]!=va or va[0]!='stack':
+        raise ValueError('helper resume argument identity')
+    return args[0][1]
+
 def plan(d,e):
     prior=helper_plan(d,e);root,_,leaf,_,frame=prior[3]
     sizes=parse_functions(e);ws=exact_words(d,e,root,30)
@@ -71,18 +78,24 @@ def plan(d,e):
         if sizes.get(dst)!=535*4:raise ValueError('helper resume formatter')
         exact_words(d,e,dst,1)
     args=final[3:7]
-    return len(path),kind,args
+    if kind!=1:raise ValueError('helper resume formatter')
+    _,leaf_args,*_=dependency_abi(d,e)
+    callback=formatter_args(args,leaf_args[0][1],fields[5],report_regs[4])
+    size=sizes.get(callback,0)
+    if not 4<=size<=65536 or size%4:raise ValueError('helper resume callback')
+    exact_words(d,e,callback,1)
+    return len(path),kind,args,size//4
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','helper resume unknown arithmetic','helper resume path','helper resume compare','helper resume branch','helper resume opcode','helper resume formatter'}
+    safe={'size','helper resume unknown arithmetic','helper resume path','helper resume compare','helper resume branch','helper resume opcode','helper resume formatter','helper resume callback','helper resume argument identity'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        visits,kind,args=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        visits,kind,args,callback_words=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_REPORT_HELPER_RESUME verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1
-    print(f'POST_STM_SC_REPORT_HELPER_RESUME verified=1 labels={visits} boundary_kind={kind} formatter_called={int(kind==1)} leaf_return_proven=1 original_execution=0')
+    print(f'POST_STM_SC_REPORT_HELPER_RESUME verified=1 labels={visits} boundary_kind={kind} formatter_called={int(kind==1)} leaf_return_proven=1 callback_words={callback_words} object_identity=1 format_identity=1 va_identity=1 original_execution=0')
     print('POST_STM_SC_REPORT_HELPER_RESUME_ARGS '+' '.join(f'arg{i+1}={v[0]}' for i,v in enumerate(args)))
     return 0
 if __name__=='__main__':raise SystemExit(main())
