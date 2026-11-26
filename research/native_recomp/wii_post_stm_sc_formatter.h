@@ -128,6 +128,13 @@ public:
     template<class C>bool reached(C& c,bool held)const{
         return stage_==2u&&due_&&common(c,held)&&c.pc==e_.target&&c.inst_count==last_&&abi(c);
     }
+    // A frameless descendant may change volatile registers but must not
+    // alter any byte of this completed formatter prologue frame.
+    template<class C>bool frame_held(C& c,bool held)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||!mapped(c,frame_))return false;
+        for(unsigned i=0;i<shadow_.size();++i)if(c.mmu.read8(frame_.base+i)!=shadow_[i])return false;
+        return true;
+    }
 private:
     ScFormatterExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};

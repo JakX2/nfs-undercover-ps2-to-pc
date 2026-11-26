@@ -127,6 +127,9 @@
 #include "private_post_stm_sc_report_resume.h"
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER
 #include "private_post_stm_sc_formatter.h"
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+#include "private_post_stm_sc_formatter_leaf.h"
+#endif
 #endif
 #endif
 #endif
@@ -491,6 +494,11 @@ static bool post_stm_resume_held(nw::CPUContext&);
 static ScFormatterWitness* post_stm_formatter=nullptr;
 static unsigned post_stm_formatter_count=0;
 struct PostStmFormatterStop{};
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+static ScLeafShadow* post_stm_formatter_leaf=nullptr;
+static unsigned post_stm_formatter_leaf_count=0;
+struct PostStmFormatterLeafStop{};
+#endif
 static bool post_stm_formatter_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_formatter_refuse(unsigned);
 #endif
@@ -871,6 +879,22 @@ static bool post_stm_formatter_held(nw::CPUContext& c){
 void post_stm_sc_formatter_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!post_stm_formatter||!post_stm_formatter->before(c,pc,w,post_stm_formatter_held(c)))post_stm_formatter_refuse(2);
 }
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+static bool post_stm_formatter_leaf_held(nw::CPUContext& c){
+    return post_stm_formatter&&post_stm_formatter->frame_held(c,post_stm_formatter_held(c));
+}
+[[noreturn]]static void post_stm_formatter_leaf_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_FORMATTER_LEAF_REFUSAL kind="<<kind<<" stage="<<(post_stm_formatter_leaf?post_stm_formatter_leaf->stage():0u)
+        <<" reason="<<(post_stm_formatter_leaf?post_stm_formatter_leaf->failure():0u)
+        <<" visits="<<(post_stm_formatter_leaf?post_stm_formatter_leaf->visits():0u)
+        <<" loads="<<(post_stm_formatter_leaf?post_stm_formatter_leaf->loads():0u)
+        <<" stores="<<(post_stm_formatter_leaf?post_stm_formatter_leaf->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_formatter_leaf_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_formatter_leaf||!post_stm_formatter_leaf->before(c,pc,w,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(2);
+}
+#endif
 #endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
 static bool post_stm_resume_held(nw::CPUContext& c){
@@ -1669,6 +1693,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+    if(post_stm_formatter_leaf){
+        if(!post_stm_formatter_leaf->entry(c,pc,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER
     if(post_stm_formatter){
         if(!post_stm_formatter->entry(c,pc,post_stm_formatter_held(c)))post_stm_formatter_refuse(3);
@@ -2288,6 +2318,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+    if(post_stm_formatter_leaf){
+        if(!post_stm_formatter_leaf->poll(c,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(4);
+        if(post_stm_formatter_leaf->stage()==2u){++post_stm_formatter_leaf_count;throw PostStmFormatterLeafStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER
     if(post_stm_formatter){
         if(!post_stm_formatter->poll(c,post_stm_formatter_held(c)))post_stm_formatter_refuse(4);
@@ -3219,6 +3256,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER
         for(auto w:post_stm_sc_formatter_private::path)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(post_stm_sc_formatter_private::expected.target,post_stm_sc_formatter_private::expected.target_word);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+        for(auto w:post_stm_sc_formatter_leaf_private::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(post_stm_sc_formatter_leaf_private::expected.caller,post_stm_sc_formatter_leaf_private::expected.caller_word);
+#endif
 #endif
 #endif
 #endif
@@ -4315,6 +4356,27 @@ int main(int argc,char** argv)try{
            host.cold_ipc_snapshot().replies)post_stm_formatter_refuse(5);
         std::cout<<"POST_STM_SC_FORMATTER_TRIAL n="<<trial
             <<" original_formatter=1 native_stores=4 native_loads=1 saved_nonvolatile=16 original_dependency_entry=1 deferred=1 reply=0 dependency_executed=0 visits=23\n";
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+        {
+            namespace leaf=post_stm_sc_formatter_leaf_private;
+            ScLeafShadow sc_leaf(leaf::expected);
+            const uint64_t address=leaf::stack_relative?uint64_t(c.gpr[1])+leaf::address:leaf::address;
+            if(address>0xffffffffull)post_stm_formatter_leaf_refuse(1);
+            const AllocatorRange read{uint32_t(address),uint32_t(leaf::bytes.size())};
+            if(!sc_leaf.begin(c,read,post_stm_formatter_leaf_held(c)))post_stm_formatter_leaf_refuse(1);
+            if(!std::equal(leaf::bytes.begin(),leaf::bytes.end(),sc_leaf.expected_bytes().begin(),sc_leaf.expected_bytes().end()))
+                post_stm_formatter_leaf_refuse(1);
+            post_stm_formatter_leaf=&sc_leaf;
+            bool leaf_done=false;try{run_game(c);}catch(const PostStmFormatterLeafStop&){leaf_done=true;}
+            if(!leaf_done||post_stm_formatter_leaf_count!=trial+1u||!sc_leaf.reached(c,post_stm_formatter_leaf_held(c))||
+               sc_leaf.visits()!=8u||sc_leaf.loads()!=1u||sc_leaf.stores()||
+               host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+               host.cold_ipc_snapshot().replies)post_stm_formatter_leaf_refuse(5);
+            std::cout<<"POST_STM_SC_FORMATTER_LEAF_TRIAL n="<<trial
+                <<" native_leaf=1 original_return=1 exact_value=1 loads=1 stores=0 frame_held=1 deferred=1 reply=0 visits=8\n";
+            post_stm_formatter_leaf=nullptr;
+        }
+#endif
         post_stm_formatter=nullptr;
 #endif
         post_stm_resume=nullptr;
@@ -4585,6 +4647,10 @@ int main(int argc,char** argv)try{
     need(post_stm_resume_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_FORMATTER
     need(post_stm_formatter_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER_LEAF
+    need(post_stm_formatter_leaf_count==8u);
+    std::cout<<"POST_STM_SC_FORMATTER_LEAF_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 exact_value=8 loads=8 stores=0 frame_held=8 deferred=8 reply=0 visits=64 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_FORMATTER_NATIVE owner=1 trials=8 original_formatter=8 native_stores=32 native_loads=8 saved_nonvolatile=128 original_dependency_entry=8 deferred=8 reply=0 dependency_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_REPORT_RESUME_NATIVE owner=1 trials=8 original_resume=8 formatter_entry=8 arguments=32 deferred=8 reply=0 formatter_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

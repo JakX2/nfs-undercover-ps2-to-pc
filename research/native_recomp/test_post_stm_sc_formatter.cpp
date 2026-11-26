@@ -58,5 +58,7 @@ static void trial(unsigned fault){
     if(fault>=11&&fault<=15){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.visits()==9&&w.stores()==4&&w.loads()==1&&w.linkage_word()==L);
     assert(c.gpr[31]==incoming[31]&&c.mmu.read32(Sp-4)==incoming[31]);
+    c.gpr[3]^=0x100u;assert(w.frame_held(c,true)&&!w.reached(c,true));
+    assert(!w.frame_held(c,false));c.mmu.write32(Sp-16,0);assert(!w.frame_held(c,true));
 }
 int main(){for(unsigned i=0;i<=15;++i)trial(i);std::cout<<"POST_STM_SC_FORMATTER_TEST cases=16 original_execution=0\n";}
