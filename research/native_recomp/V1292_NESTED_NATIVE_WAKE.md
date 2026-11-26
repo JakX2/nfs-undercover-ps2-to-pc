@@ -1,0 +1,3 @@
+# V1292: nested native wake-return execution mode
+
+Adds no fixture roots and no additional generated instruction hooks. Authenticate existing wake, SelectThread, OSGetCurrentContext and OSRestoreInterrupts bodies against the private fixture, check exact original getter/restore edges and scheduler counter displacement. Audit every reachable label and reuse the existing V1270/V1289 instruction hooks exclusively. The opt-in runner --irq-nested-wake-return follows the joined witness to original wake return, preserving ready queue, stack and saved CPU contexts, without artificially returning or scheduling the thread. The owner workflow is manual until V1282/V1289 owner evidence and V1291 source evidence pass. Original execution not yet verified.

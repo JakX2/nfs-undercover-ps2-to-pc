@@ -34,6 +34,9 @@
 #ifdef UNDERCOVER_V1289_WAKE_READY
 #include "v1289_private_wake.h"
 #endif
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+#include "v1292_private_nested.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -113,6 +116,11 @@ static WakeReadyWitness* wake_ready=nullptr;
 static unsigned ready_count=0;
 struct ReadyReached{};
 #endif
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+static NestedWakeReturnWitness* nested_wake=nullptr;
+static unsigned nested_count=0;
+struct NestedReturned{};
+#endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
 static PostAckSubmitJoin* submit_join=nullptr;
@@ -181,6 +189,13 @@ void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!s||!ipc_dispatch->before(c,pc,w,guard,*s,device_ok(c)))dispatch_refuse(1);
 }
 #endif
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+[[noreturn]]static void nested_refuse(unsigned kind){
+    std::cout<<"V1292_NESTED_REFUSAL kind="<<kind<<" stage="<<nested_wake->stage()
+             <<" reason="<<nested_wake->failure()<<" visits="<<nested_wake->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
 [[noreturn]]static void wake_refuse(unsigned kind){
     std::cout<<"V1289_WAKE_REFUSAL kind="<<kind<<" stage="<<wake_ready->stage()
@@ -188,6 +203,9 @@ void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     throw WitnessFailure{};
 }
 void v1289_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){if(!nested_wake->before(c,pc,w,device_ok(c)))nested_refuse(1);return;}
+#endif
     if(wake_ready&&!wake_ready->before(c,pc,w,device_ok(c)))wake_refuse(1);
 }
 #endif
@@ -249,6 +267,9 @@ static bool reply_held(nw::CPUContext& c){
     throw WitnessFailure{};
 }
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){if(!nested_wake->before(c,pc,w,device_ok(c)))nested_refuse(1);return;}
+#endif
     if(!epilogue)return; // shared IRQ leaves during earlier native execution
     if(!reply_held(c))epilogue_refuse(1);
     if(!epilogue->stage()){
@@ -277,6 +298,9 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){if(!nested_wake->entry(c,pc,device_ok(c)))nested_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
     if(wake_ready){
         if(!wake_ready->entry(c,pc,device_ok(c)))wake_refuse(2);
@@ -396,6 +420,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){
+        if(!nested_wake->poll(c,device_ok(c)))nested_refuse(3);
+        if(nested_wake->stage()==2u){++nested_count;throw NestedReturned{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
     if(wake_ready){if(!wake_ready->poll(c,device_ok(c)))wake_refuse(3);return false;}
 #endif
@@ -539,6 +570,9 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){nested_wake->refuse_mmio();nested_refuse(4);}
+#endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
     if(wake_ready){wake_ready->refuse_mmio();wake_refuse(4);}
 #endif
@@ -580,6 +614,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    if(nested_wake){nested_wake->refuse_mmio();nested_refuse(5);}
+#endif
 #ifdef UNDERCOVER_V1289_WAKE_READY
     if(wake_ready){wake_ready->refuse_mmio();wake_refuse(5);}
 #endif
@@ -898,6 +935,17 @@ int main(int argc,char** argv)try{
              c.mmu.read32(sleep.queue()+4u)==0u&&irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
         wake_ready=nullptr;
         std::cout<<"V1289_READY_TRIAL n="<<trial<<" original_wake=1 nested_disable=1 drained=1 ready=1 enrolled=1 select_executed=0\n";
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+        const int64_t nested_counter=int64_t(c.gpr[13])+v1292::counter_disp;
+        need(nested_counter>=0x80000000ll&&nested_counter<=0x817ffffcll);
+        NestedWakeReturnWitness nested(v1292::expected(Q::Idle,uint32_t(nested_counter)));nested_wake=&nested;
+        if(!nested.begin(c,ready,irq_capture,sleep.queue(),device_ok(c)))nested_refuse(6);
+        bool wake_returned=false;try{run_game(c);}catch(const NestedReturned&){wake_returned=true;}
+        need(wake_returned&&nested.stage()==2u&&nested_count==trial+1u&&c.pc==0x805192d4u&&
+             c.lr==c.pc&&ready.ready_held(c,device_ok(c))&&host.serviced_steps()==2u);
+        nested_wake=nullptr;
+        std::cout<<"V1292_NESTED_TRIAL n="<<trial<<" original_select_return=1 original_restore=1 original_wake_return=1 ready=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -935,6 +983,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1289_WAKE_READY
     need(ready_count==8u);
     std::cout<<"V1289_WAKE_READY_NATIVE owner=1 trials=8 original_wake=8 nested_disable=8 drained=8 ready=8 enrolled=8 select_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1292_NESTED_WAKE
+    need(nested_count==8u);
+    std::cout<<"V1292_NESTED_NATIVE owner=1 trials=8 original_select_return=8 original_restore=8 original_wake_return=8 ready=8 thread_resumed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
