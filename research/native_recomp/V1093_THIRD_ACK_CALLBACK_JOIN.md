@@ -1,0 +1,3 @@
+# V1093: third ACK callback real-device join regression
+
+Extend V1088's 88 cases with eight successful callback joins and twelve refused joins (unaligned CTR, changed code, elapsed tick, denied identity, changed captured frame, substituted witness, late poll, missing poll, repeated poll, bad stack save, wrong leaf LR, bad leaf save). Reuse the real scheduler and three completed SI transactions; model only independent synthetic callback instruction effects. Verify the fresh callback's outer dispatch tick, nine labels and four stack writes, unchanged issued-token count and preserved unrelated PI source. The owner callback prefix has its own distinct original execution census. Tests pending.

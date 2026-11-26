@@ -1,4 +1,5 @@
 #include "wii_third_pending_reentry_v1067.h"
+#include "wii_callback_prefix_v800.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -29,9 +30,9 @@ static void need(bool ok,const std::source_location loc=std::source_location::cu
     if(!ok){std::cerr<<"V1067_ASSERT trial="<<trial<<" line="<<loc.line()<<'\n';throw std::runtime_error("third reentry");}
 }
 int main(){
-    unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0,frontier_valid=0,frontier_refused=0;
-    for(trial=0;trial<88;++trial){
-        const unsigned fault=trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
+    unsigned valid=0,refused=0,dispatch_valid=0,dispatch_refused=0,ack_valid=0,ack_refused=0,resume_valid=0,resume_refused=0,frontier_valid=0,frontier_refused=0,callback_valid=0,callback_refused=0;
+    for(trial=0;trial<108;++trial){
+        const unsigned fault=trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
         std::atomic<uint32_t> cause{Other},mask{SI},foreign_cause{Other|SI},foreign_mask{SI};
         SiController ctl(cause),foreign(foreign_cause);
         using Port=SiTypeScheduler::Port;
@@ -246,13 +247,66 @@ int main(){
         }
         need(ok&&route.stage()==10u&&route.ack_calls().depth()==0u&&route.completion_ack().writes()==1u&&
              ctl.issued_tokens()==3u&&cause==Other);
-        ++frontier_valid;
+        if(trial<88){++frontier_valid;continue;}
+        constexpr uint32_t Root=0x8000a000u,Leaf=Root+0x100u,Stack=0x80020000u,
+                           CallSite=Root+16u,Resume=Root+20u,SaveBranch=branch(CallSite,Leaf)|1u;
+        constexpr std::array<uint32_t,6> prefix{0x9421ffc0u,0x7c0802a6u,0x90010044u,0x39610040u,SaveBranch,Nop};
+        constexpr std::array<uint32_t,3> leaf{0x93cbfff8u,0x93ebfffcu,Blr};
+        // Independently authored fixture stack, registers and instruction effects.
+        // Preserve the actual third completion ACK and captured context.
+        for(unsigned i=0;i<prefix.size();++i)c.mmu.words[Root+4u*i]=prefix[i];
+        for(unsigned i=0;i<leaf.size();++i)c.mmu.words[Leaf+4u*i]=leaf[i];
+        for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
+        c.gpr[1]=Stack;c.ctr=Root;
+        CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign(Root,Leaf,prefix,leaf);
+        auto callback_reject=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++callback_refused;
+        };
+        if(fault==49)c.ctr|=3u;
+        if(fault==50)c.mmu.words[Root+4u]^=1u;
+        if(fault==51)tick();
+        ok=route.begin_callback(c,witness,Handler+12,IndirectCall,fault!=52);
+        if(fault>=49&&fault<=52){callback_reject(!ok,19);continue;}need(ok);
+        c.pc=Root;c.lr=Handler+16;
+        if(fault==53)c.mmu.words[Context+124]^=1u;
+        if(fault==54){callback_reject(!route.callback_poll(c,foreign),20);continue;}
+        if(fault==55)tick();
+        if(fault!=56){
+            ok=route.callback_poll(c,witness);
+            if(fault==53||fault==55){callback_reject(!ok,20);continue;}need(ok);
+        }
+        if(fault==57){callback_reject(!route.callback_poll(c,witness),20);continue;}
+        tick();ok=route.callback_entry(c,witness,Root);
+        if(fault==56){callback_reject(!ok,21);continue;}need(ok);
+        auto step_callback=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.callback_before(c,witness,pc,w);};
+        need(step_callback(Root,prefix[0]));
+        c.mmu.words[Stack-64u]=Stack;c.gpr[1]=Stack-64u;
+        if(fault==58)c.mmu.words[Stack-64u]^=1u;
+        ok=step_callback(Root+4,prefix[1]);
+        if(fault==58){callback_reject(!ok,22);continue;}need(ok);c.gpr[0]=c.lr;
+        need(step_callback(Root+8,prefix[2]));c.mmu.words[Stack+4u]=c.gpr[0];
+        need(step_callback(Root+12,prefix[3]));c.gpr[11]=Stack;
+        need(step_callback(CallSite,SaveBranch));c.pc=Leaf;c.lr=Resume;
+        if(fault==59)c.lr^=4u;
+        ok=route.callback_entry(c,witness,Leaf);
+        if(fault==59){callback_reject(!ok,21);continue;}need(ok);
+        need(step_callback(Leaf,leaf[0]));c.mmu.words[Stack-8u]=c.gpr[30];
+        need(step_callback(Leaf+4,leaf[1]));c.mmu.words[Stack-4u]=c.gpr[31];
+        need(step_callback(Leaf+8,Blr));
+        if(fault==60)c.mmu.words[Stack-8u]^=1u;
+        ok=step_callback(Resume,Nop);
+        if(fault==60){callback_reject(!ok,22);continue;}
+        need(ok&&route.stage()==12u&&witness.stage()==6u&&witness.visits()==9u&&witness.writes()==4u&&
+             route.completion_ack().postack_held()&&route.completion_ack().writes()==1u&&
+             ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&ack.stage()==5u&&dev.stage()==3u);
+        ++callback_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
     std::cout<<"V1085_THIRD_ACK_RESUME valid=8 refused=6 same_tick=1 no_w1c_replay=1 helper_return=1 original_execution=0\n";
     std::cout<<"V1088_THIRD_CALLBACK_STOP valid=8 refused=5 original_call_executed=0 original_execution=0\n";
+    std::cout<<"V1093_THIRD_ACK_CALLBACK_JOIN valid=8 refused=12 actual_device=1 fresh_witness=1 original_execution=0\n";
 }
