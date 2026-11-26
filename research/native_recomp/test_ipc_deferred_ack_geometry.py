@@ -26,6 +26,12 @@ class Geometry(unittest.TestCase):
     def test_credit(self):
         self.assertEqual(credit_sites(P,(N,LW,INC,ST,N,N),A,P+20,B),1)
         self.assertEqual(credit_sites(P,(N,LW,ins(14,0,5,1),ins(36,0,13,-4),N,N),A,P+20,B),1)
+        cmpwi=ins(11,0,5,0)
+        bc=(16<<26)|(12<<21)|16
+        self.assertEqual(credit_sites(P,(LW,cmpwi,bc,INC,N,ST,N,N),A,P+28,B),1)
+        bypass=(16<<26)|(12<<21)|12
+        with self.assertRaisesRegex(ValueError,'dominance'):
+            credit_sites(P,(LW,bypass,INC,N,ST,N),A,P+20,B)
         for words in ((N,LW,DEC,ST,N,N),(N,LW,INC,N,N,N),(ST,LW,INC,ST,N,N),
                       (N,LW,N,ST,N,N),(N,ins(32,6,13,-4),INC,ST,N,N)):
             with self.subTest(words=words),self.assertRaises(ValueError):credit_sites(P,words,A,P+20,B)

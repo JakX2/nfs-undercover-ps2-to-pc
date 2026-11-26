@@ -30,6 +30,41 @@ def decrement_leaf(words,address,bases):
         (store>>21)&31!=result):raise ValueError('ack profile dataflow')
     return True
 
+def gpr_def(w):
+    op=w>>26;xo=(w>>1)&1023
+    if op in (7,8,12,13,14,15,32,34,40,42):return (w>>21)&31
+    if op in (20,21,23,24,25,26,27,28,29):return (w>>16)&31
+    if op in (10,11,16,36,38,44) and not(op==16 and w&1):return -1
+    if op==18 and not(w&1):return -1
+    if op==31 and xo in (0,32):return -1
+    if op==31 and xo==444:return (w>>16)&31
+    return None
+
+def previous_def(words,end,reg,limit):
+    for i in range(end-1,max(-1,end-limit-1),-1):
+        dest=gpr_def(words[i])
+        if dest is None:raise ValueError('ack credit clobber')
+        if dest==reg:return i
+    raise ValueError('ack credit definition')
+
+def reachable(words,blocked=None):
+    seen=set();work=[0]
+    while work:
+        i=work.pop()
+        if i==blocked or i in seen or not 0<=i<len(words):continue
+        seen.add(i);w=words[i];op=w>>26;xo=(w>>1)&1023
+        if op==19 and xo in (16,50,528):
+            if xo==16 and not(w&1) and ((w>>21)&20)!=20:work.append(i+1)
+            continue
+        if op in (16,18) and not(w&1):
+            if w&2:raise ValueError('ack absolute branch')
+            mask,sign=(0xfffc,0x8000) if op==16 else (0x03fffffc,0x02000000)
+            target=i+(((w&mask)^sign)-sign)//4
+            if 0<=target<len(words):work.append(target)
+            if op==18 or ((w>>21)&20)==20:continue
+        work.append(i+1)
+    return seen
+
 def credit_sites(root,words,address,call,bases):
     if not root<call<root+4*len(words):raise ValueError('ack call extent')
     sites=[]
@@ -39,13 +74,19 @@ def credit_sites(root,words,address,call,bases):
         if sda(w,36,bases)==address:sites.append(i)
     if len(sites)!=1:raise ValueError('ack credit stores')
     i=sites[0];rs=(words[i]>>21)&31
-    # Compiler may interleave control flow, but this narrow geometry
-    # accepts only a consecutive load/add/store credit increment.
-    if i<2:raise ValueError('ack credit dataflow')
-    load,add=words[i-2:i]
-    rd=(load>>21)&31
-    if (sda(load,32,bases)!=address or not rd or add>>26!=14 or
-        (add>>21)&31!=rs or (add>>16)&31!=rd or add&0xffff!=1):raise ValueError('ack credit dataflow')
+    j=previous_def(words,i,rs,16);add=words[j];rd=(add>>16)&31
+    if not rd or add>>26!=14 or (add>>21)&31!=rs or add&0xffff!=1:
+        raise ValueError('ack credit add')
+    k=previous_def(words,j,rd,16);load=words[k]
+    if sda(load,32,bases)!=address or (load>>21)&31!=rd:
+        raise ValueError('ack credit load')
+    if i not in reachable(words) or i in reachable(words,k) or i in reachable(words,j):
+        raise ValueError('ack credit dominance')
+    for n in range(k,i):
+        w=words[n];op=w>>26
+        if op in (16,18) and not(w&1):
+            mask,sign=(0xfffc,0x8000) if op==16 else (0x03fffffc,0x02000000)
+            if (((w&mask)^sign)-sign)<=0:raise ValueError('ack credit loop')
     return len(sites)
 
 def derive(d,e):
@@ -67,7 +108,7 @@ def derive(d,e):
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
     allowed={'size','identity','ack profile extent','ack profile dataflow','ack profile load','ack profile store','ack call extent','ack credit stores',
-             'ack credit dataflow','ack profile edge','ack object overlap'}
+             'ack credit dataflow','ack credit clobber','ack credit definition','ack credit add','ack credit load','ack credit dominance','ack credit loop','ack absolute branch','ack profile edge','ack object overlap'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not HEADER.size<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         labels,credit,profile=derive(q.dol.read_bytes(),q.elf.read_bytes())
