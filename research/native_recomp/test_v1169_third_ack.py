@@ -15,10 +15,15 @@ class ThirdAckLabels(unittest.TestCase):
         for guard in (False,True):
             body=old(L+f'    undercover::wii::v672::before({A},0u,0u);\n',H,W,'v672',guard)
             for good in (body,patch_label(body,H,W),patch_label(hook(body,H,W),H,W)):
-                verify_label(good,H,W)
+                verify_label(good,H,W,guard)
                 for bad in (good.replace(T,T+T),good.replace(SI,''),good.replace('v958::before','v958::wrong'),
                             good.replace('0x60000000u','0x60000001u'),good+f'    undercover::wii::v958::before({A},false);\n'):
-                    with self.assertRaises(ValueError):verify_label(bad,H,W)
+                    with self.assertRaises(ValueError):verify_label(bad,H,W,guard)
+    def test_admitted_guard_refused(self):
+        body=old(L+f'    undercover::wii::v672::before({A},0u,0u);\n',H,W,'v672',True)
+        verify_label(body,H,W,True)
+        with self.assertRaises(ValueError):verify_label(body,H,W,False)
+        verify_label(patch_label(body,H,W),H,W,False)
     def test_bus(self):
         from pathlib import Path
         from test_v997_composed_success_frontier import first,second,transfer,discovery,sampling,HOST
@@ -80,7 +85,7 @@ class ThirdAckTree(unittest.TestCase):
             self.assertIn('UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1',(data[1]/'v958_private_second_ack.h').read_text())
             self.assertEqual((data[1]/'v1167_private_third_ack.h').read_text(),render(*data[0][:3]))
     def test_refusals(self):
-        for fault in ('metadata','header','bus','duplicate','mapping','direct','tick','guard','mode','existing'):
+        for fault in ('metadata','header','bus','duplicate','mapping','direct','tick','guard','admitted-guard','mode','existing'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
                 root=Path(td);data=self.fixture(root);dest=data[1]
                 if fault=='metadata':
@@ -98,6 +103,8 @@ class ThirdAckTree(unittest.TestCase):
                     q=root/'output_1.cpp';q.write_text(q.read_text().replace(T,T+T,1))
                 elif fault=='guard':
                     q=root/'output_0.cpp';q.write_text(q.read_text().replace('true);','false, true);',1))
+                elif fault=='admitted-guard':
+                    q=root/'output_0.cpp';q.write_text(q.read_text().replace('false);','true);',1))
                 elif fault=='mode':(dest/'v958_private_second_ack.h').write_text('// absent\n')
                 else:(dest/'v1167_private_third_ack.h').write_text('// exists\n')
                 before=self.snapshot(root)

@@ -14,15 +14,16 @@ from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
 
-def verify_label(body,pc,w):
+def verify_label(body,pc,w,refused=False):
     block=block_at(body,pc,w)
     tick='    ++ctx.inst_count;\n';arg=f'ctx,0x{pc:08x}u,0x{w:08x}u'
     if block.count(tick)!=1 or block.count(SI)!=1 or block.index(tick)>block.index(SI):
         raise ValueError('third ACK tick')
     plain=f'    undercover::wii::v958::before({arg},false);\n'
     guard=f'    undercover::wii::v958::before({arg},true);\n'
-    allowed={plain,guard,f'    if({ACTIVE}) '+plain.lstrip()}
+    allowed={plain,f'    if({ACTIVE}) '+plain.lstrip()}
     allowed|={s for s in inherited_hooks(pc,w).values() if ACTIVE in s}
+    if refused:allowed.add(guard)
     observed=''.join(re.findall(r'(?m)^    [^\n]*v958::before\(ctx,[^\n]+\n',block))
     if observed not in allowed or block.count(observed)!=1 or block.index(observed)<block.index(SI):
         raise ValueError('third ACK hook')
@@ -96,8 +97,9 @@ def install(dol,elf,root,host):
         if audit_native([body],outer,expected_rows)!=len(expected_rows):raise ValueError('third ACK coverage')
         if index==0:
             for pc,target in edges:verify_direct(body,pc,target)
-        for pc,(_,w) in expected_rows.items():
-            try:verify_label(body,pc,w)
+        for pc,w,owner,refused in rows:
+            if owner!=a:continue
+            try:verify_label(body,pc,w,refused)
             except ValueError:
                 print(f'V1169_ACK_HOOK_REFUSAL root={index} index={(pc-a)//4}')
                 raise
