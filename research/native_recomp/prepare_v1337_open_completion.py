@@ -76,9 +76,9 @@ def merge(blocks,shared,old,new):
     if len(out)+2>48 or any(end>b for (_,end),(b,_) in zip(spans,spans[1:])):raise ValueError('completion ownership')
     return out
 
-def rebuild(raw,expanded):
+def rebuild(raw,expanded,*,max_roots=48):
     table=data_at(raw,VECTORS,60)
-    out=bytearray(assemble({**expanded,SOURCE:words_at(raw,SOURCE,38),SC_SOURCE:words_at(raw,SC_SOURCE,7)},ROOT,max_roots=48))
+    out=bytearray(assemble({**expanded,SOURCE:words_at(raw,SOURCE,38),SC_SOURCE:words_at(raw,SC_SOURCE,7)},ROOT,max_roots=max_roots))
     for off,v in ((0x1c,len(out)),(0x64,VECTORS),(0xac,len(table))):struct.pack_into('>I',out,off,v)
     image=bytes(out)+table
     if any(words_at(image,a,len(ws))!=ws for a,ws in expanded.items()):raise ValueError('completion roundtrip')

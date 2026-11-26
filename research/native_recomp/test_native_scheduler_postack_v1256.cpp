@@ -67,6 +67,9 @@
 #include "v1359_private_second.h"
 #ifdef UNDERCOVER_V1379_SECOND_RETURN
 #include "v1379_private_second_return.h"
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+#include "v1383_private_stm_ioctl.h"
+#endif
 #endif
 #endif
 #endif
@@ -251,6 +254,11 @@ static unsigned second_release_count=0,second_allocator_count=0;
 #ifdef UNDERCOVER_V1379_SECOND_RETURN
 static OpenReturnWitness* second_open_capture=nullptr;
 static unsigned second_open_return_count=0;
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+static StmIoctlEntryWitness* stm_ioctl=nullptr;
+static unsigned stm_ioctl_count=0;
+struct StmIoctlReached{};
+#endif
 #endif
 #endif
 #endif
@@ -348,6 +356,18 @@ static bool open_descriptor(nw::CPUContext& c){
 #endif
     return allocator_descriptor&&allocator_release&&allocator_descriptor->returned(c,allocator_release->metadata_stores())&&B::is_open(0u,open_return_device);
 }
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+static bool stm_ioctl_held(nw::CPUContext& c){
+    return stm_ioctl&&selection_witness&&allocator_release&&open_descriptor(c)&&!(cause.load()&mask.load())&&
+        selection_witness->selected_response_held(c,raw_device_ok(c),stm_ioctl->expected_msr())&&
+        allocator_release->storage_preserved_at(c,true,stm_ioctl->expected_msr());
+}
+[[noreturn]]static void stm_ioctl_refuse(unsigned kind){
+    std::cout<<"V1383_IOCTL_REFUSAL kind="<<kind<<" stage="<<(stm_ioctl?stm_ioctl->stage():0u)
+             <<" reason="<<(stm_ioctl?stm_ioctl->failure():0u)<<" visits="<<(stm_ioctl?stm_ioctl->visits():0u)
+             <<" stores="<<(stm_ioctl?stm_ioctl->stores():0u)<<'\n';throw WitnessFailure{};
+}
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
 static bool second_request_held(nw::CPUContext& c){
@@ -403,6 +423,9 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl){if(!stm_ioctl->before(c,pc,w,stm_ioctl_held(c)))stm_ioctl_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active){if(!second_open->before(c,pc,w,open_return_held(c),open_descriptor(c)))second_open_refuse(2);return;}
 #endif
@@ -665,6 +688,9 @@ static bool reply_held(nw::CPUContext& c){
 }
 #endif
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl){v1344_before(c,pc,w);return;}
+#endif
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
     if(allocator_active){v1344_before(c,pc,w);return;}
 #endif
@@ -720,6 +746,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl){
+        if(!stm_ioctl->entry(c,pc,stm_ioctl_held(c)))stm_ioctl_refuse(3);
+        if(stm_ioctl->stage()==2u){++stm_ioctl_count;throw StmIoctlReached{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
     if(second_open_active){
         if(!second_open->entry(c,pc,open_return_held(c),open_descriptor(c)))second_open_refuse(3);
@@ -1031,6 +1064,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl){if(!stm_ioctl->poll(c,stm_ioctl_held(c)))stm_ioctl_refuse(4);return false;}
+#endif
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
     if(second_submit_active){
         if(!second_submit->boundary(c,second_submit_held(c))||++second_submit_polls>8192u)second_submit_refuse(4);
@@ -1364,6 +1400,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl)stm_ioctl_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
     if(second_submit_active){
         const auto phys=a&0x3fffffffu;
@@ -1453,6 +1492,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    if(stm_ioctl)stm_ioctl_refuse(5);
+#endif
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
     if(second_submit_active){
         if(!second_submit_cpu||!second_submit->write(*second_submit_cpu,a,v,second_submit_held(*second_submit_cpu)))second_submit_refuse(7);
@@ -1569,6 +1611,9 @@ int main(int argc,char** argv)try{
         for(auto w:v1358::stm_words)c.mmu.write32(w.pc,w.word);
 #ifdef UNDERCOVER_V1379_SECOND_RETURN
         c.mmu.write32(v1379::expected.stm_resume,v1379::expected.stm_resume_word);
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+        for(auto w:v1383::words)c.mmu.write32(w.pc,w.word);
+#endif
 #endif
 #endif
         for(auto w:v1252::words)c.mmu.write32(w.pc,w.word);
@@ -2261,7 +2306,20 @@ int main(int argc,char** argv)try{
              allocator2.storage_preserved(c,allocator_held(c))&&allocator2.inline_completed()&&second_open_return_count==trial+1u&&
              c.gpr[3]==1u&&c.pc==v1379::expected.stm_resume);
         std::cout<<"V1379_OPEN_TRIAL n="<<trial<<" submit_return=1 open_return=1 stm_resume=1 fd=1\n";
-        open_return_active=false;open_return=nullptr;second_open_capture=nullptr;
+        open_return_active=false;
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+        StmIoctlEntryWitness ioctl_entry(v1383::expected);
+        if(!ioctl_entry.begin(c,open_tail2,open_return_held(c),open_descriptor(c),kind)){
+            stm_ioctl=&ioctl_entry;stm_ioctl_refuse(1);
+        }
+        stm_ioctl=&ioctl_entry;
+        bool ioctl_reached=false;try{run_game(c);}catch(const StmIoctlReached&){ioctl_reached=true;}
+        need(ioctl_reached&&ioctl_entry.reached(c,stm_ioctl_held(c))&&stm_ioctl_count==trial+1u&&
+             host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
+        std::cout<<"V1383_IOCTL_TRIAL n="<<trial<<" original_stm=1 native_disable=1 event_fd=1 buffers=1 callback=1 stores="<<ioctl_entry.stores()<<'\n';
+        stm_ioctl=nullptr;
+#endif
+        open_return=nullptr;second_open_capture=nullptr;
         need(
 #else
         bool freed2=false;try{run_game(c);}catch(const AllocatorReturned&){freed2=true;}
@@ -2362,6 +2420,10 @@ int main(int argc,char** argv)try{
     need(second_release_count==8u&&second_allocator_count==8u);
 #ifdef UNDERCOVER_V1379_SECOND_RETURN
     need(second_open_return_count==8u);
+#ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
+    need(stm_ioctl_count==8u);
+    std::cout<<"V1383_IOCTL_NATIVE owner=1 trials=8 original_stm=8 native_disable=8 ioctl_entry=8 event_fd=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1379_OPEN_NATIVE owner=1 trials=8 second_submit_return=8 second_open_return=8 stm_resume=8 fd=1 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1378_FREE_NATIVE owner=1 trials=8 second_free=8 heap_shadow=8 metadata_shadow=8 abi=8 inline_return=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";

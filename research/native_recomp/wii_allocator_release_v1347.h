@@ -119,7 +119,13 @@ public:
     // At later caller boundaries the ABI/PC naturally change; the
     // authenticated allocator memory image must not change again.
     template<class C>bool storage_preserved(C& c,bool held){
-        return stage_==2u&&base(c,held)&&c.msr==msr_&&fence_.finished(c);
+        return storage_preserved_at(c,held,msr_);
+    }
+    // Only the subsequent authenticated original interrupt-disable lane
+    // supplies this independently predicted MSR. The heap fence is intact.
+    template<class C>bool storage_preserved_at(C& c,bool held,uint32_t expected_msr){
+        return stage_==2u&&base(c,held)&&(expected_msr==msr_||expected_msr==(msr_&~0x8000u))&&
+            c.msr==expected_msr&&fence_.finished(c);
     }
     template<class C>bool returned(C& c,bool held){
         return stage_==2u&&base(c,held)&&c.pc==e_.resume&&c.lr==e_.resume&&c.inst_count==last_&&
