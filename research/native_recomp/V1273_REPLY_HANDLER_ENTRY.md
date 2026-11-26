@@ -1,0 +1,3 @@
+# V1273: exact original second IPC handler branch contract
+
+Prepare a read-only second handler prefix witness. It accepts only the admitted same-tick V1272 reply dispatcher handoff, intact saved idle context, real native published response and unchanged waiting queue. It follows the authenticated read leaf and actual direct callsite into the original reply processor, permits only native PPCCTRL reads and refuses all MMIO writes before the processor entry. No IOS service or guest wakeup. Original-free tests model the instruction observations, use the real native transport, and add one valid plus ten refusal cases. The actual owner route is still gated by V1271 and V1272 verification.

@@ -1,0 +1,21 @@
+name: Wii V1273 Reply Handler Entry Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1273*'
+      - '.github/workflows/wii-v1273-reply-entry.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test second dispatch and reply-handler prefix
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o "$RUNNER_TEMP/v1273"
+          "$RUNNER_TEMP/v1273"

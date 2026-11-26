@@ -2,6 +2,7 @@
 #include "wii_scheduler_reply_irq_v1268.h"
 #ifdef UNDERCOVER_TEST_JOINED_ACK
 #include "wii_joined_ipc_ack_v1266.h"
+#include "wii_joined_ipc_reply_entry_v1273.h"
 #endif
 #include <cassert>
 #include <iostream>
@@ -155,7 +156,42 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false){
     if(n==20){rejected(ok,5);return;}
     assert(n==0&&ok&&w.stage()==6u&&w.cause_reads()==1u&&w.mask_reads()==1u);
     unchanged();
-    if(reply_lane){assert(w.handler_ready(c,frame,snap,Queue,true));return;}
+    if(reply_lane){
+        assert(w.handler_ready(c,frame,snap,Queue,true));
+#ifdef UNDERCOVER_TEST_JOINED_ACK
+        constexpr uint32_t Leaf=0x8051905cu,Reply=0x805190c0u;
+        constexpr VectorEdge reply_edge{Reply,Handler+12u,0x48000001u,0x60000000u};
+        constexpr std::array<VectorEdge,2> edges{{{Leaf,Handler+8u,0x48000001u,0x4e800020u},reply_edge}};
+        constexpr std::array<uint32_t,0> polls{};
+        m.write32(Handler+4u,edges[0].branch_word);m.write32(Handler+8u,reply_edge.branch_word);
+        m.write32(Leaf,edges[0].entry_word);m.write32(Reply,reply_edge.entry_word);
+        JoinedIpcReplyEntry j(Handler,Leaf,reply_edge,Context,Thread,edges,polls);
+        auto refuse=[&](bool ok,unsigned reason){assert(!ok&&j.failure()==reason);unchanged();};
+        if(join_case==1)++c.inst_count;
+        if(join_case==2)m.write32(Reply,0u);
+        ok=j.begin(c,w,frame,Queue,join_case==3?Request+32u:Request,true);
+        if(join_case>=1&&join_case<=3){refuse(ok,1);return;}
+        assert(ok&&j.poll(c,true));++c.inst_count;assert(j.entry(c,Handler,true));
+        ++c.inst_count;assert(j.before(c,Handler,Code.handler_word,false,true));
+        if(join_case==4){refuse(j.write_refused(),7);return;}
+        if(join_case==5){c.inst_count+=2;refuse(j.before(c,Handler+4u,edges[0].branch_word,false,true),4);return;}
+        ++c.inst_count;assert(j.before(c,Handler+4u,edges[0].branch_word,false,true));
+        c.pc=Leaf;c.lr=Handler+8u;
+        if(join_case==6){c.lr+=4u;refuse(j.entry(c,Leaf,true),2);return;}
+        assert(j.entry(c,Leaf,true));++c.inst_count;assert(j.before(c,Leaf,edges[0].entry_word,false,true));
+        if(join_case==7){assert(!j.read(c,Bus::IPC+M::ARMMSG,true));refuse(false,6);return;}
+        if(join_case!=8)assert(j.read(c,Bus::IPC+M::PPCCTRL,true));
+        c.pc=Handler+8u;++c.inst_count;assert(j.before(c,c.pc,reply_edge.branch_word,false,true));
+        c.pc=Reply;c.lr=reply_edge.lr;
+        if(join_case==9)m.write32(Context+124u,0u);
+        if(join_case==10)ram.write32(Request+4u,1u);
+        ok=j.entry(c,Reply,true);
+        if(join_case>=8){refuse(ok,join_case==8?3u:2u);return;}
+        assert(ok&&j.stage()==2u&&j.reads()==1u&&j.visits()==4u);
+        unchanged();
+#endif
+        return;
+    }
 #ifdef UNDERCOVER_TEST_JOINED_ACK
     // Synthetic handler observations; every MMIO write and IOS pump is
     // the real native transport. No owner game instructions here.
@@ -211,6 +247,8 @@ int main(){
     std::cout<<"V1272_REPLY_DISPATCH_CONTRACT synthetic=1 valid=1 refused=25 native_reply=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_JOINED_ACK
     for(unsigned i=1;i<=13;++i)trial(0,i);
+    for(unsigned i=1;i<=10;++i)trial(0,i,true);
+    std::cout<<"V1273_REPLY_ENTRY_CONTRACT synthetic=1 valid=1 refused=10 native_reply=1 wakeup=0 original_execution=0\n";
     std::cout<<"V1267_JOINED_ACK_CONTRACT synthetic=1 valid=1 refused=13 native_reply=1 original_execution=0\n";
 #endif
 }
