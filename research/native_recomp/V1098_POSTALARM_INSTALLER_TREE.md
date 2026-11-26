@@ -1,0 +1,3 @@
+# V1098: original-free generated-tree post-alarm installer regression
+
+V1096 integration run 45754293876 passed the actual live observer with the held third callback prefix and five refusals after fixing the synthetic r1 ABI error. Extend V1097's hook tests to a twenty-shard independently authored generated tree. Mock only DOL/ELF extraction, then run real metadata, unique native owner, label coverage, direct edge, indirect edge and hook rewriting checks. Require nine malformed-tree cases to reject without touching any generated file. No new private build or original code published. Verification pending.
