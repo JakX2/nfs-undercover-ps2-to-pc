@@ -131,6 +131,9 @@
 #include "private_post_stm_sc_formatter_leaf.h"
 #ifdef UNDERCOVER_FORMATTER_CONTINUATION
 #include "private_formatter_continuation.h"
+#ifdef UNDERCOVER_FORMATTER_NESTED
+#include "private_formatter_nested.h"
+#endif
 #endif
 #endif
 #endif
@@ -505,6 +508,11 @@ struct PostStmFormatterLeafStop{};
 static RegisterContinuationWitness* formatter_continuation=nullptr;
 static unsigned formatter_continuation_count=0;
 struct FormatterContinuationStop{};
+#ifdef UNDERCOVER_FORMATTER_NESTED
+static ScFormatterWitness* formatter_nested=nullptr;
+static unsigned formatter_nested_count=0;
+struct FormatterNestedStop{};
+#endif
 #endif
 #endif
 static bool post_stm_formatter_held(nw::CPUContext&);
@@ -915,6 +923,40 @@ static bool formatter_continuation_held(nw::CPUContext& c){
 void formatter_continuation_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!formatter_continuation||!formatter_continuation->before(c,pc,w,formatter_continuation_held(c)))formatter_continuation_refuse(2);
 }
+#ifdef UNDERCOVER_FORMATTER_NESTED
+static bool formatter_nested_held(nw::CPUContext& c){
+    if(!formatter_nested||!post_stm_formatter||!post_stm_formatter_leaf||!post_stm_resume||
+       !post_stm_dependency||!post_stm_helper||!post_stm_report||!post_stm_version_data||
+       !post_stm_objects||!post_stm_frame||!third_return_join)return false;
+    const auto sp=c.gpr[1],parent=post_stm_formatter->expected_sp();
+    if(sp!=parent&&sp!=parent-48u)return false;
+    const unsigned extra=parent-sp;
+    const auto outer=post_stm_frame->nested_frame_held(c,
+        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr),
+        sp,post_stm_report->linkage_word(),864u+extra,256u);
+    const auto report=post_stm_report->child_frame_held(c,outer,sp,post_stm_helper->linkage_word(),736u+extra,extra);
+    const auto helper=post_stm_helper->child_frame_held(c,report,sp,post_stm_formatter->linkage_word(),704u+extra,extra);
+    const auto parent_held=post_stm_formatter->child_frame_held(c,helper,sp,formatter_nested->linkage_word());
+    return post_stm_formatter_leaf->object_held(c,post_stm_resume->object_held(c,post_stm_dependency->object_held(c,
+        post_stm_version_data->data_held(c,post_stm_objects->objects_held(c,parent_held)))));
+}
+[[noreturn]]static void formatter_nested_refuse(unsigned kind){
+    std::cout<<"FORMATTER_NESTED_REFUSAL kind="<<kind<<" stage="<<(formatter_nested?formatter_nested->stage():0u)
+        <<" reason="<<(formatter_nested?formatter_nested->failure():0u)
+        <<" visits="<<(formatter_nested?formatter_nested->visits():0u)
+        <<" loads="<<(formatter_nested?formatter_nested->loads():0u)
+        <<" stores="<<(formatter_nested?formatter_nested->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!formatter_nested)formatter_nested_refuse(2);
+    if(pc==formatter_nested_private::expected.target){
+        if(!formatter_nested->stop_before_load(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+        ++formatter_nested_count;throw FormatterNestedStop{};
+    }
+    if(!formatter_nested->before(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+}
+#endif
 #endif
 #endif
 #endif
@@ -1715,6 +1757,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_FORMATTER_NESTED
+    if(formatter_nested){
+        if(!formatter_nested->entry(c,pc,formatter_nested_held(c)))formatter_nested_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_FORMATTER_CONTINUATION
     if(formatter_continuation){
         if(!formatter_continuation->entry(c,pc,formatter_continuation_held(c)))formatter_continuation_refuse(3);
@@ -2347,6 +2395,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_FORMATTER_NESTED
+    if(formatter_nested){
+        if(!formatter_nested->poll(c,formatter_nested_held(c)))formatter_nested_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_FORMATTER_CONTINUATION
     if(formatter_continuation){
         if(!formatter_continuation->poll(c,formatter_continuation_held(c)))formatter_continuation_refuse(4);
@@ -3297,6 +3351,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CONTINUATION
         for(auto w:formatter_continuation_private::path)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(formatter_continuation_private::expected.target,formatter_continuation_private::expected.target_word);
+#ifdef UNDERCOVER_FORMATTER_NESTED
+        for(auto w:formatter_nested_private::path)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(formatter_nested_private::expected.target,formatter_nested_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4424,6 +4482,19 @@ int main(int argc,char** argv)try{
             std::cout<<"FORMATTER_CONTINUATION_TRIAL n="<<trial
                 <<" native_resume=1 next_entry=1 arguments=4 frame_held=1 deferred=1 reply=0 visits=10\n";
             formatter_continuation=nullptr;
+#ifdef UNDERCOVER_FORMATTER_NESTED
+            ScFormatterWitness nested(formatter_nested_private::expected);
+            if(!nested.begin(c,continuation.reached(c,formatter_continuation_held(c))))formatter_nested_refuse(1);
+            formatter_nested=&nested;
+            bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
+            if(!nested_done||formatter_nested_count!=trial+1u||!nested.reached_load_boundary(c,formatter_nested_held(c))||
+               nested.visits()!=35u||nested.loads()!=1u||nested.stores()!=12u||
+               host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+               host.cold_ipc_snapshot().replies)formatter_nested_refuse(5);
+            std::cout<<"FORMATTER_NESTED_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35\n";
+            formatter_nested=nullptr;
+#endif
 #endif
             post_stm_formatter_leaf=nullptr;
         }
@@ -4702,6 +4773,10 @@ int main(int argc,char** argv)try{
     need(post_stm_formatter_leaf_count==8u);
 #ifdef UNDERCOVER_FORMATTER_CONTINUATION
     need(formatter_continuation_count==8u);
+#ifdef UNDERCOVER_FORMATTER_NESTED
+    need(formatter_nested_count==8u);
+    std::cout<<"FORMATTER_NESTED_NATIVE owner=1 trials=8 native_prefix=8 loads=8 stores=96 nonvolatile=24 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=280 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"FORMATTER_CONTINUATION_NATIVE owner=1 trials=8 native_resume=8 next_entry=8 arguments=32 frame_held=8 deferred=8 reply=0 visits=80 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_FORMATTER_LEAF_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 exact_value=8 loads=8 stores=0 frame_held=8 deferred=8 reply=0 visits=64 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
