@@ -6,6 +6,7 @@ from private_plan_cache import plan_cache_scope
 from prepare_formatter_nested_contract import plan as nested_plan
 from prepare_formatter_second_contract import plan as second_plan
 from prepare_formatter_third_contract import plan as third_plan
+from prepare_formatter_control_contract import plan as control_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import check_spans
@@ -15,17 +16,20 @@ from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
 
-def plan(d,e,*,second=False,third=False):
-    if second and third:raise ValueError('nested fixture mode')
+def plan(d,e,*,second=False,third=False,control=False):
+    if sum((second,third,control))>1:raise ValueError('nested fixture mode')
     prior=continuation_plan(d,e,details=True)
     first=nested_plan(d,e,previous=prior[1])
-    if not (second or third):return prior,first
+    if not (second or third or control):return prior,first
     two=second_plan(d,e,previous=prior[1],first=first)
-    return prior,third_plan(d,e,previous=prior[1],second=two) if third else two
+    if second:return prior,two
+    three=third_plan(d,e,previous=prior[1],second=two)
+    return prior,control_plan(d,e,previous=prior[1],third=three) if control else three
 
 def render(contract):
     _,fields,rows,access,slots,known=contract
-    root,caller,target,word,frame,addr,width=fields
+    root,caller,target,word,frame,addr,width,*control=fields
+    if control and (len(control)!=3 or addr or width or word!=0x4e800420):raise ValueError('nested fixture control contract')
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
     wr=','.join('undercover::wii::IpcDispatchWord{'+fmt((root,pc,w))+'}' for pc,w in rows)
     values={pc:int.from_bytes(data,'big') for pc,_,data in known}
@@ -40,7 +44,7 @@ def render(contract):
         f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(rows)}> path'+'{'+wr+'};\n'
         f'inline constexpr std::array<undercover::wii::ScFormatterAccess,{len(access)}> accesses'+'{'+ar+'};\n'
         f'inline constexpr std::array<undercover::wii::StmFinalSlot,{len(slots)}> slots'+'{'+sr+'};\n'
-        'inline constexpr undercover::wii::ScFormatterExpectation expected{'+fmt((root,caller,target,word,frame))+',path,accesses,slots,{'+fmt((addr,width))+'}};\n}\n')
+        'inline constexpr undercover::wii::ScFormatterExpectation expected{'+fmt((root,caller,target,word,frame))+',path,accesses,slots,{'+fmt((addr,width))+'}'+(',{'+fmt(control)+'}' if control else '')+'};\n}\n')
 
 def expand(old,blocks,live,root):
     if set(blocks)!=set(old) or root not in old or any(live.get(a)!=ws for a,ws in old.items()):
@@ -60,7 +64,8 @@ def extend(directory,p):
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(render(contract))
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
-    print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(contract[2])} guarded_load=1 new_roots=0')
+    kind='guarded_control' if len(fields)==10 else 'guarded_load'
+    print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(contract[2])} {kind}=1 new_roots=0')
 
 def scope(d,e,sizes,p):
     prior,contract=p;old=prior[1][0];blocks,fields,*_=contract;root=fields[0]
@@ -92,18 +97,19 @@ def install(directory,p):
             changed[file]=s.replace(anchor,anchor+'\nvoid formatter_nested_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
     if done!=set(expected):raise ValueError('nested fixture coverage')
     for file,s in changed.items():file.write_text(s)
-    print(f'FORMATTER_NESTED_TRANSLATION verified=1 labels={len(rows)} pre_load_hook=1')
+    kind='pre_control_hook' if len(fields)==10 else 'pre_load_hook'
+    print(f'FORMATTER_NESTED_TRANSLATION verified=1 labels={len(rows)} {kind}=1')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');q=a.parse_args()
+    safe={'size','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
-            p=plan(d,e,second=q.second,third=q.third)
+            p=plan(d,e,second=q.second,third=q.third,control=q.control)
             if q.fixture:extend(q.fixture,p);return 0
             if q.install:install(q.install,p);return 0
             if q.analyzer:
@@ -113,6 +119,7 @@ def main():
             if not render(p[1]):raise ValueError('nested fixture extent')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('FORMATTER_NESTED_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
-    print(f'FORMATTER_NESTED_PREP verified=1 labels={len(p[1][2])} pre_load_hook=1 original_execution=0')
+    kind='pre_control_hook' if q.control else 'pre_load_hook'
+    print(f'FORMATTER_NESTED_PREP verified=1 labels={len(p[1][2])} {kind}=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

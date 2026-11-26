@@ -19,6 +19,15 @@ class Test(unittest.TestCase):
         self.assertIn('false,false,0x61626364u',s)
         self.assertIn('false,false,0x31323334u',s)
         self.assertIn('slots,{0x80040000u,0x00000004u}',s)
+    def test_control_header(self):
+        rows=tuple((R+4*i,N) for i in range(76))
+        fields=(R,L,R+304,0x4e800420,48,0,0,R+400,N,383*4)
+        c=({},fields,rows,(),((4,32),),())
+        s=render(c)
+        self.assertIn('IpcDispatchWord,76> path',s)
+        self.assertIn('slots,{0x00000000u,0x00000000u},{0x80010190u,0x60000000u,0x000005fcu}',s)
+        with self.assertRaisesRegex(ValueError,'control contract'):
+            render(({},fields[:5]+(A,4)+fields[7:],rows,(),((4,32),),()))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
