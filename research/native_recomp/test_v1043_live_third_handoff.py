@@ -258,7 +258,7 @@ inline constexpr AlarmCancelExpectation expected{
                     self.assertIn(b'V1167_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response=1 visits=8 entries=2 returns=1 reads=1 writes=1 saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0',rows)
                     if not fault:
                         self.assertEqual(got.returncode,0,got.stdout)
-                        self.assertEqual(rows[-1],b'V1175_ACK_HELPER_RETURN original_helper=1 visits=13 entries=6 returns=6 msr=2 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0')
+                        self.assertEqual(rows[-1],b'V1175_ACK_HELPER_RETURN original_helper=1 visits=15 entries=6 returns=6 msr=2 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0')
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=10 reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')

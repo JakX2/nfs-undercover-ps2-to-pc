@@ -620,8 +620,9 @@ int main(int argc,char** argv){
                                                             visit(q4::Nested+8,q4::link(q4::Nested+8,q4::Restore));
                                                             c.pc=q4::Restore;c.lr=q4::Nested+12;v958::observe(c.pc,c);
                                                             c.gpr[3]=c.msr;visit(q4::Restore,Mtmsr);visit(q4::Restore+4,Blr);
-                                                            c.lr=q3::Helper+24;visit(q4::Nested+12,Blr);
-                                                            c.lr=Handler+8;visit(q3::Helper+24,Blr);
+                                                            // Verify the inner LR before modeling the native LR restore.
+                                                            visit(q4::Nested+12,Nop);c.lr=q3::Helper+24;visit(q4::Nested+16,Blr);
+                                                            visit(q3::Helper+24,Nop);c.lr=Handler+8;visit(q3::Helper+28,Blr);
                                                             if(hf=="-abi")c.gpr[31]^=1u;
                                                             visit(Handler+8,Nop);need(false);
                                                         }
