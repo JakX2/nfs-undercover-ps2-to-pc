@@ -11,6 +11,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(backward_polls({p:(b(4),bc(-4),b(0),b(-32),b(0)|2,0x4e800020)}),[p+4,p+8])
         self.assertEqual(backward_polls({p:(NOP,0x4e800020),p+16:(b(-16),0x4e800020)}),[])
         with self.assertRaises(ValueError):backward_polls({p:(b(0),)*129})
+    def test_explicit_sc_extension_cap(self):
+        start=0x80510000
+        blocks={start+4*i:(0x4e800020,) for i in range(53)}
+        d=assemble(blocks,start,max_roots=53)
+        self.assertEqual(words_at(d,start,53),(0x4e800020,)*53)
+        for cap in (32,51,52,54):
+            with self.subTest(cap=cap),self.assertRaises(ValueError):
+                assemble(blocks,start,max_roots=cap)
+        with self.assertRaises(ValueError):
+            assemble({**blocks,start+53*4:(0x4e800020,)},start,max_roots=53)
     def test_isolated_sections(self):
         start=0x80510000
         blocks={start:(0x4e800020,),start+16:(0x4e800020,)}
