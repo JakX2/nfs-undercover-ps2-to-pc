@@ -7,6 +7,7 @@
 #include "wii_wireless_wrapper_v844.h"
 #include "wii_callback_suffix_v841.h"
 #include "wii_callback_return_v846.h"
+#include "wii_irq_leaf_finish_v927.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -76,7 +77,8 @@ int main(){
     unsigned held_hr_valid=0,held_hr_refused=0;
     unsigned held_final_valid=0,held_final_refused=0;
     unsigned held_resume_valid=0,held_resume_refused=0;
-    for(trial=0;trial<648;++trial){
+    unsigned held_leaf_valid=0,held_leaf_refused=0;
+    for(trial=0;trial<668;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -136,7 +138,8 @@ int main(){
             const unsigned hhandler=trial>=588?0u:trial>=576?trial-575u:0u;
             const unsigned hhandler_return=trial>=608?0u:trial>=596?trial-595u:0u;
             const unsigned hfinal=trial>=628?0u:trial>=616?trial-615u:0u;
-            const unsigned hresume=trial>=636?trial-635u:0u;
+            const unsigned hresume=trial>=648?0u:trial>=636?trial-635u:0u;
+            const unsigned hleaf=trial>=656?trial-655u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -912,6 +915,10 @@ int main(){
                 need(ep.stage()==31u&&ep.prefix_epilogue_saved(c)&&ep.prefix_epilogue_visits()==11u&&
                      ep.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other);
                 if(trial<628){++held_final_valid;continue;}
+                constexpr uint32_t Extract=(21u<<26)|(3u<<16)|(17u<<11)|(31u<<6)|(31u<<1);
+                // The synthetic initial ACK fixture shares H. Install
+                // independent resume-leaf words only for the new lane.
+                if(trial>=648){c.mmu.words[H]=Extract;c.mmu.words[H+4u]=Blr;c.mmu.words[lr]=Nop;}
                 const uint32_t resume_word3=c.mmu.words.at(H);
                 auto reject_resume3=[&](bool bad){
                     need(bad&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++held_resume_refused;
@@ -933,7 +940,35 @@ int main(){
                 if(hresume>=7){reject_resume3(!ok);continue;}need(ok);
                 need(ep.stage()==33u&&ep.prefix_resume_saved(c)&&ctl.issued_tokens()==3u&&
                      sched.completed()==3u&&cause==Other&&c.gpr==gp&&c.pc==H&&c.msr==0x8032u);
-                ++held_resume_valid;continue;
+                if(trial<648){++held_resume_valid;continue;}
+                IrqLeafFinishWitness leaf_finish({H,Extract,lr,Nop}),foreign_leaf({H,Extract,lr,Nop});
+                auto reject_leaf=[&](bool bad){
+                    need(bad&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++held_leaf_refused;
+                };
+                if(hleaf==3)tick();
+                if(hleaf==4)c.mmu.words[H+4u]^=1u;
+                if(hleaf==5)c.mmu.words[lr]^=1u;
+                const auto jt4=c.inst_count;
+                ok=ep.begin_prefix_leaf(c,leaf_finish,H+(hleaf==1?4u:0u),hleaf==2?Nop:Extract);
+                if(hleaf>=1&&hleaf<=5){reject_leaf(!ok);continue;}need(ok&&ep.stage()==34u&&c.inst_count==jt4);
+                if(hleaf!=6)c.gpr[3]=0;
+                c.pc=H+4u;tick();
+                if(hleaf==7)tick();
+                if(hleaf==8)mask=0;
+                ok=ep.prefix_leaf_blr(c,leaf_finish,H+4u,Blr);
+                if(hleaf>=6&&hleaf<=8){reject_leaf(!ok);continue;}need(ok);
+                c.pc=lr;
+                if(hleaf==9)c.gpr[31]^=1u;
+                ok=ep.prefix_leaf_poll(c,leaf_finish);
+                if(hleaf==9){reject_leaf(!ok);continue;}need(ok);
+                tick();ok=ep.prefix_leaf_dispatch(c,leaf_finish,lr+(hleaf==10?4u:0u));
+                if(hleaf==10){reject_leaf(!ok);continue;}need(ok);
+                tick();if(hleaf==11)c.gqr[0]^=1u;
+                ok=ep.prefix_leaf_return(c,hleaf==12?foreign_leaf:leaf_finish,lr,Nop);
+                if(hleaf>=11){reject_leaf(!ok);continue;}need(ok);
+                need(ep.stage()==35u&&ep.prefix_leaf_saved(c,leaf_finish)&&!ep.prefix_leaf_saved(c,foreign_leaf)&&
+                     c.gpr[3]==0&&c.pc==lr&&c.msr==0x8032u&&ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other);
+                ++held_leaf_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1583,7 +1618,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12&&held_suffix_valid==8&&held_suffix_refused==12&&held_restore_valid==8&&held_restore_refused==12&&held_handler_valid==8&&held_handler_refused==12&&held_hr_valid==8&&held_hr_refused==12&&held_final_valid==8&&held_final_refused==12&&held_resume_valid==8&&held_resume_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12&&held_suffix_valid==8&&held_suffix_refused==12&&held_restore_valid==8&&held_restore_refused==12&&held_handler_valid==8&&held_handler_refused==12&&held_hr_valid==8&&held_hr_refused==12&&held_final_valid==8&&held_final_refused==12&&held_resume_valid==8&&held_resume_refused==12&&held_leaf_valid==8&&held_leaf_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1617,4 +1652,5 @@ int main(){
     std::cout<<"V1212_ACK_HANDLER_RETURN valid=8 refused=12 restore_loads=2 original_handler_abi=1 outer_dispatch=1 original_execution=0\n";
     std::cout<<"V1216_ACK_FINAL_RFI valid=8 refused=12 fresh_context=1 two_polls=1 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1219_ACK_FINAL_RESUME valid=8 refused=12 dispatch_ticks=2 resumed_instruction_executed=0 original_execution=0\n";
+    std::cout<<"V1222_ACK_RESUME_LEAF valid=8 refused=12 previous_ee=0 native_leaf_model=1 caller_instruction_executed=0 original_execution=0\n";
 }

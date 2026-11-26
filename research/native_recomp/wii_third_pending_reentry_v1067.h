@@ -430,6 +430,29 @@ public:
            next_.captured().stage()!=5u)return fail(54);
         stage_=30u;return true;
     }
+    template<class C,class W>bool begin_resume_leaf(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=30u||error_||cpu_!=&c||leaf_||pc!=resume_site_||!dev_||dev_->stage()!=3u||
+           !ack_.postack_leaf_at(c.inst_count,2u)||
+           !witness.start(c,next_.captured(),false,pc,w,true))return fail(55);
+        leaf_=&witness;stage_=31u;return true;
+    }
+    template<class C,class W>bool resume_leaf_blr(C& c,W& witness,uint32_t pc,uint32_t w){
+        return leaf_frame(c,witness,3u)&&witness.before_blr(c,pc,w,true)?true:fail(56);
+    }
+    template<class C,class W>bool resume_leaf_poll(C& c,W& witness){
+        return leaf_frame(c,witness,3u)&&witness.poll(c,true)?true:fail(56);
+    }
+    template<class C,class W>bool resume_leaf_dispatch(C& c,W& witness,uint32_t pc){
+        return leaf_frame(c,witness,4u)&&witness.dispatch(c,pc,true)?true:fail(56);
+    }
+    template<class C,class W>bool resume_leaf_return(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!leaf_frame(c,witness,5u)||!witness.returned(c,pc,w,true))return fail(56);
+        stage_=32u;return true;
+    }
+    template<class C,class W>bool resume_leaf_saved(C& c,W& witness)const{
+        return stage_==32u&&!error_&&cpu_==&c&&leaf_==&witness&&witness.stage()==5u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_leaf_at(c.inst_count,5u);
+    }
     unsigned epilogue_failure()const{return epilogue_?epilogue_->failure():0u;}
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -438,6 +461,10 @@ public:
     const SecondCompletionAck& completion_ack()const{return ack_;}
     const BoundedAckCallRoute& ack_calls()const{return ack_calls_;}
 private:
+    template<class C,class W>bool leaf_frame(C& c,W& witness,unsigned delta)const{
+        return stage_==31u&&!error_&&cpu_==&c&&leaf_==&witness&&dev_&&dev_->stage()==3u&&
+            ack_.postack_leaf_at(c.inst_count,delta);
+    }
     template<class C>bool ack_frame(C& c)const{
         return ack_active()&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
@@ -510,6 +537,7 @@ private:
     }
     LiveEpilogueWitness* epilogue_=nullptr;
     uint32_t resume_site_=0;
+    const void* leaf_=nullptr;
     const void* handler_return_=nullptr;
     std::array<uint32_t,32> handler_gp_{};
     uint32_t handler_cr_=0,handler_site_=0,handler_word_=0,dispatcher_site_=0,dispatcher_word_=0;

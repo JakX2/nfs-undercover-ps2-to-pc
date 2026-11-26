@@ -59,6 +59,13 @@ public:
     bool postack_held_after_rfi(uint64_t tick,unsigned delta)const{
         return stage_==4u&&!armed_&&tick_&&*tick_==tick&&delta<=2u&&tick>=last_&&tick-last_==delta&&state(false);
     }
+    // Only the fixed two-instruction IRQ-enable leaf and its native
+    // caller dispatch can extend the terminal read-only observation.
+    // Do not loosen the ordinary RFI boundary or reactivate the ACK.
+    bool postack_leaf_at(uint64_t tick,unsigned delta)const{
+        return stage_==4u&&!armed_&&tick_&&*tick_==tick&&delta>=2u&&delta<=5u&&
+            tick>=last_&&tick-last_==delta&&state(false);
+    }
     bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
                       const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
         return &ctl==ctl_&&&cause==cause_&&&mask==mask_&&&tick==tick_&&postack_held();

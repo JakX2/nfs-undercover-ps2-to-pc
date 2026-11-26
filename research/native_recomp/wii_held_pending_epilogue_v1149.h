@@ -407,6 +407,26 @@ public:
         return stage_==33u&&same(c)&&final_ep_&&final_ep_->stage()==5u&&
             next_.completion_ack().postack_held_after_rfi(c.inst_count,2u);
     }
+    template<class C,class W>bool begin_prefix_leaf(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!prefix_resume_saved(c)||leaf_||!next_.begin_resume_leaf(c,witness,pc,w))return fail(37);
+        leaf_=&witness;stage_=34u;return true;
+    }
+    template<class C,class W>bool prefix_leaf_blr(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        return stage_==34u&&!guard&&same(c)&&leaf_==&witness&&next_.resume_leaf_blr(c,witness,pc,w)?true:fail(38);
+    }
+    template<class C,class W>bool prefix_leaf_poll(C& c,W& witness){
+        return stage_==34u&&same(c)&&leaf_==&witness&&next_.resume_leaf_poll(c,witness)?true:fail(38);
+    }
+    template<class C,class W>bool prefix_leaf_dispatch(C& c,W& witness,uint32_t pc){
+        return stage_==34u&&same(c)&&leaf_==&witness&&next_.resume_leaf_dispatch(c,witness,pc)?true:fail(38);
+    }
+    template<class C,class W>bool prefix_leaf_return(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=34u||guard||!same(c)||leaf_!=&witness||!next_.resume_leaf_return(c,witness,pc,w))return fail(38);
+        stage_=35u;return true;
+    }
+    template<class C,class W>bool prefix_leaf_saved(C& c,W& witness)const{
+        return stage_==35u&&same(c)&&leaf_==&witness&&next_.resume_leaf_saved(c,witness);
+    }
     unsigned prefix_epilogue_visits()const{return final_ep_?final_ep_->visits():0u;}
     unsigned prefix_epilogue_failure()const{return final_ep_?final_ep_->failure():0u;}
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
@@ -419,7 +439,7 @@ private:
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<LiveEpilogueWitness> final_ep_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
-    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;const void* suffix_=nullptr;const void* return_=nullptr;const void* handler_return_=nullptr;
+    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;const void* suffix_=nullptr;const void* return_=nullptr;const void* handler_return_=nullptr;const void* leaf_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
