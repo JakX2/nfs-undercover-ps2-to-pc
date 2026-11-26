@@ -10,6 +10,7 @@ public:
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned writes()const{return writes_;}
+    unsigned x2_writes()const{return x2_writes_;}
     unsigned write_detail()const{return write_detail_;}
     unsigned write_register()const{return write_register_;}
     unsigned write_control_bits()const{return write_control_bits_;}
@@ -21,7 +22,7 @@ public:
         if(stage_||error_||!authorized||!s||!nested.returned_at(c,ready,true)||
            !body.postwake_ready(c,frame,queue,request,true)||!ready.ready_held(c,true)||
            s->ppc!=request||s->arm!=request||s->steps!=2u||s->queued||s->replies||s->event||
-           (s->control&(M::X1|M::Y1|M::Y2))||!(s->control&M::IY1)||!(s->control&M::IY2)||
+           (s->control&(M::X1|M::Y1|M::Y2|M::X2))||!(s->control&M::IY1)||!(s->control&M::IY2)||
            !(s->irq_mask&H::IPC_PPC)||!request||(request&31u))return fail(1);
         const bool pending=bool(s->flags&H::IPC_PPC);
         if((s->pi_cause&s->pi_mask)!=(pending?H::PI_HOLLYWOOD:0u)||
@@ -35,7 +36,7 @@ public:
     }
     template<class C>bool boundary(C& c,bool authorized)const{
         auto s=B::cold_snapshot();
-        if(!authorized||!stage_||stage_>2u||error_||cpu_!=&c||!ready_||
+        if(!authorized||!stage_||stage_>3u||error_||cpu_!=&c||!ready_||
            !ready_->ready_context_held(c,true)||!s||!same_scheduler_ipc_snapshot(*s,mail_)||
            c.inst_count<tick_||c.inst_count-tick_>2048u)return false;
         for(unsigned i=0;i<words_.size();++i)if(B::read_physical_word(request_+4u*i)!=words_[i])return false;
@@ -62,6 +63,19 @@ public:
             write_register_==1u&&value==mail_.control?3u:
             write_register_==1u&&value==(mail_.control|M::X2)?4u:
             write_register_==1u&&(value&~0x3fu)?5u:6u;
+        // The owner V1302 trace observed a single X2 assertion after the
+        // Hollywood latch was already cleared. Route it through the real
+        // mailbox, with X1/Y1/Y2 absent and both enable bits unchanged.
+        if(stage_==2u&&write_register_==1u){
+            if(!boundary(c,authorized))return write_fail(2);
+            if(bad_alias(address))return write_fail(3);
+            if(value!=(mail_.control|M::X2)||x2_writes_||
+               (mail_.control&(M::X1|M::Y1|M::Y2|M::X2)))return write_fail(5);
+            try{if(!B::write32(address,value))return write_fail(7);}
+            catch(const std::exception&){return write_fail(7);}
+            mail_.control|=M::X2;++x2_writes_;stage_=3u;
+            return boundary(c,authorized)||write_fail(8);
+        }
         if(stage_!=1u)return write_fail(1);
         if(!boundary(c,authorized))return write_fail(2);
         if(bad_alias(address))return write_fail(3);
@@ -75,13 +89,13 @@ public:
         return boundary(c,authorized)||write_fail(8);
     }
     template<class C>bool finished(C& c,bool authorized)const{
-        return stage_==2u&&boundary(c,authorized)&&!(mail_.flags&H::IPC_PPC)&&
+        return (stage_==2u||stage_==3u)&&boundary(c,authorized)&&!(mail_.flags&H::IPC_PPC)&&
             !(mail_.pi_cause&mail_.pi_mask)&&!(mail_.control&(M::X1|M::Y1|M::Y2));
     }
 private:
     const void* cpu_=nullptr;const WakeReadyWitness* ready_=nullptr;
     ColdIpcSnapshot mail_{};std::array<uint32_t,8> words_{};
-    uint32_t request_=0;uint64_t tick_=0;unsigned stage_=0,error_=0,reads_=0,writes_=0;
+    uint32_t request_=0;uint64_t tick_=0;unsigned stage_=0,error_=0,reads_=0,writes_=0,x2_writes_=0;
     unsigned write_detail_=0,write_register_=0,write_control_bits_=0,write_value_class_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     bool write_fail(unsigned n){if(!write_detail_)write_detail_=n;return fail(3);}

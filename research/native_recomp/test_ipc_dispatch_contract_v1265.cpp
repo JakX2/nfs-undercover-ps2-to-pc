@@ -377,11 +377,11 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(return_case){
             constexpr uint32_t P=Reply+24u,Hret=Handler+12u,Dret=Code.indirect_pc+4u;
             const std::array<ReplyNativeWord,7> rw{{
-                {Reply,P,bl(P,Writer)},{Reply,P+4u,Nop},{Reply,P+8u,Blr},
+                {Reply,P,bl(P,Writer)},{Reply,P+4u,Stw},{Reply,P+8u,Blr},
                 {Writer,Writer,Stw},{Writer,Writer+4u,Blr},{Leaf,Leaf,Lwz},{Handler,Hret,Blr}}};
             const std::array<VectorEdge,1> re{{{Writer,P+4u,rw[0].word,Stw}}};
             for(auto x:rw)m.write32(x.pc,x.word);
-            ReplyReturnWitness ret({Reply,Handler,Leaf,Writer,P,Hret,Dret,Counter,rw,re});
+            ReplyReturnWitness ret({Reply,Handler,Leaf,Writer,P,Hret,Dret,Counter,rw,re,true});
             auto no=[&](bool result,unsigned reason){assert(!result&&ret.failure()==reason&&host.serviced_steps()==2u);};
             if(return_case==2)++c.inst_count;
             ok=ret.begin(c,body,ready,nested,frame,Queue,Request,handler_abi,processor_abi,true);
@@ -400,7 +400,8 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             if(return_case==7){no(rs(Writer+4u),7);return;}
             assert(ret.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true));
             if(return_case==8){no(ret.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true),7);return;}
-            assert(rs(Writer+4u)&&rs(P+4u));
+            assert(rs(Writer+4u));c.gpr[3]=M::IY1|M::IY2|M::X2;c.gpr[4]=Bus::IPC+M::PPCCTRL;
+            assert(rs(P+4u)&&ret.write(c,Bus::IPC+M::PPCCTRL,c.gpr[3],true));
             c.gpr[1]=processor_abi.gp[1];c.lr=Hret;
             if(return_case==9)c.gpr[31]^=1u;
             ok=rs(P+8u);if(return_case==9){no(ok,5);return;}assert(ok);
@@ -412,7 +413,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
             ok=rs(Hret);if(return_case==11){no(ok,5);return;}assert(ok);
             c.pc=Dret;if(return_case==12)++c.inst_count;
             ok=ret.poll(c,true);if(return_case==12){no(ok,6);return;}assert(ok);
-            assert(return_case==1&&ret.returned(c,true)&&ret.writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
+            assert(return_case==1&&ret.returned(c,true)&&ret.writes()==1u&&ret.x2_writes()==1u&&cause.load()==Other&&host.serviced_steps()==2u);
 #ifdef UNDERCOVER_TEST_READY_IDLE_RETURN
             if(idle_case){
                 ReadyIdleReturnJoin join;
@@ -462,6 +463,7 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         ok=finish.begin(c,body,ready,nested,frame,Queue,finish_case==2?Request+32u:Request,finish_case!=3);
         if(finish_case>=1&&finish_case<=3){assert(!ok&&finish.failure()==1u);return;}
         assert(ok&&finish.stage()==1u&&!finish.finished(c,true));
+        if(finish_case==14){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X2,true)&&finish.failure()==3u);return;}
         if(finish_case==4){assert(!finish.read(c,Bus::IPC+M::PPCMSG,true)&&finish.failure()==2u);return;}
         if(finish_case==5){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1,true)&&finish.failure()==3u&&finish.write_detail()==4u&&finish.write_register()==1u&&finish.write_control_bits()==49u);return;}
         if(finish_case==6){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,0,true)&&finish.failure()==3u&&finish.write_detail()==5u&&finish.write_register()==2u&&finish.write_value_class()==2u);return;}
@@ -478,6 +480,17 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
                finish.finished(c,true)&&ready.ready_context_held(c,true)&&host.serviced_steps()==2u);
         if(finish_case==10){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true)&&finish.failure()==3u&&finish.write_detail()==1u);return;}
         if(finish_case==11){cause.fetch_or(H::PI_HOLLYWOOD);assert(!finish.finished(c,true));return;}
+        if(finish_case>=15){
+            const uint32_t x2=M::IY1|M::IY2|M::X2;
+            if(finish_case==15){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,x2|M::X1,true)&&!host.cold_ipc_snapshot().queued);return;}
+            if(finish_case==16){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,x2&~M::IY1,true));return;}
+            if(finish_case==17){assert(!finish.write(c,0x4d000004u,x2,true)&&finish.write_detail()==3u);return;}
+            assert(finish.write(c,Bus::MIRROR+M::PPCCTRL,x2,true)&&finish.stage()==3u&&finish.x2_writes()==1u&&
+                finish.finished(c,true)&&host.cold_ipc_snapshot().control==x2&&!host.cold_ipc_snapshot().queued&&
+                host.serviced_steps()==2u&&cause.load()==Other);
+            if(finish_case==18){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,x2,true));return;}
+            assert(finish_case==19);
+        }
         assert(!finish.finished(c,false));
 #endif
 #endif
@@ -554,8 +567,8 @@ int main(){
     for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,i);
     std::cout<<"V1291_NESTED_WAKE synthetic=1 valid=1 refused=11 no_switch=1 wake_return=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_COMPLETION
-    for(unsigned i=1;i<=13;++i)trial(0,0,true,0,0,0,i);
-    std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=1 refused=13 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
+    for(unsigned i=1;i<=19;++i)trial(0,0,true,0,0,0,i);
+    std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=2 refused=17 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_REPLY_RETURN
     for(unsigned i=1;i<=12;++i)trial(0,0,true,0,0,0,0,i);
     std::cout<<"V1298_REPLY_RETURN synthetic=1 valid=1 refused=11 abi_frames=2 native_latch_w1c=1 original_execution=0\n";

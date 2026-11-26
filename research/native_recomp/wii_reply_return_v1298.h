@@ -21,7 +21,7 @@ struct ReplyReturnAbi {
 };
 struct ReplyReturnExpectation {
     uint32_t processor,handler,read_leaf,write_leaf,wake_return,processor_return,dispatcher_return,counter;
-    std::span<const ReplyNativeWord> words;std::span<const VectorEdge> edges;
+    std::span<const ReplyNativeWord> words;std::span<const VectorEdge> edges;bool require_x2=false;
 };
 // Continue after the original OSWakeupThread return. The only allowed
 // device effect is the native final Hollywood interrupt acknowledgment.
@@ -34,6 +34,7 @@ public:
     unsigned gate_failure()const{return gate_.failure();}
     unsigned visits()const{return visits_;}
     unsigned writes()const{return gate_.writes();}
+    unsigned x2_writes()const{return gate_.x2_writes();}
     unsigned write_detail()const{return gate_.write_detail();}
     unsigned write_register()const{return gate_.write_register();}
     unsigned write_control_bits()const{return gate_.write_control_bits();}
@@ -83,7 +84,7 @@ public:
                 if(!processor_.restored(c))return fail(5);
                 active_=e_.handler;next_=e_.processor_return;outer_due_=2;return true;
             }
-            if(active_!=e_.handler||!processor_returned_||!handler_.restored(c)||!gate_.finished(c,held))return fail(5);
+            if(active_!=e_.handler||!processor_returned_||!handler_.restored(c)||!finished(c,held))return fail(5);
             next_=e_.dispatcher_return;outer_due_=3;return true;
         }
         if(op==17u||(op==19u&&(xo==528u||xo==50u))||(op==31u&&xo==146u)||(op==16u&&(w&1u)))return fail(4);
@@ -99,7 +100,7 @@ public:
         if(!common(c,held))return fail(6);
         if(outer_due_&&c.pc==next_&&c.lr==next_&&c.inst_count==last_){
             if(outer_due_==3u){
-                if(!handler_.restored(c)||!gate_.finished(c,held))return fail(5);
+                if(!handler_.restored(c)||!finished(c,held))return fail(5);
                 outer_due_=0;stage_=2;return true;
             }
             if(outer_due_==2u){if(!processor_.restored(c))return fail(5);processor_returned_=true;}
@@ -118,7 +119,7 @@ public:
     }
     template<class C>bool returned(C& c,bool held)const{
         return stage_==2u&&!error_&&c.pc==e_.dispatcher_return&&c.inst_count==last_&&
-               handler_.restored(c)&&gate_.finished(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;
+               handler_.restored(c)&&finished(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;
     }
 private:
     ReplyReturnExpectation e_;ReplyCompletionGate gate_;ReplyReturnAbi handler_,processor_;
@@ -126,6 +127,9 @@ private:
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,outer_due_=0;
     bool entry_due_=false,poll_due_=false,outer_resume_=false,processor_returned_=false,used_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    template<class C>bool finished(C& c,bool held)const{
+        return gate_.finished(c,held)&&(!e_.require_x2||gate_.x2_writes()==1u);
+    }
     template<class C>bool common(C& c,bool held)const{
         return stage_==1u&&!error_&&gate_.boundary(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;
     }

@@ -1061,7 +1061,7 @@ int main(int argc,char** argv)try{
         reply_return=&completed;return_cpu=&c;
         if(!completed.begin(c,body,ready,nested,irq_capture,sleep.queue(),reply_request,handler_abi,processor_abi,device_ok(c)))return_refuse(6);
         bool handler_returned=false;try{run_game(c);}catch(const ReplyHandlerReturned&){handler_returned=true;}
-        need(handler_returned&&completed.returned(c,device_ok(c))&&return_count==trial+1u&&
+        need(handler_returned&&completed.returned(c,device_ok(c))&&completed.x2_writes()==1u&&return_count==trial+1u&&
              c.pc==v1255::returned&&c.lr==c.pc&&host.serviced_steps()==2u&&
              !(cause.load()&mask.load())&&ready.ready_context_held(c,device_ok(c)));
         reply_return=nullptr;return_cpu=nullptr;

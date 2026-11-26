@@ -50,7 +50,7 @@ def render(p):
         f'inline constexpr std::array<undercover::wii::ReplyNativeWord,{len(rows)}> words'+'{'+words+'};',
         f'inline constexpr std::array<undercover::wii::VectorEdge,{len(p[1])}> edges'+'{'+edges+'};',
         'inline constexpr undercover::wii::ReplyReturnExpectation expected(uint32_t counter){return {'+
-        ','.join(map(f,(REPLY,IPC,READ,WRITE,WAKE_LR,REPLY_LR,DISPATCH_RETURN)))+',counter,words,edges};}','}',''))
+        ','.join(map(f,(REPLY,IPC,READ,WRITE,WAKE_LR,REPLY_LR,DISPATCH_RETURN)))+',counter,words,edges,true};}','}',''))
 
 def verify_hooks(sources,expected):
     for pc,(owner,w) in expected.items():
