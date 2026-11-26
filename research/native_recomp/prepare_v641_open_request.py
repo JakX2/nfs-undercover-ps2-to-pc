@@ -79,7 +79,7 @@ def install(dol,elf,generated,host,dd=OWNER_SHA,ed=ORIGINAL_SHA256):
     if any(v!=1 for v in counts.values()) or set(owners)!={resume,0x805222e8}:raise ValueError('open trace coverage')
     rt=generated/'nWiiRuntime';dest=rt/'include/undercover'
     files={dest/'v639_private_open_expectations.h':render(g)}
-    for name in ('wii_open_request_witness_v639.h','wii_open_sc_route_v637.h','wii_open_binding_v641.h'):
+    for name in ('wii_open_request_witness_v639.h','wii_open_sc_route_v637.h','wii_open_epoch_v1361.h','wii_open_binding_v641.h'):
         files[dest/name]=(host/name).read_text(encoding='utf-8')
     if dest.is_symlink() or any(p.exists() or p.is_symlink() for p in files):raise ValueError('open destination')
     install_stm(dol,elf,generated,host,dd,ed)
