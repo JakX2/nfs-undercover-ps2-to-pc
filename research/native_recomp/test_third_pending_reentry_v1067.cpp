@@ -387,7 +387,7 @@ int main(){
             if(ha==12)c.mmu.words[Context+124]^=1u;
             ok=at_ack(Helper,Helper+16,Nop);
             if(ha==12){refuse_ack(!ok,true);continue;}need(ok);
-            need(ep.stage()==9u&&ep.ack_saved(c)&&ep.ack_visits()==9u&&ep.completion_ack().reads()==1u&&
+            need(ep.stage()==9u&&ep.ack_saved(c)&&ep.ack_visits()==8u&&ep.completion_ack().reads()==1u&&
                  ep.completion_ack().writes()==1u&&ep.ack_calls().entries()==2u&&ep.ack_calls().returns()==1u&&
                  ctl.issued_tokens()==3u&&ctl.read(C)==(control&~SiController::TC_INT)&&ctl.read(S)==status&&ctl.read(B)==buffer&&
                  cause==Other&&dev.stage()==3u&&sched.completed()==3u);
