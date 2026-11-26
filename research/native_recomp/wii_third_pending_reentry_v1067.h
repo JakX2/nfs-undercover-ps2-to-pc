@@ -255,6 +255,11 @@ public:
         return wireless_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.entry(c,pc,true)&&witness.stage()==1u?true:fail(31);
     }
+    template<class C,class W>bool wireless_boundary(C& c,W& witness)const{
+        return stage_==18u&&!error_&&cpu_==&c&&wireless_==&witness&&witness.stage()==2u&&
+            !witness.changed()&&witness.ordinal()==3u&&dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     template<class C,class P,class W>bool begin_callback_suffix(C& c,P& prior,W& witness,uint32_t pc,uint32_t w){
         if(stage_!=18u||error_||cpu_!=&c||wireless_!=&prior||suffix_||prior.stage()!=2u||prior.changed()||
            pc!=wireless_resume_||w!=wireless_word_||!dev_||dev_->stage()!=3u||

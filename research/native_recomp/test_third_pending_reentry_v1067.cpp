@@ -69,7 +69,8 @@ int main(){
     unsigned held_prefix_valid=0,held_prefix_refused=0;
     unsigned held_time_valid=0,held_time_refused=0;
     unsigned held_frontier_valid=0,held_frontier_refused=0;
-    for(trial=0;trial<508;++trial){
+    unsigned held_wireless_valid=0,held_wireless_refused=0;
+    for(trial=0;trial<528;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -122,7 +123,8 @@ int main(){
             const unsigned hc=trial>=448?0u:trial>=436?trial-435u:0u;
             const unsigned hprefix=trial>=468?0u:trial>=456?trial-455u:0u;
             const unsigned ht=trial>=488?0u:trial>=476?trial-475u:0u;
-            const unsigned hf=trial>=496?trial-495u:0u;
+            const unsigned hf=trial>=508?0u:trial>=496?trial-495u:0u;
+            const unsigned hw=trial>=516?trial-515u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -568,7 +570,7 @@ int main(){
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
                 if(trial<488){++held_time_valid;continue;}
                 constexpr uint32_t P=Resume2+8u,A2=0x8003d000u,B2=A2+0x100u;
-                const bool getter=trial>=492&&trial<496;
+                const bool getter=(trial>=492&&trial<496)||hw==1;
                 const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
                     {P+8u,getter?branch(P+8u,P+16u):0x90810008u},
                     {P+12u,branch(P+12u,A2)|1u},{P+16u,branch(P+16u,B2)|1u}}};
@@ -604,7 +606,66 @@ int main(){
                      frontier.visits()==4u&&frontier.writes()==unsigned(!getter)&&
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-                ++held_frontier_valid;continue;
+                if(trial<508){++held_frontier_valid;continue;}
+                constexpr uint32_t U2=0x8003e000u,DI2=U2+0x400u,RI2=U2+0x500u,L2=U2+0x600u,
+                                   SRAM2=0x80030000u,Return2=P+16u;
+                std::array<uint32_t,39> setter;setter.fill(Nop);
+                std::array<uint32_t,30> getter_words;getter_words.fill(Nop);
+                std::array<uint32_t,184> unlock;unlock.fill(Nop);
+                std::array<uint32_t,5> disable;disable.fill(Nop);
+                std::array<uint32_t,9> restore;restore.fill(Nop);
+                setter[0]=branch(A2,U2)|1u;setter[1]=Nop;setter[2]=Blr;getter_words[0]=Blr;
+                unlock[0]=branch(U2,DI2)|1u;unlock[1]=0x90850048u;
+                unlock[2]=branch(U2+8u,RI2)|1u;unlock[3]=Nop;unlock[4]=Blr;
+                disable[0]=Blr;restore[0]=Blr;
+                put(A2,setter);put(B2,getter_words);put(U2,unlock);put(DI2,disable);put(RI2,restore);
+                c.mmu.words[L2]=Nop;
+                for(unsigned i=0;i<20;++i)c.mmu.words[SRAM2+4u*i]=0;
+                c.mmu.words[SRAM2+64u]=64u;c.mmu.words[SRAM2+76u]=1u;
+                const auto return_word=rows[4].word;
+                const WirelessExpectation we{{{{A2,setter},{B2,getter_words},{U2,unlock},{DI2,disable},{RI2,restore}}},
+                    {{{P+12u,rows[3].word,return_word,3},{P+16u,rows[4].word,Nop,5}}},L2,Nop,SRAM2};
+                c.mmu.words[Return2]=return_word;c.mmu.words[P+20u]=Nop;
+                WirelessWrapperWitness wrapper(we),foreign_wrapper(we);
+                auto reject_wireless=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_wireless_refused;
+                };
+                if(hw==4)tick();
+                if(hw==5)c.mmu.words[SRAM2+48u]=c.mmu.words[SRAM2+52u]=0x01000100u;
+                if(hw==6)c.mmu.words[SRAM2+72u]=1u;
+                if(hw==7)c.gpr[3]=(ch+1u)%4u;
+                const auto selected_pc=getter?P+16u:P+12u;
+                const auto selected_word=rows[getter?4u:3u].word;
+                ok=ep.begin_prefix_wireless(c,frontier,wrapper,selected_pc+(hw==2?4u:0u),hw==3?Nop:selected_word);
+                if(hw>=1&&hw<=7){reject_wireless(!ok);continue;}need(ok&&ep.stage()==20u&&wrapper.stage()==1u&&!wrapper.changed());
+                c.pc=A2;c.lr=Return2;
+                ok=ep.prefix_wireless_entry(c,wrapper,hw==8?B2:A2);
+                if(hw==8){reject_wireless(!ok);continue;}need(ok);
+                auto at_wireless=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_wireless_before(c,wrapper,pc,w);};
+                if(hw==9)c.mmu.words[Context+124]^=1u;
+                if(hw==10){tick();reject_wireless(!ep.prefix_wireless_before(c,foreign_wrapper,A2,setter[0]));continue;}
+                ok=at_wireless(A2,setter[0]);
+                if(hw==9){reject_wireless(!ok);continue;}need(ok);
+                c.gpr[3]=0;c.gpr[4]=20;c.gpr[5]=SRAM2;c.mmu.words[SRAM2+72u]=1u;
+                c.pc=U2;c.lr=A2+4u;need(ep.prefix_wireless_entry(c,wrapper,U2));
+                need(at_wireless(U2,unlock[0]));c.pc=DI2;c.lr=U2+4u;need(ep.prefix_wireless_entry(c,wrapper,DI2));
+                need(at_wireless(DI2,Blr));c.gpr[4]=0;need(at_wireless(U2+4u,unlock[1]));
+                c.mmu.words[SRAM2+72u]=0u;
+                if(hw==11)c.mmu.words[SRAM2+72u]^=1u;
+                ok=at_wireless(U2+8u,unlock[2]);
+                if(hw==11){reject_wireless(!ok);continue;}need(ok);
+                c.pc=RI2;c.lr=U2+12u;need(ep.prefix_wireless_entry(c,wrapper,RI2));
+                need(at_wireless(RI2,Blr));need(at_wireless(U2+12u,Nop));c.lr=A2+4u;
+                need(at_wireless(U2+16u,Blr));need(at_wireless(A2+4u,Nop));c.lr=Return2;
+                if(hw==12)c.gpr[31]^=1u;
+                need(at_wireless(A2+8u,Blr));ok=at_wireless(Return2,return_word);
+                if(hw==12){reject_wireless(!ok);continue;}need(ok);
+                need(ep.stage()==21u&&ep.prefix_wireless_saved(c,wrapper)&&!ep.prefix_wireless_saved(c,foreign_wrapper)&&
+                     wrapper.visits()==11u&&wrapper.writes()==1u&&!wrapper.changed()&&
+                     ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
+                     ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+                ++held_wireless_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1254,7 +1315,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12&&held_wireless_valid==8&&held_wireless_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1281,4 +1342,5 @@ int main(){
     std::cout<<"V1183_ACK_CALLBACK_PREFIX valid=8 refused=12 indirect_dispatch=1 stack_proof=1 save_return=1 original_execution=0\n";
     std::cout<<"V1188_ACK_PREFIX_TIME valid=8 refused=12 same_tick=1 system_visits=25 leaf_visits=18 reads=3 polls=1 original_execution=0\n";
     std::cout<<"V1192_ACK_TIME_FRONTIER valid=8 refused=12 setter=4 getter=4 same_tick=1 call_executed=0 original_execution=0\n";
+    std::cout<<"V1195_ACK_WIRELESS_RETURN valid=8 refused=12 unchanged_setter=1 getter_refused=1 changed_refused=1 save_context=1 original_execution=0\n";
 }

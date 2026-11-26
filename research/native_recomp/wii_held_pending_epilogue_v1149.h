@@ -247,6 +247,28 @@ public:
     template<class C,class W>bool prefix_frontier_saved(C& c,W& witness){
         return stage_==19u&&same(c)&&frontier_==&witness&&next_.callback_frontier_boundary(c,witness);
     }
+    // Only the unchanged zero-ID setter is admitted. The getter and
+    // changed payload paths require their own explicit continuation.
+    template<class C,class F,class W>bool begin_prefix_wireless(C& c,F& frontier,W& witness,uint32_t pc,uint32_t w){
+        if(!prefix_frontier_saved(c,frontier)||wireless_||!no_si(c,w)||
+           !next_.begin_wireless(c,frontier,witness,pc,w))return fail(23);
+        wireless_=&witness;stage_=20u;return true;
+    }
+    template<class C,class W>bool prefix_wireless_entry(C& c,W& witness,uint32_t pc){
+        return stage_==20u&&same(c)&&wireless_==&witness&&next_.wireless_entry(c,witness,pc)?true:fail(24);
+    }
+    template<class C,class W>bool prefix_wireless_before(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=20u||guard||!same(c)||wireless_!=&witness||!no_si(c,w)||
+           !next_.wireless_before(c,witness,pc,w))return fail(24);
+        if(witness.stage()==2u){
+            if(!next_.wireless_boundary(c,witness))return fail(24);
+            stage_=21u;
+        }
+        return true;
+    }
+    template<class C,class W>bool prefix_wireless_saved(C& c,W& witness){
+        return stage_==21u&&same(c)&&wireless_==&witness&&next_.wireless_boundary(c,witness);
+    }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -256,7 +278,7 @@ private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
-    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;
+    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;const void* wireless_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
