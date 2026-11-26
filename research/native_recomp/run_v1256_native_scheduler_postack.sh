@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0
+reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0
+if [[ $# == 4 && "$4" == --post-stm-sc-formatter ]];then
+  post_stm_formatter_mode=1
+  set -- "$1" "$2" "$3" --post-stm-sc-report-resume
+fi
 if [[ $# == 4 && "$4" == --post-stm-sc-report-resume ]];then
   post_stm_resume_mode=1
   set -- "$1" "$2" "$3" --post-stm-sc-report-dependency
@@ -294,6 +298,7 @@ if [[ "$post_stm_report_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_REPO
 if [[ "$post_stm_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_REPORT_HELPER);fi
 if [[ "$post_stm_dependency_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_REPORT_DEPENDENCY);fi
 if [[ "$post_stm_resume_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_REPORT_RESUME);fi
+if [[ "$post_stm_formatter_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_FORMATTER);fi
 helper_args=()
 if [[ "$reply_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_V1316_REPLY_HELPER);helper_args=(--helper);fi
 root="$(realpath "$1")";here="$(cd "$(dirname "$0")" && pwd)"
@@ -346,12 +351,15 @@ if [[ "$post_stm_report_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_re
 if [[ "$post_stm_helper_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_helper_fixture.py" "$2" "$3" --fixture "$work/input";fi
 if [[ "$post_stm_dependency_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_dependency_fixture.py" "$2" "$3" --fixture "$work/input";fi
 if [[ "$post_stm_resume_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_helper_resume_fixture.py" "$2" "$3" --fixture "$work/input";fi
+if [[ "$post_stm_formatter_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_formatter_fixture.py" "$2" "$3" --fixture "$work/input";fi
 python3 "$here/apply_open_roots_v645.py" "$root" "$2" "$3"
 if [[ "${4-}" != --irq-return ]];then python3 "$here/make_v1256_scheduler_fixture.py" "$2" "$3" "$work/input" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp";fi
 if [[ "${4-}" == --irq-vector ]];then python3 "$here/prepare_v1260_scheduler_vector.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
 if [[ "${4-}" == --irq-dispatch ]];then python3 "$here/prepare_v1261_ipc_dispatch.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
 if [[ "${4-}" == --irq-ack ]];then python3 "$here/prepare_v1266_joined_ack.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
-if [[ "$post_stm_resume_mode" == 1 ]];then
+if [[ "$post_stm_formatter_mode" == 1 ]];then
+  python3 "$here/prepare_post_stm_sc_report_formatter_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv"
+elif [[ "$post_stm_resume_mode" == 1 ]];then
   python3 "$here/prepare_post_stm_sc_report_helper_resume_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv"
 elif [[ "$post_stm_dependency_mode" == 1 ]];then
   python3 "$here/prepare_post_stm_sc_report_dependency_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv"
@@ -463,6 +471,7 @@ if [[ "$post_stm_report_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_re
 if [[ "$post_stm_helper_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_helper_fixture.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$post_stm_dependency_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_dependency_fixture.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$post_stm_resume_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_helper_resume_fixture.py" "$2" "$3" --install "$work/generated";fi
+if [[ "$post_stm_formatter_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_formatter_fixture.py" "$2" "$3" --install "$work/generated";fi
 python3 "$here/patch_sc_trace_v570.py" "$work/generated"
 python3 "$here/patch_sc_trace_v640.py" "$work/generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --vector "$work/input/vector.bin"
@@ -484,6 +493,7 @@ grep -Ex 'POST_STM_SC_REPORT_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=
 grep -Ex 'POST_STM_SC_REPORT_HELPER_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} stores=[0-9]{1,2}|POST_STM_SC_REPORT_HELPER_TRIAL n=[0-7] original_prefix=1 native_stores=5 saved_nonvolatile=3 original_next_entry=1 deferred=1 reply=0 next_executed=0 visits=13' "$work/run.log" || true
 grep -Ex 'POST_STM_SC_REPORT_DEPENDENCY_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9] stores=[0-9]|POST_STM_SC_REPORT_DEPENDENCY_TRIAL n=[0-7] native_leaf=1 original_return=1 loads=[01] stores=[0-2] deferred=1 reply=0 caller_executed=0 visits=[0-9]{1,2}' "$work/run.log" || true
 grep -Ex 'POST_STM_SC_REPORT_RESUME_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2}|POST_STM_SC_REPORT_RESUME_TRIAL n=[0-7] original_resume=1 formatter_entry=1 arguments=4 deferred=1 reply=0 formatter_executed=0 visits=8' "$work/run.log" || true
+grep -Ex 'POST_STM_SC_FORMATTER_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9] stores=[0-9]|POST_STM_SC_FORMATTER_TRIAL n=[0-7] original_formatter=1 native_stores=4 native_loads=1 saved_nonvolatile=16 original_dependency_entry=1 deferred=1 reply=0 dependency_executed=0 visits=23' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 
@@ -750,4 +760,9 @@ fi
 if [[ "$post_stm_resume_mode" == 1 ]];then
   [[ "$(grep -Ec '^POST_STM_SC_REPORT_RESUME_TRIAL n=[0-7] original_resume=1 formatter_entry=1 arguments=4 deferred=1 reply=0 formatter_executed=0 visits=8$' "$work/run.log")" == 8 ]]
   grep -Fx 'POST_STM_SC_REPORT_RESUME_NATIVE owner=1 trials=8 original_resume=8 formatter_entry=8 arguments=32 deferred=8 reply=0 formatter_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
+fi
+
+if [[ "$post_stm_formatter_mode" == 1 ]];then
+  [[ "$(grep -Ec '^POST_STM_SC_FORMATTER_TRIAL n=[0-7] original_formatter=1 native_stores=4 native_loads=1 saved_nonvolatile=16 original_dependency_entry=1 deferred=1 reply=0 dependency_executed=0 visits=23$' "$work/run.log")" == 8 ]]
+  grep -Fx 'POST_STM_SC_FORMATTER_NATIVE owner=1 trials=8 original_formatter=8 native_stores=32 native_loads=8 saved_nonvolatile=128 original_dependency_entry=8 deferred=8 reply=0 dependency_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 fi

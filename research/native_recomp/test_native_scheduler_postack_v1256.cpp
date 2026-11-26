@@ -125,6 +125,9 @@
 #include "private_post_stm_sc_report_dependency.h"
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
 #include "private_post_stm_sc_report_resume.h"
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+#include "private_post_stm_sc_formatter.h"
+#endif
 #endif
 #endif
 #endif
@@ -484,6 +487,13 @@ static unsigned post_stm_resume_count=0;
 struct PostStmResumeStop{};
 static bool post_stm_resume_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_resume_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+static ScFormatterWitness* post_stm_formatter=nullptr;
+static unsigned post_stm_formatter_count=0;
+struct PostStmFormatterStop{};
+static bool post_stm_formatter_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_formatter_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -837,6 +847,31 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+static bool post_stm_formatter_held(nw::CPUContext& c){
+    if(!post_stm_formatter||!post_stm_resume||!post_stm_dependency||!post_stm_helper||!post_stm_report||
+       !post_stm_version_data||!post_stm_objects||!post_stm_frame||!third_return_join)return false;
+    const auto sp=post_stm_formatter->expected_sp();
+    const auto outer=post_stm_frame->nested_frame_held(c,
+        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr),
+        sp,post_stm_report->linkage_word(),864u,256u);
+    const auto report=post_stm_report->child_frame_held(c,outer,sp,post_stm_helper->linkage_word(),736u);
+    const auto helper=post_stm_helper->child_frame_held(c,report,sp,post_stm_formatter->linkage_word(),704u);
+    return post_stm_resume->object_held(c,post_stm_dependency->object_held(c,
+        post_stm_version_data->data_held(c,post_stm_objects->objects_held(c,helper))));
+}
+[[noreturn]]static void post_stm_formatter_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_FORMATTER_REFUSAL kind="<<kind<<" stage="<<(post_stm_formatter?post_stm_formatter->stage():0u)
+        <<" reason="<<(post_stm_formatter?post_stm_formatter->failure():0u)
+        <<" visits="<<(post_stm_formatter?post_stm_formatter->visits():0u)
+        <<" loads="<<(post_stm_formatter?post_stm_formatter->loads():0u)
+        <<" stores="<<(post_stm_formatter?post_stm_formatter->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_formatter_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_formatter||!post_stm_formatter->before(c,pc,w,post_stm_formatter_held(c)))post_stm_formatter_refuse(2);
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
 static bool post_stm_resume_held(nw::CPUContext& c){
     return post_stm_resume&&post_stm_dependency&&post_stm_dependency->object_held(c,post_stm_dependency_held(c));
@@ -1634,6 +1669,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    if(post_stm_formatter){
+        if(!post_stm_formatter->entry(c,pc,post_stm_formatter_held(c)))post_stm_formatter_refuse(3);
+        if(post_stm_formatter->stage()==2u){++post_stm_formatter_count;throw PostStmFormatterStop{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     if(post_stm_resume){
         if(!post_stm_resume->entry(c,pc,post_stm_resume_held(c)))post_stm_resume_refuse(3);
@@ -2246,6 +2288,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    if(post_stm_formatter){
+        if(!post_stm_formatter->poll(c,post_stm_formatter_held(c)))post_stm_formatter_refuse(4);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     if(post_stm_resume){
         if(!post_stm_resume->poll(c,post_stm_resume_held(c)))post_stm_resume_refuse(4);
@@ -2710,6 +2758,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    if(post_stm_formatter)post_stm_formatter_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     if(post_stm_resume)post_stm_resume_refuse(7);
 #endif
@@ -2800,6 +2851,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    if(post_stm_formatter)post_stm_formatter_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     if(post_stm_resume)post_stm_resume_refuse(6);
 #endif
@@ -2952,6 +3006,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    if(post_stm_formatter)post_stm_formatter_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     if(post_stm_resume)post_stm_resume_refuse(6);
 #endif
@@ -3159,6 +3216,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
         for(auto w:post_stm_sc_report_resume_private::words)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(post_stm_sc_report_resume_private::expected.call_target,post_stm_sc_report_resume_private::expected.call_word);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+        for(auto w:post_stm_sc_formatter_private::path)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(post_stm_sc_formatter_private::expected.target,post_stm_sc_formatter_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4243,6 +4304,19 @@ int main(int argc,char** argv)try{
            c.mmu.read32(va+4u)!=sc_report.incoming_gprs()[1]+8u)post_stm_resume_refuse(5);
         std::cout<<"POST_STM_SC_REPORT_RESUME_TRIAL n="<<trial
             <<" original_resume=1 formatter_entry=1 arguments=4 deferred=1 reply=0 formatter_executed=0 visits=8\n";
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+        ScFormatterWitness sc_formatter(post_stm_sc_formatter_private::expected);
+        if(!sc_formatter.begin(c,sc_resume.reached(c,post_stm_resume_held(c))))post_stm_formatter_refuse(1);
+        post_stm_formatter=&sc_formatter;
+        bool formatter_done=false;try{run_game(c);}catch(const PostStmFormatterStop&){formatter_done=true;}
+        if(!formatter_done||post_stm_formatter_count!=trial+1u||!sc_formatter.reached(c,post_stm_formatter_held(c))||
+           sc_formatter.visits()!=23u||sc_formatter.loads()!=1u||sc_formatter.stores()!=4u||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)post_stm_formatter_refuse(5);
+        std::cout<<"POST_STM_SC_FORMATTER_TRIAL n="<<trial
+            <<" original_formatter=1 native_stores=4 native_loads=1 saved_nonvolatile=16 original_dependency_entry=1 deferred=1 reply=0 dependency_executed=0 visits=23\n";
+        post_stm_formatter=nullptr;
+#endif
         post_stm_resume=nullptr;
 #endif
         post_stm_dependency=nullptr;
@@ -4509,6 +4583,10 @@ int main(int argc,char** argv)try{
     need(post_stm_dependency_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_REPORT_RESUME
     need(post_stm_resume_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_FORMATTER
+    need(post_stm_formatter_count==8u);
+    std::cout<<"POST_STM_SC_FORMATTER_NATIVE owner=1 trials=8 original_formatter=8 native_stores=32 native_loads=8 saved_nonvolatile=128 original_dependency_entry=8 deferred=8 reply=0 dependency_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_REPORT_RESUME_NATIVE owner=1 trials=8 original_resume=8 formatter_entry=8 arguments=32 deferred=8 reply=0 formatter_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_REPORT_DEPENDENCY_NATIVE owner=1 trials=8 native_leaf=8 original_return=8 deferred=8 reply=0 caller_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
