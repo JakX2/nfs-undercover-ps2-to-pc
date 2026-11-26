@@ -289,4 +289,37 @@ class AckHandlerMetadata(unittest.TestCase):
     def test_requires_return(self):
         with self.assertRaisesRegex(ValueError,'ACK handler mode'):
             ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,False,True)
+class AckHandlerReturnMetadata(unittest.TestCase):
+    def test_metadata(self):
+        call=H+64;R=H+0x1000;resume=H+0x2000
+        restore=[W]*15+[BLR];tail=[W]*3+[BLR];branch=0x48000001
+        prior=({call:(branch,12,1)},H+16)
+        geo=(call,R,resume,restore,tail,W,branch,'restore metadata','resume metadata')
+        old='#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n'
+        with tempfile.TemporaryDirectory() as td:
+            dest=Path(td);h=dest/'v1145_private_postalarm_handler_return.h'
+            h.write_text(ins.handler_return_render(call,R,resume,restore,tail,W))
+            (dest/'v919_private_handler_epilogue.h').write_text(geo[-2])
+            (dest/'v920_private_handler_resume.h').write_text(geo[-1])
+            n='wii_callback_return_v846.h';(dest/n).write_bytes((HOST/n).read_bytes())
+            with patch.object(ins,'handler_return_geometry',return_value=geo):
+                self.assertEqual(ins.verify_handler_return_metadata(b'',b'',old,dest,HOST,prior),(call,R,resume,restore,tail,W,branch,H+16))
+                for bad in (old+old,old.replace('RETURN 1','RETURN 0'),old+'#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n'):
+                    with self.assertRaises(ValueError):ins.verify_handler_return_metadata(b'',b'',bad,dest,HOST,prior)
+                with self.assertRaisesRegex(ValueError,'predecessor'):
+                    ins.verify_handler_return_metadata(b'',b'',old,dest,HOST,({call:(branch,7,1)},H+16))
+                h.write_text(h.read_text()+'// changed\n')
+                with self.assertRaisesRegex(ValueError,'metadata'):ins.verify_handler_return_metadata(b'',b'',old,dest,HOST,prior)
+    def test_dispatch_hook(self):
+        pc=H+16
+        hook=f'    undercover::wii::v958::postalarm_handler_dispatch_resume(ctx,0x{pc:08x}u,0x{W:08x}u);\n'
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {W:08X}\n'
+        ins.verify_handler_return_dispatch_hook(label+hook+T+SI,pc,W)
+        for fault in (T+hook+SI,hook+hook+T+SI,hook+'    ctx.inst_count+=1;\n'+T+SI,
+                      '    if(false) '+hook.lstrip()+T+SI,hook+T+T+SI,T+SI):
+            with self.subTest(fault=fault),self.assertRaisesRegex(ValueError,'ACK handler return dispatch'):
+                ins.verify_handler_return_dispatch_hook(label+fault,pc,W)
+    def test_requires_handler(self):
+        with self.assertRaisesRegex(ValueError,'ACK handler return mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),True,True,True,True,True,True,True,False,True)
 if __name__=='__main__':unittest.main()

@@ -625,4 +625,28 @@ class AckHandlerLaunch(unittest.TestCase):
             self.assertNotIn('V1211_ACK_HANDLER_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1210_ACK_HANDLER=1',p.stdout)
             self.assertIn('V1207_ACK_RETURN_BUILD_PLAN' if build else 'audit=audit_v1207_ack_return.py',p.stdout)
+class AckHandlerReturnLaunch(unittest.TestCase):
+    def setUp(self):
+        base=AckHandlerLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1215_ACK_HANDLER_RETURN='1',UNDERCOVER_PREPARE_V1215_ACK_HANDLER_RETURN='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1215_ACK_HANDLER_RETURN_BUILD_PLAN links=1 private_installer=1 handler_predecessor=1' if build else 'audit=audit_v1215_ack_handler_return.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1214_ACK_HANDLER_RETURN=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1215_ACK_HANDLER_RETURN','UNDERCOVER_PREPARE_V1215_ACK_HANDLER_RETURN','UNDERCOVER_RUN_V1211_ACK_HANDLER','UNDERCOVER_PREPARE_V1211_ACK_HANDLER'):
+            for val in ('','0','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_handler_only(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertNotIn('V1215_ACK_HANDLER_RETURN_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1214_ACK_HANDLER_RETURN=1',p.stdout)
+            self.assertIn('V1211_ACK_HANDLER_BUILD_PLAN' if build else 'audit=audit_v1211_ack_handler.py',p.stdout)
 if __name__=='__main__':unittest.main()
