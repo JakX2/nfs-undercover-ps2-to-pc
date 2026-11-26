@@ -2,6 +2,7 @@
 """Derive the next finite prefix with both prior mutable loads checked."""
 import argparse,struct
 from pathlib import Path
+from private_plan_cache import plan_cache_scope
 from analyze_formatter_two_cell_path import plan as two_cell_path
 from analyze_formatter_nested_path import immutable_read
 from prepare_formatter_second_contract import plan as second_contract
@@ -48,7 +49,8 @@ def main():
     safe={'size','third contract frontier','third contract prefix','third contract accesses','third contract counts','third contract candidate','third contract slots','third contract roots','third contract old words','nested contract nonvolatile','nested contract parent','nested contract linkage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        _,fields,rows,access,slots,known=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        with plan_cache_scope():
+            _,fields,rows,access,slots,known=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('FORMATTER_THIRD_CONTRACT verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
     print(f'FORMATTER_THIRD_CONTRACT verified=1 labels={len(rows)} accesses={len(access)} saved_nonvolatile={len(slots)-1} known_data_reads={len(known)} stack_loads={sum(s and not w for _,_,_,s,w in access)} conditional_reads=2 unresolved_loads=1 original_execution=0 live_value_verified=0')
