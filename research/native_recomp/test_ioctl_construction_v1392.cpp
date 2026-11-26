@@ -20,7 +20,10 @@ static void trial(unsigned fault,unsigned first,bool input,bool output_first){
     c.gpr[5]=input?O+64:0;c.gpr[6]=input?32:0;c.gpr[7]=O;c.gpr[8]=32;c.gpr[9]=CB;
     constexpr uint32_t J=U+36,I=J+4,V=I+4;
     const uint32_t local_store=(36u<<26)|(5u<<21)|(1u<<16)|(fault==10?64u:16u);
-    const uint32_t jump=b(J,output_first?V:I)&~1u;
+    // The branch target is outside the observed corridor in the two
+    // escape tests. The exact branch word remains authenticated.
+    const bool escape=fault==12||fault==13;
+    const uint32_t jump=escape?0x41820100u:b(J,output_first?V:I)&~1u;
     const std::array<unsigned,8> off{0,8,12,16,20,24,28,32};
     const std::array<uint32_t,8> val{StmIos::Ioctl,c.gpr[3],StmIos::EventHook,c.gpr[5]&0x3fffffffu,c.gpr[6],O&0x3fffffffu,32u,CB};
     std::array<ReplyNativeWord,12> words{};
@@ -51,7 +54,11 @@ static void trial(unsigned fault,unsigned first,bool input,bool output_first){
     }
     // Exercise both authenticated first-flush choices, and refuse a
     // nonempty input that would otherwise be skipped by output-first.
-    ++c.inst_count;assert(w.before(c,J,jump,true));
+    ++c.inst_count;
+    if(fault==13)c.cr[0].eq=true;
+    const bool branch_ok=w.before(c,J,jump,true);
+    if(fault==13){assert(!branch_ok&&w.control_failure()==8);return;}
+    assert(branch_ok);
     const uint32_t site=output_first?V:I;
     c.gpr[3]=output_first?O:input?O+64:0;c.gpr[4]=output_first||input?32:0;
     if(fault==4)c.mmu.write32(H+200,1);
@@ -67,5 +74,6 @@ static void trial(unsigned fault,unsigned first,bool input,bool output_first){
 int main(){for(unsigned first:{1u,2u}){
     for(unsigned f=0;f<=11;++f){trial(f,first,false,false);trial(f,first,true,false);trial(f,first,false,true);}
     trial(0,first,true,true);
+    trial(12,first,true,false);trial(13,first,true,false);
     }
-    std::cout<<"V1392_CONSTRUCTION_TEST cases=74 original_execution=0\n";}
+    std::cout<<"V1392_CONSTRUCTION_TEST cases=78 original_execution=0\n";}

@@ -21,6 +21,7 @@ public:
     unsigned ordinal()const{return ordinal_;}
     unsigned flush_kind()const{return flush_kind_;}
     unsigned wire_failure()const{return wire_error_;}
+    unsigned control_failure()const{return control_error_;}
     template<class C>bool capture(C& c,bool held,unsigned first){
         if(stage_||error_||!held||!safe(c)||c.pc!=e_.wrapper||(c.msr&0x8000u)||
            (first!=1u&&first!=2u)||c.gpr[3]!=(first==2u?0u:1u)||c.gpr[4]!=StmIos::EventHook||
@@ -57,20 +58,26 @@ public:
         if(op==18u&&(w&1u)){
             const bool input=pc+4u==e_.input_flush.lr&&w==e_.input_flush.branch_word;
             const bool output=pc+4u==e_.output_flush.lr&&w==e_.output_flush.branch_word;
-            if(!input&&!output)return fail(5);
-            if(output&&in_size_)return fail(5);
+            if(!input&&!output)return control(pc,1);
+            if(output&&in_size_)return control(pc,2);
             flush_kind_=input?1u:2u;
             const auto addr=input?input_:output_;const auto n=input?in_size_:out_size_;
-            if(canonical(c.gpr[3])!=addr||c.gpr[4]!=n||!wire(c)||!storage(c))return fail(5);
+            if(canonical(c.gpr[3])!=addr||c.gpr[4]!=n)return control(pc,3);
+            if(!wire(c))return control(pc,4);
+            if(!storage(c))return control(pc,5);
             next_=input?e_.input_flush.pc:e_.output_flush.pc;entry_due_=true;return true;
         }
-        if(op==17u||(op==19u&&(xo==16u||xo==50u||xo==528u))||(op==31u&&xo==146u))return fail(5);
+        if(op==17u||(op==19u&&(xo==16u||xo==50u||xo==528u))||(op==31u&&xo==146u))return control(pc,6);
         if(op==16u||op==18u){
-            if(w&3u)return fail(5);
+            if(w&3u)return control(pc,7);
             auto dst=target(pc,w);
-            if(!known(c,dst))return fail(5);
+            const bool transfer=op==18u||taken(c,w);
+            // Exact original branch word was authenticated above. An
+            // untaken error/cleanup branch cannot escape the observed
+            // lane; every actual successor must remain instrumented.
+            if(!known(c,transfer?dst:pc+4u))return control(pc,8);
             if(dst<=pc){poll_due_=true;poll_pc_=pc;}
-            if(op==18u||taken(c,w))next_=dst;
+            if(transfer)next_=dst;
         }
         return true;
     }
@@ -94,9 +101,10 @@ private:
     const void* cpu_=nullptr;std::vector<uint8_t> in_,out_,heap_shadow_,metadata_;
     uint32_t msr_=0,sp0_=0,sp_=0,r2_=0,r13_=0,fd_=0,input_=0,in_size_=0,output_=0,out_size_=0,callback_=0,
         request_=0,size_=0,next_=0,poll_pc_=0;
-    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,flush_kind_=0,polls_=0,wire_error_=0;
+    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,ordinal_=0,flush_kind_=0,polls_=0,wire_error_=0,control_error_=0;
     bool first_=true,entry_due_=false,poll_due_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    bool control(uint32_t pc,unsigned n){ordinal_=(pc-e_.wrapper)/4u+1u;control_error_=n;return fail(5);}
     static uint32_t canonical(uint32_t a){return OpenCacheRangeTrace::canonical(a);}
     static bool overlap(AllocatorRange a,AllocatorRange b){return a.size&&b.size&&a.base<b.end()&&b.base<a.end();}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
