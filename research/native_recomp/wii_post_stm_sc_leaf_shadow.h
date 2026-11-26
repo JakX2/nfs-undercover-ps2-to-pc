@@ -21,6 +21,7 @@ public:
     explicit ScLeafShadow(ScLeafExpectation e):e_(e){}
     unsigned stage()const{return stage_;} unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;} unsigned loads()const{return loads_;} unsigned stores()const{return stores_;}
+    unsigned back_polls()const{return back_polls_;}
     uint32_t expected_sp()const{return gp_[1];}
     uint32_t object_base()const{return object_.base;}
     std::span<const uint8_t> expected_bytes()const{return shadow_;}
@@ -47,6 +48,10 @@ public:
     template<class C>bool poll(C& c,bool held){
         if(stage_!=1u||!common(c,held)||c.inst_count!=last_)return fail(2);
         if(!visits_&&!initial_poll_&&c.pc==start()){initial_poll_=true;return true;}
+        if(back_poll_due_){
+            if(c.pc!=back_poll_pc_)return fail(2);
+            back_poll_due_=false;++back_polls_;return true;
+        }
         if(e_.call_target||!due_||c.pc!=e_.caller||c.lr!=e_.caller||!word(c,e_.caller,e_.caller_word)||
            (!e_.exact_path.empty()&&visits_!=e_.exact_path.size())||
            (e_.expected_r3&&c.gpr[3]!=*e_.expected_r3)||
@@ -54,7 +59,7 @@ public:
         stage_=2;return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
-        if(stage_!=1u||!common(c,held)||c.pc!=pc)return fail(3);
+        if(stage_!=1u||back_poll_due_||!common(c,held)||c.pc!=pc)return fail(3);
         if(due_&&e_.call_target){
             if(pc!=e_.call_target||c.inst_count!=last_||!word(c,pc,e_.call_word))return fail(3);
             stage_=2;return true;
@@ -63,7 +68,7 @@ public:
         entry_seen_=true;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=1u||!common(c,held)||due_||pc!=next_||
+        if(stage_!=1u||back_poll_due_||!common(c,held)||due_||pc!=next_||
            c.inst_count-last_!=(visits_?1u:2u)||(!visits_&&(!initial_poll_||!entry_seen_||c.pc!=pc))||
            !known(c,pc,w)||(!e_.exact_path.empty()&&(visits_>=e_.exact_path.size()||e_.exact_path[visits_]!=pc))||
            ++visits_>(e_.exact_path.empty()?e_.words.size():e_.exact_path.size()))return fail(4);
@@ -132,14 +137,18 @@ public:
         }else if(op==16u||op==18u){
             if(w&3u||(op==16u&&!((w>>21)&4u)))return fail(5);
             const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
-            if(op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u))next_=target(pc,w);
+            const auto dst=target(pc,w);
+            // Local backward branches poll after the tick, even when untaken.
+            // CTR-changing branches remain outside this observer's contract.
+            if(dst>=e_.root&&dst<=pc){back_poll_due_=true;back_poll_pc_=pc;}
+            if(op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u))next_=dst;
         }else return fail(5);
         if(!known(c,next_)||(e_.exact_path.empty()?next_<=pc:
             (visits_>=e_.exact_path.size()||e_.exact_path[visits_]!=next_)))return fail(5);
         return true;
     }
     template<class C>bool reached(C& c,bool held)const{
-        return stage_==2u&&due_&&common(c,held)&&c.pc==(e_.call_target?e_.call_target:e_.caller)&&c.inst_count==last_;
+        return stage_==2u&&due_&&!back_poll_due_&&common(c,held)&&c.pc==(e_.call_target?e_.call_target:e_.caller)&&c.inst_count==last_;
     }
     template<class C>bool object_held(C& c,bool held)const{
         if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||!mapped(c,object_))return false;
@@ -152,7 +161,8 @@ private:
     std::vector<uint8_t> shadow_;
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0,next_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,loads_=0,stores_=0,seen_=0;
-    bool initial_poll_=false,entry_seen_=false,due_=false;
+    bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false;
+    uint32_t back_poll_pc_=0;unsigned back_polls_=0;
     uint32_t start()const{return e_.start?e_.start:e_.root;}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool vol(unsigned r){return r==0u||(r>=3u&&r<=12u);}

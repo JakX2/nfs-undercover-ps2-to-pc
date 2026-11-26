@@ -47,5 +47,38 @@ static void conditional(unsigned fault,bool early){
     ok=w.poll(c,true);if(fault==3||fault==4){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.visits()==6&&w.loads()==1&&w.stores()==0);
 }
+static void backward(unsigned fault,bool taken){
+    Cpu c;c.gpr[1]=Sp;c.gpr[3]=7;c.gpr[4]=taken?0u:1u;
+    c.mmu.write32(A,0x12345678u);c.mmu.write32(L,Nop);
+    const auto b=[](uint32_t a,uint32_t d){return 0x48000000u|((d-a)&0x03fffffcu);};
+    const uint32_t bc=0x41820000u|((R+4u-(R+16u))&0xfffcu);
+    const std::array<IpcDispatchWord,6> words{{{R,R,b(R,R+12)},{R,R+4,ins(14,3,0,9)},
+        {R,R+8,b(R+8,R+20)},{R,R+12,ins(11,0,4,0)},{R,R+16,bc},{R,R+20,0x4e800020}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    const std::array<uint32_t,6> yes{{R,R+12,R+16,R+4,R+8,R+20}};
+    const std::array<uint32_t,4> no{{R,R+12,R+16,R+20}};
+    const auto path=taken?std::span<const uint32_t>(yes):std::span<const uint32_t>(no);
+    ScLeafShadow w({R,L,Nop,words,{},0,0,0,path,true,taken?9u:7u});
+    assert(w.begin(c,{A,4},true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto pc:path){
+        ++c.inst_count;const bool ok=w.before(c,pc,words[(pc-R)/4].word,true);
+        if(fault==1&&pc==(taken?R+4:R+20)){assert(!ok);return;}assert(ok);
+        if(pc==R+12){c.cr[0].eq=taken;c.cr[0].gt=!taken;}
+        if(pc==R+16){
+            c.pc=fault==2?R+12:pc;
+            if(fault==3)c.cr[0].eq=!taken;
+            if(fault==6)c.mmu.write32(A,0);
+            if(fault!=1){
+                const bool polled=w.poll(c,fault!=5);
+                if(fault==2||fault==3||fault==5||fault==6){assert(!polled);return;}assert(polled);
+            }
+            if(fault==4){assert(!w.poll(c,true));return;}
+        }
+        if(pc==R+4)c.gpr[3]=9;
+        if(pc==R+20)c.pc=L;
+    }
+    assert(w.poll(c,true)&&w.reached(c,true)&&w.back_polls()==1&&w.visits()==path.size());
+}
 int main(){conditional(0,true);for(unsigned i=0;i<=7;++i)conditional(i,false);
-    std::cout<<"POST_STM_SC_FORMATTER_LEAF_SHADOW_TEST cases=9 original_execution=0\n";}
+    backward(0,false);for(unsigned i=0;i<=6;++i)backward(i,true);
+    std::cout<<"POST_STM_SC_FORMATTER_LEAF_SHADOW_TEST cases=17 original_execution=0\n";}

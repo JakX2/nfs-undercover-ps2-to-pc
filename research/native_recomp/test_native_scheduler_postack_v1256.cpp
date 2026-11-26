@@ -4408,7 +4408,7 @@ int main(int argc,char** argv)try{
             post_stm_formatter_leaf=&sc_leaf;
             bool leaf_done=false;try{run_game(c);}catch(const PostStmFormatterLeafStop&){leaf_done=true;}
             if(!leaf_done||post_stm_formatter_leaf_count!=trial+1u||!sc_leaf.reached(c,post_stm_formatter_leaf_held(c))||
-               sc_leaf.visits()!=8u||sc_leaf.loads()!=1u||sc_leaf.stores()||
+               sc_leaf.visits()!=8u||sc_leaf.loads()!=1u||sc_leaf.stores()||sc_leaf.back_polls()!=leaf::backward_polls||
                host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
                host.cold_ipc_snapshot().replies)post_stm_formatter_leaf_refuse(5);
             std::cout<<"POST_STM_SC_FORMATTER_LEAF_TRIAL n="<<trial

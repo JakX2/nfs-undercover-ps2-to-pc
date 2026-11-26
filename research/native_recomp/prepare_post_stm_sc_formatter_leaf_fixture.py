@@ -15,6 +15,7 @@ from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
 from make_v624_ipc_geometry import exact_words
+from audit_handler_suffix_v728 import target
 
 def merge(old,formatter,root,caller,ws):
     if len(ws)!=12 or formatter==root or old.get(root)!=(ws[0],GUARD):
@@ -58,11 +59,13 @@ def render(p):
     _,_,_,fields,ws,active,source,value=p
     pc,stack,at,n,data=source
     f=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    back=sum(1 for pc in active if (w:=ws[(pc-fields[0])//4])>>26 in (16,18) and not w&3 and fields[0]<=target(pc,w)<=pc)
     wr=','.join('undercover::wii::IpcDispatchWord{'+f((fields[0],fields[0]+4*i,w))+'}' for i,w in enumerate(ws))
     return ('#pragma once\n#include "wii_post_stm_sc_leaf_shadow.h"\nnamespace post_stm_sc_formatter_leaf_private {\n'
         f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(ws)}> words'+'{'+wr+'};\n'
         f'inline constexpr std::array<uint32_t,{len(active)}> active'+'{'+f(active)+'};\n'
         'inline constexpr std::array<undercover::wii::ScLeafAccess,1> accesses{{{'+f((pc,0,n))+',false}}};\n'
+        f'inline constexpr unsigned backward_polls={back}u;\n'
         f'inline constexpr bool stack_relative={str(stack).lower()};\n'
         'inline constexpr uint32_t address='+f((at,))+';\n'
         f'inline constexpr std::array<uint8_t,{n}> bytes'+'{'+','.join(str(v)+'u' for v in data)+'};\n'
