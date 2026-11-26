@@ -40,6 +40,7 @@ static void trial(unsigned f){
 }
 int main(){for(unsigned f=0;f<10;++f)trial(f);
 #ifdef UNDERCOVER_TEST_SECOND_RETURN
-for(unsigned f=10;f<=15;++f)trial(f);std::cout<<"V1375_SECOND_DESCRIPTOR cases=6\n";
+for(unsigned f=10;f<=15;++f){trial(f);}
+std::cout<<"V1375_SECOND_DESCRIPTOR cases=6\n";
 #endif
 std::cout<<"V1356_DESCRIPTOR synthetic=1 valid=1 refused=9 exact_field=1 original_execution=0\n";}

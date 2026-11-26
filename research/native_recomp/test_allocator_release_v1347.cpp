@@ -55,6 +55,7 @@ static void trial(unsigned f,uint32_t fd=0){
 }
 int main(){for(unsigned f=0;f<=13;++f)trial(f);
 #ifdef UNDERCOVER_TEST_SECOND_RETURN
-for(unsigned f=0;f<=14;++f)trial(f,1u);std::cout<<"V1375_SECOND_ALLOCATOR_RETURN cases=15\n";
+for(unsigned f=0;f<=14;++f){trial(f,1u);}
+std::cout<<"V1375_SECOND_ALLOCATOR_RETURN cases=15\n";
 #endif
 std::cout<<"V1357_ALLOCATOR_RELEASE synthetic=1 valid=2 refused=12 exact_store=1 restored_abi=1 inline_return=1 restore_previous_ee=1 original_execution=0\n";}

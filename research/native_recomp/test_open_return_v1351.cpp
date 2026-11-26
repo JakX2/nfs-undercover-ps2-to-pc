@@ -43,6 +43,7 @@ static void trial(unsigned f,uint32_t fd=0){
 }
 int main(){for(unsigned f=0;f<=14;++f)trial(f);
 #ifdef UNDERCOVER_TEST_SECOND_RETURN
-for(unsigned f=0;f<=14;++f)trial(f,1u);std::cout<<"V1375_SECOND_OPEN_RETURN cases=15\n";
+for(unsigned f=0;f<=14;++f){trial(f,1u);}
+std::cout<<"V1375_SECOND_OPEN_RETURN cases=15\n";
 #endif
 std::cout<<"V1353_OPEN_RETURN synthetic=1 valid=2 refused=13 two_abi=1 descriptor=1 inline_handoff=1 original_execution=0\n";}
