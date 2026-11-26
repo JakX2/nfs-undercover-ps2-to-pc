@@ -94,4 +94,20 @@ class HookInstaller(unittest.TestCase):
         self.assertEqual(h.count('IpcDispatchEdge{'),3)
         self.assertEqual(h.count('AllocatorRange{'),6)
 
+    def test_render_compiles_alongside_prior_dispatch_witness(self):
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from prepare_ipc_dispatch_native import render
+        _,_,p=self.fixture()
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'private_ipc_dispatch.h').write_text(render(p))
+            src=root/'check.cpp'
+            src.write_text('#include "private_ipc_dispatch.h"\n'
+                           'static int* ipc_dispatch=nullptr;\n'
+                           'int main(){return ipc_dispatch || ipc_dispatch_private::expected.calls.size()!=3;}\n')
+            subprocess.run(['g++','-std=c++20','-Wall','-Wextra','-Werror','-fsyntax-only',
+                            '-I'+str(Path(__file__).resolve().parent),str(src)],check=True,timeout=30)
+
+
 if __name__=='__main__':unittest.main(verbosity=2)
