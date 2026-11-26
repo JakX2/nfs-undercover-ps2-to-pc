@@ -10,6 +10,7 @@ struct ScLeafExpectation {
     uint32_t root,caller,caller_word;
     std::span<const IpcDispatchWord> words;
     std::span<const ScLeafAccess> accesses;
+    uint32_t start=0,call_target=0,call_word=0; // optional bounded resumed call
 };
 class ScLeafShadow {
 public:
@@ -20,9 +21,10 @@ public:
     uint32_t object_base()const{return object_.base;}
     std::span<const uint8_t> expected_bytes()const{return shadow_;}
     template<class C>bool begin(C& c,AllocatorRange object,bool held){
-        if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.root||c.lr!=e_.caller||
+        if(stage_||error_||!held||!safe(c)||!(c.msr&0x8000u)||c.pc!=start()||c.lr!=e_.caller||
            e_.words.empty()||e_.words.size()>128u||e_.accesses.size()>8u||
-           !object.size||object.size>4096u||!mapped(c,object)||!known(c,e_.root)||!word(c,e_.caller,e_.caller_word))return fail(1);
+           !object.size||object.size>4096u||!mapped(c,object)||!known(c,start())||!word(c,e_.caller,e_.caller_word)||
+           (e_.call_target&&(!e_.start||!e_.accesses.empty()||!word(c,e_.call_target,e_.call_word))))return fail(1);
         for(auto x:e_.words)if(x.owner!=e_.root||!word(c,x.pc,x.word)||
             std::count_if(e_.words.begin(),e_.words.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(1);
         for(auto a:e_.accesses)if((a.width!=1u&&a.width!=2u&&a.width!=4u)||a.offset>object.size||
@@ -31,17 +33,21 @@ public:
         object_=object;
         for(unsigned i=0;i<object.size;++i)shadow_.push_back(c.mmu.read8(object.base+i));
         cpu_=&c;gp_=c.gpr;gqr_=c.gqr;msr_=c.msr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
-        srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;next_=e_.root;stage_=1;return true;
+        srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;next_=start();stage_=1;return true;
     }
     template<class C>bool poll(C& c,bool held){
         if(stage_!=1u||!common(c,held)||c.inst_count!=last_)return fail(2);
-        if(!visits_&&!initial_poll_&&c.pc==e_.root){initial_poll_=true;return true;}
-        if(!due_||c.pc!=e_.caller||c.lr!=e_.caller||!word(c,e_.caller,e_.caller_word))return fail(2);
+        if(!visits_&&!initial_poll_&&c.pc==start()){initial_poll_=true;return true;}
+        if(e_.call_target||!due_||c.pc!=e_.caller||c.lr!=e_.caller||!word(c,e_.caller,e_.caller_word))return fail(2);
         stage_=2;return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,bool held){
-        if(stage_!=1u||!common(c,held)||visits_||!initial_poll_||entry_seen_||
-           pc!=e_.root||c.pc!=pc||c.inst_count-last_!=1u)return fail(3);
+        if(stage_!=1u||!common(c,held)||c.pc!=pc)return fail(3);
+        if(due_&&e_.call_target){
+            if(pc!=e_.call_target||c.inst_count!=last_||!word(c,pc,e_.call_word))return fail(3);
+            stage_=2;return true;
+        }
+        if(visits_||!initial_poll_||entry_seen_||pc!=start()||c.inst_count-last_!=1u)return fail(3);
         entry_seen_=true;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool held){
@@ -52,7 +58,7 @@ public:
         const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
         if(w==0x4e800020u){
-            if(lr_!=e_.caller)return fail(5);
+            if(e_.call_target||lr_!=e_.caller)return fail(5);
             next_=e_.caller;due_=true;return true;
         }
         if(op==10u||op==11u){
@@ -97,6 +103,9 @@ public:
             if(wr){for(unsigned j=0;j<n;++j)shadow_[p->offset+j]=uint8_t(gp_[rs]>>(8u*(n-j-1u)));++stores_;}
             else {uint32_t v=0;for(unsigned j=0;j<n;++j)v=(v<<8)|shadow_[p->offset+j];
                 gp_[rs]=op==42u&&v&0x8000u?v|0xffff0000u:v;++loads_;}
+        }else if(op==18u&&(w&3u)==1u){
+            if(!e_.call_target||target(pc,w)!=e_.call_target||visits_!=e_.words.size())return fail(5);
+            lr_=pc+4u;next_=e_.call_target;due_=true;return true;
         }else if(op==16u||op==18u){
             if(w&3u||(op==16u&&!((w>>21)&4u)))return fail(5);
             const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
@@ -106,7 +115,7 @@ public:
         return true;
     }
     template<class C>bool reached(C& c,bool held)const{
-        return stage_==2u&&due_&&common(c,held)&&c.pc==e_.caller&&c.inst_count==last_;
+        return stage_==2u&&due_&&common(c,held)&&c.pc==(e_.call_target?e_.call_target:e_.caller)&&c.inst_count==last_;
     }
     template<class C>bool object_held(C& c,bool held)const{
         if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||!mapped(c,object_))return false;
@@ -120,6 +129,7 @@ private:
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0,next_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,loads_=0,stores_=0,seen_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false;
+    uint32_t start()const{return e_.start?e_.start:e_.root;}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool vol(unsigned r){return r==0u||(r>=3u&&r<=12u);}
     static uint32_t mask(unsigned mb,unsigned me){

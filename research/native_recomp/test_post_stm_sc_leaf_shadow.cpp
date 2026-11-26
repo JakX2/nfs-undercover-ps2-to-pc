@@ -76,6 +76,21 @@ static void signed_compare(bool fault){
     ++c.inst_count;bool ok=w.before(c,R+4,words[1].word,true);
     if(fault){assert(!ok);return;}assert(ok);c.pc=L;assert(w.poll(c,true)&&w.reached(c,true));
 }
-int main(){for(unsigned i=0;i<=13;++i)trial(i,false);trial(0,true);for(unsigned i=0;i<=3;++i)rotate(i);
+static void resumed_call(unsigned fault){
+    Cpu c;c.gpr[1]=Sp;c.gpr[3]=A;c.gpr[4]=7;c.pc=R+16;c.lr=R+16;
+    constexpr uint32_t S=R+16,T=L+16;
+    const auto call=0x48000001u|((T-(S+8))&0x03fffffcu);
+    const std::array<IpcDispatchWord,3> words{{{R,S,ins(11,0,4,0)},{R,S+4,ins(14,3,3,4)},{R,S+8,call}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(T,Nop);
+    ScLeafShadow w({R,S,words[0].word,words,{},S,T,Nop});
+    assert(w.begin(c,{A,8},true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,S,true));
+    auto step=[&](unsigned i){++c.inst_count;return w.before(c,words[i].pc,words[i].word,true);};
+    assert(step(0));c.cr[0].gt=true;assert(step(1));c.gpr[3]+=4;
+    assert(step(2));c.pc=T;c.lr=fault==1?S:S+12;
+    bool ok=w.entry(c,fault==2?T+4:T,true);
+    if(fault){assert(!ok);return;}assert(ok&&w.reached(c,true)&&w.visits()==3&&w.stores()==0);
+}
+int main(){for(unsigned i=0;i<=2;++i)resumed_call(i);for(unsigned i=0;i<=13;++i)trial(i,false);trial(0,true);for(unsigned i=0;i<=3;++i)rotate(i);
     signed_compare(false);signed_compare(true);
-    std::cout<<"POST_STM_SC_LEAF_SHADOW_TEST cases=21 original_execution=0\n";}
+    std::cout<<"POST_STM_SC_LEAF_SHADOW_TEST cases=24 original_execution=0\n";}

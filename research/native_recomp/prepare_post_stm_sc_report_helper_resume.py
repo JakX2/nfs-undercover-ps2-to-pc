@@ -62,7 +62,7 @@ def formatter_args(args,object_pointer,format_pointer,va):
         raise ValueError('helper resume argument identity')
     return args[0][1]
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     prior=helper_plan(d,e);root,_,leaf,_,frame=prior[3]
     sizes=parse_functions(e);ws=exact_words(d,e,root,30)
     report=exact_words(d,e,REPORT,sizes[REPORT]//4)
@@ -84,6 +84,7 @@ def plan(d,e):
     size=sizes.get(callback,0)
     if not 4<=size<=65536 or size%4:raise ValueError('helper resume callback')
     exact_words(d,e,callback,1)
+    if details:return root,ws,path,site,dst,args,exact_words(d,e,dst,1)[0],callback,exact_words(d,e,callback,1)[0]
     return len(path),kind,args,size//4
 
 def main():
