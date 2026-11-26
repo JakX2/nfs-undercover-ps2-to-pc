@@ -247,6 +247,51 @@ static void control_stop(unsigned fault,unsigned arrival=0){
     assert(c.gpr[7]==0&&c.ctr==dst&&c.lr==L&&w.visits()==5);
     ++c.inst_count;assert(!w.reached_control_destination(c,true));
 }
+// Retain the pre-transfer stack shadow and counters through a native
+// interior entry, then stop before a partially initialized stack word.
+static void control_tail(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[5]=0x1234;
+    const auto site=R+24u,dst=R+0x100u,end=dst+8u;
+    const uint32_t branch=0x4e800420u,body=ins(40,7,1,8),load=ins(32,9,1,8);
+    c.mmu.write32(A,dst);c.mmu.write32(SP-40,0xdeadbeefu);
+    std::array<IpcDispatchWord,6> prefix{{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},
+        {R,R+8,ins(36,0,1,52)},{R,R+12,ins(44,5,1,8)},{R,R+16,ins(32,6,3,0)},{R,R+20,0x7cc903a6}}};
+    const std::array<ScFormatterAccess,4> access{{{R,4,-48,true,true},{R+8,4,4,true,true},
+        {R+12,2,-40,true,true},{R+16,4,A,false,false,dst}}};
+    const std::array<StmFinalSlot,1> slots{{{4,32}}};
+    std::vector<IpcDispatchWord> full(prefix.begin(),prefix.end());full.push_back({R,site,branch});
+    full.push_back({R,dst,body});full.push_back({R,dst+4,ins(14,8,7,1)});
+    std::vector<ScFormatterAccess> more(access.begin(),access.end());more.push_back({dst,2,-40,true,false});
+    for(auto x:full)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(end,load);
+    ScFormatterWitness w({R,L,site,branch,48,prefix,access,slots,{}, {dst,body,0x200u}});
+    assert(w.begin(c,true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    for(auto x:prefix){
+        ++c.inst_count;assert(w.before(c,x.pc,x.word,true));
+        if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else if(x.pc==R+12)c.mmu.write32(SP-40,0x1234beefu);
+        else if(x.pc==R+16)c.gpr[6]=dst;
+        else c.ctr=dst;
+    }
+    ++c.inst_count;assert(w.stop_before_control(c,site,branch,true));
+    c.pc=dst;assert(w.control_transfer_poll(c,true));++c.inst_count;assert(w.control_destination_entry(c,dst,true));
+    ScFormatterExpectation next{R,L,end,load,48,full,more,slots,{0,4,true,-40}};
+    if(fault==1)next.boundary.caller_offset=0;
+    if(fault==2)more[0].address=-44;
+    if(fault==3)full[6].word^=1u;
+    if(fault==4)more.back().write=true;
+    if(fault==5)c.mmu.write32(SP-40,0x1234ffffu);
+    const bool resumed=w.resume_control_path(c,next,true);
+    if(fault&&fault<=5){assert(!resumed);return;}
+    assert(resumed);++c.inst_count;assert(w.before(c,dst,body,true));
+    c.gpr[7]=fault==6?0u:0x1234u;
+    ++c.inst_count;const bool second=w.before(c,dst+4,full.back().word,true);
+    if(fault==6){assert(!second);return;}assert(second);c.gpr[8]=0x1235;
+    ++c.inst_count;assert(w.stop_before_load(c,end,load,true)&&w.reached_load_boundary(c,true));
+    assert(w.visits()==9&&w.loads()==2&&w.stores()==3&&w.authenticated_loads()==1&&c.gpr[9]==0);
+}
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
         const unsigned n=xo<=55?4:xo<=119?1:2;
@@ -258,4 +303,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
     for(unsigned i=0;i<=4;++i)mixed_third(i);
     for(unsigned i=0;i<=10;++i)control_stop(i);
     for(unsigned i=1;i<=10;++i)control_stop(0,i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=57 original_execution=0\n";}
+    for(unsigned i=0;i<=6;++i)control_tail(i);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=64 original_execution=0\n";}

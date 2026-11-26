@@ -9,7 +9,7 @@ struct ScFormatterAccess {
     bool stack,write;
     std::optional<uint32_t> expected_value{}; // independently authenticated raw load value
 };
-struct ScFormatterBoundary {uint32_t address=0,width=0;};
+struct ScFormatterBoundary {uint32_t address=0,width=0;bool stack=false;int32_t caller_offset=0;};
 struct ScFormatterControlBoundary {uint32_t destination=0,word=0,owner_size=0;};
 struct ScFormatterExpectation {
     uint32_t root,entry_lr,target,target_word,frame_size;
@@ -55,6 +55,7 @@ public:
                std::any_of(e_.path.begin(),e_.path.end(),[&](auto x){return !inside(x.pc)||x.pc==dst||x.pc==e_.target;}))return fail(1);
         }else if(e_.control.word||e_.control.owner_size)return fail(1);
         if(e_.boundary.width){
+            if(e_.boundary.stack||e_.boundary.caller_offset)return fail(1); // only via authenticated control continuation
             const auto form=decode_load(e_.target_word);
             const unsigned n=form.width;
             if(!n||n!=e_.boundary.width||
@@ -177,9 +178,10 @@ public:
         const auto form=decode_load(w);
         const unsigned ra=(w>>16)&31u,rb=(w>>11)&31u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
+        const uint32_t address=e_.boundary.stack?uint32_t(int64_t(incoming_[1])+e_.boundary.caller_offset):e_.boundary.address;
         if(!form.width||form.width!=e_.boundary.width||
-           (ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm)!=e_.boundary.address||
-           !mapped(c,{e_.boundary.address,e_.boundary.width}))return fail(6);
+           (ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm)!=address||
+           !mapped(c,{address,e_.boundary.width}))return fail(6);
         last_=c.inst_count;stage_=2;return true;
     }
     template<class C>bool reached_load_boundary(C& c,bool held)const{
@@ -211,6 +213,46 @@ public:
         if(stage_!=3u||pc!=e_.control.destination||c.pc!=pc||
            c.inst_count-last_!=1u||!control_storage(c,held))return fail(6);
         stage_=4u;return true;
+    }
+    // Continue the same shadow after the authenticated dispatcher entry.
+    // The full new contract must retain every already executed row/access
+    // and contain the exact original bctr followed by its destination.
+    template<class C>bool resume_control_path(C& c,ScFormatterExpectation next,bool held){
+        if(stage_!=4u||c.pc!=e_.control.destination||c.inst_count-last_!=1u||
+           !control_storage(c,held)||next.root!=e_.root||next.entry_lr!=e_.entry_lr||
+           next.frame_size!=e_.frame_size||next.control.destination||next.control.word||next.control.owner_size||
+           !next.boundary.stack||next.boundary.address||next.boundary.width!=4u||
+           next.boundary.caller_offset%4||next.boundary.caller_offset<4-int64_t(e_.frame_size)||
+           next.boundary.caller_offset>-4||decode_load(next.target_word).width!=4u||
+           next.path.size()<e_.path.size()+2u||next.path.size()>128u||
+           next.accesses.size()<e_.accesses.size()||next.accesses.size()>24u||
+           next.slots.size()!=e_.slots.size()||!word(c,next.target,next.target_word))return fail(6);
+        const auto i=e_.path.size();
+        if(next.path[i].pc!=e_.target||next.path[i].word!=e_.target_word||
+           next.path[i+1].pc!=e_.control.destination||next.path[i+1].word!=e_.control.word)return fail(6);
+        const auto inside=[&](uint32_t a){return !(a&3u)&&a>=e_.root&&uint64_t(a)+4u<=uint64_t(e_.root)+e_.control.owner_size;};
+        if(!inside(next.target))return fail(6);
+        for(unsigned j=0;j<next.path.size();++j){
+            const auto x=next.path[j];
+            if(x.owner!=e_.root||!inside(x.pc)||x.pc==next.target||!word(c,x.pc,x.word)||
+               std::count_if(next.path.begin(),next.path.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(6);
+            if(j<i&&(x.pc!=e_.path[j].pc||x.word!=e_.path[j].word))return fail(6);
+        }
+        for(unsigned j=0;j<next.slots.size();++j)if(next.slots[j].reg!=e_.slots[j].reg||
+            next.slots[j].caller_offset!=e_.slots[j].caller_offset)return fail(6);
+        for(unsigned j=0;j<next.accesses.size();++j){
+            const auto x=next.accesses[j];
+            if(j<e_.accesses.size()){
+                const auto y=e_.accesses[j];
+                if(x.pc!=y.pc||x.width!=y.width||x.address!=y.address||x.stack!=y.stack||x.write!=y.write||x.expected_value!=y.expected_value)return fail(6);
+            }else if(x.write||(x.width!=1u&&x.width!=2u&&x.width!=4u)||
+                (!x.stack&&!x.expected_value)||
+                std::none_of(next.path.begin()+i+1,next.path.end(),[&](auto y){return x.pc==y.pc;}))return fail(6);
+            if(std::count_if(next.accesses.begin(),next.accesses.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(6);
+        }
+        // The native branch has already completed and the outer dispatcher
+        // tick is observed. No CPU or guest memory state is changed here.
+        e_=next;++visits_;last_=c.inst_count;boundary_due_=false;stage_=1u;return true;
     }
     template<class C>bool stop_before_control_destination(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=4u||pc!=e_.control.destination||c.pc!=pc||w!=e_.control.word||
