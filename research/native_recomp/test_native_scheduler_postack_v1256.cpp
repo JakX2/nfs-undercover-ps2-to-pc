@@ -115,6 +115,9 @@
 #include "private_post_stm_sc_decision.h"
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
 #include "private_post_stm_sc_restore.h"
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+#include "private_post_stm_sc_version.h"
+#endif
 #endif
 #endif
 #endif
@@ -437,6 +440,14 @@ struct PostStmRestoreEnableStop{};
 struct PostStmRestoreStop{};
 static bool post_stm_restore_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_restore_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+static ScVersionWitness* post_stm_version=nullptr;
+static unsigned post_stm_version_count=0;
+static uint32_t post_stm_version_msr=0;
+struct PostStmVersionStop{};
+static bool post_stm_version_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_version_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -785,6 +796,23 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+static bool post_stm_version_held(nw::CPUContext& c){
+    return post_stm_version&&post_stm_objects&&post_stm_frame&&third_return_join&&
+        post_stm_objects->objects_held(c,post_stm_frame->frame_held(c,
+        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr)));
+}
+[[noreturn]]static void post_stm_version_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_VERSION_REFUSAL kind="<<kind<<" stage="<<(post_stm_version?post_stm_version->stage():0u)
+        <<" reason="<<(post_stm_version?post_stm_version->failure():0u)
+        <<" ordinal="<<(post_stm_version?post_stm_version->ordinal():0u)
+        <<" visits="<<(post_stm_version?post_stm_version->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_version_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_version||!post_stm_version->before(c,pc,w,post_stm_version_held(c)))post_stm_version_refuse(2);
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
 static bool post_stm_restore_held(nw::CPUContext& c){
     return post_stm_restore&&post_stm_objects&&post_stm_frame&&third_return_join&&
@@ -1496,6 +1524,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    if(post_stm_version){
+        if(!post_stm_version->entry(c,pc,post_stm_version_held(c)))post_stm_version_refuse(3);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     if(post_stm_restore){
         if(!post_stm_restore->entry(c,pc,post_stm_restore_held(c)))post_stm_restore_refuse(3);
@@ -2075,6 +2109,13 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    if(post_stm_version){
+        if(!post_stm_version->poll(c,post_stm_version_held(c)))post_stm_version_refuse(4);
+        if(post_stm_version->stage()==2u){++post_stm_version_count;throw PostStmVersionStop{};}
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     if(post_stm_restore){
         const unsigned prior=post_stm_restore->stage();
@@ -2507,6 +2548,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    if(post_stm_version)post_stm_version_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     if(post_stm_restore)post_stm_restore_refuse(7);
 #endif
@@ -2582,6 +2626,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    if(post_stm_version)post_stm_version_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     if(post_stm_restore)post_stm_restore_refuse(6);
 #endif
@@ -2719,6 +2766,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    if(post_stm_version)post_stm_version_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     if(post_stm_restore)post_stm_restore_refuse(6);
 #endif
@@ -2896,6 +2946,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
         // Original next instruction is a stop guard, not executed.
         c.mmu.write32(post_stm_sc_restore_private::expected.caller,post_stm_sc_restore_private::expected.caller_word);
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+        for(auto w:post_stm_sc_version_private::words)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(post_stm_sc_version_private::expected.report,post_stm_sc_version_private::expected.report_word);
+#endif
 #endif
 #endif
 #endif
@@ -2926,6 +2980,16 @@ int main(int argc,char** argv)try{
         // Original initialized SDA/path data is privately seeded before
         // IPC. The actual original IPC code may mutate its own globals.
         for(auto b:v1243::data)c.mmu.write8(b.addr,b.value);
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+        // Model original initialized data loading before any guest code,
+        // never repair a live pointer or string at the version boundary.
+        for(auto b:post_stm_sc_version_private::data){
+            need(c.mmu.get_ptr(b.addr));
+            const auto prior=c.mmu.read8(b.addr);
+            need(!prior||prior==b.value);
+            if(!prior)c.mmu.write8(b.addr,b.value);
+        }
+#endif
         // The focused fixture seeds the previously installed vector;
         // original cache flush and exception return execute below.
         for(unsigned i=0;i<v626::vector.size();++i){
@@ -3871,7 +3935,24 @@ int main(int argc,char** argv)try{
         std::cout<<"POST_STM_SC_RESTORE_TRIAL n="<<trial
             <<" native_msr=1 quiet_poll=1 original_suffix=1 original_return=1 deferred=1 reply=0 version_executed=0 visits="
             <<sc_restore.visits()<<'\n';
-        post_stm_restore=nullptr;post_stm_objects=nullptr;
+        post_stm_restore=nullptr;
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+        ScVersionWitness sc_version(post_stm_sc_version_private::expected);
+        post_stm_version_msr=sc_restore.expected_msr();
+        if(!sc_version.begin(c,sc_restore.reached(c,sc_decision.objects_held(c,sc_entry.frame_held(c,
+             third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr))))))
+            post_stm_version_refuse(1);
+        post_stm_version=&sc_version;
+        bool version_done=false;try{run_game(c);}catch(const PostStmVersionStop&){version_done=true;}
+        if(!version_done||post_stm_version_count!=trial+1u||!sc_version.reached(c,post_stm_version_held(c))||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)post_stm_version_refuse(5);
+        std::cout<<"POST_STM_SC_VERSION_TRIAL n="<<trial
+            <<" original_pointer=1 original_thunk=1 diagnostic_abi=1 original_tail=1 deferred=1 reply=0 report_executed=0 visits="
+            <<sc_version.visits()<<'\n';
+        post_stm_version=nullptr;post_stm_version_msr=0;
+#endif
+        post_stm_objects=nullptr;
 #endif
 #endif
         post_stm_frame=nullptr;
@@ -4117,6 +4198,10 @@ int main(int argc,char** argv)try{
     need(post_stm_decision_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_RESTORE
     need(post_stm_restore_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_VERSION
+    need(post_stm_version_count==8u);
+    std::cout<<"POST_STM_SC_VERSION_NATIVE owner=1 trials=8 original_pointer=8 original_thunk=8 diagnostic_abi=8 original_tail=8 deferred=8 reply=0 report_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_RESTORE_NATIVE owner=1 trials=8 native_msr=8 quiet_poll=8 original_suffix=8 original_return=8 deferred=8 reply=0 version_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_DECISION_NATIVE owner=1 trials=8 cold_bss=8 original_branch=8 native_load=8 native_stores=16 restore_entry=8 deferred=8 reply=0 restore_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

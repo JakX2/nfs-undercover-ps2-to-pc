@@ -66,8 +66,8 @@ def scope(d,e,sizes,p):
     return check_spans({**spans,**{a:sizes[a] for a in (*added,ROOT)}})
 
 def verify_tail(source,site,report):
-    m=re.search(r'(?mi)^loc_'+f'{site:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',source,re.S|re.M)
-    if not m or sum(line.strip()==f'ctx.pc = 0x{report:X}; return;' for line in m[1].splitlines())!=1:
+    hits=list(re.finditer(r'(?mi)^loc_'+f'{site:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',source,re.S|re.M))
+    if len(hits)!=1 or sum(line.strip()==f'ctx.pc = 0x{report:X}; return;' for line in hits[0][1].splitlines())!=1:
         raise ValueError('SC version native tail')
 
 def install(directory,p):
