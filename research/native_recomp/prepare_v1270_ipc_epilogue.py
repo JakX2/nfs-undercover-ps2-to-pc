@@ -102,8 +102,13 @@ def select_plan(p,sched_native):
     site=0x80529744
     if len(tails)!=1 or not SELECT<=site<SELECT+4*len(select) or direct_bl(select[(site-SELECT)//4],site)!=GET:
         raise ValueError('epilogue select geometry')
-    if select[-1]!=BLR or getter[-1]!=BLR:raise ValueError('epilogue select geometry')
+    if not getter or select[-1]!=BLR or getter[-1]!=BLR:raise ValueError('epilogue select geometry')
     return tails[0],site+4,{SELECT:select,GET:getter}
+
+def verify_select_tail(source,tail):
+    match=re.search(r'(?mi)^loc_'+f'{tail:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',source,re.S|re.M)
+    if not match or sum(line.strip()==f'ctx.pc = 0x{SELECT:X}; return;' for line in match[1].splitlines())!=1:
+        raise ValueError('epilogue select tail')
 
 def render(p,select=None):
     _,_,_,additions,j,code,reg,gqr,counter,hint,d,r,switch,_=p
@@ -132,8 +137,9 @@ def install(root,p,select=None):
     if select:
         tail_sources=[s for s in src.values() if f'loc_{tail:X}: ;' in s]
         if len(tail_sources)!=1:raise ValueError('epilogue select tail')
-        match=re.search(r'(?mi)^loc_'+f'{tail:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',tail_sources[0],re.S|re.M)
-        if not match or len(re.findall(r'(?mi)^    ctx\.pc = 0x'+f'{SELECT:X}'+r'; return;
+        verify_select_tail(tail_sources[0],tail)
+        calls=(*calls,(ret-4,GET))
+    for site,dst in ((j,E),(j+4,S),(j+12,L),*calls):
         owners=[s for s in src.values() if f'loc_{site:X}: ;' in s]
         if len(owners)!=1:raise ValueError('epilogue direct owner')
         verify_direct(owners[0],site,dst)
@@ -153,7 +159,7 @@ def install(root,p,select=None):
             changes[p]=s.replace(anchor,anchor+'\nvoid v1270_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
     if seen!=set(expected):raise ValueError('epilogue hook coverage')
     for p,s in changes.items():p.write_text(s)
-    print(f'V1270_EPILOGUE_TRANSLATION verified=1 native_labels={len(expected)} original_loader=54 direct_edges=5')
+    print(f'V1270_EPILOGUE_TRANSLATION verified=1 native_labels={len(expected)} original_loader=54 direct_edges={len(calls)+3}')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('out',type=Path)
@@ -179,59 +185,6 @@ def main():
                     'epilogue ownership','epilogue native coverage','epilogue direct owner',
                     'epilogue hook identity','epilogue hook include','epilogue hook coverage',
                     'size','symbols','source shape','roundtrip','ambiguous patch','epilogue select geometry','epilogue select tail')
-        reason=str(e) if str(e) in categories else 'other'
-        print('V1270_EPILOGUE_PREP accepted=0 reason='+reason.replace(' ','_'));return 1
-    return 0
-if __name__=='__main__':raise SystemExit(main())
-,match[1]))!=1:
-            raise ValueError('epilogue select tail')
-        calls=(*calls,(ret-4,GET))
-    for site,dst in ((j,E),(j+4,S),(j+12,L),*calls):
-        owners=[s for s in src.values() if f'loc_{site:X}: ;' in s]
-        if len(owners)!=1:raise ValueError('epilogue direct owner')
-        verify_direct(owners[0],site,dst)
-    seen=set();changes={}
-    for p,s in src.items():
-        old=s
-        for pc,(_,w) in expected.items():
-            pattern=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
-            matches=list(pattern.finditer(s))
-            if not matches:continue
-            if len(matches)!=1 or pc in seen:raise ValueError('epilogue hook identity')
-            seen.add(pc);i=matches[0].end()
-            s=s[:i]+f'    v1270_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:]
-        if s!=old:
-            anchor='#include "runtime/cpu_context.h"'
-            if s.count(anchor)!=1:raise ValueError('epilogue hook include')
-            changes[p]=s.replace(anchor,anchor+'\nvoid v1270_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
-    if seen!=set(expected):raise ValueError('epilogue hook coverage')
-    for p,s in changes.items():p.write_text(s)
-    print(f'V1270_EPILOGUE_TRANSLATION verified=1 native_labels={len(expected)} original_loader=54 direct_edges=5')
-
-def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('out',type=Path)
-    m=a.add_mutually_exclusive_group();m.add_argument('--analyzer',action='store_true');m.add_argument('--install',action='store_true');x=a.parse_args()
-    try:
-        if not 256<=x.dol.stat().st_size<=MAX_DOL or not 52<=x.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        dol,elf=x.dol.read_bytes(),x.elf.read_bytes();p=geometry(dol,elf)
-        if x.analyzer:
-            sn,ss,*_=sched_geometry(dol,elf)
-            x.out.write_text(analyzer(x.out.read_text(),scope(p,sn,ss)))
-            print('V1270_EPILOGUE_ANALYZER installed=1');return 0
-        if x.install:install(x.out,p);return 0
-        image=x.out/'fixture.dol';symbols=x.out/'symbols.csv'
-        raw,csv=extend(image.read_bytes(),symbols.read_text(),p)
-        with (x.out/'v1270_private_epilogue.h').open('x') as f:f.write(render(p))
-        image.write_bytes(raw);symbols.write_text(csv)
-        print('V1270_EPILOGUE_FIXTURE accepted=1 dispatcher_suffix=4 original_loader=54')
-    except (OSError,ValueError,struct.error,IndexError,KeyError,TypeError) as e:
-        # Publish only independently authored fixed categories.
-        categories=('epilogue predecessor','epilogue scheduler identity','epilogue extent',
-                    'epilogue word identity','epilogue shared leaf','dispatcher span',
-                    'dispatcher guard','loader predecessor','switch root','shared epilogue span',
-                    'epilogue ownership','epilogue native coverage','epilogue direct owner',
-                    'epilogue hook identity','epilogue hook include','epilogue hook coverage',
-                    'size','symbols','source shape','roundtrip','ambiguous patch')
         reason=str(e) if str(e) in categories else 'other'
         print('V1270_EPILOGUE_PREP accepted=0 reason='+reason.replace(' ','_'));return 1
     return 0

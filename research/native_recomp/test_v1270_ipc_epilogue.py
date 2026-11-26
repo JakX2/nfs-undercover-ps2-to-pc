@@ -1,7 +1,7 @@
 import unittest,subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from prepare_v1270_ipc_epilogue import merge_blocks,analyzer,render,scope,DISPATCH,DISPATCH_RETURN,L,SELECT,E,S,DISABLE,RESTORE,BLR,ANALYZE_ROOT,READ,SCANNER
+from prepare_v1270_ipc_epilogue import merge_blocks,analyzer,render,scope,select_plan,verify_select_tail,GET,DISPATCH,DISPATCH_RETURN,L,SELECT,E,S,DISABLE,RESTORE,BLR,ANALYZE_ROOT,READ,SCANNER
 class Merge(unittest.TestCase):
     def setup(self):
         cut=(DISPATCH_RETURN-DISPATCH)//4
@@ -49,6 +49,20 @@ class Merge(unittest.TestCase):
             subprocess.run(['g++','-std=c++20','-Wall','-Wextra','-Werror',
                 '-I'+str(Path(__file__).resolve().parent),'-fsyntax-only',str(d/'test.cpp')],check=True)
         self.assertIn((L,216),scope(p,{SELECT:(BLR,)},{L:(a[L][0],)}))
+    def test_select_geometry(self):
+        b,g,a,j,c=self.setup()
+        branch=lambda src,dst,link=0:0x48000000|((dst-src)&0x03fffffc)|link
+        a[S]=(branch(S,SELECT),)
+        site=0x80529744
+        words=(0x60000000,)*((site-SELECT)//4)+(branch(site,GET,1),BLR)
+        p=(g,{}, {},a,j,c,30,255,-8,-4,DISABLE,RESTORE,SELECT,())
+        s=select_plan(p,{SELECT:words,GET:(BLR,)})
+        self.assertEqual(s[:2],(S,site+4))
+        self.assertIn(f',0x{GET:08x}u,0x{site+4:08x}u,0x{S:08x}u',render(p,s))
+        with self.assertRaises(ValueError):select_plan(p,{SELECT:words[:-2]+(BLR,BLR),GET:(BLR,)})
+        source=f'loc_{S:X}: ;\n    ctx.pc = 0x{SELECT:X}; return;\nloc_{S+4:X}: ;\n'
+        verify_select_tail(source,S)
+        with self.assertRaises(ValueError):verify_select_tail(source.replace('return;','break;'),S)
     def test_ownership(self):
         s=ANALYZE_ROOT+'\n'+READ+'\n'+SCANNER
         spans=((DISPATCH,0x2a4),(L,216))
