@@ -58,6 +58,9 @@
 #ifdef UNDERCOVER_V1344_SUBMIT_RESUME
 #include "wii_submit_resume_v1342.h"
 #include "v1344_private_submit.h"
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+#include "v1356_private_descriptor.h"
+#endif
 #endif
 #endif
 #endif
@@ -197,6 +200,9 @@ struct ReleaseReached{};
 static AllocatorReleaseWitness* allocator_release=nullptr;
 static bool allocator_active=false;
 static AllocatorRange allocator_heap{};
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+static AllocatorDescriptorWitness* allocator_descriptor=nullptr;
+#endif
 static uint32_t allocator_request=0;
 static unsigned allocator_count=0;
 struct AllocatorReturned{};
@@ -580,7 +586,14 @@ void trace_call(uint32_t pc,CPUContext& c){
             if(!submit_resume->release_at(c,submit_held(c)))submit_resume_refuse(2);
             ++release_count;
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
-            if(!allocator_release->begin(c,*submit_resume,submit_held(c),allocator_heap,allocator_request))allocator_refuse(4);
+            AllocatorRange meta{},guard{};
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+            if(!allocator_descriptor||!allocator_descriptor->release_entry(c,allocator_heap,c.gpr[3])){
+                std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=3\n";allocator_refuse(4);
+            }
+            meta=allocator_descriptor->field();guard=allocator_descriptor->guard();
+#endif
+            if(!allocator_release->begin(c,*submit_resume,submit_held(c),allocator_heap,allocator_request,meta,guard))allocator_refuse(4);
             submit_resume_active=false;allocator_active=true;return;
 #else
             throw ReleaseReached{};
@@ -1238,11 +1251,19 @@ int main(int argc,char** argv)try{
         need(w.before_call(c,W::Call,e.branch_word,true,device_ok(c)));
         c.pc=W::Root;c.lr=W::Return;
         const auto before_callbacks=callbacks,before_writes=control_writes;
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+        AllocatorDescriptorWitness descriptor;allocator_descriptor=&descriptor;
+        if(!descriptor.before_create(c,v1356::tables)){std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=1\n";throw WitnessFailure{};}
+#endif
         func_805194C4(c);
         need(c.pc==W::Return&&c.lr==W::Return&&c.is_running);
         const bool returned=w.continuation(c,c.pc,device_ok(c));last_stage=w.client_stage();last_reason=w.cold_failure()?w.cold_failure():w.failure();
         if(!returned)throw WitnessFailure{};
         need(w.stage()==5u&&w.client_stage()==19u&&w.heap_size()>0&&host.serviced_steps()==0);
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+        if(!descriptor.after_create(c,{lo,w.heap_size()})){std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=2\n";throw WitnessFailure{};}
+        std::cout<<"V1356_DESCRIPTOR_CREATED n="<<trial<<" original_create=1 unique=1\n";
+#endif
         need(device_ok(c)&&ctl.issued_tokens()==3u&&!ctl.pending());
         need(callbacks==before_callbacks+2&&control_writes==before_writes+1);
         PostAckStmJoin stm(v629::expected_stm);stm_witness=&stm;
@@ -1502,6 +1523,11 @@ int main(int argc,char** argv)try{
         need(allocator_returned&&allocator.returned(c,allocator_held(c))&&selection_count==trial+1u&&
             load_count==trial+1u&&resumed_sleep_count==trial+1u&&sleep_exit_count==trial+1u&&release_count==trial+1u&&
             allocator_count==trial+1u&&host.serviced_steps()==2u&&!(cause.load()&mask.load()));
+#ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
+        if(!descriptor.returned(c,allocator.metadata_stores())){std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=4\n";throw WitnessFailure{};}
+        std::cout<<"V1356_DESCRIPTOR_RETURN n="<<trial<<" exact_field=1 shadow=1 stores="<<allocator.metadata_stores()<<'\n';
+        allocator_descriptor=nullptr;
+#endif
         allocator_active=false;allocator_release=nullptr;
         std::cout<<"V1352_ALLOCATOR_TRIAL n="<<trial<<" native_free=1 heap_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator.stores()<<" heap="<<allocator.heap_stores()<<'\n';
 #else

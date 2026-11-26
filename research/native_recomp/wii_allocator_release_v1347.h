@@ -23,15 +23,16 @@ public:
     bool inline_completed()const{return stage_==2u&&!error_&&inline_completed_;}
     unsigned stores()const{return fence_.stores();}
     unsigned heap_stores()const{return fence_.heap_stores();}
+    unsigned metadata_stores()const{return fence_.metadata_stores();}
     uint32_t expected_msr()const{return disabled_&&!enabled_?msr_&~0x8000u:msr_;}
-    template<class C,class Prior>bool begin(C& c,const Prior& prior,bool held,AllocatorRange heap,uint32_t request){
+    template<class C,class Prior>bool begin(C& c,const Prior& prior,bool held,AllocatorRange heap,uint32_t request,AllocatorRange meta={},AllocatorRange guard={}){
         if(stage_||error_||!safe(c,held)||!prior.release_at(c,held)||c.pc!=e_.root||c.lr!=e_.resume||
            !(c.msr&0x8000u)||(c.gpr[4]&0x3fffffffu)!=(request&0x3fffffffu)||
            (c.gpr[4]&0xc0000000u)==0x40000000u||!heap.contains(request,32u)||
            !word(c,request,StmIos::Reply)||!word(c,request+4u,0u)||!word(c,request+8u,StmIos::Open)||
            c.gpr[1]<512u||(c.gpr[1]&7u)||!known(c,e_.root,e_.root)||
            !word(c,e_.resume,e_.resume_word)||!direct(c,e_.disable)||!direct(c,e_.restore)||
-           !fence_.begin(c,{c.gpr[1]-512u,520u},heap))return fail(1);
+           !fence_.begin(c,{c.gpr[1]-512u,520u},heap,meta,guard))return fail(1);
         cpu_=&c;gp_=c.gpr;cr_=pack(c)&0x00fff000u;msr_=c.msr;active_=e_.root;
         next_=c.pc;last_=start_=c.inst_count;stage_=1;return true;
     }

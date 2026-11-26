@@ -5,3 +5,7 @@ V1349 owner run 45821387836/job 139914461624 passed all eight original outer int
 ## V1354 retry: distinguish the first refused store
 
 V1352 owner job 139917200502 authenticated 123 native free labels and reached visit 62, with seven admitted stores (two heap), before range failure 5. V1345 census: fifteen non-stack scalar stores and five stack scalar stores. No new memory is admitted. Record bounded refusal categories (overflow, alignment, mapping, partial stack/heap/metadata overlap, separate MEM1/MEM2, budget) and the authenticated root-relative ordinal; never publish guest addresses, data or instruction words. Eight additional negative tests exercise the classifiers. Retry the existing owner lane; original completion remains unverified.
+
+## V1356 authenticated descriptor lane
+
+V1354 owner job 139919324407 confirmed detail=7, base=3, ordinal=71: separate mapped MEM1, not heap boundary/alignment/mapping. Add opt-in descriptor discovery based on the public 8x16-byte SDK layout, private writable ELF object candidates, and a unique zero-to-live descriptor observed across original cold IPC execution. Require matching heap ID at original free entry, matching base/size/owner and valid free-block head. Admit only the exact four-byte free-list field and guard the entire 16-byte record using V1355; require a verified metadata store and valid head on return. No guest addresses published. The prior no-metadata mode remains available. Synthetic and owner verification pending; layout assumptions may be rejected by the private fixture.
