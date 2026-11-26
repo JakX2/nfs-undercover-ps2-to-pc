@@ -38,4 +38,8 @@ inline constexpr auto handler_index=[]{
     e.table={0x8003fa00u,0x8003fa04u,0x8003fa08u,0x8003fa0cu};return e;
 }();
 #endif
+#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN
+inline constexpr HandlerReturnExpectation handler_return_expected{Handler+80u,Handler+144u,v1145::expected.caller,
+    v1145::restore,v1145::expected.tail,v1145::expected.caller_word};
+#endif
 }

@@ -82,7 +82,8 @@ def render(spans,edges,rows,msr,expected,callback_guard=True):
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
         +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n'
         +'#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN\ninline constexpr unsigned return_loads=6;\ninline constexpr auto return_expected=v1132::expected;\n#endif\n'
-        +'#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER\ninline constexpr auto handler_rows=v1139::rows;\ninline constexpr auto handler_index=v1139::index;\ninline constexpr uint32_t handler_rd=v1139::rd,handler_wr=v1139::wr;\n#endif\n}\n')
+        +'#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER\ninline constexpr auto handler_rows=v1139::rows;\ninline constexpr auto handler_index=v1139::index;\ninline constexpr uint32_t handler_rd=v1139::rd,handler_wr=v1139::wr;\n#endif\n'
+        +'#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN\ninline constexpr auto handler_return_expected=v1145::expected;\n#endif\n}\n')
 
 def verify_callback_metadata(dol,elf,spans,rows,old):
     candidate,words,sites=callback_expectations(dol,elf)

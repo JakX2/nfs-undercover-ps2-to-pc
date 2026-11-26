@@ -588,6 +588,9 @@ int main(int argc,char** argv){
                                                         c.mmu.words[q3::Save]=Blr;c.mmu.words[q3::Helper]=Nop;
                                                         c.mmu.words[q3::Helper+4]=Load;c.mmu.words[q3::Helper+8]=Nop;
                                                         c.mmu.words[q3::Helper+12]=Store;c.mmu.words[q3::Helper+16]=Nop;c.mmu.words[q3::Helper+20]=Blr;
+#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN
+                                                        const auto held_handler_incoming=c.gpr;
+#endif
                                                         v958::observe(Handler,c);
                                                         need(v958::third_ack_active()&&v958::next_device.stage()==3u&&v958::ack.stage()==5u);
                                                         if(af=="-unarmed")SiBinding::read32(Base+C);
@@ -649,6 +652,9 @@ int main(int argc,char** argv){
                                                                 // Model the handler's channel selection before the indirect
                                                                 // callback captures its ABI. RFI restored the old r20.
                                                                 if(v958::ack_handler_enabled())c.gpr[20]=2u;
+#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN
+                                                                if(v958::ack_handler_return_enabled())c.gpr[1]=held_handler_incoming[1]-128u;
+#endif
 #endif
                                                                 if(cf=="-frame")c.mmu.words[v958::context+124]^=1u;
                                                                 if(cf=="-word")c.mmu.words[v958::transfer_callback+4u]^=1u;
@@ -882,7 +888,49 @@ int main(int argc,char** argv){
                                                                                             c.gpr[3]=q4::handler_index.table[0];c.gpr[4]=8u;visit(e2.caller+44u,v1139::Indexed);
                                                                                             c.gpr[5]=7u;visit(e2.caller+48u,v1139::Compare);
                                                                                             c.cr[0]={false,false,hf2!="-branch",false};visit(e2.caller+52u,v1139::Branch);
+#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN
+                                                                                            const bool hr_mode=v958::ack_handler_return_enabled();
+                                                                                            const auto hrf=hf2.starts_with("-return")?hf2.substr(std::string_view("-return").size()):std::string_view{};
+                                                                                            const auto hre=q4::handler_return_expected;
+                                                                                            const uint32_t hsp=held_handler_incoming[1];
+                                                                                            if(hr_mode){
+                                                                                                need(hf2.starts_with("-return"));
+                                                                                                for(unsigned i=0;i<hre.restore.size();++i)c.mmu.words[hre.root+4u*i]=hre.restore[i];
+                                                                                                for(unsigned i=0;i<hre.tail.size();++i)c.mmu.words[hre.call+4u+4u*i]=hre.tail[i];
+                                                                                                c.mmu.words[hre.caller]=hre.caller_word;
+                                                                                                c.gpr[11]=hsp;
+                                                                                                for(unsigned i=17;i<32;++i)c.mmu.words[hsp-4u*(32u-i)]=held_handler_incoming[i];
+                                                                                                c.mmu.words[hsp+4u]=hre.caller;
+                                                                                                if(hrf=="-identity")c.mmu.words[hre.root]^=1u;
+                                                                                            }
+#endif
                                                                                             visit(e2.caller+64u,q4::handler_rows.back().word);
+#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN
+                                                                                            if(hr_mode){
+                                                                                                need(v958::held_epilogue.stage()==28u);
+                                                                                                c.pc=hre.root;c.lr=hre.call+4u;
+                                                                                                v958::observe(hrf=="-entry"?hre.root+4u:hre.root,c);
+                                                                                                if(hrf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                                                if(hrf=="-tick")scheduler.advance(++tick);
+                                                                                                if(hrf=="-device")mask=0;
+                                                                                                if(hrf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                                                if(hrf=="-slot")c.mmu.words[hsp-60u]^=1u;
+                                                                                                for(unsigned i=0;i<15;++i){
+                                                                                                    visit(hre.root+4u*i,hre.restore[i],hrf=="-guard"&&i==0);
+                                                                                                    c.gpr[17+i]=c.mmu.words[hsp-60u+4u*i];
+                                                                                                }
+                                                                                                visit(hre.root+60u,Blr);
+                                                                                                visit(hre.call+4u,hre.tail[0]);c.gpr[0]=c.mmu.words[hsp+4u];
+                                                                                                visit(hre.call+8u,hre.tail[1]);c.lr=c.gpr[0];
+                                                                                                visit(hre.call+12u,hre.tail[2]);c.gpr[1]+=128u;
+                                                                                                visit(hre.call+16u,Blr);c.pc=hre.caller;
+                                                                                                if(hrf!="-poll")v958::poll(c);
+                                                                                                if(hrf=="-double-poll")v958::poll(c);
+                                                                                                if(hrf!="-dispatch"){scheduler.advance(++tick);v958::postalarm_handler_dispatch_resume(c,hre.caller,hre.caller_word);}
+                                                                                                if(hrf=="-abi")c.gpr[31]^=1u;
+                                                                                                visit(hre.caller,hre.caller_word);
+                                                                                            }
+#endif
                                                                                         }
 #endif
                                                                                     }
