@@ -1,0 +1,3 @@
+# V1385 private original asynchronous ioctl geometry
+
+Authenticate the original 78-word wrapper against both owner binaries, all six original direct calls and bounded local control flow. Resolve the two compiler register save/restore leaves, including alias symbols only if a unique containing ELF function and exact DOL/ELF instruction identity support them. Require paired nonvolatile register range, frame base and displacement. Authenticate existing allocator veneer, cache flush and submit roots rather than reimplementing them. Count additional initialized SDA data privately. Only aggregate counts are logged; no original code or addresses are emitted. This is static geometry, not an original-execution milestone.
