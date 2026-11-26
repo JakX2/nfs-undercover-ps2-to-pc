@@ -34,7 +34,10 @@ static void trial(unsigned f){
     if(f==4){assert(!ok&&w.failure()==3&&w.store_failure()==3);return;}assert(ok);
     c.pc=R;c.lr=F+12;assert(w.entry(c,R,true));c.gpr[4]=0x8032;assert(step(R,Mtmsr));
     c.msr=0x8032;c.pc=R+4;ok=w.poll(c,f!=5);if(f==5){assert(!ok&&w.failure()==7);return;}assert(ok);
-    assert(step(R+4,Blr));c.lr=U;if(f==6)c.gpr[31]=1;
+    c.gpr[3]=f==12u?1u:f==13u?2u:0u;
+    ok=step(R+4,Blr);
+    if(f>=12u){assert(!ok&&w.failure()==4&&w.control_failure()==5&&w.control_owner()==3);return;}
+    assert(ok);c.lr=U;if(f==6)c.gpr[31]=1;
     ok=step(F+12,Blr);if(f==6){assert(!ok&&w.failure()==5);return;}assert(ok);
     c.pc=U;
     if(f>=9u){
@@ -49,4 +52,4 @@ static void trial(unsigned f){
     assert(w.returned(c,true)&&w.heap_stores()==1&&w.visits()==8);
     if(f==8){++c.inst_count;assert(!w.returned(c,true));}
 }
-int main(){for(unsigned f=0;f<=11;++f)trial(f);std::cout<<"V1352_ALLOCATOR_RELEASE synthetic=1 valid=2 refused=10 exact_store=1 restored_abi=1 inline_return=1 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=13;++f)trial(f);std::cout<<"V1357_ALLOCATOR_RELEASE synthetic=1 valid=2 refused=12 exact_store=1 restored_abi=1 inline_return=1 restore_previous_ee=1 original_execution=0\n";}

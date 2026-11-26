@@ -288,6 +288,9 @@ static bool allocator_held(nw::CPUContext& c){
         <<" reason="<<allocator_release->failure()<<" store="<<allocator_release->store_failure()
         <<" visits="<<allocator_release->visits()<<" writes="<<allocator_release->stores()
         <<" heap="<<allocator_release->heap_stores()<<'\n';
+    if(allocator_release->control_failure())
+        std::cout<<"V1357_ALLOCATOR_CONTROL detail="<<allocator_release->control_failure()
+            <<" owner="<<allocator_release->control_owner()<<'\n';
     if(allocator_release->store_range_failure())
         std::cout<<"V1354_ALLOCATOR_RANGE detail="<<allocator_release->store_range_failure()
             <<" base="<<allocator_release->store_base_class()

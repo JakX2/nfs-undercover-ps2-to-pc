@@ -17,6 +17,8 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned store_failure()const{return fence_.failure();}
+    unsigned control_failure()const{return control_error_;}
+    unsigned control_owner()const{return active_==e_.root?1u:active_==e_.disable.pc?2u:active_==e_.restore.pc?3u:0u;}
     unsigned store_range_failure()const{return fence_.range_failure();}
     unsigned store_base_class()const{return fence_.base_class();}
     unsigned store_site_ordinal()const{return store_site_ordinal_;}
@@ -50,18 +52,21 @@ public:
             const bool d=!disabled_&&pc+4u==e_.disable.lr&&w==e_.disable.branch_word;
             const bool r=disabled_&&!enabled_&&disable_returned_&&pc+4u==e_.restore.lr&&
                 w==e_.restore.branch_word&&c.gpr[3]==1u;
-            if(active_!=e_.root||(!d&&!r))return fail(4);
+            if(active_!=e_.root||(!d&&!r))return control_fail(1);
             next_=d?e_.disable.pc:e_.restore.pc;entry_due_=true;return true;
         }
         if(op==19u&&xo==16u){
-            if(w&1u)return fail(4);
+            if(w&1u)return control_fail(2);
             if(!taken(c,w))return true;
             if(active_==e_.disable.pc){
-                if(!disabled_||enabled_||c.lr!=e_.disable.lr||c.gpr[3]!=1u)return fail(4);
+                if(!disabled_||enabled_||c.lr!=e_.disable.lr||c.gpr[3]!=1u)return control_fail(3);
                 disable_returned_=true;active_=e_.root;next_=e_.disable.lr;return true;
             }
             if(active_==e_.restore.pc){
-                if(!enabled_||!restore_polled_||c.lr!=e_.restore.lr||c.gpr[3]!=1u)return fail(4);
+                // Restore takes the saved enabled state (1), but returns the
+                // state before restoration (0), not its input argument.
+                if(!enabled_||!restore_polled_||c.lr!=e_.restore.lr)return control_fail(4);
+                if(c.gpr[3]!=0u)return control_fail(5);
                 restore_returned_=true;active_=e_.root;next_=e_.restore.lr;return true;
             }
             if(active_!=e_.root||!restore_returned_||c.lr!=e_.resume||!abi(c)||
@@ -74,12 +79,12 @@ public:
             if(active_==e_.restore.pc&&disabled_&&!enabled_&&v==msr_){
                 enabled_=true;poll_due_=true;poll_pc_=next_;return true;
             }
-            return fail(4);
+            return control_fail(6);
         }
-        if(op==17u||(op==19u&&(xo==528u||xo==50u))||(op==16u&&(w&1u)))return fail(4);
+        if(op==17u||(op==19u&&(xo==528u||xo==50u))||(op==16u&&(w&1u)))return control_fail(7);
         if(op==16u||op==18u){
             const uint32_t dst=target(pc,w);
-            if((w&3u)||!known(c,active_,dst))return fail(4);
+            if((w&3u)||!known(c,active_,dst))return control_fail(8);
             if(dst<=pc){poll_due_=true;poll_pc_=pc;}
             if(op==18u||taken(c,w))next_=dst;
         }
@@ -118,9 +123,10 @@ public:
 private:
     AllocatorReleaseExpectation e_;AllocatorStoreFence fence_;const void* cpu_=nullptr;
     std::array<uint32_t,32> gp_{};uint32_t cr_=0,msr_=0,active_=0,next_=0,poll_pc_=0;
-    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,store_site_ordinal_=0;
+    uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,store_site_ordinal_=0,control_error_=0;
     bool disabled_=false,enabled_=false,disable_returned_=false,restore_polled_=false,restore_returned_=false;
     bool entry_due_=false,poll_due_=false,outer_=false,inline_completed_=false;
+    bool control_fail(unsigned n){control_error_=n;return fail(4);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c,bool held){return held&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;}
     template<class C>bool base(C& c,bool held)const{return !error_&&cpu_==&c&&safe(c,held)&&c.inst_count>=start_&&c.inst_count-start_<=2048u;}
