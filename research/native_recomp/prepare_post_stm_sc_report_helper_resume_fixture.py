@@ -59,6 +59,19 @@ def scope(d,e,sizes,p):
     spans=dict(leaf_scope(d,e,before,prior))
     return check_spans({**spans,root:sizes[root],dst:sizes[dst]})
 
+def trace_resume_entry(source,pc,w):
+    # A resumed interior label is not a function root: the generated
+    # root trace is conditional on ctx.pc == owner. Install a distinct
+    # authenticated trace before the original instruction tick.
+    label=r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n'
+    pat=re.compile(label+r'    \+\+ctx\.inst_count;\n    post_stm_sc_report_resume_before\(ctx,0x'+f'{pc:08x}u,0x{w:08x}u'+r'\);')
+    hits=list(pat.finditer(source))
+    if len(hits)!=1:raise ValueError('SC report resume entry trace')
+    hit=hits[0];i=hit.start()+len(re.match(label,source[hit.start():])[0])
+    line=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{pc:X}) nwii::runtime::trace_call(0x{pc:X}, ctx); // original report resume entry\n'
+    if line in source:raise ValueError('SC report resume entry trace')
+    return source[:i]+line+source[i:]
+
 def install(directory,p):
     _,_,_,fields,rows,*_=p;root,start,_,dst,word=fields
     paths=sorted(directory.glob('output_*.cpp'));sources={x:x.read_text() for x in paths}
@@ -78,6 +91,7 @@ def install(directory,p):
             hook=f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);'
             if pc in done or s.count(hook)!=1:raise ValueError('SC report resume hook')
             done.add(pc);s=s.replace(hook,hook.replace('v1344_before','post_stm_sc_report_resume_before'))
+            if pc==start:s=trace_resume_entry(s,pc,w)
         if s!=old:
             anchor='#include "runtime/cpu_context.h"'
             if s.count(anchor)!=1:raise ValueError('SC report resume hook')
@@ -85,13 +99,13 @@ def install(directory,p):
     if done!=set(expected):raise ValueError('SC report resume coverage')
     for file,s in changed.items():file.write_text(s)
     main.write_text(main_text)
-    print(f'POST_STM_SC_REPORT_RESUME_TRANSLATION verified=1 labels={len(done)} direct_call=1 outer_resume=1')
+    print(f'POST_STM_SC_REPORT_RESUME_TRANSLATION verified=1 labels={len(done)} direct_call=1 outer_resume=1 entry_trace=1')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
     a.add_argument('--symbols',type=Path);q=a.parse_args()
-    safe={'size','SC report resume predecessor','SC report resume path','SC report resume arguments','SC report resume extent','SC report resume owner','SC report resume hook','SC report resume coverage','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge','helper call label'}
+    safe={'size','SC report resume predecessor','SC report resume path','SC report resume arguments','SC report resume extent','SC report resume owner','SC report resume entry trace','SC report resume hook','SC report resume coverage','fixture geometry','fixture range','fixture overlap','completion roundtrip','completion hook label','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper direct native call','helper native return edge','helper call label'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
