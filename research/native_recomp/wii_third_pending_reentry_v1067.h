@@ -135,7 +135,30 @@ public:
         if(stage_!=9u||!ack_frame(c)||owner!=SiDispatchWitness::Handler||ack_read_reg_!=32u||
            w!=0x4e800421u||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
            !ack_calls_.stop_before_indirect(c,pc,w))return fail(18);
-        stage_=10u;return true;
+        callback_site_=pc;callback_word_=w;stage_=10u;return true;
+    }
+    // A fresh callback witness takes over the exact unexecuted indirect
+    // call. The cleared third ACK retains exclusive device ownership.
+    template<class C,class W>bool begin_callback(C& c,W& witness,uint32_t pc,uint32_t w,bool identity){
+        if(stage_!=10u||error_||cpu_!=&c||dev_->stage()!=3u||!identity||
+           pc!=callback_site_||w!=callback_word_||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start_dispatch(c,pc,w,true,true))return fail(19);
+        callback_=&witness;stage_=11u;return true;
+    }
+    template<class C,class W>bool callback_poll(C& c,W& witness){
+        return callback_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.dispatch_poll(c,true)?true:fail(20);
+    }
+    template<class C,class W>bool callback_entry(C& c,W& witness,uint32_t pc){
+        return callback_frame(c,witness)&&(witness.stage()!=1u||ack_.accept_dispatch_tick(c))&&
+               ack_.postack_held()&&witness.entry(c,pc,true)?true:fail(21);
+    }
+    template<class C,class W>bool callback_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!callback_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(22);
+        if(witness.stage()==6u)stage_=12u;
+        return true;
     }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
@@ -148,7 +171,12 @@ private:
         return ack_active()&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
-    uint32_t ack_successor_=0,ack_successor_word_=0;
+    template<class C,class W>bool callback_frame(C& c,W& witness)const{
+        return stage_==11u&&!error_&&cpu_==&c&&callback_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* callback_=nullptr;
+    uint32_t callback_site_=0,callback_word_=0,ack_successor_=0,ack_successor_word_=0;
     unsigned ack_read_reg_=32u;bool ack_read_reverse_=false;
     std::optional<uint32_t> ack_read_result_;
     SecondCompletionAck ack_;

@@ -1,0 +1,3 @@
+# V1092: original callback prefix after third ACK
+
+V1088 owner run 45753315299 passed both modes: 72 exact third helper returns, 40 authenticated branch-6 callback frontiers (target class 2, 71 visits, no handler time). V1090 source-only run 45753506681 passed 88 synthetic cases including 13 new callback-stop cases. Bind a fresh callback-prefix witness to the exact observed indirect call, the fresh context and the cleared third ACK. Admit the outer dispatch tick only once, verify the original callback prologue and compiler save return, refuse MMIO, and keep token 3 acknowledged. Add 32 owner cases, retain prior stop lanes. Census 13 visits and eight writes is expected from earlier callback evidence, not yet verified for this route. No new transaction or boot claim.
