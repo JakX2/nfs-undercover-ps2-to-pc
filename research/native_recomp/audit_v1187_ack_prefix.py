@@ -15,7 +15,7 @@ def inspect(raw,rc):
     if len(raw)>alarm.old.MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
     rows=raw.splitlines()
     hits=[i for i,l in enumerate(rows) if l.startswith((b'V1184_',b'V1187_'))]
-    prior=[i for i,l in enumerate(rows) if l==callback.RESULT]
+    prior=[i for i,l in enumerate(rows) if callback.is_result(l)]
     ok=False
     if rc==0 and len(hits)==len(prior)==1:
         i=hits[0];j=prior[0]

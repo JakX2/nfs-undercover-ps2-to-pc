@@ -2,7 +2,24 @@
 #include "wii_third_alarm_suffix_v1047.h"
 #include "wii_third_pending_reentry_v1067.h"
 #include "wii_callback_identity_v796.h"
+
 namespace undercover::wii {
+struct CallbackVisitBudget{
+    unsigned baseline;
+    std::span<const unsigned> paths{};
+    constexpr bool valid()const{
+        if(!baseline||baseline>1024u||paths.size()>256u)return false;
+        unsigned prior=0;
+        for(auto n:paths){if(!n||n>256u||n<=prior)return false;prior=n;}
+        return true;
+    }
+    constexpr unsigned maximum()const{return paths.empty()?baseline:paths.back();}
+    constexpr bool accepts(unsigned n)const{
+        if(paths.empty())return n==baseline;
+        for(auto x:paths)if(n==x)return true;
+        return false;
+    }
+};
 struct ThirdAckNativeLabel {uint32_t pc,word,owner;bool guard;};
 inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labels,uint32_t pc,uint32_t w,bool expected_guard=false){
     uint32_t owner=0;unsigned hits=0;
@@ -13,7 +30,9 @@ inline uint32_t third_ack_native_owner(std::span<const ThirdAckNativeLabel> labe
     return owner;
 }
 struct HeldAckHelperExpectation {uint32_t pc,word;unsigned visits,entries,returns,msr;};
-struct HeldAckCallbackExpectation {uint32_t site,word;unsigned visits,ordinal;};
+struct HeldAckCallbackExpectation {uint32_t site,word;unsigned visits,ordinal;std::span<const unsigned> paths{};
+    constexpr CallbackVisitBudget budget()const{return {visits,paths};}
+};
 // Join the actual held handler return to the real scheduler/context loader.
 // Only the existing external-exception entry routine changes CPU state;
 // the native RFI and all guest instructions remain emitter-owned.
@@ -25,7 +44,8 @@ public:
     unsigned failure()const{return error_;}
     unsigned callback_refusal()const{return callback_refusal_;}
     unsigned callback_identity()const{return callback_identity_;}
-    unsigned callback_expected_visits()const{return callback_?callback_->visits:0u;}
+    bool callback_path_verified()const{return callback_&&!callback_->paths.empty()&&stage_>=13u&&!error_;}
+    unsigned callback_expected_visits()const{return callback_?callback_->budget().maximum():0u;}
     unsigned epilogue_failure()const{return ep_.failure();}
     unsigned reentry_failure()const{return next_.failure();}
     unsigned visits()const{return ep_.visits();}
@@ -130,7 +150,8 @@ public:
         if(stage_==12u){
             if(!callback_)return fail_callback(1);
             if(pc==callback_->site)return fail_callback(2);
-            if(ack_visits_-helper_boundary_visits_>=callback_->visits)return fail_callback(3);
+            if(ack_visits_-helper_boundary_visits_>=callback_->budget().maximum())return fail_callback(3);
+            if(next_.ack_calls().depth()!=0u)return fail_callback(8);
         }
         if(!next_.ack_before(c,owner,pc,w))return fail(10);
         if(stage_==12u)return true;
@@ -173,7 +194,7 @@ public:
     template<class C>bool resume_helper(C& c,uint32_t pc,uint32_t w,HeldAckCallbackExpectation e){
         if(!helper_saved(c)||!helper_||callback_||pc!=helper_->pc||w!=helper_->word||
            e.site==pc||(e.site&3u)||e.site<0x80000000u||e.site>0x817ffffcu||
-           e.word!=0x4e800421u||!e.visits||e.visits>1024u||e.ordinal!=6u||
+           e.word!=0x4e800421u||!e.budget().valid()||e.ordinal!=6u||
            !next_.ack_calls().can_poll())return fail(15);
         callback_=e;stage_=12u;return true;
     }
@@ -181,7 +202,7 @@ public:
             const std::array<uint32_t,N>& words,const std::array<uint32_t,2>& sites){
         if(stage_!=12u||!same(c)||!callback_||!helper_||pc!=callback_->site||w!=callback_->word||
            owner!=SiDispatchWitness::Handler)return fail_callback(4);
-        if(++ack_visits_>2048u||ack_visits_-helper_boundary_visits_!=callback_->visits)return fail_callback(5);
+        if(++ack_visits_>2048u||!callback_->budget().accepts(ack_visits_-helper_boundary_visits_))return fail_callback(5);
         if(c.gpr[3]>=4u)return fail_callback(6);
         if(c.ctr!=target)return fail_callback(7);
         if(next_.ack_calls().entries()!=helper_->entries||next_.ack_calls().returns()!=helper_->returns||

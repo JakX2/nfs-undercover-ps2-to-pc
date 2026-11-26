@@ -3,6 +3,7 @@
 import argparse,struct,re
 from pathlib import Path
 from prepare_v419_full_start import MAX_DOL
+from derive_ack_callback_paths_v1283 import path_lengths
 from prepare_v667_si_dispatch import HANDLER,DISABLE,TIME,RESTORE,exact
 from prepare_owner_second_time_v966 import plan as time_plan
 from prepare_owner_second_shared_v988 import admit_shared_time
@@ -83,16 +84,19 @@ def metadata(dol,elf):
     compatible(old_spans,old_edges,old_rows,spans,edges,rows,msr,expected)
     return spans,edges,rows,msr,expected,render_ack(old_spans,old_edges,old_rows),prior
 
-def render(spans,edges,rows,msr,expected,callback_guard=True):
+def render(spans,edges,rows,msr,expected,callback_guard=True,paths=()):
     s=render_ack(spans,edges,rows).replace('namespace undercover::wii::v1167 {','namespace undercover::wii::v1175 {',1)
     old='inline constexpr std::array<AckMsrSite,0> msr{};\n'
     if s.count(old)!=1 or not s.endswith('}\n'):raise ValueError('ACK helper render')
     s=s.replace(old,f'inline constexpr std::array<AckMsrSite,{len(msr)}> msr{{{{'+','.join('{'+fmt(m)+'}' for m in msr)+'}};\n',1)
+    path_array=('inline constexpr std::array<unsigned,'+str(len(paths))+'> callback_paths{'+
+                ','.join(str(n)+'u' for n in paths)+'};\n') if paths else ''
+    path_arg=',callback_paths' if paths else ''
     return (s[:-2]+'inline constexpr HeldAckHelperExpectation expected{'+fmt(expected)+',130u,6u,6u,2u};\n'
         +'inline constexpr bool callback_guard='+str(callback_guard).lower()+';\n'
         +'inline constexpr auto callback_words=v958::success_callback_words;\n'
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
-        +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n'
+        +path_array+'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u'+path_arg+'};\n'
         +'#ifdef UNDERCOVER_V1205_PRIVATE_ACK_RETURN\ninline constexpr unsigned return_loads=6;\ninline constexpr auto return_expected=v1132::expected;\n#endif\n'
         +'#ifdef UNDERCOVER_V1210_PRIVATE_ACK_HANDLER\ninline constexpr auto handler_rows=v1139::rows;\ninline constexpr auto handler_index=v1139::index;\ninline constexpr uint32_t handler_rd=v1139::rd,handler_wr=v1139::wr;\n#endif\n'
         +'#ifdef UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN\ninline constexpr auto handler_return_expected=v1145::expected;\n#endif\n}\n')
@@ -644,6 +648,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
     for line in prior.splitlines():
         if 'inline constexpr ' in line and old.count(line+'\n')!=1:raise ValueError('ACK helper metadata')
     callback_site=verify_callback_metadata(dol,elf,spans,rows,old) if callback else None
+    paths=path_lengths(rows,HANDLER,expected[0],callback_site) if callback else ()
     if callback and ('UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK' in old or
         (dest/'wii_callback_identity_v796.h').is_symlink() or
         (dest/'wii_callback_identity_v796.h').read_text()!=(host/'wii_callback_identity_v796.h').read_text()):
@@ -712,7 +717,7 @@ def install(dol,elf,root,host,callback=False,prefix=False,time=False,frontier=Fa
         (dest/'v1227_private_ack_leaf.h').write_text(render_leaf(leaf_meta[0],leaf_meta[1],leaf_meta[3]))
         (dest/'wii_irq_leaf_finish_v927.h').write_text((host/'wii_irq_leaf_finish_v927.h').read_text())
     for path,content in ipc_files.items():path.write_text(content)
-    result.write_text(render(spans,edges,rows,msr,expected,callback_guard))
+    result.write_text(render(spans,edges,rows,msr,expected,callback_guard,paths))
     extra='#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n'
     if callback:extra+='#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n'
     if prefix:extra+='#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n'

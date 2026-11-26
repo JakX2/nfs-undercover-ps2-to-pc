@@ -24,6 +24,9 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v1244_ipc_owner_gate.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1152_held_epilogue.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1263_callback_diagnostic.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1283_callback_paths.py -v
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_callback_path_budget_v1283.cpp -o /tmp/v1283
+          /tmp/v1283
           for n in 1051_third_launch 1055_third_alarm_launch 1054_third_alarm_audit 1176_ack_helper 1043_live_third_handoff; do
             python3 -m unittest discover -s research/native_recomp -p "test_v$n.py" -v
           done
