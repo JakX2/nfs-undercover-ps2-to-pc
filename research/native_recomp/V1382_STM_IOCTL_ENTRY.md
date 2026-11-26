@@ -1,0 +1,3 @@
+# V1382 STM ioctl entry contract
+
+Observe the original second Open return to the asynchronous STM IOS_Ioctl entry. Authenticate every original word and direct call, enforce actual interrupt disable with previous EE=1, verify the SDA descriptor store and subsequent exact stores, require both device orders, validated buffer ranges and a callback within privately authenticated original text. The caller must retain the selected thread, mailbox and freed heap independently. No host register or RAM writes, no extra service, no original execution claim. 32 source-only cases include negative control, mask, descriptor, buffer and store checks.
