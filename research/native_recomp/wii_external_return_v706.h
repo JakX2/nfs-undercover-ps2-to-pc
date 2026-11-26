@@ -48,6 +48,11 @@ public:
     template<class C>bool pending_source(C& c,uint32_t cause,uint32_t mask)const{
         return stage_==1u&&pending_common(c,cause,mask);
     }
+    // Re-check the exact CPU and native RFI boundary before re-entry.
+    template<class C>bool pending_restored(C& c,uint32_t cause,uint32_t mask)const{
+        return stage_==3u&&pending_return_&&pending_common(c,cause,mask)&&restored(c)&&
+               (c.msr&0x8000u)&&c.inst_count==rfi_tick_;
+    }
     template<class C>bool before_pending_rfi(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         return before_rfi_impl(c,pc,word,cause,mask,true);
     }

@@ -151,9 +151,9 @@ for mode in nonsplit split; do
         grep -Fx 'V1053_THIRD_CALLBACK_FRONTIER ordinal=3 visits=17 writes=3 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
       fi
       if [[ "$lane" == *wireless-same || "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
-        grep -Ex 'V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=[1-9][0-9]{0,2} stores=[1-9][0-9]? token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
+        grep -Fx 'V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=66 stores=12 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
         if [[ "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
-          grep -Ex 'V1060_THIRD_CALLBACK_SUFFIX ordinal=13 target_class=0 visits=[1-9][0-9]{0,2} writes=[0-8] polls=[0-9]{1,3} token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
+          grep -Fx 'V1060_THIRD_CALLBACK_SUFFIX ordinal=13 target_class=0 visits=37 writes=0 polls=4 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
           grep -Fx 'V1060_THIRD_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits=12 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
         if [[ "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
@@ -164,7 +164,7 @@ for mode in nonsplit split; do
           grep -Ex 'V1064_THIRD_PENDING_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 token=3 held=1 visits=[1-9][0-9]{0,2} saved_fields=38 third_vector_executed=0 resume_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
       elif [[ "$lane" == *wireless-changed ]]; then
-        grep -Ex 'V1058_THIRD_WIRELESS_LOCK original_setter_prefix=1 original_unlock_prefix=1 changed=1 visits=[1-9][0-9]{0,2} stores=[1-9][0-9]? token=3 held=1 saved_fields=38 exi_instruction_executed=0' "$work/run.log"
+        grep -Fx 'V1058_THIRD_WIRELESS_LOCK original_setter_prefix=1 original_unlock_prefix=1 changed=1 visits=69 stores=13 token=3 held=1 saved_fields=38 exi_instruction_executed=0' "$work/run.log"
       fi
     done
   done

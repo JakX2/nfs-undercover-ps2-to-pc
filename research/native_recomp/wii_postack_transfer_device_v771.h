@@ -21,6 +21,12 @@ public:
     std::optional<uint32_t> suffix_status_value()const{return status_reads_==1u&&!status_pending_&&!error_?std::optional<uint32_t>{status_value_}:std::nullopt;}
     unsigned suffix_status_writes()const noexcept{return status_writes_;}
     bool held_now()const{return tick_&&held(*tick_);}
+    // Bind a completed successor to the exact device and CPU tick source.
+    bool owns_completed(const SiController& ctl,const std::atomic<uint32_t>& cause,
+                        const std::atomic<uint32_t>& mask,const uint64_t& tick,uint64_t token)const{
+        return &ctl==ctl_&&&cause==cause_&&&mask==mask_&&&tick==tick_&&
+               stage_==2u&&follow_.stage()==3u&&!pending()&&this->token()==token&&held(tick);
+    }
     bool held(uint64_t tick)const{
         return (stage_==1||stage_==2)&&!error_&&!armed_&&!status_pending_&&!status_write_pending_&&tick==last_&&common()&&
             (follow_.stage()?follow_.held(tick):quiescent());

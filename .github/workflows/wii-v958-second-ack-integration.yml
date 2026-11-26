@@ -34,6 +34,9 @@ on:
       - 'research/native_recomp/*v1054*'
       - 'research/native_recomp/*v1055*'
       - 'research/native_recomp/*v1062*'
+      - 'research/native_recomp/*v1067*'
+      - 'research/native_recomp/wii_external_return_v706.h'
+      - 'research/native_recomp/wii_postack_transfer_device_v771.h'
       - 'research/native_recomp/wii_second_si_dispatch_v944.h'
       - '.github/workflows/wii-v958-second-ack-integration.yml'
 permissions:
@@ -72,6 +75,8 @@ jobs:
           echo 'V997_LIVE_SUCCESS_FRONTIER valid=2 classified_not_admitted=5 refused=2 earlier_mode=1 original_execution=0'
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_strict_ack_route_v1000.cpp -o "$RUNNER_TEMP/v1000"
           "$RUNNER_TEMP/v1000"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_third_pending_reentry_v1067.cpp -o "$RUNNER_TEMP/v1067"
+          "$RUNNER_TEMP/v1067"
           python3 -m py_compile research/native_recomp/prepare_v1009_second_callback.py research/native_recomp/audit_v1009_second_callback.py
           python3 -m unittest discover -s research/native_recomp -p test_v1009_composed_callback.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1010_callback_installer.py -v
