@@ -1,4 +1,4 @@
-import unittest,tempfile
+import unittest,tempfile,subprocess,shutil
 from pathlib import Path
 from unittest.mock import patch
 import prepare_v1048_third_alarm as installer
@@ -34,6 +34,56 @@ class Hooks(unittest.TestCase):
                     source+'    '+B+'false);\n'):
             with self.assertRaisesRegex(ValueError,'third alarm handoff hook'):
                 hook(bad,P,W,handoff=True)
+    def test_compiled_handoff_exclusivity(self):
+        # Compile and execute the actual installer-rewritten C++ fragment.
+        # Independently authored observer stubs only; no game-derived code.
+        cc=shutil.which('g++')
+        self.assertIsNotNone(cc)
+        source=L+'    '+B+'true);\n'+OLD
+        legacy=f'    undercover::wii::v768::before(ctx,0x{P:08x}u,0x{W:08x}u);\n'
+        source=transfer_hook(source+legacy,P,W,'resume')
+        # Add a legacy observer before the handoff as well as after it.
+        patched=hook(source.replace('    if(undercover::wii::v958::third_active())',OLD+
+                            '    if(undercover::wii::v958::third_active())'),P,W,handoff=True)
+        preamble=r"""
+#include <cstdint>
+#include <cassert>
+struct CPU { unsigned inst_count=0,bus=0; void si_instruction_boundary(){++bus;} };
+namespace undercover::wii {
+namespace v958 {
+unsigned mode=0,transfer=0,alarm=0,legacy=0,seen=0;
+bool third_active(){return mode==1;}
+bool third_alarm_active(){return mode==2;}
+void before(CPU&,uint32_t,uint32_t,bool guard){
+    ++seen;
+    if(mode==1){assert(!guard);++transfer;++alarm;mode=2;}
+    else if(mode==0){assert(guard);}
+    else assert(false);
+}
+}
+namespace v786 {void before(CPU&,uint32_t,uint32_t){++v958::legacy;}}
+namespace v768 {void before(CPU&,uint32_t,uint32_t){++v958::legacy;}}
+}
+void label(CPU& ctx){
+"""
+        end=r"""
+}
+int main(){
+    using namespace undercover::wii::v958;
+    CPU cpu;mode=0;label(cpu);
+    assert(cpu.inst_count==1&&cpu.bus==1&&seen==1&&legacy==3&&transfer==0&&alarm==0);
+    cpu={};seen=legacy=0;mode=1;label(cpu);
+    assert(cpu.inst_count==1&&cpu.bus==1&&seen==1&&legacy==0&&transfer==1&&alarm==1&&mode==2);
+}
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);src=root/'hook.cpp';exe=root/'probe'
+            src.write_text(preamble+patched+end)
+            built=subprocess.run([cc,'-std=c++20','-O1','-Wall','-Wextra','-Werror','-Wno-unused-label',str(src),'-o',str(exe)],
+                                 capture_output=True,timeout=30)
+            self.assertEqual(built.returncode,0,built.stderr.decode())
+            got=subprocess.run([str(exe)],capture_output=True,timeout=5)
+            self.assertEqual(got.returncode,0,got.stderr.decode())
     def test_composed_alarm_identity(self):
         base='#pragma once\nnamespace undercover::wii::v786 {\ninline constexpr unsigned marker=1;\n}\n'
         callback=(0x80006000,(0x60000000,0x4e800020),(0x80004000,0x80004004))

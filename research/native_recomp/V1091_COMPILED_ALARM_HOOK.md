@@ -1,0 +1,3 @@
+# V1091: compiled installer handoff regression
+
+V1090 continuous gate 45753506495 passed its original-free launch and installer checks; private owner job 139686706174 started. Do not restart it. Add a separate compiled C++ test of the real rewritten resume fragment: on the pre-third path all three legacy observers run, while the third transfer changes ownership to the alarm at the same tick and neither preceding nor subsequent legacy hooks run. Require one instruction tick, one bus boundary, one live V958 invocation. This is a synthetic stub observer test of generated hook composition, not original native execution. Verification pending.
