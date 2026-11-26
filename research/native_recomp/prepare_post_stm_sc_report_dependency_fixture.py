@@ -16,7 +16,7 @@ def merge(old,helper,fields,ws):
     root,caller,caller_word=fields
     if len(ws)!=33 or old.get(root)!=(ws[0],GUARD) or helper not in old or old[helper][-1]!=GUARD or helper+4*(len(old[helper])-1)!=caller:
         raise ValueError('SC report dependency predecessor')
-    return {**old,helper:old[helper][:-1]+(caller_word,),root:tuple(ws)}
+    return {**old,root:tuple(ws)}
 
 def plan(d,e):
     prior=helper_plan(d,e);old=prior[2];helper=prior[3][0]
@@ -69,7 +69,7 @@ def install(directory,p):
     paths=sorted(directory.glob('output_*.cpp'));sources={x:x.read_text() for x in paths}
     main=directory/'main_output.cpp'
     expected={root+4*i:(root,w) for i,w in enumerate(ws)}
-    audit_native(sources.values(),main.read_text(),{**expected,caller:(helper,caller_word)})
+    audit_native(sources.values(),main.read_text(),expected)
     done=set();changed={}
     for file,s in sources.items():
         old=s

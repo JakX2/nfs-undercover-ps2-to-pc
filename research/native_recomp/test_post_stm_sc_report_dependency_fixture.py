@@ -8,7 +8,7 @@ class Fixture(unittest.TestCase):
         old={helper:(0x60000000,)*13+(GUARD,),root:(ws[0],GUARD)}
         fields=(root,caller,0x60000000)
         got=merge(old,helper,fields,ws)
-        self.assertEqual(got[helper],(0x60000000,)*14);self.assertEqual(got[root],ws)
+        self.assertEqual(got[helper],old[helper]);self.assertEqual(got[root],ws)
         for bad in ({**old,root:(ws[0],0)},{**old,helper:(0x60000000,)*12+(GUARD,)}):
             with self.assertRaises(ValueError):merge(bad,helper,fields,ws)
 if __name__=='__main__':unittest.main(verbosity=2)
