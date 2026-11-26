@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - '.github/workflows/wii-v1244-continuous-ipc-return.yml'
+      - 'research/native_recomp/test_callback_path_budget_v1283.cpp'
 permissions:
   contents: read
   actions: read
