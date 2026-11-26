@@ -1,0 +1,3 @@
+# V1119: private held wireless setter installer
+
+Authenticate the same private original callback, wireless wrapper header and native control edges. Patch only new live labels; the existing frontier call sites and shared OS leaves retain a single scheduler tick and a single live observer. Both possible original return labels and EXILock entry identity are audited; the live V1118 route admits only unchanged ordinal 3. The 20-shard independent generated-tree fixture exercises installation and nine exact refusal controls. Activation is not yet wired into the continuous launcher, and original execution is not claimed. V1116 continues unchanged.

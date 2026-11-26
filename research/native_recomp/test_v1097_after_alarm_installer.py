@@ -304,4 +304,94 @@ class FrontierTree(unittest.TestCase):
                 self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(Tree.snapshot(root),before)
 
+
+class WirelessTree(unittest.TestCase):
+    C,A,B,U,D,R,L=0x80005000,0x80008000,0x80009000,0x8000a000,0x8000b000,0x8000c000,0x8000d000
+    def fixture(self,root):
+        import prepare_v1119_postalarm_wireless as w
+        C,A,B,U,D,R,L=self.C,self.A,self.B,self.U,self.D,self.R,self.L
+        N,BRET=Tree.NOP,Tree.BLR;bl=Tree.branch
+        roots={A:[bl(A,U),BRET]+[N]*37,B:[BRET]+[N]*29,
+               U:[bl(U,D),bl(U+4,R),BRET]+[N]*181,D:[BRET]+[N]*4,R:[BRET]+[N]*8,L:[BRET]}
+        seen=list(range(C+68,C+68+27*4,4));stops={seen[23]:(3,A),seen[26]:(5,B)}
+        original=[N]*172
+        for pc,(_,dst) in stops.items():original[(pc-C)//4]=bl(pc,dst)
+        original[-1]=BRET
+        original=tuple(original)
+        q=(({D:roots[D],R:roots[R]},C,C+0x1000,C+16,0,0),C+0x2000,D,C+0x3000,R,C+64,[])
+        fp=(q,seen,stops,A,B);wp=(roots,A,B,U,L,(L,));cb=(C,original,(0x80004000,0x80004004))
+        dest=root/'nWiiRuntime/include/undercover';dest.mkdir(parents=True)
+        host=Path(w.__file__).parent
+        private=dest/'v958_private_second_ack.h'
+        private.write_text('#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n'
+                           +f'inline constexpr uint32_t transfer_callback=0x{C:08x}u;\n'
+                           +f'inline constexpr std::array<uint32_t,172> third_postalarm_words{{'+w.fmt(original)+'};\n')
+        for name in ('wii_callback_frontier_v829.h','wii_wireless_wrapper_v844.h','wii_third_alarm_suffix_v1047.h'):
+            (dest/name).write_bytes((host/name).read_bytes())
+        (dest/'v831_private_callback_frontier.h').write_text(w.render_frontier(C,C+68,{pc:(C,original[(pc-C)//4]) for pc in seen},stops))
+        edges=[(pc,original[(pc-C)//4],original[(pc+4-C)//4],o) for pc,(o,_) in sorted(stops.items())]
+        (dest/'v847_private_wireless_wrapper.h').write_text(w.render(roots,(A,B,U,D,R),edges,L,BRET))
+        native={C:{pc:original[(pc-C)//4] for pc in set(seen)|{pc+4 for pc in stops}}}
+        native.update({a:{pc:ws[(pc-a)//4] for pc in w.reachable(a,ws)} for a,ws in roots.items()})
+        for idx,(a,rows) in enumerate(native.items()):
+            s=f'#include "runtime/cpu_context.h"\nvoid fn_{a:X}(CPUContext& ctx) {{\n'
+            s+=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{a:X}) nwii::runtime::trace_call(0x{a:X}, ctx);\n'
+            for pc,word in sorted(rows.items()):
+                s+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n    ++ctx.inst_count;\n'+SI
+                if a in (D,R) or a==C and pc in seen:
+                    s+=f'    if({ACTIVE}) undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{word:08x}u,false);\n'
+                if word>>26==18 and word&3==1:
+                    dst=pc+(((word&0x03fffffc)^0x02000000)-0x02000000)
+                    s+=f'    ctx.pc = 0x{dst:X}; fn_{dst:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+            (root/f'output_{idx}.cpp').write_text(s+'}\n')
+        for i in range(len(native),20):(root/f'output_{i}.cpp').write_text('// unused shard\n')
+        (root/'main_output.cpp').write_text('extern "C" void run_game(CPUContext& ctx) {\n'+''.join(
+            f'case 0x{a:X}: fn_{a:X}(ctx); break;\n' for a in native)+'}\n')
+        return fp,wp,cb,private
+    def install(self,root,f):
+        import prepare_v1119_postalarm_wireless as w
+        fp,wp,cb,_=f
+        with patch.multiple(w,DISABLE=self.D,RESTORE=self.R),patch.object(w,'frontier_plan',return_value=fp), \
+             patch.object(w,'wrapper_plan',return_value=wp),patch.object(w,'expectations',return_value=cb), \
+             patch.object(w,'exact',side_effect=lambda d,e,a,n:cb[1] if a==self.C else (Tree.BLR,)):
+            w.install(b'',b'',root,Path(w.__file__).parent)
+    def test_wireless_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=self.fixture(root);before=Tree.snapshot(root);self.install(root,f);after=Tree.snapshot(root)
+            self.assertEqual(set(before),set(after))
+            self.assertEqual({p for p in before if before[p]!=after[p]},
+                             {Path(f'output_{i}.cpp') for i in (0,1,2,3)}|{f[-1].relative_to(root)})
+            self.assertIn('UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1',f[-1].read_text())
+            for i in range(7):
+                p=Path(f'output_{i}.cpp')
+                self.assertEqual(before[p].count(b'++ctx.inst_count;'),after[p].count(b'++ctx.inst_count;'))
+            self.assertEqual(after[Path('output_0.cpp')].count(b'v958::before(ctx,'),28)
+    def test_wireless_tree_refusals(self):
+        reasons={'header':'postalarm wireless identity','metadata':'postalarm wireless metadata',
+                 'owner':'postalarm wireless owner','edge':'helper direct native call','label':'native IPC label identity',
+                 'tick':'postalarm tick','shared':'postalarm time resume','dispatch':'native IPC dispatch','lock':'native IPC label identity'}
+        for fault,reason in reasons.items():
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
+                root=Path(td);f=self.fixture(root);private=f[-1]
+                if fault=='header':
+                    p=private.parent/'v847_private_wireless_wrapper.h';p.write_text(p.read_text()+'// tamper\n')
+                elif fault=='metadata':private.write_text(private.read_text().replace('third_postalarm_words','other_words'))
+                elif fault=='owner':(root/'output_19.cpp').write_bytes((root/'output_1.cpp').read_bytes())
+                elif fault=='dispatch':
+                    p=root/'main_output.cpp';p.write_text(p.read_text().replace('fn_80008000(ctx)','fn_80008004(ctx)'))
+                elif fault=='shared':
+                    p=root/'output_4.cpp';p.write_text(p.read_text().replace('v958::before','v958::other'))
+                elif fault=='lock':
+                    p=root/'output_6.cpp';p.write_text(p.read_text().replace('4E800020','4E800021'))
+                else:
+                    p=root/'output_1.cpp';s=p.read_text()
+                    if fault=='edge':s=s.replace('fn_8000A000(ctx);','fn_8000A004(ctx);')
+                    elif fault=='label':s=s.replace('4E800020','4E800021')
+                    else:s=s.replace(SI,'',1)
+                    p.write_text(s)
+                before=Tree.snapshot(root)
+                with self.assertRaises(ValueError) as caught:self.install(root,f)
+                self.assertEqual(str(caught.exception),reason)
+                self.assertEqual(Tree.snapshot(root),before)
+
 if __name__=='__main__':unittest.main()
