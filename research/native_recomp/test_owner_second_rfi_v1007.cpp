@@ -788,7 +788,7 @@ int main(int argc,char** argv)try{
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
     for(const std::string tail:{"-wireless-same","-wireless-changed","-return"}){
-        if(mode.ends_with(tail)){
+        if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
             third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_callback_return=tail=="-return";break;
