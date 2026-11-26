@@ -524,6 +524,7 @@ grep -Ex 'POST_STM_SC_FORMATTER_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visi
 grep -Ex 'POST_STM_SC_FORMATTER_LEAF_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9] stores=[0-9]|POST_STM_SC_FORMATTER_LEAF_TRIAL n=[0-7] native_leaf=1 original_return=1 exact_value=1 loads=1 stores=0 frame_held=1 deferred=1 reply=0 visits=8' "$work/run.log" || true
 grep -Ex 'FORMATTER_CONTINUATION_REFUSAL kind=[1-7] stage=[0-2] reason=[0-5] visits=[0-9]{1,2}|FORMATTER_CONTINUATION_TRIAL n=[0-7] native_resume=1 next_entry=1 arguments=4 frame_held=1 deferred=1 reply=0 visits=10' "$work/run.log" || true
 grep -Ex 'FORMATTER_NESTED_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9]{1,2} stores=[0-9]{1,2}|FORMATTER_NESTED_TRIAL n=[0-7] native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35' "$work/run.log" || true
+grep -Ex 'FORMATTER_NESTED_CELL_TRIAL n=[0-7] cold_match=[01] live_match=[01] sample_equal=[01] guest_load=0' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 
@@ -809,5 +810,9 @@ fi
 
 if [[ "$formatter_nested_mode" == 1 ]];then
   [[ "$(grep -Ec '^FORMATTER_NESTED_TRIAL n=[0-7] native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35$' "$work/run.log")" == 8 ]]
+  [[ "$(grep -Ec '^FORMATTER_NESTED_CELL_TRIAL n=[0-7] cold_match=[01] live_match=[01] sample_equal=[01] guest_load=0
+fi
+ "$work/run.log")" == 8 ]]
+  grep -Ex 'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match=[0-8] live_match=[0-8] sample_equal=[0-8] endpoint_only=1 guest_loads=0 guest_writes=0' "$work/run.log"
   grep -Fx 'FORMATTER_NESTED_NATIVE owner=1 trials=8 native_prefix=8 loads=8 stores=96 nonvolatile=24 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=280 ios_steps=5 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 fi

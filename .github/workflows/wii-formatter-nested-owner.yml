@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
       - 'research/native_recomp/prepare_formatter_nested_contract.py'
+      - 'research/native_recomp/wii_initialized_cell_observation.h'
       - '.github/workflows/wii-formatter-nested-owner.yml'
 permissions:
   contents: read
@@ -49,7 +50,7 @@ jobs:
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_post_stm_sc_report_return.py
           python3 research/native_recomp/test_v626_ipc_fixture.py
-          for test in test_deferred_ack_execution test_stm_deferred_event_gate test_ipc_deferred_ack_memory test_deferred_active_return test_live_epilogue_select_v1284 test_stm_resumed_restore test_stm_final_return test_post_stm_sc_entry test_post_stm_sc_disable test_post_stm_sc_decision test_post_stm_sc_restore test_post_stm_sc_version test_post_stm_sc_report test_post_stm_sc_report_helper test_post_stm_sc_queue test_post_stm_sc_report_return test_post_stm_sc_leaf_shadow test_post_stm_sc_formatter test_post_stm_sc_formatter_leaf_shadow test_register_continuation test_register_continuation_join test_post_stm_sc_formatter_boundary; do
+          for test in test_deferred_ack_execution test_stm_deferred_event_gate test_ipc_deferred_ack_memory test_deferred_active_return test_live_epilogue_select_v1284 test_stm_resumed_restore test_stm_final_return test_post_stm_sc_entry test_post_stm_sc_disable test_post_stm_sc_decision test_post_stm_sc_restore test_post_stm_sc_version test_post_stm_sc_report test_post_stm_sc_report_helper test_post_stm_sc_queue test_post_stm_sc_report_return test_post_stm_sc_leaf_shadow test_post_stm_sc_formatter test_post_stm_sc_formatter_leaf_shadow test_register_continuation test_register_continuation_join test_post_stm_sc_formatter_boundary test_initialized_cell_observation; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
           done
@@ -60,7 +61,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Require verified original leaf return and nested stack contract
+      - name: Require verified original continuation and nested stack contract
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -71,8 +72,8 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           reqs=(
-              Requirement(45888862200,'0237202584fdd0dc7a9c0864b6e7e373507c3a79',
-                          '.github/workflows/wii-post-stm-sc-formatter-leaf-owner.yml','owner-sc-formatter-leaf'),
+              Requirement(45888862370,'0237202584fdd0dc7a9c0864b6e7e373507c3a79',
+                          '.github/workflows/wii-formatter-continuation-owner.yml','owner-continuation'),
               Requirement(45890174828,'d00a54e40aa3bb6a5216cffb77f0bfafd880bc4e',
                           '.github/workflows/wii-formatter-nested-contract.yml','owner-geometry'),
           )
