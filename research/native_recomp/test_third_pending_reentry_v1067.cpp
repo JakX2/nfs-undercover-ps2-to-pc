@@ -258,7 +258,7 @@ int main(){
         for(unsigned i=0;i<leaf.size();++i)c.mmu.words[Leaf+4u*i]=leaf[i];
         for(uint32_t a=Stack-0x400u;a<Stack+0x100u;a+=4u)c.mmu.words[a]=a^0xdeadbeefu;
         c.gpr[1]=Stack;c.ctr=Root;
-        CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign(Root,Leaf,prefix,leaf);
+        CallbackPrefixWitness<6,3> witness(Root,Leaf,prefix,leaf),foreign_witness(Root,Leaf,prefix,leaf);
         auto callback_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++callback_refused;
         };
@@ -269,7 +269,7 @@ int main(){
         if(fault>=49&&fault<=52){callback_reject(!ok,19);continue;}need(ok);
         c.pc=Root;c.lr=Handler+16;
         if(fault==53)c.mmu.words[Context+124]^=1u;
-        if(fault==54){callback_reject(!route.callback_poll(c,foreign),20);continue;}
+        if(fault==54){callback_reject(!route.callback_poll(c,foreign_witness),20);continue;}
         if(fault==55)tick();
         if(fault!=56){
             ok=route.callback_poll(c,witness);

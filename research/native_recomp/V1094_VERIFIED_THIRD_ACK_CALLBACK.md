@@ -1,0 +1,3 @@
+# V1094: verify third ACK callback census and correct synthetic name collision
+
+Owner run 45753703403 passed all 32 V1092 original callback prefix lanes in both modes: 13 visits, eight actual stack writes, indirect entry, compiler save return, 38 preserved context fields and zero fallback. The third PI source remains cleared. V1093 original-free run 45753932328 failed to compile because the foreign callback witness shadowed the existing foreign SI controller; rename the synthetic witness rather than relaxing any route validation. The expanded 108-case synthetic result remains pending. Continuous V1090 is a separate active owner job.
