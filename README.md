@@ -4,23 +4,26 @@
 
 The project's primary approach is **ahead-of-time (AOT) static recompilation of the original Wii PowerPC executable** using [NWiiRecomp](https://github.com/NWiiRecomp/NWiiRecomp), together with a native runtime that recreates the Wii environment the game expects. The aim is to preserve the Wii/PS2 game's behavior while running it natively on PC, rather than substituting the existing PC version or running the game through an emulator.
 
-> **Current status: research and active development. This is not a playable port.** There is no downloadable Windows game build, working frontend, rendered game frame, or verified gameplay yet.
+> **Current status: native executable linked and running bounded original startup code. Not playable yet.** A complete translated executable has been compiled and linked on Linux x64 for private testing. Windows boot, the original game's `main()`, frontend, first rendered game frame and gameplay have not been verified.
 
 ## Project status
 
 | Area | Status |
 | --- | --- |
 | Wii executable analysis | Original Wii DOL and symbol-rich ELF examined in owner-private workflows |
-| PowerPC → native C++ translation | NWiiRecomp AOT translation exercised; whole-image translation and C++ syntax checks demonstrated, but not a complete linked game |
-| Continuous original startup | Authenticated, bounded native execution from the Wii `__start` entry (`0x8000403C`) through substantial Wii OS initialization and later service paths |
-| Wii OS and runtime | Selected CPU, memory, interrupt, cache, IPC, filesystem and system-service paths tested; device support remains incomplete |
-| System Configuration (SC) | Original-data restoration verified in a focused owner-private test; newer nonempty-path continuation remains experimental |
-| Game `main()` | Not reached in a verified full startup |
-| Rendering, frontend and gameplay | Not implemented or verified as a working Windows game |
+| PowerPC → native C++ translation | Whole-image AOT translation demonstrated with NWiiRecomp |
+| Native executable build | Full Linux x64 object build and link verified (411/411 build units); not a Windows release |
+| Continuous original startup | Bounded execution from the genuine Wii `__start` (`0x8000403C`) through OS initialization, interrupt handling and SI transfer/callback processing, reaching wireless-ID call classification |
+| CPU, memory and Wii OS | Selected PowerPC, exception, interrupt, cache, timer, IPC, filesystem and system-service behavior tested; coverage remains incomplete |
+| Hardware compatibility | Selected SI, EXI/SRAM, DSP/ARAM and interrupt paths have runtime implementations or controlled test profiles; full device parity is not established |
+| Callback and interrupt return | Original-code register restoration, handler return and RFI verified in focused private tests; continuous integration remains in progress |
+| Game `main()` and resource loading | No verified uninterrupted startup into the original game's main loop |
+| Graphics, audio and input | Native PC game-facing backends and full compatibility are still development goals |
+| Frontend, gameplay and Windows release | Not verified; no playable or installable build |
 
 **A test checkpoint is not a boot.** Native tests may stop deliberately at a known original instruction and use controlled device responses. Passing such a test proves that specific execution path and its assertions, not a complete Wii hardware implementation or a running game.
 
-Track development in [the native recompilation research branch](https://github.com/JakX2/nfs-undercover-ps2-to-pc/tree/research/wii-native-recomp-preflight), [draft PR #36](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/36), and [GitHub Actions](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions). The status here summarizes verified work as of **November 19, 2026**; individual experiments and branch commits move faster than this overview.
+Track development in [the native recompilation research branch](https://github.com/JakX2/nfs-undercover-ps2-to-pc/tree/research/wii-native-recomp-preflight), [draft PR #36](https://github.com/JakX2/nfs-undercover-ps2-to-pc/pull/36), and [GitHub Actions](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions). The status here summarizes verified work as of **November 26, 2026**; individual experiments and branch commits move faster than this overview.
 
 ## How the port is being built
 
@@ -38,24 +41,48 @@ Owner-provided Wii DOL + ELF
              |
              +----> PowerPC CPU state and memory runtime
              +----> Wii OS / IOS / IPC / filesystem services
-             +----> Graphics / audio / input compatibility (future work)
+             +----> Selected Wii device/runtime services
+             +----> PC graphics / audio / input compatibility (future work)
              |
              v
-      Native Windows game
-         (long-term goal)
+      Native Linux x64 test executable (verified link)
+             |
+             v
+      Native Windows game (target)
 ```
 
 **Wii is the current executable baseline.** The PS2 version is relevant to the project's intended game content and compatibility goals, but PS2 binaries are not being presented as already recompilable by the Wii pipeline. Work on the Carbon PC resource bridge is a separate, lower-priority experiment, not the main port architecture.
 
-### What has been demonstrated
+### Verified development milestones
 
-- Authentic original Wii PowerPC functions have been translated to native C++ and executed in owner-private tests. The continuous-startup lane begins at the game's genuine `__start`, not an artificially entered downstream function.
-- Startup testing has exercised Wii OS initialization, exception and interrupt handling, cache and memory setup, and selected IOS, system-management, filesystem, title-service and System Configuration paths.
-- The separate direct-entry `OSInit` V68 regression reached its controlled stop at `0x804EFA34`. It must **not** be confused with progress from continuous `__start` execution.
-- A private full-image experiment translated the Wii executable into **112 C++ shards plus a dispatcher**, with **113/113 syntax-only checks passing**. That is not a full object build, link or functioning game executable.
-- Focused V108 owner-original CI validated restoration of original initialized SC pathname data. V109 nonempty-path execution is still under validation and must not be described as completed game initialization.
+- **Whole-image translation and native linking:** earlier syntax-only coverage passed 113/113 checks. The later V1160 owner-private run completed all 411 native build units and successfully linked a Linux x64 executable, then launched it through the native runtime. The link itself succeeded even though the subsequent execution test stopped at a failed runtime assertion. [Build and execution evidence](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45768545484).
+- **Continuous original startup:** the linked executable ran from the genuine `__start` through original Wii OS and service code, exception dispatch, SI interrupt acknowledgement, completion-helper execution, a third transfer and alarm return, the original indirect callback prologue and system-time calculation. It reached the wireless-ID setter call boundary but did not complete that continuation.
+- **Focused original-code tests:** later private tests independently exercised the wireless setter/unlock return, callback suffix, compiler register restoration, handler return and native RFI (return from interrupt). Each of these selected paths passed 16 cases in split mode and 16 in non-split mode, with zero interpreter fallback in those tests. These are not evidence of an uninterrupted boot or blanket fallback-free execution. [Focused verification](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45774586243).
+- **Source-only runtime verification:** the held interrupt/callback regression suite reached 568/568 passing isolated synthetic cases at V1206. Newer live integration and handler-return work remains under development; passing this suite does not mean the entire runtime is complete. [Synthetic verification](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45774586243).
+- **Earlier OS and System Configuration work:** separate direct-entry `OSInit` and SC pathname-restoration tests remain useful regression references, not substitutes for continuous startup evidence.
 
-The critical measurement is how far **uninterrupted original startup execution** reaches on the path toward `main()`, followed by a genuine first native frame. Internal stage numbers describe bounded tests; they are not a percentage-complete metric.
+### Current startup blocker
+
+The last completed continuous original-code run stopped when the runtime rejected the unchanged wireless-ID setter path. This is a Nintendo SDK controller/SRAM service, not Wii Remote Bluetooth or online multiplayer.
+
+A source-only regression reproduced the exact admission failure using the original patterned synthetic SRAM fixture. A scoped zero-wireless-ID profile passed the corresponding synthetic continuation without changing the other 56 SRAM bytes or pretending that a changed-ID EXI operation succeeded. The [regression results](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45773327881) support the proposed repair; the [continuous original-code retry](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45773050058) has not yet confirmed it as of this update.
+
+Current integration work extends the verified callback and handler return paths toward a genuine interrupt resume and continued game initialization. The changed wireless-ID path and other unimplemented device behavior remain separate compatibility work.
+
+```text
+Original Wii entry point
+  -> OS and service initialization       [continuous execution verified]
+  -> SI interrupt / transfer processing  [continuous execution verified]
+  -> Callback prologue and system time   [continuous execution verified]
+  -> Wireless-ID call boundary           [continuous execution verified]
+  -> Setter / SRAM unlock / return       [focused tests passed; continuous retry pending]
+  -> Callback and interrupt return       [focused tests passed; integration ongoing]
+  -> Original game main()                [not verified]
+  -> First native game frame             [not verified]
+  -> Playable Windows port                [not available]
+```
+
+The critical measurement is how far **uninterrupted original startup execution** reaches on the path toward `main()`, followed by a genuine first native frame. Internal milestone numbers and synthetic test counts are not percentage-complete metrics.
 
 ## Testing and CI
 
@@ -82,11 +109,11 @@ This command tests the reporting driver only. It does **not** launch or recompil
 
 ## Development priorities
 
-1. Continue the real Wii `__start` path through remaining OS, IOS and game startup dependencies, asserting exact observed guest PCs and original state transitions.
-2. Replace test-only device callbacks where needed with faithful runtime semantics for interrupts, memory, IPC, storage, timers, audio and input.
-3. Produce a complete native build that enters the original game's `main()` and survives its resource-loading sequence.
-4. Render the first authentic native frame, bring up the frontend, then validate controls, world loading, physics, audio and gameplay.
-5. Package and test a reproducible Windows build that works with legally obtained owner-provided game data.
+1. Resolve the continuous startup blocker, integrate the verified callback/interrupt returns and resume the original execution path.
+2. Continue the real Wii `__start` path through remaining OS, IOS and game startup dependencies, replacing controlled device responses with faithful runtime behavior where necessary.
+3. Reach the original game's `main()` and resource-loading sequence in a reproducible native build, then validate the Windows host build and runtime.
+4. Implement and validate PC graphics, audio and input backends; render the first authentic native frame and bring up the frontend.
+5. Validate world loading, physics, handling, AI, career progression and gameplay against the Wii/PS2 game, then package a reproducible Windows release using legally obtained owner-provided game data.
 
 The immediate goal is **working game startup**, not a higher milestone counter.
 
@@ -100,4 +127,4 @@ These experiments did **not** establish a working Undercover world import, nativ
 
 This repository is a research and development project. **It does not distribute Nintendo/EA game executables, ELF/DOL files, extracted game assets, proprietary PowerPC instruction dumps, or generated C++ containing translated original game code.** Any owner-original analysis is performed on separately provided files and its public outputs are limited to independently authored code and safe validation summaries.
 
-There is currently **no installable or playable native Windows release**. This project is unofficial and is not affiliated with or endorsed by Electronic Arts, Nintendo or the original game's developers.
+The private Linux x64 executable is a development/test build, not a distribution artifact. There is currently **no installable or playable native Windows release**. This project is unofficial and is not affiliated with or endorsed by Electronic Arts, Nintendo or the original game's developers.
