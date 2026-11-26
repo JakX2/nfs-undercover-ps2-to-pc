@@ -1,0 +1,5 @@
+# V1240: live STM prefix and first IOS_Open entry
+
+The V1239 successor joins only at the same CPU and exact completed IPC return seam. V1240 integrates it into the opt-in v958 continuation without changing legacy exits or shared interrupt handlers. The private installer authenticates the original OSInit bridge and STM prefix (7+23 labels), first IOS_Open entry, direct native call edges, both original function entry traces, and the existing pre-tick IPC return trace. The audit requires three ordered STM stages and one of two authenticated path kinds. No IOS request is submitted; stop before executing the first IOS_Open instruction. New synthetic integration covers both paths and refuses device, transport, timing, pathname and bridge corruption. CI and original owner verification pending.
+
+V1226 continuous owner execution 45779697920 / 139772176253 passed the full native 411/411 link and original callback return with the exact synthetic cold wireless-zero SRAM profile. Original startup is verified through the held callback return; the handler continuation, IPC, STM and full boot remain unverified on this uninterrupted path.

@@ -1105,8 +1105,40 @@ int main(int argc,char** argv){
                                                                                                                     visit(e.pc,e.entry_word);
                                                                                                                     need(!v958::poll(c));
                                                                                                                 }
+#ifdef UNDERCOVER_V1240_PRIVATE_ACK_STM
+                                                                                                                if(v958::ack_stm_enabled()){
+                                                                                                                    using S=StmPrefixWitness;const auto& e=v629::expected_stm;
+                                                                                                                    for(unsigned i=0;i<e.bridge.size();++i)c.mmu.words[S::Begin+4*i]=e.bridge[i];
+                                                                                                                    c.mmu.words[e.stm.pc]=e.stm.entry_word;c.mmu.words[e.open.pc]=e.open.entry_word;
+                                                                                                                    c.mmu.words[e.open.lr-4]=e.open.branch_word;
+                                                                                                                    for(const auto p:e.paths){
+                                                                                                                        if(!p.addr)continue;
+                                                                                                                        const std::string_view name=p.kind==1?"/dev/stm/immediate":"/dev/stm/eventhook";
+                                                                                                                        for(unsigned i=0;i<name.size();++i)*c.mmu.get_ptr(p.addr+i)=uint8_t(name[i]);
+                                                                                                                    }
+                                                                                                                    if(mode.ends_with("-stm-bridge"))c.mmu.words[S::Begin+4u]=0u;
+                                                                                                                }
+#endif
                                                                                                                 scheduler.advance(++tick);c.pc=c.lr=W::Return;c.gpr[3]=0;c.msr=0x8032u;
                                                                                                                 v958::observe(c.pc,c);
+#ifdef UNDERCOVER_V1240_PRIVATE_ACK_STM
+                                                                                                                if(v958::ack_stm_enabled()){
+                                                                                                                    using S=StmPrefixWitness;const auto& e=v629::expected_stm;
+                                                                                                                    need(v958::ack_stm.stage()==1u);
+                                                                                                                    if(mode.ends_with("-stm-si"))ctl.write(SiController::Buffer,1u);
+                                                                                                                    if(mode.ends_with("-stm-transport"))need(I::write32(IosBus::IPC+M::PPCMSG,0x100));
+                                                                                                                    need(!v958::poll(c));
+                                                                                                                    for(unsigned i=0;i<e.bridge.size();++i)visit(S::Begin+4*i,e.bridge[i]);
+                                                                                                                    c.pc=S::Stm;c.lr=e.stm.lr;v958::observe(c.pc,c);
+                                                                                                                    need(v958::ack_stm.stage()==2u);
+                                                                                                                    visit(S::Stm,e.stm.entry_word);c.gpr[1]-=32u;
+                                                                                                                    scheduler.advance(++tick);
+                                                                                                                    if(mode.ends_with("-stm-tick"))scheduler.advance(tick+=8193u);
+                                                                                                                    c.pc=S::Open;c.lr=e.open.lr;c.gpr[3]=e.paths[mode.ends_with("-stm-eventhook")?1:0].addr;c.gpr[4]=0;
+                                                                                                                    if(mode.ends_with("-stm-path"))*c.mmu.get_ptr(c.gpr[3])=0;
+                                                                                                                    v958::observe(c.pc,c);
+                                                                                                                }
+#endif
 #endif
                                                                                                             }
 #endif

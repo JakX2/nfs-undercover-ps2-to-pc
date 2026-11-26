@@ -509,4 +509,18 @@ class AckIpcCompleteAudit(unittest.TestCase):
             self.assertFalse(inspect(*c.STAGES,c.RESULT,rc=126))
         with patch.object(c.prior_ipc,'inspect',return_value=('verified=0',False)):
             self.assertFalse(inspect(*c.STAGES,c.RESULT))
+class AckStmAudit(unittest.TestCase):
+    def test_exact_chain(self):
+        import audit_v1240_ack_stm as c
+        prefix=b'\n'.join((b'private',c.prior_complete.RESULT))
+        def inspect(*rows,rc=0):return c.inspect(prefix+b'\n'+b'\n'.join(rows),rc)[1]
+        with patch.object(c.prior_complete,'inspect',return_value=('verified=1',True)):
+            for r in c.RESULTS:
+                self.assertTrue(inspect(*c.STAGES,r))
+                for bad in ((*c.STAGES[:-1],r),(*c.STAGES,r,r),(*c.STAGES[::-1],r),(*c.STAGES,r.replace(b'path=',b'bad=')),(*c.STAGES,c.prior_complete.RESULT,r),(*c.STAGES,b'V1240_ACK_STM_INVALID kind=3 stage=2 reason=2 stm=5',r)):
+                    self.assertFalse(inspect(*bad))
+                self.assertFalse(inspect(*c.STAGES,r,rc=126))
+        with patch.object(c.prior_complete,'inspect',return_value=('verified=0',False)):
+            self.assertFalse(inspect(*c.STAGES,c.RESULTS[0]))
 if __name__=='__main__':unittest.main()
+

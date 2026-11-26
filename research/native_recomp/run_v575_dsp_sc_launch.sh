@@ -273,6 +273,10 @@ ipc_complete="${UNDERCOVER_RUN_V1235_ACK_IPC_COMPLETE-0}"
 [[ "$ipc_complete" == 0 || "$ipc_complete" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1235_ACK_IPC_COMPLETE-0}" == "$ipc_complete" ]] || exit 2
 [[ "$ipc_complete" == 0 || "$ack_ipc" == 1 ]] || exit 2
+ack_stm="${UNDERCOVER_RUN_V1240_ACK_STM-0}"
+[[ "$ack_stm" == 0 || "$ack_stm" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1240_ACK_STM-0}" == "$ack_stm" ]] || exit 2
+[[ "$ack_stm" == 0 || "$ipc_complete" == 1 ]] || exit 2
 private_preflight="${UNDERCOVER_PREPARE_V1232_ONLY-0}"
 [[ "$private_preflight" == 0 || "$private_preflight" == 1 ]] || exit 2
 [[ "$private_preflight" == 0 || ( "$describe" == 1 && "$ack_ipc" == 1 && "$third" == 1 ) ]] || exit 2
@@ -333,6 +337,7 @@ if [[ "$third" == 1 ]]; then
                                                     extra+=(UNDERCOVER_V1227_ACK_LEAF=1);audit=audit_v1228_ack_leaf.py
                                                     if [[ "$ack_ipc" == 1 ]]; then extra+=(UNDERCOVER_V1230_ACK_IPC=1);audit=audit_v1230_ack_ipc.py; fi
                                                     if [[ "$ipc_complete" == 1 ]]; then extra+=(UNDERCOVER_V1235_ACK_IPC_COMPLETE=1);audit=audit_v1235_ack_ipc_complete.py; fi
+                                                    if [[ "$ack_stm" == 1 ]]; then extra+=(UNDERCOVER_V1240_ACK_STM=1);audit=audit_v1240_ack_stm.py; fi
                                                   fi
                                                 fi
                                               fi

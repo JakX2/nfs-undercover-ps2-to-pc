@@ -818,4 +818,28 @@ class AckIpcCompleteLaunch(unittest.TestCase):
             self.assertNotIn('V1235_ACK_IPC_COMPLETE_BUILD_PLAN',p.stdout)
             self.assertNotIn('UNDERCOVER_V1235_ACK_IPC_COMPLETE=1',p.stdout)
             self.assertIn('V1230_ACK_IPC_BUILD_PLAN' if build else 'audit=audit_v1230_ack_ipc.py',p.stdout)
+class AckStmLaunch(unittest.TestCase):
+    def setUp(self):
+        base=AckIpcCompleteLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1240_ACK_STM='1',UNDERCOVER_PREPARE_V1240_ACK_STM='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1240_ACK_STM_BUILD_PLAN links=1 private_installer=1 ipc_return_predecessor=1' if build else 'audit=audit_v1240_ack_stm.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1240_ACK_STM=1',p.stdout)
+    def test_refusals(self):
+        for key in ('UNDERCOVER_RUN_V1240_ACK_STM','UNDERCOVER_PREPARE_V1240_ACK_STM','UNDERCOVER_RUN_V1235_ACK_IPC_COMPLETE','UNDERCOVER_PREPARE_V1235_ACK_IPC_COMPLETE'):
+            for val in ('','0','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_previous(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertNotIn('V1240_ACK_STM_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1240_ACK_STM=1',p.stdout)
+            self.assertIn('V1235_ACK_IPC_COMPLETE_BUILD_PLAN' if build else 'audit=audit_v1235_ack_ipc_complete.py',p.stdout)
 if __name__=='__main__':unittest.main()

@@ -504,5 +504,50 @@ class AckIpcCompleteSource(unittest.TestCase):
     def test_refusals(self):
         for fault in ('direct','return_edge','trace','duplicate','word','return_tick','dispatcher'):
             with self.subTest(fault=fault):self.check_fixture(fault)
+class AckStmSource(unittest.TestCase):
+    def test_requires_ipc_return(self):
+        with self.assertRaisesRegex(ValueError,'ACK STM mode'):
+            ins.install(b'',b'',Path('.'),Path('.'),stm=True)
+    def check_source(self,fault=''):
+        from prepare_v629_stm_open import STM,OPEN,BEGIN,OSINIT,STM_SIZE
+        from prepare_v625_ipc_client import patch_return
+        link=lambda a,b:0x48000001|((b-a)&0x03fffffc)
+        bridge=[W]*7;bridge[-1]=link(BEGIN+24,STM)
+        body=[W]*(STM_SIZE//4);body[22]=link(STM+88,OPEN);body[-1]=BLR
+        st=(STM,BEGIN+28,bridge[-1],W);op=(OPEN,STM+92,body[22],BLR)
+        g=(bridge,body,st,op,[(0x80601000,1)],H)
+        src={};edges={st[1]-4:st[0],op[1]-4:op[0]}
+        for root,pc,words in ((OSINIT,BEGIN,bridge),(STM,STM,body),(OPEN,OPEN,[BLR])):
+            code=f'void fn_{root:X}(CPUContext& ctx) {{\n    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{root:X}) nwii::runtime::trace_call(0x{root:X}, ctx);\n'
+            for i,w in enumerate(words):
+                a=pc+4*i
+                code+=f'loc_{a:X}: ;\n    // 0x{a:08X}: {w:08X}\n'+T
+                if a in edges:
+                    target=edges[a];code+=f'    ctx.pc = 0x{target:X}; fn_{target:X}(ctx);\n    if (ctx.pc != 0x{a+4:X}) return;\n'
+            src[Path(str(root))]=code+'}\n'
+        outer=''.join(f'case 0x{root:X}: fn_{root:X}(ctx); break;\n' for root in (OSINIT,STM,OPEN))
+        owner=Path(str(OSINIT));edits={owner:patch_return(src[owner],bridge[0],BEGIN)}
+        if fault=='trace':edits={owner:src[owner]}
+        if fault=='edge':src[Path(str(STM))]=src[Path(str(STM))].replace(f'fn_{OPEN:X}(ctx);','wrong(ctx);')
+        if fault=='entry':src[Path(str(OPEN))]=src[Path(str(OPEN))].replace('nwii::runtime::trace_call','wrong_trace')
+        if fault=='word':src[owner]=src[owner].replace(f'// 0x{BEGIN:08X}: {W:08X}',f'// 0x{BEGIN:08X}: 00000000')
+        before=src.copy();before_edits=edits.copy()
+        with tempfile.TemporaryDirectory() as td,patch.object(ins,'stm_geometry',return_value=g):
+            dest=Path(td)
+            if fault=='destination':(dest/'v1240_private_ack_stm.h').write_text('already')
+            args=(b'',b'',src,outer,(H,W,OSINIT,W),edits,dest,HOST,'')
+            if fault:
+                with self.assertRaises(ValueError):ins.prepare_stm_native(*args)
+            else:
+                files=ins.prepare_stm_native(*args)
+                self.assertEqual({p.name for p in files},{'v1240_private_ack_stm.h','wii_stm_prefix_witness_v629.h','wii_post_ack_stm_join_v1239.h'})
+                self.assertIn('expected_stm',files[dest/'v1240_private_ack_stm.h'])
+                self.assertFalse(list(dest.iterdir()))
+        self.assertEqual(src,before);self.assertEqual(edits,before_edits)
+    def test_success(self):self.check_source()
+    def test_refusals(self):
+        for fault in ('trace','edge','entry','word','destination'):
+            with self.subTest(fault=fault):self.check_source(fault)
 if __name__=='__main__':unittest.main()
+
 

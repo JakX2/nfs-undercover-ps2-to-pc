@@ -24,7 +24,7 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_third_ack_v1167.h',root/'v1167_private_third_ack.h')
             shutil.copyfile(HOST/'synthetic_ack_helper_v1175.h',root/'v1175_private_ack_helper.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n#define UNDERCOVER_V1227_PRIVATE_ACK_LEAF 1\n#define UNDERCOVER_V1230_PRIVATE_ACK_IPC 1\n#define UNDERCOVER_V1235_PRIVATE_ACK_IPC_COMPLETE 1\n#define UNDERCOVER_V1240_PRIVATE_ACK_STM 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
@@ -100,6 +100,20 @@ namespace undercover::wii::v1230 {
 inline const IpcEntryJoinExpectation expected=v1227::ipc_fixture()?
     IpcEntryJoinExpectation{IpcClientWitness::Call,IpcClientWitness::Root,v1227::ipc_bl,0x60000000u}:
     IpcEntryJoinExpectation{0x80006000u,0x80007000u,0x48001001u,0x60000000u};
+}
+""")
+            (root/'v1240_private_ack_stm.h').write_text("""
+#pragma once
+#include "wii_post_ack_stm_join_v1239.h"
+namespace undercover::wii::v629 {
+inline constexpr StmPrefixExpectations expected_stm=[]{
+    using S=StmPrefixWitness;StmPrefixExpectations e{};
+    e.bridge.fill(0x60000000u);e.bridge.back()=0x48000001u|((S::Stm-(S::Begin+24u))&0x03fffffcu);
+    e.stm={S::Stm,S::Begin+28u,e.bridge.back(),0x60000000u};
+    e.open={S::Open,0x8052b090u,0x48000001u|((S::Open-0x8052b08cu)&0x03fffffcu),0x60000000u};
+    e.paths[0]={0x80601000u,1};e.paths[1]={0x80602000u,2};e.path_count=2;e.irq_handler=0x80519094u;
+    return e;
+}();
 }
 """)
             exe=root/'probe'
@@ -482,4 +496,19 @@ inline const IpcEntryJoinExpectation expected=v1227::ipc_fixture()?
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertTrue(rows[-1].startswith(b'V1235_ACK_IPC_INVALID '),rows[-1])
+            env['UNDERCOVER_V1240_ACK_STM']='1'
+            for fault in ('-stm-immediate','-stm-eventhook','-stm-path','-stm-si','-stm-transport','-stm-tick','-stm-bridge'):
+                with self.subTest(stm=fault):
+                    got=subprocess.run([str(exe),mode+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1235_ACK_IPC_RETURN calls=17 heap=1 handler=1 mailbox=1 returned=1 token=3 si_quiescent=1 queued=0 serviced=0 actual_ios=0 boot_verified=0',rows)
+                    if fault in ('-stm-immediate','-stm-eventhook'):
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-4:-1],[f'V1240_ACK_STM_STAGE n={n}'.encode() for n in range(1,4)])
+                        kind=1 if fault=='-stm-immediate' else 2
+                        self.assertEqual(rows[-1],f'V1240_ACK_STM_OPEN original_bridge=1 original_stm=1 original_open_entry=1 path={kind} mode=0 token=3 si_quiescent=1 serviced=0 open_instruction_executed=0 boot_verified=0'.encode())
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertTrue(rows[-1].startswith(b'V1240_ACK_STM_INVALID '),rows[-1])
 if __name__=='__main__':unittest.main()
