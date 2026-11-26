@@ -24,6 +24,22 @@ static void trial(unsigned f){
     ok=w.release_entry(c,heap,f==5?3u:2u);if(f==5||f==6){assert(!ok&&w.failure()==3);return;}assert(ok);
     c.mmu.write32(R+12,H+64);c.mmu.write32(H+64,f==8?0xbabe0001u:0xbabe0000u);
     if(f==9)c.mmu.write32(R+8,128);
-    ok=w.returned(c,f==7?0u:1u);if(f>=7){assert(!ok&&w.failure()==4);return;}assert(ok);
+    ok=w.returned(c,f==7?0u:1u);if(f>=7&&f<=9){assert(!ok&&w.failure()==4);return;}assert(ok);
+#ifdef UNDERCOVER_TEST_SECOND_RETURN
+    if(f>=10u){
+        c.mmu.write32(R+12,H+96);c.mmu.write32(H+96,0xbabe0000u);
+        if(f==12)c.mmu.write32(R+4,8);
+        ok=w.second_release_entry(c,heap,f==11?3u:2u);
+        if(f==11||f==12){assert(!ok&&w.failure()==5);return;}assert(ok);
+        if(f==13){assert(!w.second_release_entry(c,heap,2u));return;}
+        if(f==14)c.mmu.write32(R+12,H+100);
+        ok=w.second_returned(c,f==15?0u:1u);
+        if(f==14||f==15){assert(!ok&&!w.second_completed());return;}assert(ok&&w.second_completed());
+    }
+#endif
 }
-int main(){for(unsigned f=0;f<10;++f)trial(f);std::cout<<"V1356_DESCRIPTOR synthetic=1 valid=1 refused=9 exact_field=1 original_execution=0\n";}
+int main(){for(unsigned f=0;f<10;++f)trial(f);
+#ifdef UNDERCOVER_TEST_SECOND_RETURN
+for(unsigned f=10;f<=15;++f)trial(f);std::cout<<"V1375_SECOND_DESCRIPTOR cases=6\n";
+#endif
+std::cout<<"V1356_DESCRIPTOR synthetic=1 valid=1 refused=9 exact_field=1 original_execution=0\n";}

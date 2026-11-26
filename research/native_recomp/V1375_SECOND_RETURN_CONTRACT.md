@@ -1,0 +1,3 @@
+# V1375 second submit, allocator and IOS Open return contracts
+
+The second synchronous reply must preserve result descriptor 1 until the original free. Give the submit/allocator witnesses an explicit expected descriptor (default zero) and reject any other header result. Retain the original heap/metadata/store/ABI checks. The discovered allocator descriptor requires a separately admitted second release after the first validated release, same CPU/heap/ID, valid free-list head and observed metadata stores. Add second-result source tests for submit continuation, allocator, descriptor and both original return ABI lanes; no original second return claimed. V1374 original restore remains gated on the second original reply. Source verification pending.

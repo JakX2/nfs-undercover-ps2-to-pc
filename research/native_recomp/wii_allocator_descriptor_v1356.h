@@ -40,8 +40,21 @@ public:
     template<class C>bool returned(C& c,unsigned metadata_stores){
         if(error_||cpu_!=&c||!admitted_||!metadata_stores||!identity(c)||
            !valid_head(c,heap_,c.mmu.read32(record_+12u),false))return fail(4);
-        return true;
+        completed_=true;return true;
     }
+    // A second original free may use the same descriptor, but must follow
+    // the authenticated first release. It cannot reuse the first entry
+    // admission or claim completion before its own native stores.
+    template<class C>bool second_release_entry(C& c,AllocatorRange heap,uint32_t id){
+        if(!completed_||second_admitted_||!identity_after_release(c)||id!=id_||
+           heap.base!=heap_.base||heap.size!=heap_.size)return fail(5);
+        second_admitted_=true;return true;
+    }
+    template<class C>bool second_returned(C& c,unsigned metadata_stores){
+        if(!second_admitted_||!returned(c,metadata_stores))return fail(6);
+        second_completed_=true;return true;
+    }
+    bool second_completed()const{return !error_&&second_completed_;}
     // The verified first release has retired its free-list snapshot.
     // The next original allocation may change the head, not the heap's
     // identity. Permit an empty free list, never an invalid nonzero head.
@@ -52,7 +65,7 @@ public:
 private:
     struct Initial{uint32_t addr,base;unsigned id;};
     const void* cpu_=nullptr;std::vector<Initial> initial_;AllocatorRange heap_{};
-    uint32_t record_=0,owner_=0,id_=0;unsigned error_=0;bool admitted_=false;
+    uint32_t record_=0,owner_=0,id_=0;unsigned error_=0;bool admitted_=false,completed_=false,second_admitted_=false,second_completed_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
         if(!n||uint64_t(a)+n>0x100000000ull)return false;

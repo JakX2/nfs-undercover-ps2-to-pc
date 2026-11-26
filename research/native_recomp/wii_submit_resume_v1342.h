@@ -11,13 +11,13 @@ struct SubmitResumeExpectation{
 };
 class SubmitResumeWitness{
 public:
-    explicit SubmitResumeWitness(SubmitResumeExpectation e):e_(e){}
+    explicit SubmitResumeWitness(SubmitResumeExpectation e,uint32_t fd=0):e_(e),fd_(fd){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     uint32_t expected_msr()const{return enabled_?msr_:(msr_&~0x8000u);}
     template<class C>bool capture(C& c,bool held){
-        if(stage_||error_||!safe(c,held)||c.pc!=e_.submit||c.lr!=e_.open_return||
+        if(stage_||error_||fd_>1u||!safe(c,held)||c.pc!=e_.submit||c.lr!=e_.open_return||
            !(c.msr&0x8000u)||!c.gpr[1]||(c.gpr[1]&7u)||!mapped(c,c.gpr[3],32u)||
            (c.gpr[3]&31u)||!word(c,c.gpr[3],StmIos::Open)||
            !known(c,e_.submit,e_.submit)||!known(c,e_.submit,e_.submit_resume)||
@@ -30,7 +30,7 @@ public:
     template<class C,class Prior>bool begin(C& c,const Prior& prior,bool held){
         if(stage_!=1u||!base(c,held)||!prior.returned(c,held)||c.pc!=e_.submit_resume||
            c.msr!=(msr_&~0x8000u)||c.gpr[1]>=sp_||sp_-c.gpr[1]>1024u||
-           !word(c,req_,StmIos::Reply)||!word(c,req_+4u,0u)||!word(c,req_+8u,StmIos::Open))return fail(2);
+           !word(c,req_,StmIos::Reply)||!word(c,req_+4u,fd_)||!word(c,req_+8u,StmIos::Open))return fail(2);
         for(unsigned i=0;i<reply_.size();++i)reply_[i]=c.mmu.read32(req_+4u*i);
         active_=e_.submit;next_=c.pc;last_=c.inst_count;stage_=2;resume_=true;return true;
     }
@@ -94,7 +94,7 @@ public:
             (c.gpr[4]&0xc0000000u)!=0x40000000u&&direct(c,e_.release);
     }
 private:
-    SubmitResumeExpectation e_;const void* cpu_=nullptr;
+    SubmitResumeExpectation e_;uint32_t fd_;const void* cpu_=nullptr;
     std::array<uint32_t,8> reply_{};
     uint32_t req_=0,sp_=0,r2_=0,r13_=0,msr_=0,active_=0,next_=0,last_pc_=0,poll_pc_=0;
     uint64_t tick_=0,last_=0;unsigned stage_=0,error_=0,visits_=0;

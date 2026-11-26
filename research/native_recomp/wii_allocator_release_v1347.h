@@ -12,7 +12,7 @@ struct AllocatorReleaseExpectation {
 // native heap store and restored nonvolatile ABI.
 class AllocatorReleaseWitness {
 public:
-    explicit AllocatorReleaseWitness(AllocatorReleaseExpectation e):e_(e){}
+    explicit AllocatorReleaseWitness(AllocatorReleaseExpectation e,uint32_t fd=0):e_(e),fd_(fd){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
@@ -28,10 +28,10 @@ public:
     unsigned metadata_stores()const{return fence_.metadata_stores();}
     uint32_t expected_msr()const{return disabled_&&!enabled_?msr_&~0x8000u:msr_;}
     template<class C,class Prior>bool begin(C& c,const Prior& prior,bool held,AllocatorRange heap,uint32_t request,AllocatorRange meta={},AllocatorRange guard={}){
-        if(stage_||error_||!safe(c,held)||!prior.release_at(c,held)||c.pc!=e_.root||c.lr!=e_.resume||
+        if(stage_||error_||fd_>1u||!safe(c,held)||!prior.release_at(c,held)||c.pc!=e_.root||c.lr!=e_.resume||
            !(c.msr&0x8000u)||(c.gpr[4]&0x3fffffffu)!=(request&0x3fffffffu)||
            (c.gpr[4]&0xc0000000u)==0x40000000u||!heap.contains(request,32u)||
-           !word(c,request,StmIos::Reply)||!word(c,request+4u,0u)||!word(c,request+8u,StmIos::Open)||
+           !word(c,request,StmIos::Reply)||!word(c,request+4u,fd_)||!word(c,request+8u,StmIos::Open)||
            c.gpr[1]<512u||(c.gpr[1]&7u)||!known(c,e_.root,e_.root)||
            !word(c,e_.resume,e_.resume_word)||!direct(c,e_.disable)||!direct(c,e_.restore)||
            !fence_.begin(c,{c.gpr[1]-512u,520u},heap,meta,guard))return fail(1);
@@ -126,7 +126,7 @@ public:
             c.msr==msr_&&abi(c)&&restore_returned_&&word(c,c.pc,e_.resume_word)&&fence_.finished(c);
     }
 private:
-    AllocatorReleaseExpectation e_;AllocatorStoreFence fence_;const void* cpu_=nullptr;
+    AllocatorReleaseExpectation e_;uint32_t fd_;AllocatorStoreFence fence_;const void* cpu_=nullptr;
     std::array<uint32_t,32> gp_{};uint32_t cr_=0,msr_=0,active_=0,next_=0,poll_pc_=0;
     uint64_t last_=0,start_=0;unsigned stage_=0,error_=0,visits_=0,store_site_ordinal_=0,control_error_=0;
     bool disabled_=false,enabled_=false,disable_returned_=false,restore_polled_=false,restore_returned_=false;

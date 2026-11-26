@@ -16,14 +16,15 @@ struct Mmu{
 struct Cr{bool lt=false,gt=false,eq=false,so=false;};
 struct Cpu{Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint32_t pc=F,lr=U,ctr=0,msr=0x8032,dispatch_saved_ctx=0;uint64_t inst_count=100;bool is_running=true,in_callback=false;};
 struct Prior{bool ok=true;bool release_at(Cpu&,bool held)const{return ok&&held;}};
-static void trial(unsigned f){
+static void trial(unsigned f,uint32_t fd=0){
     Cpu c;c.gpr[1]=0x80008000u;c.gpr[4]=Q;c.gpr[5]=0x12345678;c.gpr[6]=H;
     const std::array<ReplyNativeWord,8> words{{{F,F,bl(F,D)},{F,F+4,Store},{F,F+8,bl(F+8,R)},{F,F+12,Blr},
         {D,D,Mtmsr},{D,D+4,Blr},{R,R,Mtmsr},{R,R+4,Blr}}};
     for(auto w:words)c.mmu.write32(w.pc,w.word);
     c.mmu.write32(U,Nop);c.mmu.write32(Q,StmIos::Reply);c.mmu.write32(Q+8,StmIos::Open);
-    AllocatorReleaseWitness w({F,U,Nop,{D,F+4,bl(F,D),Mtmsr},{R,F+12,bl(F+8,R),Mtmsr},words});
-    bool ok=w.begin(c,Prior{f!=1},true,{H,256},Q);if(f==1){assert(!ok&&w.failure()==1);return;}assert(ok);
+    AllocatorReleaseWitness w({F,U,Nop,{D,F+4,bl(F,D),Mtmsr},{R,F+12,bl(F+8,R),Mtmsr},words},fd);
+    c.mmu.write32(Q+4u,fd^(f==14?1u:0u));
+    bool ok=w.begin(c,Prior{f!=1},true,{H,256},Q);if(f==1||f==14){assert(!ok&&w.failure()==1);return;}assert(ok);
     auto step=[&](uint32_t pc,uint32_t v){++c.inst_count;return w.before(c,pc,v,true);};
     assert(step(F,bl(F,D)));c.pc=D;c.lr=F+4;assert(w.entry(c,D,true));
     c.gpr[4]=f==2?0x8032:0x32;ok=step(D,Mtmsr);if(f==2){assert(!ok&&w.failure()==4);return;}assert(ok);
@@ -52,4 +53,8 @@ static void trial(unsigned f){
     assert(w.returned(c,true)&&w.heap_stores()==1&&w.visits()==8);
     if(f==8){++c.inst_count;assert(!w.returned(c,true));}
 }
-int main(){for(unsigned f=0;f<=13;++f)trial(f);std::cout<<"V1357_ALLOCATOR_RELEASE synthetic=1 valid=2 refused=12 exact_store=1 restored_abi=1 inline_return=1 restore_previous_ee=1 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=13;++f)trial(f);
+#ifdef UNDERCOVER_TEST_SECOND_RETURN
+for(unsigned f=0;f<=14;++f)trial(f,1u);std::cout<<"V1375_SECOND_ALLOCATOR_RETURN cases=15\n";
+#endif
+std::cout<<"V1357_ALLOCATOR_RELEASE synthetic=1 valid=2 refused=12 exact_store=1 restored_abi=1 inline_return=1 restore_previous_ee=1 original_execution=0\n";}
