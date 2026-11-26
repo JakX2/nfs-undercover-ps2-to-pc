@@ -1,0 +1,3 @@
+# V1005: exact resumed handler instruction progression
+
+V1003 private run 45727431466 passed eight complete original callback returns to the real second handler (37 suffix visits, four polls, 12 restore/return visits). The resumed handler guard previously checked authenticated words, tick continuity and store values but permitted a jump between allowed labels. Add an explicit strict opt-in that checks initial label, branch target, CR/CTR branch decision, unchanged stack pointer and terminal boundary ownership, including refusal of unsupported control forms. Keep prior modes unchanged. Twelve synthetic branch/terminal cases and original V1004 continuation retest are requested. No claim of original handler completion.

@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v1004*'
+      - 'research/native_recomp/*v1005*'
       - '.github/workflows/wii-v1004-second-handler-frontier.yml'
 permissions:
   contents: read
@@ -15,7 +16,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/prepare_owner_second_alarm_v985.py
+          python3 -m py_compile research/native_recomp/prepare_owner_second_handler_frontier_v1004.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_strict_handler_suffix_v1005.cpp -o "$RUNNER_TEMP/v1005"
+          "$RUNNER_TEMP/v1005"
           bash -n research/native_recomp/run_owner_second_handler_frontier_v1004.sh
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_bounded_ack_call_route_v956.cpp -o "$RUNNER_TEMP/v956"
           "$RUNNER_TEMP/v956"

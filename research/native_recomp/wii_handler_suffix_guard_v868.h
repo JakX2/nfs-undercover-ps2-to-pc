@@ -9,7 +9,7 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned writes()const{return writes_;}
-    template<class C>bool start(C& c,std::span<const HandlerSuffixLabel> rows,uint32_t resume,unsigned label_limit=64u){
+    template<class C>bool start(C& c,std::span<const HandlerSuffixLabel> rows,uint32_t resume,unsigned label_limit=64u,bool strict=false){
         if(ctx_||error_||rows.empty()||(label_limit!=64u&&label_limit!=256u)||rows.size()>label_limit||c.pc!=resume||
            c.gpr[1]<0x80000400u||c.gpr[1]>0x817fff00u||(c.gpr[1]&3u))return fail(1);
         rows_=rows;uint32_t previous=0;
@@ -19,10 +19,11 @@ public:
             previous=x.pc;
         }
         if(!find(resume))return fail(1);
-        ctx_=&c;sp_=c.gpr[1];last_=c.inst_count;return true;
+        if(strict){if constexpr(!requires{c.ctr;c.cr[0].lt;c.cr[0].gt;c.cr[0].eq;c.cr[0].so;})return fail(1);}
+        ctx_=&c;sp_=c.gpr[1];last_=c.inst_count;strict_=strict;next_=resume;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,unsigned ordinal,unsigned kind,bool status_read=false,bool status_write=false){
-        if(error_||ctx_!=&c||c.inst_count-last_!=unsigned(visits_!=0)||++visits_>128u)return fail(2);
+        if(error_||ctx_!=&c||(strict_&&(terminal_||pc!=next_||c.gpr[1]!=sp_))||c.inst_count-last_!=unsigned(visits_!=0)||++visits_>128u)return fail(2);
         const auto* x=find(pc);
         if(!x||x->word!=w||x->ordinal!=ordinal||x->kind!=kind||!mapped(c,pc,4)||c.mmu.read32(pc)!=w)return fail(3);
         if(pending_){
@@ -31,15 +32,36 @@ public:
         }
         last_=c.inst_count;
         if((status_read&&(kind||w>>26!=32u))||(status_write&&(kind||w>>26!=36u||status_read)))return fail(5);
+        if(strict_){
+            if(kind||w==0x4e800020u){terminal_=true;return true;}
+            const unsigned op=w>>26,xo=(w>>1)&1023u;
+            if(op==17u||(op==19u&&(xo==16u||xo==50u||xo==528u))||(op==31u&&xo==146u))return fail(6);
+            next_=pc+4u;
+            if(op==16u||op==18u){
+                if(w&3u)return fail(6);
+                const uint32_t mask=op==16u?0xfffcu:0x03fffffcu,sign=op==16u?0x8000u:0x02000000u;
+                const uint32_t dest=pc+(((w&mask)^sign)-sign);
+                if(!find(dest))return fail(6);
+                if(op==18u||taken(c,w))next_=dest;
+            }
+            if(!find(next_))return fail(6);
+        }
         return kind||w==0x4e800020u||memory(c,w,status_read,status_write)?true:fail(5);
     }
 private:
     std::span<const HandlerSuffixLabel> rows_{};
     const void* ctx_=nullptr;uint64_t last_=0;
-    uint32_t sp_=0,addr_=0;unsigned pending_=0,error_=0,visits_=0,writes_=0;
+    uint32_t sp_=0,addr_=0,next_=0;bool strict_=false,terminal_=false;unsigned pending_=0,error_=0,visits_=0,writes_=0;
     std::array<uint8_t,128> expected_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     const HandlerSuffixLabel* find(uint32_t pc)const{for(const auto& x:rows_)if(x.pc==pc)return &x;return nullptr;}
+    template<class C>static bool taken(C& c,uint32_t w){
+        if constexpr(requires{c.ctr;c.cr[0].lt;c.cr[0].gt;c.cr[0].eq;c.cr[0].so;}){
+            const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;const auto& f=c.cr[bi/4u];
+            const bool bit=bi%4u==0?f.lt:bi%4u==1?f.gt:bi%4u==2?f.eq:f.so;
+            return ((bo&4u)||(((uint32_t(c.ctr)-1u)!=0u)^bool(bo&2u)))&&((bo&16u)||bit==bool(bo&8u));
+        }else return false;
+    }
     static bool within(uint32_t a,unsigned n,uint32_t lo,uint32_t hi){return n&&a>=lo&&uint64_t(a)+n<=hi;}
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
         if(!within(a,n,0x80000000u,0x81800000u)||(n>1u&&(a&(n==2u?1u:3u))))return false;

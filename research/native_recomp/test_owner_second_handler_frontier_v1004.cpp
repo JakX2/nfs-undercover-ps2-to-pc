@@ -213,7 +213,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                 std::cout<<std::dec<<"V1003_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits="<<callback_return.visits()
                     <<" token_preserved=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
                 if(!handler_suffix_route)std::_Exit(0);
-                need(resumed_handler.start(c,v868::after6,pc)&&resumed_index.start(c,pc));handler_suffix_active=true;resumed_step(c,pc,w);
+                need(resumed_handler.start(c,v868::after6,pc,64u,true)&&resumed_index.start(c,pc));handler_suffix_active=true;resumed_step(c,pc,w);
             }
             return;
         }
