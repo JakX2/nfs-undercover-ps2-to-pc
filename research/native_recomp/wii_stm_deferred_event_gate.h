@@ -38,6 +38,7 @@ public:
     // The guest ACK handler owns the bus from the pending Y2 latch
     // through the subsequent Hollywood W1C. Reads must not pump IOS.
     bool ack_held(bool authorized)const{return stage_>=4u&&stage_<=6u&&boundary(authorized);}
+    bool ack_latch_cleared(bool authorized)const{return (stage_==5u||stage_==6u)&&boundary(authorized);}
     std::optional<uint32_t> read_ack(uint32_t addr,uint32_t msr,bool authorized){
         if(!ack_held(authorized)||(msr&IosBus::MSR_EE)||
            (!reg(addr,M::PPCCTRL)&&!reg(addr,H::PPC_FLAG))){fail(6);return {};}

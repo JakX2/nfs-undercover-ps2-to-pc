@@ -60,12 +60,18 @@ static void trial(unsigned first,unsigned fault){
         {Handler,Handler+24,Unstack},{Handler,Handler+28,LR},{Handler,Handler+32,Ret},
         {Read,Read,Ld},{Read,Read+4,Ret},{Write,Write,St},{Write,Write+4,Ret},
         {Prof,Prof,Dec},{Prof,Prof+4,Ret},{Caller,Caller,N}}};
+    const bool late_flag=fault>=18;
+    if(late_flag){
+        words[3].word=Inc;words[4].word=bl(Handler+16,Prof);words[5].word=bl(Handler+20,Write);
+    }
     if(fault==3)words[0].word=0x900d0000u;
     for(auto x:words)c.mmu.write32(x.pc,x.word);
     const std::array<IpcDispatchEdge,4> edges{{{Handler+4,Read,words[1].word},
-        {Handler+8,Write,words[2].word},{Handler+12,Write,words[3].word},{Handler+20,Prof,words[5].word}}};
+        {Handler+8,Write,words[2].word},
+        {late_flag?Handler+16:Handler+12,late_flag?Prof:Write,late_flag?words[4].word:words[3].word},
+        {Handler+20,late_flag?Write:Prof,words[5].word}}};
     c.pc=Handler;c.lr=Caller;c.msr=0x32;c.gpr[1]=Sp;c.gpr[13]=Credit;c.gpr[0]=Caller;
-    DeferredAckExecution w({Handler,Caller,N,Handler+32,Read,Write,Prof,Handler+16,Prof,words,edges});
+    DeferredAckExecution w({Handler,Caller,N,Handler+32,Read,Write,Prof,late_flag?Handler+12:Handler+16,Prof,words,edges});
     bool ok=w.begin(c,gate,mem,fault!=1);if(fault==1){assert(!ok);return;}assert(ok);
     auto step=[&](uint32_t pc,uint32_t ins){++c.inst_count;return w.before(c,pc,ins,true);};
     if(fault>=15){
@@ -85,7 +91,7 @@ static void trial(unsigned first,unsigned fault){
     if(fault==6){assert(!v);return;}assert(v);
     c.gpr[3]=fault==7?0u:*v;
     ok=step(Read+4,Ret);if(fault==7){assert(!ok);return;}assert(ok);
-    for(unsigned i=0;i<2;++i){
+    for(unsigned i=0;i<(late_flag?1u:2u);++i){
         const auto call=Handler+8+i*4;
         c.gpr[3]=I::IPC+(i?H::PPC_FLAG:M::PPCCTRL);c.gpr[4]=i?H::IPC_PPC:en|M::Y2;
         assert(step(call,bl(call,Write)));c.pc=Write;c.lr=call+4;assert(w.entry(c,Write,true));
@@ -94,14 +100,23 @@ static void trial(unsigned first,unsigned fault){
         assert(step(Write+4,Ret));
     }
     c.gpr[4]=fault==9?0u:1u;
-    ok=step(Handler+16,Inc);if(fault==9){assert(!ok);return;}assert(ok);
+    ok=step(late_flag?Handler+12:Handler+16,Inc);if(fault==9){assert(!ok);return;}assert(ok);
     c.mmu.write32(Credit,fault==10?0u:1u);
-    ok=step(Handler+20,words[5].word);if(fault==10){assert(!ok);return;}assert(ok);
-    c.pc=Prof;c.lr=Handler+24;c.gpr[4]=fault==11?1u:0u;assert(w.entry(c,Prof,true));
+    const auto prof_call=late_flag?Handler+16:Handler+20;
+    ok=step(prof_call,bl(prof_call,Prof));if(fault==10){assert(!ok);return;}assert(ok);
+    c.pc=Prof;c.lr=prof_call+4u;c.gpr[4]=fault==11?1u:0u;assert(w.entry(c,Prof,true));
     ok=step(Prof,Dec);if(fault==11){assert(!ok);return;}assert(ok);
     c.mmu.write32(U,0);
     if(fault==12)c.mmu.write32(P,0);
     ok=step(Prof+4,Ret);if(fault==12){assert(!ok);return;}assert(ok);
+    if(late_flag){
+        assert(gate.stage()==5u&&gate.ack_latch_cleared(true)&&mem.stores()==2u);
+        c.gpr[3]=I::IPC+H::PPC_FLAG;c.gpr[4]=H::IPC_PPC;
+        assert(step(Handler+20,words[5].word));c.pc=Write;c.lr=Handler+24;
+        assert(w.entry(c,Write,true)&&step(Write,St));
+        ok=w.write(c,c.gpr[3],fault==19?0u:c.gpr[4],true);
+        if(fault==19){assert(!ok);return;}assert(ok&&step(Write+4,Ret));
+    }
     assert(step(Handler+24,Unstack));c.gpr[1]=Sp;
     assert(step(Handler+28,LR));c.lr=Caller;
     if(fault==13)c.gpr[31]=1;
@@ -111,5 +126,5 @@ static void trial(unsigned first,unsigned fault){
     assert(w.reached(c,true)&&w.reads()==1&&w.writes()==2&&w.calls()==4&&w.stack_stores()==1&&
            host.serviced_steps()==5&&host.services().event_pending()&&mem.preserved(c));
 }
-int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=17;++f)trial(first,f);
-    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=36 original_execution=0\n";}
+int main(){for(unsigned first:{1u,2u})for(unsigned f=0;f<=19;++f)trial(first,f);
+    std::cout<<"DEFERRED_ACK_EXECUTION_TEST cases=40 original_execution=0\n";}

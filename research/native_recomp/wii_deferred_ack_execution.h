@@ -58,7 +58,7 @@ public:
             auto a=ea(c,w);
             if(a>0xffffffffull||(a&3u))return fail(4);
             if((owner_==e_.handler&&pc==e_.credit_site)||(owner_==e_.profile_root&&pc==e_.profile_site)){
-                if(op!=36u||!gate_->completed(true)||!mem_->authorize(c,uint32_t(a),c.gpr[rs],4u,true))return fail(4);
+                if(op!=36u||!gate_->ack_latch_cleared(true)||!mem_->authorize(c,uint32_t(a),c.gpr[rs],4u,true))return fail(4);
             }else{
                 const unsigned count=op==47u?32u-rs:1u;
                 if(owner_!=e_.handler||ra!=1u||!frame_.contains(uint32_t(a),4u*count)||++stack_stores_>32u||
@@ -79,7 +79,7 @@ public:
             if(owner_!=e_.handler||calls_>=32u)return fail(5);
             auto it=std::find_if(e_.calls.begin(),e_.calls.end(),[&](auto x){return x.call==pc&&x.word==w;});
             if(it==e_.calls.end()||!admitted(it->target))return fail(5);
-            if(it->target==e_.profile_root&&(!gate_->completed(true)||mem_->stores()!=1u))return fail(5);
+            if(it->target==e_.profile_root&&(!gate_->ack_latch_cleared(true)||mem_->stores()!=1u))return fail(5);
             next_=it->target;helper_return_=pc+4u;entry_due_=true;return true;
         }
         if(op==19u&&xo==16u){
@@ -125,7 +125,9 @@ public:
         if(!live(c,held)||access_due_!=2u||a!=access_addr_||v!=access_value_||c.inst_count!=last_||writes_>=2u||
            !gate_->ack_write(a,v,c.msr,true))return fail(7);
         access_due_=0;++writes_;
-        if(writes_==2u&&!mem_->latch_cleared(c,gate_->completed(true)))return fail(7);
+        // The original handler accounts for the consumed request after
+        // clearing Y2, potentially before the separate Hollywood W1C.
+        if(writes_==1u&&!mem_->latch_cleared(c,gate_->ack_latch_cleared(true)))return fail(7);
         return true;
     }
     template<class C>bool poll(C& c,bool held){
