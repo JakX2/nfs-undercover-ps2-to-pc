@@ -27,7 +27,7 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None,stack_refusal=None):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     edge_used=False
@@ -66,7 +66,12 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         raise ValueError('formatter stack read provenance')
     def read(a,n):
         k,at=a
-        if k=='stack':return stack_read(at,n)
+        if k=='stack':
+            try:return stack_read(at,n)
+            except ValueError:
+                if stack_refusal is not None:
+                    stack_refusal(at,n,tuple(path),frame,tuple(accesses),tuple(gp),dict(mem),dict(cr),ctr,lr,frozenset(saves))
+                raise
         if k!='const':raise ValueError('formatter pointer provenance')
         matches=[blob[at-base:at-base+n] for base,blob in readonly if base<=at<at+n<=base+len(blob)]
         if len(matches)==1:return const(int.from_bytes(matches[0],'big'))
