@@ -1,10 +1,22 @@
 import unittest
-from formatter_local_ctr_native import verify_ctr_body,ensure_ctr_resume
+from formatter_local_ctr_native import verify_ctr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
 R=0x80010000;S=R+4;D=R+0x20
 class Test(unittest.TestCase):
     def setUp(self):
         self.body=f'void fn_{R:X}(CPUContext& ctx) {{\n    switch (ctx.pc) {{\n        case 0x{D:X}: goto loc_{D:X};\n    }}\nloc_{S:X}: ;\n    // 0x{S:08X}: 4E800420\n    ++ctx.inst_count;\n    ctx.pc = ctx.ctr; return;\nloc_{D:X}: ;\n    // 0x{D:08X}: 60000000\n    ++ctx.inst_count;\n}}\n'
         self.main=f'    case 0x{R:X}: fn_{R:X}(ctx); break;\n'
+    def test_analyzer(self):
+        old='    block_queue.push(func_start);'
+        s=analyzer_local_edge(old,R,S,D)
+        self.assertIn('if(func_start==0x80010000u)',s)
+        self.assertIn('local_jump_targets.insert(0x80010020u)',s)
+        with self.assertRaisesRegex(ValueError,'anchor'):analyzer_local_edge(s,R,S,D)
+        with self.assertRaisesRegex(ValueError,'geometry'):analyzer_local_edge(old,R,S,R+0x1000)
+    def test_trace(self):
+        s=self.body.replace('    ++ctx.inst_count;\n}',f'    ++ctx.inst_count;\n    formatter_nested_before(ctx,0x{D:08x}u,0x60000000u);\n}}')
+        out=trace_ctr_destination(s,D,0x60000000)
+        self.assertIn(f'ctx.pc == 0x{D:X}) nwii::runtime::trace_call',out)
+        with self.assertRaisesRegex(ValueError,'trace'):trace_ctr_destination(out,D,0x60000000)
     def test_exact(self):self.assertTrue(verify_ctr_body(self.body,S))
     def test_resume(self):
         out,added=ensure_ctr_resume(self.main,self.body,R,S,D)

@@ -15,7 +15,7 @@ from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
-from formatter_local_ctr_native import verify_ctr_body
+from formatter_local_ctr_native import verify_ctr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
 from prepare_v680_si_helper import exact_function
 
 def plan(d,e,*,second=False,third=False,control=False):
@@ -76,14 +76,20 @@ def scope(d,e,sizes,p):
     before={**sizes,root:4*len(old[root])}
     return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root]})
 
-def install(directory,p):
+def install(directory,p,*,arrival=False):
     _,contract=p
     _,fields,rows,*_=contract;root,_,target,word,*_=fields
     files=sorted(directory.glob('output_*.cpp'));sources={x:x.read_text() for x in files}
     expected={pc:(root,w) for pc,w in rows}
     if target in expected:raise ValueError('nested fixture load boundary')
     expected[target]=(root,word)
-    audit_native(sources.values(),(directory/'main_output.cpp').read_text(),expected)
+    main=directory/'main_output.cpp';main_text=main.read_text()
+    if arrival:
+        if len(fields)!=10:raise ValueError('nested fixture arrival mode')
+        dst,dword,_=fields[7:]
+        if dst in expected:raise ValueError('nested fixture arrival mode')
+        expected[dst]=(root,dword)
+    audit_native(sources.values(),main_text,expected)
     if len(fields)==10:
         owners=[]
         for source in sources.values():
@@ -91,6 +97,7 @@ def install(directory,p):
             except ValueError:pass
         if len(owners)!=1:raise ValueError('nested fixture control owner')
         verify_ctr_body(owners[0],target)
+        if arrival:main_text,_=ensure_ctr_resume(main_text,owners[0],root,target,dst)
     done=set();changed={}
     for file,s in sources.items():
         old=s
@@ -100,30 +107,35 @@ def install(directory,p):
             hook=f'    v1344_before(ctx,0x{pc:08x}u,0x{w:08x}u);'
             if pc in done or s.count(hook)!=1:raise ValueError('nested fixture native hook')
             done.add(pc);s=s.replace(hook,hook.replace('v1344_before','formatter_nested_before'))
+            if arrival and pc==dst:s=trace_ctr_destination(s,pc,w)
         if s!=old:
             anchor='#include "runtime/cpu_context.h"'
             if s.count(anchor)!=1:raise ValueError('nested fixture native hook')
             changed[file]=s.replace(anchor,anchor+'\nvoid formatter_nested_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
     if done!=set(expected):raise ValueError('nested fixture coverage')
     for file,s in changed.items():file.write_text(s)
-    kind='pre_control_hook' if len(fields)==10 else 'pre_load_hook'
+    if arrival:main.write_text(main_text)
+    kind='arrival_hook' if arrival else 'pre_control_hook' if len(fields)==10 else 'pre_load_hook'
     print(f'FORMATTER_NESTED_TRANSLATION verified=1 labels={len(rows)} {kind}=1')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');q=a.parse_args()
-    safe={'size','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');q=a.parse_args()
+    safe={'size','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
-            p=plan(d,e,second=q.second,third=q.third,control=q.control)
+            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival)
             if q.fixture:extend(q.fixture,p);return 0
-            if q.install:install(q.install,p);return 0
+            if q.install:install(q.install,p,arrival=q.arrival);return 0
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
-                q.analyzer.write_text(analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p)))
+                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),p))
+                if q.arrival:
+                    fields=p[1][1];source=analyzer_local_edge(source,fields[0],fields[2],fields[7])
+                q.analyzer.write_text(source)
                 print('FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
             if not render(p[1]):raise ValueError('nested fixture extent')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:

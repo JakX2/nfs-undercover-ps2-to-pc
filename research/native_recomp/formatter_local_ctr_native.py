@@ -19,3 +19,24 @@ def ensure_ctr_resume(main,body,owner,site,destination):
     labels=re.findall(r'(?mi)^loc_'+f'{destination:X}'+r': ;$',body)
     if len(labels)!=1:raise ValueError('CTR native destination')
     return ensure_resume(main,body,owner,destination)
+
+def analyzer_local_edge(source,owner,site,destination):
+    if any(a&3 for a in (owner,site,destination)) or not owner<site<owner+383*4 or not owner<destination<owner+383*4 or site==destination:
+        raise ValueError('CTR analyzer geometry')
+    anchor='    block_queue.push(func_start);'
+    if source.count(anchor)!=1 or 'verified local CTR edge' in source:raise ValueError('CTR analyzer anchor')
+    # This adds a block, not a function root. Source words and ownership are
+    # independently authenticated by the private contract and span adapter.
+    line=(f'\n    if(func_start==0x{owner:08x}u) {{ block_queue.push(0x{destination:08x}u); '
+          f'local_jump_targets.insert(0x{destination:08x}u); }} // verified local CTR edge')
+    return source.replace(anchor,anchor+line,1)
+
+def trace_ctr_destination(source,pc,w):
+    label=r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n'
+    pat=re.compile(label+r'    \+\+ctx\.inst_count;\n    formatter_nested_before\(ctx,0x'+f'{pc:08x}u,0x{w:08x}u'+r'\);')
+    hits=list(pat.finditer(source))
+    if len(hits)!=1:raise ValueError('CTR destination trace')
+    pos=hits[0].start()+len(re.match(label,source[hits[0].start():])[0])
+    line=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{pc:X}) nwii::runtime::trace_call(0x{pc:X}, ctx); // original CTR destination\n'
+    if line in source:raise ValueError('CTR destination trace')
+    return source[:pos]+line+source[pos:]
