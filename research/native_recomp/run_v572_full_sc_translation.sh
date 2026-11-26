@@ -422,8 +422,9 @@ if [[ "$external_entry" == 1 ]]; then
   python3 "$here/apply_si_roots_v669.py" "$nw" "$dol" "$elf" "${helper_args[@]}"
 fi
 if [[ "$ack_open" == 1 ]]; then
-  python3 "$here/apply_open_roots_v645.py" "$nw" "$dol" "$elf"
-  python3 "$here/apply_explicit_tail_roots_v71.py" "$nw"
+  # The authenticated Open range itself terminates the allocator thunk.
+  # Do not alter unrelated explicit-root tail branches in the full image.
+  python3 "$here/apply_open_roots_v645.py" "$nw" "$dol" "$elf" --with-si
 elif [[ "$ack_stm" == 1 ]]; then
   python3 "$here/apply_stm_native_open_v632.py" "$nw" "$dol" "$elf"
 fi

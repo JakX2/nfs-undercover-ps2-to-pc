@@ -12,7 +12,6 @@ from make_v624_ipc_geometry import exact_words
 from prepare_v625_ipc_client import audit_native,patch_return
 from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
-from prepare_v1029_third_transfer import replace_body
 from prepare_v1141_postalarm_handler import block_at
 from prepare_v641_open_request import patch_sc,IOS_INC,IOS_HOOK
 from apply_open_cache_trace_v649 import PAIRS

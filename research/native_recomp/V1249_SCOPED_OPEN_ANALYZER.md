@@ -1,0 +1,3 @@
+# V1249: scoped full-image Open analyzer composition
+
+The V1247 Open continuation initially reused the isolated explicit-tail analyzer patch. Remove that general patch from the full-image route: the already authenticated Open owner range stops analysis at the original one-instruction allocator thunk. Require that the existing SI owner table contains the identical two IRQ helper extents, and refuse any partial overlap between SI and Open owner regions before emitting C++. Keep old SI and BAT rules and the scanner's unrelated HLE choices. Add composition and full non-mutating installer-plan tests. Focused V1248 still uses its verified isolated build configuration. No new owner full build is started; V1244 remains pinned and running. CI pending.

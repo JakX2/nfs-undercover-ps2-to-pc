@@ -30,4 +30,26 @@ class Tests(unittest.TestCase):
         src='\n'.join(a for a,_ in pairs())
         for bad in (src+src,'',src.replace('function_queue.pop();','')):
             with self.assertRaises(ValueError):rewrite(bad,pairs())
+    def test_si_composition(self):
+        from apply_si_roots_v669 import pairs as si_pairs,ROOTS
+        from apply_open_roots_v645 import shared_si_spans
+        irq=dict(zip(IRQ_ROOTS,(20,36)))
+        si=tuple((a,irq.get(a,4)) for a in ROOTS)
+        ps=si_pairs(si);op=pairs(tuple(irq.items()))
+        base='\n'.join(dict.fromkeys(a for a,b in (*PAIRS,*ps,*op)))
+        old=rewrite(rewrite(base,PAIRS),ps)
+        self.assertEqual(shared_si_spans(old,tuple(irq.items())),2)
+        out=rewrite(old,op)
+        self.assertEqual(shared_si_spans(out,tuple(irq.items())),2)
+        self.assertEqual(rewrite(out,op),out)
+        self.assertIn('si_owner(func_start)',out)
+        self.assertIn('open_owner(func_start)',out)
+        self.assertEqual(out.count('func.hle_hook_name = scanner.match(opcodes);'),1)
+        for bad in ('',old+old,old.replace('      return 0;\n    };\n    if(si_owner','      return 1;\n    };\n    if(si_owner'),
+                    old.replace('0x805265c0u','0x805265bcu')):
+            with self.assertRaises(ValueError):shared_si_spans(bad,tuple(irq.items()))
+        # Add an earlier interval that partially overlaps the Open root.
+        from make_v639_open_geometry import OPEN
+        with self.assertRaises(ValueError):
+            shared_si_spans(rewrite(base,si_pairs(tuple(sorted((*si,(OPEN-4,8)))))),tuple(irq.items()))
 if __name__=='__main__':unittest.main()

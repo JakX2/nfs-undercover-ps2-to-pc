@@ -78,4 +78,31 @@ class OpenSource(unittest.TestCase):
         self.assertLess(got.index(IOS_HOOK),got.index(boot))
         for bad in ('',src+src,got,IOS_INC+'\n'+boot+'\n'+IOS_HOOK):
             with self.assertRaises(ValueError):patch_ios(bad)
+    def test_complete_plan(self):
+        import tempfile
+        from unittest.mock import patch
+        import prepare_v1246_ack_open as ins
+        from apply_open_cache_trace_v649 import PAIRS
+        src,outer,g=fixture()
+        boot='  if (undercover::wii::v574::try_sc(ctx)) return false;'
+        ios=IOS_INC+'\n'+IOS_HOOK+'\n'+boot
+        cpu='\n'.join(a for a,b in PAIRS)
+        host=Path(ins.__file__).parent
+        # Complete in-memory plan: only the prior vector is on disk.
+        with tempfile.TemporaryDirectory() as td,patch.object(ins,'geometry',return_value=g),\
+             patch.object(ins,'irq_spans',return_value=()),patch.object(ins,'vector_geometry',return_value=('authenticated vector',(),0)):
+            dest=Path(td);vector=dest/'v574_private_sc_expectations.h';vector.write_text('authenticated vector')
+            result,files,new_ios,new_cpu=ins.prepare(b'',b'',src,outer,{},dest,host,ios,cpu,'')
+            self.assertEqual(len(result),2)
+            self.assertIn('wii_post_ack_open_binding_v1246.h',{p.name for p in files})
+            self.assertIn(SC_HOOK,new_ios)
+            self.assertIn('open_cache_range.on_flush',new_cpu)
+            self.assertEqual(list(dest.iterdir()),[vector])
+            self.assertEqual(vector.read_text(),'authenticated vector')
+            for bad_ios,bad_cpu in (('',cpu),(ios,'')):
+                with self.assertRaises(ValueError):
+                    ins.prepare(b'',b'',src,outer,{},dest,host,bad_ios,bad_cpu,'')
+            vector.write_text('wrong')
+            with self.assertRaisesRegex(ValueError,'vector identity'):
+                ins.prepare(b'',b'',src,outer,{},dest,host,ios,cpu,'')
 if __name__=='__main__':unittest.main()

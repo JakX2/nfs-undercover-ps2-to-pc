@@ -6,7 +6,7 @@ general analyzer can otherwise absorb its callee or adjacent entry into
 another emitted function. Preserve the original branch target and let
 the native dispatcher transfer to the actual root.
 """
-import argparse
+import argparse,re
 from pathlib import Path
 from make_v639_open_geometry import geometry,SPANS,exact_words
 from make_private_elf_symbol_map import parse_functions
@@ -47,17 +47,41 @@ def pairs(irq=TEST_IRQ_SPANS):
     scan_roots='||'.join(f'func.start_address==0x{pc:08x}u' for pc in sorted({pc for pc,_ in spans}|{0x805195ec}))
     scanner=SCANNER+'\n    if('+scan_roots+')func.hle_hook_name.clear();'
     return ((ROOT,roots),(READ,read),(SCANNER,scanner))
-def apply(root,irq=TEST_IRQ_SPANS):
+def shared_si_spans(source,irq):
+    """Authenticate the exact overlap with previously installed SI ownership.
+
+    Reject incompatible partial overlaps rather than letting the ordering
+    of the two analyzer gates decide which original function is emitted.
+    """
+    match=re.findall(r'(?ms)^    const auto si_owner=\[\]\(uint32_t a\)->uint32_t \{\n(.*?)^    \};$',source)
+    if len(match)!=1:raise ValueError('SI Open owner seam')
+    pattern=r'      if\(a>=0x([0-9a-f]{8})u&&a<0x([0-9a-f]{8})u\)return 0x([0-9a-f]{8})u;\n'
+    body=match[0]
+    rows=[tuple(int(x,16) for x in m) for m in re.findall(pattern,body)]
+    if not rows or re.sub(pattern,'',body)!='      return 0;\n' or any(a!=r or not a<z for a,z,r in rows):
+        raise ValueError('SI Open owner rows')
+    si=tuple((a,z-a) for a,z,_ in rows)
+    if len(set(si))!=len(si) or any(a+n>z for (a,n),(z,_) in zip(si,si[1:])):
+        raise ValueError('SI Open owner rows')
+    if any(x not in si for x in irq):raise ValueError('SI Open IRQ identity')
+    for a,n in (*SPANS,*irq):
+        for z,m in si:
+            if a<z+m and z<a+n and (a,n)!=(z,m):raise ValueError('SI Open partial overlap')
+    return len(irq)
+
+def apply(root,irq=TEST_IRQ_SPANS,with_si=False):
     p=root/FILE
     if p.is_symlink():raise ValueError('symlink')
-    s=p.read_text(encoding='utf-8');out=rewrite(s,pairs(irq))
+    s=p.read_text(encoding='utf-8')
+    if with_si:shared_si_spans(s,irq)
+    out=rewrite(s,pairs(irq))
     if s!=out:p.write_text(out,encoding='utf-8')
 def main():
-    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('dol',type=Path);p.add_argument('elf',type=Path);p.add_argument('--with-si',action='store_true');a=p.parse_args()
     try:
         if a.dol.stat().st_size>32*1024*1024 or a.elf.stat().st_size>64*1024*1024:raise ValueError('size')
         dol,elf=a.dol.read_bytes(),a.elf.read_bytes()
-        geometry(dol,elf);apply(a.root,irq_spans(dol,elf))
+        geometry(dol,elf);apply(a.root,irq_spans(dol,elf),a.with_si)
     except (OSError,ValueError,UnicodeError):print('V645_OPEN_ANALYZER installed=0');return 1
     print('V645_OPEN_ANALYZER installed=1 roots=6 native_submit=1 exact_elf=1');return 0
 if __name__=='__main__':raise SystemExit(main())
