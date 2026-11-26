@@ -51,6 +51,10 @@ public:
         last_=c.inst_count;return true;
     }
     bool postack_held()const{return stage_==4u&&!armed_&&tick_&&*tick_==last_&&state(false);}
+    // Read-only terminal observation after independently witnessed native RFI.
+    bool postack_held_after_rfi(uint64_t tick,unsigned delta)const{
+        return stage_==4u&&!armed_&&tick_&&*tick_==tick&&delta<=2u&&tick>=last_&&tick-last_==delta&&state(false);
+    }
     bool owns_postack(const SiController& ctl,const std::atomic<uint32_t>& cause,
                       const std::atomic<uint32_t>& mask,const uint64_t& tick)const{
         return &ctl==ctl_&&&cause==cause_&&&mask==mask_&&&tick==tick_&&postack_held();
