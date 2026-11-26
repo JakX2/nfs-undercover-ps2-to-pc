@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0
+reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0;formatter_second_mode=0
+if [[ $# == 4 && "$4" == --formatter-nested-second ]];then
+  formatter_second_mode=1
+  set -- "$1" "$2" "$3" --formatter-nested
+fi
 if [[ $# == 4 && "$4" == --formatter-nested ]];then
   formatter_nested_mode=1
   set -- "$1" "$2" "$3" --formatter-continuation
@@ -314,6 +318,8 @@ if [[ "$post_stm_formatter_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_F
 if [[ "$post_stm_formatter_leaf_mode" == 1 ]];then extra+=(-DUNDERCOVER_POST_STM_SC_FORMATTER_LEAF);fi
 if [[ "$formatter_continuation_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_CONTINUATION);fi
 if [[ "$formatter_nested_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_NESTED);fi
+nested_args=()
+if [[ "$formatter_second_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_SECOND);nested_args=(--second);fi
 helper_args=()
 if [[ "$reply_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_V1316_REPLY_HELPER);helper_args=(--helper);fi
 root="$(realpath "$1")";here="$(cd "$(dirname "$0")" && pwd)"
@@ -369,14 +375,14 @@ if [[ "$post_stm_resume_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_re
 if [[ "$post_stm_formatter_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_formatter_fixture.py" "$2" "$3" --fixture "$work/input";fi
 if [[ "$post_stm_formatter_leaf_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_formatter_leaf_fixture.py" "$2" "$3" --fixture "$work/input";fi
 if [[ "$formatter_continuation_mode" == 1 ]];then python3 "$here/prepare_formatter_continuation_fixture.py" "$2" "$3" --fixture "$work/input";fi
-if [[ "$formatter_nested_mode" == 1 ]];then python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --fixture "$work/input";fi
+if [[ "$formatter_nested_mode" == 1 ]];then python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --fixture "$work/input" "${nested_args[@]}";fi
 python3 "$here/apply_open_roots_v645.py" "$root" "$2" "$3"
 if [[ "${4-}" != --irq-return ]];then python3 "$here/make_v1256_scheduler_fixture.py" "$2" "$3" "$work/input" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp";fi
 if [[ "${4-}" == --irq-vector ]];then python3 "$here/prepare_v1260_scheduler_vector.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
 if [[ "${4-}" == --irq-dispatch ]];then python3 "$here/prepare_v1261_ipc_dispatch.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
 if [[ "${4-}" == --irq-ack ]];then python3 "$here/prepare_v1266_joined_ack.py" "$2" "$3" "$root/nWiiAnalyzer/src/analyzer.cpp" --analyzer;fi
 if [[ "$formatter_nested_mode" == 1 ]];then
-  python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv"
+  python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv" "${nested_args[@]}"
 elif [[ "$formatter_continuation_mode" == 1 ]];then
   python3 "$here/prepare_formatter_continuation_fixture.py" "$2" "$3" --analyzer "$root/nWiiAnalyzer/src/analyzer.cpp" --symbols "$work/input/symbols.csv"
 elif [[ "$post_stm_formatter_leaf_mode" == 1 ]];then
@@ -498,7 +504,7 @@ if [[ "$post_stm_resume_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_re
 if [[ "$post_stm_formatter_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_report_formatter_fixture.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$post_stm_formatter_leaf_mode" == 1 ]];then python3 "$here/prepare_post_stm_sc_formatter_leaf_fixture.py" "$2" "$3" --install "$work/generated";fi
 if [[ "$formatter_continuation_mode" == 1 ]];then python3 "$here/prepare_formatter_continuation_fixture.py" "$2" "$3" --install "$work/generated";fi
-if [[ "$formatter_nested_mode" == 1 ]];then python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --install "$work/generated";fi
+if [[ "$formatter_nested_mode" == 1 ]];then python3 "$here/prepare_formatter_nested_fixture.py" "$2" "$3" --install "$work/generated" "${nested_args[@]}";fi
 python3 "$here/patch_sc_trace_v570.py" "$work/generated"
 python3 "$here/patch_sc_trace_v640.py" "$work/generated"
 python3 "$here/apply_sc_dispatch_gate_v572.py" "$work/generated" --vector "$work/input/vector.bin"
@@ -525,6 +531,7 @@ grep -Ex 'POST_STM_SC_FORMATTER_LEAF_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6]
 grep -Ex 'FORMATTER_CONTINUATION_REFUSAL kind=[1-7] stage=[0-2] reason=[0-5] visits=[0-9]{1,2}|FORMATTER_CONTINUATION_TRIAL n=[0-7] native_resume=1 next_entry=1 arguments=4 frame_held=1 deferred=1 reply=0 visits=10' "$work/run.log" || true
 grep -Ex 'FORMATTER_NESTED_REFUSAL kind=[1-7] stage=[0-2] reason=[0-6] visits=[0-9]{1,2} loads=[0-9]{1,2} stores=[0-9]{1,2}|FORMATTER_NESTED_TRIAL n=[0-7] native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35' "$work/run.log" || true
 grep -Ex 'FORMATTER_NESTED_CELL_TRIAL n=[0-7] cold_match=[01] live_match=[01] sample_equal=[01] guest_load=0' "$work/run.log" || true
+grep -Ex 'FORMATTER_SECOND_TRIAL n=[0-7] native_prefix=1 frame=48 loads=2 stores=12 nonvolatile=3 conditional_load=1 pre_load_stop=1 deferred=1 reply=0 visits=44' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 
@@ -809,5 +816,5 @@ if [[ "$formatter_continuation_mode" == 1 ]];then
 fi
 
 if [[ "$formatter_nested_mode" == 1 ]];then
-  python3 "$here/validate_formatter_nested_log.py" "$work/run.log"
+  python3 "$here/validate_formatter_nested_log.py" "$work/run.log" "${nested_args[@]}"
 fi

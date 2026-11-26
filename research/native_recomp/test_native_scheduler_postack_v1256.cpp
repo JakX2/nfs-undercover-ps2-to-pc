@@ -513,6 +513,14 @@ struct FormatterContinuationStop{};
 static ScFormatterWitness* formatter_nested=nullptr;
 static unsigned formatter_nested_count=0;
 static unsigned nested_cold_match=0,nested_live_match=0,nested_sample_equal=0;
+#ifdef UNDERCOVER_FORMATTER_SECOND
+static_assert(formatter_nested_private::path.size()==44u&&formatter_nested_private::accesses.size()==14u);
+static constexpr unsigned nested_visits=44u,nested_loads=2u;
+#else
+static_assert(formatter_nested_private::path.size()==35u&&formatter_nested_private::accesses.size()==13u);
+static constexpr unsigned nested_visits=35u,nested_loads=1u;
+#endif
+static_assert(formatter_nested_private::slots.size()==4u);
 struct FormatterNestedStop{};
 #endif
 #endif
@@ -4495,7 +4503,7 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             if(!nested_done||formatter_nested_count!=trial+1u||!nested.reached_load_boundary(c,formatter_nested_held(c))||
-               nested.visits()!=35u||nested.loads()!=1u||nested.stores()!=12u||
+               nested.visits()!=nested_visits||nested.loads()!=nested_loads||nested.stores()!=12u||
                host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
                host.cold_ipc_snapshot().replies)formatter_nested_refuse(5);
             const auto observed=nested_cell.finish(c,nested.reached_load_boundary(c,formatter_nested_held(c)));
@@ -4507,8 +4515,13 @@ int main(int argc,char** argv)try{
                 <<" cold_match="<<unsigned(observed->pre_guest_matches_file)
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
+#ifdef UNDERCOVER_FORMATTER_SECOND
+            std::cout<<"FORMATTER_SECOND_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=2 stores=12 nonvolatile=3 conditional_load=1 pre_load_stop=1 deferred=1 reply=0 visits=44\n";
+#else
             std::cout<<"FORMATTER_NESTED_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=1 stores=12 nonvolatile=3 pre_load_stop=1 deferred=1 reply=0 visits=35\n";
+#endif
             formatter_nested=nullptr;
 #endif
 #endif
@@ -4794,7 +4807,11 @@ int main(int argc,char** argv)try{
     std::cout<<"FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match="<<nested_cold_match
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
+#ifdef UNDERCOVER_FORMATTER_SECOND
+    std::cout<<"FORMATTER_SECOND_NATIVE owner=1 trials=8 native_prefix=8 loads=16 stores=96 nonvolatile=24 conditional_loads=8 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=352 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#else
     std::cout<<"FORMATTER_NESTED_NATIVE owner=1 trials=8 native_prefix=8 loads=8 stores=96 nonvolatile=24 pre_load_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=280 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
     std::cout<<"FORMATTER_CONTINUATION_NATIVE owner=1 trials=8 native_resume=8 next_entry=8 arguments=32 frame_held=8 deferred=8 reply=0 visits=80 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif

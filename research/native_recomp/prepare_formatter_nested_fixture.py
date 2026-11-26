@@ -3,6 +3,7 @@
 import argparse,struct
 from pathlib import Path
 from prepare_formatter_nested_contract import plan as nested_plan
+from prepare_formatter_second_contract import plan as second_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import check_spans
@@ -12,9 +13,10 @@ from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
 
-def plan(d,e):
+def plan(d,e,*,second=False):
     prior=continuation_plan(d,e,details=True)
-    return prior,nested_plan(d,e,previous=prior[1])
+    first=nested_plan(d,e,previous=prior[1])
+    return prior,second_plan(d,e,previous=prior[1],first=first) if second else first
 
 def render(contract):
     _,fields,rows,access,slots,known=contract
@@ -49,7 +51,7 @@ def extend(directory,p):
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(render(contract))
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
-    print('FORMATTER_NESTED_FIXTURE verified=1 labels=35 guarded_load=1 new_roots=0')
+    print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(contract[2])} guarded_load=1 new_roots=0')
 
 def scope(d,e,sizes,p):
     prior,contract=p;old=prior[1][0];blocks,fields,*_=contract;root=fields[0]
@@ -81,16 +83,16 @@ def install(directory,p):
             changed[file]=s.replace(anchor,anchor+'\nvoid formatter_nested_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
     if done!=set(expected):raise ValueError('nested fixture coverage')
     for file,s in changed.items():file.write_text(s)
-    print('FORMATTER_NESTED_TRANSLATION verified=1 labels=35 pre_load_hook=1')
+    print(f'FORMATTER_NESTED_TRANSLATION verified=1 labels={len(rows)} pre_load_hook=1')
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);q=a.parse_args()
+    a.add_argument('--symbols',type=Path);a.add_argument('--second',action='store_true');q=a.parse_args()
     safe={'size','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e)
+        d,e=q.dol.read_bytes(),q.elf.read_bytes();p=plan(d,e,second=q.second)
         if q.fixture:extend(q.fixture,p);return 0
         if q.install:install(q.install,p);return 0
         if q.analyzer:
@@ -100,6 +102,6 @@ def main():
         if not render(p[1]):raise ValueError('nested fixture extent')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('FORMATTER_NESTED_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
-    print('FORMATTER_NESTED_PREP verified=1 labels=35 pre_load_hook=1 original_execution=0')
+    print(f'FORMATTER_NESTED_PREP verified=1 labels={len(p[1][2])} pre_load_hook=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

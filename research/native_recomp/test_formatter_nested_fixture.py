@@ -9,6 +9,16 @@ class Test(unittest.TestCase):
         s=render(c)
         self.assertIn('false,false,0x61626364u',s)
         self.assertIn('slots,{0x80040000u,0x00000004u}',s)
+    def test_second_header(self):
+        rows=tuple((R+4*i,N) for i in range(44))
+        c=({},(R,L,R+176,0x80630000,48,A,4),rows,
+           ((R,4,T,False,False),(R+140,4,T+4,False,False)),((4,32),),
+           ((R,T,b'abcd'),(R+140,T+4,b'1234')))
+        s=render(c)
+        self.assertIn('IpcDispatchWord,44> path',s)
+        self.assertIn('false,false,0x61626364u',s)
+        self.assertIn('false,false,0x31323334u',s)
+        self.assertIn('slots,{0x80040000u,0x00000004u}',s)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
