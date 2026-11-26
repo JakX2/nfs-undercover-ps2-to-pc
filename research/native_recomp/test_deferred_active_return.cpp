@@ -67,7 +67,11 @@ static void trial(unsigned first,unsigned fault){
     if(fault==3)c.mmu.write32(Count,0);
     if(fault==4)c.gqr[3]^=1;
     bool ok=join.begin(c,frame,gate,mem,Context,Wait,Count,gqr,fault!=1);
-    if(fault>=1&&fault<=4){assert(!ok);return;}assert(ok);
+    if(fault>=1&&fault<=4){
+        constexpr unsigned details[]={0,1,7,9,5};
+        assert(!ok&&join.failure()==1&&join.detail()==details[fault]);
+        assert(join.gqr_mismatch_mask()==(fault==4?8u:0u));return;
+    }assert(ok);
     if(fault==5){c.mmu.write32(Wait,Context);assert(!join.held(c,true));return;}
     if(fault==6){c.mmu.write32(Context+736,1);assert(!join.held(c,true));return;}
     if(fault==7){c.mmu.write32(Base+0xe4,Context+8);assert(!join.held(c,true));return;}

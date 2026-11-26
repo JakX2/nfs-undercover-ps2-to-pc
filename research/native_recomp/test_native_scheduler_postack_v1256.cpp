@@ -704,6 +704,8 @@ static bool third_return_storage(nw::CPUContext& c){
         <<" reason="<<(third_return_route?third_return_route->failure():0u)
         <<" entry="<<(third_return_route?third_return_route->entry_refusal():0u)
         <<" join="<<(third_return_join?third_return_join->failure():0u)
+        <<" detail="<<(third_return_join?third_return_join->detail():0u)
+        <<" gqr="<<(third_return_join?third_return_join->gqr_mismatch_mask():0u)
         <<" visits="<<(third_return_route?third_return_route->visits():0u)
         <<" select="<<(third_return_route?third_return_route->select_state():0u)<<'\n';
     throw WitnessFailure{};
