@@ -88,13 +88,17 @@ inline bool held_dispatch_enabled(){const char* v=std::getenv("UNDERCOVER_V1158_
 inline bool held_dispatch_active(){return held_epilogue.stage()==6u;}
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
 inline bool third_ack_enabled(){const char* v=std::getenv("UNDERCOVER_V1167_THIRD_ACK");return v&&v[0]=='1'&&v[1]==0;}
-inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u;}
+inline bool third_ack_active(){return held_epilogue.stage()==8u||held_epilogue.stage()==9u||held_epilogue.stage()==10u||held_epilogue.stage()==11u||held_epilogue.stage()==12u||held_epilogue.stage()==13u||held_epilogue.stage()==14u||held_epilogue.stage()==15u||held_epilogue.stage()==16u||held_epilogue.stage()==17u||held_epilogue.stage()==18u||held_epilogue.stage()==19u||held_epilogue.stage()==20u||held_epilogue.stage()==21u;}
 #ifdef UNDERCOVER_V1175_PRIVATE_ACK_HELPER
 inline bool ack_helper_enabled(){const char* v=std::getenv("UNDERCOVER_V1175_ACK_HELPER");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1180_ACK_CALLBACK");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_prefix_enabled(){const char* v=std::getenv("UNDERCOVER_V1184_ACK_PREFIX");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_time_enabled(){const char* v=std::getenv("UNDERCOVER_V1189_ACK_TIME");return v&&v[0]=='1'&&v[1]==0;}
 inline bool ack_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V1193_ACK_FRONTIER");return v&&v[0]=='1'&&v[1]==0;}
+inline bool ack_wireless_enabled(){const char* v=std::getenv("UNDERCOVER_V1197_ACK_WIRELESS");return v&&v[0]=='1'&&v[1]==0;}
+#ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
+inline thread_local WirelessWrapperWitness ack_wireless(v847::expected);
+#endif
 #ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
 inline thread_local CallbackFrontierWitness ack_frontier(v831::expected);
 #endif
@@ -444,6 +448,10 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(ack_prefix_enabled()&&!ack_callback_enabled())return false;
     if(ack_time_enabled()&&!ack_prefix_enabled())return false;
     if(ack_frontier_enabled()&&!ack_time_enabled())return false;
+    if(ack_wireless_enabled()&&!ack_frontier_enabled())return false;
+#ifndef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
+    if(ack_wireless_enabled())return false;
+#endif
 #ifndef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
     if(ack_frontier_enabled())return false;
 #endif
@@ -510,13 +518,20 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
     return true;
 }
 #ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
-template<class C>void finish_ack_frontier(C& c){
+template<class C>void finish_ack_frontier(C& c,uint32_t pc,uint32_t w){
+    (void)pc;(void)w;
     if(held_epilogue.stage()!=19u)return;
     if(!held_epilogue.prefix_frontier_saved(c,ack_frontier))reject_held_epilogue();
     std::cout<<std::dec<<"V1193_ACK_WIRELESS_FRONTIER ordinal="<<ack_frontier.ordinal()
              <<" visits="<<ack_frontier.visits()<<" writes="<<ack_frontier.writes()
              <<" zero_id="<<ack_frontier.zero_id()
              <<" token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
+    if(ack_wireless_enabled()){
+        if(!held_epilogue.begin_prefix_wireless(c,ack_frontier,ack_wireless,pc,w))reject_held_epilogue();
+        return;
+    }
+#endif
     std::_Exit(0);
 }
 #endif
@@ -526,11 +541,25 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(held_epilogue_active()){
 #ifdef UNDERCOVER_V1167_PRIVATE_THIRD_ACK
         if(third_ack_active()){
+#ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
+            if(held_epilogue.stage()==20u){
+                if(!ack_wireless_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
+                   !held_epilogue.prefix_wireless_before(c,ack_wireless,pc,w,guard))reject_held_epilogue();
+                if(held_epilogue.stage()==21u){
+                    if(!held_epilogue.prefix_wireless_saved(c,ack_wireless))reject_held_epilogue();
+                    std::cout<<std::dec<<"V1197_ACK_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits="
+                             <<ack_wireless.visits()<<" stores="<<ack_wireless.writes()
+                             <<" token=3 saved_fields=38 pi_cleared=1 continuation_executed=0 boot_verified=0"<<std::endl;
+                    std::_Exit(0);
+                }
+                return;
+            }
+#endif
 #ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
             if(held_epilogue.stage()==18u){
                 if(!ack_frontier_enabled()||second_dispatch_mmio||ack.stage()!=5u||next_device.stage()!=3u||
                    !held_epilogue.prefix_frontier_before(c,ack_frontier,pc,w,guard))reject_held_epilogue();
-                finish_ack_frontier(c);return;
+                finish_ack_frontier(c,pc,w);return;
             }
 #endif
 #ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
@@ -546,7 +575,7 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
 #ifdef UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER
                     if(ack_frontier_enabled()){
                         if(!held_epilogue.begin_prefix_frontier(c,ack_time,ack_frontier,pc,w))reject_held_epilogue();
-                        finish_ack_frontier(c);return;
+                        finish_ack_frontier(c,pc,w);return;
                     }
 #endif
                     std::_Exit(0);
@@ -976,6 +1005,12 @@ template<class C>void observe(uint32_t pc,C& c){
 #ifdef UNDERCOVER_V1189_PRIVATE_ACK_TIME
         if(held_epilogue.stage()==16u){
             if(!held_epilogue.prefix_time_entry(c,ack_time,pc))reject_held_epilogue();
+            return;
+        }
+#endif
+#ifdef UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS
+        if(held_epilogue.stage()==20u){
+            if(!held_epilogue.prefix_wireless_entry(c,ack_wireless,pc))reject_held_epilogue();
             return;
         }
 #endif
