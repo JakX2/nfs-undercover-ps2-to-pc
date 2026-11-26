@@ -1,0 +1,21 @@
+name: Wii Deferred IPC ACK Memory Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_ipc_deferred_ack_memory.h'
+      - 'research/native_recomp/test_ipc_deferred_ack_memory.cpp'
+      - '.github/workflows/wii-ipc-deferred-ack-memory.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_ipc_deferred_ack_memory.cpp -o /tmp/ipc_deferred_ack_memory
+          /tmp/ipc_deferred_ack_memory

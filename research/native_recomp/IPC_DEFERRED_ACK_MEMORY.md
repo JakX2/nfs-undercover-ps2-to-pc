@@ -1,0 +1,5 @@
+# Deferred IPC acknowledgment memory contract
+
+The existing synchronous Open IRQ witness is not suitable for this transaction: it requires a waiting thread and a queued reply, then publishes that reply. The async STM event remains pending after ACK. The older SDK reconstruction (zeldaret/tp, libs/revolution/src/ipc/ipcclt.c and ipcProfile.c) suggests the ACK handler clears Y2/IPC flags, increments mailbox credit, and decrements the unissued profiling counter. The pending counter, request pointer, descriptor and callback must remain live.
+
+This independent read-only memory witness models that hypothesis, with an empty ring and exactly one matching tracked request. No original ACK execution or private geometry is claimed. It requires the device owner to prove deferred acceptance and latch clearing, then checks the exact two native RAM writes and preserves the other objects. The actual original instruction sequence and storage/counter values still require authentication before integration.
