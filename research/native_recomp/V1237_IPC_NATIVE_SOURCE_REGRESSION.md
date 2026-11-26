@@ -1,0 +1,3 @@
+# V1237: positive full IPC source installer regression
+
+Exercise all 17 direct call edges using independent synthetic emitted C++ label fixtures, with a shared callee and a pre-existing leaf hook in the OSInit shard. Require exact pre-tick return instrumentation and preservation of earlier edits. Refuse missing direct call, wrong return edge, missing shared entry trace, duplicate label/root, wrong instruction identity, wrong return tick and missing dispatcher case, and reject installation replay. This is a source installer test, not original execution; the V1236 owner run remains pinned to its already verified implementation.

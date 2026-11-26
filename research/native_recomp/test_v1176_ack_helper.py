@@ -433,4 +433,76 @@ class AckIpcCompleteMetadata(unittest.TestCase):
         with patch.object(ins,'ipc_geometry',return_value=([(ins.IPC_ROOT,ins.IPC_CALL+4,W,BLR)],0,0,BLR)),patch.object(ins,'exact',return_value=(W,)),patch.object(ins,'audit_native',side_effect=lambda a,b,c:len(c)):
             with self.assertRaisesRegex(ValueError,'ACK IPC complete entry'):
                 ins.prepare_ipc_complete_native(b'',b'',{},'',(H,W,H,BLR),{})
+class AckIpcCompleteSource(unittest.TestCase):
+    """Use independent synthetic native-label text; no owner bytes or mocks of the audit."""
+    @staticmethod
+    def fixture():
+        caller,root,shared=H,H+0x100,H+0x200
+        call,ret=caller+4,caller+8
+        link=lambda a,b:0x48000001|((b-a)&0x03fffffc)
+        rows=[(root,ret,link(call,root),W)]
+        rows.extend((shared,root+4*(i+1),link(root+4*i,shared),BLR) for i in range(1,17))
+        code={caller:(W,rows[0][2],W,BLR),
+              root:(W,)+tuple(r[2] for r in rows[1:])+(BLR,),shared:(BLR,)}
+        edges={r[1]-4:r[0] for r in rows}
+        src={}
+        for a,words in code.items():
+            body=f'void fn_{a:X}(CPUContext& ctx) {{\n'
+            body+=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{a:X}) nwii::runtime::trace_call(0x{a:X}, ctx);\n'
+            for i,w in enumerate(words):
+                pc=a+4*i
+                body+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n'+T+SI
+                if pc in edges:
+                    target=edges[pc]
+                    body+=f'    ctx.pc = 0x{target:X}; fn_{target:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+            src[Path(f'output_{a:X}.cpp')]=body+'}\n'
+        outer=''.join(f'case 0x{a:X}: fn_{a:X}(ctx); break;\n' for a in code)
+        # Simulate the earlier IRQ leaf patch in the very same OSInit shard.
+        owner=Path(f'output_{caller:X}.cpp')
+        edited=src[owner].replace(f'    ctx.pc = 0x{root:X};',f'    earlier_leaf_observer(ctx);\n    ctx.pc = 0x{root:X};',1)
+        spans=((root,len(code[root])*4),)
+        return caller,root,shared,ret,rows,code,src,outer,owner,edited,spans
+    def check_fixture(self,fault=''):
+        caller,root,shared,ret,rows,code,src,outer,owner,edited,spans=self.fixture()
+        snapshot=src.copy()
+        other=Path(f'output_{root:X}.cpp')
+        leaf=Path(f'output_{shared:X}.cpp')
+        if fault=='direct':
+            src[other]=src[other].replace(f'ctx.pc = 0x{shared:X}; fn_{shared:X}(ctx);','interpret_step(ctx);',1)
+        if fault=='return_edge':
+            src[other]=src[other].replace(f'ctx.pc != 0x{root+8:X}',f'ctx.pc != 0x{root+12:X}',1)
+        if fault=='trace':
+            src[leaf]=src[leaf].replace('nwii::runtime::trace_call','disabled_trace_call')
+        if fault=='duplicate':
+            src[Path('duplicate.cpp')]=src[owner]
+        if fault=='word':
+            src[other]=src[other].replace(f'// 0x{root:08X}: {W:08X}',f'// 0x{root:08X}: 00000000')
+        if fault=='return_tick':
+            label=f'loc_{ret:X}: ;\n    // 0x{ret:08X}: {W:08X}\n'
+            edited=edited.replace(label+T,label+'    unexpected_side_effect(ctx);\n'+T)
+        if fault=='dispatcher':
+            outer=outer.replace(f'case 0x{root:X}: fn_{root:X}(ctx); break;', '')
+        before=src.copy()
+        with patch.object(ins,'IPC_SPANS',spans),patch.object(ins,'IPC_RETURN',ret),\
+             patch.object(ins,'ipc_geometry',return_value=(rows,0,0,W)),\
+             patch.object(ins,'exact',side_effect=lambda d,e,a,n:code[a][:n]):
+            args=(b'',b'',src,outer,(0,W,caller,rows[0][2]),{owner:edited})
+            if fault:
+                with self.assertRaises(ValueError):ins.prepare_ipc_complete_native(*args)
+            else:
+                got=ins.prepare_ipc_complete_native(*args)
+                self.assertEqual(set(got),{owner})
+                label=f'loc_{ret:X}: ;\n    // 0x{ret:08X}: {W:08X}\n'
+                trace=f'    if (nwii::runtime::g_trace_calls) nwii::runtime::trace_call(0x{ret:X}, ctx); // V625 IPC client return\n'
+                self.assertEqual(got[owner],edited.replace(label+T,label+trace+T))
+                self.assertIn('earlier_leaf_observer(ctx);',got[owner])
+                self.assertEqual(src,snapshot)
+                # Installation must reject replay on the already edited shard.
+                with self.assertRaises(ValueError):ins.prepare_ipc_complete_native(b'',b'',src,outer,args[4],got)
+        self.assertEqual(src,before)
+    def test_full_native_source(self):self.check_fixture()
+    def test_refusals(self):
+        for fault in ('direct','return_edge','trace','duplicate','word','return_tick','dispatcher'):
+            with self.subTest(fault=fault):self.check_fixture(fault)
 if __name__=='__main__':unittest.main()
+
