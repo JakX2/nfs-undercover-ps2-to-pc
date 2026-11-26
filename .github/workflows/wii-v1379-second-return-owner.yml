@@ -71,7 +71,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           reqs=(
-              Requirement(45831818757,'ea1de0ca72140f0e12ff1f1a06c4f1960b5755da',
+              Requirement(45832282911,'ba353463634e56fbfb0315bc67b3f007dbe8410a',
                           '.github/workflows/wii-v1378-second-free-owner.yml','owner-free'),
               Requirement(45831706043,'cacbfc7f6b5103224cc926db6a1af8e4c6c3deaf',
                           '.github/workflows/wii-v1377-stm-tail.yml','owner-tail'),
