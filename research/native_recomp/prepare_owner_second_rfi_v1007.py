@@ -150,7 +150,10 @@ def vector_install(q,added,tree):
     changes={}
     for a,ws in added.items():
         found=[p for p in paths if owns_root(p.read_text(),a)]
-        if len(found)!=1 or sum(entry_count(p.read_text(),a) for p in paths)!=1:raise ValueError('third vector owner')
+        entries=sum(entry_count(p.read_text(),a) for p in paths)
+        if len(found)!=1 or entries!=1:
+            print(f'V1071_VECTOR_OWNER_REFUSAL lane={1 if a==0x80000500 else 2} owners={len(found)} entries={entries}')
+            raise ValueError('third vector owner')
         path=found[0];s=changes.get(path,path.read_text());body=exact_function(s,a);out=body
         expected={a+4*i:(a,w) for i,w in enumerate(ws)}
         if audit_native([body],outer,expected)!=len(ws):raise ValueError('third vector coverage')

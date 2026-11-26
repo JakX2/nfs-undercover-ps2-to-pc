@@ -46,6 +46,10 @@ int main(int argc,char** argv){
     assert(a.get_functions().size()==TransferRootCount+2u);
     for(const auto& [pc,fn]:a.get_functions()){(void)pc;assert(fn.hle_hook_name.empty());}
     nwii::recomp::RecompilerConfig cfg;cfg.output_dir=argv[1];cfg.split_output=std::string(argv[2])=="split";
+    // Only the privately authenticated installed external vector is
+    // admitted to the low-memory native emitter. No other low-memory
+    // addresses are enabled by this focused test.
+    cfg.native_low_mem_entries.insert(ThirdVectorRoot);
     nwii::recomp::Recompiler recomp(a,nullptr,cfg);assert(!recomp.generate_cpp(Dispatcher).empty());
     std::cout<<"V971_TRANSFER_TRANSLATION roots="<<TransferRootCount+2u<<" split="<<cfg.split_output<<"\n";
 }

@@ -1,0 +1,3 @@
+# V1071: explicit native low-memory vector opt-in
+
+V1069 run 45746498011 failed before original execution at the new vector ownership audit, after the existing native installer passed 1170 labels and 53 direct edges. The focused generator applied the V63 emitter patch but omitted the required `native_low_mem_entries` opt-in. The previously passing V935 generator explicitly inserts its authenticated vector root. Mirror that single-entry opt-in; never enable arbitrary low-memory roots. Keep strict label, unique trace entry and dispatcher validation, and add a bounded owner/entry-count diagnostic to distinguish any further refusal. Owner validation pending.
