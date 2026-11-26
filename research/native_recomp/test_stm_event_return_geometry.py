@@ -22,6 +22,10 @@ class Geometry(unittest.TestCase):
     def test_stores(self):
         words=(op(36,3,13,-16),op(38,4,13,-12),op(44,5,13,-10),0x60000000)
         self.assertEqual(stores(S,words,range(S,S+16,4),B),((S,A,4,3),(S+4,A+4,1,4),(S+8,A+6,2,5)))
+    def test_alternate_sites_same_flag(self):
+        words=(op(36,3,13,-16),op(36,4,13,-16))
+        self.assertEqual(stores(S,words,[S,S+4],B),((S,A,4,3),(S+4,A,4,4)))
+        with self.assertRaises(ValueError):stores(S,words,[S,S],B)
     def test_refusals(self):
         for w in (op(36,3,1,0),op(37,3,13,0),op(36,3,13,-1),op(31,3,13,151<<1)):
             with self.subTest(w=w),self.assertRaises(ValueError):stores(S,(w,),[S],B)

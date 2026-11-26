@@ -64,7 +64,10 @@ def stores(root,body,labels,bases):
             out.append((pc,a,n,rs))
         elif op in (37,39,45,47,52,53,54,55,60,61) or (op==31 and xo in (150,151,183,215,247,407,439,661,662,725,918,663,695,727,759,983,1014)):
             raise ValueError('STM store form')
-    if len(out)>8 or len({(a,n) for _,a,n,_ in out})!=len(out):raise ValueError('STM store count')
+    # Success and error branches may write the same flag at distinct
+    # original instruction sites. Preserve every site; the runtime must
+    # follow the actual branch and never treat these as simultaneous writes.
+    if len(out)>8 or len({pc for pc,_,_,_ in out})!=len(out):raise ValueError('STM store count')
     return tuple(out)
 
 def plan(d,e):
