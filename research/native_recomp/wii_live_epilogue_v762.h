@@ -9,6 +9,7 @@ struct LiveEpilogueExpectation{
     uint32_t dispatcher,enable,reschedule,disable,restore,loader,switch_target,context;
     int32_t counter_disp,hint_disp;
     unsigned context_reg,gqr_mask;
+    uint32_t switch_getter=0,switch_getter_return=0,switch_tail=0;
 };
 class LiveEpilogueWitness{
 public:
@@ -17,6 +18,7 @@ public:
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
     unsigned entry_refusal()const{return refusal_;}
+    unsigned select_state()const{return select_state_;}
     template<class C>bool begin(C& c,ExternalReturnWitness& captured,uint32_t cause,uint32_t mask){
         return begin_impl(c,captured,cause,mask,false);
     }
@@ -37,6 +39,8 @@ private:
         const uint32_t source=pending?captured.source():0u;
         if((cause&mask)!=source||(pending&&(!source||!captured.pending_source(c,cause,mask))))refusal_|=16u;
         if(!e_.gqr_mask||e_.gqr_mask>255u)refusal_|=32u;
+        if((e_.switch_getter||e_.switch_getter_return||e_.switch_tail)&&
+           (!e_.switch_getter||!e_.switch_getter_return||!e_.switch_tail||!e_.switch_target||!pending))refusal_|=32u;
         if(refusal_)return fail(1);
         const int64_t counter=int64_t(c.gpr[13])+e_.counter_disp,hint=int64_t(c.gpr[13])+e_.hint_disp;
         if(counter<0x80000000ll||counter>0x817ffffcll||hint<0x80000000ll||hint>0x817ffffcll||
@@ -49,19 +53,37 @@ private:
     }
 public:
     template<class C>bool entry(C& c,uint32_t pc,uint32_t cause,uint32_t mask){
+        if(select_state_==2u){
+            if(stage_!=1u||!common(c,cause,mask)||pc!=e_.switch_target||c.pc!=pc||next_!=pc||
+               c.inst_count-last_!=1u||depth_!=1u||c.lr!=stack_[0]||c.gpr[3]!=0u||
+               !captured_->saved_integer(c,e_.context).ok())return fail(2);
+            last_=c.inst_count;select_state_=3u;return true;
+        }
         if(stage_!=1||!common(c,cause,mask)||pending_||pc!=next_||c.pc!=pc||
            c.inst_count!=last_||!entry_due_||!depth_||c.lr!=stack_[depth_-1])return fail(2);
         entry_due_=false;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,uint32_t cause,uint32_t mask){
+        const bool outer_resume=select_state_==5u;
         if(stage_!=1||!common(c,cause,mask)||entry_due_||pending_||pc!=next_||
-           c.inst_count-last_!=1u||!mapped(c,pc)||c.mmu.read32(pc)!=w||++visits_>512u)return fail(3);
+           (select_state_==1u||select_state_==2u||select_state_==4u)||
+           c.inst_count-last_!=(outer_resume?2u:1u)||!mapped(c,pc)||c.mmu.read32(pc)!=w||++visits_>512u)return fail(3);
+        if(outer_resume){
+            if(pc!=e_.dispatcher+8u||c.pc!=pc||depth_||!getter_returned_||c.lr!=pc)return fail(7);
+            select_state_=6u;
+        }
+        if(getter_pending_&&depth_==1u){
+            if(select_state_!=3u||pc!=e_.switch_getter_return||c.gpr[3]!=e_.context||c.lr!=pc)return fail(7);
+            getter_pending_=false;getter_returned_=true;
+        }
         last_=c.inst_count;
         if(pc==e_.dispatcher+4u){
             if(depth_||!abi(c)||c.gpr[3]!=initial_||c.mmu.read32(counter_)!=initial_-1u||c.lr!=pc||calls_!=7u)return fail(4);
         }
         if(pc==e_.dispatcher+8u){
-            if(depth_||!abi(c)||c.mmu.read32(hint_)!=0||c.lr!=pc||calls_!=15u)return fail(4);
+            const auto hint=c.mmu.read32(hint_);
+            if(depth_||!abi(c)||c.lr!=pc||calls_!=15u||
+               (select_state_==6u?(!getter_returned_||(hint&&hint!=switch_hint_)):hint!=0u))return fail(4);
         }
         if(pc==e_.dispatcher+12u){
             if(depth_||!abi(c)||c.gpr[3]!=e_.context||!captured_->saved_integer(c,e_.context).ok()||calls_!=15u)return fail(4);
@@ -80,6 +102,11 @@ public:
         if(op==18u&&(w&1u)){
             if(w&2u||depth_>=2u)return fail(6);
             const uint32_t dst=target(pc,w);
+            if(select_state_==3u){
+                if(depth_!=1u||getter_pending_||getter_returned_||dst!=e_.switch_getter||
+                   pc+4u!=e_.switch_getter_return)return fail(7);
+                getter_pending_=true;stack_[depth_++]=next_;next_=dst;entry_due_=true;return true;
+            }
             const unsigned bit=dst==e_.enable?1u:dst==e_.disable?2u:dst==e_.restore?4u:dst==e_.reschedule?8u:dst==e_.loader?16u:0u;
             if(!bit||(calls_&bit)||(bit==1u&&(pc!=e_.dispatcher||depth_))||
                ((bit==2u||bit==4u)&&(depth_!=1||stack_[0]!=e_.dispatcher+4u))||
@@ -90,6 +117,10 @@ public:
             if(w&1u||!depth_)return fail(6);
             if(!taken(c,w))return true;
             if(c.lr!=stack_[depth_-1])return fail(6);
+            if(select_state_==3u&&depth_==1u){
+                if(!getter_returned_||getter_pending_||!abi(c)||!captured_->saved_integer(c,e_.context).ok())return fail(7);
+                select_state_=4u;
+            }
             next_=stack_[--depth_];return true;
         }
         if(op==17u||(op==19u&&(xo==528u||xo==50u))||(op==16u&&(w&1u)))return fail(6);
@@ -101,7 +132,13 @@ public:
             if(w&3u)return fail(6);
             const uint32_t dst=target(pc,w);
             if(op==18u||taken(c,w)){
-                if(dst==e_.switch_target)return fail(7);
+                if(dst==e_.switch_target){
+                    if(!e_.switch_getter||select_state_||pc!=e_.switch_tail||op!=18u||
+                       depth_!=1u||stack_[0]!=e_.dispatcher+8u||c.lr!=stack_[0]||calls_!=15u||
+                       c.gpr[3]!=0u||!(switch_hint_=c.mmu.read32(hint_))||
+                       c.mmu.read32(counter_)!=initial_-1u||!captured_->saved_integer(c,e_.context).ok())return fail(7);
+                    select_state_=1u;next_=dst;return true;
+                }
                 next_=dst;
             }
             if(dst<=pc){
@@ -119,6 +156,11 @@ public:
             if(pending_return_||c.gqr!=gqr_||!captured_->poll(c,cause,mask))return fail(8);
             ++stage_;return true;
         }
+        if(select_state_==1u||select_state_==4u){
+            if(stage_!=1u||!common(c,cause,mask)||c.pc!=next_||c.inst_count!=last_||
+               c.lr!=e_.dispatcher+8u||!captured_->saved_integer(c,e_.context).ok())return fail(8);
+            select_state_=select_state_==1u?2u:5u;return true;
+        }
         if(stage_!=1||!common(c,cause,mask)||!pending_||c.pc!=poll_pc_||c.inst_count!=last_||
            c.gpr!=poll_gp_||pack(c)!=poll_cr_||c.lr!=poll_lr_||c.ctr!=poll_ctr_||c.xer!=poll_xer_||
            c.msr!=poll_msr_||c.srr0!=poll_srr0_||c.srr1!=poll_srr1_)return fail(8);
@@ -132,6 +174,8 @@ private:
     LiveEpilogueExpectation e_;ExternalReturnWitness* captured_=nullptr;const void* cpu_=nullptr;
     unsigned stage_=0,error_=0,visits_=0,depth_=0,calls_=0,refusal_=0;
     bool pending_return_=false;
+    unsigned select_state_=0;uint32_t switch_hint_=0;
+    bool getter_pending_=false,getter_returned_=false;
     uint32_t pending_source_=0;
     uint32_t cause_=0,mask_=0,msr_=0,cr_=0,counter_=0,hint_=0,initial_=0,next_=0,poll_pc_=0,poll_cr_=0,poll_lr_=0,poll_ctr_=0,poll_xer_=0,poll_msr_=0,poll_srr0_=0,poll_srr1_=0;
     uint64_t last_=0;bool entry_due_=false,pending_=false;

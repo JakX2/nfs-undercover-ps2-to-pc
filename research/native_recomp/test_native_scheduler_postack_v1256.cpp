@@ -227,7 +227,7 @@ static bool reply_held(nw::CPUContext& c){
 }
 [[noreturn]]static void epilogue_refuse(unsigned kind){
     std::cout<<"V1271_EPILOGUE_REFUSAL kind="<<kind<<" stage="<<epilogue->stage()<<" reason="<<epilogue->failure()
-        <<" entry="<<epilogue->entry_refusal()<<" visits="<<epilogue->visits()<<'\n';
+        <<" entry="<<epilogue->entry_refusal()<<" visits="<<epilogue->visits()<<" select="<<epilogue->select_state()<<'\n';
     throw WitnessFailure{};
 }
 void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){

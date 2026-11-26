@@ -10,10 +10,11 @@ from prepare_v1266_joined_ack import geometry as ack_geometry,IPC,DISPATCH_RETUR
 from prepare_owner_epilogue_v737 import plan as epilogue_plan
 from prepare_owner_scheduler_v722 import E,S,reachable
 from prepare_owner_context_v720 import L
-from make_v1256_scheduler_fixture import geometry as sched_geometry,SELECT
+from make_v1256_scheduler_fixture import geometry as sched_geometry,SELECT,GET
 from prepare_v667_si_dispatch import DISPATCH,DISABLE,RESTORE
 from prepare_v1260_scheduler_vector import VECTOR,TRAMP,SOURCE,SC_SOURCE,VECTORS,BLR
-from prepare_v419_full_start import MAX_DOL,words_at
+from prepare_v419_full_start import MAX_DOL,words_at,direct_bl
+from audit_handler_suffix_v728 import target
 from make_v626_ipc_fixture import assemble
 from make_v624_ipc_geometry import ROOT,exact_words
 from prepare_v453_debug_leaf import data_at
@@ -94,26 +95,97 @@ def analyzer(s,spans):
     scan=SCANNER+'\n    if('+'||'.join(f'func.start_address==0x{pc:08x}u' for pc,_ in spans)+')func.hle_hook_name.clear();'
     return rewrite(s,((ANALYZE_ROOT,owner),(READ,read),(SCANNER,scan)))
 
-def render(p):
+def select_plan(p,sched_native):
+    code=p[3][S]
+    tails=[S+4*i for i,w in enumerate(code) if w>>26==18 and not(w&3) and target(S+4*i,w)==SELECT]
+    select=tuple(sched_native[SELECT]);getter=tuple(sched_native[GET])
+    site=0x80529744
+    if len(tails)!=1 or not SELECT<=site<SELECT+4*len(select) or direct_bl(select[(site-SELECT)//4],site)!=GET:
+        raise ValueError('epilogue select geometry')
+    if select[-1]!=BLR or getter[-1]!=BLR:raise ValueError('epilogue select geometry')
+    return tails[0],site+4,{SELECT:select,GET:getter}
+
+def render(p,select=None):
     _,_,_,additions,j,code,reg,gqr,counter,hint,d,r,switch,_=p
     words={j+4*i:w for i,w in enumerate(code)}
     words.update({pc+4*i:w for pc,ws in additions.items() for i,w in enumerate(ws)})
     f=lambda x:f'0x{x:08x}u'
     fields=','.join(map(f,(j,E,S,d,r,L,switch)))
     entries=','.join('Word{'+f(a)+','+f(w)+'}' for a,w in sorted(words.items()))
+    extra=','+','.join(map(f,(GET,select[1],select[0]))) if select else ''
     return '\n'.join(('#pragma once','#include "wii_live_epilogue_v762.h"','#include <array>','namespace v1270 {',
-        'inline constexpr undercover::wii::LiveEpilogueExpectation expected(uint32_t context){return {'+fields+f',context,{counter},{hint},{reg}u,{gqr}u'+'};}',
+        'inline constexpr undercover::wii::LiveEpilogueExpectation expected(uint32_t context){return {'+fields+f',context,{counter},{hint},{reg}u,{gqr}u'+extra+'};}',
         'struct Word{uint32_t pc,word;};',f'inline constexpr std::array<Word,{len(words)}> words'+'{'+entries+'};','}',''))
 
-def install(root,p):
+def install(root,p,select=None):
     _,_,_,additions,j,code,*rest=p
     calls=rest[-1]
     expected={j+4*i:(DISPATCH,w) for i,w in enumerate(code)}
     expected.update({pc:(a,ws[(pc-a)//4]) for a,ws in additions.items()
         for pc in (range(a,a+4*len(ws),4) if a==L else reachable(a,ws))})
+    if select:
+        tail,ret,native=select
+        expected.update({pc:(a,ws[(pc-a)//4]) for a,ws in native.items() for pc in reachable(a,ws)})
     paths=sorted(root.glob('output_*.cpp'));src={p:p.read_text() for p in paths}
     if audit_native(src.values(),(root/'main_output.cpp').read_text(),expected)!=len(expected):
         raise ValueError('epilogue native coverage')
+    if select:
+        tail_sources=[s for s in src.values() if f'loc_{tail:X}: ;' in s]
+        if len(tail_sources)!=1:raise ValueError('epilogue select tail')
+        match=re.search(r'(?mi)^loc_'+f'{tail:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',tail_sources[0],re.S|re.M)
+        if not match or len(re.findall(r'(?mi)^    ctx\.pc = 0x'+f'{SELECT:X}'+r'; return;
+        owners=[s for s in src.values() if f'loc_{site:X}: ;' in s]
+        if len(owners)!=1:raise ValueError('epilogue direct owner')
+        verify_direct(owners[0],site,dst)
+    seen=set();changes={}
+    for p,s in src.items():
+        old=s
+        for pc,(_,w) in expected.items():
+            pattern=re.compile(r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n    \+\+ctx\.inst_count;\n')
+            matches=list(pattern.finditer(s))
+            if not matches:continue
+            if len(matches)!=1 or pc in seen:raise ValueError('epilogue hook identity')
+            seen.add(pc);i=matches[0].end()
+            s=s[:i]+f'    v1270_before(ctx,0x{pc:08x}u,0x{w:08x}u);\n'+s[i:]
+        if s!=old:
+            anchor='#include "runtime/cpu_context.h"'
+            if s.count(anchor)!=1:raise ValueError('epilogue hook include')
+            changes[p]=s.replace(anchor,anchor+'\nvoid v1270_before(nwii::runtime::CPUContext&,uint32_t,uint32_t);')
+    if seen!=set(expected):raise ValueError('epilogue hook coverage')
+    for p,s in changes.items():p.write_text(s)
+    print(f'V1270_EPILOGUE_TRANSLATION verified=1 native_labels={len(expected)} original_loader=54 direct_edges=5')
+
+def main():
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('out',type=Path)
+    m=a.add_mutually_exclusive_group();m.add_argument('--analyzer',action='store_true');m.add_argument('--install',action='store_true');x=a.parse_args()
+    try:
+        if not 256<=x.dol.stat().st_size<=MAX_DOL or not 52<=x.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
+        dol,elf=x.dol.read_bytes(),x.elf.read_bytes();p=geometry(dol,elf)
+        sn,ss,*_=sched_geometry(dol,elf);select=select_plan(p,sn)
+        if x.analyzer:
+            x.out.write_text(analyzer(x.out.read_text(),scope(p,sn,ss)))
+            print('V1270_EPILOGUE_ANALYZER installed=1');return 0
+        if x.install:install(x.out,p,select);return 0
+        image=x.out/'fixture.dol';symbols=x.out/'symbols.csv'
+        raw,csv=extend(image.read_bytes(),symbols.read_text(),p)
+        with (x.out/'v1270_private_epilogue.h').open('x') as f:f.write(render(p,select))
+        image.write_bytes(raw);symbols.write_text(csv)
+        print('V1270_EPILOGUE_FIXTURE accepted=1 dispatcher_suffix=4 original_loader=54')
+    except (OSError,ValueError,struct.error,IndexError,KeyError,TypeError) as e:
+        # Publish only independently authored fixed categories.
+        categories=('epilogue predecessor','epilogue scheduler identity','epilogue extent',
+                    'epilogue word identity','epilogue shared leaf','dispatcher span',
+                    'dispatcher guard','loader predecessor','switch root','shared epilogue span',
+                    'epilogue ownership','epilogue native coverage','epilogue direct owner',
+                    'epilogue hook identity','epilogue hook include','epilogue hook coverage',
+                    'size','symbols','source shape','roundtrip','ambiguous patch','epilogue select geometry','epilogue select tail')
+        reason=str(e) if str(e) in categories else 'other'
+        print('V1270_EPILOGUE_PREP accepted=0 reason='+reason.replace(' ','_'));return 1
+    return 0
+if __name__=='__main__':raise SystemExit(main())
+,match[1]))!=1:
+            raise ValueError('epilogue select tail')
+        calls=(*calls,(ret-4,GET))
     for site,dst in ((j,E),(j+4,S),(j+12,L),*calls):
         owners=[s for s in src.values() if f'loc_{site:X}: ;' in s]
         if len(owners)!=1:raise ValueError('epilogue direct owner')
