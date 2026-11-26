@@ -242,6 +242,10 @@ static unsigned second_irq_kind=0,second_ack_irq_count=0,second_ack_vector_count
 static unsigned second_reply_rfi_count=0,second_reply_vector2_count=0,second_reply_dispatch2_count=0,second_reply_entry2_count=0,second_wake_entry_count=0;
 #ifdef UNDERCOVER_V1374_SECOND_RESTORE
 static unsigned second_ready_count=0,second_nested_count=0,second_return_count=0,second_idle_return_count=0,second_selection_count=0,second_load_count=0,second_resumed_sleep_count=0,second_sleep_exit_count=0;
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+static SubmitResumeWitness* second_resume_capture=nullptr;
+static unsigned second_release_count=0,second_allocator_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -402,6 +406,14 @@ void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
         if(pc==v1344::release_expected.resume){
             if(!allocator_release->inline_return(c,pc,w,allocator_held(c))||
                !allocator_release->returned(c,allocator_held(c)))allocator_refuse(1);
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+            if(second_scheduler_lane){
+                if(!allocator_descriptor||!allocator_descriptor->second_returned(c,allocator_release->metadata_stores())){
+                    std::cout<<"V1378_DESCRIPTOR_REFUSAL stage=2\n";allocator_refuse(4);
+                }
+                ++second_allocator_count;throw AllocatorReturned{};
+            }
+#endif
             ++allocator_count;
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
             if(!open_return||!open_return->begin_inline(c,*allocator_release,open_return_held(c),open_descriptor(c),0u))open_return_refuse(3);
@@ -726,6 +738,9 @@ void trace_call(uint32_t pc,CPUContext& c){
             ++second_request_count;
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
             std::cout<<"V1364_REQUEST_TRIAL n="<<last_trial<<" request=1 opposite_path=1 native_rfi=1 first_fd_held=1 reused="<<(second_request->request()==allocator_request)<<"\n";
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+            if(!second_resume_capture||!second_resume_capture->capture(c,second_request_held(c)))submit_resume_refuse(6);
+#endif
             if(!second_submit||!second_submit->begin(c,*second_request,second_request_held(c))||
                !second_submit->observe(c,pc,second_submit_held(c)))second_submit_refuse(1);
             second_request_active=false;second_submit_active=true;return;
@@ -751,11 +766,22 @@ void trace_call(uint32_t pc,CPUContext& c){
         if(!submit_resume->entry(c,pc,submit_held(c)))submit_resume_refuse(2);
         if(submit_resume->stage()==3u){
             if(!submit_resume->release_at(c,submit_held(c)))submit_resume_refuse(2);
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+            if(second_scheduler_lane)++second_release_count;else
+#endif
             ++release_count;
 #ifdef UNDERCOVER_V1352_ALLOCATOR_RELEASE
             AllocatorRange meta{},guard{};
 #ifdef UNDERCOVER_V1356_ALLOCATOR_METADATA
-            if(!allocator_descriptor||!allocator_descriptor->release_entry(c,allocator_heap,c.gpr[3])){
+            if(!allocator_descriptor||
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+               (second_scheduler_lane?!allocator_descriptor->second_release_entry(c,allocator_heap,c.gpr[3]):
+#endif
+               !allocator_descriptor->release_entry(c,allocator_heap,c.gpr[3])
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+               )
+#endif
+               ){
                 std::cout<<"V1356_DESCRIPTOR_REFUSAL stage=3\n";allocator_refuse(4);
             }
             meta=allocator_descriptor->field();guard=allocator_descriptor->guard();
@@ -1650,6 +1676,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1366_SECOND_SUBMIT
         PostAckSubmitJoin second_submission(edges,v626::vector,kind);
         second_submit=&second_submission;second_submit_cpu=&c;second_submit_polls=0;
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+        SubmitResumeWitness submit_cont2(v1344::expected,1u);second_resume_capture=&submit_cont2;
+#endif
 #ifdef UNDERCOVER_V1368_SECOND_SCHEDULER
         IdleContextReuse idle_reuse;
 #endif
@@ -2179,6 +2208,20 @@ int main(int argc,char** argv)try{
              host.serviced_steps()==4u&&!(cause.load()&mask.load())&&epoch.acknowledged_descriptors(3u-kind)&&
              host.physical_ram().read32(req2+4u)==1u&&descriptor.identity_after_release(c));
         std::cout<<"V1374_RESTORE_TRIAL n="<<trial<<" original_select=1 original_load=1 native_rfi=1 sleep_return=1 fd=1\n";
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+        submit_resume=&submit_cont2;
+        if(!submit_cont2.begin(c,exited2,load_held(c)))submit_resume_refuse(4);
+        exit_active=false;submit_resume_active=true;
+        AllocatorReleaseWitness allocator2(v1344::release_expected,1u);
+        allocator_release=&allocator2;allocator_descriptor=&descriptor;allocator_request=second_submission.request();
+        bool freed2=false;try{run_game(c);}catch(const AllocatorReturned&){freed2=true;}
+        need(freed2&&allocator2.returned(c,allocator_held(c))&&allocator2.inline_completed()&&
+             descriptor.second_completed()&&second_release_count==trial+1u&&second_allocator_count==trial+1u&&
+             host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
+        std::cout<<"V1378_FREE_TRIAL n="<<trial<<" native_free=1 heap_shadow=1 metadata_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator2.stores()<<" heap="<<allocator2.heap_stores()<<'\n';
+        submit_resume_active=false;submit_resume=nullptr;second_resume_capture=nullptr;
+        allocator_active=false;allocator_release=nullptr;allocator_descriptor=nullptr;
+#endif
         selection_route=nullptr;selection_witness=nullptr;load_active=false;coop_load=nullptr;load_save=nullptr;
         sleep_active=false;sleep_resume=nullptr;exit_active=false;sleep_exit=nullptr;
 #endif
@@ -2264,6 +2307,10 @@ int main(int argc,char** argv)try{
     need(second_sleep_count==8u&&second_scheduler_count==8u&&second_save_count==8u);
 #ifdef UNDERCOVER_V1370_SECOND_REPLY
 #ifdef UNDERCOVER_V1374_SECOND_RESTORE
+#ifdef UNDERCOVER_V1378_SECOND_FREE
+    need(second_release_count==8u&&second_allocator_count==8u);
+    std::cout<<"V1378_FREE_NATIVE owner=1 trials=8 second_free=8 heap_shadow=8 metadata_shadow=8 abi=8 inline_return=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     need(second_ready_count==8u&&second_nested_count==8u&&second_return_count==8u&&second_idle_return_count==8u&&
          second_selection_count==8u&&second_load_count==8u&&second_resumed_sleep_count==8u&&second_sleep_exit_count==8u);
     std::cout<<"V1374_RESTORE_NATIVE owner=1 trials=8 wake=8 handler_return=8 idle_rfi=8 selection=8 cooperative_rfi=8 sleep_return=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
