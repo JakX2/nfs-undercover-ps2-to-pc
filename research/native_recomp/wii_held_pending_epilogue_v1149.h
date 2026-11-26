@@ -226,6 +226,27 @@ public:
     template<class C,class W>bool prefix_time_saved(C& c,W& witness){
         return stage_==17u&&same(c)&&time_==&witness&&next_.callback_time_boundary(c,witness);
     }
+    // Classify the next original wireless call at its existing label.
+    // The call instruction remains unexecuted until a separate device proof.
+    template<class C,class T,class W>bool begin_prefix_frontier(C& c,T& time,W& witness,uint32_t pc,uint32_t w){
+        if(!prefix_time_saved(c,time)||frontier_||!no_si(c,w)||
+           !next_.begin_callback_frontier(c,time,witness,pc,w))return fail(21);
+        frontier_=&witness;stage_=witness.stage()==2u?19u:18u;
+        if(stage_==19u&&!next_.callback_frontier_boundary(c,witness))return fail(21);
+        return true;
+    }
+    template<class C,class W>bool prefix_frontier_before(C& c,W& witness,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=18u||guard||!same(c)||frontier_!=&witness||!no_si(c,w)||
+           !next_.callback_frontier_before(c,witness,pc,w))return fail(22);
+        if(witness.stage()==2u){
+            if(!next_.callback_frontier_boundary(c,witness))return fail(22);
+            stage_=19u;
+        }
+        return true;
+    }
+    template<class C,class W>bool prefix_frontier_saved(C& c,W& witness){
+        return stage_==19u&&same(c)&&frontier_==&witness&&next_.callback_frontier_boundary(c,witness);
+    }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
@@ -235,7 +256,7 @@ private:
     LiveEpilogueExpectation expected_;LiveEpilogueWitness ep_;ThirdPendingReentry next_;
     std::optional<SecondSiDispatchWitness> dispatch_;
     std::optional<HeldAckHelperExpectation> helper_;std::optional<HeldAckCallbackExpectation> callback_;
-    const void* prefix_=nullptr;const void* time_=nullptr;
+    const void* prefix_=nullptr;const void* time_=nullptr;const void* frontier_=nullptr;
     unsigned ack_boundary_visits_=0,helper_boundary_visits_=0;
     unsigned dispatch_visits_=0,dispatch_entries_=0,dispatch_polls_=0,ack_visits_=0;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;

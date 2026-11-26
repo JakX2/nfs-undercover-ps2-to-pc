@@ -229,6 +229,11 @@ public:
         if(witness.stage()==2u){frontier_site_=pc;frontier_word_=w;stage_=16u;}
         return true;
     }
+    template<class C,class W>bool callback_frontier_boundary(C& c,W& witness)const{
+        return stage_==16u&&!error_&&cpu_==&c&&frontier_==&witness&&witness.stage()==2u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // Admit only the observed unchanged setter lane. A changed payload
     // would require its own EXI transaction and exclusive device proof.
     template<class C,class F,class W>bool begin_wireless(C& c,F& frontier,W& witness,uint32_t pc,uint32_t w){

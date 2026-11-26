@@ -68,7 +68,8 @@ int main(){
     unsigned held_callback_valid=0,held_callback_refused=0;
     unsigned held_prefix_valid=0,held_prefix_refused=0;
     unsigned held_time_valid=0,held_time_refused=0;
-    for(trial=0;trial<488;++trial){
+    unsigned held_frontier_valid=0,held_frontier_refused=0;
+    for(trial=0;trial<508;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -120,7 +121,8 @@ int main(){
             const unsigned hp=trial>=428?0u:trial>=416?trial-415u:0u;
             const unsigned hc=trial>=448?0u:trial>=436?trial-435u:0u;
             const unsigned hprefix=trial>=468?0u:trial>=456?trial-455u:0u;
-            const unsigned ht=trial>=476?trial-475u:0u;
+            const unsigned ht=trial>=488?0u:trial>=476?trial-475u:0u;
+            const unsigned hf=trial>=496?trial-495u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -564,7 +566,45 @@ int main(){
                      time.cursor()==3u&&time.time_visits()==25u&&time.leaf_visits()==18u&&time.polls()==1u&&time.reads()==3u&&
                      ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
                      ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
-                ++held_time_valid;continue;
+                if(trial<488){++held_time_valid;continue;}
+                constexpr uint32_t P=Resume2+8u,A2=0x8003d000u,B2=A2+0x100u;
+                const bool getter=trial>=492&&trial<496;
+                const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
+                    {P+8u,getter?branch(P+8u,P+16u):0x90810008u},
+                    {P+12u,branch(P+12u,A2)|1u},{P+16u,branch(P+16u,B2)|1u}}};
+                const CallbackFrontierExpectation fe{Target,Target+688u,P,rows,
+                    {{{P+12u,A2,3},{P+16u,B2,5}}}};
+                CallbackFrontierWitness frontier(fe),foreign_frontier(fe);
+                for(auto row:rows)c.mmu.words[row.pc]=row.word;
+                auto reject_frontier=[&](bool bad){
+                    need(bad&&cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u&&
+                        ctl.read(C)==(control&~SiController::TC_INT));++held_frontier_refused;
+                };
+                if(hf==4)tick();
+                if(hf==5)c.mmu.words[P+8u]^=1u;
+                if(hf==6)c.mmu.words[Context+124]^=1u;
+                const auto join=c.inst_count;
+                ok=ep.begin_prefix_frontier(c,hf==1?foreign_time:time,frontier,P+(hf==2?4u:0u),hf==3?Blr:Nop);
+                if(hf>=1&&hf<=6){reject_frontier(!ok);continue;}
+                need(ok&&ep.stage()==18u&&frontier.visits()==1u&&c.inst_count==join);
+                auto at_frontier=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return ep.prefix_frontier_before(c,frontier,pc,w);};
+                if(hf==7){tick();reject_frontier(!ep.prefix_frontier_before(c,foreign_frontier,P+4u,rows[1].word));continue;}
+                if(hf==8)tick();
+                if(hf==9)mask=0;
+                ok=at_frontier(P+4u,rows[1].word);
+                if(hf==8||hf==9){reject_frontier(!ok);continue;}need(ok);
+                c.gpr[3]=hf==12?((ch+1u)%4u):ch;c.gpr[4]=0;
+                need(at_frontier(P+8u,rows[2].word));
+                if(!getter&&hf!=10)c.mmu.words[c.gpr[1]+8u]=0;
+                if(hf==11)c.mmu.words[Context+124]^=1u;
+                ok=at_frontier(getter?P+16u:P+12u,rows[getter?4u:3u].word);
+                if(hf>=10){reject_frontier(!ok);continue;}need(ok);
+                need(ep.stage()==19u&&ep.prefix_frontier_saved(c,frontier)&&!ep.prefix_frontier_saved(c,foreign_frontier)&&
+                     frontier.ordinal()==(getter?5u:3u)&&frontier.zero_id()==unsigned(!getter)&&
+                     frontier.visits()==4u&&frontier.writes()==unsigned(!getter)&&
+                     ep.completion_ack().postack_held()&&ep.completion_ack().writes()==1u&&
+                     ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
+                ++held_frontier_valid;continue;
             }
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
@@ -1214,7 +1254,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12&&held_disp_valid==8&&held_disp_refused==12&&held_ack_valid==8&&held_ack_refused==12&&held_postack_valid==8&&held_postack_refused==12&&held_callback_valid==8&&held_callback_refused==12&&held_prefix_valid==8&&held_prefix_refused==12&&held_time_valid==8&&held_time_refused==12&&held_frontier_valid==8&&held_frontier_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -1240,4 +1280,5 @@ int main(){
     std::cout<<"V1179_ACK_CALLBACK_FRONTIER valid=8 refused=12 same_tick=1 target_identity=1 call_executed=0 pi_cleared=1 original_execution=0\n";
     std::cout<<"V1183_ACK_CALLBACK_PREFIX valid=8 refused=12 indirect_dispatch=1 stack_proof=1 save_return=1 original_execution=0\n";
     std::cout<<"V1188_ACK_PREFIX_TIME valid=8 refused=12 same_tick=1 system_visits=25 leaf_visits=18 reads=3 polls=1 original_execution=0\n";
+    std::cout<<"V1192_ACK_TIME_FRONTIER valid=8 refused=12 setter=4 getter=4 same_tick=1 call_executed=0 original_execution=0\n";
 }
