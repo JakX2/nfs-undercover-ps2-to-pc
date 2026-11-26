@@ -1,0 +1,3 @@
+# V1259: native IPC hardware exception entry from original idle scheduler
+
+V1258 owner run 45791326467 passed 8/8 original thread save, idle context and EE boundaries (486 labels, no fallback). V1259 extends the same CPU and transport after the verified mtmsr boundary. Authenticate the installed external-vector image from owner DOL/ELF, seed it as an explicitly modeled prior OSInit postcondition, and use the native IOS transport's real pending IRQ level. Require the precise hardware SRR/MSR transition, preserved integer registers, unchanged IPC ACK and request, unchanged saved waiting thread and unchanged instruction count. No guest vector instruction executes in this milestone. Original-free negative tests and private owner verification pending.

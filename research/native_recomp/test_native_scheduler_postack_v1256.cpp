@@ -5,6 +5,10 @@
 #include "wii_post_ack_sleep_join_v1252.h"
 #include "v1252_private_sleep.h"
 #include "v1256_private_scheduler.h"
+#ifdef UNDERCOVER_V1259_IRQ_ENTRY
+#include "wii_scheduler_irq_entry_v1259.h"
+#include "v1259_private_vector.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -29,6 +33,9 @@ static unsigned sleep_count=0;
 struct SchedulerStop{};
 static PostAckSchedulerJoin* sched_join=nullptr;
 static unsigned scheduler_count=0;
+#ifdef UNDERCOVER_V1259_IRQ_ENTRY
+static unsigned irq_count=0;
+#endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
 static PostAckSubmitJoin* submit_join=nullptr;
@@ -282,6 +289,10 @@ int main()try{
             c.mmu.write8(OpenScRoute::Source+i,v626::vector[i]);
             c.mmu.write8(OpenScRoute::Vector+i,v626::vector[i]);
         }
+#ifdef UNDERCOVER_V1259_IRQ_ENTRY
+        // Seed the authenticated prior OSExceptionInit postcondition.
+        for(unsigned i=0;i<v1259::vector.size();++i)c.mmu.write8(ExternalVector+i,v1259::vector[i]);
+#endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
         c.mmu.write32(W::Lo,lo);c.mmu.write32(W::Hi,hi);
@@ -352,11 +363,25 @@ int main()try{
         need(enabled&&sched.stage()==7u&&scheduler_count==trial+1u&&host.serviced_steps()==1u&&device_ok(c));
         need(host.exception_pending(c.msr)&&c.pc==v1256::resume&&(c.msr&0x8000u));
         std::cout<<"V1256_SCHED_TRIAL n="<<trial<<" saved=1 idle=1 enabled=1 pending_ack=1 irq_entered=0\n";
+#ifdef UNDERCOVER_V1259_IRQ_ENTRY
+        const auto before_irq=c.inst_count;
+        need(enter_scheduler_ipc_irq(c,host,v1259::vector,next.request()&0x3fffffffu));
+        need(c.pc==ExternalVector&&c.srr0==v1256::resume&&c.inst_count==before_irq&&
+             c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read16(Q::Thread+712u)==4u&&
+             c.mmu.read32(sleep.queue())==Q::Thread&&c.mmu.read32(sleep.queue()+4u)==Q::Thread&&
+             host.serviced_steps()==1u&&device_ok(c));
+        ++irq_count;
+        std::cout<<"V1259_IRQ_TRIAL n="<<trial<<" entered=1 srr=1 registers=1 pending_ack=1 vector_executed=0\n";
+#endif
         sched_join=nullptr;witness=nullptr;si_ack=nullptr;
     }
     need(callbacks==16&&control_writes==8&&stm_entries==8&&open_entries==8);
     std::cout<<"V1256_OPEN_POLLS restore=16 backward="<<loop_polls<<"\n";
     std::cout<<"V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1259_IRQ_ENTRY
+    need(irq_count==8u);
+    std::cout<<"V1259_IRQ_NATIVE owner=1 trials=8 entered=8 saved=8 idle=8 pending_ack=8 vector_executed=0 reply=0 seeded_vector=1 fallback=0 boot_verified=0\n";
+#endif
 }catch(const WitnessFailure&){
     std::cout<<"V1256_OPEN_FAILURE kind=witness trial="<<last_trial<<" stage="<<last_stage<<" reason="<<last_reason<<" line=0\n";return 1;
 }catch(const HarnessFailure& e){
