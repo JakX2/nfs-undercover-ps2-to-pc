@@ -39,6 +39,12 @@ class Tests(unittest.TestCase):
         self.assertEqual(words_at(assemble(blocks,start,max_roots=57),start,57),(0x4e800020,)*57)
         for cap in (55,56,59):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
+    def test_report_resume_roots(self):
+        start=0x80510000
+        blocks={start+4*i:(0x4e800020,) for i in range(58)}
+        self.assertEqual(words_at(assemble(blocks,start,max_roots=58),start,58),(0x4e800020,)*58)
+        for cap in (56,57,59):
+            with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_isolated_sections(self):
         start=0x80510000
         blocks={start:(0x4e800020,),start+16:(0x4e800020,)}
