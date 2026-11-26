@@ -1,0 +1,3 @@
+# V1045: strict original third-return audit after ABI admission
+
+Combine V1041's independently checked exact or timing-tail admission with V1031's original third-return census. The new audit must fail if the run merely reaches or admits the frontier. Require the original transfer return with token three, 105 visits, five matched entries/returns, two reads and three writes. Reject the synthetic fixture's shorter census, duplicates, wrong token, pending result, invalid admission or failed predecessor. No original launch is enabled yet: V1029 owner preflight and V1038 actual queue history remain separate gates. Source-only CI pending.
