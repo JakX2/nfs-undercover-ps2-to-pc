@@ -19,11 +19,13 @@ class Geometry(unittest.TestCase):
         self.assertIsNone(sda(ins(36,5,3,-4),36,B))
     def test_profile(self):
         self.assertTrue(decrement_leaf((LW,DEC,ST,RET),A,B))
+        self.assertTrue(decrement_leaf((LW,ins(14,0,5,-1),ins(36,0,13,-4),RET),A,B))
         for words in ((LW,INC,ST,RET),(LW,DEC,ins(36,6,13,-4),RET),
                       (LW,DEC,ins(36,5,13,-8),RET),(LW,DEC,ST,N),(LW,N,DEC,ST,RET)):
             with self.subTest(words=words),self.assertRaises(ValueError):decrement_leaf(words,A,B)
     def test_credit(self):
         self.assertEqual(credit_sites(P,(N,LW,INC,ST,N,N),A,P+20,B),1)
+        self.assertEqual(credit_sites(P,(N,LW,ins(14,0,5,1),ins(36,0,13,-4),N,N),A,P+20,B),1)
         for words in ((N,LW,DEC,ST,N,N),(N,LW,INC,N,N,N),(ST,LW,INC,ST,N,N),
                       (N,LW,N,ST,N,N),(N,ins(32,6,13,-4),INC,ST,N,N)):
             with self.subTest(words=words),self.assertRaises(ValueError):credit_sites(P,words,A,P+20,B)

@@ -23,10 +23,11 @@ def decrement_leaf(words,address,bases):
     # reject additional stores or an unrelated register dataflow.
     if len(words)!=4 or words[-1]!=0x4e800020:raise ValueError('ack profile extent')
     load,add,store,_=words
-    rd=(load>>21)&31
-    if (sda(load,32,bases)!=address or sda(store,36,bases)!=address or
-        add>>26!=14 or (add>>21)&31!=rd or (add>>16)&31!=rd or add&0xffff!=0xffff or
-        (store>>21)&31!=rd):raise ValueError('ack profile dataflow')
+    rd=(load>>21)&31;result=(add>>21)&31
+    if sda(load,32,bases)!=address:raise ValueError('ack profile load')
+    if sda(store,36,bases)!=address:raise ValueError('ack profile store')
+    if (not rd or add>>26!=14 or (add>>16)&31!=rd or add&0xffff!=0xffff or
+        (store>>21)&31!=result):raise ValueError('ack profile dataflow')
     return True
 
 def credit_sites(root,words,address,call,bases):
@@ -42,8 +43,9 @@ def credit_sites(root,words,address,call,bases):
     # accepts only a consecutive load/add/store credit increment.
     if i<2:raise ValueError('ack credit dataflow')
     load,add=words[i-2:i]
-    if (sda(load,32,bases)!=address or (load>>21)&31!=rs or add>>26!=14 or
-        (add>>21)&31!=rs or (add>>16)&31!=rs or add&0xffff!=1):raise ValueError('ack credit dataflow')
+    rd=(load>>21)&31
+    if (sda(load,32,bases)!=address or not rd or add>>26!=14 or
+        (add>>21)&31!=rs or (add>>16)&31!=rd or add&0xffff!=1):raise ValueError('ack credit dataflow')
     return len(sites)
 
 def derive(d,e):
@@ -64,7 +66,7 @@ def derive(d,e):
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    allowed={'size','identity','ack profile extent','ack profile dataflow','ack call extent','ack credit stores',
+    allowed={'size','identity','ack profile extent','ack profile dataflow','ack profile load','ack profile store','ack call extent','ack credit stores',
              'ack credit dataflow','ack profile edge','ack object overlap'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not HEADER.size<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
