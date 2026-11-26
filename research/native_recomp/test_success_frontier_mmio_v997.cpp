@@ -967,6 +967,26 @@ int main(int argc,char** argv){
                                                                                                     need(!v958::poll(c));
                                                                                                     if(zf=="-second-gqr")c.gqr[7]^=1u;
                                                                                                     v958::poll(c);
+#ifdef UNDERCOVER_V1220_PRIVATE_ACK_RESUME
+                                                                                                    if(v958::ack_resume_enabled()){
+                                                                                                        need(zf.starts_with("-resume"));
+                                                                                                        const auto rf3=zf.substr(std::string_view("-resume").size());
+                                                                                                        const uint32_t rw=c.mmu.read32(Resume);
+                                                                                                        if(rf3!="-missing-dispatch-tick")scheduler.advance(++tick);
+                                                                                                        if(rf3=="-extra-dispatch-tick")scheduler.advance(++tick);
+                                                                                                        if(rf3=="-pc")c.pc=Resume+4u;
+                                                                                                        if(rf3=="-srr0")c.srr0=Resume+4u;
+                                                                                                        if(rf3=="-mask")mask=0;
+                                                                                                        if(rf3!="-missing-dispatch")v958::observe(Resume,c);
+                                                                                                        if(rf3=="-double-dispatch")v958::observe(Resume,c);
+                                                                                                        if(rf3=="-integer")c.gpr[31]^=1u;
+                                                                                                        if(rf3=="-gqr")c.gqr[0]^=1u;
+                                                                                                        if(rf3=="-word")c.mmu.words[Resume]^=1u;
+                                                                                                        if(rf3=="-extra-label-tick")scheduler.advance(++tick);
+                                                                                                        if(rf3=="-missing-label-tick")v958::before(c,Resume,rw,false);
+                                                                                                        else visit(Resume,rw,rf3=="-guard");
+                                                                                                    }
+#endif
                                                                                                 }
 #endif
                                                                                             }

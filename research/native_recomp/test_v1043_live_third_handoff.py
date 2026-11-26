@@ -24,7 +24,7 @@ class LiveThird(unittest.TestCase):
             shutil.copyfile(HOST/'synthetic_third_ack_v1167.h',root/'v1167_private_third_ack.h')
             shutil.copyfile(HOST/'synthetic_ack_helper_v1175.h',root/'v1175_private_ack_helper.h')
             (root/'v958_private_second_ack.h').write_text(
-                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n'
+                '#define UNDERCOVER_V1025_PRIVATE_TRANSFER 1\n#define UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE 1\n#define UNDERCOVER_V1049_PRIVATE_ABI_PROVEN 1\n#define UNDERCOVER_V1048_PRIVATE_THIRD_ALARM 1\n#define UNDERCOVER_V1095_PRIVATE_AFTER_ALARM 1\n#define UNDERCOVER_V1103_PRIVATE_POSTALARM_TIME 1\n#define UNDERCOVER_V1111_PRIVATE_POSTALARM_FRONTIER 1\n#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n#define UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1\n#define UNDERCOVER_V1132_PRIVATE_POSTALARM_RETURN 1\n#define UNDERCOVER_V1139_PRIVATE_POSTALARM_HANDLER 1\n#define UNDERCOVER_V1145_PRIVATE_POSTALARM_HANDLER_RETURN 1\n#define UNDERCOVER_V1151_PRIVATE_HELD_EPILOGUE 1\n#define UNDERCOVER_V1158_PRIVATE_HELD_DISPATCH 1\n#define UNDERCOVER_V1167_PRIVATE_THIRD_ACK 1\n#define UNDERCOVER_V1175_PRIVATE_ACK_HELPER 1\n#define UNDERCOVER_V1180_PRIVATE_ACK_CALLBACK 1\n#define UNDERCOVER_V1184_PRIVATE_ACK_PREFIX 1\n#define UNDERCOVER_V1189_PRIVATE_ACK_TIME 1\n#define UNDERCOVER_V1193_PRIVATE_ACK_FRONTIER 1\n#define UNDERCOVER_V1197_PRIVATE_ACK_WIRELESS 1\n#define UNDERCOVER_V1201_PRIVATE_ACK_SUFFIX 1\n#define UNDERCOVER_V1205_PRIVATE_ACK_RETURN 1\n#define UNDERCOVER_V1210_PRIVATE_ACK_HANDLER 1\n#define UNDERCOVER_V1214_PRIVATE_ACK_HANDLER_RETURN 1\n#define UNDERCOVER_V1217_PRIVATE_ACK_FINAL 1\n#define UNDERCOVER_V1220_PRIVATE_ACK_RESUME 1\n'
                 +(HOST/'synthetic_success_frontier_expectations_v997.h').read_text().replace('context=0x80009000u','context=0x806f5318u')
                 +'''
 namespace undercover::wii::v958 {
@@ -395,4 +395,17 @@ inline constexpr AlarmCancelExpectation expected{
                     else:
                         self.assertEqual(got.returncode,126,got.stdout)
                         self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=(29|30) reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
+            env['UNDERCOVER_V1220_ACK_RESUME']='1'
+            for fault in ('','-missing-dispatch-tick','-extra-dispatch-tick','-pc','-srr0','-mask','-missing-dispatch','-double-dispatch','-integer','-gqr','-word','-extra-label-tick','-missing-label-tick','-guard'):
+                with self.subTest(ack_resume=fault):
+                    got=subprocess.run([str(exe),'error-abi-live-alarm-callback-time-frontier-wireless-suffix-return-handler-return-epilogue-dispatch-ack-helper-callback-prefix-time-frontier-wireless-suffix-return-handler-return-final-resume'+fault],env=env,capture_output=True,timeout=10)
+                    rows=got.stdout.splitlines()
+                    self.assertEqual(got.stderr,b'',got.stdout)
+                    self.assertIn(b'V1217_ACK_FINAL_RFI native_rfi=1 restored_context=1 visits=11 polls=2 token=3 pi_cleared=1 resumed_instruction_executed=0 boot_verified=0',rows)
+                    if not fault:
+                        self.assertEqual(got.returncode,0,got.stdout)
+                        self.assertEqual(rows[-1],b'V1220_ACK_FINAL_RESUME original_resume=1 restored_context=1 dispatch_ticks=2 token=3 pi_cleared=1 resumed_instruction_executed=0 boot_verified=0')
+                    else:
+                        self.assertEqual(got.returncode,126,got.stdout)
+                        self.assertRegex(rows[-1],rb'^V1151_HELD_EPILOGUE_FAULT stage=(31|32) reason=[0-9]+ epilogue=[0-9]+ reentry=[0-9]+$')
 if __name__=='__main__':unittest.main()
