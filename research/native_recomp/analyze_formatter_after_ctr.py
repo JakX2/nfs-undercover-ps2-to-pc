@@ -31,7 +31,7 @@ def classify_stack(at,n,sp,frame,mem,parent):
     inherited=sum(a in parent for a in range(at,end))
     return region,known,inherited
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     audit,entry,control,cells=ctr_audit(d,e,details=True)
     if audit!=('local_interior',1,'executable',1,1,1,0,1):raise ValueError('post CTR audit')
     site,w,prior,frame,prior_sites,gp,mem,cr,ctr,lr,saves=control
@@ -45,18 +45,22 @@ def plan(d,e):
             verify_path(tuple(path),sites,prior,prior_sites,edge)
             if any(mem.get(a)!=v for a,v in entry[2].items()):raise ValueError('post CTR parent changed')
             region,known,inherited=classify_stack(at,n,entry[1][1][1],frame,mem,entry[2])
-            return 'stack_load',path[:-1],frame,sites,0,n,region,(known,inherited)
+            result=('stack_load',path[:-1],frame,sites,0,n,region,(known,inherited))
+            return (*result,entry,stack[0],cells) if details else result
         if len(missed)==1 and not controls and not stack:
             at,n,path,frame,sites,*_=missed[0]
             verify_path(tuple(path),sites,prior,prior_sites,edge)
+            if details:raise ValueError('post CTR expected stack load')
             return 'load',path[:-1],frame,sites,0,n,classify_section(e,at,n),None
         if len(controls)==1 and not missed and not stack:
             pc,w,path,frame,sites,gp,mem,cr,ctr,lr,saves=controls[0]
             verify_path(tuple(path),sites,prior,prior_sites,edge)
             kind,dst=control_kind(w,ctr,lr)
+            if details:raise ValueError('post CTR expected stack load')
             return kind,path[:-1],frame,sites,target_size(d,e,kind,dst),0,'none',None
         raise
     verify_path(tuple(path),sites,prior,prior_sites,edge)
+    if details:raise ValueError('post CTR expected stack load')
     return 'call',path,frame,sites,words,0,'none',None
 
 def main():
