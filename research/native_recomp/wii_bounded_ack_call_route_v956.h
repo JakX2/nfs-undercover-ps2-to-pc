@@ -16,7 +16,7 @@ public:
     unsigned returns()const{return returns_;}
     unsigned depth()const{return depth_;}
     unsigned msr_writes()const{return msr_writes_;}
-    template<class C>bool begin(C& c,std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr_sites={}){
+    template<class C>bool begin(C& c,std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,std::span<const AckMsrSite> msr_sites={},bool strict=false){
         if(cpu_||error_||spans.empty()||spans.size()>12||edges.empty()||edges.size()>16||msr_sites.size()>4||
            c.pc!=spans[0].root||!safe(c))return fail(1);
         for(unsigned i=0;i<spans.size();++i){
@@ -43,7 +43,8 @@ public:
             if(o>=spans.size()||m.pc+4u>=spans[o].end||(m.word>>26)!=31u||((m.word>>1)&1023u)!=146u)return fail(1);
             for(unsigned j=0;j<i;++j)if(msr_sites[j].pc==m.pc)return fail(1);
         }
-        cpu_=&c;spans_=spans;edges_=edges;msr_sites_=msr_sites;msr_=c.msr;active_=0;next_=spans[0].root;return true;
+        if(strict){if constexpr(!requires{c.ctr;c.cr[0].lt;c.cr[0].gt;c.cr[0].eq;c.cr[0].so;})return fail(1);}
+        cpu_=&c;spans_=spans;edges_=edges;msr_sites_=msr_sites;msr_=c.msr;active_=0;next_=spans[0].root;strict_=strict;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,uint32_t native_owner=0){
         if(!same(c)||pending_entry_||(pc&3u))return fail(2);
@@ -74,7 +75,18 @@ public:
         if(link||op==17u||(op==19u&&(xo==50u||xo==528u||(xo==16u&&w!=0x4e800020u))))return fail(4);
         if(w==0x4e800020u){
             if(!depth_||c.lr!=stack_[depth_-1].ret)return fail(3);
-            pending_return_=true;
+            pending_return_=true;return true;
+        }
+        if(strict_){
+            next_=pc+4u;
+            if(op==16u||op==18u){
+                if(w&3u)return fail(4);
+                const uint32_t mask=op==16u?0xfffcu:0x03fffffcu,sign=op==16u?0x8000u:0x02000000u;
+                const uint32_t dest=pc+(((w&mask)^sign)-sign);
+                if(!in_active(dest))return fail(4);
+                if(op==18u||branch_taken(c,w))next_=dest;
+            }
+            if(!in_active(next_))return fail(4);
         }
         return true;
     }
@@ -88,14 +100,14 @@ public:
     template<class C>bool stop_before_direct(C& c,uint32_t pc,uint32_t w){
         const uint32_t d=((w&0x03fffffcu)^0x02000000u)-0x02000000u;
         const uint32_t dst=pc+d;
-        if(!same(c)||!can_poll()||depth_||active_||next_||pc<spans_[0].root||
+        if(!same(c)||!can_poll()||depth_||active_||(strict_?next_!=pc:next_!=0u)||pc<spans_[0].root||
            pc>=spans_[0].end||(pc&3u)||(w>>26)!=18u||(w&3u)!=1u||
            dst<0x80000000u||dst>=0x81800000u||dst==pc)return fail(4);
         for(const auto e:edges_)if(e.site==pc)return fail(4);
         return true;
     }
     template<class C>bool stop_before_indirect(C& c,uint32_t pc,uint32_t w){
-        if(!same(c)||!can_poll()||depth_||active_||next_||pc<spans_[0].root||
+        if(!same(c)||!can_poll()||depth_||active_||(strict_?next_!=pc:next_!=0u)||pc<spans_[0].root||
            pc>=spans_[0].end||(pc&3u)||w!=0x4e800421u)return fail(4);
         for(const auto e:edges_)if(e.site==pc)return fail(4);
         return true;
@@ -106,8 +118,17 @@ private:
     std::array<Frame,8> stack_{};
     std::span<const AckCallSpan> spans_;std::span<const AckCallEdge> edges_;std::span<const AckMsrSite> msr_sites_;
     const void* cpu_=nullptr;unsigned active_=0,depth_=0,entries_=0,returns_=0,error_=0;
-    uint32_t pending_entry_=0,next_=0,msr_=0;bool pending_return_=false,msr_pending_=false;unsigned msr_writes_=0;
+    uint32_t pending_entry_=0,next_=0,msr_=0;bool pending_return_=false,msr_pending_=false,strict_=false;unsigned msr_writes_=0;
     bool fail(unsigned e){if(!error_)error_=e;return false;}
+    bool in_active(uint32_t pc)const{return active_<spans_.size()&&!(pc&3u)&&pc>=spans_[active_].root&&pc<spans_[active_].end;}
+    template<class C>static bool branch_taken(C& c,uint32_t w){
+        if constexpr(requires{c.ctr;c.cr[0].lt;c.cr[0].gt;c.cr[0].eq;c.cr[0].so;}){
+            const unsigned bo=(w>>21)&31u,bi=(w>>16)&31u;
+            const auto& f=c.cr[bi/4u];
+            const bool bit=bi%4u==0?f.lt:bi%4u==1?f.gt:bi%4u==2?f.eq:f.so;
+            return ((bo&4u)||(((uint32_t(c.ctr)-1u)!=0u)^bool(bo&2u)))&&((bo&16u)||bit==bool(bo&8u));
+        }else return false;
+    }
     static unsigned owner(std::span<const AckCallSpan> ss,uint32_t pc){
         for(unsigned i=0;i<ss.size();++i)if(pc==ss[i].root)return i;
         for(unsigned i=0;i<ss.size();++i)if(pc>=ss[i].root&&pc<ss[i].end&&!(pc&3u))return i;

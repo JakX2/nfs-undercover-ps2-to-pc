@@ -236,7 +236,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
         }
         if(pc==CallbackCall){
             need(owner==Handler&&shared_seen&&post_seen&&ack.stage()==4u&&call_route.depth()==0u&&call_route.can_poll()&&
-                 ack.before(c,pc,w,true)&&ack.postack_held()&&c.ctr==CallbackRoot&&
+                 ack.before(c,pc,w,true)&&ack.postack_held()&&call_route.stop_before_indirect(c,pc,w)&&c.ctr==CallbackRoot&&
                  classify_callback_identity(c,pc,w,6,2,CallbackRoot,callback_full,callback_sites)==2u);
             if(callback_route){need(c.gpr[3]<4u);callback_channel=c.gpr[3];need(callback_witness.start_dispatch(c,pc,w,true,true));return;}
             need(argument_probe&&shared_continue);
@@ -385,7 +385,7 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(pc==Handler){
         need(witness.stage()==6u&&entries==5u&&reads>=2u&&captured.saved_integer(c,Context).ok());
         handler_gp=c.gpr;handler_lr=c.lr;
-        need(call_route.begin(c,ack_spans,ack_edges,AckMsr));
+        need(call_route.begin(c,ack_spans,ack_edges,AckMsr,true));
         need(ack.arm(*ctl,cause,bank_mask,c.inst_count,ctl->issued_tokens(),held()));
         ++entries;return;
     }

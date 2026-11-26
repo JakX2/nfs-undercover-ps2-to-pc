@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/*v999*'
+      - 'research/native_recomp/*v1000*'
       - '.github/workflows/wii-v999-second-callback-frontier.yml'
 permissions:
   contents: read
