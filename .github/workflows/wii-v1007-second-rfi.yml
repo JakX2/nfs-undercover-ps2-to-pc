@@ -16,6 +16,7 @@ jobs:
       - run: |
           set -euo pipefail
           python3 -m py_compile research/native_recomp/prepare_owner_second_rfi_v1007.py
+          python3 -m unittest discover -s research/native_recomp -p test_v1044_third_alarm_suffix.py -v
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_strict_handler_suffix_v1005.cpp -o "$RUNNER_TEMP/v1005"
           "$RUNNER_TEMP/v1005"
           bash -n research/native_recomp/run_owner_second_rfi_v1007.sh
