@@ -579,7 +579,7 @@ int main(int argc,char** argv)try{
         ipc_dispatch=nullptr;
         std::cout<<"V1261_DISPATCH_TRIAL n="<<trial<<" original_dispatcher=1 index=27 context=1 pi_reads=1 handler_entry=1 handler_executed=0\n";
 #ifdef UNDERCOVER_V1266_JOINED_ACK
-        JoinedIpcAck joined(v1255::handler,v1255::returned,v1266::return_word,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
+        JoinedIpcAck joined(v1255::handler,v1255::returned,v1266::return_word,v1266::final_blr,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
         need(joined.begin(c,dispatch,irq_capture,sleep.queue(),next.request()&0x3fffffffu,kind,device_ok(c)));
         joined_ack=&joined;joined_cpu=&c;
         bool ack_returned=false;

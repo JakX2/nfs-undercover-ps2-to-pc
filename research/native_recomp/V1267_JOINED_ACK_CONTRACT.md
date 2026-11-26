@@ -1,0 +1,3 @@
+# V1267: authenticate dispatcher-to-handler handoff and original return
+
+Add the standalone VectorEdge declaration include. Require the same CPU, saved context witness, queue, exact handler-entry tick, actual pending IPC snapshot and original indirect branch at handoff. Authenticate the final original handler BLR and insist on a same-tick return before any dispatcher continuation executes. Every handler instruction must advance exactly one native tick after entry. Extend the original-free real IOS fixture with an admitted ACK/reply path and thirteen refusal cases; guest instruction observations remain modeled. V1266 owner test pending. No actual reply/wakeup execution claimed until owner CI passes.

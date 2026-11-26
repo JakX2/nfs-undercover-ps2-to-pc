@@ -1,4 +1,7 @@
 #include "wii_ipc_dispatch_v1261.h"
+#ifdef UNDERCOVER_TEST_JOINED_ACK
+#include "wii_joined_ipc_ack_v1266.h"
+#endif
 #include <cassert>
 #include <iostream>
 #include <string_view>
@@ -36,10 +39,16 @@ struct Cpu{
     uint64_t inst_count=100;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n){
+static void trial(unsigned n,unsigned join_case=0){
+#ifndef UNDERCOVER_TEST_JOINED_ACK
+    (void)join_case;
+#endif
     std::vector<uint8_t> one(0x600000u);std::array<uint8_t,4096> two{};
     std::atomic<uint32_t> cause{Other},mask{Mask};
     NativeIosTransport host(one,two,cause,mask);auto& ram=host.physical_ram();
+#ifdef UNDERCOVER_TEST_JOINED_ACK
+    NativeIosBinding binding(host);
+#endif
     Cpu c{{one,ram}};
     constexpr std::string_view name="/dev/stm/immediate";
     for(unsigned i=0;i<name.size();++i)ram.write8(Path+i,uint8_t(name[i]));
@@ -122,8 +131,59 @@ static void trial(unsigned n){
     if(n==20){rejected(ok,5);return;}
     assert(n==0&&ok&&w.stage()==6u&&w.cause_reads()==1u&&w.mask_reads()==1u);
     unchanged();
+#ifdef UNDERCOVER_TEST_JOINED_ACK
+    // Synthetic handler observations; every MMIO write and IOS pump is
+    // the real native transport. No owner game instructions here.
+    constexpr uint32_t returned=Code.indirect_pc+4u,ret_word=0x60000000u,
+        final_blr=Handler+0x40u,Leaf=0x8051905cu;
+    m.write32(returned,ret_word);m.write32(final_blr,0x4e800020u);
+    m.write32(Leaf,0x4e800020u);m.write32(Handler+4u,0x48000001u);
+    constexpr std::array<VectorEdge,1> edges{{{Leaf,Handler+8u,0x48000001u,0x4e800020u}}};
+    constexpr std::array<uint32_t,0> polls{};
+    JoinedIpcAck j(Handler,returned,ret_word,final_blr,Context,Thread,edges,polls);
+    auto refuse=[&](bool value,unsigned reason){
+        assert(!value&&j.failure()==reason&&host.serviced_steps()==1u&&ram.read32(Request)==S::Open);
+    };
+    if(join_case==1)++c.inst_count;
+    if(join_case==2)m.write32(returned,0);
+    if(join_case==3)m.write32(final_blr,0);
+    ok=j.begin(c,w,frame,Queue,Request,1u,true);
+    if(join_case>=1&&join_case<=3){refuse(ok,1);return;}
+    assert(ok&&j.poll(c,true));
+    if(join_case==4){refuse(j.publish(c,true),8);return;}
+    ++c.inst_count;assert(j.entry(c,Handler,true));
+    ++c.inst_count;assert(j.before(c,Handler,Code.handler_word,false,true));
+    if(join_case==5){c.inst_count+=2;refuse(j.before(c,Handler+4u,0x48000001u,false,true),3);return;}
+    if(join_case==6){refuse(j.poll(c,true),4);return;}
+    ++c.inst_count;assert(j.before(c,Handler+4u,0x48000001u,false,true));
+    c.pc=Leaf;c.lr=Handler+8u;
+    if(join_case==7){c.lr+=4;refuse(j.entry(c,Leaf,true),2);return;}
+    assert(j.entry(c,Leaf,true));
+    ++c.inst_count;assert(j.before(c,Leaf,0x4e800020u,false,true));
+    c.pc=Handler+8u;c.lr=returned;
+    const auto ctrl=j.read(c,Bus::IPC+M::PPCCTRL,true);assert(ctrl);
+    if(join_case==8){refuse(j.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true),6);return;}
+    assert(j.write(c,Bus::IPC+M::PPCCTRL,*ctrl,true));
+    if(join_case==9){refuse(j.write(c,Bus::IPC+H::PPC_FLAG,0,true),6);return;}
+    assert(j.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true));
+    if(join_case==10){m.write32(Context+124u,0);refuse(j.poll(c,true),4);return;}
+    if(join_case!=11){++c.inst_count;assert(j.before(c,final_blr,0x4e800020u,false,true));}
+    c.pc=returned;
+    if(join_case==12)c.gpr[31]^=1u;
+    if(join_case==13)++c.inst_count;
+    ok=j.finish(c,true);
+    if(join_case>=11&&join_case<=13){refuse(ok,7);return;}
+    assert(ok&&j.stage()==2u&&host.serviced_steps()==1u);
+    assert(j.publish(c,true)&&j.stage()==3u&&host.serviced_steps()==2u);
+    assert(ram.read32(Request)==S::Reply&&ram.read32(Request+4u)==0u&&ram.read32(Request+8u)==S::Open);
+    assert(!j.publish(c,true)&&host.serviced_steps()==2u);
+#endif
 }
 int main(){
     for(unsigned i=0;i<21;++i)trial(i);
     std::cout<<"V1265_IPC_DISPATCH_CONTRACT synthetic=1 valid=1 refused=20 native_ack=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_JOINED_ACK
+    for(unsigned i=1;i<=13;++i)trial(0,i);
+    std::cout<<"V1267_JOINED_ACK_CONTRACT synthetic=1 valid=1 refused=13 native_reply=1 original_execution=0\n";
+#endif
 }

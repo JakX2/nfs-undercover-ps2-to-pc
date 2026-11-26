@@ -53,7 +53,9 @@ def analyzer(s,g,native,stop):
     return rewrite(s,((SCANNER,scanner),))
 
 def render(native,stop,edges,branch,ret):
-    return ack_render(native,stop,edges,branch)+f'namespace v1266 {{ inline constexpr uint32_t return_word=0x{ret:08x}u; }}\n'
+    last=IPC+4*(len(native[IPC])-1)
+    if native[IPC][-1]!=BLR:raise ValueError('ACK final BLR')
+    return ack_render(native,stop,edges,branch)+f'namespace v1266 {{ inline constexpr uint32_t return_word=0x{ret:08x}u,final_blr=0x{last:08x}u; }}\n'
 
 def install(root,native,stop,edges,ret):
     paths=sorted(root.glob('output_*.cpp'));src={p:p.read_text() for p in paths}

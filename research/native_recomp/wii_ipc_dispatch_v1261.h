@@ -61,6 +61,16 @@ public:
                  !word(c,e_.counter,counter_+1u))return fail(6);
         last_=last_entry_=c.inst_count;++stage_;return true;
     }
+    // Transfer the admitted handler entry to a follow-on witness only on
+    // the very same CPU, saved frame, queue and observation tick.
+    template<class C>bool handler_ready(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,uint32_t queue,bool held)const{
+        return stage_==6u&&!error_&&held&&cpu_==&c&&frame_==&frame&&queue_==queue&&safe(c)&&
+            c.inst_count==last_entry_&&same_scheduler_ipc_snapshot(s_,s)&&frame.pending_source(c,s.pi_cause,s.pi_mask)&&
+            frame.saved_integer(c,e_.context).ok()&&tables(c)&&c.pc==e_.handler&&c.ctr==e_.handler&&
+            c.gpr[3]==27u&&c.gpr[4]==e_.context&&c.lr==e_.code.indirect_pc+4u&&
+            word(c,c.pc,e_.code.handler_word)&&word(c,e_.code.indirect_pc,e_.code.indirect_word)&&
+            word(c,e_.counter,counter_+1u);
+    }
 private:
     IpcDispatchExpectations e_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
     ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0;

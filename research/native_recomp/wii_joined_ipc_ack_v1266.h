@@ -2,6 +2,7 @@
 #include "wii_cold_open_reply_gate_v1253.h"
 #include "wii_external_return_v706.h"
 #include "wii_ipc_dispatch_v1261.h"
+#include "wii_exception_vector_witness_v457.h"
 #include <algorithm>
 #include <span>
 namespace undercover::wii {
@@ -9,9 +10,9 @@ namespace undercover::wii {
 // No synthesized handler call, ACK write or guest return.
 class JoinedIpcAck {
 public:
-    JoinedIpcAck(uint32_t handler,uint32_t returned,uint32_t return_word,uint32_t context,
+    JoinedIpcAck(uint32_t handler,uint32_t returned,uint32_t return_word,uint32_t final_blr,uint32_t context,
                  uint32_t thread,std::span<const VectorEdge> edges,std::span<const uint32_t> polls)
-        :handler_(handler),returned_(returned),word_(return_word),context_(context),thread_(thread),edges_(edges),polls_(polls){}
+        :handler_(handler),returned_(returned),word_(return_word),final_blr_(final_blr),context_(context),thread_(thread),edges_(edges),polls_(polls){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;}
@@ -20,9 +21,10 @@ public:
     unsigned gate_failure()const{return gate_.failure();}
     template<class C>bool begin(C& c,IpcDispatchWitness& dispatch,ExternalReturnWitness& frame,
                                 uint32_t queue,uint32_t physical,unsigned kind,bool held){
-        if(stage_||error_||dispatch.stage()!=6u||dispatch.failure()||!held||c.pc!=handler_||
+        const auto snapshot=NativeIosBinding::cold_snapshot();
+        if(stage_||error_||!snapshot||!dispatch.handler_ready(c,frame,*snapshot,queue,held)||c.pc!=handler_||
            c.lr!=returned_||c.ctr!=handler_||c.gpr[3]!=27u||c.gpr[4]!=context_||
-           !equal(c,returned_,word_)||!equal(c,returned_-4u,0x4e800421u))return fail(1);
+           !equal(c,returned_,word_)||!equal(c,returned_-4u,0x4e800421u)||!equal(c,final_blr_,0x4e800020u))return fail(1);
         cpu_=&c;frame_=&frame;queue_=queue;gp_=c.gpr;msr_=c.msr;tick_=last_=c.inst_count;
         if(!common(c,held)||!gate_.begin(physical,kind,true))return fail(1);
         stage_=1;return true;
@@ -32,6 +34,7 @@ public:
         if(!entries_){
             if(pc!=handler_||c.lr!=returned_||c.gpr[3]!=27u||c.gpr[4]!=context_||
                c.inst_count-tick_>1u)return fail(2);
+            last_=c.inst_count;
         }else{
             if(pc!=0x8051905cu&&pc!=0x8051906cu&&pc!=0x8051b060u)return fail(2);
             if(std::count_if(edges_.begin(),edges_.end(),[&](auto e){
@@ -42,9 +45,9 @@ public:
         return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool guard,bool held){
-        if(guard||!entries_||!boundary(c,held)||!equal(c,pc,w)||c.inst_count<=last_||
-           c.inst_count-last_>2u||++visits_>8192u)return fail(3);
-        last_=c.inst_count;return true;
+        if(guard||!entries_||!boundary(c,held)||!equal(c,pc,w)||c.inst_count-last_!=1u||
+           ++visits_>8192u)return fail(3);
+        last_=c.inst_count;last_pc_=pc;last_word_=w;return true;
     }
     template<class C>bool poll(C& c,bool held){
         if(!boundary(c,held))return fail(4);
@@ -68,6 +71,7 @@ public:
     template<class C>bool finish(C& c,bool held){
         if(!boundary(c,held)||gate_.stage()!=3u||!reads_||!visits_||entries_<2u||
            c.pc!=returned_||c.lr!=returned_||!equal(c,returned_,word_)||
+           last_pc_!=final_blr_||last_word_!=0x4e800020u||c.inst_count!=last_||
            c.gpr[1]!=gp_[1]||c.gpr[2]!=gp_[2]||c.msr!=msr_)return fail(7);
         for(unsigned i=13;i<32u;++i)if(c.gpr[i]!=gp_[i])return fail(7);
         stage_=2;return true;
@@ -78,7 +82,7 @@ public:
         stage_=3;return true;
     }
 private:
-    uint32_t handler_,returned_,word_,context_,thread_,queue_=0,msr_=0;
+    uint32_t handler_,returned_,word_,final_blr_,context_,thread_,queue_=0,msr_=0,last_pc_=0,last_word_=0;
     std::span<const VectorEdge> edges_;std::span<const uint32_t> polls_;
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;ColdOpenReplyGate gate_;
     std::array<uint32_t,32> gp_{};

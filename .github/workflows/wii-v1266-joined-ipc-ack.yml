@@ -29,6 +29,8 @@ jobs:
           /tmp/v1264-data
           python3 -m unittest discover -s research/native_recomp -p test_v1261_ipc_dispatch.py -v
           python3 -m py_compile research/native_recomp/prepare_v1266_joined_ack.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -DUNDERCOVER_TEST_JOINED_ACK -Iresearch/native_recomp research/native_recomp/test_ipc_dispatch_contract_v1265.cpp -o /tmp/v1267-ack
+          /tmp/v1267-ack
           printf '#include "wii_joined_ipc_ack_v1266.h"\nint main(){}\n' | g++ -x c++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp -fsyntax-only -
   owner-joined-ipc-ack:
     needs: original-free
