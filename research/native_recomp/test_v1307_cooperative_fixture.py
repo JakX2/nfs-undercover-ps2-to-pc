@@ -1,4 +1,6 @@
 import unittest
+from unittest.mock import patch
+from prepare_v1307_cooperative_fixture import audit,ENABLE,SELECT,SAVE_RETURN,SLEEP,SLEEP_RETURN
 from prepare_v1307_cooperative_fixture import CLEAR,SAVE,BLR,leaf_shape,check_save,merge,call
 NOP=0x60000000
 def stw(r,off):return (36<<26)|(r<<21)|(3<<16)|off
@@ -23,6 +25,11 @@ class Tests(unittest.TestCase):
         for bad in ({CLEAR:(NOP,),SAVE:save()}, {CLEAR:(NOP,BLR),SAVE:(BLR,)},
                     {**old,CLEAR+8:(NOP,BLR)}):
             with self.assertRaises(ValueError):merge(bad,roots)
+    def test_audit_resume_scalar(self):
+        resume=ENABLE+4
+        with patch('prepare_v1307_cooperative_fixture.audit_native',return_value=1), patch('prepare_v1307_cooperative_fixture.verify_resume') as check:
+            self.assertEqual(audit([], '', ({SAVE:(BLR,)},(),resume,0xfe)),1)
+            check.assert_called_once_with('',((resume,ENABLE),(SAVE_RETURN,SELECT),(SLEEP_RETURN,SLEEP)))
     def test_call(self):
         roots={SAVE:(bl(SAVE,CLEAR),BLR)}
         call(roots,SAVE,SAVE,CLEAR)

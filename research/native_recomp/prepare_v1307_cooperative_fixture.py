@@ -105,7 +105,7 @@ def audit(src,main,p):
     expected={pc:(owner,ws[(pc-owner)//4]) for owner,ws in roots.items()
         for pc in (range(owner,owner+4*len(ws),4) if owner==L else reachable(owner,ws))}
     if audit_native(src,main,expected)!=len(expected):raise ValueError('resume coverage')
-    verify_resume(main,((mt[0],ENABLE),
+    verify_resume(main,((mt,ENABLE),
                         (SAVE_RETURN,SELECT),(SLEEP_RETURN,SLEEP)))
     for owner,site,dst in sites:
         hits=[s for s in src if f'loc_{site:X}: ;' in s]

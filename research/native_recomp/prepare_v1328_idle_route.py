@@ -18,7 +18,7 @@ def install(root,result):
     main=(root/'main_output.cpp').read_text()
     n=audit(list(sources.values()),main,result)
     if audit_native(sources.values(),main,expected)!=len(expected):raise ValueError('selection coverage')
-    verify_resume(main,((coop[2][0],ENABLE),*((e[1],SELECT) for e in indirect)))
+    verify_resume(main,((coop[2],ENABLE),*((e[1],SELECT) for e in indirect)))
     for target,lr,word,_ in indirect:
         site=lr-4
         pat=re.compile(r'(?mi)^loc_'+f'{site:X}'+r': ;\n(.*?)(?=^loc_[0-9a-f]+: ;|\Z)',re.S|re.M)
@@ -47,7 +47,7 @@ def main():
     try:
         if not 256<=a.dol.stat().st_size<=MAX_DOL or not 52<=a.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         install(a.out,plan(a.dol.read_bytes(),a.elf.read_bytes()));return 0
-    except (OSError,ValueError,KeyError,IndexError,struct.error) as ex:
+    except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         allowed=('size','selection coverage','selection indirect dispatch','selection hook identity','selection hook include','selection hook coverage',
                  'resume coverage','resume direct owner','return dispatch identity','native IPC coverage','native IPC label identity','native IPC label body','native IPC dispatch')
         print('V1328_SELECTION_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'prior_or_io'));return 1
