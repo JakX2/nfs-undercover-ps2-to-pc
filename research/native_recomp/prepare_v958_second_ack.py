@@ -55,8 +55,9 @@ def patch_si(s):
         SiQueueHistoryResult history;
         if(v958::six_arguments_enabled())history=v958::queue_history.finish(c,a);
         const auto* evidence=v958::six_arguments_enabled()?&history:nullptr;
-        if(!si_transfer_admission(a,evidence)||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch)||
-           !v958::third_ready||!v958::third_route.start(c,pc,v958::transfer_branch,a,v958::third_spans,v958::third_edges,v958::msr_sites,v958::transfer_data,evidence))return false;
+        if(!v958::third_ready||v958::third_ready_tick!=c.inst_count||a.packet!=v958::third_packet||
+           !v958::third_admission||si_transfer_admission(a,evidence)!=v958::third_admission||
+           !v958::calls.stop_before_direct(c,pc,v958::transfer_branch)||!v958::third_route.start(c,pc,v958::transfer_branch,a,v958::third_spans,v958::third_edges,v958::msr_sites,v958::transfer_data,evidence))return false;
 #else
         if(!a.admitted()||!v958::calls.stop_before_direct(c,pc,v958::transfer_branch))return false;
 #endif

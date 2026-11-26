@@ -63,6 +63,13 @@ int main(){
         c.mmu.write(Slots+32u*ch,ch);++c.inst_count;need(hist.sample(c));
         a=inspect_si_transfer_arguments(c,Data,Slots,Callback);x=hist.finish(c,a);
         need(x.valid&&x.current_mismatch==128u&&x.changed==1u&&x.samples==3u);
+        // A different nonzero queued delay retains mismatch bit seven.
+        // Rechecking on the same tick must still record the mutation.
+        c.mmu.write(Slots+32u*ch+28u,3949u);
+        a=inspect_si_transfer_arguments(c,Data,Slots,Callback);x=hist.finish(c,a);
+        need(x.valid&&x.current_mismatch==128u&&x.changed==129u&&x.samples==3u&&!si_transfer_admission(a,&x));
+        c.mmu.write(Slots+32u*ch+28u,3948u);
+        x=hist.finish(c,a);need(x.valid&&x.changed==129u&&x.samples==3u);
         Cpu other;need(!hist.sample(other));
         c.mmu.mem.erase(Slots+127);++c.inst_count;need(!hist.sample(c));
     }

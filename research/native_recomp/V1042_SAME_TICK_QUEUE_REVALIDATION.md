@@ -1,0 +1,3 @@
+# V1042: same-tick queue revalidation and immutable handoff ticket
+
+The V1040 policy must not reuse a stale queue snapshot at the same tick. Re-read every slot on repeated samples, keep the numeric sample count unchanged, and retain any observed mutation even if the mismatch bitmask does not change. Test a different nonzero queued timestamp and its restoration on the exact same tick for all four channels. The private third-transfer handoff additionally binds its independently recalculated decision to the original frontier's tick, packet and admission class, so a changed register packet or decision cannot be admitted after the first classification. No relaxation of the exact-match legacy mode or new original execution claim.

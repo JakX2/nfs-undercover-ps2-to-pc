@@ -39,17 +39,18 @@ public:
         return true;
     }
     template<class C>bool sample(C& c){
-        if(cpu_!=&c||c.inst_count<last_||c.inst_count-first_>8192u||samples_>=8192u)return false;
-        // Capture only one sample per scheduler tick, even at a shared
-        // native call/return label.
-        if(samples_&&last_==c.inst_count)return true;
+        if(cpu_!=&c||c.inst_count<last_||c.inst_count-first_>8192u)return false;
+        // A shared frontier/handoff tick is counted once but must still
+        // re-read memory: the same mismatch mask can hide a changed word.
+        const bool repeated=samples_&&last_==c.inst_count;
+        if(!repeated&&samples_>=8192u)return false;
         for(unsigned i=0;i<128u;++i)if(!c.mmu.get_ptr(base_+i))return false;
         for(unsigned i=0;i<32u;++i){
             const auto v=c.mmu.read32(base_+4u*i);
             if(v!=latest_[i])changed_[i/8u]|=1u<<(i%8u);
             latest_[i]=v;
         }
-        last_=c.inst_count;++samples_;return true;
+        last_=c.inst_count;if(!repeated)++samples_;return true;
     }
     template<class C>SiQueueHistoryResult finish(C& c,const SiTransferArguments& a){
         SiQueueHistoryResult out;

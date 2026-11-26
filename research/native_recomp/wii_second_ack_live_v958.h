@@ -27,6 +27,9 @@ inline thread_local PostAckTransferDevice next_device;
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
 inline thread_local ThirdSiTransferRoute third_route;
 inline thread_local bool third_ready=false;
+inline thread_local unsigned third_admission=0;
+inline thread_local uint64_t third_ready_tick=0;
+inline thread_local std::array<uint32_t,8> third_packet{};
 inline bool third_enabled(){const char* v=std::getenv("UNDERCOVER_V1028_THIRD_TRANSFER");return v&&v[0]=='1'&&v[1]=='\0';}
 inline bool third_active(){return third_route.stage()==1u;}
 #endif
@@ -246,7 +249,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
                 <<" call_executed=0 boot_verified=0"<<std::endl;
         }
 #ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
-        if(third_enabled()&&si_transfer_admission(a,six_arguments_enabled()?&hist:nullptr)){third_ready=true;return;}
+        if(third_enabled()){
+            const auto decision=si_transfer_admission(a,six_arguments_enabled()?&hist:nullptr);
+            if(decision){third_ready=true;third_admission=decision;third_ready_tick=c.inst_count;third_packet=a.packet;return;}
+        }
 #endif
         std::_Exit(0);
     }
