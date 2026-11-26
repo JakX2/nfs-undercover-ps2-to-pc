@@ -54,6 +54,15 @@ int main(){
     unsigned held_ep_valid=0,held_ep_refused=0;
     unsigned held_vec_valid=0,held_vec_refused=0;
     unsigned held_disp_valid=0,held_disp_refused=0;
+    {
+        constexpr uint32_t P=0x80004000u,W=0x60000000u,O=0x80004000u;
+        std::array<ThirdAckNativeLabel,2> rows{{{P,W,O,false},{P+4u,W,O,true}}};
+        need(third_ack_native_owner(rows,P,W)==O);
+        need(!third_ack_native_owner(rows,P+4u,W)&&!third_ack_native_owner(rows,P,W^1u)&&
+             !third_ack_native_owner(rows,P+8u,W));
+        rows[1]={P,W,O,false};need(!third_ack_native_owner(rows,P,W));
+        rows[0].owner=0;need(!third_ack_native_owner(rows,P,W));
+    }
     unsigned held_ack_valid=0,held_ack_refused=0;
     for(trial=0;trial<408;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
