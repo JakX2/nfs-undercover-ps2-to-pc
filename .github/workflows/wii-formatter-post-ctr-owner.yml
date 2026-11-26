@@ -1,6 +1,10 @@
 name: Wii Original Formatter Post-CTR Stack Prefix
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-post-ctr-owner.yml'
 permissions:
   contents: read
   actions: read
