@@ -65,6 +65,9 @@
 #include "v1358_private_open_return.h"
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
 #include "v1359_private_second.h"
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+#include "v1379_private_second_return.h"
+#endif
 #endif
 #endif
 #endif
@@ -245,6 +248,10 @@ static unsigned second_ready_count=0,second_nested_count=0,second_return_count=0
 #ifdef UNDERCOVER_V1378_SECOND_FREE
 static SubmitResumeWitness* second_resume_capture=nullptr;
 static unsigned second_release_count=0,second_allocator_count=0;
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+static OpenReturnWitness* second_open_capture=nullptr;
+static unsigned second_open_return_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -335,6 +342,10 @@ static bool open_return_held(nw::CPUContext& c){
     return open_return&&allocator_release&&allocator_held(c)&&allocator_release->storage_preserved(c,true);
 }
 static bool open_descriptor(nw::CPUContext& c){
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+    if(second_scheduler_lane)return allocator_descriptor&&allocator_release&&allocator_descriptor->second_completed()&&
+        allocator_descriptor->identity_after_release(c)&&OpenTransactionEpoch(second_irq_kind).acknowledged_descriptors(3u-second_irq_kind);
+#endif
     return allocator_descriptor&&allocator_release&&allocator_descriptor->returned(c,allocator_release->metadata_stores())&&B::is_open(0u,open_return_device);
 }
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
@@ -411,7 +422,16 @@ void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
                 if(!allocator_descriptor||!allocator_descriptor->second_returned(c,allocator_release->metadata_stores())){
                     std::cout<<"V1378_DESCRIPTOR_REFUSAL stage=2\n";allocator_refuse(4);
                 }
-                ++second_allocator_count;throw AllocatorReturned{};
+                ++second_allocator_count;
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+                if(!open_return||!open_return->begin_inline(c,*allocator_release,open_return_held(c),open_descriptor(c),1u))open_return_refuse(3);
+                std::cout<<"V1379_FREE_HANDOFF n="<<last_trial<<" native_free=1 heap_shadow=1 metadata_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator_release->stores()<<" heap="<<allocator_release->heap_stores()<<'\n';
+                allocator_active=false;open_return_active=true;
+                if(!open_return->before(c,pc,w,open_return_held(c),open_descriptor(c)))open_return_refuse(4);
+                return;
+#else
+                throw AllocatorReturned{};
+#endif
             }
 #endif
             ++allocator_count;
@@ -704,6 +724,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(second_open_active){
         if(!second_open->entry(c,pc,open_return_held(c),open_descriptor(c)))second_open_refuse(3);
         ++second_open_count;
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+        if(!second_open_capture||!second_open_capture->capture_open(c,open_return_held(c)))open_return_refuse(1);
+#endif
 #ifdef UNDERCOVER_V1364_SECOND_REQUEST
         if(!second_request||!second_request->begin_second(c,*second_open,second_request_held(c),
                 open_return_held(c),open_descriptor(c),allocator_heap.size))second_request_refuse(1);
@@ -740,6 +763,9 @@ void trace_call(uint32_t pc,CPUContext& c){
             std::cout<<"V1364_REQUEST_TRIAL n="<<last_trial<<" request=1 opposite_path=1 native_rfi=1 first_fd_held=1 reused="<<(second_request->request()==allocator_request)<<"\n";
 #ifdef UNDERCOVER_V1378_SECOND_FREE
             if(!second_resume_capture||!second_resume_capture->capture(c,second_request_held(c)))submit_resume_refuse(6);
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+            if(!second_open_capture||!second_open_capture->capture_submit(c,second_request_held(c)))open_return_refuse(2);
+#endif
 #endif
             if(!second_submit||!second_submit->begin(c,*second_request,second_request_held(c))||
                !second_submit->observe(c,pc,second_submit_held(c)))second_submit_refuse(1);
@@ -1037,6 +1063,9 @@ bool process_pending_callbacks(CPUContext& c){
         if(!open_return->poll(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
         if(open_return->stage()==5u){
             if(!open_return->returned(c,open_return_held(c),open_descriptor(c)))open_return_refuse(6);
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+            if(second_scheduler_lane){++second_open_return_count;throw OpenReturned{};}
+#endif
             ++open_return_count;
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
             if(!second_open->begin(c,*open_return,open_return_held(c),open_descriptor(c),open_return_device==StmIos::Device::Immediate?1u:2u))second_open_refuse(1);
@@ -1533,6 +1562,9 @@ int main(int argc,char** argv)try{
         for(auto w:v1243::words)c.mmu.write32(w.pc,w.word);
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
         for(auto w:v1358::stm_words)c.mmu.write32(w.pc,w.word);
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+        c.mmu.write32(v1379::expected.stm_resume,v1379::expected.stm_resume_word);
+#endif
 #endif
         for(auto w:v1252::words)c.mmu.write32(w.pc,w.word);
         for(auto w:v1256::words)c.mmu.write32(w.pc,w.word);
@@ -1644,6 +1676,9 @@ int main(int argc,char** argv)try{
         OpenReturnWitness open_tail(v1358::expected);open_return=&open_tail;
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
         StmSecondWitness stm_second(v1359::expected);second_open=&stm_second;
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+        OpenReturnWitness open_tail2(v1379::expected);second_open_capture=&open_tail2;
+#endif
 #endif
 #endif
         need(stm.begin(c,w,device_ok(c)));
@@ -2214,8 +2249,19 @@ int main(int argc,char** argv)try{
         exit_active=false;submit_resume_active=true;
         AllocatorReleaseWitness allocator2(v1344::release_expected,1u);
         allocator_release=&allocator2;allocator_descriptor=&descriptor;allocator_request=second_submission.request();
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+        open_return=&open_tail2;
+        bool opened2=false;try{run_game(c);}catch(const OpenReturned&){opened2=true;}
+        need(opened2&&open_tail2.returned(c,open_return_held(c),open_descriptor(c))&&
+             allocator2.storage_preserved(c,allocator_held(c))&&allocator2.inline_completed()&&second_open_return_count==trial+1u&&
+             c.gpr[3]==1u&&c.pc==v1379::expected.stm_resume);
+        std::cout<<"V1379_OPEN_TRIAL n="<<trial<<" submit_return=1 open_return=1 stm_resume=1 fd=1\n";
+        open_return_active=false;open_return=nullptr;second_open_capture=nullptr;
+        need(
+#else
         bool freed2=false;try{run_game(c);}catch(const AllocatorReturned&){freed2=true;}
         need(freed2&&allocator2.returned(c,allocator_held(c))&&allocator2.inline_completed()&&
+#endif
              descriptor.second_completed()&&second_release_count==trial+1u&&second_allocator_count==trial+1u&&
              host.serviced_steps()==4u&&epoch.acknowledged_descriptors(3u-kind)&&!(cause.load()&mask.load()));
         std::cout<<"V1378_FREE_TRIAL n="<<trial<<" native_free=1 heap_shadow=1 metadata_shadow=1 caller_abi=1 inline_return=1 stores="<<allocator2.stores()<<" heap="<<allocator2.heap_stores()<<'\n';
@@ -2309,6 +2355,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1374_SECOND_RESTORE
 #ifdef UNDERCOVER_V1378_SECOND_FREE
     need(second_release_count==8u&&second_allocator_count==8u);
+#ifdef UNDERCOVER_V1379_SECOND_RETURN
+    need(second_open_return_count==8u);
+    std::cout<<"V1379_OPEN_NATIVE owner=1 trials=8 second_submit_return=8 second_open_return=8 stm_resume=8 fd=1 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1378_FREE_NATIVE owner=1 trials=8 second_free=8 heap_shadow=8 metadata_shadow=8 abi=8 inline_return=8 ios_steps=4 fd=1 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     need(second_ready_count==8u&&second_nested_count==8u&&second_return_count==8u&&second_idle_return_count==8u&&
