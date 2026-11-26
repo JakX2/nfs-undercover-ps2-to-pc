@@ -11,7 +11,7 @@ from make_private_elf_symbol_map import parse_functions
 from make_v624_ipc_geometry import exact_words
 from audit_osinit_suffix_v929 import category
 
-def prefix(root,words):
+def prefix(root,words,*,details=False):
     edges,reach,_,first,_,_,_,_=census(root,words)
     if first not in edges:raise ValueError('SC report helper first call')
     n=(first-root)//4+1
@@ -59,6 +59,7 @@ def prefix(root,words):
     saved={at:v[1] for at,v in mem.items() if v[0]=='reg' and 14<=v[1]<=31}
     if len(set(saved.values()))!=len(saved) or any(gp[r]!=('reg',r) and r not in saved.values() for r in range(14,32)):
         raise ValueError('SC report helper nonvolatile')
+    if details:return tuple(gp),dict(mem),frame,edges[first]
     return n,frame,stores,loads,saved,edges[first]
 
 def plan(d,e):
