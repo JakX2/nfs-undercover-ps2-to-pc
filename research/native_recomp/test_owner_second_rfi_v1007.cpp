@@ -4,6 +4,7 @@
 #include "wii_bounded_ack_call_route_v956.h"
 #include "wii_si_type_scheduler_v514.h"
 #include "wii_si_transfer_arguments_v981.h"
+#include "wii_callback_dispatch_device_v808.h"
 #include "owner_second_dispatch.h"
 #include "rfi_test_v708.h"
 #include <algorithm>
@@ -57,6 +58,7 @@ static bool error_rfi=false,error_cold=false,error_queue=false,after_alarm_route
 static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
+static bool third_callback_route=false;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -184,7 +186,53 @@ static void after_alarm_step(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w
         std::cout<<std::dec<<"V1032_AFTER_ALARM_FRONTIER prior_absent="<<error_cold<<" profile="<<trial
             <<" ordinal="<<row->ordinal<<" kind="<<row->kind<<" target_class="<<category
             <<" visits="<<after_alarm.visits()<<" token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
+        if(third_callback_route){
+            need(row->ordinal==6u&&row->kind==2u&&pc==CallbackCall&&category==2u&&c.gpr[3]<4u);
+            callback_channel=c.gpr[3];callback_gp=c.gpr;callback_cr=pack_cr(c);
+            need(callback_witness.start_dispatch(c,pc,w,true,true));return;
+        }
         std::_Exit(0);
+    }
+}
+static bool third_callback_held(){
+    return third.stage()==2u&&third.token()==3u&&third.follow_stage()==3u&&!third.pending()&&third.held_now()&&
+           ctl->issued_tokens()==3u&&cause==(Other|SiController::PI_SI)&&bank_mask==Mask;
+}
+static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
+    need(third_callback_route&&alarm_witness.stage()==4u&&after_alarm_visit&&ack.stage()==5u&&
+         captured.saved_integer(c,Context).ok()&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+    scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
+    const auto a=PostAckTransferDevice::word_access(c,w);
+    const uint32_t phys=a.address&0x3fffffffu;
+    need(!PostAckTransferDevice::offset(a.address)&&
+         !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
+         !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
+    if(callback_frontier.stage()){
+        need(owner==CallbackRoot&&callback_frontier.before(c,pc,w,true));
+        if(callback_frontier.stage()==2u){
+            std::cout<<std::dec<<"V1053_THIRD_CALLBACK_FRONTIER ordinal="<<callback_frontier.ordinal()
+                     <<" visits="<<callback_frontier.visits()<<" writes="<<callback_frontier.writes()
+                     <<" zero_id="<<callback_frontier.zero_id()<<" token=3 held=1 saved_fields=38 call_executed=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+    if(callback_time.stage()){
+        need(callback_time.before(c,pc,w,true));
+        if(callback_time.stage()==5u){
+            need(callback_time.cursor()==3u&&callback_time.reads()>=3u&&callback_time.polls()>0u);
+            std::cout<<std::dec<<"V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits="<<callback_time.time_visits()
+                     <<" leaf_visits="<<callback_time.leaf_visits()<<" polls="<<callback_time.polls()
+                     <<" token=3 held=1 saved_fields=38 continuation_executed=0"<<std::endl;
+            need(callback_frontier.start(c,pc,w,callback_channel,true,true)&&callback_frontier.before(c,pc,w,true));
+        }
+        return;
+    }
+    need((owner==CallbackRoot||owner==CallbackSave)&&callback_witness.before(c,pc,w,true));
+    if(callback_witness.stage()==6u){
+        std::cout<<std::dec<<"V1053_THIRD_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes="
+                 <<callback_witness.writes()<<" visits="<<callback_witness.visits()<<" token=3 held=1 saved_fields=38 continuation_executed=0"<<std::endl;
+        need(callback_time.start(c,pc,w,true,true)&&callback_time.before(c,pc,w,true));
     }
 }
 static void suffix_step(CPUContext& c,uint32_t pc,uint32_t w){
@@ -252,6 +300,7 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(ack.stage()){
         need(captured.saved_integer(c,Context).ok()&&++ack_visits<=8192u);
         if(error_queue&&!third.stage())need(queue_history.sample(c));
+        if(third_callback_route&&callback_witness.stage()){third_callback_before(c,owner,pc,w);return;}
         if(handler_return.stage()){
             need(ack.before(c,pc,w,true)&&ack.postack_held()&&handler_return.before(c,pc,w,true));
             if(handler_return.stage()==5u){
@@ -560,6 +609,14 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
 namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
+    if(third_callback_route&&callback_witness.stage()){
+        need(captured.saved_integer(c,Context).ok()&&!callback_frontier.stage());
+        if(callback_witness.stage()==1u){scheduler->advance(c.inst_count);need(observe_completed_callback_dispatch(third,c.inst_count));}
+        need(third_callback_held());
+        if(callback_time.stage())need(callback_time.entry(c,pc,true));
+        else need(callback_witness.entry(c,pc,true));
+        return;
+    }
     if(epilogue.stage()){
         if(epilogue.stage()==4u){need(!rfi_dispatched&&pc==SecondResume&&c.pc==pc&&ack.postack_held_after_rfi(c.inst_count,1u));rfi_dispatched=true;return;}
         need(captured.saved_integer(c,Context).ok()&&ack.postack_held()&&epilogue.entry(c,pc,cause.load(),Mask));return;
@@ -607,6 +664,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
+    if(third_callback_route&&callback_witness.stage()){
+        need(captured.saved_integer(c,Context).ok()&&third_callback_held()&&!callback_frontier.stage());
+        if(callback_time.stage())need(callback_time.poll(c,true));
+        else need(callback_witness.dispatch_poll(c,true));
+        return false;
+    }
     if(epilogue.stage()){need(ack.postack_held()&&epilogue.poll(c,cause.load(),Mask));return false;}
     if(handler_return.stage()){need(captured.saved_integer(c,Context).ok()&&ack.postack_held()&&handler_return.dispatch_poll(c,true));return false;}
     need(!handler_suffix_active);
@@ -654,12 +717,13 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
-    after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm";
-    due_execute=mode=="error-queue-due-execute"||mode=="error-queue-cold-due-execute";
+    third_callback_route=mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback";
+    after_alarm_route=mode=="error-queue-after-alarm"||mode=="error-queue-cold-after-alarm"||third_callback_route;
+    due_execute=mode=="error-queue-due-execute"||mode=="error-queue-cold-due-execute"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback";
     error_due=mode=="error-queue-due"||mode=="error-queue-cold-due"||due_execute;
     error_delay=mode=="error-queue-delay"||mode=="error-queue-cold-delay";
     error_queue=mode=="error-queue"||mode=="error-queue-cold"||after_alarm_route||error_due||error_delay;
-    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due"||mode=="error-queue-cold-delay"||mode=="error-queue-cold-due-execute";
+    error_cold=mode=="error-rfi-cold"||mode=="error-queue-cold"||mode=="error-queue-cold-after-alarm"||mode=="error-queue-cold-due"||mode=="error-queue-cold-delay"||mode=="error-queue-cold-due-execute"||mode=="error-queue-cold-callback"||mode=="error-queue-cold-due-callback";
     if(error_rfi||error_queue){need(trial&4u);mode=error_rfi?"second-rfi":"successful-alarm";}
     need(mode=="valid"||mode=="bad-frame"||mode=="bad-pi"||mode=="postack"||mode=="time"||mode=="frontier"||mode=="transfer"||mode=="args"||mode=="seeded-args"||mode=="queue-args"||mode=="active-args"||mode=="queue-transfer"||mode=="active-transfer"||mode=="queue-suffix"||mode=="seeded-suffix"||mode=="queue-alarm"||mode=="seeded-alarm"||mode=="active-success"||mode=="seeded-success"||mode=="active-frontier"||mode=="seeded-frontier"||mode=="active-callback"||mode=="successful-alarm"||mode=="active-callback-time"||mode=="active-callback-frontier"||mode=="wireless-unchanged"||mode=="wireless-changed"||mode=="callback-return"||mode=="handler-frontier"||mode=="handler-return"||mode=="second-rfi");
     bad_frame=mode=="bad-frame";bad_pi=mode=="bad-pi";

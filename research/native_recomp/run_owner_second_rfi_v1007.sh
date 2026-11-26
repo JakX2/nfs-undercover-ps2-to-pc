@@ -106,7 +106,7 @@ for mode in nonsplit split; do
     done
   done
   echo "V1020_OWNER_ERROR_RFI mode=$mode native_rfi=8 fallback=0 continuous_boot=0"
-  for lane in error-queue error-queue-cold error-queue-after-alarm error-queue-cold-after-alarm error-queue-due error-queue-cold-due error-queue-delay error-queue-cold-delay error-queue-due-execute error-queue-cold-due-execute; do
+  for lane in error-queue error-queue-cold error-queue-after-alarm error-queue-cold-after-alarm error-queue-due error-queue-cold-due error-queue-delay error-queue-cold-delay error-queue-due-execute error-queue-cold-due-execute error-queue-callback error-queue-cold-callback error-queue-due-callback error-queue-cold-due-callback; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -124,7 +124,7 @@ for mode in nonsplit split; do
           grep -Ex "V1037_OWNER_QUEUE_HISTORY delay=$delay due=$due prior_absent=$prior profile=$trial initial_mismatch=[0-9]{1,3} current_mismatch=[0-9]{1,3} changed=[0-9]{1,3} initial_slot_kind=[0-2] samples=[1-9][0-9]{0,3}" "$work/run.log"
           grep -Ex "V1034_OWNER_QUEUE_DETAIL due=$due prior_absent=$prior profile=$trial mismatch_mask=[0-9]{1,3} slot_kind=[0-2] arg_time_zero=[01] queue_time_zero=[01] admitted=[01]" "$work/run.log"
         fi
-        if [[ "$lane" != *due-execute ]]; then continue;fi
+        if [[ "$lane" != *due-execute && "$lane" != *due-callback ]]; then continue;fi
         grep -Fx 'V1052_DUE_ADMISSION original_queue=1 admission=2 timing_only=1 unchanged=1 token=2' "$work/run.log"
         grep -Fx 'V1052_DUE_RETURN original_transfer=1 original_alarm=1 token=3 saved_fields=38 boot_verified=0' "$work/run.log"
       fi
@@ -134,8 +134,13 @@ for mode in nonsplit split; do
       grep -Ex 'V972_TRANSFER_RETURN original_transfer=1 idle=1 token=3 pending=[01] visits=[1-9][0-9]* reads=[0-9]+ writes=[0-9]+ saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Ex 'V985_ALARM_RETURN original_return=1 queue=1 lane=[0-4] timer=[01] calls=[0-9]+ visits=[1-9][0-9]* token_held=1 saved_fields=38 handler_instruction_executed=0' "$work/run.log"
       grep -Ex 'V1032_THIRD_CALL_CENSUS entries=[1-9][0-9]* returns=[1-9][0-9]* visits=105 token=3' "$work/run.log"
-      if [[ "$lane" == *after-alarm ]]; then
+      if [[ "$lane" == *after-alarm || "$lane" == *callback ]]; then
         grep -Ex "V1032_AFTER_ALARM_FRONTIER prior_absent=$prior profile=$trial ordinal=[0-9]+ kind=[0-2] target_class=[0-4] visits=[1-9][0-9]* token=3 held=1 saved_fields=38 call_executed=0" "$work/run.log"
+      fi
+      if [[ "$lane" == *callback ]]; then
+        grep -Ex 'V1053_THIRD_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=[1-9][0-9]* token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
+        grep -Ex 'V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=[1-9][0-9]* polls=[1-9][0-9]* token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
+        grep -Ex 'V1053_THIRD_CALLBACK_FRONTIER ordinal=[35] visits=[1-9][0-9]* writes=[0-3] zero_id=[01] token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
       fi
     done
   done
@@ -145,6 +150,7 @@ for mode in nonsplit split; do
   echo "V1037_OWNER_HISTORY mode=$mode baseline=16 discovery_delay=8 fallback=0 continuous_boot=0"
   echo "V1039_OWNER_DELAY_FRONTIERS mode=$mode classified=16 call_executed=0 fallback=0 continuous_boot=0"
   echo "V1052_OWNER_DUE_EXECUTION mode=$mode transfer_return=8 alarm_return=8 fallback=0 continuous_boot=0"
+  echo "V1053_OWNER_THIRD_CALLBACK mode=$mode prefix=16 time=16 frontier=16 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done
