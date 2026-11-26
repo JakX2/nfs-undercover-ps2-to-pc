@@ -66,7 +66,7 @@ int main(int argc,char** argv){
     if(abi_probe){
         for(unsigned i=0;i<32;++i)c.mmu.words[v958::transfer_slots+4*i]=0;
         for(unsigned i=0;i<8;++i)c.mmu.words[v958::transfer_slots+64+4*i]=args[i];
-        if(mode=="error-abi-core")c.mmu.words[v958::transfer_slots+64+4]^=4u;
+        if(mode=="error-abi-core"||mode=="error-abi-live-core")c.mmu.words[v958::transfer_slots+64+4]^=4u;
     }
     c.pc=H;c.msr=0x32u;
     scheduler.advance(++tick);need(old.after_return_at(tick));
@@ -141,9 +141,54 @@ int main(int argc,char** argv){
     for(unsigned i=0;i<5;++i)c.mmu.words[v958::transfer_data+4*i]=0xffffffffu;
     c.mmu.words[Cmd]=0;c.mmu.words[Resp]=0;
     for(unsigned i=0;i<8;++i){c.gpr[3+i]=args[i];if(!abi_probe)c.mmu.words[v958::transfer_slots+64+4*i]=args[i];}
-    if(abi_probe&&mode!="error-abi-exact")c.gpr[10]=0u;
-    if(mode=="error-abi-changed")c.mmu.words[v958::transfer_slots+64+28]^=1u;
+    if(abi_probe&&mode!="error-abi-exact"&&mode!="error-abi-live-exact")c.gpr[10]=0u;
+    if(mode=="error-abi-changed"||mode=="error-abi-live-changed")c.mmu.words[v958::transfer_slots+64+28]^=1u;
     if(mode=="direct-mismatch")c.mmu.words[v958::transfer_slots+64+28]^=1;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+    if(mode.starts_with("error-abi-live")){
+        // Use exactly the production handoff and observer functions; only
+        // the instruction effects and mapped labels are synthetic.
+        constexpr uint32_t Root=H+0x700u,L1=H+0x800u,L2=H+0x900u,L3=H+0xa00u;
+        c.mmu.words[H+24]=Nop;
+        for(auto e:v958::third_edges)c.mmu.words[e.site]=bl(e.site,e.target);
+        for(auto leaf:{L1,L2,L3})c.mmu.words[leaf]=Blr;
+        c.mmu.words[Root+12]=Load;
+        c.mmu.words[Root+16]=0x90830000u|B;
+        c.mmu.words[Root+20]=0x90830000u|S;
+        c.mmu.words[Root+24]=Store;
+        for(unsigned i=0;i<9;++i)c.mmu.words[Root+28+4*i]=Nop;
+        c.mmu.words[Root+64]=Blr;
+        visit(H+20,v958::transfer_branch,true);
+        need(v958::third_ready&&v958::third_admission==(mode=="error-abi-live-exact"?1u:2u));
+        const auto ctrl=ctl.read(C),status=ctl.read(S),buffer=ctl.read(B);
+        const bool tamper=mode=="error-abi-live-tamper"||mode=="error-abi-live-reg"||mode=="error-abi-live-tick";
+        if(mode=="error-abi-live-tamper")c.mmu.words[v958::transfer_slots+64+28]^=1u;
+        if(mode=="error-abi-live-reg")c.gpr[10]^=1u;
+        if(mode=="error-abi-live-tick")scheduler.advance(++tick);
+        const bool admitted=SiBinding::handoff_second_transfer(c,cause,mask,H+20);
+        need(admitted!=tamper&&ctl.read(C)==ctrl&&ctl.read(S)==status&&ctl.read(B)==buffer&&ctl.issued_tokens()==2u);
+        if(tamper){
+            need(v958::ack.stage()==4u&&!v958::next_device.stage()&&!v958::third_route.stage());
+            std::cout<<"V1043_LIVE_HANDOFF refused=1 unchanged_device=1 original_execution=0"<<std::endl;return 0;
+        }
+        need(v958::third_active()&&v958::ack.stage()==5u&&v958::next_device.stage()==1u);
+        need(!SiBinding::handoff_second_transfer(c,cause,mask,H+20));
+        c.pc=Root;c.lr=H+24;v958::observe(c.pc,c);
+        for(unsigned i=1;i<v958::third_edges.size();++i){
+            const auto e=v958::third_edges[i];visit(e.site,c.mmu.words[e.site]);
+            c.pc=e.target;c.lr=e.site+4;v958::observe(c.pc,c);visit(e.target,Blr);
+        }
+        c.gpr[3]=Base;visit(Root+12,Load);read=SiBinding::read32(Base+C);need(read&&*read==ctrl);
+        c.gpr[4]=0;visit(Root+16,c.mmu.words[Root+16]);need(SiBinding::write32(Base+B,0));
+        c.gpr[4]=0x00000800u;visit(Root+20,c.mmu.words[Root+20]);need(SiBinding::write32(Base+S,c.gpr[4]));
+        c.gpr[4]=0xc0010305u;visit(Root+24,Store);need(SiBinding::write32(Base+C,c.gpr[4]));
+        for(unsigned i=0;i<9;++i){visit(Root+28+4*i,Nop);need(!v958::poll(c));}
+        c.gpr[3]=1;c.lr=H+24;
+        c.mmu.words[v958::transfer_data]=2u;c.mmu.words[v958::transfer_data+8]=3u;
+        c.mmu.words[v958::transfer_data+12]=Resp;c.mmu.words[v958::transfer_data+16]=v958::transfer_callback;
+        visit(Root+64,Blr);visit(H+24,Nop);need(false);
+    }
+#endif
 #ifdef UNDERCOVER_V1025_PRIVATE_TRANSFER
     if(mode.starts_with("error-third")){
         // Synthetic frontier: native call admission and the next device's

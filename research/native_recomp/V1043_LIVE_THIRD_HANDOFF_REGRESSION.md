@@ -1,0 +1,3 @@
+# V1043: real feature-gated third-transfer observer regression
+
+Compile the composed SI binding with both private third-transfer feature macros enabled and independent synthetic native geometry. Exercise the actual V958 frontier, same-tick handoff, third entry, poll and before hooks, exclusive MMIO owner and transfer return. Exact and timing-tail-only admissions must complete token three; core/changed-queue mismatches must remain classified but unexecuted. Same-tick queue or register tampering and stale ticks must refuse without changing the device or creating a native call witness. This is a source-only synthetic instruction-effect fixture, not original game execution. Pending CI.
