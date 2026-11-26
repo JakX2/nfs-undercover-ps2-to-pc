@@ -185,6 +185,7 @@ int main(int argc,char** argv){
             need(route.entry(c,Root,third));
             if(mode=="error-third-native-skip"){refusal(!at(Root+4,c.mmu.words[Root+4]));return 0;}
             if(mode=="error-third-native-word"){refusal(!at(Root,Nop));return 0;}
+            if(mode=="error-third-native-srr"){c.srr0^=4u;refusal(!at(Root,c.mmu.words[Root]));return 0;}
             for(unsigned i=1;i<edges.size();++i){
                 const auto e=edges[i];
                 need(at(e.site,c.mmu.words[e.site]));

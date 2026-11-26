@@ -95,6 +95,9 @@ inline bool active(){return ack.stage()!=0u;}
 #endif
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
+#ifdef UNDERCOVER_V1028_PRIVATE_THIRD_ROUTE
+    if(third_enabled()&&!error_frontier_enabled())return false;
+#endif
 #ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
     if(callback_enabled()&&!success_frontier_enabled())return false;
 #ifdef UNDERCOVER_V1014_PRIVATE_CALLBACK_TIME

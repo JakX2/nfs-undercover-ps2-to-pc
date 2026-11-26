@@ -1,0 +1,3 @@
+# V1033: preserve live exception registers and bounded guard provenance
+
+Require exact SRR0/SRR1 preservation throughout the V1028 third transfer, verify the admitted argument packet still matches the live register file, and restrict the new runtime mode to the authenticated no-response frontier. Add a synthetic SRR corruption refusal. In the V1032 focused suffix table, previously authenticated substituted refusal guards are recorded as terminal diagnostics, not interpreted as executed original returns. No new original execution claim. Pending CI.

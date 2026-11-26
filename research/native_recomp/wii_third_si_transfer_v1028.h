@@ -15,13 +15,15 @@ public:
     template<class C>bool start(C& c,uint32_t pc,uint32_t w,const SiTransferArguments& a,
                                 std::span<const AckCallSpan> spans,std::span<const AckCallEdge> edges,
                                 std::span<const AckMsrSite> msr,uint32_t data){
+        for(unsigned i=0;i<a.packet.size();++i)if(a.packet[i]!=c.gpr[3+i])return fail(1);
         if(stage_||error_||!a.admitted()||a.channel>=4u||a.packet[0]!=a.channel||
            c.inst_count>UINT64_MAX-2048u||!word(c,pc,w)||
            !route_.begin(c,spans,edges,msr,true,pc)||!route_.before(c,pc,w))return fail(1);
-        cpu_=&c;args_=a.packet;data_=data;site_=pc;start_=last_=c.inst_count;stage_=1;return true;
+        cpu_=&c;args_=a.packet;data_=data;site_=pc;srr0_=c.srr0;srr1_=c.srr1;
+        start_=last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,PostAckTransferDevice& dev){
-        if(stage_!=1u||error_||cpu_!=&c||dev.stage()!=1u||
+        if(!same(c)||dev.stage()!=1u||
            c.inst_count-last_!=1u||c.inst_count-start_>2048u||!word(c,pc,w)||++visits_>2048u)return fail(2);
         const auto a=PostAckTransferDevice::word_access(c,w);
         const auto off=PostAckTransferDevice::offset(a.address);
@@ -45,17 +47,18 @@ public:
         return true;
     }
     template<class C>bool entry(C& c,uint32_t pc,const PostAckTransferDevice& dev){
-        return stage_==1u&&!error_&&cpu_==&c&&c.inst_count==last_&&dev.held_now()&&route_.entry(c,pc)?true:fail(5);
+        return same(c)&&c.inst_count==last_&&dev.held_now()&&route_.entry(c,pc)?true:fail(5);
     }
     template<class C>bool poll(C& c,const PostAckTransferDevice& dev){
-        return stage_==1u&&!error_&&cpu_==&c&&c.inst_count==last_&&dev.held_now()&&route_.can_poll()?true:fail(5);
+        return same(c)&&c.inst_count==last_&&dev.held_now()&&route_.can_poll()?true:fail(5);
     }
 private:
     BoundedAckCallRoute route_;const void* cpu_=nullptr;
     std::array<uint32_t,8> args_{};
-    uint32_t data_=0,site_=0;uint64_t start_=0,last_=0;
+    uint32_t data_=0,site_=0,srr0_=0,srr1_=0;uint64_t start_=0,last_=0;
     unsigned stage_=0,error_=0,visits_=0;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
+    template<class C>bool same(C& c)const{return stage_==1u&&!error_&&cpu_==&c&&c.srr0==srr0_&&c.srr1==srr1_;}
     template<class C>static bool word(C& c,uint32_t pc,uint32_t w){
         return !(pc&3u)&&pc>=0x80000000u&&pc<=0x817ffffcu&&c.mmu.get_ptr(pc)&&c.mmu.get_ptr(pc+3u)&&c.mmu.read32(pc)==w;
     }

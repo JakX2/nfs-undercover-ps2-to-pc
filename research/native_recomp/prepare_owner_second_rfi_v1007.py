@@ -75,6 +75,10 @@ def plan(dol,elf):
         if not HANDLER<=pc<HANDLER+4*len(original):raise ValueError('third alarm suffix extent')
         w=original[(pc-HANDLER)//4];translated=roots[HANDLER][(pc-HANDLER)//4]
         k,o=boundaries.get(pc,(0,0))
+        # An authenticated refusal guard is a terminal diagnostic, never
+        # interpreted as an actual original return or executed call.
+        if pc in guard and translated==0x4e800020 and translated!=w:
+            after[pc]=(translated,0,0);continue
         if k:
             if k in (1,5):
                 if translated!=w or not o:raise ValueError('third alarm suffix call')
