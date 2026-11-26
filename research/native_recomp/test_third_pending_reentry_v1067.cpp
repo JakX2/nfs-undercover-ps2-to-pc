@@ -43,8 +43,10 @@ int main(){
     unsigned suffix_valid=0,suffix_refused=0;
     unsigned return_valid=0,return_refused=0;
     unsigned handler_valid=0,handler_refused=0;
-    for(trial=0;trial<228;++trial){
-        const unsigned handler_fault=trial>=216?trial-215u:0u;
+    unsigned handler_return_valid=0,handler_return_refused=0;
+    for(trial=0;trial<248;++trial){
+        const unsigned hr_fault=trial>=236?trial-235u:0u;
+        const unsigned handler_fault=trial>=228?0u:trial>=216?trial-215u:0u;
         const unsigned return_fault=trial>=208?0u:trial>=196?trial-195u:0u;
         const unsigned suffix_fault=trial>=188?0u:trial>=176?trial-175u:0u;
         const unsigned wireless_fault=trial>=168?0u:trial>=156?trial-155u:0u;
@@ -187,6 +189,8 @@ int main(){
         auto ack_reject=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason);++ack_refused;
         };
+        if(trial>=228){c.gpr[20]=ch;c.gpr[1]=0x80034000u;}
+        const auto original_handler_gp=c.gpr;
         if(fault==25)c.mmu.words[Context+124]^=1u;
         if(fault==26)c.pc=Handler+4;
         if(fault==27)tick();
@@ -597,10 +601,62 @@ int main(){
         need(route.stage()==24u&&route.handler_ordinal()==12u&&route.handler_taken()&&route.handler_visits()==15u&&
              route.handler_reads()==1u&&route.handler_writes()==1u&&route.completion_ack().postack_held()&&
              ctl.issued_tokens()==3u&&cause==Other);
-        ++handler_valid;
+        if(trial<228){++handler_valid;continue;}
+        constexpr uint32_t HandlerCall=Caller+64u,DispatcherResume=D+20u;
+        // A separate synthetic handler restore, independent of callback ABI.
+        // The original focused geometry uses fifteen restores.
+        constexpr std::array<uint32_t,3> handler_restore{0x83cbfff8u,0x83ebfffcu,Blr};
+        constexpr std::array<uint32_t,4> handler_tail{0x80010044u,0x7c0803a6u,0x38210040u,Blr};
+        const NativeReturnExpectation<2> he{HandlerCall,RestoreRoot,DispatcherResume,handler_restore,handler_tail,Nop};
+        put(RestoreRoot,handler_restore);put(HandlerCall+4u,handler_tail);c.mmu.words[DispatcherResume]=Nop;
+        const uint32_t old_sp=original_handler_gp[1];
+        // This fixture previously used a small non-address r1 at handler
+        // entry. A valid synthetic handler ABI is established before entry.
+        c.gpr[1]=old_sp-64u;c.gpr[11]=old_sp;
+        c.mmu.words[old_sp-8u]=original_handler_gp[30];
+        c.mmu.words[old_sp-4u]=original_handler_gp[31];
+        c.mmu.words[old_sp+4u]=DispatcherResume;
+        c.gpr[30]^=0x123u;c.gpr[31]^=0x456u;
+        NativeReturnWitness<2> hr(he),foreign_hr(he);
+        auto refuse_hr=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++handler_return_refused;
+        };
+        if(hr_fault==4)tick();
+        if(hr_fault==5)c.mmu.words[RestoreRoot]^=1u;
+        if(hr_fault==6)c.mmu.words[Context+124]^=1u;
+        // For a mismatched witness, use an otherwise valid expectation
+        // with a different caller word.
+        auto wrong=he;wrong.caller_word=Blr;NativeReturnWitness<2> wrong_hr(wrong);
+        ok=route.begin_handler_return(c,hr_fault==1?wrong_hr:hr,HandlerCall+(hr_fault==2?4u:0u),
+                                      hr_fault==3?Nop:rows_handler.back().word);
+        if(hr_fault>=1&&hr_fault<=6){refuse_hr(!ok,44);continue;}need(ok);
+        c.pc=RestoreRoot;c.lr=HandlerCall+4u;
+        ok=route.handler_return_entry(c,hr,hr_fault==7?RestoreRoot+4u:RestoreRoot);
+        if(hr_fault==7){refuse_hr(!ok,45);continue;}need(ok);
+        auto at_hr=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.handler_return_before(c,hr,pc,w);};
+        if(hr_fault==8)c.mmu.words[old_sp-8u]^=1u;
+        ok=at_hr(RestoreRoot,handler_restore[0]);
+        if(hr_fault==8){refuse_hr(!ok,46);continue;}need(ok);
+        c.gpr[30]=c.mmu.words[old_sp-8u];need(at_hr(RestoreRoot+4u,handler_restore[1]));
+        c.gpr[31]=c.mmu.words[old_sp-4u];need(at_hr(RestoreRoot+8u,Blr));
+        need(at_hr(HandlerCall+4u,handler_tail[0]));c.gpr[0]=c.mmu.words[old_sp+4u];
+        need(at_hr(HandlerCall+8u,handler_tail[1]));c.lr=c.gpr[0];
+        need(at_hr(HandlerCall+12u,handler_tail[2]));c.gpr[1]+=64u;
+        need(at_hr(HandlerCall+16u,Blr));c.pc=DispatcherResume;
+        if(hr_fault==9){tick();refuse_hr(!route.handler_return_poll(c,hr),47);continue;}
+        if(hr_fault!=10)need(route.handler_return_poll(c,hr));
+        tick();ok=route.handler_return_resume(c,hr,DispatcherResume,Nop);
+        if(hr_fault==10){refuse_hr(!ok,48);continue;}need(ok);
+        if(hr_fault==11)c.gpr[31]^=1u;
+        if(hr_fault==12){tick();refuse_hr(!route.handler_return_before(c,foreign_hr,DispatcherResume,Nop),46);continue;}
+        ok=at_hr(DispatcherResume,Nop);
+        if(hr_fault==11){refuse_hr(!ok,46);continue;}need(ok);
+        need(route.stage()==26u&&hr.stage()==5u&&hr.visits()==8u&&c.gpr[1]==old_sp&&
+             route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
+        ++handler_return_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -613,4 +669,5 @@ int main(){
     std::cout<<"V1115_THIRD_ACK_SUFFIX_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1117_THIRD_ACK_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1122_THIRD_ACK_HANDLER_JOIN valid=8 refused=12 same_tick=1 status_read=1 status_w1c=1 original_execution=0\n";
+    std::cout<<"V1126_THIRD_ACK_HANDLER_RETURN_JOIN valid=8 refused=12 dispatch_tick=1 original_abi=1 original_execution=0\n";
 }

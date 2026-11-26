@@ -82,6 +82,8 @@ public:
            spans.empty()||spans.front().root!=SiDispatchWitness::Handler||
            !ack_calls_.begin(c,spans,edges,msr,true)||
            !dev_->handoff_second_ack(ack_,*ctl_,*cause_,*mask_,c.inst_count))return fail(10);
+        handler_gp_=c.gpr;handler_cr_=0;
+        for(auto field:c.cr)handler_cr_=(handler_cr_<<4)|(unsigned(field.lt)<<3)|(unsigned(field.gt)<<2)|(unsigned(field.eq)<<1)|unsigned(field.so);
         stage_=7u;return true;
     }
     template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w){
@@ -305,6 +307,32 @@ public:
     unsigned handler_writes()const{return handler_writes_;}
     unsigned handler_ordinal()const{return handler_ordinal_;}
     bool handler_taken()const{return handler_index_&&handler_index_->taken();}
+    template<class C,class W>bool begin_handler_return(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=24u||error_||cpu_!=&c||handler_return_||handler_ordinal_!=12u||
+           pc!=handler_site_||w!=handler_word_||handler_pending_||
+           !dev_||dev_->stage()!=3u||!ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start_dispatch(c,pc,w,handler_gp_,handler_cr_,true))return fail(44);
+        handler_return_=&witness;stage_=25u;return true;
+    }
+    template<class C,class W>bool handler_return_entry(C& c,W& witness,uint32_t pc){
+        return handler_return_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.entry(c,pc,true)?true:fail(45);
+    }
+    template<class C,class W>bool handler_return_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!handler_return_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(46);
+        if(witness.stage()==5u){dispatcher_site_=pc;dispatcher_word_=w;stage_=26u;}
+        return true;
+    }
+    template<class C,class W>bool handler_return_poll(C& c,W& witness){
+        return handler_return_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.dispatch_poll(c,true)?true:fail(47);
+    }
+    template<class C,class W>bool handler_return_resume(C& c,W& witness,uint32_t pc,uint32_t w){
+        return handler_return_frame(c,witness)&&ack_.accept_dispatch_tick(c)&&ack_.postack_held()&&
+               witness.dispatch_resume(c,pc,w,true)?true:fail(48);
+    }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
@@ -370,10 +398,17 @@ private:
             if(row->kind!=1u||(row->ordinal!=7u&&row->ordinal!=8u&&row->ordinal!=12u)||
                handler_index_->stage()!=5u||handler_reads_!=1u||handler_writes_!=1u||
                handler_pending_||!ack_.postack_held())return fail(41);
-            handler_ordinal_=row->ordinal;stage_=24u;
+            handler_ordinal_=row->ordinal;handler_site_=pc;handler_word_=w;stage_=24u;
         }
         return true;
     }
+    template<class C,class W>bool handler_return_frame(C& c,W& witness)const{
+        return stage_==25u&&!error_&&cpu_==&c&&handler_return_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* handler_return_=nullptr;
+    std::array<uint32_t,32> handler_gp_{};
+    uint32_t handler_cr_=0,handler_site_=0,handler_word_=0,dispatcher_site_=0,dispatcher_word_=0;
     HandlerSuffixGuard handler_suffix_;
     std::optional<HandlerIndexBranchWitness> handler_index_;
     std::span<const HandlerSuffixLabel> handler_rows_{};
