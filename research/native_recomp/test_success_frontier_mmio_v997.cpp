@@ -971,6 +971,9 @@ int main(int argc,char** argv){
                                                                                                     if(v958::ack_resume_enabled()){
                                                                                                         need(zf.starts_with("-resume"));
                                                                                                         const auto rf3=zf.substr(std::string_view("-resume").size());
+                                                                                                        // This original-free fixture previously stopped before the resume label.
+                                                                                                        // Supply an independently mapped synthetic instruction for this new lane.
+                                                                                                        c.mmu.words[Resume]=Nop;
                                                                                                         const uint32_t rw=c.mmu.read32(Resume);
                                                                                                         if(rf3!="-missing-dispatch-tick")scheduler.advance(++tick);
                                                                                                         if(rf3=="-extra-dispatch-tick")scheduler.advance(++tick);
