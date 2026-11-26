@@ -1,0 +1,3 @@
+# V1064: original second RFI with a pending third token
+
+Extend the V1063 lane into the original same-thread dispatcher scheduler/context restore. Reuse the existing pending-return epilogue and saved integer/GQR witnesses; observe every native tick with the completed third SI token, then require native RFI to restore the original context and EE at the generated callback poll. Stop before third vector entry and before any interrupted instruction. Seed the exception-state/GQR and scheduler hint only in the focused fixture before execution, matching the older RFI fixture. 32 additional original owner trials; not yet executed. No continuous boot claim.

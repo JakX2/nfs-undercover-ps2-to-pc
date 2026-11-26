@@ -110,7 +110,8 @@ for mode in nonsplit split; do
     error-queue-callback-wireless-same error-queue-cold-callback-wireless-same error-queue-due-callback-wireless-same error-queue-cold-due-callback-wireless-same \
     error-queue-callback-wireless-changed error-queue-cold-callback-wireless-changed error-queue-due-callback-wireless-changed error-queue-cold-due-callback-wireless-changed \
     error-queue-callback-return error-queue-cold-callback-return error-queue-due-callback-return error-queue-cold-due-callback-return \
-    error-queue-callback-handler error-queue-cold-callback-handler error-queue-due-callback-handler error-queue-cold-due-callback-handler; do
+    error-queue-callback-handler error-queue-cold-callback-handler error-queue-due-callback-handler error-queue-cold-due-callback-handler \
+    error-queue-callback-rfi error-queue-cold-callback-rfi error-queue-due-callback-rfi error-queue-cold-due-callback-rfi; do
     prior=0; [[ "$lane" != *cold* ]] || prior=1
     for trial in {4..7}; do
       timeout 20s "$work/probe" "$trial" "$lane" "$dol" > "$work/run.log" 2>&1 || {
@@ -147,15 +148,18 @@ for mode in nonsplit split; do
         grep -Fx 'V1053_THIRD_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
         grep -Fx 'V1053_THIRD_CALLBACK_FRONTIER ordinal=3 visits=17 writes=3 zero_id=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
       fi
-      if [[ "$lane" == *wireless-same || "$lane" == *callback-return || "$lane" == *callback-handler ]]; then
+      if [[ "$lane" == *wireless-same || "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
         grep -Ex 'V1058_THIRD_WIRELESS_RETURN original_setter=1 original_unlock=1 changed=0 visits=[1-9][0-9]{0,2} stores=[1-9][0-9]? token=3 held=1 saved_fields=38 continuation_executed=0' "$work/run.log"
-        if [[ "$lane" == *callback-return || "$lane" == *callback-handler ]]; then
+        if [[ "$lane" == *callback-return || "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
           grep -Ex 'V1060_THIRD_CALLBACK_SUFFIX ordinal=13 target_class=0 visits=[1-9][0-9]{0,2} writes=[0-8] polls=[0-9]{1,3} token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
           grep -Fx 'V1060_THIRD_CALLBACK_RETURN original_callback=1 original_handler_resume=1 abi=1 visits=12 token=3 held=1 saved_fields=38 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
-        if [[ "$lane" == *callback-handler ]]; then
+        if [[ "$lane" == *callback-handler || "$lane" == *callback-rfi ]]; then
           grep -Ex 'V1063_THIRD_HANDLER_FRONTIER ordinal=12 branch_taken=[01] visits=[1-9][0-9]{0,2} stores=[0-8] status_reads=1 status_writes=1 token=3 held=1 saved_fields=38 call_executed=0' "$work/run.log"
           grep -Fx 'V1063_THIRD_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits=21 token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0' "$work/run.log"
+        fi
+        if [[ "$lane" == *callback-rfi ]]; then
+          grep -Ex 'V1064_THIRD_PENDING_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 token=3 held=1 visits=[1-9][0-9]{0,2} saved_fields=38 third_vector_executed=0 resume_instruction_executed=0 boot_verified=0' "$work/run.log"
         fi
       elif [[ "$lane" == *wireless-changed ]]; then
         grep -Ex 'V1058_THIRD_WIRELESS_LOCK original_setter_prefix=1 original_unlock_prefix=1 changed=1 visits=[1-9][0-9]{0,2} stores=[1-9][0-9]? token=3 held=1 saved_fields=38 exi_instruction_executed=0' "$work/run.log"
@@ -172,6 +176,7 @@ for mode in nonsplit split; do
   echo "V1058_OWNER_THIRD_WIRELESS mode=$mode unchanged_return=16 changed_lock=16 fallback=0 continuous_boot=0"
   echo "V1060_OWNER_THIRD_CALLBACK_RETURN mode=$mode restored=16 original_handler_resume=16 fallback=0 continuous_boot=0"
   echo "V1063_OWNER_THIRD_HANDLER_RETURN mode=$mode status_w1c=16 original_dispatcher_resume=16 fallback=0 continuous_boot=0"
+  echo "V1064_OWNER_THIRD_PENDING_RFI mode=$mode native_rfi=16 held_token=16 third_vector_executed=0 fallback=0 continuous_boot=0"
   echo "V992_OWNER_SUCCESS_FRONTIER mode=$mode classified=8 fallback=0 continuous_boot=0"
   echo "V988_OWNER_SHARED mode=$mode valid=8 baseline=8 fallback=0 continuous_boot=0"
 done

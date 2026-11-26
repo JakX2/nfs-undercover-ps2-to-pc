@@ -59,7 +59,7 @@ static HandlerSuffixGuard after_alarm;
 static SiQueueHistory queue_history;
 static unsigned after_alarm_visit=0;
 static bool third_callback_route=false,third_wireless_route=false,third_wireless_changed=false,third_callback_return=false;
-static bool third_handler_route=false,third_handler_active=false;
+static bool third_handler_route=false,third_handler_active=false,third_pending_rfi=false;
 static unsigned error_helper_visit=0;
 static unsigned callback_channel=4u;
 static CallbackFrontierWitness callback_frontier(v831::expected);
@@ -244,6 +244,12 @@ static void third_handler_step(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t
          !(phys<0x0d006500u&&uint64_t(phys)+4u>0x0d006400u)&&
          !(phys<0x0d806500u&&uint64_t(phys)+4u>0x0d806400u));
 }
+static void third_epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
+    need(third_pending_rfi&&third_callback_held()&&epilogue.stage()==1u&&captured.saved_integer(c,Context).ok());
+    if(!epilogue.before(c,pc,w,cause.load(),Mask)){
+        std::cout<<std::dec<<"V1064_THIRD_EPILOGUE_FAULT reason="<<epilogue.failure()<<" stage="<<epilogue.stage()<<" visits="<<epilogue.visits()<<std::endl;fail(1);
+    }
+}
 static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     need(third_callback_route&&alarm_witness.stage()==4u&&after_alarm_visit&&ack.stage()==5u&&
          captured.saved_integer(c,Context).ok());
@@ -261,7 +267,11 @@ static void third_callback_before(CPUContext& c,uint32_t owner,uint32_t pc,uint3
             need(owner==Dispatcher&&third_callback_held());
             std::cout<<std::dec<<"V1063_THIRD_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits="
                      <<handler_return.visits()<<" token=3 held=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0"<<std::endl;
-            std::_Exit(0);
+            if(!third_pending_rfi)std::_Exit(0);
+            if(!epilogue.begin_pending(c,captured,cause.load(),Mask)){
+                std::cout<<std::dec<<"V1064_THIRD_EPILOGUE_ENTRY_REFUSAL mask="<<epilogue.entry_refusal()<<std::endl;fail(1);
+            }
+            third_epilogue_step(c,pc,w);
         }
         return;
     }
@@ -396,6 +406,11 @@ static void epilogue_step(CPUContext& c,uint32_t pc,uint32_t w){
 }
 void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
     if(epilogue.stage()){
+        if(third_pending_rfi){
+            need(epilogue.stage()==1u&&std::find(Guard.begin(),Guard.end(),pc)==Guard.end());
+            scheduler->advance(c.inst_count);need(third.after_return_at(c.inst_count)&&third_callback_held());
+            third_epilogue_step(c,pc,w);return;
+        }
         if(epilogue.stage()==4u){
             need(owner==SecondResume&&pc==SecondResume&&rfi_dispatched&&ack.postack_held_after_rfi(c.inst_count,2u)&&
                  epilogue.resume(c,pc,w,cause.load(),Mask)&&epilogue.stage()==5u&&captured.stage()==5u);
@@ -724,6 +739,9 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
 namespace nwii::runtime{
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
+    if(third_pending_rfi&&epilogue.stage()){
+        need(epilogue.stage()==1u&&captured.saved_integer(c,Context).ok()&&third_callback_held()&&epilogue.entry(c,pc,cause.load(),Mask));return;
+    }
     if(third_callback_route&&callback_witness.stage()){
         need(captured.saved_integer(c,Context).ok());
         if(handler_return.stage()){
@@ -798,6 +816,18 @@ void trace_call(uint32_t pc,CPUContext& c){
     ++entries;
 }
 bool process_pending_callbacks(CPUContext& c){
+    if(third_pending_rfi&&epilogue.stage()){
+        need(third_callback_held());
+        if(epilogue.stage()==2u){
+            // Native RFI has executed and restored EE, but the next guest
+            // instruction must not execute while the third source is pending.
+            need(epilogue.pending_rfi_return(c,cause.load(),Mask)&&epilogue.stage()==3u&&captured.stage()==3u&&c.pc==Resume);
+            std::cout<<std::dec<<"V1064_THIRD_PENDING_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 token=3 held=1 visits="
+                     <<epilogue.visits()<<" saved_fields=38 third_vector_executed=0 resume_instruction_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        need(epilogue.stage()==1u&&captured.saved_integer(c,Context).ok()&&epilogue.poll(c,cause.load(),Mask));return false;
+    }
     if(third_callback_route&&callback_witness.stage()){
         need(captured.saved_integer(c,Context).ok()&&third_callback_held());
         if(handler_return.stage()){
@@ -862,11 +892,11 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
-    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler"}){
+    for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
             mode.resize(mode.size()-tail.size());
             need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
-            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_handler_route=tail=="-handler";third_callback_return=tail=="-return"||third_handler_route;break;
+            third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_pending_rfi=tail=="-rfi";third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }
     error_rfi=mode=="error-rfi"||mode=="error-rfi-cold";
@@ -937,11 +967,11 @@ int main(int argc,char** argv)try{
     for(unsigned i=0;i<32;++i)c.mmu.write32(Context+4*i,c.gpr[i]);
     c.mmu.write32(Context+128,0);c.mmu.write32(Context+132,c.lr);c.mmu.write32(Context+136,c.ctr);c.mmu.write32(Context+140,c.xer);
     c.mmu.write32(Context+408,Resume);c.mmu.write32(Context+412,c.msr);
-    if(rfi_route){c.mmu.write16(Context+0x1a0u,0u);c.mmu.write16(Context+0x1a2u,2u);for(unsigned i=0;i<8;++i)c.mmu.write32(Context+0x1a4u+4*i,0x00040004u+i*0x100u+trial*0x10000u);}
+    if(rfi_route||third_pending_rfi){c.mmu.write16(Context+0x1a0u,0u);c.mmu.write16(Context+0x1a2u,2u);for(unsigned i=0;i<8;++i)c.mmu.write32(Context+0x1a4u+4*i,0x00040004u+i*0x100u+trial*0x10000u);}
     c.mmu.write32(0x800000c0u,Context&0x3fffffffu);c.mmu.write32(0x800000c4u,0xf7fff7f0u);c.mmu.write32(0x800000c8u,0);
     c.mmu.write32(0x800000d4u,Context);c.mmu.write32(0x800000e4u,Context);
     c.mmu.write32(Sda+SchedulerCounterDisp,0u);
-    if(rfi_route)c.mmu.write32(Sda+SecondEpilogueExpected.hint_disp,0u);
+    if(rfi_route||third_pending_rfi)c.mmu.write32(Sda+SecondEpilogueExpected.hint_disp,0u);
     c.mmu.write32(Sda-3408u,0x80003040u);c.mmu.write32(0x80003090u,Handler);
     if(seeded_route){
         // Explicit focused fixture: reconstruct the queued SI type packets
