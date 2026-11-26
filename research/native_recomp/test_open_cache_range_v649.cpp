@@ -46,5 +46,21 @@ int main(){
         }
         need(w.phase()==OpenCacheRangeTrace::Phase::Failed);++refused;
     }
+    for(unsigned f=0;f<5;++f){
+        Cpu c;OpenCacheRangeTrace w;
+        need(w.begin(c,0x81000000u,16));
+        w.on_flush(0x81000000u);++c.guest_flush_count;c.guest_last_flush=0x81000000u;
+        need(w.ready_sc(c));
+        if(f==1){need(!w.rearm(c));continue;}
+        need(w.finish(c));
+        if(f==2){Cpu other=c;need(!w.rearm(other));continue;}
+        if(f==3){--c.guest_flush_count;need(!w.rearm(c));continue;}
+        if(f==4){c.is_running=false;need(!w.rearm(c));continue;}
+        c.guest_flush_count+=12;
+        need(w.rearm(c)&&w.begin(c,0x81000020u,19));
+        w.on_flush(0x81000020u);++c.guest_flush_count;c.guest_last_flush=0x81000020u;
+        need(w.ready_sc(c)&&w.finish(c)&&w.lines()==1&&c.guest_flush_count==20014u);
+    }
+    std::cout<<"V1361_CACHE_REARM valid=1 refused=4\n";
     std::cout<<"V649_OPEN_CACHE positive="<<passed<<" refusal="<<refused<<" saturated_history=1 ordered=1\n";
 }

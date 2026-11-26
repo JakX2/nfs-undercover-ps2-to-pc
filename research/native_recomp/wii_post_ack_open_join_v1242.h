@@ -8,8 +8,8 @@ namespace undercover::wii {
 // to the legacy handler while this proof is active.
 class PostAckOpenJoin {
 public:
-    PostAckOpenJoin(const OpenRequestExpectations& e,const std::array<uint8_t,28>& vector)
-        :request_(e),sc_(vector){}
+    PostAckOpenJoin(const OpenRequestExpectations& e,const std::array<uint8_t,28>& vector,unsigned first_kind=0)
+        :request_(e,first_kind),sc_(vector,OpenScRoute::Caller,first_kind),epoch_(first_kind){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
     unsigned request_failure()const{return request_.failure();}
@@ -17,15 +17,22 @@ public:
     unsigned path_kind()const{return kind_;}
     template<class C>bool begin(C& c,const PostAckStmJoin& stm,bool device_ok){
         auto snap=NativeIosBinding::cold_snapshot();
-        if(stage_||error_||!device_ok||!stm.open_at(c)||!snap||
+        if(stage_||error_||epoch_.second()||!device_ok||!stm.open_at(c)||!snap||
            !request_.begin(c,stm.path_kind(),stm.heap_size()))return fail(1);
         cpu_=&c;start_=c.inst_count;initial_=*snap;kind_=stm.path_kind();stage_=1;return true;
+    }
+    template<class C,class Prior>bool begin_second(C& c,const Prior& prior,bool device_ok,bool held,bool descriptor,uint32_t heap_size){
+        auto snap=NativeIosBinding::cold_snapshot();
+        if(stage_||error_||!epoch_.second()||!device_ok||!held||!descriptor||
+           !prior.reached(c,held,descriptor)||!epoch_.admits(prior.path_kind())||!snap||!epoch_.quiet(*snap)||
+           !request_.begin_second(c,prior.path_kind(),heap_size))return fail(1);
+        cpu_=&c;start_=c.inst_count;initial_=*snap;kind_=prior.path_kind();stage_=1;return true;
     }
     template<class C>bool boundary(C& c,bool device_ok)const{
         auto s=NativeIosBinding::cold_snapshot();
         return stage_>=1u&&stage_<=8u&&!error_&&cpu_==&c&&device_ok&&
             c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
-            c.inst_count>=start_&&c.inst_count-start_<=200000u&&s&&same(*s,initial_);
+            c.inst_count>=start_&&c.inst_count-start_<=200000u&&s&&epoch_.quiet(*s)&&same(*s,initial_);
     }
     template<class C>bool observe(C& c,uint32_t pc,bool device_ok){
         if(!boundary(c,device_ok)||!request_.observe(pc,c,sc_))return fail(2);
@@ -58,12 +65,13 @@ public:
         return stage_==9u&&!error_&&cpu_==&c&&device_ok&&c.is_running&&!c.in_callback&&
             !c.dispatch_saved_ctx&&c.pc==OpenRequestWitness::Submit&&
             c.inst_count==entry_tick_&&c.lr==submit_lr_&&c.gpr[1]==submit_sp_&&
-            c.gpr[3]==submit_arg_&&c.msr==submit_msr_&&request_unchanged(c)&&s&&same(*s,initial_)&&
+            c.gpr[3]==submit_arg_&&c.msr==submit_msr_&&request_unchanged(c)&&s&&epoch_.quiet(*s)&&same(*s,initial_)&&
             sc_.phase()==OpenScRoute::Phase::Returned;
     }
 private:
     OpenRequestWitness request_;
     OpenScRoute sc_;
+    OpenTransactionEpoch epoch_;
     const void* cpu_=nullptr;
     ColdIpcSnapshot initial_{};
     uint64_t start_=0,entry_tick_=0;

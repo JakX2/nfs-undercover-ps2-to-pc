@@ -1,5 +1,5 @@
 #pragma once
-#include "wii_native_ios_binding.h"
+#include "wii_open_epoch_v1361.h"
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -12,8 +12,8 @@ public:
     static constexpr uint32_t Call=0x805222e8u, Resume=Call+4u,
         Caller=0x80519a1cu, SubmitCaller=0x8051963cu, Source=0x805290a8u, Vector=0x80000c00u;
     enum class Phase { Idle, Armed, Executing, Returned, Failed };
-    explicit OpenScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller):bytes_(expected),caller_(caller){
-        if(caller_!=Caller&&caller_!=SubmitCaller)fail();
+    explicit OpenScRoute(const std::array<uint8_t,28>& expected,uint32_t caller=Caller,unsigned first_kind=0):bytes_(expected),caller_(caller),epoch_(first_kind){
+        if((caller_!=Caller&&caller_!=SubmitCaller)||!epoch_.valid())fail();
         for(unsigned i=0;i<bytes_.size();i+=4){
             const uint32_t w=(uint32_t(bytes_[i])<<24)|(uint32_t(bytes_[i+1])<<16)|
                 (uint32_t(bytes_[i+2])<<8)|bytes_[i+3];
@@ -82,19 +82,14 @@ public:
 private:
     std::array<uint8_t,28> bytes_;
     uint32_t caller_;
+    OpenTransactionEpoch epoch_;
     Phase phase_=Phase::Idle;
     const void* context_=nullptr;
     uint32_t sp_=0,msr_=0;
     uint64_t tick_=0;
     unsigned entries_=0,syncs_=0,isyncs_=0;
     ColdIpcSnapshot snapshot_{};
-    static bool quiet(const ColdIpcSnapshot& s){
-        using M=IpcMailbox;using H=HollywoodIrq;
-        return !s.queued&&!s.replies&&!s.event&&!s.steps&&
-            (s.control&(M::IY1|M::IY2))&&!(s.control&(M::X1|M::Y1|M::Y2))&&
-            !(s.flags&H::IPC_PPC)&&s.irq_mask==H::IPC_PPC&&
-            (s.pi_mask&H::PI_HOLLYWOOD)&&!(s.pi_cause&s.pi_mask);
-    }
+    bool quiet(const ColdIpcSnapshot& s)const{return epoch_.quiet(s);}
     bool stable()const{
         const auto s=NativeIosBinding::cold_snapshot();const auto& b=snapshot_;
         return s&&quiet(*s)&&s->control==b.control&&s->ppc==b.ppc&&s->arm==b.arm&&

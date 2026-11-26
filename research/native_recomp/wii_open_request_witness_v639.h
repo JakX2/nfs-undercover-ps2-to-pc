@@ -14,16 +14,26 @@ class OpenRequestWitness {
 public:
     static constexpr uint32_t Open=0x80519944u,Profile=0x8051ad38u,Alloc=0x8051ab34u,
         Disable=0x805265acu,Restore=0x805265d4u,Flush=0x805222c0u,Submit=0x805195ecu;
-    explicit OpenRequestWitness(const OpenRequestExpectations& e):e_(e){}
+    explicit OpenRequestWitness(const OpenRequestExpectations& e,unsigned first_kind=0):e_(e),epoch_(first_kind){}
     unsigned stage()const{return stage_;}unsigned failure()const{return error_;}
     uint32_t request()const{return request_;}
     template<class Cpu>bool begin(Cpu& c,unsigned kind,uint32_t heap_size){
+        if(epoch_.second())return fail(1);
+        return begin_epoch(c,kind,heap_size);
+    }
+    template<class Cpu>bool begin_second(Cpu& c,unsigned kind,uint32_t heap_size){
+        if(!epoch_.second()||c.open_cache_range.phase()!=OpenCacheRangeTrace::Phase::Done||
+           !begin_epoch(c,kind,heap_size)||!c.open_cache_range.rearm(c))return fail(1);
+        return true;
+    }
+private:
+    template<class Cpu>bool begin_epoch(Cpu& c,unsigned kind,uint32_t heap_size){
         using W=IpcClientWitness;
         const auto s=NativeIosBinding::cold_snapshot();
         path_=c.gpr[3];kind_=kind;
         if(stage_||error_||!c.is_running||c.dispatch_saved_ctx||!(c.msr&0x8000u)||
            c.gpr[4]||c.gpr[13]!=W::Sda||c.pc!=Open||!edge(c,e_.entry)||
-           e_.entry.lr!=0x8052b090u||!path_valid(c)||!s||!idle(*s)||
+           e_.entry.lr!=(epoch_.second()?0x8052b0b8u:0x8052b090u)||!epoch_.admits(kind)||!path_valid(c)||!s||!epoch_.quiet(*s)||
            !equal(c,W::IrqGlobal,W::Table)||!equal(c,W::MaskA,0xf7fff7e0u)||
            !equal(c,W::MaskB,0)||!mapped(c,W::Lo,8)||!mapped(c,W::Table,128))return fail(1);
         lo_=c.mmu.read32(W::Lo);hi_=c.mmu.read32(W::Hi);size_=heap_size;
@@ -35,6 +45,7 @@ public:
         before_=*s;ctx_=&c;sp_=c.gpr[1];r2_=c.gpr[2];r13_=c.gpr[13];msr_=c.msr;
         tick_=start_=c.inst_count;stage_=1;return true;
     }
+public:
     template<class Cpu>bool observe(uint32_t addr,Cpu& c,OpenScRoute& sc){
         using R=OpenScRoute;using W=IpcClientWitness;
         const auto s=NativeIosBinding::cold_snapshot();
@@ -82,21 +93,15 @@ public:
         tick_=c.inst_count;++stage_;return true;
     }
 private:
-    OpenRequestExpectations e_;const void* ctx_=nullptr;
+    OpenRequestExpectations e_;OpenTransactionEpoch epoch_;const void* ctx_=nullptr;
     unsigned stage_=0,error_=0,kind_=0;uint32_t request_=0,path_=0,lo_=0,hi_=0,size_=0;
     uint32_t sp_=0,r2_=0,r13_=0,msr_=0,first_line_=0,lines_=0,flush_count_=0;
     uint64_t start_=0,tick_=0;uint8_t lower_=0,upper_=0;
     std::array<uint32_t,32> irqs_{};ColdIpcSnapshot before_{};
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t canonical(uint32_t a){return !a||(a&0xc0000000u)==0x40000000u?0u:(a&0x3fffffffu)|0x80000000u;}
-    static bool idle(const ColdIpcSnapshot& s){
-        using M=IpcMailbox;using H=HollywoodIrq;
-        return !s.queued&&!s.replies&&!s.event&&!s.steps&&(s.control&(M::IY1|M::IY2))&&
-            !(s.control&(M::X1|M::Y1|M::Y2))&&!(s.flags&H::IPC_PPC)&&s.irq_mask==H::IPC_PPC&&
-            (s.pi_mask&H::PI_HOLLYWOOD)&&!(s.pi_cause&s.pi_mask);
-    }
-    static bool same(const ColdIpcSnapshot& a,const ColdIpcSnapshot& b){
-        return idle(a)&&a.control==b.control&&a.ppc==b.ppc&&a.arm==b.arm&&a.flags==b.flags&&
+    bool same(const ColdIpcSnapshot& a,const ColdIpcSnapshot& b)const{
+        return epoch_.quiet(a)&&a.control==b.control&&a.ppc==b.ppc&&a.arm==b.arm&&a.flags==b.flags&&
             a.irq_mask==b.irq_mask&&a.pi_cause==b.pi_cause&&a.pi_mask==b.pi_mask&&a.steps==b.steps;
     }
     std::string_view pathname()const{return kind_==1?"/dev/stm/immediate":kind_==2?"/dev/stm/eventhook":"";}

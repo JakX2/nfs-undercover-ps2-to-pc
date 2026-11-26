@@ -28,6 +28,14 @@ public:
         if(uint64_t(base_)+(stop_-first_)/32u>0xffffffffull)return fail();
         context_=&c;phase_=Phase::Flush;return true;
     }
+    // Explicit rearm only after a completed range on this same CPU.
+    // The global cache-operation counter is never reset.
+    template<class Cpu>bool rearm(Cpu& c){
+        if(phase_!=Phase::Done||context_!=&c||!c.is_running||
+           uint64_t(c.guest_flush_count)<uint64_t(base_)+lines_)return fail();
+        phase_=Phase::Idle;context_=nullptr;first_=next_=stop_=base_=0;lines_=0;
+        return true;
+    }
     void on_flush(uint32_t ea) noexcept {
         if(phase_==Phase::Idle||phase_==Phase::Done)return;
         if(phase_!=Phase::Flush||next_>=stop_||(canonical(ea)&~31u)!=next_){fail();return;}
