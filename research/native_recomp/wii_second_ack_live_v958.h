@@ -8,6 +8,9 @@
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
 #include "wii_callback_identity_v796.h"
 #endif
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+#include "wii_callback_prefix_v800.h"
+#endif
 #include <cstdlib>
 #include <iostream>
 namespace undercover::wii::v958 {
@@ -23,6 +26,11 @@ inline thread_local unsigned shared_tick=0,shared_entries=0,shared_returns=0,sha
 inline thread_local bool shared_seen=false;
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
 inline thread_local unsigned helper_return_visits=0;
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+inline thread_local CallbackPrefixWitness<second_callback_prefix.size(),second_callback_save.size()> callback_prefix(transfer_callback,second_callback_save_root,second_callback_prefix,second_callback_save);
+inline bool callback_enabled(){const char* v=std::getenv("UNDERCOVER_V1009_SECOND_CALLBACK");return v&&v[0]=='1'&&v[1]=='\0';}
+inline bool callback_active(){return callback_prefix.stage()>=1u&&callback_prefix.stage()<=5u;}
+#endif
 inline bool success_frontier_enabled(){const char* v=std::getenv("UNDERCOVER_V995_SUCCESS_FRONTIER");return v&&v[0]=='1'&&v[1]=='\0';}
 #endif
 inline bool shared_enabled(){const char* v=std::getenv("UNDERCOVER_V989_SHARED_COMPLETION");return v&&v[0]=='1'&&v[1]=='\0';}
@@ -43,6 +51,9 @@ inline bool active(){return ack.stage()!=0u;}
 }
 template<class C>bool start(C& c,ExternalReturnWitness& captured){
     if(frame||active()||!captured.saved_integer(c,context).ok())return false;
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+    if(callback_enabled()&&!success_frontier_enabled())return false;
+#endif
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
     if(success_frontier_enabled()&&(!shared_enabled()||!time_enabled()||!frontier_enabled()||!post_enabled()))return false;
 #endif
@@ -64,6 +75,18 @@ template<class C>bool start(C& c,ExternalReturnWitness& captured){
 }
 template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     if(!active())return;
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+    if(callback_active()){
+        if(guard||!frame||!frame->saved_integer(c,context).ok()||++visits>8192u||
+           !ack.before(c,pc,w,true)||!ack.postack_held()||!callback_prefix.before(c,pc,w,true))reject(14);
+        if(callback_prefix.stage()==6u){
+            std::cout<<std::dec<<"V1009_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes="<<callback_prefix.writes()
+                     <<" visits="<<callback_prefix.visits()<<" token_preserved=1 saved_fields=38 continuation_executed=0 boot_verified=0"<<std::endl;
+            std::_Exit(0);
+        }
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V995_PRIVATE_SUCCESS_FRONTIER
     if(success_frontier_enabled()&&pc==success_callback_sites[0]){
         if(!guard||!shared_seen||!post_seen||!helper_return_visits||time_seen||w!=0x4e800421u||
@@ -72,6 +95,12 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         const auto category=classify_callback_identity(c,pc,w,6u,2u,transfer_callback,success_callback_words,success_callback_sites);
         std::cout<<std::dec<<"V995_CALLBACK_FRONTIER target_class="<<category<<" aligned="<<(!(c.ctr&3u))
                  <<" visits="<<visits-helper_return_visits<<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+        if(callback_enabled()&&category==2u&&c.ctr==transfer_callback){
+            if(c.gpr[3]>=4u||!callback_prefix.start_dispatch(c,pc,w,true,true))reject(14);
+            return;
+        }
+#endif
         std::_Exit(0);
     }
 #endif
@@ -155,10 +184,23 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
     }
 }
 template<class C>bool poll(C& c){
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+    if(callback_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||!ack.postack_held()||!callback_prefix.dispatch_poll(c,true))reject(14);
+        return false;
+    }
+#endif
     if(!frame||!frame->saved_integer(c,context).ok()||!calls.can_poll()||!ack.poll(c.inst_count))reject(3);
     return false;
 }
 template<class C>void observe(uint32_t pc,C& c){
+#ifdef UNDERCOVER_V1009_PRIVATE_CALLBACK
+    if(callback_active()){
+        if(!frame||!frame->saved_integer(c,context).ok()||(callback_prefix.stage()==1u&&!ack.accept_dispatch_tick(c))||
+           !ack.postack_held()||!callback_prefix.entry(c,pc,true))reject(14);
+        return;
+    }
+#endif
     if(!frame||!frame->saved_integer(c,context).ok()||!calls.entry(c,pc)||!ack.poll(c.inst_count))reject(4);
 }
 }

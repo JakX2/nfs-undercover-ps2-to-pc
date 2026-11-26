@@ -136,6 +136,7 @@ fi
 if [[ "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 ]]; then
   [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" == 1 && "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]] || exit 2
   extra+=(UNDERCOVER_V989_SHARED_COMPLETION=1 UNDERCOVER_V995_SUCCESS_FRONTIER=1);audit=audit_v995_success_frontier.py
+  if [[ "${UNDERCOVER_RUN_V1009_SECOND_CALLBACK:-0}" == 1 ]]; then extra+=(UNDERCOVER_V1009_SECOND_CALLBACK=1);audit=audit_v1009_second_callback.py;fi
 elif [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then
   [[ "$si_handler_suffix" == 1 && "${UNDERCOVER_RUN_V967_POST_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V958_SECOND_ACK:-0}" == 1 && "${UNDERCOVER_RUN_V975_SECOND_TIME:-0}" != 1 && "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" != 1 ]] || exit 2
   extra+=(UNDERCOVER_V989_SHARED_COMPLETION=1);audit=audit_v989_shared_time.py

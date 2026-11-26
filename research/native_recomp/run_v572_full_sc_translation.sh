@@ -261,6 +261,10 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
             if [[ "${UNDERCOVER_RUN_V989_SHARED_COMPLETION:-0}" == 1 ]]; then time_args+=(--shared-completion);fi
             if [[ "${UNDERCOVER_RUN_V981_SECOND_FRONTIER:-0}" == 1 ]]; then time_args+=(--frontier);fi
             python3 "$here/prepare_v975_second_time.py" "$dol" "$elf" "$work/generated" "${time_args[@]}"
+            if [[ "${UNDERCOVER_RUN_V1009_SECOND_CALLBACK:-0}" == 1 ]]; then
+                [[ "${UNDERCOVER_RUN_V995_SUCCESS_FRONTIER:-0}" == 1 ]] || exit 2
+                python3 "$here/prepare_v1009_second_callback.py" "$dol" "$elf" "$work/generated"
+            fi
         fi
         if [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V922_IRQ_RETURN:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v928_leaf_finish.py" "$dol" "$elf" "$work/generated";fi
         if [[ "${UNDERCOVER_RUN_V930_IPC_JOIN:-0}" == 1 ]]; then [[ "${UNDERCOVER_RUN_V928_LEAF_FINISH:-0}" == 1 ]] || exit 2;python3 "$here/prepare_v930_ipc_join.py" "$dol" "$elf" "$work/generated";fi
