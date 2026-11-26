@@ -10,7 +10,7 @@ from make_private_elf_symbol_map import parse_functions
 from make_v624_ipc_geometry import exact_words
 from prepare_stm_final_return import spr
 
-def model(root,words):
+def model(root,words,*,details=False):
     rows,path,slots,fp,frame,dst=report_trace(root,words)
     if fp:raise ValueError('SC report FP path')
     # Symbolic values: incoming register, stack-relative address,
@@ -79,6 +79,8 @@ def model(root,words):
     if not -frame+4<=start<=-32 or start&3:raise ValueError('SC report ABI save area')
     if any(read(start+4*i,4)!=('reg',3+i) for i in range(8)):
         raise ValueError('SC report ABI register save')
+    if details:
+        return tuple(gp),{at:read(at,4) for at in range(-frame,8,4) if read(at,4) is not None}
     return len(path),len(slots),8,frame,dst
 
 def main():
