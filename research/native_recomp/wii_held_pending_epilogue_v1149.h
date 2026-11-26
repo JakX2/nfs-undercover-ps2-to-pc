@@ -27,7 +27,7 @@ public:
         cpu_=&c;frame_=&frame;dev_=&dev;ctl_=&ctl;cause_=&cause;mask_=&mask;last_=c.inst_count;stage_=1;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w){
-        if(stage_==4u)return next_.before(c,pc,w)?true:fail(5);
+        if(stage_==4u)return same(c)&&no_si(c,w)&&next_.before(c,pc,w)?true:fail(5);
         if(stage_!=1u||!same(c)||!no_si(c,w)||c.inst_count-last_!=1u||
            !dev_->after_return_at(c.inst_count)||!frame_->saved_integer(c,expected_.context).ok())return fail(2);
         last_=c.inst_count;

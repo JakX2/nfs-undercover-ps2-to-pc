@@ -52,7 +52,8 @@ int main(){
     unsigned held_valid=0,held_refused=0;
     unsigned held_return_valid=0,held_return_refused=0;
     unsigned held_ep_valid=0,held_ep_refused=0;
-    for(trial=0;trial<348;++trial){
+    unsigned held_vec_valid=0,held_vec_refused=0;
+    for(trial=0;trial<368;++trial){
         const unsigned rd_fault=trial>=276?trial-275u:0u;
         const unsigned ep_fault=trial>=268?0u:trial>=256?trial-255u:0u;
         const unsigned hr_fault=trial>=248?0u:trial>=236?trial-235u:0u;
@@ -97,7 +98,8 @@ int main(){
         if(trial>=288){
             const unsigned f=trial>=308?0u:trial>=296?trial-295u:0u;
             const unsigned hr=trial>=328?0u:trial>=316?trial-315u:0u;
-            const unsigned he=trial>=336?trial-335u:0u;
+            const unsigned he=trial>=348?0u:trial>=336?trial-335u:0u;
+            const unsigned hv=trial>=356?trial-355u:0u;
             constexpr uint32_t A=0x80034000u,Table=0x80033000u,Rd=0x80830038u,Wr=0x90830038u;
             constexpr uint32_t Indexed=(31u<<26)|(5u<<21)|(3u<<16)|(4u<<11)|(23u<<1);
             constexpr uint32_t Compare=(10u<<26)|(5u<<16)|7u,Branch=(16u<<26)|(12u<<21)|(2u<<16)|12u;
@@ -258,7 +260,42 @@ int main(){
             ok=ep.entry(c,V);
             if(he==11||he==12){refused_ep(!ok);continue;}
             need(ok&&ep.stage()==4u&&ep.next().stage()==3u&&dev.held_now());
-            ++held_ep_valid;continue;
+            if(trial<348){++held_ep_valid;continue;}
+            auto refused_vec=[&](bool bad){
+                need(bad&&ep.failure()==5u&&ctl.issued_tokens()==3u&&cause==(Other|SI)&&dev.stage()==2u);++held_vec_refused;
+            };
+            if(hv==1)tick();
+            if(hv==2)c.gqr[0]^=1u;
+            tick();ok=ep.before(c,hv==3?V+4u:V,hv==4?Rfi:Vec[0]);
+            if(hv>=1&&hv<=4){refused_vec(!ok);continue;}need(ok);
+            for(unsigned i=3;i<=5;++i)c.mmu.words[Context+4*i]=gp[i];
+            c.mmu.words[Context+132]=lr;c.mmu.words[Context+136]=ctr;c.mmu.words[Context+140]=xer;
+            c.mmu.words[Context+408]=H;c.mmu.words[Context+412]=0x8032u;c.srr0=T;c.srr1=0x32u;
+            c.pc=V+4;tick();need(ep.before(c,V+4,Rfi));
+            c.pc=T;c.msr=c.srr1;c.gpr[3]=4;c.gpr[4]=Context;
+            if(hv==5)c.gqr[7]^=1u;
+            if(hv!=6){
+                polled=ep.poll(c,Image);
+                if(hv==5){refused_vec(polled==Poll::Rejected);continue;}need(polled==Poll::Continue);
+            }
+            if(hv!=7)tick();
+            if(hv==8)c.mmu.words[Context+12]^=1u;
+            ok=ep.entry(c,T);
+            if(hv>=6&&hv<=8){refused_vec(!ok);continue;}need(ok);
+            c.pc=T;tick();need(ep.before(c,T,Tramp[0]));
+            c.pc=T+4;tick();need(ep.before(c,T+4,Tramp[1]));
+            for(unsigned i=0;i<32;++i)c.mmu.words[Context+4*i]=gp[i];
+            c.mmu.words[Context+128]=0;c.pc=D;
+            need(ep.poll(c,Image)==Poll::Continue);tick();
+            if(hv==9)c.mmu.words[Context+124]^=1u;
+            if(hv==10)mask=0;
+            if(hv==11)c.pc=D+4u;
+            if(hv==12)tick();
+            ok=ep.entry(c,D);
+            if(hv>=9){refused_vec(!ok);continue;}need(ok);
+            need(ep.stage()==5u&&ep.saved(c)&&ep.vector_visits()==2u&&ep.trampoline_visits()==2u&&
+                 dev.held_now()&&ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==(Other|SI));
+            ++held_vec_valid;continue;
         }
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_read(c.inst_count,Base+S)&&dev.read(ctl,S,value));
         tick();need(dev.after_return_at(c.inst_count)&&dev.arm_suffix_status_write(c.inst_count,Base+S,value)&&dev.write(ctl,S,value));
@@ -907,7 +944,7 @@ int main(){
         ++rd_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12&&return_valid==8&&return_refused==12&&handler_valid==8&&handler_refused==12&&handler_return_valid==8&&handler_return_refused==12&&ep_valid==8&&ep_refused==12&&rd_valid==8&&rd_refused==12&&held_valid==8&&held_refused==12&&held_return_valid==8&&held_return_refused==12&&held_ep_valid==8&&held_ep_refused==12&&held_vec_valid==8&&held_vec_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -926,4 +963,5 @@ int main(){
     std::cout<<"V1138_HELD_HANDLER_SUFFIX valid=8 refused=12 actual_w1c=1 token_held=1 original_execution=0\n";
     std::cout<<"V1144_HELD_HANDLER_RETURN valid=8 refused=12 abi=15 dispatch_tick=1 token_held=1 original_execution=0\n";
     std::cout<<"V1149_HELD_PENDING_EPILOGUE valid=8 refused=12 native_rfi_model=1 same_token=1 third_vector_entry=1 original_execution=0\n";
+    std::cout<<"V1150_HELD_VECTOR_JOIN valid=8 refused=12 vector_visits=2 trampoline_visits=2 saved_fields=38 token_held=1 original_execution=0\n";
 }
