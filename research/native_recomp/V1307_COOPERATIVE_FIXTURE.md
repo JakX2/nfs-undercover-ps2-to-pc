@@ -1,0 +1,3 @@
+# V1307 cooperative private fixture candidate
+
+Expand only the already present OSClearContext guard to its private authenticated original 0x24-byte extent. Keep the existing 48-root cap and all previously authenticated extents, and verify the original save, load, idle disable, clear, set and resumed sleep-restore edges. Check the save routine's structural register-store coverage, not its computed values: actual save provenance and MSR semantics still require owner verification. Audit exact native dispatcher continuations at idle enable resume, save return and sleep return. No new roots and no private bytes published. Four synthetic planner tests; CI and owner geometry pending. Not wired into the active owner runner until the preceding MMIO/idle RFI milestones pass.
