@@ -71,6 +71,9 @@
 #include "v1383_private_stm_ioctl.h"
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 #include "v1386_private_ioctl_prefix.h"
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+#include "v1387_private_ioctl_allocation.h"
+#endif
 #endif
 #endif
 #endif
@@ -264,6 +267,10 @@ struct StmIoctlReached{};
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
 static IoctlPrefixWitness* ioctl_prefix=nullptr;
 static unsigned ioctl_prefix_count=0;
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+static IoctlAllocationWitness* ioctl_alloc=nullptr;
+static unsigned ioctl_alloc_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -370,6 +377,31 @@ static bool stm_ioctl_held(nw::CPUContext& c){
         allocator_release->storage_preserved_at(c,true,stm_ioctl->expected_msr());
 }
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+static bool ioctl_alloc_held(nw::CPUContext& c){
+    // Retire the already released wire and heap snapshot, not the native
+    // mailbox, selected OSContext, completed descriptors or device guards.
+    return ioctl_alloc&&selection_witness&&allocator_descriptor&&allocator_descriptor->second_completed()&&
+        OpenTransactionEpoch(second_irq_kind).acknowledged_descriptors(3u-second_irq_kind)&&!(cause.load()&mask.load())&&
+        selection_witness->selected_after_release(c,raw_device_ok(c));
+}
+[[noreturn]]static void ioctl_alloc_refuse(unsigned kind){
+    std::cout<<"V1387_ALLOCATION_REFUSAL kind="<<kind<<" stage="<<ioctl_alloc->stage()<<" reason="<<ioctl_alloc->failure()
+        <<" visits="<<ioctl_alloc->visits()<<" stores="<<ioctl_alloc->stores()<<" heap="<<ioctl_alloc->heap_stores()
+        <<" metadata="<<ioctl_alloc->metadata_stores()<<" fence="<<ioctl_alloc->store_failure()<<" range="<<ioctl_alloc->range_failure()
+        <<" ordinal="<<ioctl_alloc->store_ordinal()<<" control="<<ioctl_alloc->control()<<'\n';
+    throw WitnessFailure{};
+}
+void v1387_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    // Shared veneer/body hooks also execute in the two earlier Opens.
+    if(!ioctl_alloc||ioctl_alloc->stage()!=1u)return;
+    if(pc==v1387::expected.resume){
+        if(!ioctl_alloc->inline_return(c,pc,w,ioctl_alloc_held(c)))ioctl_alloc_refuse(2);
+        ++ioctl_alloc_count;throw StmIoctlReached{};
+    }
+    if(!ioctl_alloc->before(c,pc,w,ioctl_alloc_held(c)))ioctl_alloc_refuse(2);
+}
+#endif
 [[noreturn]]static void ioctl_prefix_refuse(unsigned kind){
     std::cout<<"V1386_PREFIX_REFUSAL kind="<<kind<<" stage="<<(ioctl_prefix?ioctl_prefix->stage():0u)
              <<" reason="<<(ioctl_prefix?ioctl_prefix->failure():0u)<<" visits="<<(ioctl_prefix?ioctl_prefix->visits():0u)
@@ -441,6 +473,9 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+    if(ioctl_alloc&&ioctl_alloc->stage()==1u){v1387_before(c,pc,w);return;}
+#endif
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
     if(stm_ioctl){if(!stm_ioctl->before(c,pc,w,stm_ioctl_held(c)))stm_ioctl_refuse(2);return;}
 #endif
@@ -766,9 +801,25 @@ void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+    if(ioctl_alloc&&ioctl_alloc->stage()==1u){
+        if(!ioctl_alloc->entry(c,pc,ioctl_alloc_held(c)))ioctl_alloc_refuse(3);
+        return;
+    }
+#endif
     if(ioctl_prefix&&ioctl_prefix->stage()==1u){
         if(!ioctl_prefix->entry(c,pc,stm_ioctl_held(c)))ioctl_prefix_refuse(3);
-        if(ioctl_prefix->stage()==2u){++ioctl_prefix_count;throw StmIoctlReached{};}
+        if(ioctl_prefix->stage()==2u){
+            ++ioctl_prefix_count;
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+            if(!ioctl_prefix->reached(c,stm_ioctl_held(c))||
+               !allocator_descriptor->third_allocation_admitted(c,allocator_heap,c.gpr[3])||
+               !ioctl_alloc->begin(c,ioctl_alloc_held(c),allocator_heap,allocator_descriptor->field(),allocator_descriptor->guard()))
+                ioctl_alloc_refuse(1);
+#else
+            throw StmIoctlReached{};
+#endif
+        }
         return;
     }
 #endif
@@ -1099,6 +1150,13 @@ void trace_call(uint32_t pc,CPUContext& c){
 bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_V1383_STM_IOCTL_ENTRY
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+    if(ioctl_alloc&&ioctl_alloc->stage()==1u){
+        if(!ioctl_alloc->poll(c,ioctl_alloc_held(c)))ioctl_alloc_refuse(4);
+        if(ioctl_alloc->stage()==2u){++ioctl_alloc_count;throw StmIoctlReached{};}
+        return false;
+    }
+#endif
     if(ioctl_prefix&&ioctl_prefix->stage()==1u){if(!ioctl_prefix->poll(c,stm_ioctl_held(c)))ioctl_prefix_refuse(4);return false;}
 #endif
     if(stm_ioctl){if(!stm_ioctl->poll(c,stm_ioctl_held(c)))stm_ioctl_refuse(4);return false;}
@@ -2354,10 +2412,18 @@ int main(int argc,char** argv)try{
         stm_ioctl=&ioctl_entry;
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
         IoctlPrefixWitness prefix(v1386::expected);ioctl_prefix=&prefix;
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+        IoctlAllocationWitness alloc3(v1387::expected);ioctl_alloc=&alloc3;
+#endif
 #endif
         bool ioctl_reached=false;try{run_game(c);}catch(const StmIoctlReached&){ioctl_reached=true;}
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+        need(ioctl_reached&&alloc3.returned(c,ioctl_alloc_held(c))&&descriptor.identity_after_release(c)&&
+             ioctl_alloc_count==trial+1u&&ioctl_prefix_count==trial+1u&&
+#else
         need(ioctl_reached&&prefix.reached(c,stm_ioctl_held(c))&&ioctl_prefix_count==trial+1u&&
+#endif
 #else
         need(ioctl_reached&&ioctl_entry.reached(c,stm_ioctl_held(c))&&
 #endif
@@ -2366,6 +2432,11 @@ int main(int argc,char** argv)try{
         std::cout<<"V1383_IOCTL_TRIAL n="<<trial<<" original_stm=1 native_disable=1 event_fd=1 buffers=1 callback=1 stores="<<ioctl_entry.stores()<<'\n';
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
         std::cout<<"V1386_PREFIX_TRIAL n="<<trial<<" original_prefix=1 save_return=1 allocator_entry=1 saved="<<prefix.saved()<<" stores="<<prefix.stores()<<'\n';
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+        std::cout<<"V1387_ALLOCATION_TRIAL n="<<trial<<" original_return=1 heap_shadow=1 metadata_shadow=1 masked=1 stores="
+                 <<alloc3.stores()<<" heap="<<alloc3.heap_stores()<<" metadata="<<alloc3.metadata_stores()<<'\n';
+        ioctl_alloc=nullptr;
+#endif
         ioctl_prefix=nullptr;
 #endif
         stm_ioctl=nullptr;
@@ -2475,6 +2546,10 @@ int main(int argc,char** argv)try{
     need(stm_ioctl_count==8u);
 #ifdef UNDERCOVER_V1386_IOCTL_PREFIX
     need(ioctl_prefix_count==8u);
+#ifdef UNDERCOVER_V1387_IOCTL_ALLOCATION
+    need(ioctl_alloc_count==8u);
+    std::cout<<"V1387_ALLOCATION_NATIVE owner=1 trials=8 allocation_return=8 heap_shadow=8 metadata_shadow=8 masked=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"V1386_PREFIX_NATIVE owner=1 trials=8 allocator_entry=8 original_save=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"V1383_IOCTL_NATIVE owner=1 trials=8 original_stm=8 native_disable=8 ioctl_entry=8 event_fd=8 ios_steps=4 fallback=0 complete_image=0 boot_verified=0\n";

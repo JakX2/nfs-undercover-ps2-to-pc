@@ -1,0 +1,3 @@
+# V1387 original asynchronous allocation return
+
+Continue inline from V1386 through the original allocator veneer, actual allocator body and nested interrupt helpers. The caller enters with EE=0, so both helper returns must preserve the masked state. Verify the exact native branch route and all bounded stores against the existing full heap/metadata shadow, including the immutable descriptor identity and caller ABI. Retire only the authenticated second freed buffer and its old heap image; keep selected thread, mailbox and device identity stable. Stop before executing the original wrapper's post-allocation instruction. No cache flush, request submission or fifth IOS service step is added in this milestone. Original owner verification pending.

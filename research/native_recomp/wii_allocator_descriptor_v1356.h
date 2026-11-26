@@ -55,6 +55,9 @@ public:
         second_completed_=true;return true;
     }
     bool second_completed()const{return !error_&&second_completed_;}
+    template<class C>bool third_allocation_admitted(C& c,AllocatorRange heap,uint32_t id)const{
+        return second_completed()&&id==id_&&heap.base==heap_.base&&heap.size==heap_.size&&identity_after_release(c);
+    }
     // The verified first release has retired its free-list snapshot.
     // The next original allocation may change the head, not the heap's
     // identity. Permit an empty free list, never an invalid nonzero head.
