@@ -394,4 +394,89 @@ class WirelessTree(unittest.TestCase):
                 self.assertEqual(str(caught.exception),reason)
                 self.assertEqual(Tree.snapshot(root),before)
 
+
+class SuffixTree(unittest.TestCase):
+    C,A,B,R=0x80005000,0x80008000,0x80009000,0x8000a000
+    def fixture(self,root):
+        import prepare_v1124_postalarm_suffix as s
+        C,A,B,R=self.C,self.A,self.B,self.R
+        prior=list(range(C+68,C+68+27*4,4));frontier={prior[23]:(3,A),prior[26]:(5,B)}
+        resume=prior[23]+4
+        seen=[resume,resume+4]+list(range(C+180,C+180+19*4,4))
+        stops={seen[-2]:(4,2,None),seen[-1]:(13,1,R)}
+        code=[Tree.NOP]*172
+        for pc,(_,dst) in frontier.items():code[(pc-C)//4]=Tree.branch(pc,dst)
+        code[(seen[-2]-C)//4]=0x4e800421;code[(seen[-1]-C)//4]=Tree.branch(seen[-1],R)
+        code=tuple(code)
+        q=(({},C,C+0x1000,C+16,0,0),C+0x2000,C+0x3000,C+0x4000,C+0x5000,C+64,[])
+        fp=(q,prior,frontier,A,B);plan=(None,C,resume,seen,stops);cb=(C,code,(0x80004000,0x80004004))
+        dest=root/'nWiiRuntime/include/undercover';dest.mkdir(parents=True)
+        private=dest/'v958_private_second_ack.h'
+        private.write_text('#define UNDERCOVER_V1118_PRIVATE_POSTALARM_WIRELESS 1\n'
+            +f'inline constexpr uint32_t transfer_callback=0x{C:08x}u;\n'
+            +f'inline constexpr std::array<uint32_t,172> third_postalarm_words{{'+s.fmt(code)+'};\n')
+        host=Path(s.__file__).parent
+        for name in ('wii_callback_suffix_v841.h','wii_third_alarm_suffix_v1047.h'):
+            (dest/name).write_bytes((host/name).read_bytes())
+        (dest/'v831_private_callback_frontier.h').write_text(s.render_frontier(C,C+68,
+            {pc:(C,code[(pc-C)//4]) for pc in prior},frontier))
+        src=f'#include "runtime/cpu_context.h"\nvoid fn_{C:X}(CPUContext& ctx) {{\n'
+        src+=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{C:X}) nwii::runtime::trace_call(0x{C:X}, ctx);\n'
+        for pc in sorted(set(prior)|set(seen)|{p+4 for p in frontier}):
+            w=code[(pc-C)//4]
+            src+=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n    ++ctx.inst_count;\n'+SI
+            if pc in prior or pc in {p+4 for p in frontier}:
+                src+=f'    if({ACTIVE}) undercover::wii::v958::before(ctx,0x{pc:08x}u,0x{w:08x}u,false);\n'
+            if w>>26==18 and w&3==1:
+                dst=pc+(((w&0x03fffffc)^0x02000000)-0x02000000)
+                src+=f'    ctx.pc = 0x{dst:X}; fn_{dst:X}(ctx);\n    if (ctx.pc != 0x{pc+4:X}) return;\n'
+            elif w==0x4e800421:
+                src+=f'    ctx.lr = 0x{pc+4:X};\n    if (ctx.ctr) {{ ctx.pc = ctx.ctr; return; }}\n'
+        (root/'output_0.cpp').write_text(src+'}\n')
+        for i in range(1,20):(root/f'output_{i}.cpp').write_text('// unused shard\n')
+        (root/'main_output.cpp').write_text(f'extern "C" void run_game(CPUContext& ctx) {{\ncase 0x{C:X}: fn_{C:X}(ctx); break;\n}}\n')
+        return fp,plan,cb,private
+    def install(self,root,f):
+        import prepare_v1124_postalarm_suffix as s
+        fp,plan,cb,_=f
+        with patch.object(s,'frontier_plan',return_value=fp),patch.object(s,'plan',return_value=plan), \
+             patch.object(s,'expectations',return_value=cb),patch.object(s,'exact',return_value=cb[1]):
+            s.install(b'',b'',root,Path(s.__file__).parent)
+    def test_suffix_tree(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=self.fixture(root);before=Tree.snapshot(root);self.install(root,f);after=Tree.snapshot(root)
+            new=f[-1].parent/'v1123_private_postalarm_suffix.h'
+            self.assertEqual(set(after)-set(before),{new.relative_to(root)})
+            self.assertEqual({p for p in before if before[p]!=after[p]},{Path('output_0.cpp'),f[-1].relative_to(root)})
+            self.assertIn('UNDERCOVER_V1123_PRIVATE_POSTALARM_SUFFIX 1',f[-1].read_text())
+            self.assertIn('std::array<CallbackSuffixWord,21>',new.read_text())
+            p=Path('output_0.cpp')
+            self.assertEqual(before[p].count(b'++ctx.inst_count;'),after[p].count(b'++ctx.inst_count;'))
+            self.assertEqual(after[p].count(b'v958::before(ctx,')-before[p].count(b'v958::before(ctx,'),19)
+    def test_suffix_tree_refusals(self):
+        reasons={'header':'postalarm suffix identity','metadata':'postalarm suffix metadata','owner':'postalarm suffix owner',
+                 'direct':'helper direct native call','indirect':'indirect dispatch','label':'native IPC label identity',
+                 'resume':'postalarm time resume','dispatch':'native IPC dispatch','existing':'postalarm suffix destination'}
+        for fault,reason in reasons.items():
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as td:
+                root=Path(td);f=self.fixture(root);private=f[-1];p=root/'output_0.cpp'
+                if fault=='header':
+                    h=private.parent/'v831_private_callback_frontier.h';h.write_text(h.read_text()+'// tamper\n')
+                elif fault=='metadata':private.write_text(private.read_text().replace('third_postalarm_words','other_words'))
+                elif fault=='owner':(root/'output_19.cpp').write_bytes(p.read_bytes())
+                elif fault=='existing':(private.parent/'v1123_private_postalarm_suffix.h').write_text('// existing\n')
+                elif fault=='dispatch':
+                    p=root/'main_output.cpp';p.write_text(p.read_text().replace('fn_80005000(ctx)','fn_80005004(ctx)'))
+                else:
+                    src=p.read_text();resume=f[1][2];new_pc=f[1][3][2]
+                    if fault=='direct':src=src.replace('fn_8000A000(ctx);','fn_8000A004(ctx);')
+                    elif fault=='indirect':src=src.replace('ctx.pc = ctx.ctr; return;','ctx.pc = ctx.lr; return;')
+                    elif fault=='label':src=src.replace(f'// 0x{new_pc:08X}: 60000000',f'// 0x{new_pc:08X}: 60000001')
+                    else:src=src.replace(f'v958::before(ctx,0x{resume:08x}u,',f'v958::other(ctx,0x{resume:08x}u,')
+                    p.write_text(src)
+                before=Tree.snapshot(root)
+                with self.assertRaises(ValueError) as caught:self.install(root,f)
+                self.assertEqual(str(caught.exception),reason)
+                self.assertEqual(Tree.snapshot(root),before)
+
 if __name__=='__main__':unittest.main()
