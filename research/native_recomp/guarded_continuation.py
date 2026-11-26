@@ -19,7 +19,8 @@ def extend_guarded(blocks,owner,start,rows,target,entry_word):
         raise ValueError('continuation start')
     if any(i<len(body) and body[i]!=GUARD for i in offsets):
         raise ValueError('continuation overlap')
-    if any(w==GUARD for _,w in rows) or direct_bl(rows[-1][1],pcs[-1])!=target:
+    tail=rows[-1][1]
+    if any(w==GUARD for _,w in rows) or tail>>26!=18 or tail&3!=1 or direct_bl(tail,pcs[-1])!=target:
         raise ValueError('continuation final call')
     ret=offsets[-1]+1
     if ret in offsets or (ret<len(body) and body[ret]!=GUARD):
