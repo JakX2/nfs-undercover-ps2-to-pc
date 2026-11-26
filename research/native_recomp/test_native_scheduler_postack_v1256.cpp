@@ -94,6 +94,10 @@
 #include "private_async_wrapper_return.h"
 #ifdef UNDERCOVER_STM_EVENT_RETURN
 #include "private_stm_event_return.h"
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+#include "private_stm_outer_restore.h"
+#include "wii_deferred_stm_irq_entry.h"
+#endif
 #endif
 #endif
 #endif
@@ -338,6 +342,10 @@ static unsigned async_wrapper_count=0;
 #ifdef UNDERCOVER_STM_EVENT_RETURN
 static std::unique_ptr<StmEventReturnWitness> stm_event_return;
 static unsigned stm_event_return_count=0;
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+static std::unique_ptr<StmOuterRestoreWitness> stm_outer;
+static unsigned stm_outer_count=0,stm_irq_entry_count=0;
+#endif
 #endif
 #endif
 #endif
@@ -543,7 +551,7 @@ void ipc_profile_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(ioctl_profile&&!ioctl_profile->before(c,pc,w,ioctl_flush_held(c)))ioctl_profile_refuse(2);
 }
 #ifdef UNDERCOVER_IPC_DISPATCH
-static bool ioctl_dispatch_storage_held(nw::CPUContext& c,bool deferred=false){
+static bool ioctl_dispatch_storage_held(nw::CPUContext& c,bool deferred=false,uint32_t restored_msr=0){
     // The device gate owns the third transport. Do not compare the
     // retired second mailbox snapshot after original PPCMSG/PPCCTRL.
     const bool held=ioctl_dispatch_cpu==&c&&ioctl_alloc&&selection_witness&&allocator_descriptor&&
@@ -551,7 +559,8 @@ static bool ioctl_dispatch_storage_held(nw::CPUContext& c,bool deferred=false){
         OpenTransactionEpoch(second_irq_kind).acknowledged_descriptors(3u-second_irq_kind)&&
         (deferred?(cause.load()&mask.load())==H::PI_HOLLYWOOD:!(cause.load()&mask.load()))&&
         selection_witness->selected_storage_after_release(c,raw_device_ok(c));
-    if(!ioctl_build||!ioctl_build->identity_preserved(c,held)||ioctl_header_shadow.size()!=ioctl_build->allocated_size())return false;
+    if(!ioctl_build||!(restored_msr?ioctl_build->identity_after_enable(c,held,restored_msr):
+          ioctl_build->identity_preserved(c,held))||ioctl_header_shadow.size()!=ioctl_build->allocated_size())return false;
     for(unsigned i=0;i<ioctl_header_shadow.size();++i)
         if(c.mmu.read8(ioctl_build->request()+i)!=ioctl_header_shadow[i])return false;
     return true;
@@ -602,6 +611,22 @@ void async_wrapper_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
              <<" stores="<<(stm_event_return?stm_event_return->stores():0u)<<" ordinal="<<(stm_event_return?stm_event_return->ordinal():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+static bool stm_outer_held(nw::CPUContext& c){
+    if(!stm_outer||!stm_event_return||!stm_event_return->flag_preserved(c))return false;
+    const auto restored=(c.msr&0x8000u)?stm_outer->expected_msr():0u;
+    return ioctl_event_gate&&ioctl_event_gate->deferred_held(ioctl_dispatch_storage_held(c,true,restored))&&
+        ioctl_dispatch&&ioctl_dispatch->storage_preserved(c);
+}
+static bool stm_outer_pending(nw::CPUContext& c){
+    return (c.msr&0x8000u)&&(cause.load()&mask.load())==H::PI_HOLLYWOOD;
+}
+[[noreturn]]static void stm_outer_refuse(unsigned kind){
+    std::cout<<"STM_OUTER_RESTORE_REFUSAL kind="<<kind<<" stage="<<(stm_outer?stm_outer->stage():0u)
+             <<" reason="<<(stm_outer?stm_outer->failure():0u)<<" visits="<<(stm_outer?stm_outer->visits():0u)<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 void stm_event_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(stm_event_return&&!stm_event_return->before(c,pc,w,async_held(c)))stm_event_refuse(2);
 }
@@ -781,6 +806,9 @@ static bool second_submit_held(nw::CPUContext& c){
 }
 #endif
 void v1344_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+    if(stm_outer){if(!stm_outer->before(c,pc,w,stm_outer_held(c)))stm_outer_refuse(2);return;}
+#endif
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
     if(async_return){if(!async_return->before(c,pc,w,async_held(c)))async_refuse(2);return;}
 #endif
@@ -1122,10 +1150,21 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+    if(stm_outer)stm_outer_refuse(3);
+#endif
 #ifdef UNDERCOVER_STM_EVENT_RETURN
     if(stm_event_return){
         if(!stm_event_return->entry(c,pc,async_held(c)))stm_event_refuse(3);
-        ++stm_event_return_count;throw StmIoctlReached{};
+        ++stm_event_return_count;
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+        if(!stm_event_return->reached(c,async_held(c)))stm_outer_refuse(1);
+        stm_outer=std::make_unique<StmOuterRestoreWitness>(stm_outer_private::expected);
+        if(!stm_outer->begin(c,stm_outer_held(c)))stm_outer_refuse(1);
+        return;
+#else
+        throw StmIoctlReached{};
+#endif
     }
 #endif
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
@@ -1619,6 +1658,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+    if(stm_outer){
+        if(!stm_outer->poll(c,stm_outer_held(c),stm_outer_pending(c)))stm_outer_refuse(4);
+        ++stm_outer_count;throw StmIoctlReached{};
+    }
+#endif
 #ifdef UNDERCOVER_STM_EVENT_RETURN
     if(stm_event_return)stm_event_refuse(4);
 #endif
@@ -2997,7 +3042,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
 #ifdef UNDERCOVER_STM_EVENT_RETURN
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+        need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->stage()==2u&&stm_event_return&&stm_event_return->stage()==2u&&stm_outer&&stm_outer->reached(c,stm_outer_held(c),stm_outer_pending(c))&&stm_outer_count==trial+1u&&stm_event_return_count==trial+1u&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->stage()==2u&&stm_event_return&&stm_event_return->reached(c,async_held(c))&&stm_event_return_count==trial+1u&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
+#endif
 #else
         need(ioctl_reached&&ioctl_submit_prefix&&ioctl_submit_prefix->stage()==2u&&!ioctl_flush&&ioctl_submit_queue&&ioctl_submit_queue->stage()==2u&&ioctl_profile&&ioctl_profile->stage()==2u&&ioctl_dispatch&&async_return&&async_return->stage()==2u&&async_wrapper&&async_wrapper->reached(c,async_held(c),ioctl_prefix->caller_abi(c))&&async_wrapper_count==trial+1u&&ioctl_event_gate->stage()==4u&&async_return_count==trial+1u&&ioctl_dispatch_count==trial+1u&&ioctl_profile_return_count==trial+1u&&ioctl_queue_entry_count==trial+1u&&ioctl_header_return_count==trial+1u&&ioctl_header_entry_count==trial+1u&&ioctl_tail&&ioctl_tail->stage()==4u&&ioctl_output_count==trial+1u&&ioctl_submit_count==trial+1u&&ioctl_flush_count==trial+1u&&alloc3.stage()==2u&&ioctl_build_count==trial+1u&&descriptor.identity_after_release(c)&&
 #endif
@@ -3075,8 +3124,24 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_ASYNC_SUBMIT_RETURN
 #ifdef UNDERCOVER_ASYNC_WRAPPER_RETURN
 #ifdef UNDERCOVER_STM_EVENT_RETURN
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+        need(stm_outer->reached(c,stm_outer_held(c),host.exception_pending(c.msr))&&host.serviced_steps()==5u&&
+             host.services().event_pending());
+        std::cout<<"STM_OUTER_RESTORE_TRIAL n="<<trial<<" original_mtmsr=1 ee=1 pending_ack=1 deferred=1 visits="<<stm_outer->visits()<<'\n';
+        ExternalReturnWitness third_frame;
+        const auto ex=stm_outer_private::expected;
+        if(!enter_deferred_stm_irq(c,host,*ioctl_event_gate,third_frame,v1259::vector,
+              ioctl_build->request()&0x3fffffffu,Q::Thread,ex.resume,ex.resume_word,stm_outer_held(c)))stm_outer_refuse(5);
+        need(third_frame.stage()==1u&&c.pc==ExternalVector&&!(c.msr&0x8000u)&&
+             third_frame.pending_source(c,cause.load(),mask.load())&&ioctl_event_gate->deferred_held(true)&&
+             stm_event_return->flag_preserved(c)&&ioctl_dispatch->storage_preserved(c));
+        ++stm_irq_entry_count;
+        std::cout<<"STM_DEFERRED_IRQ_TRIAL n="<<trial<<" entered=1 active_thread=1 srr=1 deferred=1 pending_ack=1 vector_executed=0\n";
+        stm_outer.reset();
+#else
         need(stm_event_return->reached(c,async_held(c))&&host.serviced_steps()==5u&&
              host.services().event_pending()&&!host.exception_pending(c.msr));
+#endif
         std::cout<<"STM_EVENT_RETURN_TRIAL n="<<trial<<" original_flag=1 restore_entry=1 masked=1 deferred=1 visits="<<stm_event_return->visits()
                  <<" stores="<<stm_event_return->stores()<<'\n';
         stm_event_return.reset();
@@ -3278,6 +3343,10 @@ int main(int argc,char** argv)try{
     need(async_wrapper_count==8u);
 #ifdef UNDERCOVER_STM_EVENT_RETURN
     need(stm_event_return_count==8u);
+#ifdef UNDERCOVER_STM_OUTER_RESTORE
+    need(stm_outer_count==8u&&stm_irq_entry_count==8u);
+    std::cout<<"STM_DEFERRED_IRQ_NATIVE owner=1 trials=8 original_mtmsr=8 ee=8 entered=8 active_thread=8 pending_ack=8 deferred=8 ios_steps=5 vector_executed=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"STM_EVENT_RETURN_NATIVE owner=1 trials=8 original_flag=8 restore_entry=8 masked=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"ASYNC_WRAPPER_NATIVE owner=1 trials=8 original_return=8 masked=8 abi=8 deferred=8 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

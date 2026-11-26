@@ -106,6 +106,11 @@ public:
     // the allocated block and the submit frame. Retain all other storage
     // and exact wire/callback identities; do not require the old SP.
     template<class C>bool identity_preserved(C& c,bool held){return stage_==3u&&base(c,held)&&wire(c)&&outside_storage(c);}
+    // Only the independently observed original outer restore may change EE.
+    template<class C>bool identity_after_enable(C& c,bool held,uint32_t expected){
+        return stage_==3u&&!error_&&cpu_==&c&&held&&safe(c)&&!(msr_&0x8000u)&&
+            expected==(msr_|0x8000u)&&c.msr==expected&&c.gpr[2]==r2_&&c.gpr[13]==r13_&&wire(c)&&outside_storage(c);
+    }
 private:
     IoctlConstructionExpectation e_;AllocatorStoreFence fence_;AllocatorRange heap_{},meta_{};
     const void* cpu_=nullptr;std::vector<uint8_t> in_,out_,heap_shadow_,metadata_;
