@@ -10,10 +10,10 @@ from make_v624_ipc_geometry import exact_words
 from audit_osinit_suffix_v929 import category
 from audit_handler_suffix_v728 import target
 
-def closure(root,words):
+def closure(root,words,start=None):
     # This is deliberately a first-boundary census, not a proof of
     # a variadic formatter's behavior or a prediction of its output.
-    end=root+4*len(words);work=[root];seen=set();boundaries=set();back=0
+    end=root+4*len(words);work=[root if start is None else start];seen=set();boundaries=set();back=0
     while work:
         pc=work.pop()
         if pc in seen:continue

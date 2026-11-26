@@ -25,11 +25,21 @@ def add(a,n):
 def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
-def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
-    seen,bounds,_=closure(root,ws)
+def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False):
+    if (start is None)!=(resume is None):raise ValueError('formatter resume state')
+    seen,bounds,_=closure(root,ws,start)
     gp=[('reg',r) for r in range(32)];gp[1]=('stack',caller_sp)
     for r,v in args.items():gp[r]=v
-    mem={};cr={};ctr=None;lr=('lr',0);path=[];accesses=[];frame=0;saves=set()
+    mem={};cr={};ctr=None;lr=('lr',0);path=[];accesses=[];frame=0;saves=set();protected=set()
+    if resume is not None:
+        rg,rm,rc,ctr,lr,frame,rs=resume
+        gp=list(rg);mem=dict(rm);cr=dict(rc);saves=set(rs)
+        if args or stack_slots or len(gp)!=32 or not 8<=frame<=4096 or frame%8 or gp[1]!=('stack',caller_sp-frame):
+            raise ValueError('formatter resume state')
+        protected.update(range(caller_sp-frame,caller_sp-frame+4))
+        protected.update(range(caller_sp+4,caller_sp+8))
+        for at,v in mem.items():
+            if v[0]=='part' and v[1][0]=='reg' and 14<=v[1][1]<=31:protected.add(at)
     def bytes_of(v,n):
         if v[0]=='const':return tuple(('byte',(v[1]>>(8*(n-1-i)))&255) for i in range(n))
         return tuple(('part',v,n,i) for i in range(n))
@@ -55,24 +65,29 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
             raise ValueError('formatter stack write provenance')
         if at>=caller_sp and (at!=caller_sp+4 or n!=4 or v!=('lr',0)):
             raise ValueError('formatter caller linkage provenance')
-        if any(at+i in mem for i in range(n)):
+        if resume is None and any(at+i in mem for i in range(n)):
             raise ValueError('formatter duplicate stack write')
+        if resume is not None and any(at+i in protected for i in range(n)):
+            raise ValueError('formatter protected stack write')
         for i,x in enumerate(bytes_of(v,n)):mem[at+i]=x
         if n==4 and v[0]=='reg' and 14<=v[1]<=31:saves.add(v[1])
     def cmp(f,a,b):
         cr[f*4]=a<b;cr[f*4+1]=a>b;cr[f*4+2]=a==b
         cr.pop(f*4+3,None)
     def record(v):cmp(0,signed(val(v)),0)
-    pc=root
+    pc=root if start is None else start
     while True:
         if pc not in seen or len(path)>=512:raise ValueError('formatter path bound')
         path.append(pc);w=ws[(pc-root)//4];op=w>>26;xo=(w>>1)&1023;rs=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31
         imm=((w&0xffff)^0x8000)-0x8000;nxt=pc+4
         if pc in bounds:
-            if w>>26==18 and w&3==1:
+            if w>>26==18 and w&3==1 or (resume is not None and w==0x4e800421 and ctr is not None):
                 if not frame or stack_read(caller_sp-frame,4)!=('stack',caller_sp) or stack_read(caller_sp+4,4)!=('lr',0):
                     raise ValueError('formatter frame identity')
-                return path,frame,accesses,len(saves),direct_bl(w,pc),tuple(gp),dict(mem)
+                dst=direct_bl(w,pc) if w>>26==18 else ctr
+                result=(path,frame,accesses,len(saves),dst,tuple(gp),dict(mem))
+                state=(tuple(gp),dict(mem),dict(cr),ctr,lr,frame,frozenset(saves))
+                return result+(state,) if details else result
             raise ValueError('formatter other boundary')
         if op==37 and rs==ra==1:
             if frame or not -4096<=imm<=-8 or imm%8:raise ValueError('formatter frame identity')
@@ -149,7 +164,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160):
         if op==31 and xo in (444,922,954,266,40) and w&1:record(gp[rs if xo in (266,40) else ra])
         pc=nxt
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     _,_,_,_,root,args,_,_,_=resume_plan(d,e,details=True)
     sizes=parse_functions(e);ws=exact_words(d,e,root,535)
     _,_,ranges,fields=version_plan(d,e)
@@ -160,10 +175,11 @@ def plan(d,e):
     result=execute(lf[0],lw,(la[0][1],la[1][1]),obj,sites,blob)
     readonly=tuple(ranges)+((obj[0],result[4]),)
     initial={i+3:v for i,v in enumerate(args)};initial.update({r:regs[r] for r in (2,13)})
-    path,frame,accesses,saved,dst,gp,mem=first_path(root,ws,initial,slots,readonly)
+    result=first_path(root,ws,initial,slots,readonly,details=details)
+    path,frame,accesses,saved,dst,gp,mem=result[:7]
     if sizes.get(dst)!=48:raise ValueError('formatter first dependency')
     exact_words(d,e,dst,1)
-    return path,frame,accesses,saved,dst,gp,mem,ws
+    return (*result[:7],ws,result[7],readonly) if details else (*result,ws)
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

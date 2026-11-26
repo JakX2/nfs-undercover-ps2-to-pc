@@ -37,9 +37,9 @@ def cfg(root,ws):
     if not returns:raise ValueError('formatter leaf return')
     return seen,returns,back
 
-def run(root,ws,initial,readonly,stack):
+def run(root,ws,initial,readonly,stack,*,initial_cr=None,details=False):
     reach,returns,back=cfg(root,ws)
-    gp=list(initial);cr={};path=[];reads=[];pc=root
+    gp=list(initial);cr=dict(initial_cr or {});path=[];reads=[];pc=root
     def write(r,v):
         if r not in (0,*range(3,13)):raise ValueError('formatter leaf nonvolatile')
         gp[r]=v
@@ -71,7 +71,8 @@ def run(root,ws,initial,readonly,stack):
         if op==19 and xo==16 and not w&1:
             if taken(w):
                 if pc not in returns:raise ValueError('formatter leaf return')
-                return path,reads,gp[3],reach,returns
+                result=(path,reads,gp[3],reach,returns)
+                return (*result,tuple(gp),dict(cr)) if details else result
         elif op in (16,18):
             if w&3:raise ValueError('formatter leaf unsupported control')
             if op==18 or taken(w):nxt=target(pc,w)
