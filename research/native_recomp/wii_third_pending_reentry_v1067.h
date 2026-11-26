@@ -176,6 +176,13 @@ public:
         if(witness.stage()==6u){callback_resume_=pc;callback_resume_word_=w;stage_=12u;}
         return true;
     }
+    // Terminal prefix proof belongs to the freshly captured third frame,
+    // not the earlier interrupted handler's stale snapshot.
+    template<class C,class W>bool callback_prefix_boundary(C& c,W& witness)const{
+        return stage_==12u&&!error_&&cpu_==&c&&callback_==&witness&&witness.stage()==6u&&
+            dev_&&dev_->stage()==3u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     // The exact resume label was consumed by the fresh ACK and prefix
     // witness. Transfer to a new time witness without replaying that tick.
     template<class C,class P,class W>bool begin_callback_time(C& c,P& prefix,W& witness,uint32_t pc,uint32_t w){

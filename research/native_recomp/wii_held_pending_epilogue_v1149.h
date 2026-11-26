@@ -200,8 +200,7 @@ public:
         return true;
     }
     template<class C,class W>bool prefix_saved(C& c,W& witness){
-        return stage_==15u&&same(c)&&prefix_==&witness&&next_.stage()==12u&&witness.stage()==6u&&
-            next_.completion_ack().postack_held()&&frame_->saved_integer(c,expected_.context).ok();
+        return stage_==15u&&same(c)&&prefix_==&witness&&next_.callback_prefix_boundary(c,witness);
     }
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}

@@ -504,6 +504,8 @@ int main(){
                 need(ep.stage()==15u&&ep.prefix_saved(c,witness)&&!ep.prefix_saved(c,foreign_witness)&&
                      witness.writes()==4u&&witness.visits()==9u&&ep.completion_ack().writes()==1u&&
                      cause==Other&&ctl.issued_tokens()==3u&&dev.stage()==3u);
+                c.mmu.words[Context+124]^=1u;need(!ep.prefix_saved(c,witness));
+                c.mmu.words[Context+124]^=1u;need(ep.prefix_saved(c,witness));
                 ++held_prefix_valid;continue;
             }
         }
