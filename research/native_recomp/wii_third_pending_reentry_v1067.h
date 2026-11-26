@@ -348,6 +348,11 @@ public:
     unsigned handler_writes()const{return handler_writes_;}
     unsigned handler_ordinal()const{return handler_ordinal_;}
     bool handler_taken()const{return handler_index_&&handler_index_->taken();}
+    template<class C>bool handler_boundary(C& c)const{
+        return stage_==24u&&!error_&&cpu_==&c&&dev_&&dev_->stage()==3u&&
+            !handler_pending_&&handler_reads_==1u&&handler_writes_==1u&&ack_.postack_held()&&
+            next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
     template<class C,class W>bool begin_handler_return(C& c,W& witness,uint32_t pc,uint32_t w){
         if(stage_!=24u||error_||cpu_!=&c||handler_return_||handler_ordinal_!=12u||
            pc!=handler_site_||w!=handler_word_||handler_pending_||

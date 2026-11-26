@@ -146,9 +146,11 @@ public:
         return true;
     }
     bool ack_read(SiController& ctl,unsigned off,uint32_t& v){
+        if(stage_==26u)return !error_&&ctl_==&ctl&&next_.handler_read(off,v)?true:fail(11);
         return (stage_==8u||stage_==10u||stage_==12u)&&!error_&&ctl_==&ctl&&next_.ack_read(off,v)?true:fail(11);
     }
     bool ack_write(SiController& ctl,unsigned off,uint32_t v){
+        if(stage_==26u)return !error_&&ctl_==&ctl&&next_.handler_write(off,v)?true:fail(12);
         return (stage_==8u||stage_==10u||stage_==12u)&&!error_&&ctl_==&ctl&&next_.ack_write(off,v)?true:fail(12);
     }
     template<class C>bool ack_saved(C& c){return stage_==9u&&same(c)&&next_.ack_boundary(c);}
@@ -317,6 +319,31 @@ public:
     template<class C,class W>bool prefix_return_saved(C& c,W& witness){
         return stage_==25u&&same(c)&&return_==&witness&&next_.callback_return_boundary(c,witness);
     }
+    // Reuse the already charged handler resume. SI status accesses are
+    // admitted only by the existing third-ACK owner, never by a new token.
+    template<class C,class W>bool begin_prefix_handler(C& c,W& prior,uint32_t pc,uint32_t w,
+            std::span<const HandlerSuffixLabel> rows,HandlerIndexBranchExpectation index,uint32_t rd,uint32_t wr){
+        if(!prefix_return_saved(c,prior)||!no_si(c,w)||
+           !next_.begin_handler_suffix(c,prior,pc,w,rows,index,rd,wr))return fail(29);
+        stage_=26u;return true;
+    }
+    template<class C>bool prefix_handler_before(C& c,uint32_t pc,uint32_t w,bool guard=false){
+        if(stage_!=26u||guard||!same(c)||!next_.handler_before(c,pc,w))return fail(30);
+        if(next_.stage()==24u){
+            if(!next_.handler_boundary(c))return fail(30);
+            stage_=27u;
+        }
+        return true;
+    }
+    template<class C>bool prefix_handler_saved(C& c){
+        return stage_==27u&&same(c)&&next_.handler_boundary(c);
+    }
+    unsigned prefix_handler_visits()const{return next_.handler_visits();}
+    unsigned prefix_handler_stores()const{return next_.handler_stores();}
+    unsigned prefix_handler_reads()const{return next_.handler_reads();}
+    unsigned prefix_handler_writes()const{return next_.handler_writes();}
+    unsigned prefix_handler_ordinal()const{return next_.handler_ordinal();}
+    bool prefix_handler_taken()const{return next_.handler_taken();}
     unsigned callback_visits()const{return helper_boundary_visits_?ack_visits_-helper_boundary_visits_:0u;}
     unsigned helper_visits()const{return ack_boundary_visits_?(helper_boundary_visits_?helper_boundary_visits_:ack_visits_)-ack_boundary_visits_:0u;}
     unsigned ack_visits()const{return ack_visits_;}
