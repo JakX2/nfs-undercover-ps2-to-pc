@@ -111,6 +111,9 @@
 #include "private_post_stm_sc.h"
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
 #include "private_post_stm_sc_disable.h"
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+#include "private_post_stm_sc_decision.h"
+#endif
 #endif
 #endif
 #endif
@@ -417,6 +420,13 @@ static unsigned post_stm_disable_count=0;
 struct PostStmDisableStop{};
 static bool post_stm_disable_held(nw::CPUContext&);
 [[noreturn]]static void post_stm_disable_refuse(unsigned);
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+static ScDecisionWitness* post_stm_decision=nullptr;
+static unsigned post_stm_decision_count=0;
+struct PostStmDecisionStop{};
+static bool post_stm_decision_held(nw::CPUContext&);
+[[noreturn]]static void post_stm_decision_refuse(unsigned);
+#endif
 #endif
 #endif
 #endif
@@ -763,6 +773,25 @@ static bool post_stm_sc_held(nw::CPUContext& c){
         <<" stores="<<(post_stm_sc?post_stm_sc->stores():0u)<<'\n';
     throw WitnessFailure{};
 }
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+static bool post_stm_decision_held(nw::CPUContext& c){
+    return post_stm_decision&&post_stm_frame&&third_return_join&&
+        post_stm_frame->frame_held(c,third_return_join->post_resume_storage_held(c,third_return_storage(c),
+                                       post_stm_decision->expected_msr()));
+}
+[[noreturn]]static void post_stm_decision_refuse(unsigned kind){
+    std::cout<<"POST_STM_SC_DECISION_REFUSAL kind="<<kind<<" stage="<<(post_stm_decision?post_stm_decision->stage():0u)
+        <<" reason="<<(post_stm_decision?post_stm_decision->failure():0u)
+        <<" ordinal="<<(post_stm_decision?post_stm_decision->ordinal():0u)
+        <<" visits="<<(post_stm_decision?post_stm_decision->visits():0u)
+        <<" loads="<<(post_stm_decision?post_stm_decision->loads():0u)
+        <<" stores="<<(post_stm_decision?post_stm_decision->stores():0u)<<'\n';
+    throw WitnessFailure{};
+}
+void post_stm_sc_decision_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!post_stm_decision||!post_stm_decision->before(c,pc,w,post_stm_decision_held(c)))post_stm_decision_refuse(2);
+}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
 static bool post_stm_disable_held(nw::CPUContext& c){
     return post_stm_disable&&post_stm_frame&&third_return_join&&
@@ -1435,6 +1464,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    if(post_stm_decision){
+        if(!post_stm_decision->entry(c,pc,post_stm_decision_held(c)))post_stm_decision_refuse(3);
+        if(post_stm_decision->stage()==2u){++post_stm_decision_count;throw PostStmDecisionStop{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable){
         if(!post_stm_disable->entry(c,pc,post_stm_disable_held(c)))post_stm_disable_refuse(3);
@@ -2001,6 +2037,9 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    if(post_stm_decision){if(!post_stm_decision->poll(c,post_stm_decision_held(c)))post_stm_decision_refuse(4);return false;}
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable){
         if(!post_stm_disable->poll(c,post_stm_disable_held(c)))post_stm_disable_refuse(4);
@@ -2421,6 +2460,9 @@ bool process_pending_callbacks(CPUContext& c){
     return false;
 }
 bool handle_syscall(CPUContext& c){
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    if(post_stm_decision)post_stm_decision_refuse(7);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable)post_stm_disable_refuse(7);
 #endif
@@ -2490,6 +2532,9 @@ void GX_WGPIPE_WriteF32(float){} void GX_WGPIPE_WriteF64(double){}
 uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    if(post_stm_decision)post_stm_decision_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable)post_stm_disable_refuse(6);
 #endif
@@ -2621,6 +2666,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    if(post_stm_decision)post_stm_decision_refuse(6);
+#endif
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     if(post_stm_disable)post_stm_disable_refuse(6);
 #endif
@@ -2785,6 +2833,11 @@ int main(int argc,char** argv)try{
         // Original continuation identity is only a stop guard in this
         // lane; the compiled SC prefix still has a nonreturning guard.
         c.mmu.write32(post_stm_sc_disable_private::expected.caller,post_stm_sc_disable_private::expected.caller_word);
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+        for(auto w:post_stm_sc_decision_private::words)c.mmu.write32(w.pc,w.word);
+        need(c.mmu.read32(post_stm_sc_decision_private::expected.restore)==post_stm_sc_decision_private::expected.restore_word);
+        // No SC data is seeded here. The cold flag must already be zero.
+#endif
 #endif
 #endif
 #endif
@@ -3725,7 +3778,23 @@ int main(int argc,char** argv)try{
         std::cout<<"POST_STM_SC_DISABLE_TRIAL n="<<trial
             <<" original_disable=1 native_msr=1 previous_ee=1 sc_return=1 deferred=1 reply=0 decision_executed=0 visits="
             <<sc_disable.visits()<<'\n';
-        post_stm_disable=nullptr;post_stm_frame=nullptr;
+        post_stm_disable=nullptr;
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+        ScDecisionWitness sc_decision(post_stm_sc_decision_private::expected);
+        if(!sc_decision.begin(c,sc_disable.reached(c,sc_entry.frame_held(c,
+             third_return_join->post_resume_storage_held(c,third_return_storage(c),sc_disable.expected_msr())))))
+            post_stm_decision_refuse(1);
+        post_stm_decision=&sc_decision;
+        bool decision_done=false;try{run_game(c);}catch(const PostStmDecisionStop&){decision_done=true;}
+        if(!decision_done||post_stm_decision_count!=trial+1u||!sc_decision.reached(c,post_stm_decision_held(c))||
+           host.serviced_steps()!=5u||!host.services().event_pending()||(cause.load()&mask.load())||
+           host.cold_ipc_snapshot().replies)post_stm_decision_refuse(5);
+        std::cout<<"POST_STM_SC_DECISION_TRIAL n="<<trial
+            <<" cold_bss=1 original_branch=1 native_load=1 native_stores=2 restore_entry=1 deferred=1 reply=0 restore_executed=0 visits="
+            <<sc_decision.visits()<<'\n';
+        post_stm_decision=nullptr;
+#endif
+        post_stm_frame=nullptr;
 #endif
 #endif
 #endif
@@ -3964,6 +4033,10 @@ int main(int argc,char** argv)try{
     need(post_stm_sc_count==8u);
 #ifdef UNDERCOVER_POST_STM_SC_DISABLE
     need(post_stm_disable_count==8u);
+#ifdef UNDERCOVER_POST_STM_SC_DECISION
+    need(post_stm_decision_count==8u);
+    std::cout<<"POST_STM_SC_DECISION_NATIVE owner=1 trials=8 cold_bss=8 original_branch=8 native_load=8 native_stores=16 restore_entry=8 deferred=8 reply=0 restore_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
     std::cout<<"POST_STM_SC_DISABLE_NATIVE owner=1 trials=8 original_disable=8 native_msr=8 previous_ee=8 sc_return=8 deferred=8 reply=0 decision_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #endif
     std::cout<<"POST_STM_SC_NATIVE owner=1 trials=8 original_osinit_call=8 original_sc_prefix=8 disable_entry=8 deferred=8 reply=0 disable_executed=0 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
