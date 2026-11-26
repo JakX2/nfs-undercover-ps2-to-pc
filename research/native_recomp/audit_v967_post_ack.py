@@ -2,6 +2,8 @@
 """Strictly extend the verified second ACK log by one original helper-return boundary."""
 import argparse,re
 from pathlib import Path
+from audit_second_irq_output_v1016 import public_line
+import audit_v958_second_ack as ack
 import audit_v958_second_ack as old
 RESULT=rb'V967_POST_ACK_RESULT original_helper_return=1 saved_fields=38 token_preserved=1 visits=([0-9]{1,4}) handler_instruction_executed=0 boot_verified=0'
 FAULT=rb'V958_ACK_INVALID kind=[1-9] stage=[0-4] reason=[0-5] call_reason=[0-5] visits=[0-9]{1,4}'
@@ -24,7 +26,7 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V967_POST_ACK_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if l in (old.BEGIN,old.old.BEGIN,*old.old.EDGES,old.old.old.TRAMP,old.old.old.old.SOURCE,old.old.old.old.RFI,old.old.old.old.POLL,*old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,old.RESULT,old.old.RESULT,old.old.FAULT,old.old.old.RESULT,old.old.old.FAULT,old.old.old.old.RESULT,old.old.old.old.DIAG,old.old.old.old.old.FAULT)):
+        if public_line(l,(ack.BEGIN,),(RESULT,FAULT,ack.RESULT,ack.FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

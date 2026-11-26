@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse,re
 from pathlib import Path
+from audit_second_irq_output_v1016 import public_line
 import audit_v951_second_dispatch as old
 BEGIN=b'V958_ACK_BEGIN original_handler=1 exclusive_device=1'
 RESULT=rb'V958_ACK_RESULT original_w1c=1 next_label=1 saved_fields=38 token_preserved=1 visits=([0-9]{1,4}) reads=([0-9]{1,3}) writes=([0-9]{1,3}) boot_verified=0'
@@ -24,7 +25,7 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V958_ACK_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if l in (BEGIN,old.BEGIN,*old.EDGES,old.old.TRAMP,old.old.old.SOURCE,old.old.old.RFI,old.old.old.POLL,*old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,old.RESULT,old.FAULT,old.old.RESULT,old.old.FAULT,old.old.old.RESULT,old.old.old.DIAG,old.old.old.old.FAULT)):
+        if public_line(l,(BEGIN,),(RESULT,FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

@@ -2,6 +2,9 @@
 """Strictly classify the two verified successful-response continuations."""
 import argparse,re
 from pathlib import Path
+from audit_second_irq_output_v1016 import public_line
+import audit_v958_second_ack as ack
+import audit_v967_post_ack as post
 import audit_v989_shared_time as shared
 import audit_v986_transfer_frontier as transfer
 import audit_v975_second_time as time
@@ -35,7 +38,7 @@ def main():
     # Reuse the existing sanitized predecessor output without publishing
     # any raw guest address, register value or original instruction word.
     for l in raw.splitlines():
-        if l in (shared.old.old.BEGIN,shared.old.old.old.BEGIN,*shared.old.old.old.EDGES,shared.old.old.old.old.TRAMP,shared.old.old.old.old.old.SOURCE,shared.old.old.old.old.old.RFI,shared.old.old.old.old.old.POLL,*shared.old.old.old.old.old.STAGES) or any(re.fullmatch(p,l) for p in (RESULT,FAULT,transfer.RESULT,time.RESULT,shared.RESULT,shared.DIAG,shared.DETAIL,shared.old.RESULT,shared.old.old.RESULT,shared.old.old.old.RESULT,shared.old.old.old.FAULT,shared.old.old.old.old.RESULT,shared.old.old.old.old.FAULT,shared.old.old.old.old.old.RESULT,shared.old.old.old.old.old.DIAG,shared.old.old.old.old.old.old.FAULT)):
+        if public_line(l,(ack.BEGIN,),(RESULT,FAULT,transfer.RESULT,time.RESULT,shared.RESULT,shared.DIAG,shared.DETAIL,shared.FAULT,post.RESULT,post.FAULT,ack.RESULT,ack.FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

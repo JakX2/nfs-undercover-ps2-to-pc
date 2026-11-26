@@ -1,0 +1,3 @@
+# V1016: repair second IRQ CLI output
+
+V1011 owner run 45732514831 compiled and linked, but its actual CLI crashed on a chained module reference to STAGES (which belongs to V922, not V932). Six later auditors had the same class of defect. Replace their display-only filtering with an explicit predecessor allowlist using named module imports. Keep the existing inspect gates intact. Regression executes nine real CLI scripts against a nonempty negative log, asserts failure without traceback, checks bounded diagnostics and rejects a private-address suffix. A positive V1015 wrapper test substitutes only the earlier proof and checks actual CLI output. Requeue V1015 at the fixed revision. No additional native execution claim.

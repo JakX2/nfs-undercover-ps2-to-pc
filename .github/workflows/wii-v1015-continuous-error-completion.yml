@@ -51,6 +51,7 @@ jobs:
           python3 -m unittest discover -s research/native_recomp -p test_v989_shared_time.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v990_composed_shared.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1015_error_completion.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1016_audit_cli.py -v
           for n in second_completion_ack_v950 second_ack_handoff_v957 post_second_ack_v961 bounded_ack_call_route_v956 third_token_handoff_v969 ack_alias_route_v971; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/test_$n.cpp" -o "$RUNNER_TEMP/$n"
             "$RUNNER_TEMP/$n"
