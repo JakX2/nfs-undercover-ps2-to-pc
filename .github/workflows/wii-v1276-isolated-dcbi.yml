@@ -1,0 +1,28 @@
+name: Wii V1276 Isolated Native Data Cache
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1276*'
+      - '.github/workflows/wii-v1276-isolated-dcbi.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Source composition
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v1276_isolated_dcbi.py -v
+          bash -n research/native_recomp/run_v1276_isolated_dcbi.sh
+      - name: Execute independent split and nonsplit native PPC cache tests
+        run: |
+          set -euo pipefail
+          git init -q "$RUNNER_TEMP/nw1276"
+          git -C "$RUNNER_TEMP/nw1276" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1276" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1276" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1276_isolated_dcbi.sh "$RUNNER_TEMP/nw1276"
