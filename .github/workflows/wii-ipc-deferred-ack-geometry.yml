@@ -43,7 +43,7 @@ jobs:
           reqs=(
               Requirement(45849414950,'7d7c1694862dd1644256e109e3d78bde1bcf99f9',
                           '.github/workflows/wii-ipc-profile-geometry.yml','owner-geometry'),
-              Requirement(45856701322,'190712076e9c572b8a9dbc6948403f5e40578e5f',
+              Requirement(45865397367,'34da0c9a2755f7cc1b673fcd710b46102c9769f3',
                           '.github/workflows/wii-ipc-deferred-ack-memory.yml','source'),
           )
           def fetch(path):
@@ -71,7 +71,14 @@ jobs:
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
       - name: Authenticate ACK credit increment and profile decrement
         run: |
-          python3 research/native_recomp/prepare_ipc_deferred_ack_geometry.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          set -euo pipefail
+          umask 077
+          mkdir "$RUNNER_TEMP/ack-geometry"
+          python3 research/native_recomp/prepare_ipc_deferred_ack_geometry.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --out "$RUNNER_TEMP/ack-geometry"
+          printf '#include "private_deferred_ack_execution.h"\nint main(){return deferred_ack_private::expected.words.empty();}\n' > "$RUNNER_TEMP/ack-geometry/check.cpp"
+          g++ -std=c++20 -Wall -Wextra -Werror -Iresearch/native_recomp "$RUNNER_TEMP/ack-geometry/check.cpp" -o "$RUNNER_TEMP/ack-geometry/check" 2>"$RUNNER_TEMP/ack-geometry/compile.log" || { echo "DEFERRED_ACK_HEADER compiled=0"; exit 1; }
+          "$RUNNER_TEMP/ack-geometry/check"
+          echo "DEFERRED_ACK_HEADER compiled=1"
       - name: Clean private originals
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/originals"
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/ack-geometry"
