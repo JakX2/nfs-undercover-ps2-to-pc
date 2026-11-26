@@ -1,0 +1,3 @@
+# V1035: repair V1033 fixture and exercise V1034 diagnostic audit
+
+V1033 integration failed because the synthetic CPU fixture lacks SRR0/SRR1. Add those fields to the independently authored fixture; keep the production witness strict. Add positive/negative V1034 queue-detail audit cases, including malformed bounds, duplicates, ordering and inconsistent match status. Preserve sanitized diagnostics through callback-time and third-transfer audit wrappers. No new native execution claim.

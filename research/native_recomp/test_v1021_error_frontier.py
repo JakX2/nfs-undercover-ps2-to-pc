@@ -5,6 +5,19 @@ C=b'V995_CALLBACK_FRONTIER target_class=2 aligned=1 visits=71 token_preserved=1 
 T=b'V975_TIME_RESULT original_time=1 original_leaves=3 unchanged_msr=2 saved_fields=38 token_preserved=1 visits=44 handler_instruction_executed=0 boot_verified=0'
 D=b'V981_TRANSFER_FRONTIER type=1 idle=1 queue_match=1 callback_known=1 admitted=1 visits=15 token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0'
 class ErrorFrontier(unittest.TestCase):
+    def test_queue_detail(self):
+        detail=b'V1034_QUEUE_DETAIL mismatch_mask=128 slot_kind=1 arg_time_zero=1 queue_time_zero=0'
+        mismatch=D.replace(b'queue_match=1',b'queue_match=0').replace(b'admitted=1',b'admitted=0')
+        with patch.object(a.error,'inspect',return_value=('verified=1 no_response=1',True,b'')):
+            def inspect(*tail):return a.inspect(b'\n'.join((a.error.RESULT,T,a.DIRECT,*tail)),0)
+            row,ok=inspect(detail,mismatch)
+            self.assertTrue(ok);self.assertIn('branch=4 admitted=0',row)
+            self.assertTrue(inspect(detail.replace(b'128',b'0'),D)[1])
+            for tail in ((detail,D),(detail.replace(b'128',b'256'),mismatch),
+                         (detail,detail,mismatch),(mismatch,detail),
+                         (detail.replace(b'slot_kind=1',b'slot_kind=3'),mismatch),
+                         (detail.replace(b'128',b'0'),mismatch)):
+                self.assertFalse(inspect(*tail)[1])
     def test_exact_branches(self):
         with patch.object(a.error,'inspect',return_value=('verified=1 no_response=1',True,b'')):
             for tail,branch in (((a.INDIRECT,C),6),((T,a.DIRECT,D),4)):

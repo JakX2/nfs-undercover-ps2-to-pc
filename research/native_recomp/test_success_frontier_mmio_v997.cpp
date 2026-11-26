@@ -24,7 +24,7 @@ struct Mmu{
 };
 struct Cpu{
     Mmu mmu;std::array<uint32_t,32> gpr{};std::array<Cr,8> cr{};uint64_t inst_count=100;
-    uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0;
+    uint32_t pc=Resume,lr=H+0x2000u,ctr=17,xer=0x80000000u,msr=0x8032u,dispatch_saved_ctx=0,srr0=Resume,srr1=0x8032u;
     bool is_running=true,in_callback=false;
 };
 static void need(bool b,const std::source_location loc=std::source_location::current()){

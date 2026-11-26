@@ -30,7 +30,7 @@ def main():
         raw=a.log.read_bytes();row,ok=inspect(raw,a.rc)
     except (OSError,ValueError):print('V1031_THIRD_AUDIT inspected=0');return 1
     for l in raw.splitlines():
-        if public_line(l,(old.ack.BEGIN,old.error.RESULT,old.DIRECT,old.INDIRECT),(old.FAULT,old.frontier.RESULT,old.frontier.FAULT,old.time.RESULT,old.transfer.RESULT,old.shared.DETAIL,old.shared.DIAG,old.shared.RESULT,old.post.RESULT,old.ack.RESULT,DIAG,FAULT)):
+        if public_line(l,(old.ack.BEGIN,old.error.RESULT,old.DIRECT,old.INDIRECT),(old.FAULT,old.frontier.RESULT,old.frontier.FAULT,old.time.RESULT,old.transfer.RESULT,old.shared.DETAIL,old.shared.DIAG,old.shared.RESULT,old.post.RESULT,old.ack.RESULT,old.DETAIL,DIAG,FAULT)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())
