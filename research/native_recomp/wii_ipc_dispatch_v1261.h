@@ -14,6 +14,8 @@ public:
     explicit IpcDispatchWitness(IpcDispatchExpectations e):e_(e){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    unsigned detail()const{return detail_;}
+    unsigned visits()const{return visits_;}
     unsigned cause_reads()const{return cause_reads_;}
     unsigned mask_reads()const{return mask_reads_;}
     template<class C>bool begin(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
@@ -41,7 +43,11 @@ public:
         last_=c.inst_count;return true;
     }
     template<class C>bool before(C& c,uint32_t pc,uint32_t w,bool guard,const ColdIpcSnapshot& s,bool held){
-        if(guard||!common(c,s,held)||!word(c,pc,w)||c.inst_count-last_!=1u||++visits_>2048u)return fail(4);
+        if(guard)return fail_detail(4,1);
+        if(const auto d=common_detail(c,s,held))return fail_detail(4,d);
+        if(!word(c,pc,w))return fail_detail(4,7);
+        if(c.inst_count-last_!=1u)return fail_detail(4,8);
+        if(++visits_>2048u)return fail_detail(4,9);
         last_=c.inst_count;return true;
     }
     template<class C>bool observe(C& c,uint32_t pc,const ColdIpcSnapshot& s,bool held){
@@ -59,6 +65,8 @@ private:
     IpcDispatchExpectations e_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
     ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0;
     uint64_t start_=0,last_=0,last_entry_=0;unsigned stage_=0,error_=0,visits_=0,cause_reads_=0,mask_reads_=0;
+    unsigned detail_=0;
+    bool fail_detail(unsigned n,unsigned d){if(!error_)detail_=d;return fail(n);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     template<class C>static bool safe(C& c){return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&!(c.msr&0x8000u);}
     template<class C>static bool mapped(C& c,uint32_t a,unsigned n){
@@ -74,9 +82,16 @@ private:
             word(c,queue_,e_.thread)&&word(c,queue_+4u,e_.thread)&&word(c,e_.thread+732u,queue_);
     }
     template<class C>bool common(C& c,const ColdIpcSnapshot& s,bool held)const{
-        return stage_>=1u&&stage_<=5u&&!error_&&held&&cpu_==&c&&safe(c)&&
-            c.inst_count>=start_&&c.inst_count-start_<=8192u&&same_scheduler_ipc_snapshot(s_,s)&&
-            frame_&&frame_->pending_source(c,s.pi_cause,s.pi_mask)&&frame_->saved_integer(c,e_.context).ok()&&tables(c);
+        return !common_detail(c,s,held);
+    }
+    template<class C>unsigned common_detail(C& c,const ColdIpcSnapshot& s,bool held)const{
+        if(stage_<1u||stage_>5u||error_||!held||cpu_!=&c||!safe(c)||
+           c.inst_count<start_||c.inst_count-start_>8192u)return 2;
+        if(!same_scheduler_ipc_snapshot(s_,s))return 3;
+        if(!frame_||!frame_->pending_source(c,s.pi_cause,s.pi_mask))return 4;
+        if(!frame_->saved_integer(c,e_.context).ok())return 5;
+        if(!tables(c))return 6;
+        return 0;
     }
 };
 }

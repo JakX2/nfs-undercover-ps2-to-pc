@@ -15,6 +15,7 @@
 #endif
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
 #include "v1261_private_dispatch.h"
+#include "wii_initialized_dol_data_v1264.h"
 #endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
@@ -117,7 +118,8 @@ void v1260_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_V1261_IPC_DISPATCH
 static void dispatch_refuse(unsigned kind){
     std::cout<<"V1261_DISPATCH_REFUSAL kind="<<kind<<" stage="<<ipc_dispatch->stage()
-        <<" reason="<<ipc_dispatch->failure()<<" reads="<<ipc_dispatch->cause_reads()+ipc_dispatch->mask_reads()<<'\n';
+        <<" reason="<<ipc_dispatch->failure()<<" reads="<<ipc_dispatch->cause_reads()+ipc_dispatch->mask_reads()
+        <<" detail="<<ipc_dispatch->detail()<<" visits="<<ipc_dispatch->visits()<<'\n';
     throw WitnessFailure{};
 }
 void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
@@ -356,10 +358,22 @@ void HW_Reg_Write32(uint32_t a,uint32_t v){
 }
 }
 extern "C" void run_game(nw::CPUContext&);
-int main()try{
+int main(int argc,char** argv)try{
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+    need(argc==2);
+    const auto initial_data=read_initialized_dol_input(argv[1]);
+    std::cout<<"V1264_DOL_DATA verified=1 initialized_only=1 ranges="<<initialized_dol_ranges(initial_data).size()<<'\n';
+#else
+    (void)argv;need(argc==1);
+#endif
     for(unsigned trial=0;trial<8;++trial){
         last_trial=trial;last_stage=last_reason=0;
         auto cpu=std::make_unique<nw::CPUContext>();auto& c=*cpu;
+#ifdef UNDERCOVER_V1261_IPC_DISPATCH
+        // Match the verified V947 dispatcher setup. Load static initialized
+        // data before all modeled OSInit postconditions and original IPC.
+        seed_initialized_dol_data(c.mmu,initial_data);
+#endif
         cause=0;mask=0xf0|SiController::PI_SI;
         NativeIosTransport host(c.mmu.mem1,c.mmu.mem2,cause,mask);B binding(host);
         SiController ctl(cause);SecondCompletionAck ack;si_ack=&ack;
