@@ -97,23 +97,48 @@ def verify(dol,elf,raw,csv):
     rebuild(raw,expanded)
     print(f'V1337_COMPLETION_PREFLIGHT verified=1 roots={len(expanded)+2} shared_roots={len(shared)} direct_edges={len(edges)+2} stm_original_words={len(new)} continuation_labels={len(visits)} alternate_exits={len(exits)} additional_seed_bytes={len(data)-len(old_data)} original_execution=0')
 
+def ensure_resume(main,body,owner,pc):
+    # Never repair a conflicting case or add a case for an unowned label.
+    local=re.findall(r'(?mi)^[ \t]*case[ \t]+0x'+f'{pc:X}'+r'[ \t]*:[ \t]*([^\r\n]*)',body)
+    if len(local)!=1 or not re.fullmatch(r'goto[ \t]+loc_'+f'{pc:X}'+r';[ \t]*',local[0],re.I):
+        raise ValueError('completion local resume')
+    roots=re.findall(r'(?mi)^[ \t]*case[ \t]+0x'+f'{owner:X}'+r'[ \t]*:[ \t]*((?:fn|func)_'+f'{owner:X}'+r')\(ctx\);[ \t]*break;[ \t]*$',main)
+    if len(roots)!=1:raise ValueError('completion root dispatch')
+    name=roots[0]
+    pattern=r'(?mi)^[ \t]*case[ \t]+0x'+f'{pc:X}'+r'[ \t]*:[ \t]*([^\r\n]*)'
+    rows=re.findall(pattern,main)
+    if rows:
+        if len(rows)!=1 or not re.fullmatch(re.escape(name)+r'\(ctx\);[ \t]*break;[ \t]*',rows[0],re.I):
+            raise ValueError('completion outer resume')
+        return main,False
+    anchor=re.compile(r'(?mi)^([ \t]*)case[ \t]+0x'+f'{owner:X}'+r'[ \t]*:[ \t]*'+re.escape(name)+r'\(ctx\);[ \t]*break;[ \t]*$')
+    hits=list(anchor.finditer(main))
+    if len(hits)!=1:raise ValueError('completion root dispatch')
+    m=hits[0];out=main[:m.end()]+'\n'+m[1]+f'case 0x{pc:X}: {name}(ctx); break;'+main[m.end():]
+    if len(re.findall(pattern,out))!=1:raise ValueError('completion outer resume')
+    return out,True
+
 def install_submit(root,p):
     from prepare_v625_ipc_client import audit_native
-    from prepare_v1299_reply_return import verify_resume
     from prepare_owner_scheduler_v722 import reachable
-    from prepare_v680_si_helper import verify_direct
+    from prepare_v680_si_helper import verify_direct,exact_function
     shared,edges,*_=p
     resume=0x805197d8
     expected={pc:(a,ws[(pc-a)//4]) for a,ws in shared.items() if a in (SUBMIT,RESTORE,FREE)
-              for pc in reachable(a,ws)}
+              for pc in (reachable(a,ws) if a==RESTORE else range(a,a+4*len(ws),4))}
     sources={f:f.read_text() for f in sorted(root.glob('output_*.cpp'))}
     main=(root/'main_output.cpp').read_text()
     audit_native(sources.values(),main,expected)
-    verify_resume(main,((resume,SUBMIT),))
+    print(f'V1348_SUBMIT_AUDIT labels={len(expected)}')
+    bodies=[exact_function(s,SUBMIT) for s in sources.values() if re.search(r'(?mi)^void (?:fn|func)_'+f'{SUBMIT:X}'+r'\(CPUContext& ctx\) \{',s)]
+    if len(bodies)!=1:raise ValueError('completion local resume')
+    main,added=ensure_resume(main,bodies[0],SUBMIT,resume)
+    print(f'V1348_SUBMIT_RESUME verified=1 added={int(added)}')
     for dst,lr,_,_ in edges[1:3]:
         owners=[s for s in sources.values() if f'loc_{lr-4:X}: ;' in s]
         if len(owners)!=1:raise ValueError('completion call')
         verify_direct(owners[0],lr-4,dst)
+    print('V1348_SUBMIT_EDGES verified=1 direct_edges=2')
     wanted={pc:w for pc,(a,w) in expected.items() if a==SUBMIT}
     seen=set();changes={}
     for f,s in sources.items():
@@ -136,6 +161,7 @@ def install_submit(root,p):
     header+='inline constexpr undercover::wii::SubmitResumeExpectation expected{'+fmt((SUBMIT,resume,edges[5][1],edges[5][2]))+','+','.join('undercover::wii::VectorEdge{'+fmt(e)+'}' for e in edges[1:3])+',words};\n}\n'
     with (root.parent/'input'/'v1344_private_submit.h').open('x') as f:f.write(header)
     for f,s in changes.items():f.write_text(s)
+    if added:(root/'main_output.cpp').write_text(main)
     print(f'V1344_SUBMIT_TRANSLATION verified=1 submit_labels={len(wanted)} audited_labels={len(expected)} direct_edges=2')
 
 def main():
@@ -146,6 +172,6 @@ def main():
         if a.submit_install:install_submit(a.out,plan(d,e));return 0
         verify(d,e,(a.out/'fixture.dol').read_bytes(),(a.out/'symbols.csv').read_text());return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip')
+        allowed=('size','completion corridor','completion call','completion control','completion unreachable','completion edge','completion prefix','completion data','completion predecessor','completion shared identity','completion ownership','completion roundtrip','completion hook','completion local resume','completion root dispatch','completion outer resume','native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch','helper exact root','helper call label','helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional')
         print('V1337_COMPLETION_PREFLIGHT verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'prior_or_io'));return 1
 if __name__=='__main__':raise SystemExit(main())

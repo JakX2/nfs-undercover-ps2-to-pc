@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/V1344_SUBMIT_RESUME_OWNER.md'
+      - 'research/native_recomp/V1348_SUBMIT_AUDIT.md'
       - '.github/workflows/wii-v1344-submit-resume-owner.yml'
 permissions:
   contents: read
@@ -35,6 +36,7 @@ jobs:
           /tmp/v1339
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_submit_resume_v1342.cpp -o /tmp/v1342
           /tmp/v1342
+          python3 -m unittest discover -s research/native_recomp -p test_v1337_open_completion.py -v
   owner-submit:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'

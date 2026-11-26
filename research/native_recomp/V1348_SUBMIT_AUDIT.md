@@ -1,0 +1,3 @@
+# V1348: distinguish original submit translation and dispatch seams
+
+V1344 owner run 45820199561 completed all predecessor native translation audits, then failed in the new submit audit with a generic prior_or_io marker before native compilation/execution. Use the already verified V651 complete submit/free label scope rather than a second reachable-only derivation, keep the restore reachable scope, and report bounded audit/edge/resume error categories. Authenticate the exact local native resume and outer root case; if the unique outer return case is absent, install only that case, refusing any conflicting mapping. Regression covers missing, wrong, duplicate and idempotent cases. Retry same owner lane; no original submit continuation claimed yet.
