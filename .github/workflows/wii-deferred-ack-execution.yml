@@ -1,0 +1,24 @@
+name: Wii Deferred ACK Execution Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_deferred_ack_execution.h'
+      - 'research/native_recomp/test_deferred_ack_execution.cpp'
+      - 'research/native_recomp/wii_stm_deferred_event_gate.h'
+      - '.github/workflows/wii-deferred-ack-execution.yml'
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          cd research/native_recomp
+          for test in test_deferred_ack_execution test_stm_deferred_event_gate test_ipc_deferred_ack_memory; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie "$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
