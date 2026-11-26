@@ -28,6 +28,8 @@ on:
       - 'research/native_recomp/test_post_stm_sc_report_return.cpp'
       - 'research/native_recomp/wii_post_stm_sc_report_helper.h'
       - 'research/native_recomp/test_post_stm_sc_report_helper.cpp'
+      - 'research/native_recomp/wii_post_stm_sc_leaf_shadow.h'
+      - 'research/native_recomp/test_post_stm_sc_leaf_shadow.cpp'
       - '.github/workflows/wii-deferred-active-return.yml'
 permissions:
   contents: read
@@ -65,3 +67,5 @@ jobs:
           /tmp/post_stm_sc_report_return
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_post_stm_sc_report_helper.cpp -o /tmp/post_stm_sc_report_helper
           /tmp/post_stm_sc_report_helper
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie test_post_stm_sc_leaf_shadow.cpp -o /tmp/post_stm_sc_leaf_shadow
+          /tmp/post_stm_sc_leaf_shadow
