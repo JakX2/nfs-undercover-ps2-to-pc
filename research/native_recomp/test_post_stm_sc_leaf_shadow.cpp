@@ -45,5 +45,37 @@ static void trial(unsigned fault,bool zero){
     c.pc=fault==12?L+4:L;ok=w.poll(c,fault!=13);if(fault==12||fault==13){assert(!ok);return;}
     assert(ok&&w.reached(c,true)&&w.visits()==6&&w.loads()==1&&w.stores()==1);
 }
-int main(){for(unsigned i=0;i<=13;++i)trial(i,false);trial(0,true);
-    std::cout<<"POST_STM_SC_LEAF_SHADOW_TEST cases=15 original_execution=0\n";}
+static void rotate(unsigned fault){
+    Cpu c;c.gpr[1]=Sp;c.gpr[3]=A;c.gpr[4]=0x12345678u;c.gpr[5]=0xaabbccddu;
+    // rlwinm extracts a byte, rlwimi merges it into a distinct byte.
+    const auto rot=[](unsigned op,unsigned rs,unsigned ra,unsigned sh,unsigned mb,unsigned me,bool rc){
+        return (op<<26)|(rs<<21)|(ra<<16)|(sh<<11)|(mb<<6)|(me<<1)|unsigned(rc);
+    };
+    const std::array<IpcDispatchWord,4> words{{{R,R,rot(21,4,6,8,24,31,true)},
+        {R,R+4,rot(20,6,5,16,8,15,false)},{R,R+8,ins(36,5,3,0)},{R,R+12,0x4e800020u}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(L,Nop);
+    const std::array<ScLeafAccess,1> accesses{{{R+8,0,4,true}}};
+    ScLeafShadow w({R,L,Nop,words,accesses});
+    assert(w.begin(c,{A,8},true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    auto step=[&](unsigned i){++c.inst_count;return w.before(c,words[i].pc,words[i].word,true);};
+    assert(step(0));c.gpr[6]=fault==1?0x78u:0x12u;c.cr[0].gt=fault!=2;
+    bool ok=step(1);if(fault==1||fault==2){assert(!ok);return;}assert(ok);
+    c.gpr[5]=fault==3?0xaa00ccddu:0xaa12ccddu;
+    ok=step(2);if(fault==3){assert(!ok);return;}assert(ok);
+    c.mmu.write32(A,c.gpr[5]);assert(step(3));c.pc=L;assert(w.poll(c,true)&&w.reached(c,true));
+}
+static void signed_compare(bool fault){
+    Cpu c;c.gpr[1]=Sp;c.gpr[3]=A;c.gpr[4]=0xffffffffu;
+    const std::array<IpcDispatchWord,2> words{{{R,R,ins(11,0,4,0)},{R,R+4,0x4e800020u}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(L,Nop);
+    ScLeafShadow w({R,L,Nop,words,{}});
+    assert(w.begin(c,{A,4},true)&&w.poll(c,true));++c.inst_count;assert(w.entry(c,R,true));
+    ++c.inst_count;assert(w.before(c,R,words[0].word,true));c.cr[0].lt=!fault;c.cr[0].gt=fault;
+    ++c.inst_count;bool ok=w.before(c,R+4,words[1].word,true);
+    if(fault){assert(!ok);return;}assert(ok);c.pc=L;assert(w.poll(c,true)&&w.reached(c,true));
+}
+int main(){for(unsigned i=0;i<=13;++i)trial(i,false);trial(0,true);for(unsigned i=0;i<=3;++i)rotate(i);
+    signed_compare(false);signed_compare(true);
+    std::cout<<"POST_STM_SC_LEAF_SHADOW_TEST cases=21 original_execution=0\n";}
