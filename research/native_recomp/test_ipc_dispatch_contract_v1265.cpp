@@ -1,4 +1,5 @@
 #include "wii_ipc_dispatch_v1261.h"
+#include "wii_scheduler_reply_irq_v1268.h"
 #ifdef UNDERCOVER_TEST_JOINED_ACK
 #include "wii_joined_ipc_ack_v1266.h"
 #endif
@@ -39,7 +40,7 @@ struct Cpu{
     uint64_t inst_count=100;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false){
 #ifndef UNDERCOVER_TEST_JOINED_ACK
     (void)join_case;
 #endif
@@ -58,7 +59,6 @@ static void trial(unsigned n,unsigned join_case=0){
     assert(host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1));
     const auto ack=host.service_at_guest_boundary(0);
     assert(ack&&ack->progress==S::Pump::Ack);
-    const auto snap=host.cold_ipc_snapshot();
     for(unsigned i=0;i<32;++i)c.gpr[i]=i*17u+3u;
     c.cr[0].eq=true;
     ExternalReturnWitness frame;
@@ -66,6 +66,22 @@ static void trial(unsigned n,unsigned join_case=0){
     constexpr std::array<uint8_t,4> vector{0x60,0,0,0};
     for(unsigned i=0;i<vector.size();++i)ram.write8(0x500u+i,vector[i]);
     assert(enter_scheduler_ipc_irq(c,host,vector,Request));
+    if(reply_lane){
+        assert(host.write32(Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::Y2));
+        assert(host.write32(Bus::IPC+H::PPC_FLAG,H::IPC_PPC));
+        const auto reply=host.service_at_guest_boundary(0);
+        assert(reply&&reply->progress==S::Pump::Replied);
+        constexpr uint32_t Rfi=0x80020000u;
+        ram.write32(Rfi&0x3fffffffu,0x4c000064u);
+        c.pc=Rfi;c.inst_count+=100u;
+        assert(frame.before_pending_rfi(c,Rfi,0x4c000064u,cause.load(),mask.load()));
+        c.pc=c.srr0;c.msr=c.srr1;
+        assert(frame.pending_rfi_return(c,cause.load(),mask.load()));
+        ExternalReturnWitness second;
+        assert(enter_scheduler_reply_irq(c,host,frame,second,vector,Request));
+        frame=second;
+    }
+    const auto snap=host.cold_ipc_snapshot();
     // Synthetic context stores explicitly model the vector postcondition;
     // the IRQ and pending ACK are real native transport operations.
     auto& m=c.mmu;
@@ -83,7 +99,7 @@ static void trial(unsigned n,unsigned join_case=0){
     c.pc=SiDispatchWitness::Dispatcher;c.gpr[3]=4;c.gpr[4]=Context;c.msr=0x32u;c.inst_count+=50u;
     IpcDispatchWitness w({Code,Handler,Context,Thread,Table,Global,Counter});
     auto unchanged=[&]{
-        assert(host.serviced_steps()==1u&&ram.read32(Request)==S::Open&&
+        assert(host.serviced_steps()==(reply_lane?2u:1u)&&ram.read32(Request)==(reply_lane?S::Reply:S::Open)&&
                same_scheduler_ipc_snapshot(snap,host.cold_ipc_snapshot()));
     };
     auto rejected=[&](bool ok,unsigned reason,unsigned detail=0){
@@ -91,12 +107,20 @@ static void trial(unsigned n,unsigned join_case=0){
     };
     auto observed=snap;
     if(n==1)c.gpr[4]=0;
-    if(n==2)observed.control&=~M::Y2;
+    if(n==2)observed.control&=~(reply_lane?M::Y1:M::Y2);
     if(n==3)m.write32(Table+27u*4u,Handler+4u);
     if(n==4)m.write32(Context+124u,m.read32(Context+124u)^1u);
-    bool ok=w.begin(c,frame,observed,Queue,n!=5);
+    // Wrong ARMMSG, wrong request address, stale phase, or a malformed
+    // response must be rejected before any dispatcher instruction runs.
+    if(reply_lane&&n==21)observed.arm+=32u;
+    if(reply_lane&&n==22)observed.steps=1u;
+    if(reply_lane&&n==23)ram.write32(Request+4u,1u);
+    bool ok=reply_lane?w.begin_reply(c,frame,observed,Queue,n==24?Request+32u:Request,n!=5):
+                       w.begin(c,frame,observed,Queue,n!=5);
+    if(reply_lane&&n>=21&&n<=24){rejected(ok,1);return;}
     if(n>=1&&n<=5){rejected(ok,1);return;}
-    assert(ok);
+    assert(ok&&w.reply_mode()==reply_lane);
+    if(reply_lane&&n==25){++c.inst_count;ram.write32(Request+8u,S::Reply);rejected(w.before(c,c.pc,Code.dispatcher_word,false,snap,true),4,10);return;}
     if(n==6){++c.inst_count;rejected(w.before(c,c.pc,Code.dispatcher_word,true,snap,true),4,1);return;}
     if(n==7){++c.inst_count;rejected(w.before(c,c.pc,Code.dispatcher_word,false,snap,false),4,2);return;}
     if(n==8){++c.inst_count;observed.control^=M::IY1;rejected(w.before(c,c.pc,Code.dispatcher_word,false,observed,true),4,3);return;}
@@ -131,6 +155,7 @@ static void trial(unsigned n,unsigned join_case=0){
     if(n==20){rejected(ok,5);return;}
     assert(n==0&&ok&&w.stage()==6u&&w.cause_reads()==1u&&w.mask_reads()==1u);
     unchanged();
+    if(reply_lane){assert(w.handler_ready(c,frame,snap,Queue,true));return;}
 #ifdef UNDERCOVER_TEST_JOINED_ACK
     // Synthetic handler observations; every MMIO write and IOS pump is
     // the real native transport. No owner game instructions here.
@@ -182,6 +207,8 @@ static void trial(unsigned n,unsigned join_case=0){
 int main(){
     for(unsigned i=0;i<21;++i)trial(i);
     std::cout<<"V1265_IPC_DISPATCH_CONTRACT synthetic=1 valid=1 refused=20 native_ack=1 original_execution=0\n";
+    for(unsigned i=0;i<=25;++i)trial(i,0,true);
+    std::cout<<"V1272_REPLY_DISPATCH_CONTRACT synthetic=1 valid=1 refused=25 native_reply=1 original_execution=0\n";
 #ifdef UNDERCOVER_TEST_JOINED_ACK
     for(unsigned i=1;i<=13;++i)trial(0,i);
     std::cout<<"V1267_JOINED_ACK_CONTRACT synthetic=1 valid=1 refused=13 native_reply=1 original_execution=0\n";

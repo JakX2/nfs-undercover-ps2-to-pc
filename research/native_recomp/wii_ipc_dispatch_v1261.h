@@ -8,7 +8,7 @@ struct IpcDispatchExpectations {
     uint32_t handler,context,thread,table,irq_global,counter;
 };
 // Bounded original dispatcher prefix. The IRQ source is the actual pending
-// native IOS ACK, not the earlier SI transfer. Never service or acknowledge it.
+// native IOS ACK or reply, not the earlier SI transfer. Never service or acknowledge it.
 class IpcDispatchWitness {
 public:
     explicit IpcDispatchWitness(IpcDispatchExpectations e):e_(e){}
@@ -20,17 +20,32 @@ public:
     unsigned mask_reads()const{return mask_reads_;}
     template<class C>bool begin(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
                                 uint32_t queue,bool held){
+        return begin_impl(c,frame,s,queue,held,0u);
+    }
+    // Explicit second-interrupt lane. The same original dispatcher is
+    // admitted only for the published response to the original request.
+    template<class C>bool begin_reply(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
+                                     uint32_t queue,uint32_t physical_request,bool held){
+        if(!physical_request)return fail(1);
+        return begin_impl(c,frame,s,queue,held,physical_request);
+    }
+    bool reply_mode()const{return stage_&&!error_&&reply_request_!=0;}
+private:
+    template<class C>bool begin_impl(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,
+                                     uint32_t queue,bool held,uint32_t physical_request){
         using M=IpcMailbox;using H=HollywoodIrq;
         if(stage_||error_||!held||!safe(c)||c.pc!=SiDispatchWitness::Dispatcher||
            c.gpr[3]!=4u||c.gpr[4]!=e_.context||frame.source()!=H::PI_HOLLYWOOD||
            !frame.pending_source(c,s.pi_cause,s.pi_mask)||!frame.saved_integer(c,e_.context).ok()||
-           !(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||!(s.flags&H::IPC_PPC)||
-           s.steps!=1u||s.replies!=1u||s.queued||s.event||
+           !(s.flags&H::IPC_PPC)||s.queued||s.event||
+           (physical_request?!reply_wire(c,s,physical_request):
+            (!(s.control&M::Y2)||(s.control&(M::Y1|M::X1))||s.steps!=1u||s.replies!=1u))||
            !word(c,c.pc,e_.code.dispatcher_word)||!mapped(c,e_.counter,4u))return fail(1);
-        queue_=queue;cpu_=&c;frame_=&frame;s_=s;counter_=c.mmu.read32(e_.counter);
+        reply_request_=physical_request;queue_=queue;cpu_=&c;frame_=&frame;s_=s;counter_=c.mmu.read32(e_.counter);
         if(counter_==0xffffffffu||!tables(c))return fail(1);
         start_=last_=last_entry_=c.inst_count;stage_=1;return true;
     }
+public:
     bool read(uint32_t a,uint32_t value){
         if(stage_<1u||stage_>5u||error_)return fail(2);
         const auto p=a&0x3fffffffu;
@@ -66,14 +81,15 @@ public:
     template<class C>bool handler_ready(C& c,ExternalReturnWitness& frame,const ColdIpcSnapshot& s,uint32_t queue,bool held)const{
         return stage_==6u&&!error_&&held&&cpu_==&c&&frame_==&frame&&queue_==queue&&safe(c)&&
             c.inst_count==last_entry_&&same_scheduler_ipc_snapshot(s_,s)&&frame.pending_source(c,s.pi_cause,s.pi_mask)&&
-            frame.saved_integer(c,e_.context).ok()&&tables(c)&&c.pc==e_.handler&&c.ctr==e_.handler&&
+            frame.saved_integer(c,e_.context).ok()&&tables(c)&&(!reply_request_||reply_wire(c,s,reply_request_))&&
+            c.pc==e_.handler&&c.ctr==e_.handler&&
             c.gpr[3]==27u&&c.gpr[4]==e_.context&&c.lr==e_.code.indirect_pc+4u&&
             word(c,c.pc,e_.code.handler_word)&&word(c,e_.code.indirect_pc,e_.code.indirect_word)&&
             word(c,e_.counter,counter_+1u);
     }
 private:
     IpcDispatchExpectations e_;const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;
-    ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0;
+    ColdIpcSnapshot s_{};uint32_t queue_=0,counter_=0,reply_request_=0;
     uint64_t start_=0,last_=0,last_entry_=0;unsigned stage_=0,error_=0,visits_=0,cause_reads_=0,mask_reads_=0;
     unsigned detail_=0;
     bool fail_detail(unsigned n,unsigned d){if(!error_)detail_=d;return fail(n);}
@@ -85,6 +101,15 @@ private:
             c.mmu.get_ptr(a)&&c.mmu.get_ptr(a+n-1u);
     }
     template<class C>static bool word(C& c,uint32_t a,uint32_t w){return !(a&3u)&&mapped(c,a,4u)&&c.mmu.read32(a)==w;}
+    template<class C>static bool reply_wire(C& c,const ColdIpcSnapshot& s,uint32_t request){
+        using M=IpcMailbox;using H=HollywoodIrq;using S=StmIos;
+        if(!request||(request&31u)||request>0x13ffffc0u||s.ppc!=request||s.arm!=request||
+           (s.control&(M::X1|M::Y1|M::Y2))!=M::Y1||!(s.control&M::IY1)||
+           !(s.flags&H::IPC_PPC)||!(s.irq_mask&H::IPC_PPC)||
+           s.steps!=2u||s.replies||s.queued||s.event)return false;
+        const uint32_t a=request|0x80000000u;
+        return mapped(c,a,64u)&&word(c,a,S::Reply)&&word(c,a+4u,0u)&&word(c,a+8u,S::Open);
+    }
     template<class C>bool tables(C& c)const{
         return mapped(c,e_.thread+712u,2u)&&c.mmu.read16(e_.thread+712u)==4u&&
             word(c,0x800000d4u,e_.context)&&word(c,0x800000c0u,e_.context&0x3fffffffu)&&
@@ -101,6 +126,7 @@ private:
         if(!frame_||!frame_->pending_source(c,s.pi_cause,s.pi_mask))return 4;
         if(!frame_->saved_integer(c,e_.context).ok())return 5;
         if(!tables(c))return 6;
+        if(reply_request_&&!reply_wire(c,s,reply_request_))return 10;
         return 0;
     }
 };
