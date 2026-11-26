@@ -322,7 +322,7 @@ int main(int argc,char** argv){
                             const auto wf=fault.substr(std::string_view("-frontier-wireless").size());
                             put(v847::A,v847::setter);put(v847::B,v847::getter);put(v847::U,v847::unlock);
                             put(v847::D,v847::disable);put(v847::R,v847::restore);
-                            c.mmu.words[v847::L]=Nop;c.mmu.words[Root+44u]=Nop;c.mmu.words[Root+72u]=Nop;
+                            c.mmu.words[v847::L]=Nop;c.mmu.words[Root+44u]=Nop;c.mmu.words[Root+96u]=Nop;
                             for(unsigned i=0;i<20u;++i)c.mmu.words[v847::SRAM+4u*i]=0;
                             c.mmu.words[v847::SRAM+64u]=64u;c.mmu.words[v847::SRAM+76u]=1u;
                             if(wf=="-changed")c.mmu.words[v847::SRAM+52u]=0x01000100u;

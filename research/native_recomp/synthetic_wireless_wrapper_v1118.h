@@ -10,5 +10,5 @@ inline constexpr auto unlock=[] {std::array<uint32_t,184> x{};x.fill(Nop);x[0]=v
 inline constexpr auto disable=[] {std::array<uint32_t,5> x{};x.fill(Nop);x[0]=Blr;return x;}();
 inline constexpr auto restore=[] {std::array<uint32_t,9> x{};x.fill(Nop);x[0]=Blr;return x;}();
 inline constexpr WirelessExpectation expected{{{{A,setter},{B,getter},{U,unlock},{D,disable},{R,restore}}},
-    {{{P+12u,v831::words[3].word,Nop,3},{P+40u,v831::words[4].word,Nop,5}}},L,Nop,SRAM};
+    {{{P+12u,v831::words[3].word,Nop,3},{P+64u,v831::words[4].word,Nop,5}}},L,Nop,SRAM};
 }

@@ -194,14 +194,14 @@ for mode in nonsplit split; do
             fi
             if [[ "$lane" == *callback-ack* ]]; then
               grep -Fx 'V1079_THIRD_ACK original_w1c=1 next_label=1 token=3 no_response=1 visits=48 entries=2 returns=1 reads=3 writes=1 saved_fields=38 retired_transfer=1 pi_cleared=1 successor_executed=0 boot_verified=0' "$work/run.log"
-              if [[ "$lane" == *ack-post || "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* ]]; then
+              if [[ "$lane" == *ack-post || "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* || "$lane" == *ack-handler-return ]]; then
                 grep -Fx 'V1084_THIRD_HELPER_RETURN original_helper=1 visits=130 entries=6 returns=6 msr=2 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
               fi
-              if [[ "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* ]]; then
+              if [[ "$lane" == *ack-time || "$lane" == *ack-frontier || "$lane" == *ack-callback* || "$lane" == *ack-handler-return ]]; then
                 if grep -q '^V1088_THIRD_CALLBACK_FRONTIER ' "$work/run.log"; then
                   grep -Ex 'V1088_THIRD_CALLBACK_FRONTIER ordinal=6 target_class=[0-4] visits=71 handler_time=0 token=3 saved_fields=38 pi_cleared=1 original_call_executed=0 boot_verified=0' "$work/run.log"
                   ! grep -Eq '^V1084_THIRD_TIME_RETURN |^V1086_FOURTH_FRONTIER ' "$work/run.log"
-                  if [[ "$lane" == *ack-callback* ]]; then
+                  if [[ "$lane" == *ack-callback* || "$lane" == *ack-handler-return ]]; then
                     grep -Fx 'V1092_THIRD_ACK_CALLBACK_PREFIX original_indirect=1 original_prologue=1 save_return=1 writes=8 visits=13 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
                     if [[ "$lane" == *ack-callback-time || "$lane" == *ack-callback-frontier || "$lane" == *ack-callback-wireless || "$lane" == *ack-callback-suffix || "$lane" == *ack-callback-return || "$lane" == *ack-callback-handler || "$lane" == *ack-handler-return || "$lane" == *ack-callback-rfi ]]; then
                       grep -Fx 'V1105_THIRD_ACK_CALLBACK_TIME original_time=1 leaves=3 system_visits=25 leaf_visits=18 polls=1 reads=3 token=3 pi_cleared=1 saved_fields=38 continuation_executed=0 boot_verified=0' "$work/run.log"
@@ -229,7 +229,7 @@ for mode in nonsplit split; do
                     fi
                   fi
                 else
-                  [[ "$lane" != *ack-callback* ]]
+                  [[ "$lane" != *ack-callback* && "$lane" != *ack-handler-return ]]
                   grep -Fx 'V1084_THIRD_TIME_RETURN original_time=1 leaves=3 visits=44 token=3 saved_fields=38 pi_cleared=1 handler_instruction_executed=0 boot_verified=0' "$work/run.log"
                   if [[ "$lane" == *ack-frontier ]]; then
                     grep -Ex 'V1086_FOURTH_FRONTIER type=[01] idle=[01] callback=[01] channel=[0-3] mismatch=[0-9]{1,3} slot_kind=[0-2] initial_mismatch=[0-9]{1,3} changed=[0-9]{1,3} samples=[1-9][0-9]{0,3} admission=[0-2] visits=[1-9][0-9]{0,3} token=3 saved_fields=38 original_call_executed=0 boot_verified=0' "$work/run.log"
@@ -241,6 +241,16 @@ for mode in nonsplit split; do
         fi
       elif [[ "$lane" == *wireless-changed ]]; then
         grep -Fx 'V1058_THIRD_WIRELESS_LOCK original_setter_prefix=1 original_unlock_prefix=1 changed=1 visits=69 stores=13 token=3 held=1 saved_fields=38 exi_instruction_executed=0' "$work/run.log"
+      fi
+      # Independent terminal gate, outside the nested predecessor checks.
+      # A successful early exit must not certify a later milestone.
+      if [[ "$lane" == *ack-handler-return || "$lane" == *ack-callback-rfi ]]; then
+        [[ "$(grep -c '^V1126_THIRD_ACK_HANDLER_RETURN ' "$work/run.log")" == 1 ]]
+        grep -Fxq 'V1126_THIRD_ACK_HANDLER_RETURN original_handler=1 original_dispatcher_resume=1 abi=1 restore_gprs=15 visits=21 token=3 pi_cleared=1 saved_fields=38 dispatcher_instruction_executed=0 boot_verified=0' "$work/run.log"
+      fi
+      if [[ "$lane" == *ack-callback-rfi ]]; then
+        [[ "$(grep -c '^V1130_THIRD_ACK_RFI ' "$work/run.log")" == 1 ]]
+        grep -Eq '^V1130_THIRD_ACK_RFI original_handler=1 original_dispatcher=1 original_scheduler=1 original_context=1 native_rfi=1 polls=2 visits=[1-9][0-9]{0,2} token=3 pi_cleared=1 saved_fields=38 resume_instruction_executed=0 boot_verified=0$' "$work/run.log"
       fi
     done
   done
