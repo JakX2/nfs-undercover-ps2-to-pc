@@ -1,0 +1,3 @@
+# V1054: audit third-token alarm continuation
+
+Require the complete independently audited V1045 original transfer return before accepting the verified V1022 inactive alarm shape: lane zero, no timer, call mask three, 33 native visits. Limit the suffix to 128 visits and require a coherent zero/one status read/write census. The exact status count and suffix length for the original queued path are now emitted by the focused owner harness, with the five-entry/five-return transfer census enforced exactly. These two values remain bounded rather than guessed until the new original run is available. Refuse missing, duplicated, reordered or mutated terminal records. No launcher enables this audit yet; no new original execution claim.

@@ -389,6 +389,12 @@ void before_owned(CPUContext& c,uint32_t owner,uint32_t pc,uint32_t w){
                     need(owner==Handler&&alarm_witness.returned(c,pc,w,third.held_now())&&third.token()==3u&&cause==(Other|SiController::PI_SI));
                     std::cout<<std::dec<<"V985_ALARM_RETURN original_return=1 queue=1 lane="<<alarm_witness.lane()<<" timer="<<alarm_witness.timer_required()
                         <<" calls="<<alarm_witness.calls()<<" visits="<<alarm_witness.total()<<" token_held=1 saved_fields=38 handler_instruction_executed=0"<<std::endl;
+                    if(error_queue){
+                        std::cout<<std::dec<<"V1054_THIRD_ALARM_CENSUS suffix_visits="<<suffix_guard.visits()
+                                 <<" status_reads="<<third.suffix_status_reads()<<" status_writes="<<third.suffix_status_writes()
+                                 <<" alarm_lane="<<alarm_witness.lane()<<" alarm_visits="<<alarm_witness.total()
+                                 <<" calls="<<alarm_witness.calls()<<" token=3 held=1"<<std::endl;
+                    }
                     if(due_execute){
                         need(alarm_witness.lane()==0u&&alarm_witness.total()==33u&&third.token()==3u);
                         std::cout<<"V1052_DUE_RETURN original_transfer=1 original_alarm=1 token=3 saved_fields=38 boot_verified=0"<<std::endl;
