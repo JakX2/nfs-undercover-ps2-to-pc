@@ -25,6 +25,9 @@
 #include "v1270_private_epilogue.h"
 #include "wii_scheduler_reply_irq_v1268.h"
 #endif
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+#include "wii_joined_ipc_reply_entry_v1273.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -85,6 +88,13 @@ static uint64_t epilogue_tick=0;
 static unsigned rfi_count=0,reply_vector_count=0;
 static bool reply_vector=false;
 struct ReplyEntered{};
+#endif
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+static JoinedIpcReplyEntry* reply_entry=nullptr;
+static nw::CPUContext* reply_cpu=nullptr;
+static bool second_dispatch=false;
+static unsigned second_dispatch_count=0,reply_entry_count=0;
+struct ReplyProcessorReached{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -154,6 +164,14 @@ void v1261_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!s||!ipc_dispatch->before(c,pc,w,guard,*s,device_ok(c)))dispatch_refuse(1);
 }
 #endif
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+[[noreturn]]static void reply_entry_refuse(unsigned kind){
+    std::cout<<"V1275_REPLY_REFUSAL kind="<<kind<<" stage="<<reply_entry->stage()
+        <<" reason="<<reply_entry->failure()<<" reads="<<reply_entry->reads()
+        <<" visits="<<reply_entry->visits()<<'\n';
+    throw WitnessFailure{};
+}
+#endif
 #ifdef UNDERCOVER_V1266_JOINED_ACK
 static void joined_refuse(unsigned kind){
     std::cout<<"V1266_ACK_REFUSAL kind="<<kind<<" stage="<<joined_ack->stage()<<" reason="<<joined_ack->failure()
@@ -161,6 +179,13 @@ static void joined_refuse(unsigned kind){
     throw WitnessFailure{};
 }
 void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    if(reply_entry){
+        const bool guard=pc==0x805190c0u||pc==0x8052a51cu||pc==v1255::returned;
+        if(!reply_entry->before(c,pc,w,guard,device_ok(c)))reply_entry_refuse(1);
+        return;
+    }
+#endif
     if(!joined_ack)return; // shared original leaves used earlier
     const bool guard=pc==0x805190c0u||pc==0x8052a51cu||pc==v1255::returned;
     if(!joined_ack->before(c,pc,w,guard,device_ok(c)))joined_refuse(1);
@@ -213,6 +238,13 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    if(reply_entry){
+        if(!reply_entry->entry(c,pc,device_ok(c)))reply_entry_refuse(2);
+        if(reply_entry->stage()==2u){++reply_entry_count;throw ReplyProcessorReached{};}
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1271_IPC_RETURN
     if(epilogue){
         if(!reply_held(c)||!epilogue->entry(c,pc,cause.load(),mask.load()))epilogue_refuse(4);
@@ -229,10 +261,21 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(ipc_dispatch){
         auto s=B::cold_snapshot();need(s.has_value());
         if(!ipc_dispatch->stage()){
-            if(!ipc_dispatch->begin(c,irq_capture,*s,dispatch_queue,device_ok(c)))dispatch_refuse(2);
+            const bool begun=
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+                second_dispatch?ipc_dispatch->begin_reply(c,irq_capture,*s,dispatch_queue,reply_request,device_ok(c)):
+#endif
+                ipc_dispatch->begin(c,irq_capture,*s,dispatch_queue,device_ok(c));
+            if(!begun)dispatch_refuse(2);
         }else{
             if(!ipc_dispatch->observe(c,pc,*s,device_ok(c)))dispatch_refuse(3);
-            if(ipc_dispatch->stage()==6u){++dispatch_count;throw DispatchStop{};}
+            if(ipc_dispatch->stage()==6u){
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+                if(second_dispatch)++second_dispatch_count;else
+#endif
+                ++dispatch_count;
+                throw DispatchStop{};
+            }
         }
         return;
     }
@@ -300,6 +343,12 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    if(reply_entry){
+        if(!reply_entry->poll(c,device_ok(c)))reply_entry_refuse(3);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1271_IPC_RETURN
     if(epilogue){
         if(!reply_held(c))epilogue_refuse(5);
@@ -428,6 +477,13 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    if(reply_entry){
+        const auto v=reply_entry->read(*reply_cpu,a,device_ok(*reply_cpu));
+        if(!v)reply_entry_refuse(4);
+        return *v;
+    }
+#endif
 #ifdef UNDERCOVER_V1271_IPC_RETURN
     if(epilogue)epilogue_refuse(8);
 #endif
@@ -452,6 +508,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    if(reply_entry){reply_entry->write_refused();reply_entry_refuse(5);}
+#endif
 #ifdef UNDERCOVER_V1271_IPC_RETURN
     if(epilogue)epilogue_refuse(8);
 #endif
@@ -697,6 +756,34 @@ int main(int argc,char** argv)try{
              c.mmu.read32(sleep.queue()+4u)==Q::Thread&&host.serviced_steps()==2u);
         vector_active=false;reply_vector=false;
         std::cout<<"V1271_REPLY_VECTOR_TRIAL n="<<trial<<" original_vector=1 trampoline=1 saved_fields=38 pending_reply=1 dispatcher_executed=0\n";
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+        IpcDispatchWitness second({v1261::code,v1261::handler,Q::Idle,Q::Thread,W::Table,W::IrqGlobal,W::Sda+v1261::counter_disp});
+        need(c.mmu.read32(W::Sda+v1261::counter_disp)==0u);
+        ipc_dispatch=&second;dispatch_queue=sleep.queue();second_dispatch=true;
+        bool second_reached=false;
+        try{run_game(c);}catch(const DispatchStop&){second_reached=true;}
+        need(second_reached&&second.stage()==6u&&second.reply_mode()&&second_dispatch_count==trial+1u&&
+             second.cause_reads()&&second.mask_reads()&&c.pc==v1261::handler&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&
+             irq_capture.saved_integer(c,Q::Idle).ok()&&device_ok(c));
+        ipc_dispatch=nullptr;second_dispatch=false;
+        std::cout<<"V1275_REPLY_DISPATCH_TRIAL n="<<trial<<" dispatcher=1 index=27 handler_entry=1 pending_reply=1\n";
+        constexpr uint32_t ReadLeaf=0x8051905cu,Reply=0x805190c0u,ReplyReturn=0x80519354u;
+        auto match=[](const auto& e){return e.pc==Reply&&e.lr==ReplyReturn;};
+        need(std::count_if(v1255::edges.begin(),v1255::edges.end(),match)==1);
+        auto e=*std::find_if(v1255::edges.begin(),v1255::edges.end(),match);
+        JoinedIpcReplyEntry entry(v1255::handler,ReadLeaf,e,Q::Idle,Q::Thread,v1255::edges,v1255::polls);
+        need(entry.begin(c,second,irq_capture,sleep.queue(),reply_request,device_ok(c)));
+        reply_entry=&entry;reply_cpu=&c;bool processor_reached=false;
+        try{run_game(c);}catch(const ReplyProcessorReached&){processor_reached=true;}
+        need(processor_reached&&entry.stage()==2u&&entry.reads()&&reply_entry_count==trial+1u&&
+             c.pc==Reply&&c.lr==ReplyReturn&&host.serviced_steps()==2u&&
+             same_scheduler_ipc_snapshot(vector_mail,host.cold_ipc_snapshot())&&
+             irq_capture.saved_integer(c,Q::Idle).ok()&&c.mmu.read16(Q::Thread+712u)==4u&&
+             c.mmu.read32(sleep.queue())==Q::Thread&&c.mmu.read32(sleep.queue()+4u)==Q::Thread);
+        reply_entry=nullptr;reply_cpu=nullptr;
+        std::cout<<"V1275_REPLY_ENTRY_TRIAL n="<<trial<<" original_handler=1 reply_processor_entry=1 pending_reply=1 waiting=1\n";
+#endif
 #endif
 #endif
 #endif
@@ -722,6 +809,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1271_IPC_RETURN
     need(rfi_count==8u&&reply_vector_count==8u);
     std::cout<<"V1271_REPLY_VECTOR_NATIVE owner=1 trials=8 first_rfi=8 restored=8 reply_irq=8 original_vector=8 trampoline=8 saved_fields=38 second_dispatch=0 wakeup=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1275_REPLY_ENTRY
+    need(second_dispatch_count==8u&&reply_entry_count==8u);
+    std::cout<<"V1275_REPLY_ENTRY_NATIVE owner=1 trials=8 original_second_dispatch=8 original_reply_handler=8 reply_processor_entry=8 waiting=8 ios_steps=2 wakeup=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
