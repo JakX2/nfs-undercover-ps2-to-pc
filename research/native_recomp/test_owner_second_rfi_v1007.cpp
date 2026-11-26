@@ -1181,10 +1181,14 @@ int main(int argc,char** argv)try{
     need(argc==4);trial=unsigned(std::stoul(argv[1]));need(trial<8);
     std::string mode=argv[2];
     // Extend only the four authenticated third-callback fixtures.
+    // Match the complete authenticated base plus suffix, not merely
+    // ends_with("-return"), which also matches "-ack-callback-return".
     for(const std::string tail:{"-wireless-same","-wireless-changed","-return","-handler","-rfi","-vector","-vector-poison","-dispatch","-ack","-ack-post","-ack-time","-ack-frontier","-ack-callback","-ack-callback-time","-ack-callback-frontier","-ack-callback-wireless","-ack-callback-suffix","-ack-callback-return"}){
         if(mode.starts_with("error-queue-")&&mode.ends_with(tail)){
-            mode.resize(mode.size()-tail.size());
-            need(mode=="error-queue-callback"||mode=="error-queue-cold-callback"||mode=="error-queue-due-callback"||mode=="error-queue-cold-due-callback");
+            const auto candidate=mode.substr(0,mode.size()-tail.size());
+            if(candidate!="error-queue-callback"&&candidate!="error-queue-cold-callback"&&
+               candidate!="error-queue-due-callback"&&candidate!="error-queue-cold-due-callback")continue;
+            mode=candidate;
             third_wireless_route=true;third_wireless_changed=tail=="-wireless-changed";third_vector_poison=tail=="-vector-poison";third_ack_return_route=tail=="-ack-callback-return";third_ack_suffix_route=tail=="-ack-callback-suffix"||third_ack_return_route;third_ack_wireless_route=tail=="-ack-callback-wireless"||third_ack_suffix_route;third_ack_frontier_route=tail=="-ack-callback-frontier"||third_ack_wireless_route;third_ack_time_route=tail=="-ack-callback-time"||third_ack_frontier_route;third_next_callback_route=tail=="-ack-callback"||third_ack_time_route;third_frontier_route=tail=="-ack-frontier";third_time_route=tail=="-ack-time"||third_frontier_route||third_next_callback_route;third_postack_route=tail=="-ack-post"||third_time_route;third_ack_route=tail=="-ack"||third_postack_route;third_dispatch_route=tail=="-dispatch"||third_ack_route;third_vector_route=tail=="-vector"||third_vector_poison||third_dispatch_route;third_pending_rfi=tail=="-rfi"||third_vector_route;third_handler_route=tail=="-handler"||third_pending_rfi;third_callback_return=tail=="-return"||third_handler_route;break;
         }
     }

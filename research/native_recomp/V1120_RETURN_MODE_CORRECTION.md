@@ -1,0 +1,3 @@
+# V1120: focused callback return mode correction
+
+V1117's source-only fixture passed 208/208. Its owner run 45757934225 refused the first new lane at argument validation (line 1187), before starting any guest execution. The earlier `-return` suffix overlapped `-ack-callback-return`, so an invalid partial base was removed and asserted. The parser now tests the complete base and suffix before consuming the mode; unmatched modes still fail the existing allowlist. No runtime or ABI checks weakened. Re-run focused owner tests via the existing workflow. V1118 source-only live binding passed run 45758016458. V1119 installer validation pending.
