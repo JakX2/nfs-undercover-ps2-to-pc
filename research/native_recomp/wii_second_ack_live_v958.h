@@ -214,6 +214,10 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w,bool guard){
         }
 #endif
         const auto a=inspect_si_transfer_arguments(c,transfer_data,transfer_slots,transfer_callback);
+        const char* queue_detail=std::getenv("UNDERCOVER_V1034_QUEUE_DETAIL");
+        if(queue_detail&&queue_detail[0]=='1'&&queue_detail[1]=='\0')
+            std::cout<<std::dec<<"V1034_QUEUE_DETAIL mismatch_mask="<<a.mismatch_mask<<" slot_kind="<<a.slot_kind
+                <<" arg_time_zero="<<a.argument_time_zero<<" queue_time_zero="<<a.queued_time_zero<<std::endl;
         std::cout<<std::dec<<"V981_TRANSFER_FRONTIER type="<<a.type<<" idle="<<a.idle<<" queue_match="<<a.queue_match
             <<" callback_known="<<a.callback_known<<" admitted="<<a.admitted()<<" visits="<<visits-time_return_visits
             <<" token_preserved=1 saved_fields=38 call_executed=0 boot_verified=0"<<std::endl;

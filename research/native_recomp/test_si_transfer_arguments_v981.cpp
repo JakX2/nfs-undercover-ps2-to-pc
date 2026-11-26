@@ -37,7 +37,8 @@ int main(){
         const auto before=c.mmu.mem;const auto gp=c.gpr;
         const auto a=inspect_si_transfer_arguments(c,Data,Slots,Callback);
         need(before==c.mmu.mem&&gp==c.gpr);
-        if(f<4){need(a.admitted()&&a.channel==ch&&a.packet==request);++good;}
+        if(f==11||f==15)need(a.mismatch_mask==128u&&a.slot_kind==1u&&!a.queue_match&&!a.queued_time_zero);
+        if(f<4){need(a.admitted()&&a.channel==ch&&a.packet==request&&a.mismatch_mask==0u&&a.slot_kind==1u&&!a.argument_time_zero&&!a.queued_time_zero);++good;}
         else{need(!a.admitted());++bad;}
     }
     need(good==4&&bad==12);

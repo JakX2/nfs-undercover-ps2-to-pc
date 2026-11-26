@@ -153,6 +153,7 @@ if [[ "${UNDERCOVER_RUN_V1021_ERROR_FRONTIER:-0}" == 1 ]]; then
     *) exit 2;;
   esac
   extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1 UNDERCOVER_V1021_ERROR_FRONTIER=1)
+  if [[ "${UNDERCOVER_RUN_V1034_QUEUE_DETAIL:-0}" == 1 ]]; then extra+=(UNDERCOVER_V1034_QUEUE_DETAIL=1);fi
 elif [[ "${UNDERCOVER_RUN_V1015_ERROR_COMPLETION:-0}" == 1 ]]; then
   [[ "$audit" == audit_v989_shared_time.py ]] || exit 2
   extra+=(UNDERCOVER_V1015_ERROR_COMPLETION=1);audit=audit_v1015_error_completion.py

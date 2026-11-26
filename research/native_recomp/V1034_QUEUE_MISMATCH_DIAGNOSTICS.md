@@ -1,0 +1,5 @@
+# V1034: real continuous queue mismatch diagnosis
+
+V1021 owner run 45736810514 passed complete Linux x64 execution, second no-response helper, original time helper and the third-transfer frontier: branch=4, 78 visits, type=1, idle=1, callback_known=1, queue_match=0, admitted=0. Thus the next blocker is queue argument equivalence, not missing original transfer code.
+
+Keep admission unchanged. Publish only an eight-bit mismatch mask, slot identity category and zero/nonzero time classifications, never raw guest values. Add the same classification to the focused original matrix and add a nonzero already-due timestamp fixture (low word 1), including cold and retained-response predecessors. The original execution decides whether it takes the queued route; the fixture is not continuous startup. The live diagnostic is opt-in through the V1021 launch path, audit checks consistency with the existing queue-match flag. Pending owner CI; do not relax exact-match admission until original behavior is confirmed.
