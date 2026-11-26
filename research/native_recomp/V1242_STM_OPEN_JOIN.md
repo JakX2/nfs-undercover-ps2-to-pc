@@ -1,0 +1,3 @@
+# V1242: STM to first IOS request construction
+
+Join OpenRequestWitness to the same completed STM context and exact entry tick, retaining the actual IPC heap size and path kind. The wrapper owns the cold cache-flush syscall route, refuses unrelated dispatch and out-of-order vector traces, and validates stable SI admission and native mailbox snapshot. The terminal seam is the first synchronous submission entry, before submission or IOS service. Tests model 17 IPC calls, STM prefix and nine Open stages with both path kinds and 14 refusal lanes. Cache and vector effects in this fixture are synthetic. Original execution and live integration are separate future gates.

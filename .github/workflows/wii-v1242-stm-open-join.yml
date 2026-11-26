@@ -1,0 +1,22 @@
+name: Wii V1242 STM to Open Request Join
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/*v1242*'
+      - '.github/workflows/wii-v1242-stm-open-join.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify continuous synthetic request construction with native transport
+        run: |
+          set -euo pipefail
+          for test in test_wii_open_request_witness_v639 test_post_ack_stm_join_v1239 test_post_ack_open_join_v1242; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "$RUNNER_TEMP/$test"
+            "$RUNNER_TEMP/$test"
+          done
