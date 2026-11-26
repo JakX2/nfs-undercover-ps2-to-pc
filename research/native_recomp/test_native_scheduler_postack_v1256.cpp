@@ -21,6 +21,10 @@
 #include "v1266_private_ack.h"
 #include "wii_joined_ipc_ack_v1266.h"
 #endif
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+#include "v1270_private_epilogue.h"
+#include "wii_scheduler_reply_irq_v1268.h"
+#endif
 #include "v639_private_open_expectations.h"
 #include "v629_private_stm_expectations.h"
 #include "v1243_private_stm_data.h"
@@ -70,6 +74,17 @@ static JoinedIpcAck* joined_ack=nullptr;
 static nw::CPUContext* joined_cpu=nullptr;
 static unsigned joined_count=0;
 struct AckReturned{};
+#endif
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+static LiveEpilogueWitness* epilogue=nullptr;
+static NativeIosTransport* epilogue_host=nullptr;
+static ExternalReturnWitness reply_capture;
+static ColdIpcSnapshot reply_mail{};
+static uint32_t reply_request=0,reply_queue=0;
+static uint64_t epilogue_tick=0;
+static unsigned rfi_count=0,reply_vector_count=0;
+static bool reply_vector=false;
+struct ReplyEntered{};
 #endif
 static NativeIosTransport* submit_host=nullptr;
 static nw::CPUContext* submit_cpu=nullptr;
@@ -151,6 +166,34 @@ void v1266_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!joined_ack->before(c,pc,w,guard,device_ok(c)))joined_refuse(1);
 }
 #endif
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+static bool reply_held(nw::CPUContext& c){
+    const auto s=B::cold_snapshot();
+    using Q=PostAckSchedulerJoin;
+    return epilogue_host&&s&&same_scheduler_ipc_snapshot(*s,reply_mail)&&device_ok(c)&&
+        c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
+        c.mmu.read32(Q::Active)==Q::Idle&&c.mmu.read32(Q::Physical)==(Q::Idle&0x3fffffffu)&&
+        c.mmu.read16(Q::Thread+712u)==4u&&c.mmu.read32(Q::Thread+732u)==reply_queue&&
+        c.mmu.read32(reply_queue)==Q::Thread&&c.mmu.read32(reply_queue+4u)==Q::Thread&&
+        epilogue_host->physical_ram().read32(reply_request)==StmIos::Reply&&
+        epilogue_host->physical_ram().read32(reply_request+4u)==0u&&
+        epilogue_host->physical_ram().read32(reply_request+8u)==StmIos::Open;
+}
+[[noreturn]]static void epilogue_refuse(unsigned kind){
+    std::cout<<"V1271_EPILOGUE_REFUSAL kind="<<kind<<" stage="<<epilogue->stage()<<" reason="<<epilogue->failure()
+        <<" entry="<<epilogue->entry_refusal()<<" visits="<<epilogue->visits()<<'\n';
+    throw WitnessFailure{};
+}
+void v1270_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
+    if(!epilogue)return; // shared IRQ leaves during earlier native execution
+    if(!reply_held(c))epilogue_refuse(1);
+    if(!epilogue->stage()){
+        if(pc!=v1255::returned||c.pc!=pc||!epilogue->begin_pending(c,irq_capture,cause.load(),mask.load()))
+            epilogue_refuse(2);
+    }
+    if(!epilogue->before(c,pc,w,cause.load(),mask.load()))epilogue_refuse(3);
+}
+#endif
 static void submit_trace(uint32_t pc,nw::CPUContext& c){
     need(submit_join);
     const bool ok=submit_join->observe(c,pc,device_ok(c));
@@ -170,6 +213,12 @@ namespace nwii::runtime {
 bool g_trace_calls=true;uint32_t g_watch_addr=0;
 void trace_call(uint32_t pc,CPUContext& c){
     need(witness);
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+    if(epilogue){
+        if(!reply_held(c)||!epilogue->entry(c,pc,cause.load(),mask.load()))epilogue_refuse(4);
+        return;
+    }
+#endif
 #ifdef UNDERCOVER_V1266_JOINED_ACK
     if(joined_ack){
         if(!joined_ack->entry(c,pc,device_ok(c)))joined_refuse(2);
@@ -195,7 +244,13 @@ void trace_call(uint32_t pc,CPUContext& c){
                !ipc_vector.begin_captured(c,irq_capture,cause.load(),mask.load(),vector_held(c)))vector_refuse(2);
         }else{
             if(!ipc_vector.entry(c,pc,cause.load(),mask.load(),vector_held(c)))vector_refuse(3);
-            if(ipc_vector.stage()==3u){++vector_count;throw VectorStop{};}
+            if(ipc_vector.stage()==3u){
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+                if(reply_vector)++reply_vector_count;else
+#endif
+                ++vector_count;
+                throw VectorStop{};
+            }
         }
         return;
     }
@@ -245,6 +300,24 @@ void trace_call(uint32_t pc,CPUContext& c){
     if(!ok)throw WitnessFailure{};
 }
 bool process_pending_callbacks(CPUContext& c){
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+    if(epilogue){
+        if(!reply_held(c))epilogue_refuse(5);
+        if(!epilogue->stage()){
+            if(c.pc!=v1255::returned||c.inst_count!=epilogue_tick)epilogue_refuse(5);
+            return false;
+        }
+        if(epilogue->stage()==2u){
+            if(!epilogue->pending_rfi_return(c,cause.load(),mask.load()))epilogue_refuse(6);
+            if(!enter_scheduler_reply_irq(c,*epilogue_host,irq_capture,reply_capture,v1259::vector,reply_request))
+                epilogue_refuse(7);
+            if(!reply_held(c)||c.pc!=ExternalVector)epilogue_refuse(7);
+            ++rfi_count;throw ReplyEntered{};
+        }
+        if(!epilogue->poll(c,cause.load(),mask.load()))epilogue_refuse(5);
+        return false;
+    }
+#endif
 #ifdef UNDERCOVER_V1266_JOINED_ACK
     if(joined_ack){
         if(!joined_ack->poll(c,device_ok(c)))joined_refuse(3);
@@ -355,6 +428,9 @@ uint16_t HW_Reg_Read16(uint32_t){throw std::runtime_error("V1256 unexpected MMIO
 void HW_Reg_Write16(uint32_t,uint16_t){throw std::runtime_error("V1256 unexpected MMIO16");}
 uint32_t HW_Reg_Read32(uint32_t a){
     const auto p=a&0x3fffffffu;
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+    if(epilogue)epilogue_refuse(8);
+#endif
 #ifdef UNDERCOVER_V1266_JOINED_ACK
     if(joined_ack){
         auto v=joined_ack->read(*joined_cpu,a,device_ok(*joined_cpu));if(!v)joined_refuse(5);return *v;
@@ -376,6 +452,9 @@ uint32_t HW_Reg_Read32(uint32_t a){
     throw std::runtime_error("V1256 unexpected MMIO read");
 }
 void HW_Reg_Write32(uint32_t a,uint32_t v){
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+    if(epilogue)epilogue_refuse(8);
+#endif
 #ifdef UNDERCOVER_V1266_JOINED_ACK
     if(joined_ack){
         if(!joined_ack->write(*joined_cpu,a,v,device_ok(*joined_cpu)))joined_refuse(6);
@@ -474,6 +553,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1266_JOINED_ACK
         for(auto w:v1255::words)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(v1255::returned,v1266::return_word);
+#endif
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+        for(auto w:v1270::words)c.mmu.write32(w.pc,w.word);
 #endif
         c.guest_flush_count=18000;
         const uint32_t lo=0x93380000u+trial*0x1000u,hi=0x93400000u;
@@ -590,6 +672,32 @@ int main(int argc,char** argv)try{
              irq_capture.saved_integer(c,Q::Idle).ok()&&c.mmu.read16(Q::Thread+712u)==4u);
         ++joined_count;joined_ack=nullptr;joined_cpu=nullptr;
         std::cout<<"V1266_ACK_TRIAL n="<<trial<<" handler_return=1 guest_w1c=1 native_reply=1 waiting=1 saved_fields=38\n";
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+        // Preserve the live handler return and native reply. The original
+        // dispatcher suffix executes with no host scheduler/context edits.
+        LiveEpilogueWitness live(v1270::expected(Q::Idle));
+        epilogue=&live;epilogue_host=&host;reply_mail=host.cold_ipc_snapshot();
+        reply_request=next.request()&0x3fffffffu;reply_queue=sleep.queue();
+        epilogue_tick=c.inst_count;reply_capture=ExternalReturnWitness{};
+        bool reentered=false;
+        try{run_game(c);}catch(const ReplyEntered&){reentered=true;}
+        need(reentered&&live.stage()==3u&&rfi_count==trial+1u&&irq_capture.stage()==3u&&
+             reply_capture.stage()==1u&&reply_held(c)&&host.serviced_steps()==2u);
+        epilogue=nullptr;epilogue_host=nullptr;
+        std::cout<<"V1271_RFI_TRIAL n="<<trial<<" original_scheduler=1 native_rfi=1 restored=1 reply_irq=1 waiting=1\n";
+        // The second vector uses its own capture, not the previous saved
+        // context as an artificial substitute for native vector stores.
+        irq_capture=reply_capture;ipc_vector=SecondVectorWitness(ipc_vector_expected);
+        vector_mail=host.cold_ipc_snapshot();vector_tick=c.inst_count;
+        reply_vector=true;vector_active=true;bool reply_dispatched=false;
+        try{run_game(c);}catch(const VectorStop&){reply_dispatched=true;}
+        need(reply_dispatched&&ipc_vector.stage()==3u&&reply_vector_count==trial+1u&&
+             vector_held(c)&&c.pc==v1260::dispatcher&&irq_capture.saved_integer(c,Q::Idle).ok()&&
+             c.mmu.read16(Q::Thread+712u)==4u&&c.mmu.read32(sleep.queue())==Q::Thread&&
+             c.mmu.read32(sleep.queue()+4u)==Q::Thread&&host.serviced_steps()==2u);
+        vector_active=false;reply_vector=false;
+        std::cout<<"V1271_REPLY_VECTOR_TRIAL n="<<trial<<" original_vector=1 trampoline=1 saved_fields=38 pending_reply=1 dispatcher_executed=0\n";
+#endif
 #endif
 #endif
 #endif
@@ -611,6 +719,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1266_JOINED_ACK
     need(joined_count==8u);
     std::cout<<"V1266_ACK_NATIVE owner=1 trials=8 original_dispatch=8 original_handler_return=8 native_reply=8 waiting=8 saved_fields=38 modeled_dispatch=0 wakeup=0 fallback=0 complete_image=0 boot_verified=0\n";
+#ifdef UNDERCOVER_V1271_IPC_RETURN
+    need(rfi_count==8u&&reply_vector_count==8u);
+    std::cout<<"V1271_REPLY_VECTOR_NATIVE owner=1 trials=8 first_rfi=8 restored=8 reply_irq=8 original_vector=8 trampoline=8 saved_fields=38 second_dispatch=0 wakeup=0 fallback=0 complete_image=0 boot_verified=0\n";
+#endif
 #endif
 #endif
 #endif
