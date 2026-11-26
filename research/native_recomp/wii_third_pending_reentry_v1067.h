@@ -222,6 +222,25 @@ public:
         return wireless_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
                witness.entry(c,pc,true)&&witness.stage()==1u?true:fail(31);
     }
+    template<class C,class P,class W>bool begin_callback_suffix(C& c,P& prior,W& witness,uint32_t pc,uint32_t w){
+        if(stage_!=18u||error_||cpu_!=&c||wireless_!=&prior||suffix_||prior.stage()!=2u||prior.changed()||
+           pc!=wireless_resume_||w!=wireless_word_||!dev_||dev_->stage()!=3u||
+           !ack_.poll(c.inst_count)||!ack_.postack_held()||
+           !next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok()||
+           !witness.start(c,pc,w,true,true)||!witness.before(c,pc,w,true))return fail(32);
+        suffix_=&witness;stage_=witness.stage()==2u?20u:19u;
+        if(stage_==20u){suffix_site_=pc;suffix_word_=w;}return true;
+    }
+    template<class C,class W>bool callback_suffix_before(C& c,W& witness,uint32_t pc,uint32_t w){
+        if(!suffix_frame(c,witness)||!ack_.before(c,pc,w,true)||!ack_.postack_held()||
+           !witness.before(c,pc,w,true))return fail(33);
+        if(witness.stage()==2u){suffix_site_=pc;suffix_word_=w;stage_=20u;}
+        return true;
+    }
+    template<class C,class W>bool callback_suffix_poll(C& c,W& witness){
+        return suffix_frame(c,witness)&&ack_.poll(c.inst_count)&&ack_.postack_held()&&
+               witness.poll(c,true)?true:fail(34);
+    }
     bool ack_active()const{return stage_==7u||stage_==9u;}
     template<class C>bool postack_held(C& c)const{
         return stage_==9u&&ack_frame(c)&&ack_read_reg_==32u&&ack_.postack_held();
@@ -245,6 +264,12 @@ private:
         return stage_==17u&&!error_&&cpu_==&c&&wireless_==&witness&&dev_&&dev_->stage()==3u&&
                next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
     }
+    template<class C,class W>bool suffix_frame(C& c,W& witness)const{
+        return stage_==19u&&!error_&&cpu_==&c&&suffix_==&witness&&dev_&&dev_->stage()==3u&&
+               next_.captured().saved_integer(c,SiDispatchWitness::Thread).ok();
+    }
+    const void* suffix_=nullptr;
+    uint32_t suffix_site_=0,suffix_word_=0;
     const void* wireless_=nullptr;
     uint32_t frontier_site_=0,frontier_word_=0,wireless_resume_=0,wireless_word_=0;
     const void* time_=nullptr;const void* frontier_=nullptr;

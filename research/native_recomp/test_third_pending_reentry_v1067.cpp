@@ -3,6 +3,7 @@
 #include "synthetic_callback_time_expectations_v1014.h"
 #include "wii_callback_frontier_v829.h"
 #include "wii_wireless_wrapper_v844.h"
+#include "wii_callback_suffix_v841.h"
 #include "wii_second_completion_ack_v950.h"
 #include "wii_si_type_scheduler_v514.h"
 #include <iostream>
@@ -38,8 +39,10 @@ int main(){
     unsigned time_valid=0,time_refused=0;
     unsigned post_valid=0,post_refused=0;
     unsigned wireless_valid=0,wireless_refused=0;
-    for(trial=0;trial<168;++trial){
-        const unsigned wireless_fault=trial>=156?trial-155u:0u;
+    unsigned suffix_valid=0,suffix_refused=0;
+    for(trial=0;trial<188;++trial){
+        const unsigned suffix_fault=trial>=176?trial-175u:0u;
+        const unsigned wireless_fault=trial>=168?0u:trial>=156?trial-155u:0u;
         const unsigned post_fault=trial>=148?0u:trial>=136?trial-135u:0u;
         const unsigned time_fault=trial>=128?0u:trial>=116?trial-115u:0u;
         const unsigned fault=trial>=108?0u:trial>=96?trial-47u:trial>=88?0u:trial>=83?trial-39u:trial>=75?0u:trial>=69?trial-31u:trial>=61?0u:trial>=56?trial-23u:trial<8||(trial>=32&&trial<40)||trial>=48?0u:trial<32?trial-7u:trial-15u,ch=trial%4u;
@@ -366,10 +369,11 @@ int main(){
              ctl.issued_tokens()==3u&&sched.completed()==3u&&cause==Other&&dev.stage()==3u);
         if(trial<128){++time_valid;continue;}
         constexpr uint32_t P=Resume+8u,A=0x8000b000u,B=0x8000b100u;
+        const uint32_t getter_site=P+(trial>=168?40u:16u);
         const std::array<CallbackFrontierWord,5> rows{{{P,Nop},{P+4u,0x38600000u|ch},
-            {P+8u,0x90810008u},{P+12u,branch(P+12u,A)|1u},{P+16u,branch(P+16u,B)|1u}}};
+            {P+8u,0x90810008u},{P+12u,branch(P+12u,A)|1u},{getter_site,branch(getter_site,B)|1u}}};
         const CallbackFrontierExpectation post_expectation{Root,Root+688u,P,rows,
-            {{{P+12u,A,3},{P+16u,B,5}}}};
+            {{{P+12u,A,3},{getter_site,B,5}}}};
         CallbackFrontierWitness frontier(post_expectation),foreign_frontier(post_expectation);
         for(const auto& row:rows)c.mmu.words[row.pc]=row.word;
         auto reject_post=[&](bool rejected,unsigned reason){
@@ -415,9 +419,10 @@ int main(){
         c.mmu.words[L]=Nop;
         for(unsigned i=0;i<20;++i)c.mmu.words[SRAM+4u*i]=0;
         c.mmu.words[SRAM+64u]=64u;c.mmu.words[SRAM+76u]=1u;
+        const uint32_t return_word=trial>=168?Nop:rows[4].word;
         const WirelessExpectation wireless_ex{{{{A,setter},{B,getter},{U,unlock},{DI,disable},{RI,restore}}},
-            {{{P+12u,rows[3].word,rows[4].word,3},{P+16u,rows[4].word,Nop,5}}},L,Nop,SRAM};
-        c.mmu.words[P+20u]=Nop;
+            {{{P+12u,rows[3].word,return_word,3},{getter_site,rows[4].word,Nop,5}}},L,Nop,SRAM};
+        c.mmu.words[Return]=return_word;c.mmu.words[getter_site+4u]=Nop;
         WirelessWrapperWitness wrapper(wireless_ex),foreign_wrapper(wireless_ex);
         auto refuse_wireless=[&](bool rejected,unsigned reason){
             need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++wireless_refused;
@@ -450,14 +455,54 @@ int main(){
         need(at_wireless(RI,Blr));need(at_wireless(U+12u,Nop));c.lr=A+4u;
         need(at_wireless(U+16u,Blr));need(at_wireless(A+4u,Nop));c.lr=Return;
         if(wireless_fault==12)c.gpr[31]^=1u;
-        need(at_wireless(A+8u,Blr));ok=at_wireless(Return,rows[4].word);
+        need(at_wireless(A+8u,Blr));ok=at_wireless(Return,return_word);
         if(wireless_fault==12){refuse_wireless(!ok,30);continue;}need(ok);
         need(route.stage()==18u&&wrapper.stage()==2u&&wrapper.visits()==11u&&wrapper.writes()==1u&&
              route.completion_ack().postack_held()&&ctl.issued_tokens()==3u&&cause==Other);
-        ++wireless_valid;
+        if(trial<168){++wireless_valid;continue;}
+        constexpr uint32_t RestoreRoot=0x8000c700u;
+        // NOP, verified stack store, not-taken backward branch (one poll),
+        // and a direct compiler restore call. An indirect alternative is
+        // present in the exact private geometry but never executed.
+        const std::array<CallbackSuffixWord,5> suffix_rows{{{Return,Nop},{Return+4u,0x90810008u},
+            {Return+8u,0x4182fffcu},{Return+12u,branch(Return+12u,RestoreRoot)|1u},
+            {Return+16u,IndirectCall}}};
+        const CallbackSuffixExpectation sx{Root,Root+688u,Return,suffix_rows,
+            {{{Return+16u,0u,4u},{Return+12u,RestoreRoot,13u}}}};
+        for(const auto& row:suffix_rows)c.mmu.words[row.pc]=row.word;
+        CallbackSuffixWitness suffix(sx),foreign_suffix(sx);
+        auto refuse_suffix=[&](bool rejected,unsigned reason){
+            need(rejected&&route.failure()==reason&&ctl.issued_tokens()==3u&&cause==Other&&dev.stage()==3u);++suffix_refused;
+        };
+        if(suffix_fault==4)tick();
+        if(suffix_fault==5)c.mmu.words[Return+8u]^=1u;
+        if(suffix_fault==6)c.mmu.words[Context+124]^=1u;
+        ok=route.begin_callback_suffix(c,suffix_fault==1?foreign_wrapper:wrapper,suffix,
+                                        Return+(suffix_fault==2?4u:0u),suffix_fault==3?Blr:Nop);
+        if(suffix_fault>=1&&suffix_fault<=6){refuse_suffix(!ok,32);continue;}need(ok);
+        need(route.stage()==19u&&suffix.visits()==1u&&route.completion_ack().postack_held());
+        auto at_suffix=[&](uint32_t pc,uint32_t w){c.pc=pc;tick();return route.callback_suffix_before(c,suffix,pc,w);};
+        if(suffix_fault==7){tick();refuse_suffix(!route.callback_suffix_before(c,foreign_suffix,Return+4u,suffix_rows[1].word),33);continue;}
+        if(suffix_fault==8)mask=0;
+        c.gpr[4]=0x12345678u;
+        ok=at_suffix(Return+4u,suffix_rows[1].word);
+        if(suffix_fault==8){refuse_suffix(!ok,33);continue;}need(ok);
+        if(suffix_fault!=9)c.mmu.words[c.gpr[1]+8u]=c.gpr[4];
+        c.cr[0].eq=false;
+        ok=at_suffix(Return+8u,suffix_rows[2].word);
+        if(suffix_fault==9){refuse_suffix(!ok,33);continue;}need(ok);
+        if(suffix_fault==10){tick();refuse_suffix(!route.callback_suffix_poll(c,suffix),34);continue;}
+        if(suffix_fault!=11)need(route.callback_suffix_poll(c,suffix));
+        if(suffix_fault==12)c.mmu.words[Context+124]^=1u;
+        ok=at_suffix(Return+12u,suffix_rows[3].word);
+        if(suffix_fault>=11){refuse_suffix(!ok,33);continue;}need(ok);
+        need(route.stage()==20u&&suffix.stage()==2u&&suffix.ordinal()==13u&&suffix.target_class()==0u&&
+             suffix.visits()==4u&&suffix.writes()==1u&&suffix.polls()==1u&&route.completion_ack().postack_held()&&
+             ctl.issued_tokens()==3u&&cause==Other);
+        ++suffix_valid;
     }
     need(valid==8&&refused==16&&dispatch_valid==8&&dispatch_refused==8&&ack_valid==8&&ack_refused==13&&
-         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12);
+         resume_valid==8&&resume_refused==6&&frontier_valid==8&&frontier_refused==5&&callback_valid==8&&callback_refused==12&&time_valid==8&&time_refused==12&&post_valid==8&&post_refused==12&&wireless_valid==8&&wireless_refused==12&&suffix_valid==8&&suffix_refused==12);
     std::cout<<"V1067_THIRD_PENDING_REENTRY valid=8 refused=16 real_device=1 real_scheduler=1 original_execution=0\n";
     std::cout<<"V1077_THIRD_DISPATCH_JOIN valid=8 refused=8 actual_device=1 fresh_context=1 original_execution=0\n";
     std::cout<<"V1078_THIRD_ACK_JOIN valid=8 refused=13 actual_w1c=1 retired_transfer=1 original_execution=0\n";
@@ -467,4 +512,5 @@ int main(){
     std::cout<<"V1104_THIRD_ACK_TIME_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1108_THIRD_ACK_FRONTIER_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
     std::cout<<"V1112_THIRD_ACK_WIRELESS_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
+    std::cout<<"V1115_THIRD_ACK_SUFFIX_JOIN valid=8 refused=12 same_tick=1 actual_device=1 original_execution=0\n";
 }

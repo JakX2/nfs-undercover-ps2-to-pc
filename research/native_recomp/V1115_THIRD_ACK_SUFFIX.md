@@ -1,0 +1,3 @@
+# V1115: third acknowledged callback suffix
+
+After the unchanged wireless setter returns, join the independent callback suffix witness at the same ACK tick. Preserve original channel-independent exception frame and cleared PI state. Native backward branch polling is verified; the terminal original indirect or compiler-restore call is classified but not executed. Add 20 device-backed synthetic controls and 32 focused original trials; original geometry is not presumed. V1112 owner execution was still running when this was authored, so the new focused workflow remains gated by its existing V1112 result checks as well as sanitizer controls. No full-image rerun.
