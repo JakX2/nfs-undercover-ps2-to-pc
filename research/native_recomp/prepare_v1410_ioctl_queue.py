@@ -10,6 +10,7 @@ from make_v624_ipc_geometry import exact_words
 from prepare_owner_scheduler_v722 import reachable
 from prepare_v625_ipc_client import audit_native
 from prepare_v680_si_helper import verify_direct
+from prepare_v1414_ipc_ring import ring_object,ring_sites
 CALLS=EDGES[2:4]
 RESUME,DISABLE=CALLS[0]
 QUEUE_CALL,QUEUE=CALLS[1]
@@ -30,14 +31,15 @@ def derive(d,e):
     edges=[(dst,site+4,words[site][1],exact_words(d,e,dst,1)[0]) for site,dst in CALLS]
     return words,edges
 
-def render(p):
+def render(p,ring,sites):
     words,edges=p
     fmt=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
     return ('#pragma once\n#include "wii_ioctl_submit_queue_v1409.h"\nnamespace v1410 {\n'
       'inline constexpr std::array<undercover::wii::ReplyNativeWord,'+str(len(words))+'> words{'+
       ','.join('undercover::wii::ReplyNativeWord{'+fmt((a,pc,w))+'}' for pc,(a,w) in sorted(words.items()))+'};\n'
+      'inline constexpr std::array<uint32_t,3> ring_sites{'+fmt(sites)+'};\n'
       'inline constexpr undercover::wii::IoctlSubmitQueueExpectation expected{'+fmt((SUBMIT,))+','+
-      ','.join('undercover::wii::VectorEdge{'+fmt(row)+'}' for row in edges)+',words};\n}\n')
+      ','.join('undercover::wii::VectorEdge{'+fmt(row)+'}' for row in edges)+',words,undercover::wii::AllocatorRange{'+fmt(ring[:2])+'},'+fmt((ring[2],))+',ring_sites};\n}\n')
 
 def audit(root,p):
     words,edges=p
@@ -59,9 +61,13 @@ def main():
     a.add_argument('--audit',action='store_true');q=a.parse_args()
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        p=derive(q.dol.read_bytes(),q.elf.read_bytes())
+        d,e=q.dol.read_bytes(),q.elf.read_bytes()
+        p=derive(d,e)
+        ring=ring_object(d,e)
+        sites=ring_sites(p[0],SUBMIT,SUBMIT+4*48,QUEUE_CALL)
         if q.audit:audit(q.out,p);return 0
-        with (q.out/'v1410_private_ioctl_queue.h').open('x') as f:f.write(render(p))
+        with (q.out/'v1410_private_ioctl_queue.h').open('x') as f:f.write(render(p,ring,sites))
+        print(f'V1414_RING_GEOMETRY verified=1 object=1 slots={ring[2]} sites={len(sites)}')
         words,_=p
         stores=sum(w>>26 in (36,37,38,39,44,45,47,52,53,54,55,60,61) or
                    w>>26==31 and (w>>1)&1023 in (150,151,183,215,247,407,439,661,725,662,918,663,695,727,759,983,1014)
@@ -73,7 +79,7 @@ def main():
         print(f'V1412_STORE_STATIC direct={len(direct)} sda={sum((w>>16)&31 in (2,13) for w in direct)} stack={sum((w>>16)&31==1 for w in direct)} other={sum((w>>16)&31 not in (1,2,13) for w in direct)}')
         return 0
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        allowed={'size','queue corridor','queue corridor edges','nested disable shape','queue call owner','queue prior hook','queue resume trace',
+        allowed={'size','ring image','ring ELF sections','ring symbol table','ring strings','ring object type','ring object shape','ring object range','ring object identity','ring text overlap','ring DOL range','ring store sites','queue corridor','queue corridor edges','nested disable shape','queue call owner','queue prior hook','queue resume trace',
           'native IPC duplicate root','native IPC label identity','native IPC label body','native IPC coverage','native IPC dispatch',
           'helper direct native call','helper native return edge','reachable fallthrough','reachable external conditional'}
         print('V1410_QUEUE_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in allowed else 'private_input_or_io'));return 1

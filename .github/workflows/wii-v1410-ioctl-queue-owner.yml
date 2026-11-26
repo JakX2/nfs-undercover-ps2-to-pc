@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/V1410_QUEUE_OWNER.md'
       - 'research/native_recomp/prepare_v1410_ioctl_queue.py'
+      - 'research/native_recomp/prepare_v1414_ipc_ring.py'
+      - 'research/native_recomp/wii_ioctl_submit_queue_v1409.h'
       - '.github/workflows/wii-v1410-ioctl-queue-owner.yml'
 permissions:
   contents: read
@@ -22,8 +24,8 @@ jobs:
       - run: |
           set -euo pipefail
           bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
-          python3 -m py_compile research/native_recomp/prepare_v1404_ioctl_submit.py research/native_recomp/prepare_v1410_ioctl_queue.py
-          for test in test_ioctl_submit_queue_v1409 test_ioctl_submit_prefix_v1403 test_ioctl_flush_tail_v1401 test_ioctl_first_flush_v1398 test_ioctl_construction_v1392 test_stm_deferred_event_gate test_open_cache_range_v649; do
+          python3 -m py_compile research/native_recomp/prepare_v1404_ioctl_submit.py research/native_recomp/prepare_v1410_ioctl_queue.py research/native_recomp/prepare_v1414_ipc_ring.py
+          for test in test_ipc_ring_enqueue_v1413 test_ioctl_submit_queue_v1409 test_ioctl_submit_prefix_v1403 test_ioctl_flush_tail_v1401 test_ioctl_first_flush_v1398 test_ioctl_construction_v1392 test_stm_deferred_event_gate test_open_cache_range_v649; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
           done

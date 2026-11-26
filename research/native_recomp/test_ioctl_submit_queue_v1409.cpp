@@ -53,5 +53,37 @@ static void trial(unsigned fault,bool alias){
     assert(w.reached(c,true)&&w.polls()==1&&w.stores()==unsigned(!alias));
     if(fault==15){c.mmu.write32(R+60,1u);assert(!w.reached(c,true));}
 }
+static void ring_trial(unsigned fault){
+    Cpu c;c.gpr[1]=SP;c.gpr[4]=c.msr;
+    constexpr uint32_t A=0x80006000u,Slot=A+16u+4u*2u;
+    constexpr uint32_t StReq=0x90650000u,StPtr=0x90e6000cu,StCount=0x91060004u;
+    const std::array<uint32_t,3> sites{S+4,S+8,fault==1?S+8:S+12};
+    const std::array<ReplyNativeWord,8> words{{{S,S,bl(S,D)},{S,S+4,StReq},{S,S+8,StPtr},{S,S+12,StCount},
+        {S,S+16,bl(S+16,Q)},{D,D,Mt},{D,D+4,N},{D,D+8,Blr}}};
+    for(auto x:words)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(Q,N);c.mmu.write32(A,2);c.mmu.write32(A+4,2);
+    c.mmu.write32(A+8,2);c.mmu.write32(A+12,2);
+    IoctlSubmitQueueWitness w({S,{D,S+4,bl(S,D),Mt},{Q,S+20,bl(S+16,Q),N},words,{A,80},16,sites});
+    bool ok=w.begin(c,true,R,64,SP+64);if(fault==1){assert(!ok);return;}assert(ok);
+    ++c.inst_count;assert(w.before(c,S,bl(S,D),true));
+    c.pc=D;c.lr=S+4;assert(w.entry(c,D,true));
+    ++c.inst_count;assert(w.before(c,D,Mt,true));c.pc=D+4;assert(w.poll(c,true));
+    ++c.inst_count;assert(w.before(c,D+4,N,true));c.gpr[3]=0;
+    ++c.inst_count;assert(w.before(c,D+8,Blr,true));
+    c.gpr[3]=fault==2?R+32:R;c.gpr[5]=fault==3?Slot+4:Slot;c.gpr[6]=A;c.gpr[7]=3;c.gpr[8]=3;
+    if(fault==4)c.mmu.write32(A+8,3);
+    ++c.inst_count;ok=w.before(c,S+4,StReq,true);if(fault>=2&&fault<=4){assert(!ok);return;}assert(ok);
+    c.mmu.write32(Slot,fault==5?0:R);
+    ++c.inst_count;ok=w.before(c,S+8,StPtr,true);if(fault==5){assert(!ok);return;}assert(ok);
+    c.mmu.write32(A+12,3);
+    if(fault==6)c.gpr[8]=4;
+    ++c.inst_count;ok=w.before(c,S+12,StCount,true);if(fault==6){assert(!ok);return;}assert(ok);
+    c.mmu.write32(A+4,3);
+    if(fault==7)c.mmu.write32(R,1);
+    ++c.inst_count;ok=w.before(c,S+16,bl(S+16,Q),true);if(fault==7){assert(!ok);return;}assert(ok);
+    c.pc=Q;c.lr=S+20;assert(w.entry(c,Q,true)&&w.reached(c,true)&&w.ring_stores()==3&&w.stores()==3);
+    if(fault==8){c.mmu.write32(A,3);assert(!w.reached(c,true));}
+}
 int main(){for(bool alias:{false,true})for(unsigned f=0;f<=15;++f)trial(f,alias);
-    std::cout<<"V1409_SUBMIT_QUEUE_TEST cases=32 original_execution=0\n";}
+    for(unsigned f=0;f<=8;++f)ring_trial(f);
+    std::cout<<"V1409_SUBMIT_QUEUE_TEST cases=41 original_execution=0\n";}
