@@ -1375,7 +1375,7 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
         OpenReturnWitness open_tail(v1358::expected);open_return=&open_tail;
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
-        StmSecondWitness second(v1359::expected);second_open=&second;
+        StmSecondWitness stm_second(v1359::expected);second_open=&stm_second;
 #endif
 #endif
         need(stm.begin(c,w,device_ok(c)));
@@ -1637,7 +1637,7 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_V1358_OPEN_RETURN
 #ifdef UNDERCOVER_V1359_SECOND_OPEN
         try{run_game(c);}catch(const SecondOpenReached&){allocator_returned=true;}
-        need(allocator_returned&&second.reached(c,open_return_held(c),open_descriptor(c))&&second_open_count==trial+1u&&open_return_count==trial+1u);
+        need(allocator_returned&&stm_second.reached(c,open_return_held(c),open_descriptor(c))&&second_open_count==trial+1u&&open_return_count==trial+1u);
         std::cout<<"V1359_SECOND_TRIAL n="<<trial<<" second_entry=1 opposite_path=1 descriptor_store=1 first_fd_held=1\n";
         second_open_active=false;second_open=nullptr;
 #else
