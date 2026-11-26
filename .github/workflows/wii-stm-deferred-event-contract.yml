@@ -1,0 +1,21 @@
+name: Wii STM deferred event contract
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - research/native_recomp/wii_stm_deferred_event_gate.h
+      - research/native_recomp/test_stm_deferred_event_gate.cpp
+      - .github/workflows/wii-stm-deferred-event-contract.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and verify with sanitizers
+        run: |
+          cd research/native_recomp
+          g++ -std=c++20 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer -g test_stm_deferred_event_gate.cpp -o /tmp/stm-deferred-event
+          /tmp/stm-deferred-event

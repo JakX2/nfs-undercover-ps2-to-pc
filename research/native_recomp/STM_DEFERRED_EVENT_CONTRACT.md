@@ -1,0 +1,5 @@
+# Third STM transaction: deferred EventHook contract
+
+The two synchronous Open requests consume four native IOS service steps. The subsequent asynchronous EventHook ioctl is different: its intake acknowledges X1, sets Y2, and leaves the event request outstanding without a synchronous reply or sleeping the current thread. The gate checks both descriptor orders, authenticates the exact request and bounded buffer snapshots, requires one explicit service step, checks ordered Y2 and Hollywood W1C clears, and proves no reply/output mutation at the completed boundary. This is a source-only device contract. Original guest callsites, allocation, interrupt entry, running-context save/restore and the full STM return still require independent owner verification. No guest code or assets are included.
+
+The standalone test uses two real broker Open transactions and the same request buffer for the third transaction. It covers authorization, malformed request, MMIO order/value, IRQ masking, descriptor identity, wire and output mutation, and no unsolicited completion. Input and output buffer sizes are bounded to 4096 bytes for this startup proof, not a general IOS ABI limit.
