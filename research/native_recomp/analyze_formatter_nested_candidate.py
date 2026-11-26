@@ -29,14 +29,16 @@ def admit(record,addr,data,protected):
         raise ValueError('candidate protected overlap')
     return addr,data
 
-def plan(d,e):
+def candidate(d,e):
     record,addr,data=audit(d,e,details=True)
     _,_,ranges,_=version_plan(d,e)
     _,_,obj,*_=leaf_abi(d,e)
     protected=[ring_object(d,e)[:2],credit_object(d,e),*layout(d,e),*event_plan(d,e)[3],final_plan(d,e)[1],
                *(x[3] for x in decision(d,e)[2]),*((a,len(blob)) for a,blob in ranges),obj]
-    cell=admit(record,addr,data,protected)
-    return nested(d,e,candidate=cell)
+    return admit(record,addr,data,protected)
+
+def plan(d,e):
+    return nested(d,e,candidate=candidate(d,e))
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
