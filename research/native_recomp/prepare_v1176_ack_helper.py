@@ -61,6 +61,7 @@ def render(spans,edges,rows,msr,expected):
     if s.count(old)!=1 or not s.endswith('}\n'):raise ValueError('ACK helper render')
     s=s.replace(old,f'inline constexpr std::array<AckMsrSite,{len(msr)}> msr{{{{'+','.join('{'+fmt(m)+'}' for m in msr)+'}};\n',1)
     return (s[:-2]+'inline constexpr HeldAckHelperExpectation expected{'+fmt(expected)+',130u,6u,6u,2u};\n'
+        +'inline constexpr auto callback_words=v958::success_callback_words;\n'
         +'inline constexpr auto callback_sites=v958::success_callback_sites;\n'
         +'inline constexpr HeldAckCallbackExpectation callback_expected{callback_sites[0],0x4e800421u,71u,6u};\n}\n')
 

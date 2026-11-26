@@ -629,8 +629,8 @@ int main(int argc,char** argv){
                                                                 need(hf.starts_with("-callback"));
                                                                 const auto cf=hf.substr(std::string_view("-callback").size());
                                                                 need(v958::held_epilogue.stage()==12u);
-                                                                for(unsigned i=0;i<v958::success_callback_words.size();++i)
-                                                                    c.mmu.words[v958::transfer_callback+4u*i]=v958::success_callback_words[i];
+                                                                for(unsigned i=0;i<q4::callback_words.size();++i)
+                                                                    c.mmu.words[v958::transfer_callback+4u*i]=q4::callback_words[i];
                                                                 c.ctr=v958::transfer_callback+(cf=="-target"?4u:cf=="-unaligned"?1u:0u);
                                                                 c.gpr[3]=cf=="-channel"?4u:2u;
                                                                 if(cf=="-frame")c.mmu.words[v958::context+124]^=1u;
@@ -638,7 +638,44 @@ int main(int argc,char** argv){
                                                                 if(cf=="-siteword")c.mmu.words[q4::callback_sites[0]]^=1u;
                                                                 if(cf=="-tick")scheduler.advance(++tick);
                                                                 if(cf=="-bus")SiBinding::write32(Base+C,*val);
+#ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
+                                                                const bool prefix_mode=v958::ack_prefix_enabled();
+                                                                const auto pf=cf.starts_with("-prefix")?cf.substr(std::string_view("-prefix").size()):std::string_view{};
+                                                                constexpr uint32_t Root2=v958::transfer_callback,Leaf2=v958::third_postalarm_save_root;
+                                                                const uint32_t stack=c.gpr[1];
+                                                                if(prefix_mode){
+                                                                    need(cf.starts_with("-prefix"));
+                                                                    for(uint32_t a=stack-0x400u;a<stack+0x100u;a+=4u)c.mmu.words[a]=a^0xbadc0deu;
+                                                                    for(unsigned i=0;i<v958::third_postalarm_save.size();++i)c.mmu.words[Leaf2+4u*i]=v958::third_postalarm_save[i];
+                                                                    if(pf=="-identity")c.mmu.words[Leaf2]^=1u;
+                                                                }
+#endif
                                                                 visit(q4::callback_sites[0],0x4e800421u,cf!="-guard");
+#ifdef UNDERCOVER_V1184_PRIVATE_ACK_PREFIX
+                                                                if(prefix_mode){
+                                                                    need(v958::held_epilogue.stage()==14u);
+                                                                    c.pc=Root2;c.lr=q4::callback_sites[0]+4u;
+                                                                    if(pf=="-frame")c.mmu.words[v958::context+124]^=1u;
+                                                                    if(pf=="-bus")SiBinding::write32(Base+C,*val);
+                                                                    if(pf=="-tick")scheduler.advance(++tick);
+                                                                    if(pf!="-poll")need(!v958::poll(c));
+                                                                    if(pf=="-double-poll")v958::poll(c);
+                                                                    scheduler.advance(++tick);v958::observe(Root2,c);
+                                                                    visit(Root2,v958::third_postalarm_prefix[0],pf=="-guard");
+                                                                    c.gpr[1]=stack-64u;c.mmu.words[stack-64u]=stack;
+                                                                    if(pf=="-stack")c.mmu.words[stack-64u]^=1u;
+                                                                    visit(Root2+4u,v958::third_postalarm_prefix[1]);c.gpr[0]=c.lr;
+                                                                    visit(Root2+8u,v958::third_postalarm_prefix[2]);c.mmu.words[stack+4u]=c.gpr[0];
+                                                                    visit(Root2+12u,v958::third_postalarm_prefix[3]);c.gpr[11]=stack;
+                                                                    visit(Root2+16u,v958::third_postalarm_prefix[4]);c.pc=Leaf2;c.lr=Root2+20u;
+                                                                    v958::observe(pf=="-entry"?Leaf2+4u:Leaf2,c);
+                                                                    visit(Leaf2,v958::third_postalarm_save[0]);c.mmu.words[stack-8u]=c.gpr[30];
+                                                                    visit(Leaf2+4u,v958::third_postalarm_save[1]);c.mmu.words[stack-4u]=c.gpr[31];
+                                                                    visit(Leaf2+8u,Blr);
+                                                                    if(pf=="-slot")c.mmu.words[stack-8u]^=1u;
+                                                                    visit(Root2+20u,v958::third_postalarm_prefix[5]);
+                                                                }
+#endif
                                                             }
                                                             need(false);
                                                         }
