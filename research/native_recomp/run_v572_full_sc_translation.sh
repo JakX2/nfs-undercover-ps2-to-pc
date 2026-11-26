@@ -189,6 +189,10 @@ third_postalarm_handler_return="${UNDERCOVER_RUN_V1148_POSTALARM_HANDLER_RETURN-
 [[ "$third_postalarm_handler_return" == 0 || "$third_postalarm_handler_return" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1146_POSTALARM_HANDLER_RETURN-0}" == "$third_postalarm_handler_return" ]] || exit 2
 [[ "$third_postalarm_handler_return" == 0 || "$third_postalarm_handler" == 1 ]] || exit 2
+held_epilogue="${UNDERCOVER_RUN_V1156_HELD_EPILOGUE-0}"
+[[ "$held_epilogue" == 0 || "$held_epilogue" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1152_HELD_EPILOGUE-0}" == "$held_epilogue" ]] || exit 2
+[[ "$held_epilogue" == 0 || "$third_postalarm_handler_return" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
     [[ "$requested_mode" == --run-si-handler-suffix && "$matrix" == 0 &&
        "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -221,6 +225,9 @@ if [[ "$third_postalarm" == 1 ]]; then
               echo 'V1143_POSTALARM_HANDLER_BUILD_PLAN links=1 private_installer=1 return_predecessor=1'
               if [[ "$third_postalarm_handler_return" == 1 ]]; then
                 echo 'V1148_POSTALARM_HANDLER_RETURN_BUILD_PLAN links=1 private_installer=1 handler_predecessor=1'
+                if [[ "$held_epilogue" == 1 ]]; then
+                  echo 'V1156_HELD_EPILOGUE_BUILD_PLAN links=1 private_installer=1 handler_return_predecessor=1'
+                fi
               fi
             fi
           fi
@@ -386,6 +393,9 @@ if [[ "$mode" != translation-only && "$mode" != --prepare-mi && "$mode" != --pre
                                                 python3 "$here/prepare_v1141_postalarm_handler.py" "$dol" "$elf" "$work/generated"
                                                 if [[ "$third_postalarm_handler_return" == 1 ]]; then
                                                     python3 "$here/prepare_v1146_postalarm_handler_return.py" "$dol" "$elf" "$work/generated"
+                                                    if [[ "$held_epilogue" == 1 ]]; then
+                                                        python3 "$here/prepare_v1152_held_epilogue.py" "$dol" "$elf" "$work/generated"
+                                                    fi
                                                 fi
                                             fi
                                         fi

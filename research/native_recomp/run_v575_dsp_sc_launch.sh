@@ -201,6 +201,10 @@ third_postalarm_handler_return="${UNDERCOVER_RUN_V1148_POSTALARM_HANDLER_RETURN-
 [[ "$third_postalarm_handler_return" == 0 || "$third_postalarm_handler_return" == 1 ]] || exit 2
 [[ "${UNDERCOVER_PREPARE_V1146_POSTALARM_HANDLER_RETURN-0}" == "$third_postalarm_handler_return" ]] || exit 2
 [[ "$third_postalarm_handler_return" == 0 || "$third_postalarm_handler" == 1 ]] || exit 2
+held_epilogue="${UNDERCOVER_RUN_V1156_HELD_EPILOGUE-0}"
+[[ "$held_epilogue" == 0 || "$held_epilogue" == 1 ]] || exit 2
+[[ "${UNDERCOVER_PREPARE_V1152_HELD_EPILOGUE-0}" == "$held_epilogue" ]] || exit 2
+[[ "$held_epilogue" == 0 || "$third_postalarm_handler_return" == 1 ]] || exit 2
 if [[ "$third" == 1 ]]; then
   [[ "$requested_mode" == irq-si-handler-suffix && "$audit" == audit_v1041_transfer_abi.py &&
      "${UNDERCOVER_PREPARE_V1029_THIRD_TRANSFER:-0}" == 1 &&
@@ -224,6 +228,9 @@ if [[ "$third" == 1 ]]; then
                   extra+=(UNDERCOVER_V1139_POSTALARM_HANDLER=1);audit=audit_v1143_postalarm_handler.py
                   if [[ "$third_postalarm_handler_return" == 1 ]]; then
                     extra+=(UNDERCOVER_V1145_POSTALARM_HANDLER_RETURN=1);audit=audit_v1148_postalarm_handler_return.py
+                    if [[ "$held_epilogue" == 1 ]]; then
+                      extra+=(UNDERCOVER_V1151_HELD_EPILOGUE=1);audit=audit_v1156_held_epilogue.py
+                    fi
                   fi
                 fi
               fi
