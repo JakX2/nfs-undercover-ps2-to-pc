@@ -244,4 +244,35 @@ class PostAlarmReturnLaunch(PostAlarmSuffixLaunch):
             self.assertNotIn('UNDERCOVER_V1132_POSTALARM_RETURN=1',p.stdout)
             self.assertIn('V1127_POSTALARM_SUFFIX_BUILD_PLAN' if build else 'audit=audit_v1127_postalarm_suffix.py',p.stdout)
 
+
+class PostAlarmHandlerLaunch(unittest.TestCase):
+    def setUp(self):
+        base=PostAlarmReturnLaunch();base.setUp()
+        self.launch=base.launch;self.prior=base.env.copy();self.env=self.prior.copy()
+        self.env.update(UNDERCOVER_RUN_V1143_POSTALARM_HANDLER='1',UNDERCOVER_PREPARE_V1141_POSTALARM_HANDLER='1')
+    def test_enabled(self):
+        for build in (False,True):
+            p=self.launch.plan(self.env,build)
+            self.assertEqual(p.returncode,0,p.stderr+p.stdout)
+            self.assertIn('V1143_POSTALARM_HANDLER_BUILD_PLAN links=1 private_installer=1 return_predecessor=1' if build else 'audit=audit_v1143_postalarm_handler.py',p.stdout)
+            if not build:self.assertIn('UNDERCOVER_V1139_POSTALARM_HANDLER=1',p.stdout)
+    def test_refusals(self):
+        for key in self.env:
+            if key.startswith(('UNDERCOVER_RUN_V11','UNDERCOVER_PREPARE_V11','UNDERCOVER_RUN_V1055','UNDERCOVER_PREPARE_V1048','UNDERCOVER_PREPARE_V1097')):
+                for build in (False,True):
+                    env=self.env.copy();env.pop(key)
+                    with self.subTest(key=key,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+        for key in ('UNDERCOVER_RUN_V1143_POSTALARM_HANDLER','UNDERCOVER_PREPARE_V1141_POSTALARM_HANDLER'):
+            for val in ('','2','true'):
+                for build in (False,True):
+                    env=self.env.copy();env[key]=val
+                    with self.subTest(key=key,val=val,build=build):self.assertEqual(self.launch.plan(env,build).returncode,2)
+    def test_return_only_unchanged(self):
+        for build in (False,True):
+            p=self.launch.plan(self.prior,build)
+            self.assertEqual(p.returncode,0,p.stderr)
+            self.assertNotIn('V1143_POSTALARM_HANDLER_BUILD_PLAN',p.stdout)
+            self.assertNotIn('UNDERCOVER_V1139_POSTALARM_HANDLER=1',p.stdout)
+            self.assertIn('V1135_POSTALARM_RETURN_BUILD_PLAN' if build else 'audit=audit_v1135_postalarm_return.py',p.stdout)
+
 if __name__=='__main__':unittest.main()

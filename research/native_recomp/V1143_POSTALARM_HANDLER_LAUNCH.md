@@ -1,0 +1,3 @@
+# V1143: held handler launch and terminal proof
+
+Compose the V1141 private generated-label installer with the V1139 live handler binding. Matched run/prepare flags are disabled by default and require all preceding held callback stages. Exact terminal proof uses the focused original held handler census: ordinal 12, branch taken, 20 visits, zero RAM stores, one SI status read and one status W1C write, token 3 still held. Refuse reordered, duplicated, incomplete or altered proof and nonzero exit. This stops before the compiler restore call; no boot claim. Do not enable in full-image workflow until V1140 is verified. CI pending.
