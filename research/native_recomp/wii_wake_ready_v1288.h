@@ -99,6 +99,9 @@ public:
     template<class C>bool ready_held(C& c,bool held)const{
         return stage_==2u&&common(c,held)&&ready(c)&&word(c,e_.thread+732u,ready_);
     }
+    template<class C>bool ready_context_held(C& c,bool held)const{
+        return stage_==2u&&context_common(c,held)&&ready(c)&&word(c,e_.thread+732u,ready_);
+    }
     template<class C>bool select_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,uint32_t select,bool held)const{
         return ready_held(c,held)&&frame_==&frame&&queue==queue_&&select==e_.select&&
             c.pc==select&&c.lr==e_.select_edge.lr&&c.gpr[3]==0u&&c.gpr[1]==select_sp_&&
@@ -153,9 +156,12 @@ private:
     }
     template<class C>bool common(C& c,bool held)const{
         const auto s=NativeIosBinding::cold_snapshot();
+        return s&&same_scheduler_ipc_snapshot(mail_,*s)&&context_common(c,held);
+    }
+    template<class C>bool context_common(C& c,bool held)const{
         if(error_||!held||cpu_!=&c||!frame_||!c.is_running||c.in_callback||c.dispatch_saved_ctx||
            c.msr!=msr_||(c.msr&0x8000u)||c.inst_count<tick_||c.inst_count-tick_>4096u||
-           !s||!same_scheduler_ipc_snapshot(mail_,*s)||!frame_->saved_integer(c,e_.context).ok()||
+           !frame_->saved_integer(c,e_.context).ok()||
            !word(c,0x800000d4u,e_.context)||!word(c,0x800000c0u,e_.context&0x3fffffffu)||
            !word(c,e_.thread+720u,priority_))return false;
         const auto state=c.mmu.read16(e_.thread+712u);

@@ -103,6 +103,11 @@ public:
         return fail(7);
     }
     bool refuse_mmio(){return fail(8);}
+    template<class C>bool returned_at(C& c,const WakeReadyWitness& prior,bool held)const{
+        return stage_==2u&&!error_&&cpu_==&c&&prior_==&prior&&restore_returned_&&
+            c.pc==prior.wake_return()&&c.lr==c.pc&&c.inst_count==last_&&
+            prior.wake_return_abi(c,held)&&mapped(c,e_.counter)&&c.mmu.read32(e_.counter)==counter_;
+    }
 private:
     NestedWakeExpectation e_;const WakeReadyWitness* prior_=nullptr;const void* cpu_=nullptr;
     std::array<uint32_t,32> gp_{};uint32_t cr_=0,msr_=0,counter_=0,select_return_=0,active_=0,next_=0,ret_=0,last_pc_=0;

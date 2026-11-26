@@ -9,6 +9,9 @@
 #include "wii_wake_ready_v1288.h"
 #ifdef UNDERCOVER_TEST_NESTED_WAKE
 #include "wii_nested_wake_return_v1291.h"
+#ifdef UNDERCOVER_TEST_REPLY_COMPLETION
+#include "wii_reply_completion_v1293.h"
+#endif
 #endif
 #endif
 #endif
@@ -51,7 +54,10 @@ struct Cpu{
     uint32_t guest_data_invalidate_count=300,guest_last_data_invalidate=0;
     bool is_running=true,in_callback=false;
 };
-static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0){
+static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned processor_case=0,unsigned wake_case=0,unsigned nested_case=0,unsigned finish_case=0){
+#ifndef UNDERCOVER_TEST_REPLY_COMPLETION
+    (void)finish_case;
+#endif
 #ifndef UNDERCOVER_TEST_NESTED_WAKE
     (void)nested_case;
 #endif
@@ -338,6 +344,28 @@ static void trial(unsigned n,unsigned join_case=0,bool reply_lane=false,unsigned
         if(nested_case==11)c.pc+=4u;
         ok=nested.poll(c,true);if(nested_case==11){nr(ok,7);return;}
         assert(ok&&nested.stage()==2u&&ready.ready_held(c,true)&&host.serviced_steps()==2u);
+#ifdef UNDERCOVER_TEST_REPLY_COMPLETION
+        ReplyCompletionGate finish;
+        if(finish_case==1)++c.inst_count;
+        ok=finish.begin(c,body,ready,nested,frame,Queue,finish_case==2?Request+32u:Request,finish_case!=3);
+        if(finish_case>=1&&finish_case<=3){assert(!ok&&finish.failure()==1u);return;}
+        assert(ok&&finish.stage()==1u&&!finish.finished(c,true));
+        if(finish_case==4){assert(!finish.read(c,Bus::IPC+M::PPCMSG,true)&&finish.failure()==2u);return;}
+        if(finish_case==5){assert(!finish.write(c,Bus::IPC+M::PPCCTRL,M::IY1|M::IY2|M::X1,true)&&finish.failure()==3u);return;}
+        if(finish_case==6){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,0,true)&&finish.failure()==3u);return;}
+        if(finish_case==7)c.msr|=0x8000u;
+        if(finish_case==8)m.write32(Ready+4u,0u);
+        if(finish_case==9)ram.write32(Request+4u,1u);
+        if(finish_case>=7&&finish_case<=9){assert(!finish.boundary(c,true));return;}
+        assert(finish.read(c,Bus::MIRROR+M::PPCCTRL,true)==(M::IY1|M::IY2));
+        assert(finish.read(c,Bus::IPC+H::PPC_FLAG,true)==H::IPC_PPC);
+        assert(finish.write(c,Bus::MIRROR+H::PPC_FLAG,H::IPC_PPC,true));
+        assert(finish.stage()==2u&&finish.writes()==1u&&cause.load()==Other&&
+               finish.finished(c,true)&&ready.ready_context_held(c,true)&&host.serviced_steps()==2u);
+        if(finish_case==10){assert(!finish.write(c,Bus::IPC+H::PPC_FLAG,H::IPC_PPC,true)&&finish.failure()==3u);return;}
+        if(finish_case==11){cause.fetch_or(H::PI_HOLLYWOOD);assert(!finish.finished(c,true));return;}
+        assert(!finish.finished(c,false));
+#endif
 #endif
 #endif
 #endif
@@ -411,6 +439,10 @@ int main(){
 #ifdef UNDERCOVER_TEST_NESTED_WAKE
     for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,i);
     std::cout<<"V1291_NESTED_WAKE synthetic=1 valid=1 refused=11 no_switch=1 wake_return=1 original_execution=0\n";
+#ifdef UNDERCOVER_TEST_REPLY_COMPLETION
+    for(unsigned i=1;i<=11;++i)trial(0,0,true,0,0,0,i);
+    std::cout<<"V1293_REPLY_COMPLETION synthetic=1 valid=1 refused=11 native_latch_w1c=1 ready=1 ios_steps=2 original_execution=0\n";
+#endif
 #endif
 #endif
 #endif

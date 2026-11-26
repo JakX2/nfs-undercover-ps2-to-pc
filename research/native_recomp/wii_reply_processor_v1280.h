@@ -122,6 +122,16 @@ public:
             last_pc_==e_.wake_lr-4u&&known(c,e_.processor,last_pc_,last_word_)&&
             edge(c,wake,c.lr,last_word_)&&gate_.ready_for_wakeup(c,true);
     }
+    // A later observer can authenticate the same response after the guest
+    // wake routine returned. The original cache and mailbox proof is
+    // unchanged; queue readiness belongs to the wake witness.
+    template<class C>bool postwake_ready(C& c,ExternalReturnWitness& frame,uint32_t queue,uint32_t request,bool held)const{
+        const auto s=NativeIosBinding::cold_snapshot();
+        return stage_==2u&&!error_&&held&&cpu_==&c&&frame_==&frame&&queue==queue_&&
+            c.pc==e_.wake_lr&&c.lr==e_.wake_lr&&c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx&&
+            c.msr==msr_&&s&&s->ppc==request&&s->arm==request&&frame.saved_integer(c,e_.context).ok()&&
+            gate_.ready_for_wakeup(c,true);
+    }
 private:
     ReplyProcessorExpectation e_;ColdReplyConsumeGate gate_;
     ExternalReturnWitness* frame_=nullptr;const void* cpu_=nullptr;
