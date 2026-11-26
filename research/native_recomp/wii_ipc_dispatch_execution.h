@@ -65,8 +65,10 @@ public:
             // the host callback must match it and the exact source word.
             if(call_count_<1u||call_count_>3u||access_seen_||st!=(call_count_!=2u))return fail(4);
             uint32_t a=uint32_t(ra?c.gpr[ra]:0u)+(op==31u?c.gpr[rb]:uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000));
-            if(a&3u)return fail(4);
-            access_due_=st?2u:1u;access_addr_=a;access_reg_=rs;access_value_=c.gpr[rs];access_seen_=true;
+            // The pinned runtime MMU forwards physical addresses, not the
+            // original guest alias, to HW_Reg_Read32/Write32.
+            if((a&3u)||(a&0xc0000000u)==0x40000000u)return fail(4);
+            access_due_=st?2u:1u;access_addr_=a&0x3fffffffu;access_reg_=rs;access_value_=c.gpr[rs];access_seen_=true;
         }else if(st){
             const int64_t ea=int64_t(ra?c.gpr[ra]:0u)+(op==31u?int64_t(c.gpr[rb]):int64_t(int32_t((w&0xffffu)^0x8000u)-0x8000));
             if(ea<0||ea>0xffffffffll||!ring_.authorize(c,uint32_t(ea),c.gpr[rs],4u,true)){

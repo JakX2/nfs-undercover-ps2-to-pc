@@ -63,11 +63,11 @@ static void trial(unsigned first,bool input,unsigned fault){
     assert(w.begin(c,held(),{Req,64},{Sp,64}));
     auto step=[&](uint32_t pc,uint32_t ins){++c.inst_count;return w.before(c,pc,ins,held());};
     assert(step(S,N)&&step(S+4,bl(S+4,W)));c.pc=W;c.lr=S+8;assert(w.entry(c,W,held()));
-    c.gpr[3]=Bus::IPC+Mail::PPCMSG;c.gpr[4]=phys(Req);
+    c.gpr[3]=0xc0000000u|Bus::IPC|Mail::PPCMSG;c.gpr[4]=phys(Req);
     assert(step(W,ST));
-    if(fault==1){assert(!w.write_allowed(c,c.gpr[3]+4,c.gpr[4],held()));return;}
-    assert(w.write_allowed(c,c.gpr[3],c.gpr[4],held()));
-    assert(gate.submit_write(c.gpr[3],c.gpr[4],c.msr,true)&&w.write_done(c,c.gpr[3],c.gpr[4],held()));
+    if(fault==1){assert(!w.write_allowed(c,phys(c.gpr[3])+4,c.gpr[4],held()));return;}
+    assert(w.write_allowed(c,phys(c.gpr[3]),c.gpr[4],held()));
+    assert(gate.submit_write(phys(c.gpr[3]),c.gpr[4],c.msr,true)&&w.write_done(c,phys(c.gpr[3]),c.gpr[4],held()));
     assert(host.serviced_steps()==4u&&!host.services().event_pending());
     assert(step(W+4,Ret));c.pc=S+8;assert(w.returned(c,c.pc,held()));
     for(unsigned i=0;i<3;++i){
@@ -75,17 +75,17 @@ static void trial(unsigned first,bool input,unsigned fault){
         assert(step(S+8+4*i,ST));c.mmu.write32(c.gpr[3],c.gpr[4]);
     }
     assert(step(S+20,bl(S+20,R)));c.pc=R;c.lr=S+24;assert(w.entry(c,R,held()));
-    c.gpr[3]=Bus::IPC+Mail::PPCCTRL;assert(step(R,LD));
-    assert(w.read_allowed(c,c.gpr[3],held()));
-    auto ctrl=gate.read_submission_control(c.gpr[3],c.msr,true);
+    c.gpr[3]=0xc0000000u|Bus::IPC|Mail::PPCCTRL;assert(step(R,LD));
+    assert(w.read_allowed(c,phys(c.gpr[3]),held()));
+    auto ctrl=gate.read_submission_control(phys(c.gpr[3]),c.msr,true);
     assert(ctrl&&*ctrl==en&&w.read_done(c,*ctrl,held()));
     c.gpr[3]=*ctrl;assert(step(R+4,Ret));c.pc=S+24;assert(w.returned(c,c.pc,held()));
     assert(step(S+24,bl(S+24,W)));c.pc=W;c.lr=S+28;assert(w.entry(c,W,held()));
-    c.gpr[3]=Bus::IPC+Mail::PPCCTRL;c.gpr[4]=fault==2?Mail::X1:en|Mail::X1;
-    assert(step(W,ST)&&w.write_allowed(c,c.gpr[3],c.gpr[4],held()));
-    const bool submitted=gate.submit_write(c.gpr[3],c.gpr[4],c.msr,true);
+    c.gpr[3]=0xc0000000u|Bus::IPC|Mail::PPCCTRL;c.gpr[4]=fault==2?Mail::X1:en|Mail::X1;
+    assert(step(W,ST)&&w.write_allowed(c,phys(c.gpr[3]),c.gpr[4],held()));
+    const bool submitted=gate.submit_write(phys(c.gpr[3]),c.gpr[4],c.msr,true);
     if(fault==2){assert(!submitted&&host.serviced_steps()==4u);return;}
-    assert(submitted&&w.write_done(c,c.gpr[3],c.gpr[4],held()));
+    assert(submitted&&w.write_done(c,phys(c.gpr[3]),c.gpr[4],held()));
     assert(step(W+4,Ret));c.pc=S+28;
     if(fault==3){c.mmu.write32(Ring,0);assert(!w.returned(c,c.pc,held()));return;}
     assert(w.returned(c,c.pc,held())&&w.reached(c,held()));

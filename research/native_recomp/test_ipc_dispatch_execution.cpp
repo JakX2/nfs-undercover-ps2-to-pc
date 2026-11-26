@@ -35,11 +35,12 @@ static void trial(unsigned fault){
     ok=step(S,N);if(fault==2){assert(!ok);return;}assert(ok);
     assert(step(S+4,bl(S+4,W)));c.pc=W;c.lr=fault==3?S:S+8;
     ok=w.entry(c,W,true);if(fault==3){assert(!ok);return;}assert(ok);
-    c.gpr[3]=0xcd000000u;c.gpr[4]=Req&0x3fffffffu;
-    assert(step(W,ST));
-    ok=w.write_allowed(c,fault==4?0xcd000004u:c.gpr[3],fault==5?Req:c.gpr[4],true);
+    c.gpr[3]=fault==13?0x4d000000u:0xcd000000u;c.gpr[4]=Req&0x3fffffffu;
+    ok=step(W,ST);if(fault==13){assert(!ok);return;}assert(ok);
+    if(fault==14){assert(!w.write_allowed(c,c.gpr[3],c.gpr[4],true));return;}
+    ok=w.write_allowed(c,fault==4?0x0d000004u:c.gpr[3]&0x3fffffffu,fault==5?Req:c.gpr[4],true);
     if(fault==4||fault==5){assert(!ok);return;}assert(ok);
-    assert(w.write_done(c,c.gpr[3],c.gpr[4],true));
+    assert(w.write_done(c,c.gpr[3]&0x3fffffffu,c.gpr[4],true));
     if(fault==6)c.gpr[31]=1;
     ok=step(W+4,Ret);if(fault==6){assert(!ok);return;}assert(ok);
     c.pc=S+8;assert(w.returned(c,c.pc,true));
@@ -54,19 +55,19 @@ static void trial(unsigned fault){
     assert(step(S+20,bl(S+20,R)));c.pc=R;c.lr=S+24;assert(w.entry(c,R,true));
     c.gpr[3]=0xcd000004u;assert(step(R,LD));
     if(fault==9){assert(!w.read_allowed(c,0xcd000000u,true));return;}
-    assert(w.read_allowed(c,c.gpr[3],true));assert(w.read_done(c,0x30u,true));
+    assert(w.read_allowed(c,c.gpr[3]&0x3fffffffu,true));assert(w.read_done(c,0x30u,true));
     c.gpr[3]=fault==10?0u:0x30u;
     ok=step(R+4,Ret);if(fault==10){assert(!ok);return;}assert(ok);
     c.pc=S+24;assert(w.returned(c,c.pc,true));
     assert(step(S+24,bl(S+24,W)));c.pc=W;c.lr=S+28;assert(w.entry(c,W,true));
     c.gpr[3]=0xcd000004u;c.gpr[4]=0x31u;assert(step(W,ST));
-    assert(w.write_allowed(c,c.gpr[3],c.gpr[4],true));
-    assert(w.write_done(c,c.gpr[3],c.gpr[4],true));
+    assert(w.write_allowed(c,c.gpr[3]&0x3fffffffu,c.gpr[4],true));
+    assert(w.write_done(c,c.gpr[3]&0x3fffffffu,c.gpr[4],true));
     assert(step(W+4,Ret));c.pc=S+28;
     if(fault==11)c.mmu.write32(Req,1);
     ok=w.returned(c,c.pc,true);if(fault==11){assert(!ok);return;}assert(ok);
     assert(w.reached(c,true)&&w.stores()==3&&w.writes()==2&&w.reads()==1&&w.calls()==3);
     if(fault==12){c.mmu.write32(F,1);assert(!w.reached(c,true));}
 }
-int main(){for(unsigned f=0;f<=12;++f)trial(f);
-    std::cout<<"IPC_DISPATCH_EXECUTION_TEST cases=13 original_execution=0\n";}
+int main(){for(unsigned f=0;f<=14;++f)trial(f);
+    std::cout<<"IPC_DISPATCH_EXECUTION_TEST cases=15 original_execution=0\n";}
