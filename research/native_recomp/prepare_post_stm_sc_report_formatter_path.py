@@ -135,6 +135,21 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
             if op&1:
                 if not ra or ra==rs:raise ValueError('formatter update load')
                 gp[ra]=a
+        elif op==31 and xo in (23,55,87,119,279,311,343,375):
+            n={23:4,55:4,87:1,119:1,279:2,311:2,343:2,375:2}[xo]
+            update=xo in (55,119,311,375)
+            if w&1 or rs==1 or (update and (not ra or ra==rs or ra==1)):
+                raise ValueError('formatter indexed load form')
+            a,b=gp[ra] if ra else const(0),gp[rb]
+            if b[0]=='const':addr=add(a,signed(b[1]))
+            elif a[0]=='const':addr=add(b,signed(a[1]))
+            else:raise ValueError('formatter indexed load provenance')
+            if addr[0] not in ('stack','const') or addr[1]%n:
+                raise ValueError('formatter indexed load provenance')
+            v=read(addr,n)
+            if xo in (343,375):v=const((val(v)^0x8000)-0x8000)
+            gp[rs]=v;accesses.append((pc,addr[0]+'_read',n,addr[1]))
+            if update:gp[ra]=addr
         elif op==31 and xo==339 and spr(w)==8:gp[rs]=lr
         elif op==31 and xo==467 and spr(w)==9:ctr=val(gp[rs])
         elif op in (14,15):gp[rs]=add(gp[ra] if ra else const(0),imm<<(16 if op==15 else 0))

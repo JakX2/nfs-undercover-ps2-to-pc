@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/prepare_post_stm_sc_report_formatter_path.py'
+      - 'research/native_recomp/test_post_stm_sc_report_formatter_path.py'
       - 'research/native_recomp/wii_post_stm_sc_report_helper.h'
       - 'research/native_recomp/wii_post_stm_sc_report.h'
       - 'research/native_recomp/test_post_stm_sc_report_helper.cpp'
@@ -22,6 +24,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
+          python3 research/native_recomp/test_post_stm_sc_report_formatter_path.py
+          python3 research/native_recomp/test_formatter_nested_path.py
           for test in test_post_stm_sc_formatter test_post_stm_sc_formatter_boundary test_register_continuation_join test_post_stm_sc_report_helper test_post_stm_sc_report test_formatter_nested_join; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
