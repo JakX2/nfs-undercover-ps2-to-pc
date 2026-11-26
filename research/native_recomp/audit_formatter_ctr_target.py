@@ -22,7 +22,7 @@ def geometry(root,dst,sizes):
     if len(owners)==1:return ('function_entry' if owners[0][0]==dst else 'function_interior'),1
     return 'no_symbol',0
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     kind,path,frame,sites,words,width,section,entry,control,cells=three_cell(d,e,details=True)
     if (kind,len(path),len(set(path)),frame,len(sites))!=('ctr_tail',76,76,48,19):
         raise ValueError('ctr predecessor')
@@ -42,7 +42,8 @@ def plan(d,e):
     source=(last>>21)&31
     mtctr=int(last>>26==31 and (last>>1)&1023==467 and (((last>>16)&31)|(((last>>11)&31)<<5))==9)
     agrees=int(mtctr and ctr is not None and gp[source]==('const',ctr))
-    return target,owners,mapped,word_match,mtctr,agrees,int(ctr is not None and ctr in path),int(gp[1][0]=='stack' and gp[1][1]==initial[1][1]-48)
+    result=(target,owners,mapped,word_match,mtctr,agrees,int(ctr is not None and ctr in path),int(gp[1][0]=='stack' and gp[1][1]==initial[1][1]-48))
+    return (result,entry,control,cells) if details else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
