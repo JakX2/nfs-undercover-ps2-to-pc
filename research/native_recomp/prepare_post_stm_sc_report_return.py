@@ -51,15 +51,34 @@ def plan(d,e):
     regs,slots=model(REPORT,ws,details=True)
     result=epilogue(tail,frame,regs,slots)
     caller=EDGES[3][0]+4
-    exact_words(d,e,caller,1)
-    return result,start,caller
+    caller_word=exact_words(d,e,caller,1)[0]
+    saved=[];sp=-frame
+    for w in tail:
+        op=w>>26;rs=(w>>21)&31;ra=(w>>16)&31;imm=((w&0xffff)^0x8000)-0x8000
+        if op==32 and ra==1:
+            at=sp+imm;v=slots[at]
+            saved.append((at,32 if v==('lr',0) else rs))
+        elif op==14 and rs==ra==1:sp+=imm
+    return result,(REPORT,start,caller,caller_word,frame),tuple(tail),tuple(saved)
+
+def render(p):
+    _,fields,words,saved=p
+    f=lambda seq:','.join(f'0x{x:08x}u' for x in seq)
+    wr=','.join('undercover::wii::IpcDispatchWord{'+f((fields[0],fields[1]+4*i,w))+'}' for i,w in enumerate(words))
+    sr=','.join('undercover::wii::StmFinalSlot{'+str(at)+','+str(reg)+'u}' for at,reg in saved)
+    return ('#pragma once\n#include "wii_post_stm_sc_report_return.h"\nnamespace post_stm_sc_report_return_private {\n'
+        f'inline constexpr std::array<undercover::wii::IpcDispatchWord,{len(words)}> words'+'{'+wr+'};\n'
+        f'inline constexpr std::array<undercover::wii::StmFinalSlot,{len(saved)}> slots'+'{'+sr+'};\n'
+        'inline constexpr undercover::wii::ScReportReturnExpectation expected{'+f(fields)+',words,slots};\n}\n')
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);a.add_argument('--out',type=Path);q=a.parse_args()
     safe={'size','SC report extent','SC report tail extent','SC report tail ABI','SC report tail load','SC report tail opcode','SC report tail nonvolatile'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
-        (labels,loads,restores),_,_=plan(q.dol.read_bytes(),q.elf.read_bytes())
+        p=plan(q.dol.read_bytes(),q.elf.read_bytes());labels,loads,restores=p[0]
+        if q.out:
+            with (q.out/'private_post_stm_sc_report_return.h').open('x') as out:out.write(render(p))
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
         print('POST_STM_SC_REPORT_RETURN_GEOMETRY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'))
         return 1

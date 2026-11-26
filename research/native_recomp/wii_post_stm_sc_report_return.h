@@ -4,6 +4,7 @@ namespace undercover::wii {
 struct ScReportReturnExpectation {
     uint32_t root,start,caller,caller_word,frame_size;
     std::span<const IpcDispatchWord> words;
+    std::span<const StmFinalSlot> slots; // caller-relative saved LR and nonvolatile registers
 };
 // Original report epilogue only. The caller must independently verify
 // the diagnostic helper's real return before admitting this observer.
@@ -13,15 +14,24 @@ public:
     unsigned stage()const{return stage_;} unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;} unsigned loads()const{return loads_;}
     uint32_t expected_sp()const{return gp_[1];}
-    template<class C>bool begin(C& c,bool helper_returned){
+    template<class C>bool begin(C& c,const std::array<uint32_t,32>& incoming,bool helper_returned){
         if(stage_||error_||!helper_returned||!safe(c)||!(c.msr&0x8000u)||c.pc!=e_.start||c.lr!=e_.start||
            e_.words.size()<3u||e_.words.size()>12u||e_.frame_size<32u||e_.frame_size>512u||
-           (e_.frame_size&7u)||(c.gpr[1]&7u)||!known(c,e_.start)||
+           (e_.frame_size&7u)||(c.gpr[1]&7u)||e_.slots.empty()||e_.slots.size()>19u||!known(c,e_.start)||
            !word(c,e_.caller,e_.caller_word))return fail(1);
         frame_={c.gpr[1],e_.frame_size+8u};
         if(!mapped(c,frame_))return fail(1);
         caller_sp_=c.gpr[1]+e_.frame_size;
-        if(c.mmu.read32(frame_.base)!=caller_sp_||c.mmu.read32(caller_sp_+4u)!=e_.caller)return fail(1);
+        if(incoming[1]!=caller_sp_||c.mmu.read32(frame_.base)!=caller_sp_||c.mmu.read32(caller_sp_+4u)!=e_.caller)return fail(1);
+        for(auto s:e_.slots){
+            const int64_t at=int64_t(caller_sp_)+s.caller_offset;
+            if(s.reg<14u||s.reg>32u||at<0||at>0xffffffffll||(at&3)||!frame_.contains(uint32_t(at),4u)||
+               (s.reg==32u)!=(s.caller_offset==4)||
+               std::count_if(e_.slots.begin(),e_.slots.end(),[&](auto x){return x.reg==s.reg||x.caller_offset==s.caller_offset;})!=1||
+               c.mmu.read32(uint32_t(at))!=(s.reg==32u?e_.caller:incoming[s.reg]))return fail(1);
+        }
+        if(std::count_if(e_.slots.begin(),e_.slots.end(),[](auto s){return s.reg==32u;})!=1)return fail(1);
+        incoming_=incoming;
         for(unsigned i=0;i<frame_.size;++i)shadow_.push_back(c.mmu.read8(frame_.base+i));
         cpu_=&c;gp_=c.gpr;gqr_=c.gqr;msr_=c.msr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
         srr0_=c.srr0;srr1_=c.srr1;last_=c.inst_count;next_=e_.start;stage_=1;return true;
@@ -46,14 +56,21 @@ public:
         const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
         if(w==0x4e800020u){
-            if(visits_!=e_.words.size()||loads_!=1u||!restored_lr_||!restored_sp_||
-               gp_[1]!=caller_sp_||lr_!=e_.caller)return fail(5);
+            if(visits_!=e_.words.size()||loads_!=e_.slots.size()||!restored_lr_||!restored_sp_||
+               gp_[1]!=caller_sp_||lr_!=e_.caller||gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return fail(5);
+            for(unsigned r=14;r<32u;++r)if(gp_[r]!=incoming_[r])return fail(5);
             next_=e_.caller;due_=true;return true;
         }
-        if(op==32u&&ra==1u&&volatile_reg(rs)){
-            if(loads_||gp_[1]+imm!=caller_sp_+4u||c.mmu.read32(caller_sp_+4u)!=e_.caller)return fail(5);
-            gp_[rs]=e_.caller;loaded_reg_=rs;++loads_;
-        }else if(op==31u&&xo==467u&&(ra|(rb<<5))==8u&&loads_==1u&&rs==loaded_reg_&&!restored_lr_){
+        if(op==32u&&ra==1u&&rs!=1u){
+            const uint32_t at=gp_[1]+imm;
+            const auto s=std::find_if(e_.slots.begin(),e_.slots.end(),[&](auto x){return int64_t(caller_sp_)+x.caller_offset==at;});
+            if(s==e_.slots.end()||(seen_&(uint64_t(1)<<s->reg))||
+               (s->reg==32u?!volatile_reg(rs):rs!=s->reg))return fail(5);
+            const uint32_t v=s->reg==32u?e_.caller:incoming_[s->reg];
+            if(c.mmu.read32(at)!=v)return fail(5);
+            gp_[rs]=v;seen_|=uint64_t(1)<<s->reg;++loads_;
+            if(s->reg==32u)loaded_reg_=rs;
+        }else if(op==31u&&xo==467u&&(ra|(rb<<5))==8u&&rs==loaded_reg_&&!restored_lr_){
             if(gp_[rs]!=e_.caller)return fail(5);
             lr_=gp_[rs];restored_lr_=true;
         }else if(op==14u&&rs==1u&&ra==1u&&!restored_sp_){
@@ -68,10 +85,10 @@ public:
     }
 private:
     ScReportReturnExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
-    std::array<uint32_t,32> gp_{};std::array<uint32_t,8> gqr_{};
+    std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
     std::vector<uint8_t> shadow_;
     uint32_t caller_sp_=0,msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0,next_=0;
-    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,loads_=0,loaded_reg_=32;
+    uint64_t last_=0,seen_=0;unsigned stage_=0,error_=0,visits_=0,loads_=0,loaded_reg_=32;
     bool initial_poll_=false,entry_seen_=false,due_=false,restored_lr_=false,restored_sp_=false;
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static bool volatile_reg(unsigned r){return r==0u||(r>=3u&&r<=12u);}

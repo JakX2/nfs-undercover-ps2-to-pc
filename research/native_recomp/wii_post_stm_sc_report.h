@@ -14,6 +14,18 @@ public:
     unsigned stage()const{return stage_;} unsigned failure()const{return error_;}
     unsigned visits()const{return visits_;} unsigned stores()const{return stores_;}
     uint32_t expected_sp()const{return gp_[1];}
+    const std::array<uint32_t,32>& incoming_gprs()const{return incoming_;}
+    template<class C>bool child_frame_held(C& c,bool held,uint32_t child_sp,uint32_t child_link)const{
+        if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
+           child_sp>frame_.base||frame_.base-child_sp>256u||(child_sp&7u)||
+           c.inst_count<last_||c.inst_count-last_>512u||!mapped(c,frame_))return false;
+        for(unsigned i=0;i<shadow_.size();++i){
+            if(i>=4u&&i<8u&&written_[i])return false;
+            const uint8_t expected=(i>=4u&&i<8u)?uint8_t(child_link>>(24u-8u*(i-4u))):shadow_[i];
+            if(c.mmu.read8(frame_.base+i)!=expected)return false;
+        }
+        return true;
+    }
     uint32_t linkage_word()const{
         uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|shadow_[e_.frame_size+4+i];return v;
     }
