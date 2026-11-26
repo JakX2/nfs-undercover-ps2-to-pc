@@ -23,6 +23,7 @@ jobs:
           bash -n research/native_recomp/run_v575_dsp_sc_launch.sh
           python3 -m unittest discover -s research/native_recomp -p test_v1244_ipc_owner_gate.py -v
           python3 -m unittest discover -s research/native_recomp -p test_v1152_held_epilogue.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v1263_callback_diagnostic.py -v
           for n in 1051_third_launch 1055_third_alarm_launch 1054_third_alarm_audit 1176_ack_helper 1043_live_third_handoff; do
             python3 -m unittest discover -s research/native_recomp -p "test_v$n.py" -v
           done

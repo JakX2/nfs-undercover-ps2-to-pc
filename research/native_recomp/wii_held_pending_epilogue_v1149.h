@@ -23,6 +23,9 @@ public:
     HeldPendingEpilogueWitness(LiveEpilogueExpectation ep,SecondVectorExpectation vec):expected_(ep),ep_(ep),next_(vec){}
     unsigned stage()const{return stage_;}
     unsigned failure()const{return error_;}
+    unsigned callback_refusal()const{return callback_refusal_;}
+    unsigned callback_identity()const{return callback_identity_;}
+    unsigned callback_expected_visits()const{return callback_?callback_->visits:0u;}
     unsigned epilogue_failure()const{return ep_.failure();}
     unsigned reentry_failure()const{return next_.failure();}
     unsigned visits()const{return ep_.visits();}
@@ -124,7 +127,11 @@ public:
     }
     template<class C>bool ack_before(C& c,uint32_t owner,uint32_t pc,uint32_t w,bool guard){
         if((stage_!=8u&&stage_!=10u&&stage_!=12u)||guard||!same(c)||++ack_visits_>2048u)return fail(10);
-        if(stage_==12u&&(!callback_||pc==callback_->site||ack_visits_-helper_boundary_visits_>=callback_->visits))return fail(16);
+        if(stage_==12u){
+            if(!callback_)return fail_callback(1);
+            if(pc==callback_->site)return fail_callback(2);
+            if(ack_visits_-helper_boundary_visits_>=callback_->visits)return fail_callback(3);
+        }
         if(!next_.ack_before(c,owner,pc,w))return fail(10);
         if(stage_==12u)return true;
         if(stage_==10u){
@@ -173,11 +180,16 @@ public:
     template<class C,std::size_t N>bool callback_frontier(C& c,uint32_t owner,uint32_t pc,uint32_t w,uint32_t target,
             const std::array<uint32_t,N>& words,const std::array<uint32_t,2>& sites){
         if(stage_!=12u||!same(c)||!callback_||!helper_||pc!=callback_->site||w!=callback_->word||
-           owner!=SiDispatchWitness::Handler||++ack_visits_>2048u||ack_visits_-helper_boundary_visits_!=callback_->visits||
-           c.gpr[3]>=4u||c.ctr!=target||next_.ack_calls().entries()!=helper_->entries||
-           next_.ack_calls().returns()!=helper_->returns||next_.ack_calls().msr_writes()!=helper_->msr||
-           classify_callback_identity(c,pc,w,callback_->ordinal,2u,target,words,sites)!=2u||
-           !next_.stop_before_callback(c,owner,pc,w)||!next_.callback_boundary(c))return fail(16);
+           owner!=SiDispatchWitness::Handler)return fail_callback(4);
+        if(++ack_visits_>2048u||ack_visits_-helper_boundary_visits_!=callback_->visits)return fail_callback(5);
+        if(c.gpr[3]>=4u)return fail_callback(6);
+        if(c.ctr!=target)return fail_callback(7);
+        if(next_.ack_calls().entries()!=helper_->entries||next_.ack_calls().returns()!=helper_->returns||
+           next_.ack_calls().msr_writes()!=helper_->msr)return fail_callback(8);
+        callback_identity_=classify_callback_identity(c,pc,w,callback_->ordinal,2u,target,words,sites);
+        if(callback_identity_!=2u)return fail_callback(9);
+        if(!next_.stop_before_callback(c,owner,pc,w))return fail_callback(10);
+        if(!next_.callback_boundary(c))return fail_callback(11);
         stage_=13u;return true;
     }
     template<class C>bool callback_saved(C& c){return stage_==13u&&same(c)&&next_.callback_boundary(c);}
@@ -445,6 +457,8 @@ private:
     const void* cpu_=nullptr;ExternalReturnWitness* frame_=nullptr;PostAckTransferDevice* dev_=nullptr;SiController* ctl_=nullptr;
     const std::atomic<uint32_t>* cause_=nullptr,*mask_=nullptr;
     uint64_t last_=0;unsigned stage_=0,error_=0;
+    unsigned callback_refusal_=0,callback_identity_=0;
+    bool fail_callback(unsigned n){if(!callback_refusal_)callback_refusal_=n;return fail(16);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     PollResult reject(unsigned n){fail(n);return PollResult::Rejected;}
     template<class C>bool same(C& c)const{return !error_&&cpu_==&c&&frame_&&dev_&&ctl_&&cause_&&mask_;}

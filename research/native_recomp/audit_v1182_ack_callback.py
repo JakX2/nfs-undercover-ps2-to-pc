@@ -10,6 +10,7 @@ frontier=helper.frontier;time=helper.time;prefix=helper.prefix;alarm=helper.alar
 RESULT=b'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=71 token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0'
 DIAG=rb'V1180_ACK_CALLBACK_FRONTIER target_class=2 aligned=1 visits=[1-9][0-9]{0,3} token=3 saved_fields=38 pi_cleared=1 call_executed=0 boot_verified=0'
 FAULT=helper.FAULT
+REFUSAL=rb'V1263_ACK_CALLBACK_REFUSAL kind=([1-9]|1[01]) visits=[0-9]{1,4} expected=[0-9]{1,4} identity=[0-4]'
 TAGS=helper.TAGS+(b'V1180_',b'V1182_')
 def inspect(raw,rc):
     if len(raw)>alarm.old.MAX_LOG or not 0<=rc<=255:raise ValueError('geometry')
@@ -36,7 +37,7 @@ def main():
              old.shared.DETAIL,old.shared.DIAG,old.shared.RESULT,old.post.RESULT,old.ack.RESULT,
              old.DETAIL,old.HISTORY,abi.ABI,abi.FAULT,third.third.DIAG,third.third.FAULT,
              alarm.DIAG,alarm.FAULT,alarm.ACKFAULT,alarm.HANDOFF,alarm.SEAM,prefix.RESULT,prefix.FAULT,
-             time.RESULT,time.FAULT,frontier.DIAG,frontier.FAULT,wireless.DIAG,wireless.FAULT,suffix.DIAG,suffix.FAULT,ret.DIAG,ret.FAULT,handler.DIAG,handler.FAULT,returned.DIAG,returned.FAULT,epilogue.RFI_DIAG,epilogue.DIAG,dispatch.DIAG,ack.DIAG,helper.DIAG,DIAG,FAULT)):
+             time.RESULT,time.FAULT,frontier.DIAG,frontier.FAULT,wireless.DIAG,wireless.FAULT,suffix.DIAG,suffix.FAULT,ret.DIAG,ret.FAULT,handler.DIAG,handler.FAULT,returned.DIAG,returned.FAULT,epilogue.RFI_DIAG,epilogue.DIAG,dispatch.DIAG,ack.DIAG,helper.DIAG,DIAG,FAULT,REFUSAL)):
             print(l.decode())
     print(row);return 0 if ok else 1
 if __name__=='__main__':raise SystemExit(main())

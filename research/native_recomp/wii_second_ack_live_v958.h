@@ -188,6 +188,11 @@ inline thread_local CallbackPrefixWitness<third_postalarm_prefix.size(),third_po
 #endif
 #endif
 [[noreturn]]inline void reject_held_epilogue(){
+    if(held_epilogue.stage()==12u&&held_epilogue.failure()==16u){
+        std::cout<<std::dec<<"V1263_ACK_CALLBACK_REFUSAL kind="<<held_epilogue.callback_refusal()
+                 <<" visits="<<held_epilogue.callback_visits()<<" expected="<<held_epilogue.callback_expected_visits()
+                 <<" identity="<<held_epilogue.callback_identity()<<std::endl;
+    }
     std::cout<<std::dec<<"V1151_HELD_EPILOGUE_FAULT stage="<<held_epilogue.stage()<<" reason="<<held_epilogue.failure()
              <<" epilogue="<<held_epilogue.epilogue_failure()<<" reentry="<<held_epilogue.reentry_failure()<<std::endl;std::_Exit(126);
 }
