@@ -113,6 +113,36 @@ class Tests(unittest.TestCase):
     def probe(self, at, before=None, after=None, report=None, helper=None, sp=-864):
         return classify(at, sp, 704, 128, 32, before or {}, after or {},
                         report or {}, helper or {})
+    def test_constant_byte_lanes_and_poisoning(self):
+        # Exhaust the public big-endian byte extraction for every lane and
+        # byte value. Matching symbolic reports alone never authorize a read.
+        for lane in range(4):
+            at = -112 + lane
+            for value in range(256):
+                word = value << (24 - 8 * lane)
+                source = {-112: ('const', word)}
+                matching = {at: ('byte', value)}
+                poisoned = {at: ('byte', value ^ 0xff)}
+                self.assertEqual(self.probe(at, matching, matching, source),
+                                 ('report', 'constant', 'agrees'))
+                self.assertEqual(self.probe(at, poisoned, poisoned, source),
+                                 ('report', 'constant', 'conflict'))
+                self.assertEqual(self.probe(at, matching, poisoned, source),
+                                 ('report', 'changed', 'none'))
+
+    def test_untracked_byte_cannot_gain_provenance(self):
+        cell = {-112: ('byte', 0x7f)}
+        self.assertEqual(self.probe(-112, cell, cell),
+                         ('report', 'not_modelled', 'none'))
+
+    def test_helper_and_report_boundary(self):
+        self.assertEqual(self.probe(-152, helper={-152: ('const', 0x11223344)}),
+                         ('helper', 'constant', 'missing'))
+        self.assertEqual(self.probe(-120, report={-120: ('const', 0x11223344)}),
+                         ('report', 'constant', 'missing'))
+        for offset in (-160, -159, -156, -153, -128, -127, -124, -121):
+            self.assertEqual(self.probe(offset)[1:], ('linkage', 'none'))
+
     def test_constant_agreement(self):
         for i in range(4):
             cell = {-112+i: ('byte', (0x12345678 >> (24-8*i)) & 255)}
