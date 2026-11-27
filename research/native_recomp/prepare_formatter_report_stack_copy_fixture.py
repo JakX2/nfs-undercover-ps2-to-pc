@@ -68,12 +68,12 @@ def render(contract):
             (word >> 16) & 31 != ra or (word >> 11) & 31 != rs or
             not -0x01800000 < offset < 0x01800000 or next_word == GUARD):
         raise ValueError('report copy rendering')
-    return ('namespace formatter_report_copy_private {\\n'
-            f'inline constexpr uint32_t root=0x{root:08x}u,pc=0x{pc:08x}u,word=0x{word:08x}u;\\n'
-            f'inline constexpr uint32_t next_pc=0x{next_pc:08x}u,next_word=0x{next_word:08x}u,return_pc=0x{ret:08x}u;\\n'
-            f'inline constexpr unsigned source_reg={rs}u,destination_reg={ra}u;\\n'
-            f'inline constexpr int32_t source_offset={offset};\\n'
-            '}\\n')
+    return ('namespace formatter_report_copy_private {\n'
+            f'inline constexpr uint32_t root=0x{root:08x}u,pc=0x{pc:08x}u,word=0x{word:08x}u;\n'
+            f'inline constexpr uint32_t next_pc=0x{next_pc:08x}u,next_word=0x{next_word:08x}u,return_pc=0x{ret:08x}u;\n'
+            f'inline constexpr unsigned source_reg={rs}u,destination_reg={ra}u;\n'
+            f'inline constexpr int32_t source_offset={offset};\n'
+            '}\n')
 
 
 def plan(dol, elf, *, predecessor=None, compare=None):
