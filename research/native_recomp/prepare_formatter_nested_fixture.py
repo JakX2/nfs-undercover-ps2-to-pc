@@ -14,7 +14,7 @@ from prepare_formatter_release_contract import plan as release_plan
 from prepare_formatter_return_contract import plan as return_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
-from prepare_post_stm_sc_join import check_spans
+from prepare_post_stm_sc_join import GUARD,check_spans
 from prepare_v1337_open_completion import rebuild,hook_submit
 from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
