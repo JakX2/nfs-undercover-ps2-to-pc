@@ -7,7 +7,7 @@ from prepare_formatter_nested_fixture import render,expand,render_return,render_
 from guarded_continuation import GUARD
 from prepare_formatter_nested_fixture import (
     private_compare_checkpoint, _COMPARE_EXPANSION_STAGES,
-    public_nested_refusal, compare_extension,
+    public_nested_refusal, compare_extension, copy_extension,
 )
 from prepare_formatter_report_compare_fixture import (
     promote as promote_report_compare, render as render_report_compare,
@@ -17,7 +17,7 @@ class Test(unittest.TestCase):
     def test_private_119_checkpoints_are_fixed_and_redacted(self):
         accepted = (
             'begin', 'base_joined', 'caller_joined', 'callee_joined',
-            'byte_joined', 'compare_joined', 'spans_checked',
+            'byte_joined', 'compare_joined', 'copy_joined', 'spans_checked',
             'census_checked', 'image_rebuilt', 'header_rendered',
         )
         self.assertEqual(_COMPARE_EXPANSION_STAGES, frozenset(accepted))
@@ -119,6 +119,40 @@ class Test(unittest.TestCase):
                    return_value=(corrupted,fields)):
             with self.assertRaisesRegex(ValueError,'report compare sibling'):
                 compare_extension(old,byte,(corrupted,fields))
+
+    def test_120_copy_join_preserves_all_prior_roots(self):
+        dst=R-0x100
+        load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        word=(31<<26)|(1<<21)|(10<<16)|(1<<11)|(444<<1)
+        siblings={R+0x1000+32*i:(N,GUARD) for i in range(60)}
+        old={**siblings,dst:(load,comparison,word,GUARD)}
+        compare=({dst:old[dst]},
+                 (dst,comparison,dst+8,word,7,0x81234567,R+4))
+        copy=({dst:(load,comparison,word,N,GUARD)},
+              (dst,dst+8,word,dst+12,N,1,10,0,R+4))
+        merged,info=copy_extension(old,compare,copy)
+        self.assertEqual(len(merged),61)
+        self.assertEqual(merged[dst],copy[0][dst])
+        self.assertEqual({at:merged[at] for at in siblings},siblings)
+        self.assertEqual(info,copy[1])
+        self.assertEqual(old[dst],(load,comparison,word,GUARD))
+
+        for wrong in (
+            {**old,dst:(load,comparison,GUARD,GUARD)},
+            {**old,dst:(load,comparison,word,N)},
+        ):
+            with self.assertRaisesRegex(ValueError,'copy predecessor'):
+                copy_extension(wrong,compare,copy)
+        with self.assertRaisesRegex(ValueError,'copy predecessor'):
+            copy_extension(old,compare,({**copy[0],R+0x5000:(N,GUARD)},copy[1]))
+        altered=({**copy[0],R+0x1000:(GUARD,GUARD)},copy[1])
+        with self.assertRaisesRegex(ValueError,'copy sibling'):
+            copy_extension(old,compare,altered)
+        for idx,value in ((3,dst+16),(2,word^1),(8,R+8)):
+            bad=list(copy[1]);bad[idx]=value
+            with self.assertRaisesRegex(ValueError,'copy'):
+                copy_extension(old,compare,(copy[0],tuple(bad)))
 
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
