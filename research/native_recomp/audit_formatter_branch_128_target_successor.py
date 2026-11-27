@@ -90,6 +90,60 @@ class Tests(unittest.TestCase):
                 self.assertIn(result[6], (0, 1))
                 self.assertIn(result[7], BRANCH_FORMS)
 
+    def test_integer_effect_metadata_matrix_is_bounded(self):
+        # This is static classification of synthetic words. It must not
+        # execute any branch or mutate an original native CPU snapshot.
+        cases = (
+            ((14 << 26) | (3 << 21) | 0x7fff,
+             (0, 1, 0, 0, 0, 1)),  # li r3,32767
+            ((14 << 26) | (4 << 21) | (3 << 16) | 1,
+             (1, 1, 0, 0, 0, 1)),  # addi from r3
+            ((11 << 26) | (1 << 23) | (3 << 16) | 2,
+             (1, 0, 1, 0, 0, 1)),  # cmpwi cr1,r3,2
+            ((31 << 26) | (3 << 21) | (4 << 16) | (954 << 1),
+             (1, 1, 0, 0, 0, 1)),  # extsb
+            ((31 << 26) | (3 << 21) | (1 << 16) | (467 << 1),
+             (1, 0, 0, 1, 0, 1)),  # mtspr xer,r3
+        )
+        for word, effects in cases:
+            with self.subTest(word_family='integer', effects=effects):
+                family, reads, writes, cr, xer, overflow, supported, form = (
+                    classify_target(self.fixture(word)))
+                self.assertEqual(family, 'integer')
+                self.assertEqual(
+                    (reads, writes, cr, xer, overflow, supported),
+                    effects)
+                self.assertEqual(form, 'not_branch')
+
+    def test_control_transfers_never_claim_integer_observation(self):
+        for word, family, form in (
+            (0x4e800020, 'return', 'conditional_lr'),
+            (0x48000010, 'branch', 'direct'),
+            (0x48000011, 'direct', 'direct'),
+            ((16 << 26) | (12 << 21) | (2 << 16) | 16,
+             'branch', 'conditional_direct'),
+        ):
+            with self.subTest(family=family, form=form):
+                actual = classify_target(self.fixture(word))
+                self.assertEqual(actual[0], family)
+                self.assertEqual(actual[1:7], (0, 0, 0, 0, 0, 0))
+                self.assertEqual(actual[7], form)
+
+    def test_original_target_classification_never_retargets_128(self):
+        original = self.fixture((14 << 26) | (3 << 21) | 0x7fff)
+        before = (dict(original[0]), original[1])
+        self.assertEqual(classify_target(original)[0], 'integer')
+        self.assertEqual(original, before)
+        blocks, fields = original
+        tampered = dict(blocks)
+        tampered[fields[3]] = (fields[4], 0x60000000)
+        with self.assertRaises(ValueError):
+            classify_target((tampered, fields))
+        with self.assertRaises(ValueError):
+            classify_target((blocks, fields[:4] + (0x44000002,) + fields[5:]))
+        with self.assertRaises(ValueError):
+            classify_target((blocks, fields[:6] + (0,) + fields[7:]))
+
     def test_unsupported_encodings_are_classification_not_execution(self):
         result = classify_target(self.fixture(0x00000000))
         self.assertEqual(result[0], 'other')
