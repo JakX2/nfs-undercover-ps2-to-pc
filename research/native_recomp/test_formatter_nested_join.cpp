@@ -245,7 +245,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     assert(c.lr==link&&c.gpr[1]==parent_sp&&c.mmu.read32(parent_sp+20)==(seed&0xffffu));
     if(follow==26){assert(!child.resume_instruction_path(c,ep,held()));return;}
     if(follow<28)return;
-    constexpr uint32_t guard_word=0x7fe00008u;
+    constexpr uint32_t guard_word=0x44000002u;
     c.mmu.write32(link,guard_word);
     if(follow==30)c.mmu.write32(link,0x60000000u);
     const bool armed=child.arm_native_return(c,link+(follow==29?4u:0u),guard_word,held()&&follow!=31);

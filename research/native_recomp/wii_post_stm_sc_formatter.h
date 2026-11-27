@@ -436,7 +436,7 @@ public:
     template<class C>bool arm_native_return(C& c,uint32_t caller,uint32_t guard_word,bool held){
         if(!reached_instruction_boundary(c,held)||!frame_released_||!caller_parent_||
            e_.target_word!=0x4e800020u||caller!=e_.entry_lr||lr_!=caller||
-           (caller&3u)||guard_word!=0x7fe00008u||!word(c,caller,guard_word)||
+           (caller&3u)||guard_word!=0x44000002u||!word(c,caller,guard_word)||
            caller==e_.target||!return_registers_held()||
            !caller_parent_->child_frame_held_with_stores(c,held,*this))return fail(6);
         return_pc_=caller;return_word_=guard_word;stage_=6u;return true;
