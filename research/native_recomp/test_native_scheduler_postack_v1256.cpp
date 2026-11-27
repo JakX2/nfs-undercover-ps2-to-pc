@@ -8,6 +8,9 @@
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
 #include "wii_formatter_report_second_immediate.h"
 #endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+#include "wii_formatter_report_third_immediate.h"
+#endif
 #include "functions.h"
 #include "v624_private_ipc_expectations.h"
 #include "v626_private_words.h"
@@ -528,6 +531,9 @@ static std::optional<CallerImmediateCompareWitness> formatter_report_compare;
 static std::optional<FormatterSignextWitness> formatter_report_signext;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
 static std::optional<FormatterSecondImmediateWitness> formatter_report_second_immediate;
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+static std::optional<FormatterThirdImmediateWitness> formatter_report_third_immediate;
+#endif
 #endif
 #endif
 #endif
@@ -709,6 +715,29 @@ static_assert(formatter_report_second_immediate_private::value==
     ((formatter_report_second_immediate_private::word&0x8000u)?
      (formatter_report_second_immediate_private::word&0xffffu)|0xffff0000u:
       formatter_report_second_immediate_private::word&0xffffu));
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+static_assert(formatter_report_third_immediate_private::root==
+              formatter_report_second_immediate_private::root);
+static_assert(formatter_report_third_immediate_private::pc==
+              formatter_report_second_immediate_private::next_pc);
+static_assert(formatter_report_third_immediate_private::word==
+              formatter_report_second_immediate_private::next_word);
+static_assert(formatter_report_third_immediate_private::next_pc==
+              formatter_report_third_immediate_private::pc+4u);
+static_assert(formatter_report_third_immediate_private::return_pc==
+              formatter_report_second_immediate_private::return_pc);
+static_assert((formatter_report_third_immediate_private::word>>26u)==14u);
+static_assert(((formatter_report_third_immediate_private::word>>16u)&31u)==0u);
+static_assert(((formatter_report_third_immediate_private::word>>21u)&31u)==
+              formatter_report_third_immediate_private::destination_reg);
+static_assert(formatter_report_third_immediate_private::destination_reg==0u||
+              (formatter_report_third_immediate_private::destination_reg>=3u&&
+               formatter_report_third_immediate_private::destination_reg<=12u));
+static_assert(formatter_report_third_immediate_private::value==
+    ((formatter_report_third_immediate_private::word&0x8000u)?
+     (formatter_report_third_immediate_private::word&0xffffu)|0xffff0000u:
+      formatter_report_third_immediate_private::word&0xffffu));
+#endif
 #endif
 #endif
 #endif
@@ -1308,6 +1337,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_signext_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
 ,formatter_report_second_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+,formatter_report_third_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1343,6 +1375,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_signext_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
 ,formatter_report_second_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+,formatter_report_third_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1380,6 +1415,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_signext_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
 ,formatter_report_second_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+,formatter_report_third_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
