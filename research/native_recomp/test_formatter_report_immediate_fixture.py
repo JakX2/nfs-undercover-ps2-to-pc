@@ -165,10 +165,16 @@ class ReportImmediateFixture(unittest.TestCase):
         path = Path(__file__).with_name(
             'test_native_scheduler_postack_v1256.cpp')
         source = path.read_text()
+        # Preserve the exact nested preprocessor guard hierarchy.
+        # New 122/123 operands must be impossible to pass in 121-only mode.
+        second = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE'
+                  r'\s*,formatter_report_second_immediate_private::next_word'
+                  r'\s*#endif')
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
                     r'\s*,formatter_report_immediate_private::next_word'
                     r'(?:\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT'
                     r'\s*,formatter_report_signext_private::next_word'
+                    r'(?:' + second + r')?'
                     r'\s*#endif)?\s*#endif')
         for opening, ending in (
             ('!formatter_nested->resume_caller_next_entry(c,',
