@@ -27,7 +27,7 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None,stack_refusal=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None,stack_refusal=None,partial_origin=None,step_observer=None):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     edge_used=False
@@ -41,7 +41,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
     path=[];accesses=[];frame=0;saves=set();protected=set()
     if seed_bytes is not None and (stack_slots or resume is not None or any(not caller_sp<=at<8 for at in mem)):
         raise ValueError('formatter nested memory geometry')
-    if resume is not None and (initial_cr is not None or initial_ctr is not None or entry_lr!=('lr',0)):
+    if resume is not None and (initial_cr is not None or initial_ctr is not None or (entry_lr!=('lr',0) and partial_origin is None)):
         raise ValueError('formatter nested state')
     if resume is not None:
         rg,rm,rc,ctr,lr,frame,rs=resume
@@ -52,7 +52,20 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         protected.update(range(caller_sp+4,caller_sp+8))
         for at,v in mem.items():
             if v[0]=='part' and v[1][0]=='reg' and 14<=v[1][1]<=31:protected.add(at)
+    # Optional symbolic-only continuation. Missing bytes are opaque identities,
+    # never integer values. Restrict new identities to the one admitted word.
+    if partial_origin is not None:
+        if resume is None or not isinstance(partial_origin,tuple) or len(partial_origin)!=2:
+            raise ValueError('formatter partial origin')
+        origin,width=partial_origin
+        if width!=4 or origin%4 or not caller_sp-frame+4<=origin<=caller_sp-4 or any(origin+i in protected for i in range(4)):
+            raise ValueError('formatter partial origin')
+        if not 0<sum(origin+i not in mem for i in range(4))<4:
+            raise ValueError('formatter partial origin')
     def bytes_of(v,n):
+        if v[0]=='partial':
+            if partial_origin is None or n not in (1,2,4):raise ValueError('formatter partial store')
+            return v[1][-n:]
         if v[0]=='const':return tuple(('byte',(v[1]>>(8*(n-1-i)))&255) for i in range(n))
         return tuple(('part',v,n,i) for i in range(n))
     for at,v in stack_slots.items():
@@ -63,6 +76,12 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
             return const(int.from_bytes(bytes(x[1] for x in cells),'big'))
         if all(x is not None and x[0]=='part' and x[1]==cells[0][1] and x[2:]==(n,i) for i,x in enumerate(cells)):
             return cells[0][1]
+        if partial_origin is not None and n in (1,2,4) and not at%n and caller_sp-frame+4<=at<at+n<=caller_sp:
+            origin,width=partial_origin
+            if all(x is not None or origin<=at+i<origin+width for i,x in enumerate(cells)):
+                parts=tuple(('uninitialized',at+i) if x is None else x for i,x in enumerate(cells))
+                if any(x[0]=='uninitialized' for x in parts):
+                    return ('partial',(('byte',0),)*(4-n)+parts)
         raise ValueError('formatter stack read provenance')
     def read(a,n):
         k,at=a
@@ -106,6 +125,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         if pc not in seen or len(path)>=512:raise ValueError('formatter path bound')
         path.append(pc);w=ws[(pc-root)//4];op=w>>26;xo=(w>>1)&1023;rs=(w>>21)&31;ra=(w>>16)&31;rb=(w>>11)&31
         imm=((w&0xffff)^0x8000)-0x8000;nxt=pc+4
+        if step_observer is not None:step_observer(pc,w,tuple(gp),dict(mem))
         if pc in bounds:
             if local_ctr_edge is not None and pc==local_ctr_edge[0]:
                 dst=local_ctr_edge[1]
