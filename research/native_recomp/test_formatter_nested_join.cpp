@@ -651,12 +651,18 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const unsigned copy_destination=follow==367?14u:10u;
     const uint32_t copy_word=(31u<<26u)|(copy_source<<21u)|(copy_destination<<16u)|(copy_source<<11u)|(444u<<1u);
     const uint32_t after_compare=follow>=348?copy_word:0x60000000u;
-    const uint32_t after_copy=ins(14,3,3,1);
+    const uint32_t after_copy=ins(14,3,follow>=369?0u:3u,1);
+    const uint32_t after_immediate=ins(14,4,0,0xfffe);
     if(follow>=318){
         c.mmu.write32(move_value,0x5a000000u);
         c.mmu.write32(next_entry+8u,follow>=338?after_compare:guard_word);
         if(follow>=338)c.mmu.write32(next_entry+12u,follow>=348?after_copy:guard_word);
         if(follow>=348)c.mmu.write32(next_entry+16u,guard_word);
+        if(follow>=369){
+            c.mmu.write32(next_entry+16u,after_immediate);
+            c.mmu.write32(next_entry+20u,follow==370?entry_word:guard_word);
+            if(follow==371)c.mmu.write32(next_entry+16u,entry_word);
+        }
     }
     c.mmu.write32(next_entry,follow==294?guard_word:entry_word);
     c.mmu.write32(next_entry+4u,follow==295?entry_word:follow>=318?entry_successor:guard_word);
@@ -665,8 +671,12 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299,
         follow>=318?std::optional<uint32_t>{entry_successor}:std::nullopt,
         follow>=338?std::optional<uint32_t>{after_compare}:std::nullopt,
-        follow>=348?std::optional<uint32_t>{after_copy}:std::nullopt);
-    if(follow>=293&&follow<=299){assert(!entry_armed);return;}
+        follow>=348?std::optional<uint32_t>{after_copy}:std::nullopt,
+        follow>=369&&follow!=372?
+            std::optional<uint32_t>{follow==374?guard_word:after_immediate}:std::nullopt);
+    if((follow>=293&&follow<=299)||(follow>=370&&follow<=372)||follow==374){
+        assert(!entry_armed);return;
+    }
     assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==9u);
     // Execute only the synthetic BL effect. The callee's load never runs.
@@ -766,11 +776,15 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow==360)c.mmu.write32(next_entry+16u,entry_word);
     if(follow==361)c.mmu.write32(next_ret,entry_word);
     if(follow==362)c.mmu.write32(move_value,0x5b000000u);
+    if(follow==373)c.mmu.write32(next_entry+20u,entry_word);
+    if(follow==375)c.mmu.write32(next_entry+16u,entry_word);
     c.inst_count+=follow==355?2u:1u;
     const bool copy_done=child.stop_after_caller_report_copy(c,
         follow==363?next_entry+8u:next_entry+12u,
         follow==364?entry_word:after_copy,held()&&follow!=365);
-    if(follow>=354&&follow<=365){assert(!copy_done);return;}
+    if((follow>=354&&follow<=365)||follow==373||follow==375){
+        assert(!copy_done);return;
+    }
     assert(copy_done&&child.stage()==35u&&child.reached_caller_report_copy(c,held()));
     assert(child.caller_report_copy_visits()==1u&&child.caller_post_fourth_tick_budget()==12u);
     if(parent_delay)assert(parent.frame_age(c)==142u&&child.caller_parent_tick_limit()==142u);
@@ -799,6 +813,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
-    for(unsigned follow=348;follow<=368;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=348;follow<=375;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=663 compare_cases=10 copy_cases=22 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=670 compare_cases=10 copy_cases=29 original_execution=0\n";}
