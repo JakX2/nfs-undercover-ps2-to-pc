@@ -72,6 +72,22 @@ inline std::optional<CallerIntegerEffect> predict_caller_integer(
     return out;
 }
 
+// The zero-input PPC addi form (li rD,SIMM) requires no numeric guest GPR
+// provenance. Keep its prediction deliberately narrower than the generic
+// caller integer helper: only a volatile destination, RA=0, no CR/XER
+// modification and an exact sign-extended 16-bit immediate are allowed.
+inline std::optional<CallerIntegerEffect> predict_caller_zero_input_addi(
+    uint32_t w,const std::array<uint32_t,32>& gp,uint32_t cr,uint32_t xer){
+    const unsigned dst=(w>>21u)&31u,base=(w>>16u)&31u;
+    if(w>>26u!=14u||base!=0u||!(dst==0u||(dst>=3u&&dst<=12u)))return {};
+    constexpr std::array<CallerIntegerInput,0> none{};
+    const auto effect=predict_caller_integer(w,gp,cr,xer,none);
+    const uint32_t expected=(w&0x8000u)?(w&0xffffu)|0xffff0000u:w&0xffffu;
+    if(!effect||!effect->reg||*effect->reg!=dst||
+       effect->value!=expected||effect->cr!=cr)return {};
+    return effect;
+}
+
 // Exact stack-relative identity, not a sampled arbitrary operand. The caller must
 // have independently authenticated parent_sp as its still-live frame base.
 // Accept only a non-record OR of an identical register into a volatile GPR.
