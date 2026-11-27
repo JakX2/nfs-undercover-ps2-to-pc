@@ -41,9 +41,9 @@ public:
                 uint64_t(at)+4u<=uint64_t(root)+owner_size;
         };
         const uint32_t unused=predicted->taken?pc+4u:predicted->target;
-        if(!in_owner(pc)||!in_owner(selected_pc)||!in_owner(unused)||
-           selected_pc==unused||selected_pc==pc||
-           return_pc==selected_pc||return_pc==unused||
+        if(!in_owner(pc)||!in_owner(selected_pc)||!in_owner(selected_pc+4u)||
+           !in_owner(unused)||selected_pc==unused||selected_pc==pc||
+           in_owner(return_pc)||return_pc==selected_pc||return_pc==unused||
            !word(c,selected_pc,selected_word)||!word(c,unused,guard)||
            !word(c,selected_pc+4u,guard))return reject();
         cpu_=&c;root_=root;pc_=pc;instruction_=instruction;

@@ -71,7 +71,7 @@ void positives(){
     }
 }
 void refusal_cases(){
-    for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u}){
+    for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u}){
         Cpu c=seed(true);
         uint32_t instruction=bc(12,2,16),chosen=PC+16u;
         uint32_t size=80u;
@@ -85,6 +85,11 @@ void refusal_cases(){
         case 6:size=48u;break; // outside authentic owner span
         case 7:c.lr^=4u;break; // forged return
         case 8:c.cr[0].eq=false;break; // wrong condition
+        case 9:size=60u;break; // selected next guard crosses owner extent
+        case 10:
+            c.lr=Root+64u;
+            c.mmu.write32(c.lr,Guard);
+            break; // return alias inside the current owner
         }
         // Authenticate each changed branch encoding before asking whether
         // its *semantics* are admissible, rather than only testing word
@@ -129,6 +134,6 @@ int main(){
     positives();
     refusal_cases();
     observe_refusals();
-    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 arm_refusals=9"
+    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 arm_refusals=11"
              <<" observe_refusals=17 original_execution=0\n";
 }
