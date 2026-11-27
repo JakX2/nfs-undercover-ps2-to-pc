@@ -491,15 +491,21 @@ def compare_extension(prior, byte_contract, compare_contract):
     if compare_contract != (candidate, fields):
         raise ValueError('nested fixture report compare contract')
     root = fields[0]
-    if set(prior) != set(candidate) or root not in prior:
+    # The private comparison contract may cover only a subset of the
+    # already authenticated roots. It may never introduce a new root.
+    if not set(candidate).issubset(prior) or root not in prior:
         raise ValueError('nested fixture report compare root set')
     if prior[root] != (candidate[root][0], candidate[root][1], GUARD):
         raise ValueError('nested fixture report compare predecessor')
     if candidate[root] != (*prior[root][:2], fields[3], GUARD):
         raise ValueError('nested fixture report compare contract')
-    if any(candidate[at] != words for at,words in prior.items() if at != root):
+    if any(prior[at] != words for at,words in candidate.items() if at != root):
         raise ValueError('nested fixture report compare sibling')
-    return candidate, fields
+    # Preserve all previously validated original roots that are outside
+    # this callee-specific symbolic contract. Validate final ownership.
+    merged={**prior,**candidate}
+    check_spans({address:4*len(words) for address,words in merged.items()})
+    return merged, fields
 
 
 def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None,stage_trace=False):

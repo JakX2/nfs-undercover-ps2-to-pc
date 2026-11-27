@@ -64,6 +64,25 @@ class Test(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'report compare contract'):
             compare_extension(prior,byte,(extended,fields[:-1]+(R+8,)))
 
+    def test_report_compare_partial_contract_keeps_other_verified_roots(self):
+        dst=R-0x100
+        load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        # The compare's local contract contains the callee, while the
+        # prior fixture already authenticated a separate older root.
+        prior={R:(N,GUARD),dst:(load,comparison,GUARD)}
+        byte=({dst:prior[dst]},
+              (dst,load,753,17,0xa5,dst+4,comparison,R+4))
+        local,fields=promote_report_compare(byte,N,(7,0x81234567))
+        merged,info=compare_extension(prior,byte,(local,fields))
+        self.assertEqual(info,fields)
+        self.assertEqual(set(merged),set(prior))
+        self.assertEqual(merged[R],prior[R])
+        self.assertEqual(merged[dst],(load,comparison,N,GUARD))
+        # Neither the local contract nor the input can mutate siblings.
+        self.assertEqual(local, {dst:(load,comparison,N,GUARD)})
+        self.assertEqual(prior[dst],(load,comparison,GUARD))
+
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
         s=render(c)
