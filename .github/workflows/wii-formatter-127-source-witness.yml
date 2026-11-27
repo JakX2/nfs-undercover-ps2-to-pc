@@ -7,6 +7,12 @@ on:
       - 'research/native_recomp/wii_formatter_report_sixth_immediate.h'
       - 'research/native_recomp/test_formatter_report_sixth_immediate.cpp'
       - 'research/native_recomp/test_formatter_report_fifth_immediate.cpp'
+      - 'research/native_recomp/test_formatter_report_sixth_immediate_log.py'
+      - 'research/native_recomp/test_formatter_report_sixth_immediate_nested.py'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
       - '.github/workflows/wii-formatter-127-source-witness.yml'
   workflow_dispatch:
 permissions:
@@ -29,3 +35,8 @@ jobs:
             done
           done
           python3 research/native_recomp/test_formatter_report_sixth_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_sixth_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_sixth_immediate_log.py
+          python3 research/native_recomp/test_formatter_report_fifth_immediate_native_wiring.py
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/validate_formatter_nested_log.py
