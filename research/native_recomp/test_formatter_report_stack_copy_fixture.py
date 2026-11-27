@@ -65,6 +65,19 @@ class StackCopyFixture(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.contract(word=word)
 
+    def test_saved_nonvolatile_destination_is_not_valid_for_copy_120(self):
+        # The generic integer planner permits some saved registers, but the
+        # exact 120th original word must keep the volatile-only contract.
+        # Neither the private fixture nor the generated header may widen it.
+        self.mask = (1 << 16)
+        with self.assertRaisesRegex(ValueError, 'report copy encoding'):
+            self.contract(word=or_copy(dst=16))
+        valid, fields = self.contract(word=or_copy(dst=10))
+        self.assertEqual(fields[6], 10)
+        nonvolatile = fields[:6] + (16,) + fields[7:]
+        with self.assertRaisesRegex(ValueError, 'report copy rendering'):
+            render((valid, nonvolatile))
+
     def test_range_and_untrusted_state_refusals(self):
         for offset in (-0x01800000, 0x01800000):
             with self.subTest(offset=offset):
