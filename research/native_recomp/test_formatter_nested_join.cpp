@@ -907,10 +907,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     // The following two original-free effects are modelled by a real
     // register update; the joined parent observes their native boundaries.
     if(follow==421)c.mmu.write32(next_entry+28u,guard_word);
-    const bool third_armed=child.resume_caller_report_third_immediate(c,
+    const bool report_third_armed=child.resume_caller_report_third_immediate(c,
         follow==418?4u:5u,follow==419?0u:0x1234u,held()&&follow!=420);
-    if(follow>=418&&follow<=421){assert(!third_armed);return;}
-    assert(third_armed&&child.stage()==42u);
+    if(follow>=418&&follow<=421){assert(!report_third_armed);return;}
+    assert(report_third_armed&&child.stage()==42u);
     assert(child.caller_post_fourth_tick_budget()==16u);
     c.gpr[5]=follow==422?0u:0x1234u;
     if(follow==423)c.gpr[9]^=1u;
@@ -931,11 +931,11 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     }
     if(follow<436)return;
     if(follow==440)c.mmu.write32(next_entry+32u,guard_word);
-    const bool fourth_armed=child.resume_caller_report_fourth_immediate(
+    const bool report_fourth_armed=child.resume_caller_report_fourth_immediate(
         c,follow==437?4u:6u,follow==438?0u:0xfffffffeu,
         held()&&follow!=439);
-    if(follow>=437&&follow<=440){assert(!fourth_armed);return;}
-    assert(fourth_armed&&child.stage()==44u);
+    if(follow>=437&&follow<=440){assert(!report_fourth_armed);return;}
+    assert(report_fourth_armed&&child.stage()==44u);
     assert(child.caller_post_fourth_tick_budget()==17u);
     c.gpr[6]=follow==441?0u:0xfffffffeu;
     if(follow==442)c.gpr[9]^=1u;
