@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -268,6 +268,22 @@ int main(){return 0;}
         with self.assertRaisesRegex(ValueError,'overlap'):expand_stack_move(old,post,mixed,contract,bad)
         with self.assertRaisesRegex(ValueError,'expansion'):expand_stack_move(old,post,mixed,({**new,T:(N,N)},info),branches)
         with self.assertRaisesRegex(ValueError,'stack move'):render_stack_move((new,(R,128,pc,w|1,864,pc+4,N)))
+    def test_final_integer_expansion(self):
+        pc=R+48;w=(14<<26)|(8<<21)|(6<<16)|3
+        bl=(18<<26)|((R-0x100-(pc+4))&0x03fffffc)|1
+        old={R:(N,GUARD,GUARD,GUARD,GUARD,N,GUARD,GUARD,N,N,N,N,w,GUARD,GUARD),T:(N,GUARD)}
+        branches=tuple((None,(R,128,R+4,N,False,R+8,N,R+4*i)) for i in (1,2,3,4))
+        mixed=({},((pc-12,N,(),pc-8,R+24,True),),pc-8,N)
+        post=({},((pc-8,N,(),pc-4,R+28,True),),pc-4,N)
+        move=(old,(R,128,pc-4,N,864,pc,w))
+        body=list(old[R]);body[13]=bl;new={**old,R:tuple(body)}
+        contract=(new,((pc,w,((6,9),),pc+4,None,None),),pc+4,bl)
+        self.assertIn('formatter_caller_final_integer_private',render_final_integer(contract))
+        self.assertEqual(expand_final_integer(old,move,mixed,post,contract,branches),new)
+        bad=(branches[0],branches[1],branches[2],(None,branches[3][1][:-1]+(pc+4,)))
+        with self.assertRaisesRegex(ValueError,'overlap'):expand_final_integer(old,move,mixed,post,contract,bad)
+        with self.assertRaisesRegex(ValueError,'final integer'):render_final_integer((*contract[:3],bl^1))
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_final_integer(old,move,mixed,post,({**new,T:(N,N)},*contract[1:]),branches)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
