@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_partial_native_contract import extend,read_address,read_value,extra_census
+from prepare_formatter_partial_native_contract import extend,read_address,read_value,extra_census,verify_load_effect
 from guarded_continuation import GUARD
 from prepare_formatter_nested_contract import byte_cells
 R=0x80010000;L=0x80020000;SP=-864;F=48;AT=SP-40
@@ -69,4 +69,20 @@ class Contract(unittest.TestCase):
         self.assertEqual(read_value((('byte',0x80),('byte',1)),d(42,4,1)),('const',0xffff8001))
         self.assertEqual(read_value((('uninitialized',AT),('byte',1)),d(40,4,1)),('partial',(('byte',0),('byte',0),('uninitialized',AT),('byte',1))))
         with self.assertRaisesRegex(ValueError,'provenance'):read_value((None,('byte',1)),d(40,4,1))
+    def test_narrow_symbolic_reads(self):
+        value=('reg',7)
+        cells=byte_cells(value,4)
+        self.assertEqual(read_value(cells,d(32,4,1)),value)
+        for word,c in ((d(40,4,1),byte_cells(value,2)),(d(34,4,1),byte_cells(value,1)),
+                       (d(42,4,1),(('uninitialized',AT),('byte',1)))):
+            with self.assertRaisesRegex(ValueError,'provenance'):read_value(c,word)
+        with self.assertRaisesRegex(ValueError,'provenance'):read_value((),d(32,4,1))
+    def test_update_effect(self):
+        gp=list(self.record[5]);gp[5]=('stack',AT-4)
+        after=list(gp);after[4]=('const',0x1234);after[5]=('stack',AT)
+        verify_load_effect(d(41,4,5,4),gp,after,AT,('const',0x1234))
+        for reg in (3,5):
+            wrong=list(after);wrong[reg]=('const',99)
+            with self.assertRaisesRegex(ValueError,'effects'):
+                verify_load_effect(d(41,4,5,4),gp,wrong,AT,('const',0x1234))
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -19,6 +19,14 @@ class Path(unittest.TestCase):
             # The first slot is a legal local byte, so use a separate
             # unknown-read check rather than requiring it to be forbidden.
             with self.assertRaises(ValueError):first_path(B,bad,{},{},())
+    def test_narrow_opaque_register(self):
+        for store,load in ((0xb0a10008,0xa0c10008),(0x98a10008,0x88c10008),(0xb0a10008,0xa8c10008)):
+            ws=(0x9421ffe0,0x7c0802a6,0x90010024,store,load,bl(B+20,T))
+            with self.assertRaisesRegex(ValueError,'stack read provenance'):
+                first_path(B,ws,{},{},())
+        ws=(0x9421ffe0,0x7c0802a6,0x90010024,0x90a10008,0x80c10008,bl(B+20,T))
+        result=first_path(B,ws,{},{},(),details=True)
+        self.assertEqual(result[5][6],('reg',5))
 def xload(xo,rt,ra,rb,rc=0):return (31<<26)|(rt<<21)|(ra<<16)|(rb<<11)|(xo<<1)|rc
 class IndexedLoad(unittest.TestCase):
     def probe(self,word,args,readonly):

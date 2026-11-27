@@ -87,7 +87,11 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         cells=tuple(mem.get(at+i) for i in range(n))
         if all(x is not None and x[0]=='byte' for x in cells):
             return const(int.from_bytes(bytes(x[1] for x in cells),'big'))
-        if all(x is not None and x[0]=='part' and x[1]==cells[0][1] and x[2:]==(n,i) for i,x in enumerate(cells)):
+        # A narrow store of an opaque register does not preserve the
+        # whole register: lhz/lbz zero-extend, while lha sign-extends.
+        # Full-word restoration is safe; narrow symbolic projections
+        # remain refused unless the concrete/partial-byte path proves them.
+        if n==4 and all(x is not None and x[0]=='part' and x[1]==cells[0][1] and x[2:]==(n,i) for i,x in enumerate(cells)):
             return cells[0][1]
         caller_copy=any(site in caller_store_used and start<=at<at+n<=start+width for site,start,width,_ in partial_caller_stores)
         if partial_origin is not None and n in (1,2,4) and not at%n and (caller_sp-frame+4<=at<at+n<=caller_sp or caller_copy):

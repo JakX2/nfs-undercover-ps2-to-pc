@@ -30,17 +30,28 @@ def read_address(w,gp):
     return a[0],at,width
 
 def read_value(cells,w):
-    n=len(cells)
+    n=len(cells);op,xo=w>>26,(w>>1)&1023
+    if n not in (1,2,4) or n!=boundary_width(w):raise ValueError('partial native read provenance')
+    sign=op in (42,43) or op==31 and xo in (343,375)
     if all(c is not None and c[0]=='byte' for c in cells):
         v=int.from_bytes(bytes(c[1] for c in cells),'big')
-        op,xo=w>>26,(w>>1)&1023
-        if n==2 and (op in (42,43) or op==31 and xo in (343,375)) and v&0x8000:v|=0xffff0000
+        if sign and v&0x8000:v|=0xffff0000
         return ('const',v)
-    if all(c is not None and c[0]=='part' and c[1]==cells[0][1] and c[2:]==(n,i) for i,c in enumerate(cells)):
+    # Only a full word can reconstruct an opaque 32-bit register.
+    # A narrow load of a truncated register or signed opaque bytes needs
+    # a separate projection proof; never silently return the original.
+    if n==4 and all(c is not None and c[0]=='part' and c[1]==cells[0][1] and c[2:]==(n,i) for i,c in enumerate(cells)):
         return cells[0][1]
-    if all(c is not None for c in cells) and any(c[0]=='uninitialized' for c in cells):
+    if not sign and all(c is not None for c in cells) and any(c[0]=='uninitialized' for c in cells):
         return ('partial',(('byte',0),)*(4-n)+tuple(cells))
     raise ValueError('partial native read provenance')
+
+def verify_load_effect(w,gp,after_gp,at,value):
+    op,rt,ra,xo=w>>26,(w>>21)&31,(w>>16)&31,(w>>1)&1023
+    expected=list(gp);expected[rt]=value
+    if (op==31 and xo in (55,119,311,375)) or (op!=31 and op&1):
+        expected[ra]=('stack',at)
+    if tuple(expected)!=tuple(after_gp):raise ValueError('partial native read effects')
 
 def extra_census(trace,admitted,entry):
     _,initial,parent,_,_=entry;sp=initial[1][1]
@@ -106,7 +117,7 @@ def extend(old,trace,admitted,entry,record,words):
             if k!='stack' or not sp-frame<=a<a+n<=sp+704 or before!=after:
                 raise ValueError('partial native extra access')
             cells=tuple(before.get(a+j) for j in range(n))
-            if after_gp[(w>>21)&31]!=read_value(cells,w):raise ValueError('partial native read provenance')
+            verify_load_effect(w,gp,after_gp,a,read_value(cells,w))
             extra_access.append((pc,n,a-sp,True,False))
         elif boundary_shape(w) in ('store','floating_load','floating_store','paired_single_memory') or before!=after:
             raise ValueError('partial native extra access')
@@ -139,7 +150,7 @@ def plan(d,e,*,previous=None,control=None,post=None,report=False):
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','partial native predecessor','partial native path','partial native origin','partial native words','partial native boundary','partial native caller sites','partial native load','partial native caller effects','partial native extra access','partial native read address','partial native read provenance','partial native ABI','partial native old words','partial native replay'}
+    safe={'size','partial native predecessor','partial native path','partial native origin','partial native words','partial native boundary','partial native caller sites','partial native load','partial native caller effects','partial native extra access','partial native read address','partial native read provenance','partial native read effects','partial native ABI','partial native old words','partial native replay'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():_,fields,rows,access,slots,known=plan(q.dol.read_bytes(),q.elf.read_bytes(),report=True)
