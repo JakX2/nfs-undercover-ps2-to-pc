@@ -34,7 +34,7 @@ class Original128BranchLog(unittest.TestCase):
             total.replace('branches_128_verified=8','branches_128_verified=0'),
             total.replace('branch_taken=8','branch_taken=0'),
             total.replace('branch_taken=8','branch_taken=9'),
-            total.replace('original_execution','synthetic_execution'),
+            total.replace('boot_verified=0','boot_verified=1'),
             total.replace('FORMATTER_CALLER_REPORT_BRANCH_128_NATIVE',
                           'FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE_NATIVE'),
         ):
