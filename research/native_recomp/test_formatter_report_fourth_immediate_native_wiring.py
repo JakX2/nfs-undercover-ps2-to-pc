@@ -86,8 +86,8 @@ class Original125NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+32u',
             '!report_byte_storage(c,held,8u)',
             'next_entry_eighth_', 'eighth&&!seventh',
-            'stage_<=45u',
-            'unsigned(report_fourth_immediate_completed_)+unsigned(armed)',
+            'stage_<=47u',
+            'unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(armed)',
             'if(n>42u)return {};',
         ):
             with self.subTest(marker=marker):
@@ -98,20 +98,20 @@ class Original125NativeWiring(unittest.TestCase):
             'std::optional<uint32_t> eighth_original = {}',
             'native_eighth_ = eighth_original',
             'native_seventh_&&!word(c,step_.pc+32u,native_eighth_.value_or(0x44000002u))',
-            'native_eighth_&&!word(c,step_.pc+36u,0x44000002u)',
+            'native_eighth_&&!word(c,step_.pc+36u,native_ninth_.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.byte)
         for marker in (
             'std::optional<uint32_t> seventh_original={}',
             'seventh_=seventh_original',
             'sixth_&&!word(c,label+24u,seventh_.value_or(0x44000002u))',
-            'seventh_&&!word(c,label+28u,0x44000002u)',
+            'seventh_&&!word(c,label+28u,eighth_.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.compare)
         for marker in (
             'std::optional<uint32_t> fourth={}',
-            'tail_matches(c,pc,following,trailing,fourth)',
-            '!fourth||word(c,pc+20u,0x44000002u)',
+            'tail_matches(c,pc,following,trailing,fourth,fifth)',
+            '!fourth||word(c,pc+20u,fifth.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.second)
             self.assertIn(marker, self.signext)
