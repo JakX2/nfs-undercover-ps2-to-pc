@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -81,6 +81,16 @@ class Test(unittest.TestCase):
         for bad in ({**new,T:(N,N)},{**new,R:(call,load,N)},{**new,R:(N,load,GUARD)}):
             with self.assertRaisesRegex(ValueError,'caller expansion'):expand_caller(old,bad,info)
         with self.assertRaisesRegex(ValueError,'caller geometry'):render_caller((R,R+4,GUARD,call))
+    def test_caller_byte_header_and_expansion(self):
+        call=0x48000001|((T-R)&0x03fffffc);load=0x88610013
+        info=(R,R+4,load,call,19,9,R+8,N)
+        self.assertIn('namespace formatter_caller_byte_private',render_byte(info))
+        old={R:(call,load,GUARD),T:(N,GUARD)}
+        new={**old,R:(call,load,N,GUARD)}
+        self.assertEqual(expand_byte(old,new,info),new)
+        for bad in ({**new,T:(N,N)},{**new,R:(call,load,N,N)}):
+            with self.assertRaisesRegex(ValueError,'caller byte expansion'):expand_byte(old,bad,info)
+        with self.assertRaisesRegex(ValueError,'caller byte'):render_byte(info[:4]+(704,9)+info[6:])
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
