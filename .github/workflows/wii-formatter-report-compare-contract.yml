@@ -1,0 +1,83 @@
+name: Wii Original Formatter 119 Immediate Compare Fixture Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/prepare_formatter_report_compare_fixture.py'
+      - 'research/native_recomp/test_formatter_report_compare_fixture.py'
+      - '.github/workflows/wii-formatter-report-compare-contract.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-formatter-report-compare-contract-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/prepare_formatter_report_compare_fixture.py research/native_recomp/test_formatter_report_compare_fixture.py
+          python3 research/native_recomp/test_formatter_report_compare_fixture.py
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_caller_integer.cpp -o /tmp/test_formatter_caller_integer
+          /tmp/test_formatter_caller_integer
+  owner-provenance:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require pinned original 118 native execution
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          requirement=Requirement(
+              45981017489,'5243effea115439b301c15c8c23ac6e915e3dd2e',
+              '.github/workflows/wii-formatter-caller-report-byte-native-owner.yml',
+              'owner-report-byte')
+          def fetch(endpoint):
+              raw=subprocess.check_output(
+                  ['gh','api',f"repos/{os.environ['GH_REPO']}/{endpoint}"],
+                  stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:ok=verify(fetch,requirement)
+          except (OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):ok=False
+          if not ok:raise SystemExit('FORMATTER_COMPARE_118_GATE verified=0')
+          print('FORMATTER_COMPARE_118_GATE verified=1 original_118=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage authenticated private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Admit original compare and independent unexecuted successor guard
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/prepare_formatter_report_compare_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Clean original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals"
