@@ -192,4 +192,22 @@ class CallerByte(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerArrival().logs(),caller_byte=True)
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_byte=True,caller_arrival=True)
+class CallerIntegers(unittest.TestCase):
+    def logs(self,count=2):
+        return [f'FORMATTER_CALLER_INTEGERS_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers={count} next_label_stop=1 deferred=1 reply=0 visits=98 total_visits={99+count}' for i in range(8)]+[f'FORMATTER_CALLER_INTEGERS_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers={8*count} next_label_stop=8 deferred=8 reply=0 visits=784 total_visits={792+8*count} ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        for count in range(1,9):
+            x=self.logs(count);self.assertEqual(verify(x,caller_integers=True,integer_count=count),(x[-1],))
+    def test_wrong_count(self):
+        with self.assertRaisesRegex(ValueError,'trial'):verify(self.logs(),caller_integers=True,integer_count=3)
+    def test_count_required(self):
+        for count in (None,0,9,True):
+            with self.assertRaisesRegex(ValueError,'count'):verify(self.logs(),caller_integers=True,integer_count=count)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=808','total_visits=792')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_integers=True,integer_count=2)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_byte=True,integer_count=2)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerByte().logs(),caller_integers=True,integer_count=2)
 if __name__=='__main__':unittest.main(verbosity=2)
