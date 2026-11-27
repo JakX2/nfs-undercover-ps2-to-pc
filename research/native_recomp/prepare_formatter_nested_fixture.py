@@ -604,6 +604,12 @@ def second_immediate_extension(prior, signext_contract, second_immediate_contrac
             not isinstance(second_immediate_contract[1], tuple) or
             len(second_immediate_contract[1]) != 8):
         raise ValueError('nested fixture report second immediate contract')
+    if (not isinstance(signext_contract, tuple) or
+            len(signext_contract) != 2 or
+            not isinstance(signext_contract[0], dict) or
+            not isinstance(signext_contract[1], tuple) or
+            len(signext_contract[1]) != 9):
+        raise ValueError('nested fixture report second immediate predecessor')
     blocks, info = second_immediate_contract
     root, pc, word, next_pc, next_word, dst, value, ret = info
     signed_blocks, signed_info = signext_contract
