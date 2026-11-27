@@ -1,6 +1,11 @@
 name: Wii Original Formatter 124 Immediate Native Continuation
 on:
   workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-caller-report-third-immediate-native-owner.yml'
+      - 'research/native_recomp/test_formatter_report_third_immediate_native_wiring.py'
 permissions:
   contents: read
   actions: read
@@ -34,9 +39,56 @@ jobs:
           done
           g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_formatter_report_third_immediate.cpp -o /tmp/test_formatter_report_third_immediate_release
           /tmp/test_formatter_report_third_immediate_release
-  owner-third-immediate:
+  prerequisites:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      eligible: ${{ steps.pins.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pins
+        name: Check pinned upstream proofs, skip owner if pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          proofs=(
+              Requirement(46020094169,'0b036a779d9bfd0913642c3a1926ef2bd34f3a1d',
+                          '.github/workflows/wii-formatter-caller-report-second-immediate-native-owner.yml',
+                          'owner-second-immediate'),
+              Requirement(46021379576,'4292e39f7084d845f92272c7cd9707ce991a7ff3',
+                          '.github/workflows/wii-formatter-124-immediate-fixture.yml',
+                          'owner-provenance'),
+          )
+          def fetch(endpoint):
+              raw=subprocess.check_output(
+                  ['gh','api',f"repos/{os.environ['GH_REPO']}/{endpoint}"],
+                  stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:ready=all(verify(fetch,proof) for proof in proofs)
+          except (OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):ready=False
+          print('eligible=' + str(ready).lower())
+          PY
+      - name: Report prerequisite decision
+        env:
+          ELIGIBLE: ${{ steps.pins.outputs.eligible }}
+        run: |
+          if [[ "$ELIGIBLE" == true ]]; then
+            echo 'FORMATTER_124_ELIGIBLE ready=1 original_execution=0'
+          else
+            echo 'FORMATTER_124_ELIGIBLE ready=0 original_execution=0'
+          fi
+  owner-third-immediate:
+    needs: [original-free, prerequisites]
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true' && needs.prerequisites.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
