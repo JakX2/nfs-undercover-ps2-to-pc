@@ -23,6 +23,13 @@ def audit(w,gp,mem,initial,parent,admitted,*,resolve=None,section=None):
     if gp[1]!=('stack',sp-48) or any(mem.get(a)!=v for a,v in parent.items()):
         raise ValueError('caller load state')
     live=list(gp);live[1]=initial[1] # architectural effect of proven frame release
+    return audit_live(w,live,mem,initial,parent,admitted,resolve=resolve,section=section)
+
+def audit_live(w,live,mem,initial,parent,admitted,*,resolve=None,section=None):
+    """Audit the actual post-release symbolic register state."""
+    if len(live)!=32 or len(initial)!=32 or initial[1][0]!='stack' or live[1]!=initial[1] or any(mem.get(a)!=v for a,v in parent.items()):
+        raise ValueError('caller load state')
+    sp=initial[1][1]
     if boundary_shape(w)!='load':raise ValueError('caller load family')
     try:site=read_address(w,live)
     except ValueError:site=None
