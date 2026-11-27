@@ -7,6 +7,7 @@ Its only public output is bounded opcode family and operand-kind counts.
 import argparse
 import struct
 import unittest
+from unittest.mock import patch
 from collections import Counter
 from pathlib import Path
 
@@ -155,6 +156,18 @@ class Tests(unittest.TestCase):
         self.integer = (14<<26)|(10<<21)|(9<<16)|1
         with self.assertRaisesRegex(ValueError, 'successor compare source'):
             inspect(self.contract(), tuple(self.regs), return_input=True)
+
+    def test_plan_reuses_single_authenticated_snapshot(self):
+        self.integer=(10<<26)|(4<<23)|(7<<16)|0x8000
+        self.regs[7]=('const',0x81234567)
+        expected=self.contract()
+        with patch('prepare_formatter_next_entry_report_byte_contract.plan',
+                   return_value=(expected,tuple(self.regs),0)) as owner:
+            byte,details=plan(b'fixture',b'elf',return_input=True,include_byte=True)
+        owner.assert_called_once_with(b'fixture',b'elf',with_live=True)
+        self.assertEqual(byte,expected)
+        self.assertEqual(details[0],'compare_immediate')
+        self.assertEqual(details[-1],(7,0x81234567))
 
     def test_untracked_input_is_not_concretized(self):
         self.integer = (14<<26)|(10<<21)|(7<<16)|1

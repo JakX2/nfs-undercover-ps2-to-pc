@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Original-free regressions for the private 119 comparison fixture gate."""
 import unittest
+from unittest.mock import patch
+from prepare_formatter_report_compare_fixture import plan
 
 from guarded_continuation import GUARD
 from prepare_formatter_report_compare_fixture import promote, render
@@ -69,6 +71,21 @@ class CompareFixtureTests(unittest.TestCase):
             with self.subTest(successor=successor):
                 with self.assertRaises(ValueError):
                     promote(contract(), successor, (9, 0x5a))
+
+    def test_plan_reuses_original_byte_contract(self):
+        prior=contract(word=comparison(10,4,7,0x8000))
+        counts=(1,0,1,0,0,0,1,0,0,0,0)
+        source=(7,0x81234567)
+        with patch('prepare_formatter_report_compare_fixture.successor_plan',
+                   return_value=(prior,('compare_immediate',counts,(), 'supported',source))) as owner, \
+             patch('prepare_formatter_report_compare_fixture.parse_functions',
+                   return_value={ROOT:16}), \
+             patch('prepare_formatter_report_compare_fixture.exact_words',
+                   return_value=(LOAD,comparison(10,4,7,0x8000),NEXT)):
+            expanded,details=plan(b'fixture',b'elf')
+        owner.assert_called_once_with(b'fixture',b'elf',return_input=True,include_byte=True)
+        self.assertEqual(details[4:6],source)
+        self.assertEqual(expanded[ROOT][-2:],(NEXT,GUARD))
 
     def test_non_byte_compare_source_and_full_width_value(self):
         # The predecessor byte load changes r9; the comparison reads r7.
