@@ -1,0 +1,98 @@
+name: Wii Original Formatter 129 Target Opcode Read-Only Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-129-successor-audit.yml'
+      - 'research/native_recomp/audit_formatter_branch_128_target_successor.py'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-formatter-129-readonly-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/audit_formatter_branch_128_target_successor.py
+          python3 research/native_recomp/audit_formatter_branch_128_target_successor.py --self-test
+  prerequisites:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      eligible: ${{ steps.pins.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require pinned original-128 private selected-edge fixture
+        id: pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          proof=Requirement(
+              46082116901,'c091ac64452085ed6b302dd44a0a81e5cd0093d8',
+              '.github/workflows/wii-formatter-128-branch-fixture.yml',
+              'owner-fixture')
+          def fetch(endpoint):
+              raw=subprocess.check_output(
+                  ['gh','api',f"repos/{os.environ['GH_REPO']}/{endpoint}"],
+                  stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:ok=verify(fetch,proof)
+          except (OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):ok=False
+          print('eligible=' + str(ok).lower())
+          PY
+      - name: Record fail-closed eligibility
+        env:
+          ELIGIBLE: ${{ steps.pins.outputs.eligible }}
+        run: |
+          test "$ELIGIBLE" = true || {
+            echo 'FORMATTER_129_OWNER_GATE verified=0'
+            exit 1
+          }
+          echo 'FORMATTER_129_OWNER_GATE verified=1 previous_128_fixture=1'
+  owner-provenance:
+    needs: [original-free, prerequisites]
+    if: needs.prerequisites.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage authenticated private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Classify authenticated original-129 target without executing it
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/audit_formatter_branch_128_target_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+      - name: Remove owner files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$GITHUB_WORKSPACE/owner-staging"
