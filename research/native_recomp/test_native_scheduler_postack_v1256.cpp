@@ -1524,8 +1524,35 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
            !formatter_report_second_immediate->observe(c,pc,w)||
            !formatter_nested->stop_after_caller_report_second_immediate(c,pc,w,held))
             formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+        if(!formatter_report_third_immediate||
+           !formatter_report_third_immediate->arm(c,
+              formatter_report_third_immediate_private::root,
+              formatter_report_third_immediate_private::pc,
+              formatter_report_third_immediate_private::word,
+              formatter_report_third_immediate_private::next_word,
+              formatter_report_third_immediate_private::return_pc,
+              formatter_report_third_immediate_private::destination_reg,
+              formatter_report_third_immediate_private::value)||
+           !formatter_nested->resume_caller_report_third_immediate(c,
+              formatter_report_third_immediate_private::destination_reg,
+              formatter_report_third_immediate_private::value,held))
+            formatter_nested_refuse(2);
+        return; // the original translated addi for instruction 124 executes
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+    if(formatter_nested->stage()==42u){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_report_third_immediate||
+           !formatter_report_third_immediate->observe(c,pc,w)||
+           !formatter_nested->stop_after_caller_report_third_immediate(c,pc,w,held))
+            formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
