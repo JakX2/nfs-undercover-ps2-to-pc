@@ -12,7 +12,9 @@ from pathlib import Path
 
 from guarded_continuation import GUARD, check_spans
 from prepare_formatter_next_report_byte_fixture import render_report_byte
-from audit_formatter_report_byte_successor import plan as successor_plan
+from audit_formatter_report_byte_successor import (
+    plan as successor_plan, inspect as inspect_successor,
+)
 from make_private_elf_symbol_map import parse_functions
 from make_v624_ipc_geometry import exact_words
 from prepare_v419_full_start import MAX_DOL
@@ -61,9 +63,20 @@ def render(contract):
             '}\n')
 
 
-def plan(dol, elf):
-    byte, (name, counts, modeled, reason, source) = successor_plan(
-        dol, elf, return_input=True, include_byte=True)
+def plan(dol, elf, *, predecessor=None):
+    if predecessor is None:
+        byte, details = successor_plan(
+            dol, elf, return_input=True, include_byte=True)
+    else:
+        # The nested owner path has already reconstructed the verified
+        # 118 callee and live caller state. Check its exact source again,
+        # without executing the expensive predecessor analysis twice.
+        if (not isinstance(predecessor, tuple) or len(predecessor) != 3):
+            raise ValueError('report compare source provenance')
+        byte, registers, mask = predecessor
+        details = inspect_successor(byte, registers, saved_mask=mask,
+                                    return_input=True)
+    name, counts, modeled, reason, source = details
     root, load, _, _, _, _, comparison, _ = byte[1]
     size = parse_functions(elf).get(root, 0)
     if not 16 <= size <= 65536 or size % 4:

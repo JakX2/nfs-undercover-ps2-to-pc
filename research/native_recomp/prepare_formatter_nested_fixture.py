@@ -867,6 +867,7 @@ def main():
             final_integer_contract=None
             next_entry_contract=None
             report_byte_contract=None
+            report_byte_state=None
             if q.caller_fourth_branch or q.caller_mixed:
                 phase='mixed_plan'
                 prior=dict(byte=byte_contract,integer=integer_contract,first=branch_contract,second=second_branch_contract,post=post_integer_contract,third=third_branch_contract)
@@ -885,8 +886,14 @@ def main():
                             final_integer_contract,_,_,_=final_integer_plan(d,e)
                             phase='next_entry_plan'
                             if q.caller_next_entry:next_entry_contract,_,_,_=next_entry_plan(d,e)
-                            if q.caller_report_byte:report_byte_contract=report_byte_plan(d,e)
-            compare_contract=report_compare_plan(d,e) if q.caller_report_compare else None
+                            if q.caller_report_byte:
+                                if q.caller_report_compare:
+                                    report_byte_state=report_byte_plan(d,e,with_live=True)
+                                    report_byte_contract=report_byte_state[0]
+                                else:
+                                    report_byte_contract=report_byte_plan(d,e)
+            compare_contract=report_compare_plan(
+                d,e,predecessor=report_byte_state) if q.caller_report_compare else None
             phase='fixture_expansion'
             if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract);return 0
             phase='native_install'

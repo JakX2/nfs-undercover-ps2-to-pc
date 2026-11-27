@@ -87,6 +87,37 @@ class CompareFixtureTests(unittest.TestCase):
         self.assertEqual(details[4:6],source)
         self.assertEqual(expanded[ROOT][-2:],(NEXT,GUARD))
 
+    def test_reuses_prevalidated_caller_state_without_another_plan(self):
+        prior=contract(word=comparison(10,4,7,0x8000))
+        source=(7,0x81234567)
+        registers=[('reg',i) for i in range(32)]
+        registers[1]=('stack',-864)
+        registers[7]=('const',source[1])
+        predecessor=(prior,tuple(registers),0)
+        counts=(1,0,1,0,0,0,1,0,0,0,0)
+        with patch('prepare_formatter_report_compare_fixture.successor_plan',
+                   side_effect=AssertionError('recomputed predecessor')), \
+             patch('prepare_formatter_report_compare_fixture.inspect_successor',
+                   return_value=('compare_immediate',counts,(), 'supported',source)) as check, \
+             patch('prepare_formatter_report_compare_fixture.parse_functions',
+                   return_value={ROOT:16}), \
+             patch('prepare_formatter_report_compare_fixture.exact_words',
+                   return_value=(LOAD,comparison(10,4,7,0x8000),NEXT)):
+            expanded,details=plan(b'fixture',b'elf',predecessor=predecessor)
+        check.assert_called_once_with(prior,predecessor[1],saved_mask=0,
+                                      return_input=True)
+        self.assertEqual(expanded[ROOT],
+                         (LOAD,comparison(10,4,7,0x8000),NEXT,GUARD))
+        self.assertEqual(details[4:6],source)
+
+    def test_invalid_cached_predecessor_refused(self):
+        for predecessor in ((),(None,),None,1,[],(1,2,3,4)):
+            if predecessor is None:
+                continue  # None selects the independent original audit.
+            with self.subTest(predecessor=predecessor):
+                with self.assertRaisesRegex(ValueError,'source provenance'):
+                    plan(b'fixture',b'elf',predecessor=predecessor)
+
     def test_non_byte_compare_source_and_full_width_value(self):
         # The predecessor byte load changes r9; the comparison reads r7.
         source = (7, 0x81234567)
