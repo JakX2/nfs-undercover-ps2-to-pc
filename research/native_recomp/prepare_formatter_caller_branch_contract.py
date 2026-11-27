@@ -56,8 +56,9 @@ def extend(byte,contract,gp,initial,words,saved_mask):
     second=branch(chosen,words[j],cr,owner,size)
     return (expanded,(owner,size,pc,w,taken,chosen,words[j],other)),second
 
-def plan(d,e):
-    byte=byte_plan(d,e);contract,_=integer_plan(d,e,byte=byte)
+def plan(d,e,*,byte=None,contract=None):
+    if byte is None:byte=byte_plan(d,e)
+    if contract is None:contract,_=integer_plan(d,e,byte=byte)
     if contract is None:raise ValueError('caller branch contract predecessor')
     owner=byte[1][0];size=parse_functions(e).get(owner,0)
     if not 4<=size<=65536 or size%4:raise ValueError('caller branch contract predecessor')

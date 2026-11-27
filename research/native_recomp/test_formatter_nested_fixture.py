@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -105,6 +105,18 @@ class Test(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'caller integers'):render_integers(bad)
         with self.assertRaisesRegex(ValueError,'integer expansion'):
             expand_integers(old,({**new,T:(N,N)},*contract[1:]),info)
+    def test_branch_header_and_expansion(self):
+        pc=R+8;w=(16<<26)|(12<<21)|16;chosen=pc+4;other=pc+16
+        old={R:(N,N,w,GUARD,GUARD,N),T:(N,GUARD)}
+        new={**old,R:(N,N,w,N,GUARD,N,GUARD)}
+        info=(R,64,pc,w,False,chosen,N,other)
+        c=(new,info);integer=(old,(),pc,w)
+        self.assertIn('taken=false',render_branch(c))
+        self.assertEqual(expand_branch(old,c,integer),new)
+        for bad in ((new,info[:4]+(True,)+info[5:]),(new,info[:-1]+(other+4,)),(new,info[:6]+(GUARD,other))):
+            with self.assertRaisesRegex(ValueError,'caller branch'):render_branch(bad)
+        with self.assertRaisesRegex(ValueError,'branch expansion'):
+            expand_branch(old,({**new,T:(N,N)},info),integer)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
