@@ -519,7 +519,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const uint32_t byte_next_word=follow>=228?ins(11,0,6,9):0x60000000u;
     const auto post_mix_branch=byte_next+4u,post_mix_other=post_mix_branch+4u,post_mix_end=post_mix_branch+16u;
     const uint32_t post_mix_word=(16u<<26)|(12u<<21)|(2u<<16)|16u;
-    constexpr uint32_t post_mix_end_word=0x60000000u;
+    const uint32_t post_mix_end_word=follow>=250?
+        (31u<<26)|(1u<<21)|(7u<<16)|(1u<<11)|(444u<<1)|unsigned(follow==254):0x60000000u;
     c.mmu.write32(byte_next,follow==211?guard_word:byte_next_word);
     c.mmu.write32(byte_next+4u,follow>=228?post_mix_word:follow==212?byte_next_word:guard_word);
     const std::array<CallerIntegerInput,1> post_mix_inputs{{{6,follow==234?8u:9u}}};
@@ -574,7 +575,29 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     assert(post_mix_done&&child.reached_caller_post_mixed(c,held())&&child.caller_mixed_byte_visits()==1u);
     assert(child.caller_post_mixed_visits()==2u&&child.caller_post_mixed_integers()==1u&&child.caller_post_mixed_taken()==1u&&child.caller_post_mixed_fallthrough()==0u);
     if(parent_delay)assert(parent.frame_age(c)==136u&&child.caller_parent_tick_limit()==136u);
-    if(follow==248)assert(!child.caller_post_mixed_boundary(c,post_mix_end,post_mix_end_word,held()));
+    if(follow==248){assert(!child.caller_post_mixed_boundary(c,post_mix_end,post_mix_end_word,held()));return;}
+    if(follow<250)return;
+    const auto move_next=post_mix_end+4u;
+    const uint32_t move_word=0x60000000u;
+    c.mmu.write32(move_next,follow==252?guard_word:move_word);
+    c.mmu.write32(move_next+4u,follow==253?move_word:guard_word);
+    if(follow==255)c.mmu.write32(post_mix_other,move_word);
+    const bool move_armed=child.resume_caller_stack_move(c,follow==251?8:0,
+        move_next+(follow==256?4u:0u),move_word,held()&&follow!=257);
+    if(follow>=251&&follow<=257){assert(!move_armed);return;}
+    assert(move_armed&&child.stage()==24u&&child.caller_stack_move_visits()==0u);
+    c.gpr[7]=parent_sp^(follow==258?1u:0u);
+    if(follow==260)c.mmu.write32(move_next,guard_word);
+    if(follow==261)c.mmu.write32(move_next+4u,move_word);
+    if(follow==262)c.mmu.write32(post_mix_other,move_word);
+    if(follow==263)c.mmu.write32(other,move_word);
+    if(follow==264)c.gpr[16]^=1u;
+    c.inst_count+=follow==259?2u:1u;
+    const bool move_done=child.stop_after_caller_stack_move(c,follow==265?post_mix_other:move_next,move_word,held()&&follow!=266);
+    if(follow>=258&&follow<=266){assert(!move_done);return;}
+    assert(move_done&&child.reached_caller_stack_move(c,held())&&child.caller_stack_move_visits()==1u);
+    if(parent_delay)assert(parent.frame_age(c)==137u&&child.caller_parent_tick_limit()==137u);
+    if(follow==267)assert(!child.stop_after_caller_stack_move(c,move_next,move_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -588,4 +611,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,228,128u-baseline,&stressed);
     assert(stressed==128u);
     caller_trial(0,0x1234beefu,249,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=538 original_execution=0\n";}
+    for(unsigned follow=250;follow<=267;++follow)caller_trial(0,0x1234beefu,follow);
+    caller_trial(0,0x1234beefu,250,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=557 original_execution=0\n";}
