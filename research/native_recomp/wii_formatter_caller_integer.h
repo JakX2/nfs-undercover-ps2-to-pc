@@ -126,7 +126,8 @@ public:
 
     template<class C>
     bool arm(C& c,uint32_t root,uint32_t label,uint32_t instruction,
-             uint32_t next_word,CallerIntegerInput input) {
+             uint32_t next_word,CallerIntegerInput input,
+             std::optional<uint32_t> following_original={}) {
         const unsigned op=instruction>>26u;
         if(stage_||failed_||!safe(c)||c.pc!=root||
            root<0x80000000u||root>0x817ffff0u||(root&3u)||
@@ -134,15 +135,17 @@ public:
            ((instruction>>16u)&31u)!=input.reg||
            next_word==0x44000002u||!word(c,label,instruction)||
            !word(c,label+4u,next_word)||
-           !word(c,label+8u,0x44000002u)||
-           c.lr==label||c.lr==label+4u||c.lr==label+8u||
+           !word(c,label+8u,following_original.value_or(0x44000002u))||
+           (following_original&&(*following_original==0x44000002u||
+              root>0x817fffecu||!word(c,label+12u,0x44000002u)||c.lr==label+12u))||
+           c.lr==root||c.lr==label||c.lr==label+4u||c.lr==label+8u||
            !word(c,c.lr,0x44000002u)||
            c.inst_count==std::numeric_limits<uint64_t>::max())
             return reject();
         const std::array<CallerIntegerInput,1> operands{{input}};
         const auto expected=predict_caller_integer(instruction,c.gpr,pack(c),c.xer,operands);
         if(!expected||expected->reg)return reject();
-        cpu_=&c;root_=root;label_=label;instruction_=instruction;next_word_=next_word;
+        cpu_=&c;root_=root;label_=label;instruction_=instruction;next_word_=next_word;following_=following_original;
         gpr_=c.gpr;gqr_=c.gqr;cr_=expected->cr;xer_=c.xer;
         lr_=c.lr;ctr_=c.ctr;msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;
         count_=c.inst_count;stage_=1u;
@@ -157,7 +160,8 @@ public:
            pack(c)!=cr_||c.xer!=xer_||c.lr!=lr_||c.ctr!=ctr_||
            c.msr!=msr_||c.srr0!=srr0_||c.srr1!=srr1_||
            !word(c,label_,instruction_)||!word(c,label,next_word_)||
-           !word(c,label+4u,0x44000002u)||
+           !word(c,label+4u,following_.value_or(0x44000002u))||
+           (following_&&!word(c,label+8u,0x44000002u))||
            !word(c,lr_,0x44000002u))
             return reject();
         stage_=2u;
@@ -187,6 +191,7 @@ private:
     std::array<uint32_t,32> gpr_{};
     std::array<uint32_t,8> gqr_{};
     uint32_t root_=0,label_=0,instruction_=0,next_word_=0,cr_=0,xer_=0;
+    std::optional<uint32_t> following_{};
     uint32_t lr_=0,ctr_=0,msr_=0,srr0_=0,srr1_=0;
     uint64_t count_=0;
     unsigned stage_=0;
