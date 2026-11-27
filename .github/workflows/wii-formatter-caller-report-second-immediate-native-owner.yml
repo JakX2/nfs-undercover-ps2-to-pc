@@ -16,6 +16,7 @@ on:
       - 'research/native_recomp/wii_post_stm_sc_formatter.h'
       - 'research/native_recomp/wii_formatter_report_byte_transition.h'
       - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
+      - 'research/native_recomp/test_formatter_nested_join.cpp'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
       - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
