@@ -485,4 +485,59 @@ class CallerReportCompare(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'aggregate'):
             self.probe(rows)
 
+class CallerReportCopy(unittest.TestCase):
+    def logs(self):
+        rows=CallerReportCompare().logs()
+        return [line.replace('FORMATTER_CALLER_REPORT_COMPARE_TRIAL',
+                             'FORMATTER_CALLER_REPORT_COPY_TRIAL')
+                    .replace(' compare_verified=1',
+                             ' compare_verified=1 copy_verified=1')
+                    .replace('total_visits=119','total_visits=120') for line in rows[:-1]]+[
+            rows[-1].replace('FORMATTER_CALLER_REPORT_COMPARE_NATIVE',
+                             'FORMATTER_CALLER_REPORT_COPY_NATIVE')
+                .replace(' compares_verified=8',
+                         ' compares_verified=8 copies_verified=8')
+                .replace('total_visits=952','total_visits=960')]
+
+    def probe(self,rows,**kw):
+        return verify(rows,caller_report_copy=True,integer_count=2,post_integer_count=1,
+                      mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+
+    def test_exact(self):
+        rows=self.logs()
+        self.assertEqual(self.probe(rows),(rows[-1],))
+
+    def test_old_119_rejected(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(CallerReportCompare().logs())
+
+    def test_missing_copy(self):
+        rows=self.logs()
+        rows[0]=rows[0].replace('copy_verified=1','copy_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):
+            self.probe(rows)
+
+    def test_missing_native_visit(self):
+        rows=self.logs()
+        rows[-1]=rows[-1].replace('copies_verified=8','copies_verified=7')
+        with self.assertRaisesRegex(ValueError,'aggregate'):
+            self.probe(rows)
+
+    def test_guard_and_fallback_refusals(self):
+        for old,new in (('next_label_stop=1','next_label_stop=0'),
+                        ('copy_verified=1','copy_verified=0')):
+            rows=self.logs()
+            rows[0]=rows[0].replace(old,new)
+            with self.assertRaisesRegex(ValueError,'trial'):
+                self.probe(rows)
+        rows=self.logs()
+        rows[-1]=rows[-1].replace('fallback=0','fallback=1')
+        with self.assertRaisesRegex(ValueError,'aggregate'):
+            self.probe(rows)
+
+    def test_conflicting_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):
+            self.probe(self.logs(),caller_report_compare=True)
+
+
 if __name__=='__main__':unittest.main(verbosity=2)
