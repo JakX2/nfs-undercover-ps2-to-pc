@@ -78,7 +78,7 @@ static void trial(unsigned fault){
 // Synthetic joined frames: original computed transfer, partial load and
 // two caller stores. The observer predicts effects; the fixture applies
 // the independent instruction effects, including deliberately varied bytes.
-static void caller_trial(unsigned fault,uint32_t seed){
+static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.mmu.write32(A,T+0x100u);
     for(unsigned i=14;i<32;++i)c.gpr[i]=0x100u+i;
     constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u;
@@ -122,7 +122,7 @@ static void caller_trial(unsigned fault,uint32_t seed){
     if(fault==14)std::swap(more[5],more[7]); // reordered proof must not authorize future writes
     for(auto x:full)c.mmu.write32(x.pc,x.word);
     c.mmu.write32(stop,guard);
-    ScFormatterWitness child({T,link,site,branch,48,cp,ca,cs,{}, {dst,body,0x200u}});
+    ScFormatterWitness child({T,link,site,branch,48,cp,ca,cs,{}, {dst,body,follow?0x300u:0x200u}});
     auto held=[&](){return child.has_caller_stores()?parent.child_frame_held_with_stores(c,true,child):
         parent.child_frame_held(c,true,c.gpr[1],child.linkage_word());};
     assert(child.begin(c,parent.frame_held(c,true))&&child.poll(c,held()));++c.inst_count;assert(child.entry(c,T,held()));
@@ -179,10 +179,44 @@ static void caller_trial(unsigned fault,uint32_t seed){
     assert(child.caller_store_count()==2&&child.visits()==(fault>=11?13u:12u)&&child.loads()==(fault>=11?3u:2u)&&child.stores()==5);
     assert(c.mmu.read32(parent_sp+20)==(seed&0xffffu));
     assert(!parent.child_frame_held(c,true,c.gpr[1],child.linkage_word()));
+    if(!follow)return;
+    const unsigned extra=follow==1?57u:follow==2?58u:2u;
+    std::vector<IpcDispatchWord> later(full);later.push_back({T,stop,guard});
+    std::vector<ScFormatterAccess> later_access(more);
+    for(unsigned i=0;i<extra;++i){
+        const auto pc=stop+4u*(i+1u);
+        const int offset=follow==3?72:follow==4?12:follow==10?8:68;
+        const auto word=ins(follow==11?36:32,12,1,offset);
+        later.push_back({T,pc,word});
+        later_access.push_back({pc,4,offset-48,true,follow==11});
+        c.mmu.write32(pc,word);
+    }
+    const auto end=stop+4u*(extra+1u);c.mmu.write32(end,guard);
+    ScFormatterExpectation later_e{T,link,end,guard,48,later,later_access,cs,{0,0,false,0,true}};
+    if(follow==5)later[0].word^=1u;
+    if(follow==6)later_access[0].address=-44;
+    if(follow==8)later_e.target=stop;
+    if(follow==9)std::swap(later_access[later_access.size()-1],later_access[later_access.size()-2]);
+    const bool continued=child.resume_instruction_path(c,later_e,held()&&follow!=12);
+    if(follow==2||follow==3||follow==4||follow==5||follow==6||follow==8||follow==9||follow==11||follow==12){
+        assert(!continued);return;
+    }
+    assert(continued); // Original guard is ori r0,r0,0, no register change.
+    for(unsigned i=0;i<extra;++i){
+        ++c.inst_count;const auto& row=later[full.size()+1u+i];
+        const bool ok=child.before(c,row.pc,row.word,held());
+        if(follow==7&&i==1){assert(!ok);return;}
+        assert(ok);c.gpr[12]=(seed&0xffffu)^unsigned(follow==7);
+    }
+    ++c.inst_count;
+    assert(child.stop_before_instruction(c,end,guard,held())&&child.reached_instruction_boundary(c,held()));
+    assert(child.caller_store_count()==2&&child.visits()==full.size()+1u+extra&&child.loads()==2u+extra&&child.stores()==5);
+    assert(c.mmu.read32(parent_sp+20)==(seed&0xffffu));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=287 original_execution=0\n";}
+    for(unsigned follow=1;follow<=12;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=299 original_execution=0\n";}

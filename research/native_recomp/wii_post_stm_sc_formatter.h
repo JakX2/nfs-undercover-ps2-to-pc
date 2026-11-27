@@ -346,6 +346,66 @@ public:
         // the load body has not run. Reuse that tick in before(), not a
         // second guest tick. No register or guest memory is modified.
         const auto pc=e_.target,w=e_.target_word;
+        conditional_offset_=e_.boundary.caller_offset;
+        e_=next;boundary_due_=false;stage_=1u;--last_;
+        return before(c,pc,w,held);
+    }
+    // A later original instruction boundary keeps the exact same CPU,
+    // caller overlay and access history. This read-only extension is
+    // deliberately narrower than resume_stack_path: no fresh writes or
+    // additional conditional bytes are authorized here.
+    template<class C>bool resume_instruction_path(C& c,ScFormatterExpectation next,bool held){
+        if(!reached_instruction_boundary(c,held)||!caller_parent_||!conditional_offset_||!owner_size_||!last_||
+           !caller_parent_->child_frame_held_with_stores(c,held,*this)||
+           next.root!=e_.root||next.entry_lr!=e_.entry_lr||next.frame_size!=e_.frame_size||
+           next.control.destination||next.control.word||next.control.owner_size||
+           !next.boundary.instruction||next.boundary.width||next.boundary.address||next.boundary.stack||next.boundary.caller_offset||
+           next.path.size()<=e_.path.size()||next.path.size()>128u||
+           next.accesses.size()<e_.accesses.size()||next.accesses.size()>64u||
+           next.slots.size()!=e_.slots.size()||!word(c,next.target,next.target_word))return fail(6);
+        const auto i=e_.path.size(),j=e_.accesses.size();
+        const auto inside=[&](uint32_t a){return !(a&3u)&&a>=e_.root&&uint64_t(a)+4u<=uint64_t(e_.root)+owner_size_;};
+        if(!inside(next.target)||next.path[i].pc!=e_.target||next.path[i].word!=e_.target_word)return fail(6);
+        for(unsigned k=0;k<next.path.size();++k){
+            const auto x=next.path[k];
+            if(x.owner!=e_.root||!inside(x.pc)||x.pc==next.target||!word(c,x.pc,x.word)||
+               std::count_if(next.path.begin(),next.path.end(),[&](auto y){return x.pc==y.pc;})!=1||
+               (k<i&&(x.pc!=e_.path[k].pc||x.word!=e_.path[k].word)))return fail(6);
+        }
+        for(unsigned k=0;k<next.slots.size();++k)if(next.slots[k].reg!=e_.slots[k].reg||
+            next.slots[k].caller_offset!=e_.slots[k].caller_offset)return fail(6);
+        auto prev=next.path.begin()+i;
+        for(unsigned k=0;k<next.accesses.size();++k){
+            const auto x=next.accesses[k];
+            if(k<j){
+                const auto y=e_.accesses[k];
+                if(x.pc!=y.pc||x.width!=y.width||x.address!=y.address||x.stack!=y.stack||x.write!=y.write||x.expected_value!=y.expected_value)return fail(6);
+            }else{
+                if(x.write||(x.width!=1u&&x.width!=2u&&x.width!=4u)||(x.stack==x.expected_value.has_value()))return fail(6);
+                const auto row=std::find_if(next.path.begin()+i,next.path.end(),[&](auto y){return x.pc==y.pc;});
+                if(row==next.path.end()||row<prev||decode_load(row->word).width!=x.width)return fail(6);
+                prev=row+1;
+                if(x.stack){
+                    const auto off=x.address;
+                    if(off%x.width)return fail(6);
+                    if(off>=-int64_t(e_.frame_size)&&off<=8-int64_t(x.width)){
+                        for(unsigned q=0;q<x.width;++q){
+                            const auto byte=off+q;
+                            if(!written_[unsigned(byte+e_.frame_size)]&&
+                               (byte<*conditional_offset_||byte>=int64_t(*conditional_offset_)+4))return fail(6);
+                        }
+                    }else if(off>=8&&off<=int64_t(caller_parent_->e_.frame_size)-x.width){
+                        for(unsigned q=0;q<x.width;++q){
+                            const auto byte=unsigned(off)+q;
+                            if(!caller_written_[byte]&&!caller_parent_->written_[byte])return fail(6);
+                        }
+                    }else return fail(6);
+                }else if(x.address<0x80000000ll||x.address>0x81800000ll-x.width||x.address%x.width||
+                         !mapped(c,{uint32_t(x.address),x.width}))return fail(6);
+            }
+            if(std::count_if(next.accesses.begin(),next.accesses.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(6);
+        }
+        const auto pc=e_.target,w=e_.target_word;
         e_=next;boundary_due_=false;stage_=1u;--last_;
         return before(c,pc,w,held);
     }
@@ -436,8 +496,9 @@ private:
     std::vector<ScFormatterAccess> caller_stores_;
     std::vector<uint8_t> caller_expected_,caller_written_;
     unsigned caller_store_count_=0;uint32_t owner_size_=0;
+    std::optional<int32_t> conditional_offset_;
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0;
-    uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0,seen_=0;
+    uint64_t last_=0,seen_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
     template<class C>bool control_storage(C& c,bool held)const{
@@ -463,7 +524,11 @@ private:
         if(x==e_.accesses.end()||x->width!=n||x->write!=wr)return false;
         const int64_t expected=x->stack?int64_t(incoming_[1])+x->address:x->address;
         if(expected<0||expected>0xffffffffll||a!=uint32_t(expected))return false;
-        const auto i=unsigned(x-e_.accesses.begin());if(seen_&(1u<<i))return false;seen_|=1u<<i;return true;
+        const auto i=unsigned(x-e_.accesses.begin());
+        if(i>=64u)return false;
+        const auto bit=uint64_t(1)<<i;
+        if(seen_&bit)return false;
+        seen_|=bit;return true;
     }
     bool store(uint32_t pc,uint32_t a,unsigned n,uint32_t v){
         if(caller_parent_&&a>=incoming_[1]+8u){
@@ -481,7 +546,7 @@ private:
         return true;
     }
     template<class C>bool abi(C& c)const{
-        if(stores_+loads_!=e_.accesses.size()||authenticated_loads_!=unsigned(std::count_if(e_.accesses.begin(),e_.accesses.end(),[](auto a){return a.expected_value.has_value();}))||
+        if(stores_+loads_!=e_.accesses.size()||unsigned(std::popcount(seen_))!=e_.accesses.size()||authenticated_loads_!=unsigned(std::count_if(e_.accesses.begin(),e_.accesses.end(),[](auto a){return a.expected_value.has_value();}))||
            gp_[1]!=frame_.base||c.mmu.read32(frame_.base)!=incoming_[1]||
            gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return false;
         for(auto s:e_.slots){
