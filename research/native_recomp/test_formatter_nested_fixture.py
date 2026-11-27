@@ -47,6 +47,15 @@ class Test(unittest.TestCase):
         for kwargs in (dict(stack_boundary=True,instruction_boundary=True),dict(instruction_boundary=True)):
             bad=c if kwargs.get('stack_boundary') else (c[0],c[1][:5]+(-40,4),*c[2:])
             with self.assertRaises(ValueError):render(bad,**kwargs)
+    def test_special_header(self):
+        rows=tuple((R+4*i,N) for i in range(96))
+        c=({},(R,L,R+384,N,48,0,0),rows,(),((4,32),),())
+        s=render(c,instruction_boundary=True,special_boundary=True)
+        self.assertIn('namespace formatter_special_private',s)
+        self.assertIn('IpcDispatchWord,96> path',s)
+        self.assertIn('slots,{0u,0u,false,0,true}',s)
+        with self.assertRaisesRegex(ValueError,'instruction boundary'):
+            render(c,special_boundary=True)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
