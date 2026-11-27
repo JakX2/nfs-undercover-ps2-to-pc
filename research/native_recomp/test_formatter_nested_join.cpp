@@ -505,14 +505,31 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==206){assert(!child.caller_mixed_boundary(c,mix_end,mix_end_word,held()));return;}
     if(follow<207)return;
     const auto byte_next=mix_end+4u;
-    constexpr uint32_t byte_next_word=0x60000000u;
+    const uint32_t byte_next_word=follow>=228?ins(11,0,6,9):0x60000000u;
+    const auto post_mix_branch=byte_next+4u,post_mix_other=post_mix_branch+4u,post_mix_end=post_mix_branch+16u;
+    const uint32_t post_mix_word=(16u<<26)|(12u<<21)|(2u<<16)|16u;
+    constexpr uint32_t post_mix_end_word=0x60000000u;
     c.mmu.write32(byte_next,follow==211?guard_word:byte_next_word);
-    c.mmu.write32(byte_next+4u,follow==212?byte_next_word:guard_word);
+    c.mmu.write32(byte_next+4u,follow>=228?post_mix_word:follow==212?byte_next_word:guard_word);
+    const std::array<CallerIntegerInput,1> post_mix_inputs{{{6,follow==234?8u:9u}}};
+    std::array<ScCallerMixedStep,2> post_mix{{
+        {byte_next,byte_next_word,post_mix_inputs,post_mix_branch,0u,false},
+        {post_mix_branch,post_mix_word,{},post_mix_end,post_mix_other,true}
+    }};
+    if(follow>=228){
+        c.mmu.write32(post_mix_other,follow==232?byte_next_word:guard_word);
+        c.mmu.write32(post_mix_end,follow==233?guard_word:post_mix_end_word);
+        if(follow==229)post_mix[0].pc+=4u;
+        if(follow==230)post_mix[1].other_pc=mix_other;
+        if(follow==231)post_mix[1].taken=false;
+    }
+    const auto post_mix_path=follow>=228?std::span<const ScCallerMixedStep>{post_mix}:std::span<const ScCallerMixedStep>{};
     if(follow==215)c.mmu.write32(mix_other,byte_next_word);
     if(follow==216)c.mmu.write32(parent_sp+16,8u);
     const bool byte_armed=child.resume_caller_mixed_byte(c,follow==208?18:follow==209?24:19,
-        follow==210?8u:9u,byte_next+(follow==217?4u:0u),byte_next_word,held()&&follow!=218);
-    if(follow>=208&&follow<=218){assert(!byte_armed);return;}
+        follow==210?8u:9u,byte_next+(follow==217?4u:0u),byte_next_word,held()&&follow!=218,
+        post_mix_path,follow>=228?post_mix_end:0u,follow>=228?post_mix_end_word:0u);
+    if((follow>=208&&follow<=218)||(follow>=229&&follow<=233)){assert(!byte_armed);return;}
     assert(byte_armed&&child.stage()==20u&&child.caller_mixed_byte_visits()==0u);
     // Separate synthetic architectural effect, not a witness assignment.
     c.gpr[6]=follow==219?8u:9u;
@@ -525,11 +542,32 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow>=219&&follow<=226){assert(!byte_done);return;}
     assert(byte_done&&child.reached_caller_mixed_byte(c,held())&&child.caller_mixed_byte_visits()==1u);
     if(follow==227){assert(!child.stop_after_caller_mixed_byte(c,byte_next,byte_next_word,held()));return;}
+    if(follow<228)return;
+    const bool post_mix_armed=child.resume_caller_post_mixed(c,held()&&follow!=235);
+    if(follow==234||follow==235){assert(!post_mix_armed);return;}
+    assert(post_mix_armed&&child.stage()==22u&&child.caller_post_mixed_visits()==0u);
+    c.cr[0]={false,false,follow!=236,false};
+    if(follow==237)c.mmu.write32(post_mix_other,byte_next_word);
+    if(follow==238)c.mmu.write32(mix_other,byte_next_word);
+    if(follow==239)c.mmu.write32(byte_next,guard_word);
+    c.inst_count+=follow==240?2u:1u;
+    const bool post_mix_first=child.caller_post_mixed_boundary(c,follow==241?post_mix_end:post_mix_branch,post_mix_word,held());
+    if(follow>=236&&follow<=241){assert(!post_mix_first);return;}
+    assert(post_mix_first&&child.caller_post_mixed_visits()==1u);
+    if(follow==242)c.gpr[6]^=1u;
+    if(follow==243)c.mmu.write32(post_mix_end,guard_word);
+    if(follow==244)c.mmu.write32(other,byte_next_word);
+    c.inst_count+=follow==245?2u:1u;
+    const bool post_mix_done=child.caller_post_mixed_boundary(c,follow==246?post_mix_other:post_mix_end,post_mix_end_word,held()&&follow!=247);
+    if(follow>=242&&follow<=247){assert(!post_mix_done);return;}
+    assert(post_mix_done&&child.reached_caller_post_mixed(c,held())&&child.caller_mixed_byte_visits()==1u);
+    assert(child.caller_post_mixed_visits()==2u&&child.caller_post_mixed_integers()==1u&&child.caller_post_mixed_taken()==1u&&child.caller_post_mixed_fallthrough()==0u);
+    if(follow==248)assert(!child.caller_post_mixed_boundary(c,post_mix_end,post_mix_end_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=227;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=514 original_execution=0\n";}
+    for(unsigned follow=1;follow<=248;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=535 original_execution=0\n";}
