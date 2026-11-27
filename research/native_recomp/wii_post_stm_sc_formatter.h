@@ -970,6 +970,41 @@ public:
     template<class C>bool reached_caller_report_copy(C& c,bool held)const{
         return stage_==35u&&report_copy_completed_&&report_byte_storage(c,held,3u);
     }
+    // Optional original 121 (PPC li): preserve the previous caller state
+    // and authorize one translated zero-input addi. The fourth original
+    // word stays unexecuted behind the following test-only guard.
+    template<class C>bool resume_caller_report_immediate(C& c,unsigned dst,
+        uint32_t expected,bool held){
+        if(!reached_caller_report_copy(c,held)||!next_entry_third_||
+           !next_entry_fourth_)return fail(6);
+        const auto predicted=predict_caller_zero_input_addi(
+            *next_entry_third_,c.gpr,pack(c),c.xer);
+        if(!predicted||predicted->reg!=dst||predicted->value!=expected||
+           predicted->cr!=cr_||gp_[dst]!=c.gpr[dst])return fail(6);
+        gp_[dst]=expected;
+        report_immediate_destination_=dst;
+        report_immediate_value_=expected;
+        stage_=36u;
+        return true;
+    }
+    template<class C>bool stop_after_caller_report_immediate(C& c,
+        uint32_t pc,uint32_t w,bool held){
+        if(stage_!=36u||!next_entry_fourth_||pc!=next_entry_pc_+16u||
+           w!=*next_entry_fourth_||
+           c.gpr[report_immediate_destination_]!=report_immediate_value_||
+           gp_[report_immediate_destination_]!=report_immediate_value_||
+           !report_byte_storage(c,held,4u))return fail(6);
+        report_immediate_completed_=true;
+        stage_=37u;
+        return true;
+    }
+    unsigned caller_report_immediate_visits()const{
+        return report_immediate_completed_&&!error_?1u:0u;
+    }
+    template<class C>bool reached_caller_report_immediate(C& c,bool held)const{
+        return stage_==37u&&report_immediate_completed_&&
+            report_byte_storage(c,held,4u);
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -1040,20 +1075,20 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(armed);
-        if(extra>40u)return 128u;
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(armed);
+        if(extra>41u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
     // Only the already-observed fourth branch can open a continuation
     // budget for an ancestor frame. No budget comes from the live counter.
     std::optional<unsigned> caller_post_fourth_tick_budget()const{
         if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
-           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=35u)))return {};
-        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u;
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=37u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u;
         const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
-            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(armed);
-        if(n>38u)return {};
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(armed);
+        if(n>39u)return {};
         return n;
     }
     bool has_caller_stores()const{return caller_parent_!=nullptr;}
@@ -1136,6 +1171,8 @@ private:
     uint32_t report_byte_address_=0;uint8_t report_byte_expected_=0;
     bool report_byte_completed_=false,compare_completed_=false,report_copy_completed_=false;
     unsigned report_copy_destination_=0u;uint32_t report_copy_value_=0u;
+    unsigned report_immediate_destination_=0u;uint32_t report_immediate_value_=0u;
+    bool report_immediate_completed_=false;
     template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u)const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
             next_entry_storage(c,held,true,tick)&&mapped(c,{report_byte_address_,1u})&&
