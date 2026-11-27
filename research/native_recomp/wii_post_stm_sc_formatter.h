@@ -838,21 +838,23 @@ public:
     // return LR proof intact and verify the new LR separately.
     template<class C>bool resume_caller_next_entry(C& c,uint32_t dst,uint32_t w,uint32_t ret,bool held,
                                                    std::optional<uint32_t> successor={},
-                                                   std::optional<uint32_t> following={}){
+                                                   std::optional<uint32_t> following={},
+                                                   std::optional<uint32_t> third={}){
         if(!reached_caller_final_integer(c,held)||!caller_parent_||
            final_integer_word_>>26!=18u||(final_integer_word_&3u)!=1u||
            target(final_integer_pc_,final_integer_word_)!=dst||
            uint64_t(final_integer_pc_)+4u!=ret||dst>=caller_parent_->e_.root||
            !decode_load(w).width||!word(c,dst,w)||
            !word(c,dst+4u,successor.value_or(0x44000002u))||
-           (following&&!successor)||
+           (following&&!successor)||(third&&!following)||
            (successor&&(*successor==0x44000002u||
-             uint64_t(dst)+(following?16u:12u)>caller_parent_->e_.root||
+             uint64_t(dst)+(third?20u:following?16u:12u)>caller_parent_->e_.root||
              !word(c,dst+8u,following.value_or(0x44000002u))))||
-           (following&&(*following==0x44000002u||!word(c,dst+12u,0x44000002u)))||
+           (following&&(*following==0x44000002u||!word(c,dst+12u,third.value_or(0x44000002u))))||
+           (third&&(*third==0x44000002u||!word(c,dst+16u,0x44000002u)))||
            !word(c,ret,0x44000002u))return fail(6);
         next_entry_pc_=dst;next_entry_word_=w;next_entry_lr_=ret;
-        next_entry_successor_=successor;next_entry_following_=following;stage_=28u;return true;
+        next_entry_successor_=successor;next_entry_following_=following;next_entry_third_=third;stage_=28u;return true;
     }
     // Authenticate the pinned direct function's root trace before its
     // first label tick. No outer dispatcher or callback poll intervenes.
@@ -925,6 +927,38 @@ public:
     template<class C>bool reached_caller_report_compare(C& c,bool held)const{
         return stage_==33u&&compare_completed_&&report_byte_storage(c,held,2u);
     }
+    // Admit the original stack-derived PPC register copy without producing
+    // a fabricated numeric input or authorizing any memory dereference.
+    template<class C>bool resume_caller_report_copy(C& c,unsigned src,unsigned dst,
+        int32_t offset,bool held){
+        if(!reached_caller_report_compare(c,held)||!next_entry_third_||
+           src>=32u||dst>=32u||src==dst||c.pc!=next_entry_pc_+8u||
+           !next_entry_following_)return fail(6);
+        const uint32_t w=*next_entry_following_;
+        if(w>>26!=31u||((w>>1u)&1023u)!=444u||(w&1u)||
+           ((w>>21u)&31u)!=src||((w>>11u)&31u)!=src||
+           ((w>>16u)&31u)!=dst||dst==1u||dst==2u||dst==13u||
+           (dst>=14u&&!parent_saved_register(c,dst)))return fail(6);
+        const int64_t address=int64_t(gp_[1])+int64_t(offset);
+        if(address<0x80000000ll||address>=0x81800000ll||
+           gp_[src]!=uint32_t(address)||c.gpr[src]!=uint32_t(address))return fail(6);
+        gp_[dst]=uint32_t(address);
+        if(dst>=14u)caller_modified_mask_|=uint32_t(1)<<dst;
+        stage_=34u;return true;
+    }
+    template<class C>bool stop_after_caller_report_copy(C& c,uint32_t pc,
+        uint32_t w,bool held){
+        if(stage_!=34u||!next_entry_third_||pc!=next_entry_pc_+12u||
+           w!=*next_entry_third_||!report_byte_storage(c,held,3u))
+            return fail(6);
+        report_copy_completed_=true;stage_=35u;return true;
+    }
+    unsigned caller_report_copy_visits()const{
+        return report_copy_completed_&&!error_?1u:0u;
+    }
+    template<class C>bool reached_caller_report_copy(C& c,bool held)const{
+        return stage_==35u&&report_copy_completed_&&report_byte_storage(c,held,3u);
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -995,8 +1029,8 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(armed);
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(armed);
         if(extra>40u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
@@ -1004,10 +1038,10 @@ public:
     // budget for an ancestor frame. No budget comes from the live counter.
     std::optional<unsigned> caller_post_fourth_tick_budget()const{
         if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
-           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=33u)))return {};
-        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u;
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=35u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u;
         const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
-            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(armed);
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(armed);
         if(n>38u)return {};
         return n;
     }
@@ -1087,9 +1121,9 @@ private:
     bool final_integer_completed_=false;
     uint32_t next_entry_pc_=0,next_entry_word_=0,next_entry_lr_=0;
     bool next_entry_completed_=false,next_entry_trace_seen_=false;
-    std::optional<uint32_t> next_entry_successor_{},next_entry_following_{};
+    std::optional<uint32_t> next_entry_successor_{},next_entry_following_{},next_entry_third_{};
     uint32_t report_byte_address_=0;uint8_t report_byte_expected_=0;
-    bool report_byte_completed_=false,compare_completed_=false;
+    bool report_byte_completed_=false,compare_completed_=false,report_copy_completed_=false;
     template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u)const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
             next_entry_storage(c,held,true,tick)&&mapped(c,{report_byte_address_,1u})&&
@@ -1101,7 +1135,8 @@ private:
             word(c,next_entry_pc_,next_entry_word_)&&
             word(c,next_entry_pc_+4u,next_entry_successor_.value_or(0x44000002u))&&
             (!next_entry_successor_||word(c,next_entry_pc_+8u,next_entry_following_.value_or(0x44000002u)))&&
-            (!next_entry_following_||word(c,next_entry_pc_+12u,0x44000002u))&&
+            (!next_entry_following_||word(c,next_entry_pc_+12u,next_entry_third_.value_or(0x44000002u)))&&
+            (!next_entry_third_||word(c,next_entry_pc_+16u,0x44000002u))&&
             word(c,next_entry_lr_,0x44000002u)&&
             mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick)+extra,
                 CallerArrival{next_entry_pc_,next_entry_lr_})&&visits_==e_.path.size()+1u;
