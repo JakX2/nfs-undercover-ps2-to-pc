@@ -89,5 +89,34 @@ int main(){
         gp[1]=sp;
         assert(!predict_caller_stack_move(x(1,5,1,444),gp,0u,sp));
     }
-    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=64 original_execution=0\n";
+    unsigned relative_cases=0;
+    for(const uint32_t sp:{0x80010000u,0x81000000u,0x817f0000u}){
+        for(const int32_t offset:{-864,-48,0,704,864}){
+            gp[1]=sp;gp[7]=uint32_t(int64_t(sp)+offset);
+            const auto check=[&](uint32_t w,unsigned src,int32_t off,int64_t delta,unsigned dst,bool ok){
+                const auto p=predict_caller_stack_relative(w,gp,0x12345678u,sp,src,off);
+                assert(bool(p)==ok);
+                if(p)assert(p->reg==dst&&p->value==uint32_t(int64_t(sp)+offset+delta)&&p->cr==0x12345678u);
+                ++relative_cases;
+            };
+            check(d(14,6,7,12),7,offset,12,6,true);
+            check(d(14,7,7,0xfff4),7,offset,-12,7,true);
+            check(d(15,6,7,0xffff),7,offset,-65536,6,int64_t(sp)+offset-65536>=0x80000000ll);
+            check(d(15,6,7,1),7,offset,65536,6,int64_t(sp)+offset+65536<0x81800000ll);
+            check(x(7,6,7,444),7,offset,0,6,true);
+            check(x(7,7,7,444),7,offset,0,7,true);
+            check(d(14,6,7,12),6,offset,0,6,false);
+            check(d(14,6,7,12),7,offset+1,0,6,false);
+            check(d(14,1,7,12),7,offset,0,1,false);
+            check(d(14,16,7,12),7,offset,0,16,false);
+            check(d(14,6,0,12),0,offset,0,6,false);
+            check(d(11,0,7,0),7,offset,0,0,false);
+            check(d(32,6,7,0),7,offset,0,6,false);
+            check(x(7,6,7,444,true),7,offset,0,6,false);
+            check(x(7,6,8,444),7,offset,0,6,false);
+            check(d(15,6,7,0x7fff),7,offset,0,6,false);
+        }
+    }
+    assert(relative_cases==240);
+    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=64 stack_relative_cases="<<relative_cases<<" original_execution=0\n";
 }

@@ -86,4 +86,32 @@ inline std::optional<CallerIntegerEffect> predict_caller_stack_move(
     // Copy only. Being inside MEM1 does not authorize reading or writing it.
     return CallerIntegerEffect{ra,uint32_t(address),cr};
 }
+// Generic tagged stack operand. This predicts only register arithmetic,
+// never guest memory access. Both input and result must resolve inside
+// MEM1 without 32-bit wrap; the private symbolic plan supplies the offset.
+inline std::optional<CallerIntegerEffect> predict_caller_stack_relative(
+    uint32_t w,const std::array<uint32_t,32>& gp,uint32_t cr,
+    uint32_t parent_sp,unsigned declared_src,int32_t offset){
+    constexpr int64_t limit=0x01800000ll;
+    if(declared_src>=32u||gp[1]!=parent_sp||parent_sp<0x80000000u||
+       parent_sp>0x81800000u-704u||(parent_sp&7u)||offset<=-limit||offset>=limit)return {};
+    const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
+    unsigned src=0,dst=0;int64_t add=0;
+    if((op==14u||op==15u)&&ra){
+        src=ra;dst=rs;
+        add=(int64_t(w&0xffffu)^0x8000ll)-0x8000ll;
+        if(op==15u)add*=65536ll;
+    }else if(op==31u&&xo==444u&&!(w&1u)&&rs==rb){
+        src=rs;dst=ra;
+    }else return {};
+    if(src!=declared_src||!(dst==0u||(dst>=3u&&dst<=12u)))return {};
+    const int64_t result_offset=int64_t(offset)+add;
+    const int64_t input=int64_t(parent_sp)+offset,output=int64_t(parent_sp)+result_offset;
+    if(result_offset<=-limit||result_offset>=limit||
+       input<0x80000000ll||input>=0x81800000ll||
+       output<0x80000000ll||output>=0x81800000ll||
+       gp[src]!=uint32_t(input))return {};
+    return CallerIntegerEffect{dst,uint32_t(output),cr};
+}
+
 }
