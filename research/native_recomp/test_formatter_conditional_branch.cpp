@@ -1,5 +1,7 @@
 // Synthetic branch labels only. No private game data or native execution.
 #include "wii_formatter_conditional_branch.h"
+#include "wii_formatter_report_sixth_immediate.h"
+#include <optional>
 #include <array>
 #ifdef NDEBUG
 #undef NDEBUG
@@ -97,6 +99,59 @@ void condition_register_matrix(){
         assert(witness.observe(c,selected,Next)&&witness.stage()==2u);
     }
 }
+// Join a synthetic original-127 addi to both outcomes of original-128 bc.
+// The register update and branch transition are manually applied test state.
+void chained_sixth_immediate_branch(){
+    const uint32_t li=(14u<<26u)|(6u<<21u)|0x8000u;
+    for(const bool eq:{false,true})
+    for(const unsigned bo:{4u,12u}){
+        Cpu c=seed(eq,bo);
+        const uint32_t branch=bc(bo,2u,16u);
+        const bool taken=bo==12u?eq:!eq;
+        const uint32_t selected=taken?PC+16u:PC+4u;
+        c.mmu.write32(PC-4u,li);
+        const std::optional<uint32_t> following=
+            taken?std::nullopt:std::optional<uint32_t>{Next};
+        FormatterSixthImmediateWitness previous;
+        assert(previous.arm(c,Root,PC-4u,li,branch,Ret,6u,
+                            0xffff8000u,following));
+        c.gpr[6u]=0xffff8000u;
+        ++c.inst_count;
+        assert(previous.observe(c,PC,branch));
+        assert(previous.stage()==2u&&!previous.failed());
+        FormatterConditionalBranchWitness branch_edge;
+        assert(branch_edge.arm(c,Root,PC,branch,selected,Next,Ret,80u));
+        ++c.inst_count;
+        assert(branch_edge.observe(c,selected,Next));
+        assert(branch_edge.stage()==2u&&!branch_edge.failed());
+    }
+    {
+        Cpu c=seed(false,12u);
+        const uint32_t branch=bc(12u,2u,16u);
+        c.mmu.write32(PC-4u,li);
+        FormatterSixthImmediateWitness missing;
+        assert(!missing.arm(c,Root,PC-4u,li,branch,Ret,6u,
+                            0xffff8000u));
+        FormatterSixthImmediateWitness wrong;
+        assert(!wrong.arm(c,Root,PC-4u,li,branch,Ret,6u,
+                          0xffff8000u,branch));
+        FormatterSixthImmediateWitness correct;
+        assert(correct.arm(c,Root,PC-4u,li,branch,Ret,6u,
+                           0xffff8000u,Next));
+        c.mmu.write32(PC+8u,Next);
+        c.gpr[6u]=0xffff8000u;
+        ++c.inst_count;
+        assert(!correct.observe(c,PC,branch)&&correct.failed());
+    }
+    {
+        Cpu c=seed(true,12u);
+        const uint32_t branch=bc(12u,2u,16u);
+        c.mmu.write32(PC-4u,li);
+        FormatterSixthImmediateWitness extra;
+        assert(!extra.arm(c,Root,PC-4u,li,branch,Ret,6u,
+                          0xffff8000u,Next));
+    }
+}
 void refusal_cases(){
     for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u}){
         Cpu c=seed(true);
@@ -165,8 +220,9 @@ void observe_refusals(){
 int main(){
     positives();
     condition_register_matrix();
+    chained_sixth_immediate_branch();
     refusal_cases();
     observe_refusals();
-    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 arm_refusals=11"
+    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 arm_refusals=11"
              <<" observe_refusals=22 original_execution=0\n";
 }

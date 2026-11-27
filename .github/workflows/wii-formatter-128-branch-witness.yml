@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/wii_formatter_conditional_branch.h'
       - 'research/native_recomp/test_formatter_conditional_branch.cpp'
       - 'research/native_recomp/wii_formatter_branch_decision.h'
+      - 'research/native_recomp/wii_formatter_report_sixth_immediate.h'
 permissions:
   contents: read
 jobs:
