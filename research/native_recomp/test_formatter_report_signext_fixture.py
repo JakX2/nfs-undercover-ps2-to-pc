@@ -131,6 +131,29 @@ class SignextFixtureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 render((good[0], modified))
 
+    def test_render_refuses_modified_root_words_and_overlapping_siblings(self):
+        immediate, copy, predecessor, compare = self.contracts()
+        blocks, fields = promote(immediate, copy, predecessor,
+                                 compare, FOLLOWING)
+        root = self.base.root
+        original = blocks[root]
+        variants = (
+            {},
+            {**blocks, root: list(original)},
+            {**blocks, root: original[:-1]},
+            {**blocks, root: original[:4] + (original[4] ^ 1,) + original[5:]},
+            {**blocks, root: original[:5] + (original[5] ^ 1,) + original[6:]},
+            {**blocks, root: original[:-1] + (0,)},
+            {**blocks, root + 4: (0x60000000, GUARD)},
+        )
+        for forged in variants:
+            with self.subTest(forged=tuple(forged)):
+                with self.assertRaisesRegex(ValueError, 'report signext rendering'):
+                    render((forged, fields))
+        # Unmodified original blocks still render with both the successor
+        # word and synthetic stop guard present.
+        self.assertIn('next_word=', render((blocks, fields)))
+
     def test_owner_word_match_extent_and_shared_predecessor(self):
         immediate, copy, predecessor, compare = self.contracts()
         root = self.base.root
