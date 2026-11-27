@@ -540,4 +540,63 @@ class CallerReportCopy(unittest.TestCase):
             self.probe(self.logs(),caller_report_compare=True)
 
 
+class CallerReportImmediate(unittest.TestCase):
+    def logs(self):
+        rows=CallerReportCopy().logs()
+        return [line.replace('FORMATTER_CALLER_REPORT_COPY_TRIAL',
+                             'FORMATTER_CALLER_REPORT_IMMEDIATE_TRIAL')
+                    .replace(' copy_verified=1',
+                             ' copy_verified=1 immediate_verified=1')
+                    .replace('total_visits=120','total_visits=121')
+                for line in rows[:-1]]+[
+            rows[-1].replace('FORMATTER_CALLER_REPORT_COPY_NATIVE',
+                             'FORMATTER_CALLER_REPORT_IMMEDIATE_NATIVE')
+                .replace(' copies_verified=8',
+                         ' copies_verified=8 immediates_verified=8')
+                .replace('total_visits=960','total_visits=968')]
+
+    def probe(self,rows,**kw):
+        return verify(rows,caller_report_immediate=True,
+                      integer_count=2,post_integer_count=1,
+                      mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+
+    def test_exact(self):
+        rows=self.logs()
+        self.assertEqual(self.probe(rows),(rows[-1],))
+
+    def test_missing_121_or_120(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(CallerReportCopy().logs())
+        rows=self.logs()
+        rows[1]=rows[1].replace(' immediate_verified=1','')
+        with self.assertRaisesRegex(ValueError,'trial'):
+            self.probe(rows)
+
+    def test_corrupted_121_result(self):
+        for old,new in (('immediate_verified=1','immediate_verified=0'),
+                        ('copy_verified=1','copy_verified=0'),
+                        ('next_label_stop=1','next_label_stop=0'),
+                        ('total_visits=121','total_visits=120')):
+            rows=self.logs()
+            rows[0]=rows[0].replace(old,new)
+            with self.subTest(old=old):
+                with self.assertRaisesRegex(ValueError,'trial'):
+                    self.probe(rows)
+
+    def test_aggregate_and_fallback(self):
+        for old,new in (('immediates_verified=8','immediates_verified=7'),
+                        ('total_visits=968','total_visits=960'),
+                        ('fallback=0','fallback=1')):
+            rows=self.logs()
+            rows[-1]=rows[-1].replace(old,new)
+            with self.subTest(old=old):
+                with self.assertRaisesRegex(ValueError,'aggregate'):
+                    self.probe(rows)
+
+    def test_mode_conflict_and_coverage(self):
+        with self.assertRaisesRegex(ValueError,'mode'):
+            self.probe(self.logs(),caller_report_copy=True)
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(self.logs()[:-1])
+
 if __name__=='__main__':unittest.main(verbosity=2)
