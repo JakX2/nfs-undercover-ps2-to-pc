@@ -460,7 +460,7 @@ def expand_report_byte(old,entry,contract):
 
 def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
-    if (final_integer_contract is None)!=(next_entry_contract is None):raise ValueError('nested fixture mode')
+    if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
     if stack_move_contract is not None and post_mixed_contract is None:raise ValueError('nested fixture mode')
     if post_mixed_contract is not None and mixed_byte_contract is None:raise ValueError('nested fixture mode')
@@ -533,7 +533,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
 
 def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
-    if (final_integer_contract is None)!=(next_entry_contract is None):raise ValueError('nested fixture mode')
+    if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
     if stack_move_contract is not None and post_mixed_contract is None:raise ValueError('nested fixture mode')
     if post_mixed_contract is not None and mixed_byte_contract is None:raise ValueError('nested fixture mode')
@@ -580,7 +580,7 @@ def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract
 
 def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
-    if (final_integer_contract is None)!=(next_entry_contract is None):raise ValueError('nested fixture mode')
+    if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
     if stack_move_contract is not None and post_mixed_contract is None:raise ValueError('nested fixture mode')
     if post_mixed_contract is not None and mixed_byte_contract is None:raise ValueError('nested fixture mode')
@@ -699,10 +699,11 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
                                                         _,rows,end,w=final_integer_contract
                                                         if rows[0][:2]!=info[-2:] or end in expected:raise ValueError('nested fixture caller final integer')
                                                         expected[end]=(owner,w)
-                                                        render_next_entry(next_entry_contract)
-                                                        _,info=next_entry_contract
-                                                        if info[0]!=owner or info[2:4]!=(end,w) or info[4] in expected:raise ValueError('nested fixture caller next entry')
-                                                        expected[info[4]]=(info[4],info[5])
+                                                        if next_entry_contract is not None:
+                                                            render_next_entry(next_entry_contract)
+                                                            _,info=next_entry_contract
+                                                            if info[0]!=owner or info[2:4]!=(end,w) or info[4] in expected:raise ValueError('nested fixture caller next entry')
+                                                            expected[info[4]]=(info[4],info[5])
                                                         if report_byte_contract is not None:
                                                             expand_report_byte(next_entry_contract[0],next_entry_contract,report_byte_contract)
                                                             ri=report_byte_contract[1]
@@ -847,7 +848,7 @@ def main():
                             phase='final_integer_plan'
                             final_integer_contract,_,_,_=final_integer_plan(d,e)
                             phase='next_entry_plan'
-                            next_entry_contract,_,_,_=next_entry_plan(d,e)
+                            if q.caller_next_entry:next_entry_contract,_,_,_=next_entry_plan(d,e)
                             if q.caller_report_byte:report_byte_contract=report_byte_plan(d,e)
             phase='fixture_expansion'
             if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract);return 0
