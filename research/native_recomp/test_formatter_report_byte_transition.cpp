@@ -461,6 +461,79 @@ static unsigned fourth_guard_cases() {
     return 15u;
 }
 
+
+/* Authenticate the entire original-free 118..124 six-successor chain.
+   Each guard mutation must be rejected at the earliest owning witness.
+   This extends old tests without changing their short-chain behavior. */
+static unsigned sixth_guard_cases() {
+    constexpr uint32_t guard=0x44000002u;
+    constexpr uint32_t cmp=(11u<<26u)|(3u<<23u)|(8u<<16u)|16u;
+    constexpr uint32_t copy=(31u<<26u)|(1u<<21u)|(10u<<16u)|(1u<<11u)|(444u<<1u);
+    constexpr uint32_t immediate=(14u<<26u)|(3u<<21u)|0xfffeu;
+    constexpr uint32_t signext=(31u<<26u)|(9u<<21u)|(9u<<16u)|(954u<<1u);
+    constexpr uint32_t second=(14u<<26u)|(11u<<21u)|0x8000u;
+    constexpr uint32_t following=Nop;
+    for(unsigned fault=0;fault<17u;++fault) {
+        Harness h(9u,0x5au,false);
+        h.step.next_word=cmp;
+        h.cpu.mmu.write32(Entry+4u,cmp);
+        h.cpu.mmu.write32(Entry+8u,copy);
+        h.cpu.mmu.write32(Entry+12u,immediate);
+        h.cpu.mmu.write32(Entry+16u,signext);
+        h.cpu.mmu.write32(Entry+20u,second);
+        h.cpu.mmu.write32(Entry+24u,following);
+        h.cpu.mmu.write32(Entry+28u,guard);
+        h.cpu.mmu.write32(Link,guard);
+        if(fault==1u)h.cpu.mmu.write32(Entry+24u,0u);
+        if(fault==2u)h.cpu.mmu.write32(Entry+28u,0u);
+        if(fault==3u)h.cpu.mmu.write32(Entry+20u,0u);
+        if(fault==4u) {
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,
+                   copy,immediate,signext,{},following));
+            continue;
+        }
+        if(fault>=1u&&fault<=3u){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,
+                   copy,immediate,signext,second,following));
+            continue;
+        }
+        assert(h.witness.arm_native(h.cpu,h.report,h.step,true,
+               copy,immediate,signext,second,following));
+        ++h.cpu.inst_count;h.cpu.gpr[9u]=0x5au;
+        if(fault==5u)h.cpu.mmu.write32(Entry+24u,0u);
+        if(fault==6u)h.cpu.mmu.write32(Entry+28u,0u);
+        if(fault==7u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault>=5u&&fault<=7u){
+            assert(!h.witness.observe_native_label(
+                   h.cpu,h.report,Entry+4u,cmp,true));
+            continue;
+        }
+        assert(h.witness.observe_native_label(
+               h.cpu,h.report,Entry+4u,cmp,true));
+        CallerImmediateCompareWitness compare;
+        if(fault==8u)h.cpu.mmu.write32(Entry+24u,0u);
+        if(fault==9u)h.cpu.mmu.write32(Entry+28u,0u);
+        if(fault==10u){h.cpu.lr=Entry+24u;}
+        if(fault>=8u&&fault<=10u) {
+            assert(!compare.arm(h.cpu,Entry,Entry+4u,cmp,copy,
+                   {8u,16u},immediate,signext,second,following));
+            continue;
+        }
+        assert(compare.arm(h.cpu,Entry,Entry+4u,cmp,copy,
+               {8u,16u},immediate,signext,second,following));
+        h.cpu.cr[3u]={false,false,true,false};
+        ++h.cpu.inst_count;
+        if(fault==11u)h.cpu.mmu.write32(Entry+20u,0u);
+        if(fault==12u)h.cpu.mmu.write32(Entry+24u,0u);
+        if(fault==13u)h.cpu.mmu.write32(Entry+28u,0u);
+        if(fault==14u)h.cpu.cr[3u].eq=false;
+        if(fault==15u)h.cpu.gpr[0u]^=1u;
+        if(fault==16u)++h.cpu.inst_count;
+        assert(compare.observe(h.cpu,Entry+8u,copy)==(fault==0u));
+    }
+    return 17u;
+}
+
 int main() {
     const auto successful=positives();
     const auto native_successful=native_positives();
@@ -471,11 +544,12 @@ int main() {
     const auto independent_rejected=native_independent_compare_refusals();
     const auto extended=extended_guard_cases();
     const auto fourth=fourth_guard_cases();
-    assert(fourth==15u);
+    const auto sixth=sixth_guard_cases();
+    assert(fourth==15u&&sixth==17u);
     assert(compare_chain==24576u&&independent_rejected==4u);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
              <<" native_valid="<<native_successful
              <<" rejected=47 compare_chain="<<compare_chain
              <<" compare_chain_rejected=9 independent_source_rejected="
-             <<independent_rejected<<" extended_guard_cases="<<extended<<" fourth_guard_cases="<<fourth<<" original_execution=0\n";
+             <<independent_rejected<<" extended_guard_cases="<<extended<<" fourth_guard_cases="<<fourth<<" sixth_guard_cases="<<sixth<<" original_execution=0\n";
 }
