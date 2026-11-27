@@ -102,6 +102,35 @@ class StackCopyFixture(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'extent'):
                 plan(b'dol',b'elf')
 
+    def test_shared_native_harness_preprocessor_scope(self):
+        # The harness is shared by dozens of older modes. Merely compiling
+        # witness headers cannot catch a missing #endif in this translation
+        # unit, nor a mode accidentally nested under an unrelated option.
+        from re import match
+        path = Path(__file__).with_name('test_native_scheduler_postack_v1256.cpp')
+        scopes = []
+        seen = set()
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            directive = match(r'^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)', line)
+            if directive:
+                kind, expression = directive.groups()
+                if kind in ('if', 'ifdef', 'ifndef'):
+                    scopes.append((number, expression.strip()))
+                elif kind == 'endif':
+                    self.assertTrue(scopes, f'unmatched endif at {number}')
+                    scopes.pop()
+                else:
+                    self.assertTrue(scopes, f'unmatched {kind} at {number}')
+            if 'int main(int argc,char** argv)' in line:
+                self.assertEqual(scopes, [], 'main must be unconditional')
+                seen.add('main')
+            if 'if(formatter_nested->stage()==16u)' in line:
+                self.assertNotIn('UNDERCOVER_FORMATTER_CALLER_MIXED',
+                                 [value for _, value in scopes])
+                seen.add('post-integer')
+        self.assertEqual(scopes, [], 'unterminated native harness conditionals')
+        self.assertEqual(seen, {'main', 'post-integer'})
+
     def test_private_header_compiles(self):
         compiler=shutil.which('g++')
         if not compiler:
