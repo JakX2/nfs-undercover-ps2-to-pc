@@ -4248,7 +4248,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_report_signext_private::next_pc,formatter_report_signext_private::next_word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
         c.mmu.write32(formatter_report_second_immediate_private::next_pc,formatter_report_second_immediate_private::next_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+        c.mmu.write32(formatter_report_third_immediate_private::next_pc,formatter_report_third_immediate_private::next_word);
+        c.mmu.write32(formatter_report_third_immediate_private::next_pc+4u,0x44000002u);
+#else
         c.mmu.write32(formatter_report_second_immediate_private::next_pc+4u,0x44000002u);
+#endif
 #else
         c.mmu.write32(formatter_report_signext_private::next_pc+4u,0x44000002u);
 #endif
@@ -5439,6 +5444,9 @@ int main(int argc,char** argv)try{
             formatter_report_signext.emplace();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
             formatter_report_second_immediate.emplace();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+            formatter_report_third_immediate.emplace();
+#endif
 #endif
 #endif
 #endif
@@ -5459,7 +5467,14 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
                  formatter_report_second_immediate&&formatter_report_second_immediate->stage()==2u&&
                  !formatter_report_second_immediate->failed()&&
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+                 formatter_report_third_immediate&&formatter_report_third_immediate->stage()==2u&&
+                 !formatter_report_third_immediate->failed()&&
+                 nested.reached_caller_report_third_immediate(c,nested_boundary_held)&&
+                 nested.caller_report_third_immediate_visits()==1u&&
+#else
                  nested.reached_caller_report_second_immediate(c,nested_boundary_held)&&
+#endif
                  nested.caller_report_second_immediate_visits()==1u&&
 #else
                  nested.reached_caller_report_signext(c,nested_boundary_held)&&
@@ -5583,7 +5598,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE)
+                "FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE_TRIAL n="
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE)
                 "FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE_TRIAL n="
 #elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT)
                 "FORMATTER_CALLER_REPORT_SIGNEXT_TRIAL n="
@@ -5639,6 +5656,9 @@ int main(int argc,char** argv)try{
                 <<" signext_verified="<<nested.caller_report_signext_visits()
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
                 <<" second_immediate_verified="<<nested.caller_report_second_immediate_visits()
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+                <<" third_immediate_verified="<<nested.caller_report_third_immediate_visits()
+#endif
 #endif
 #endif
 #endif
@@ -5647,7 +5667,7 @@ int main(int argc,char** argv)try{
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
                 <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=0"
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()+nested.caller_report_signext_visits()+nested.caller_report_second_immediate_visits()<<'\n';
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()+nested.caller_report_signext_visits()+nested.caller_report_second_immediate_visits()+nested.caller_report_third_immediate_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5730,6 +5750,9 @@ int main(int argc,char** argv)try{
             formatter_report_signext.reset();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
             formatter_report_second_immediate.reset();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+            formatter_report_third_immediate.reset();
+#endif
 #endif
 #endif
 #endif
@@ -6022,7 +6045,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE)
+        "FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE)
         "FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE_NATIVE"
 #elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT)
         "FORMATTER_CALLER_REPORT_SIGNEXT_NATIVE"
@@ -6076,6 +6101,9 @@ int main(int argc,char** argv)try{
         <<" signexts_verified=8"
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
         <<" second_immediates_verified=8"
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+        <<" third_immediates_verified=8"
+#endif
 #endif
 #endif
 #endif
@@ -6115,6 +6143,9 @@ int main(int argc,char** argv)try{
         +1u
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
         +1u
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+        +1u
+#endif
 #endif
 #endif
 #endif
