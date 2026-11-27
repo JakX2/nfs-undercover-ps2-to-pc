@@ -7,6 +7,8 @@ on:
       - '.github/workflows/wii-formatter-caller-report-second-immediate-native-owner.yml'
       - 'research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_stack_copy_fixture.py'
       - 'research/native_recomp/test_formatter_report_second_immediate_nested.py'
       - 'research/native_recomp/test_formatter_report_second_immediate_log.py'
       - 'research/native_recomp/wii_formatter_report_second_immediate.h'
