@@ -28,15 +28,19 @@ def promote(byte_contract, successor):
     root, load, _, _, value, label, comparison, ret = info
     op, reg = comparison >> 26, (comparison >> 16) & 31
     rt = (load >> 21) & 31
-    if (type(successor) is not int or not 0 <= successor <= 0xffffffff or
-            successor == GUARD or root & 3 or
-            not 0x80000000 <= root <= 0x817ffff0 or
-            label != root + 4 or
-            op not in (10, 11) or comparison & 0x00600000 or
-            reg != rt or not 0 <= value <= 255 or
-            ret in (root, root+4, root+8, root+12) or
+    if (type(successor) is not int or not 0 <= successor <= 0xffffffff or successor == GUARD):
+        raise ValueError('report compare successor')
+    if (root & 3 or not 0x80000000 <= root <= 0x817ffff0 or label != root + 4):
+        raise ValueError('report compare geometry')
+    if (op not in (10, 11) or comparison & 0x00600000):
+        raise ValueError('report compare encoding')
+    if reg != rt:
+        raise ValueError('report compare input identity')
+    if (type(value) is not int or not 0 <= value <= 255 or
             blocks.get(root) != (load, comparison, GUARD)):
-        raise ValueError('report compare boundary')
+        raise ValueError('report compare predecessor')
+    if ret in (root, root+4, root+8, root+12):
+        raise ValueError('report compare return')
     expanded = {**blocks, root: (load, comparison, successor, GUARD)}
     check_spans({address: 4 * len(words) for address, words in expanded.items()})
     return expanded, (root, comparison, root+8, successor, rt, value, ret)
@@ -72,7 +76,10 @@ def main():
     parser.add_argument('elf', type=Path)
     args = parser.parse_args()
     safe = {'size', 'report compare extent', 'report compare provenance',
-            'report compare boundary', 'report byte fixture contract'}
+            'report compare boundary', 'report compare successor',
+            'report compare geometry', 'report compare encoding',
+            'report compare input identity', 'report compare predecessor',
+            'report compare return', 'report byte fixture contract'}
     try:
         if (not 256 <= args.dol.stat().st_size <= MAX_DOL or
                 not 52 <= args.elf.stat().st_size <= 64 * 1024 * 1024):
