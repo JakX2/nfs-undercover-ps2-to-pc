@@ -6,6 +6,9 @@ classify the next authentic word. No guest code executes or is published.
 """
 import argparse
 import struct
+import subprocess
+import sys
+import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
@@ -225,6 +228,68 @@ class Tests(unittest.TestCase):
             with self.subTest(fields=candidate[1]):
                 with self.assertRaises(ValueError):
                     inspect(candidate, *older)
+
+    def test_invalid_128_lookaheads_never_authorize_execution(self):
+        for word in (GUARD, -1, 0x100000000, True, 'not a word'):
+            with self.subTest(word=word):
+                with self.assertRaises((ValueError, TypeError)):
+                    self.inputs(next_word=word)
+
+    def test_all_parent_return_aliases_and_corrupt_state_refused(self):
+        sixth, *older = self.inputs()
+        blocks, fields = sixth
+        root = fields[0]
+        for offset in range(0, 48, 4):
+            candidate = (blocks, fields[:-1] + (root + offset,))
+            with self.subTest(return_offset=offset):
+                with self.assertRaises(ValueError):
+                    inspect(candidate, *older)
+        byte, regs, saved = older[-2]
+        invalid = (
+            (byte, tuple(regs[:-1]), saved),
+            (byte, tuple(regs) + (('const', 0),), saved),
+            (byte, tuple(regs), True),
+            (byte, tuple(regs), -1),
+            (byte, tuple(regs), 0x100000000),
+        )
+        for predecessor in invalid:
+            mutated = list(older)
+            mutated[-2] = predecessor
+            with self.subTest(state=(len(predecessor[1]), predecessor[2])):
+                with self.assertRaises((ValueError, TypeError, IndexError)):
+                    inspect(sixth, *mutated)
+
+    def test_branch_classification_never_calls_integer_decoder(self):
+        branch = (16 << 26) | (12 << 21) | (2 << 16) | 16
+        with patch(__name__ + '.classify',
+                   side_effect=AssertionError('integer decoder invoked')) as decoder:
+            result = inspect(*self.inputs(branch))
+        self.assertEqual(result,
+                         ('branch', 'not_integer', (0,) * 11,
+                          0, 'not_attempted'))
+        decoder.assert_not_called()
+
+    def test_cli_fails_closed_without_private_inputs(self):
+        script = Path(__file__).resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nonexistent = root / 'missing.dol'
+            empty = root / 'empty.elf'
+            empty.write_bytes(b'')
+            for dol, elf, reason in (
+                (nonexistent, nonexistent, 'private_input'),
+                (empty, empty, 'size'),
+            ):
+                with self.subTest(reason=reason):
+                    result = subprocess.run(
+                        [sys.executable, str(script), str(dol), str(elf)],
+                        capture_output=True, text=True, timeout=20,
+                        check=False)
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stdout.strip(),
+                                     'FORMATTER_128_PROVENANCE '
+                                     'verified=0 reason=' + reason)
+                    self.assertEqual(result.stderr, '')
 
     def test_plan_passes_fully_authenticated_predecessors(self):
         sixth, fifth, fourth, third, second, signext, immediate, copy, predecessor, compare = (
