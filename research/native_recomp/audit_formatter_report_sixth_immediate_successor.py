@@ -43,6 +43,37 @@ _ALLOWED = frozenset({
 })
 
 
+def branch_shape(word):
+    """Classify a stopped PPC branch without leaking PCs or targets.
+
+    This classification never executes guest code. The eventual native
+    continuation needs private target and CPU-state authentication too.
+    """
+    if type(word) is not int or not 0 <= word <= 0xffffffff:
+        raise ValueError('branch word')
+    op = word >> 26
+    link = int(bool(word & 1))
+    if op == 18:  # b / ba / bl / bla
+        return 'direct', 0, 0, link, int(bool(word & 2)), 'immediate'
+    if op == 16:  # bc family
+        bo = (word >> 21) & 31
+        return ('conditional_direct', int(not bool(bo & 0x10)),
+                int(not bool(bo & 0x04)), link,
+                int(bool(word & 2)), 'immediate')
+    if op == 19:
+        xo = (word >> 1) & 1023
+        bo = (word >> 21) & 31
+        if xo in (16, 528):
+            cr = int(not bool(bo & 0x10))
+            ctr = int(not bool(bo & 0x04))
+            # bcctr forbids BO encodings which decrement CTR.
+            if xo == 528 and ctr:
+                return 'unsupported_ctr_branch', cr, ctr, link, 0, 'ctr'
+            return ('conditional_lr' if xo == 16 else 'conditional_ctr',
+                    cr, ctr, link, 0, 'lr' if xo == 16 else 'ctr')
+    return 'unsupported_branch', 0, 0, link, 0, 'unknown'
+
+
 
 def inspect(sixth, fifth, fourth, third, second, signext, immediate, copy,
             predecessor, compare):
@@ -132,7 +163,7 @@ def inspect(sixth, fifth, fourth, third, second, signext, immediate, copy,
     return family, name, counts, int(modeled is not None), reason
 
 
-def plan(dol, elf):
+def plan(dol, elf, *, with_branch=False):
     predecessor = byte_plan(dol, elf, with_live=True)
     compare = compare_plan(dol, elf, predecessor=predecessor)
     copy = copy_plan(dol, elf, predecessor=predecessor, compare=compare)
@@ -158,9 +189,13 @@ def plan(dol, elf):
         dol, elf, predecessor=predecessor, compare=compare, copy=copy,
         immediate=immediate, signext=signext, second=second, third=third,
         fourth=fourth, fifth=fifth)
-    return inspect(
+    summary = inspect(
         sixth, fifth, fourth, third, second, signext, immediate, copy,
         predecessor, compare)
+    if with_branch:
+        return (summary, branch_shape(sixth[1][4])
+                if summary[0] == 'branch' else None)
+    return summary
 
 
 class Tests(unittest.TestCase):
@@ -202,6 +237,26 @@ class Tests(unittest.TestCase):
         branch = (16 << 26) | (12 << 21) | (2 << 16) | 16
         self.assertEqual(inspect(*self.inputs(branch)),
                          ('branch', 'not_integer', (0,) * 11, 0, 'not_attempted'))
+
+    def test_powerpc_branch_forms_are_abstracted_without_target_leak(self):
+        forms = (
+            (0x48000004, ('direct', 0, 0, 0, 0, 'immediate')),
+            (0x48000007, ('direct', 0, 0, 1, 1, 'immediate')),
+            ((16 << 26) | (12 << 21) | (2 << 16) | 16,
+             ('conditional_direct', 1, 0, 0, 0, 'immediate')),
+            ((16 << 26) | (16 << 21) | 16,
+             ('conditional_direct', 0, 1, 0, 0, 'immediate')),
+            (0x4e800020, ('conditional_lr', 0, 0, 0, 0, 'lr')),
+            (0x4e800420, ('conditional_ctr', 0, 0, 0, 0, 'ctr')),
+            ((19 << 26) | (16 << 21) | (528 << 1),
+             ('unsupported_ctr_branch', 0, 1, 0, 0, 'ctr')),
+        )
+        for word, expected in forms:
+            with self.subTest(word=word):
+                self.assertEqual(branch_shape(word), expected)
+        for word in (True, -1, 0x100000000, 'branch'):
+            with self.assertRaises(ValueError):
+                branch_shape(word)
 
     def test_signed_extremes_remain_authenticated(self):
         for imm in (0, 1, 0x7fff, 0x8000, 0xffff):
@@ -331,8 +386,8 @@ def main():
                 not 52 <= q.elf.stat().st_size <= 64 * 1024 * 1024):
             raise ValueError('size')
         with plan_cache_scope():
-            family, name, counts, modeled, reason = plan(
-                q.dol.read_bytes(), q.elf.read_bytes())
+            (family, name, counts, modeled, reason), branch = plan(
+                q.dol.read_bytes(), q.elf.read_bytes(), with_branch=True)
     except (OSError, ValueError, TypeError, KeyError, IndexError,
             struct.error) as error:
         msg = str(error)
@@ -340,6 +395,12 @@ def main():
               (msg.replace(' ', '_') if msg in safe else 'private_input'))
         return 1
     reads, writes, constant, stack, partial, other, cr, carry, xer, oe, alias = counts
+    branch_report = ''
+    if branch is not None:
+        form, reads_cr, decrements_ctr, links, absolute, target = branch
+        branch_report = (f'branch_form={form} cr_read={reads_cr} '
+                         f'ctr_decrement={decrements_ctr} link={links} '
+                         f'absolute={absolute} target_class={target} ')
     print(
         f'FORMATTER_128_PROVENANCE verified=1 previous_127_fixture=1 '
         f'next_original_word=1 family={family} operation={name} '
@@ -348,7 +409,7 @@ def main():
         f'other_inputs={other} condition_write={cr} carry_read={carry} '
         f'xer_write={xer} overflow_enable={oe} alias={alias} '
         f'gpr_model={modeled} reason={reason.replace(" ", "_")} '
-        'original_execution=0'
+        f'{branch_report}original_execution=0'
     )
     return 0
 
