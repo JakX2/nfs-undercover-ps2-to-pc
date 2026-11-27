@@ -154,3 +154,47 @@ proof that 125, 124 or 123 original instructions execute. The earlier
 verified original 122-instruction frontier must advance through distinct
 owner-original CI gates before any 125 execution claim. Neither original
 instruction bytes nor generated game translation code appear in these files.
+
+
+## Instruction 125 source-only handoff (2026-11-27)
+
+Instruction 125 is **provenance-authenticated but not natively executed**.
+The separate private 125 fixture only verifies the original word and its
+successor. The native execution frontier remains **122 instructions per trial
+(976 visits)** until a successful original-owner 123 run is confirmed.
+
+Source-only development added:
+
+- `FormatterFourthImmediateWitness` observes an authenticated zero-base PPC
+  `addi` with an exact one-instruction register/state delta. The standalone
+  optimized and sanitized 125 witness passed in
+  [46059195465](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059195465).
+- The earlier 122 sign-extension witness accepts one more *explicit,
+  authenticated* lookahead word, moves its test-only guard by exactly four
+  bytes and rejects successor gaps, mutated words and in-block return aliases.
+  The four-stage 122–125 synthetic chain covers **100 negative mutations**
+  across all predecessor observation boundaries. Its initial optimized and
+  sanitized regression passed in
+  [46059526289](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059526289).
+- The optional `--caller-report-fourth-immediate` fixture mode is now
+  connected to private image construction, a 40-byte analyzer scope,
+  translated-code installation checks and sibling-root preservation. This is
+  source-only preparation. No runner mode, owner-original execution gate or
+  125 execution claim follows from it.
+- `validate_formatter_nested_log.py` now supports a distinct future
+  `--caller-report-fourth-immediate` contract requiring exactly
+  **8 × 125 = 1,000** visits, eight successful fourth-immediate trial markers,
+  zero interpreter fallback, and no known native refusal. Synthetic contract
+  tests do not substitute for actual owner-original logs.
+
+The first combined nested source gate
+[46059738963](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059738963)
+found an inherited 124 test which assumed the old maximum extent was 36
+bytes. That test was updated to check its own optional 124 branch underneath
+the new 40-byte mode. A subsequent combined regression run must complete
+before the entire 125 nested/log integration can be called verified.
+
+**Execution order remains mandatory:** diagnose and pass original 123
+execution (984 visits), then authorize and pass original 124 (992 visits)
+using freshly pinned successful prerequisites, then and only then author and
+enable a gated original 125 native execution attempt. Keep PR #36 draft.
