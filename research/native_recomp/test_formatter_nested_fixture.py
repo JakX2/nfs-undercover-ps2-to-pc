@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -225,6 +225,19 @@ int main(){return 0;}
             src=Path(d)/'header.cpp';src.write_text(source)
             result=subprocess.run([cxx,'-std=c++20','-Wall','-Wextra','-Werror','-fsyntax-only','-I',str(Path(__file__).resolve().parent),str(src)],capture_output=True,text=True,timeout=30)
             self.assertEqual(result.returncode,0,result.stderr)
+    def test_mixed_byte_expansion(self):
+        pc=R+48;w=0x88610013;next_pc=pc+4
+        old={R:(N,GUARD,GUARD,GUARD,GUARD,N,GUARD,GUARD,N,N,N,N,w,GUARD,GUARD),T:(N,GUARD)}
+        branches=tuple((None,(R,128,R+4,N,False,R+8,N,R+4*i)) for i in (1,2,3,4))
+        mixed=(old,((pc-4,N,(),pc,None,None),),pc,w)
+        body=list(old[R]);body[13]=N;new={**old,R:tuple(body)}
+        info=(R,pc,w,19,0xa5,next_pc,N);contract=(new,info)
+        self.assertIn('formatter_caller_mixed_byte_private',render_mixed_byte(contract))
+        self.assertEqual(expand_mixed_byte(old,mixed,contract,branches),new)
+        bad=(branches[0],branches[1],branches[2],(None,branches[3][1][:-1]+(next_pc,)))
+        with self.assertRaisesRegex(ValueError,'overlap'):expand_mixed_byte(old,mixed,contract,bad)
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_mixed_byte(old,mixed,({**new,T:(N,N)},info),branches)
+        with self.assertRaisesRegex(ValueError,'mixed byte'):render_mixed_byte((new,(R,pc,w|0x04000000,19,0xa5,next_pc,N)))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
