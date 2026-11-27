@@ -647,7 +647,9 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const uint32_t entry_word=ins(follow>=318?34:32,9,7,0),next_ret=final_pc+4u;
     const uint32_t entry_successor=follow>=338?
         ((11u<<26)|(1u<<23)|(8u<<16)|16u):ins(14,10,9,1);
-    const uint32_t copy_word=(31u<<26u)|(7u<<21u)|(10u<<16u)|(7u<<11u)|(444u<<1u);
+    const unsigned copy_source=follow==368?1u:7u;
+    const unsigned copy_destination=follow==367?14u:10u;
+    const uint32_t copy_word=(31u<<26u)|(copy_source<<21u)|(copy_destination<<16u)|(copy_source<<11u)|(444u<<1u);
     const uint32_t after_compare=follow>=348?copy_word:0x60000000u;
     const uint32_t after_copy=ins(14,3,3,1);
     if(follow>=318){
@@ -749,13 +751,14 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const auto prior_regs=c.gpr;
     if(follow==352)c.mmu.write32(next_entry+16u,entry_word);
     const bool copy_armed=child.resume_caller_report_copy(c,
-        follow==349?8u:7u,follow==350?11u:10u,
-        follow==351?move_offset+1:move_offset,held()&&follow!=353);
-    if(follow>=349&&follow<=353){assert(!copy_armed);return;}
+        follow==349?8u:copy_source,follow==350?11u:copy_destination,
+        follow==351?move_offset+1:follow==368?0:move_offset,held()&&follow!=353);
+    // A saved nonvolatile destination must not widen the private copy proof.
+    if((follow>=349&&follow<=353)||follow==367){assert(!copy_armed);return;}
     assert(copy_armed&&child.stage()==34u&&child.caller_report_copy_visits()==0u);
     assert(c.gpr==prior_regs);
     assert(child.caller_post_fourth_tick_budget()==12u);
-    c.gpr[10]=follow==354?move_value^1u:move_value;
+    c.gpr[10]=follow==354?move_value^1u:follow==368?parent_sp:move_value;
     if(follow==356)c.gpr[7]^=1u;
     if(follow==357)c.gpr[14]^=1u;
     if(follow==358)c.cr[1].lt=false;
@@ -796,6 +799,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
-    for(unsigned follow=348;follow<=366;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=348;follow<=368;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=661 compare_cases=10 copy_cases=20 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=663 compare_cases=10 copy_cases=22 original_execution=0\n";}
