@@ -48,10 +48,10 @@ def classify_target(fixture):
     if family not in FAMILIES:
         raise ValueError('target successor family')
     operation = 'not_integer'
-    reads = writes = cr = xer = overflow = supported = 0
+    reads = writes = cr = carry_read = xer = overflow = supported = 0
     branch_form = 'not_branch'
     if family == 'integer':
-        operation, read_regs, write_regs, cr, _, xer, overflow = classify(original)
+        operation, read_regs, write_regs, cr, carry_read, xer, overflow = classify(original)
         # Exact reg indexes and raw immediate values stay owner-private.
         reads, writes = len(set(read_regs)), len(set(write_regs))
         supported = int(operation != 'unclassified')
@@ -61,7 +61,7 @@ def classify_target(fixture):
         branch_form = branch_shape(original)[0]
         if branch_form not in BRANCH_FORMS:
             branch_form = 'unsupported_branch'
-    return family, reads, writes, cr, xer, overflow, supported, branch_form
+    return family, reads, writes, cr, carry_read, xer, overflow, supported, branch_form
 
 
 class Tests(unittest.TestCase):
@@ -87,31 +87,33 @@ class Tests(unittest.TestCase):
             with self.subTest(family=family,word=word):
                 result = classify_target(self.fixture(word))
                 self.assertEqual(result[0], family)
-                self.assertIn(result[6], (0, 1))
-                self.assertIn(result[7], BRANCH_FORMS)
+                self.assertIn(result[7], (0, 1))
+                self.assertIn(result[8], BRANCH_FORMS)
 
     def test_integer_effect_metadata_matrix_is_bounded(self):
         # This is static classification of synthetic words. It must not
         # execute any branch or mutate an original native CPU snapshot.
         cases = (
             ((14 << 26) | (3 << 21) | 0x7fff,
-             (0, 1, 0, 0, 0, 1)),  # li r3,32767
+             (0, 1, 0, 0, 0, 0, 1)),  # li r3,32767
             ((14 << 26) | (4 << 21) | (3 << 16) | 1,
-             (1, 1, 0, 0, 0, 1)),  # addi from r3
+             (1, 1, 0, 0, 0, 0, 1)),  # addi from r3
             ((11 << 26) | (1 << 23) | (3 << 16) | 2,
-             (1, 0, 1, 0, 0, 1)),  # cmpwi cr1,r3,2
+             (1, 0, 1, 0, 0, 0, 1)),  # cmpwi cr1,r3,2
             ((31 << 26) | (3 << 21) | (4 << 16) | (954 << 1),
-             (1, 1, 0, 0, 0, 1)),  # extsb
+             (1, 1, 0, 0, 0, 0, 1)),  # extsb
             ((31 << 26) | (3 << 21) | (1 << 16) | (467 << 1),
-             (1, 0, 0, 1, 0, 1)),  # mtspr xer,r3
+             (1, 0, 0, 0, 1, 0, 1)),  # mtspr xer,r3
+            ((31 << 26) | (3 << 21) | (4 << 16) | (5 << 11) | (138 << 1),
+             (2, 1, 0, 1, 1, 0, 1)),  # adde reads and updates XER.CA
         )
         for word, effects in cases:
             with self.subTest(word_family='integer', effects=effects):
-                family, reads, writes, cr, xer, overflow, supported, form = (
+                family, reads, writes, cr, carry_read, xer, overflow, supported, form = (
                     classify_target(self.fixture(word)))
                 self.assertEqual(family, 'integer')
                 self.assertEqual(
-                    (reads, writes, cr, xer, overflow, supported),
+                    (reads, writes, cr, carry_read, xer, overflow, supported),
                     effects)
                 self.assertEqual(form, 'not_branch')
 
@@ -126,8 +128,8 @@ class Tests(unittest.TestCase):
             with self.subTest(family=family, form=form):
                 actual = classify_target(self.fixture(word))
                 self.assertEqual(actual[0], family)
-                self.assertEqual(actual[1:7], (0, 0, 0, 0, 0, 0))
-                self.assertEqual(actual[7], form)
+                self.assertEqual(actual[1:8], (0, 0, 0, 0, 0, 0, 0))
+                self.assertEqual(actual[8], form)
 
     def test_original_target_classification_never_retargets_128(self):
         original = self.fixture((14 << 26) | (3 << 21) | 0x7fff)
@@ -147,8 +149,8 @@ class Tests(unittest.TestCase):
     def test_unsupported_encodings_are_classification_not_execution(self):
         result = classify_target(self.fixture(0x00000000))
         self.assertEqual(result[0], 'other')
-        self.assertEqual(result[6], 0)
-        self.assertEqual(result[7], 'not_branch')
+        self.assertEqual(result[7], 0)
+        self.assertEqual(result[8], 'not_branch')
 
     def test_refuse_forged_target_and_untaken_sibling(self):
         with self.assertRaises(ValueError):
@@ -194,11 +196,11 @@ def main():
         print('FORMATTER_129_TARGET_AUDIT verified=0 reason=' +
               (reason.replace(' ','_') if reason in safe else 'private_input'))
         return 1
-    family,reads,writes,cr,xer,overflow,supported,branch_form = result
+    family,reads,writes,cr,carry_read,xer,overflow,supported,branch_form = result
     print(
         f'FORMATTER_129_TARGET_AUDIT verified=1 previous_128_fixture=1 '
         f'selected_edge=target family={family} reads={reads} writes={writes} '
-        f'cr_write={cr} xer_write={xer} overflow_enable={overflow} '
+        f'cr_write={cr} carry_read={carry_read} xer_write={xer} overflow_enable={overflow} '
         f'integer_classified={supported} branch_form={branch_form} '
         'original_execution=0'
     )
