@@ -8,6 +8,8 @@ on:
       - 'research/native_recomp/test_formatter_report_compare_fixture.py'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
       - 'research/native_recomp/test_formatter_caller_integer.cpp'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
       - '.github/workflows/wii-formatter-report-compare-contract.yml'
 permissions:
   contents: read
@@ -27,6 +29,8 @@ jobs:
           python3 research/native_recomp/test_formatter_report_compare_fixture.py
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_caller_integer.cpp -o /tmp/test_formatter_caller_integer
           /tmp/test_formatter_caller_integer
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_report_byte_transition.cpp -o /tmp/test_formatter_report_byte_transition
+          /tmp/test_formatter_report_byte_transition
   owner-provenance:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'

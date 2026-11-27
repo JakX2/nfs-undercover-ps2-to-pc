@@ -1,4 +1,5 @@
 #include "wii_formatter_report_byte_transition.h"
+#include "wii_formatter_caller_integer.h"
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -236,12 +237,90 @@ static void native_negative(unsigned fault) {
     } else assert(!ok&&h.witness.failed());
 }
 
+// A synthetic two-instruction callee joins the original 118 byte-load
+// witness to the 119 immediate-compare witness. Both observers are read-only;
+// neither advances the instruction counter or mutates architectural state.
+static unsigned native_compare_chain() {
+    unsigned cases=0;
+    for(unsigned op:{10u,11u})
+        for(unsigned field=0;field<8u;++field)
+            for(unsigned value=0;value<=255u;++value)
+                for(unsigned so:{0u,1u}) {
+                    Harness h(9u,value,false);
+                    const unsigned imm=(value&1u)?0x8000u:0x5au;
+                    const uint32_t cmp=(op<<26u)|(field<<23u)|(9u<<16u)|imm;
+                    h.step.next_word=cmp;
+                    h.cpu.mmu.write32(Entry+4u,cmp);
+                    h.cpu.mmu.write32(Entry+8u,Nop);
+                    h.cpu.mmu.write32(Entry+12u,0x44000002u);
+                    h.cpu.mmu.write32(Link,0x44000002u);
+                    h.cpu.xer=(so<<31u)|0x60000000u;
+                    assert(h.witness.arm_native(h.cpu,h.report,h.step,true,Nop));
+                    ++h.cpu.inst_count;h.cpu.gpr[9]=value;
+                    assert(h.witness.observe_native_label(h.cpu,h.report,
+                        Entry+4u,cmp,true));
+                    CallerImmediateCompareWitness next;
+                    assert(next.arm(h.cpu,Entry,Entry+4u,cmp,Nop,{9u,value}));
+                    const int64_t operand=op==11u&&imm>=0x8000u?
+                        int64_t(imm)-0x10000ll:int64_t(imm);
+                    h.cpu.cr[field]={int64_t(value)<operand,int64_t(value)>operand,
+                        int64_t(value)==operand,bool(so)};
+                    ++h.cpu.inst_count;
+                    assert(next.observe(h.cpu,Entry+8u,Nop));
+                    assert(next.stage()==2u&&!next.failed());
+                    ++cases;
+                }
+    return cases;
+}
+static void native_compare_chain_rejections() {
+    const uint32_t cmp=(11u<<26u)|(3u<<23u)|(9u<<16u)|0x5au;
+    for(unsigned fault=0;fault<9;++fault){
+        Harness h(9u,0x5au,false);
+        h.step.next_word=cmp;
+        h.cpu.mmu.write32(Entry+4u,cmp);
+        h.cpu.mmu.write32(Entry+8u,Nop);
+        h.cpu.mmu.write32(Entry+12u,0x44000002u);
+        h.cpu.mmu.write32(Link,0x44000002u);
+        if(fault==0)h.cpu.mmu.write32(Entry+8u,0u);
+        if(fault==1)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==2)h.cpu.lr=Entry+12u;
+        if(fault<=2){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,Nop));
+            continue;
+        }
+        assert(h.witness.arm_native(h.cpu,h.report,h.step,true,Nop));
+        ++h.cpu.inst_count;h.cpu.gpr[9]=0x5au;
+        if(fault==3)h.cpu.mmu.write32(Entry+8u,0u);
+        if(fault==4)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault<=4){
+            assert(!h.witness.observe_native_label(h.cpu,h.report,
+                Entry+4u,cmp,true));
+            continue;
+        }
+        assert(h.witness.observe_native_label(h.cpu,h.report,
+            Entry+4u,cmp,true));
+        CallerImmediateCompareWitness next;
+        assert(next.arm(h.cpu,Entry,Entry+4u,cmp,Nop,{9u,0x5au}));
+        h.cpu.cr[3]={false,false,true,false};
+        ++h.cpu.inst_count;
+        if(fault==5)h.cpu.cr[3].eq=false;
+        if(fault==6)h.cpu.cr[4].eq=true;
+        if(fault==7)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==8)h.cpu.inst_count+=1u;
+        assert(!next.observe(h.cpu,Entry+8u,Nop));
+    }
+}
+
 int main() {
     const auto successful=positives();
     const auto native_successful=native_positives();
     for(unsigned fault=0;fault<=32u;++fault)negative(fault);
     for(unsigned fault=0;fault<=13u;++fault)native_negative(fault);
+    const auto compare_chain=native_compare_chain();
+    native_compare_chain_rejections();
+    assert(compare_chain==8192u);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
              <<" native_valid="<<native_successful
-             <<" rejected=47 original_execution=0\n";
+             <<" rejected=47 compare_chain="<<compare_chain
+             <<" compare_chain_rejected=9 original_execution=0\n";
 }
