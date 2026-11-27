@@ -569,7 +569,7 @@ static unsigned seventh_guard_cases() {
             continue;
         }
         if(fault==6u)h.cpu.lr=Entry+28u;
-        if(fault>=1u&&fault<=4u||fault==6u){
+        if((fault>=1u&&fault<=4u)||fault==6u){
             assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,
                    copy,immediate,signext,second,third,following));
             continue;
