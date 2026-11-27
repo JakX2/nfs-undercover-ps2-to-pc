@@ -84,7 +84,7 @@ class Original126NativeWiring(unittest.TestCase):
         # Direct 125 -> 126 source continuity is a compile-time contract.
         # Never accidentally compare the fifth word against original 124.
         fifth_asserts = self.harness.split(
-            '#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE\\n'
+            '#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE\n'
             'static_assert(', 1)[1].split('#endif', 1)[0]
         self.assertEqual(fifth_asserts.count(
             'formatter_report_fourth_immediate_private::'), 4)
