@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_partial_native_contract import extend
+from prepare_formatter_partial_native_contract import extend,read_address,read_value,extra_census
 from guarded_continuation import GUARD
 from prepare_formatter_nested_contract import byte_cells
 R=0x80010000;L=0x80020000;SP=-864;F=48;AT=SP-40
@@ -55,5 +55,18 @@ class Contract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'boundary'):self.probe()
     def test_extra_access(self):
         p,w,g,m=self.trace[2];self.trace[2]=(p,d(32,3,1),g,m);self.words[86]=d(32,3,1)
-        with self.assertRaisesRegex(ValueError,'extra access'):self.probe()
+        with self.assertRaisesRegex(ValueError,'extra access|read provenance'):self.probe()
+    def test_known_local_reload(self):
+        p,w,g,m=self.trace[2];self.words[86]=d(40,4,1,8)
+        self.trace[2]=(p,self.words[86],g,m)
+        p,w,g,m=self.trace[3];g=list(g);g[4]=('const',0x1234);self.trace[3]=(p,w,tuple(g),m)
+        # Later store effect is still 9 in the fixture; it must fail rather than accept that inconsistent write.
+        with self.assertRaisesRegex(ValueError,'caller effects'):self.probe()
+        self.assertEqual(read_address(self.words[86],g),('stack',AT,2))
+        self.assertEqual(read_value((('byte',0x12),('byte',0x34)),self.words[86]),('const',0x1234))
+        self.assertEqual(extra_census(self.trace,self.admitted,self.entry),{('load','child',2,2,0):1})
+    def test_signed_and_opaque_read(self):
+        self.assertEqual(read_value((('byte',0x80),('byte',1)),d(42,4,1)),('const',0xffff8001))
+        self.assertEqual(read_value((('uninitialized',AT),('byte',1)),d(40,4,1)),('partial',(('byte',0),('byte',0),('uninitialized',AT),('byte',1))))
+        with self.assertRaisesRegex(ValueError,'provenance'):read_value((None,('byte',1)),d(40,4,1))
 if __name__=='__main__':unittest.main(verbosity=2)
