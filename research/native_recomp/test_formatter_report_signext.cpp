@@ -195,6 +195,74 @@ void duplicate_and_cross_cpu_refused(){
     assert(y.observe(c,PC+4u,Next));
     assert(!y.observe(c,PC+4u,Next)&&y.failed());
 }
+
+unsigned extended_tail_cases(){
+    constexpr unsigned D=9u;
+    
+    constexpr uint32_t Following=0x38600001u,Trailing=0x38800002u;
+    unsigned cases=0;
+    for(unsigned length=1;length<=2;++length){
+        const std::optional<uint32_t> following=Following;
+        const std::optional<uint32_t> trailing=length==2u?
+            std::optional<uint32_t>{Trailing}:std::nullopt;
+        auto extended=[&](){
+            Cpu c=seed(D,0x12340080u);
+            c.mmu.write32(PC+8u,Following);
+            c.mmu.write32(PC+12u,trailing.value_or(Guard));
+            if(trailing)c.mmu.write32(PC+16u,Guard);
+            return c;
+        };
+        auto arm_tail=[&](FormatterSignextWitness& w,Cpu& c,
+                          std::optional<uint32_t> f,std::optional<uint32_t> t,
+                          uint32_t ret=Return){
+            return w.arm(c,Root,PC,instruction(D,D),Next,ret,D,0x12340080u,0xffffff80u,f,t);
+        };
+        {
+            Cpu c=extended();FormatterSignextWitness w;
+            assert(!arm_tail(w,c,{},{})&&w.failed());
+            ++cases;
+        }
+        {
+            Cpu c=extended();FormatterSignextWitness w;
+            assert(arm_tail(w,c,following,trailing));
+            c.gpr[D]=0xffffff80u;++c.inst_count;
+            assert(w.observe(c,PC+4u,Next)&&w.stage()==2u);
+            ++cases;
+        }
+        for(unsigned slot=0;slot<=length;++slot){
+            const auto address=PC+8u+4u*slot;
+            {
+                Cpu c=extended();FormatterSignextWitness w;
+                c.mmu.write32(address,0u);
+                assert(!arm_tail(w,c,following,trailing)&&w.failed());
+                ++cases;
+            }
+            {
+                Cpu c=extended();FormatterSignextWitness w;
+                assert(arm_tail(w,c,following,trailing));
+                c.gpr[D]=0xffffff80u;++c.inst_count;
+                c.mmu.write32(address,0u);
+                assert(!w.observe(c,PC+4u,Next)&&w.failed());
+                ++cases;
+            }
+        }
+        {
+            Cpu c=extended();FormatterSignextWitness w;
+            c.lr=PC+8u+4u*length;
+            assert(!arm_tail(w,c,following,trailing,c.lr)&&w.failed());
+            ++cases;
+        }
+        for(unsigned fault=0;fault<3u;++fault){
+            Cpu c=extended();FormatterSignextWitness w;
+            const std::optional<uint32_t> f=fault==0u?std::nullopt:
+                fault==1u?std::optional<uint32_t>{Guard}:following;
+            const std::optional<uint32_t> t=fault==0u?Trailing:Guard;
+            assert(!arm_tail(w,c,f,t)&&w.failed());
+            ++cases;
+        }
+    }
+    return cases;
+}
 }
 
 int main() {
@@ -202,6 +270,9 @@ int main() {
     const auto wrong_arm=arm_refusals();
     const auto wrong_observation=observe_refusals();
     duplicate_and_cross_cpu_refused();
+    const auto tail_cases=extended_tail_cases();
+    assert(tail_cases==22u);
+    std::cout<<"FORMATTER_EXTENDED_TAIL_SOURCE_ONLY cases="<<tail_cases<<" original_execution=0\n";
     assert(positives==1280u&&wrong_arm==26u&&wrong_observation==24u);
     std::cout<<"FORMATTER_SIGNEXT_WITNESS_SOURCE_ONLY cases="<<positives
              <<" arm_refusals="<<wrong_arm

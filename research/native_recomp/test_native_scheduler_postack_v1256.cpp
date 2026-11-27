@@ -1485,7 +1485,14 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_signext_private::return_pc,
               formatter_report_signext_private::destination_reg,
               formatter_report_signext_private::input_value,
-              formatter_report_signext_private::output_value)||
+              formatter_report_signext_private::output_value
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
+              ,formatter_report_second_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+              ,formatter_report_third_immediate_private::next_word
+#endif
+#endif
+              )||
            !formatter_nested->resume_caller_report_signext(c,
               formatter_report_signext_private::destination_reg,
               formatter_report_signext_private::input_value,
@@ -1512,7 +1519,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_second_immediate_private::next_word,
               formatter_report_second_immediate_private::return_pc,
               formatter_report_second_immediate_private::destination_reg,
-              formatter_report_second_immediate_private::value))
+              formatter_report_second_immediate_private::value
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
+              ,formatter_report_third_immediate_private::next_word
+#endif
+              ))
             formatter_nested_refuse(2);
         if(!formatter_nested->resume_caller_report_second_immediate(c,
               formatter_report_second_immediate_private::destination_reg,
