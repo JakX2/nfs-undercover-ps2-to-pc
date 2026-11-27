@@ -8,7 +8,7 @@ constexpr uint32_t x(unsigned r,unsigned a,unsigned b,unsigned xo,bool rc=false)
 namespace {
 constexpr uint32_t Root=0x80010000u,Label=Root+4u,Guard=0x44000002u;
 struct CompareMem {
-    std::array<uint8_t,16> bytes{};
+    std::array<uint8_t,512> bytes{};
     uint8_t* get_ptr(uint32_t a){
         return a>=Root&&a-Root<bytes.size()?bytes.data()+(a-Root):nullptr;
     }
@@ -48,7 +48,7 @@ unsigned compare_witness_cases(){
         CompareCpu c;seed_cr(c);
         c.gpr[9]=value;c.xer=(so<<31u)|0x60000000u;
         const auto w=cmpword(op,f,9u,imm);
-        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
         CallerImmediateCompareWitness witness;
         assert(witness.arm(c,Root,Label,w,Guard,{9u,value}));
         assert(witness.stage()==1u&&!witness.failed());
@@ -67,11 +67,11 @@ unsigned compare_witness_cases(){
 unsigned compare_witness_rejections(){
     constexpr auto w=(11u<<26u)|(3u<<23u)|(9u<<16u)|42u;
     unsigned count=0;
-    for(unsigned fault=0;fault<23;++fault){
+    for(unsigned fault=0;fault<33;++fault){
         CompareCpu c;seed_cr(c);c.gpr[9]=42u;
-        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
         CallerImmediateCompareWitness witness;
-        uint32_t instruction=w,operand=42u,reg=9u;
+        uint32_t instruction=w,operand=42u,reg=9u,arm_root=Root,arm_label=Label;
         switch(fault){
         case 0:instruction|=0x00200000u;c.mmu.write32(Label,instruction);break;
         case 1:instruction|=0x00400000u;c.mmu.write32(Label,instruction);break;
@@ -81,10 +81,17 @@ unsigned compare_witness_rejections(){
         case 5:c.inst_count=std::numeric_limits<uint64_t>::max();break;
         case 6:c.in_callback=true;break;
         case 7:instruction=(14u<<26u)|(9u<<16u);c.mmu.write32(Label,instruction);break;
+        case 23:c.mmu.write32(Label+8u,0u);break;
+        case 24:c.mmu.write32(c.lr,0u);break;
+        case 25:c.gpr[9]=256u;operand=256u;break;
+        case 26:arm_root=Root+4u;break;
+        case 27:arm_label=Label+4u;break;
+        case 28:c.lr=Label+4u;break;
+        case 29:c.lr=Root+0x500u;break;
         default:break;
         }
-        if(fault<8){
-            assert(!witness.arm(c,Root,Label,instruction,Guard,{reg,operand}));
+        if(fault<8 || (fault>=23&&fault<=29)){
+            assert(!witness.arm(c,arm_root,arm_label,instruction,Guard,{reg,operand}));
             assert(witness.failed()&&witness.stage()==0u);
         }else{
             assert(witness.arm(c,Root,Label,w,Guard,{9u,42u}));
@@ -106,6 +113,9 @@ unsigned compare_witness_rejections(){
             case 20:label=Label;break;
             case 21:word=0u;break;
             case 22:c.dispatch_saved_ctx=1u;break;
+            case 30:c.mmu.write32(Label+8u,0u);break;
+            case 31:c.mmu.write32(c.lr,0u);break;
+            case 32:c.is_running=false;break;
             default:assert(false);
             }
             assert(!witness.observe(c,label,word)&&witness.failed());
@@ -232,7 +242,7 @@ int main(){
     assert(relative_cases==240);
     const auto compare_cases=compare_witness_cases();
     const auto compare_rejected=compare_witness_rejections();
-    assert(compare_cases==73728u&&compare_rejected==23u);
+    assert(compare_cases==73728u&&compare_rejected==33u);
     std::cout<<"FORMATTER_IMMEDIATE_COMPARE_WITNESS_TEST valid="<<compare_cases
              <<" rejected="<<compare_rejected<<" original_execution=0\n";
 

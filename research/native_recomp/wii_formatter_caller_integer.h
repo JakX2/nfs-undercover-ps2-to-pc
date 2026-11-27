@@ -128,10 +128,15 @@ public:
     bool arm(C& c,uint32_t root,uint32_t label,uint32_t instruction,
              uint32_t next_word,CallerIntegerInput input) {
         const unsigned op=instruction>>26u;
-        if(stage_||failed_||!safe(c)||c.pc!=root||root>label||
-           (root&3u)||(label&3u)||label>0x817ffff8u||
-           root<0x80000000u||!(op==10u||op==11u)||
-           !word(c,label,instruction)||!word(c,label+4u,next_word)||
+        if(stage_||failed_||!safe(c)||c.pc!=root||
+           root<0x80000000u||root>0x817ffff0u||(root&3u)||
+           label!=root+4u||!(op==10u||op==11u)||
+           ((instruction>>16u)&31u)!=input.reg||input.value>255u||
+           next_word==0x44000002u||!word(c,label,instruction)||
+           !word(c,label+4u,next_word)||
+           !word(c,label+8u,0x44000002u)||
+           c.lr==label||c.lr==label+4u||c.lr==label+8u||
+           !word(c,c.lr,0x44000002u)||
            c.inst_count==std::numeric_limits<uint64_t>::max())
             return reject();
         const std::array<CallerIntegerInput,1> operands{{input}};
@@ -151,7 +156,9 @@ public:
            c.inst_count!=count_+1u||c.gpr!=gpr_||c.gqr!=gqr_||
            pack(c)!=cr_||c.xer!=xer_||c.lr!=lr_||c.ctr!=ctr_||
            c.msr!=msr_||c.srr0!=srr0_||c.srr1!=srr1_||
-           !word(c,label_,instruction_)||!word(c,label,next_word_))
+           !word(c,label_,instruction_)||!word(c,label,next_word_)||
+           !word(c,label+4u,0x44000002u)||
+           !word(c,lr_,0x44000002u))
             return reject();
         stage_=2u;
         return true;
