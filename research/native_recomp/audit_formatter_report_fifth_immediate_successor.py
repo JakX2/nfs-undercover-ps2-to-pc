@@ -197,7 +197,7 @@ class Tests(unittest.TestCase):
     def test_full_signed_byte_range_remains_authenticated(self):
         for low in range(256):
             with self.subTest(low=low):
-                self.base.base.base.base.base.imm = (
+                self.base.base.base.base.imm = (
                     self.base.base.base.addi(3, 0, low))
                 result = inspect(*self.inputs(source=3))
                 self.assertEqual(result[2][2:6], (1, 0, 0, 0))
