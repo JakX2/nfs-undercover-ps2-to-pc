@@ -366,4 +366,22 @@ class CallerStackMove(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerPostMixed().logs())
     def test_modes(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_post_mixed=True)
+class CallerFinalInteger(unittest.TestCase):
+    def logs(self):
+        rows=CallerStackMove().logs()
+        return [s.replace('FORMATTER_CALLER_STACK_MOVE_TRIAL','FORMATTER_CALLER_FINAL_INTEGER_TRIAL').replace(' next_label_stop=1',' final_integer_verified=1 next_label_stop=1').replace('total_visits=115','total_visits=116') for s in rows[:-1]]+[rows[-1].replace('FORMATTER_CALLER_STACK_MOVE_NATIVE','FORMATTER_CALLER_FINAL_INTEGER_NATIVE').replace(' next_label_stop=8',' final_integers_verified=8 next_label_stop=8').replace('total_visits=920','total_visits=928')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_final_integer=True,integer_count=2,post_integer_count=1,mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        x=self.logs();self.assertEqual(self.probe(x),(x[-1],))
+    def test_missing_integer(self):
+        x=self.logs();x[0]=x[0].replace('final_integer_verified=1','final_integer_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(x)
+    def test_old_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=928','total_visits=920')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerStackMove().logs())
+    def test_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_stack_move=True)
 if __name__=='__main__':unittest.main(verbosity=2)
