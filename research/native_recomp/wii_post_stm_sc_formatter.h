@@ -979,8 +979,11 @@ public:
            !next_entry_fourth_)return fail(6);
         const auto predicted=predict_caller_zero_input_addi(
             *next_entry_third_,c.gpr,pack(c),c.xer);
+        // PPC li is a zero-input write. Earlier game code may have
+        // changed its volatile destination without a shadow update.
+        // Never require or invent an authenticated *previous* value.
         if(!predicted||predicted->reg!=dst||predicted->value!=expected||
-           predicted->cr!=cr_||gp_[dst]!=c.gpr[dst])return fail(6);
+           predicted->cr!=cr_)return fail(6);
         gp_[dst]=expected;
         report_immediate_destination_=dst;
         report_immediate_value_=expected;
