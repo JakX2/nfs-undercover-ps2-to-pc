@@ -171,13 +171,17 @@ class Original126NativeWiring(unittest.TestCase):
             'fifth_immediates_verified=8',
             'nested.caller_report_fifth_immediate_visits()==1u',
         ):
-            # The TRIAL tag is composed dynamically from the selected macro,
-            # while the aggregate explicitly selects the fifth stage.
-            if marker.endswith('_TRIAL n='):
-                self.assertIn('FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE_NATIVE',
-                              self.harness)
-            else:
-                self.assertIn(marker, self.harness)
+            # Every required trial tag must exist in the compiled
+            # branch selector, not merely in a synthetic log validator.
+            self.assertIn(marker, self.harness)
+        fifth = self.harness.index(
+            'FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE_TRIAL n=')
+        fourth = self.harness.index(
+            'FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE_TRIAL n=')
+        self.assertLess(fifth, fourth)
+        self.assertIn(
+            '#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE)',
+            self.harness)
         self.assertIn('FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE_NATIVE',
                       self.harness)
         self.assertIn('nested.caller_report_fourth_immediate_visits()==1u',
