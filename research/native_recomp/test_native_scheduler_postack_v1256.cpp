@@ -1335,6 +1335,7 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #endif
 #endif
 #endif
+#endif // UNDERCOVER_FORMATTER_CALLER_MIXED
 #ifdef UNDERCOVER_FORMATTER_CALLER_POST_INTEGERS
     if(formatter_nested->stage()==16u){
         if(!formatter_nested->caller_post_integer_boundary(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
