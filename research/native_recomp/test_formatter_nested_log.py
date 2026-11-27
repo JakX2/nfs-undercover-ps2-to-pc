@@ -117,4 +117,19 @@ class Partial(unittest.TestCase):
     def test_missing_and_duplicate(self):
         for x in (partial_log()[1:],partial_log()+[partial_log()[0]]):
             with self.assertRaises(ValueError):verify(x,partial=True)
+class Special(unittest.TestCase):
+    def logs(self):
+        return [f'FORMATTER_SPECIAL_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 instruction_stop=1 deferred=1 reply=0 visits=96' for i in range(8)]+['FORMATTER_SPECIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 instruction_stop=8 deferred=8 reply=0 visits=768 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        x=self.logs();self.assertEqual(verify(x,special=True),(x[-1],))
+    def test_lr(self):
+        x=self.logs();x[0]=x[0].replace('lr_restored=1','lr_restored=0')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,special=True)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('visits=768','visits=760')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,special=True)
+    def test_previous_not_accepted(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(partial_log(),special=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),special=True,partial=True)
 if __name__=='__main__':unittest.main(verbosity=2)

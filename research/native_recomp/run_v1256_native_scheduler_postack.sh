@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0;formatter_second_mode=0;formatter_third_mode=0;formatter_control_mode=0;formatter_arrival_mode=0;formatter_post_ctr_mode=0;formatter_partial_mode=0
+reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0;formatter_second_mode=0;formatter_third_mode=0;formatter_control_mode=0;formatter_arrival_mode=0;formatter_post_ctr_mode=0;formatter_partial_mode=0;formatter_special_mode=0
+if [[ $# == 4 && "$4" == --formatter-nested-special ]];then
+  formatter_special_mode=1
+  set -- "$1" "$2" "$3" --formatter-nested-partial
+fi
 if [[ $# == 4 && "$4" == --formatter-nested-partial ]];then
   formatter_partial_mode=1
   set -- "$1" "$2" "$3" --formatter-nested-post-ctr
@@ -345,6 +349,7 @@ if [[ "$formatter_control_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_CONT
 if [[ "$formatter_arrival_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_ARRIVAL);nested_args=(--arrival);fi
 if [[ "$formatter_post_ctr_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_POST_CTR);nested_args=(--post-ctr);fi
 if [[ "$formatter_partial_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_PARTIAL);nested_args=(--partial);fi
+if [[ "$formatter_special_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_SPECIAL);nested_args=(--special);fi
 helper_args=()
 if [[ "$reply_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_V1316_REPLY_HELPER);helper_args=(--helper);fi
 root="$(realpath "$1")";here="$(cd "$(dirname "$0")" && pwd)"
