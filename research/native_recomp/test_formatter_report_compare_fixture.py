@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Original-free regressions for the private 119 comparison fixture gate."""
 import unittest
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 from prepare_formatter_report_compare_fixture import plan
 
@@ -44,6 +48,34 @@ class CompareFixtureTests(unittest.TestCase):
                     self.assertIn('source_value=', render((expanded, fields)))
                     count += 1
         self.assertEqual(count, 4096)
+
+    def test_generated_119_cpp_constants_compile(self):
+        compiler = shutil.which('g++')
+        if not compiler:
+            self.skipTest('g++ unavailable')
+        prior = contract(word=comparison(10, 4, 7, 0x8000))
+        candidate = promote(prior, NEXT, (7, 0x81234567))
+        header = render(candidate)
+        source = ('#include "wii_post_stm_sc_formatter.h"\\n' + header + """
+using namespace formatter_report_compare_private;
+static_assert(compare_pc == root+4u);
+static_assert(next_pc == root+8u);
+static_assert(source_reg == 7u);
+static_assert(source_value == 0x81234567u);
+static_assert(next_word == 0x60000000u);
+static_assert(return_pc == root+0x100u);
+int main(){return 0;}
+""")
+        with tempfile.TemporaryDirectory() as td:
+            file = Path(td)/'original_free_compare.cpp'
+            file.write_text(source)
+            result = subprocess.run(
+                [compiler, '-std=c++20', '-Wall', '-Wextra', '-Werror',
+                 '-fsyntax-only', '-I'+str(Path(__file__).resolve().parent),
+                 str(file)],
+                text=True, capture_output=True, timeout=30,
+                check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_history_and_opcode_refusals(self):
         cases = [
