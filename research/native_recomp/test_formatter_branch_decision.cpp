@@ -131,10 +131,16 @@ void refusals(){
             assert(!predict_formatter_branch(
                 base|reserved,PC,0u,0x80010203u,LR));
         }
-        for(uint32_t bh:{0x0800u,0x1000u}){
-            assert(!predict_formatter_branch(
-                base|bh,PC,0u,0x80010203u,LR));
-        }
+        assert(!predict_formatter_branch(
+            base|0x1000u,PC,0u,0x80010203u,LR));
+        const auto hinted=predict_formatter_branch(
+            base|0x0800u,PC,0u,0x80010203u,LR);
+        if(base==0x4e800020u){
+            assert(hinted&&hinted->taken);
+            assert(hinted->kind==FormatterBranchPrediction::Kind::LinkRegister);
+            assert(hinted->target==(LR&~3u)&&hinted->next_pc==(LR&~3u));
+            assert(hinted->lr==LR&&hinted->ctr==0x80010203u);
+        }else assert(!hinted);
     }
 }
 }
