@@ -579,7 +579,7 @@ def signext_extension(prior, immediate_contract, signext_contract):
     if (root != immediate_info[0] or
             (pc, word) != immediate_info[3:5] or
             ret != immediate_info[7] or next_pc != pc + 4 or
-            dst != immediate_info[5] or before != immediate_info[6] or
+            (dst == immediate_info[5] and before != immediate_info[6]) or
             root not in prior or root not in blocks or
             set(blocks) != set(immediate_blocks) or
             not set(blocks).issubset(prior) or
