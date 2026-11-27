@@ -786,10 +786,12 @@ def main():
     if q.caller_post_mixed:q.caller_mixed_byte=True
     if q.caller_mixed_byte:q.caller_mixed=True
     safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','nested fixture report byte','nested fixture report byte expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    phase='inputs'
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
+            phase='base_plan'
             p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed)
             post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
             partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
@@ -799,6 +801,7 @@ def main():
                 if info[:2]!=('link',1):raise ValueError('nested fixture special provenance')
             release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
             return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
+            phase='caller_plan'
             caller_contract=caller_plan(d,e,release=release,previous=p[0][1],return_info=return_contract) if q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
             byte_contract=byte_plan(d,e,arrival=caller_contract) if q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed else None
             integer_contract=None
@@ -828,6 +831,7 @@ def main():
             next_entry_contract=None
             report_byte_contract=None
             if q.caller_fourth_branch or q.caller_mixed:
+                phase='mixed_plan'
                 prior=dict(byte=byte_contract,integer=integer_contract,first=branch_contract,second=second_branch_contract,post=post_integer_contract,third=third_branch_contract)
                 fourth_branch_contract,_,_=fourth_branch_plan(d,e,**prior)
                 if fourth_branch_contract is None:raise ValueError('nested fixture caller fourth branch')
@@ -840,11 +844,16 @@ def main():
                         if not post_mixed_contract[1]:raise ValueError('nested fixture caller post mixed')
                         if q.caller_stack_move:stack_move_contract,_,_,_=stack_move_plan(d,e)
                         if q.caller_final_integer:
+                            phase='final_integer_plan'
                             final_integer_contract,_,_,_=final_integer_plan(d,e)
+                            phase='next_entry_plan'
                             next_entry_contract,_,_,_=next_entry_plan(d,e)
                             if q.caller_report_byte:report_byte_contract=report_byte_plan(d,e)
+            phase='fixture_expansion'
             if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract);return 0
+            phase='native_install'
             if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract);return 0
+            phase='analyzer_expansion'
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
                 source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract))
@@ -854,7 +863,13 @@ def main():
                 print(f'FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots={int(next_entry_contract is not None)}');return 0
             if not render(p[1]) or (post is not None and not render(post,stack_boundary=True)) or (partial is not None and not render(partial,instruction_boundary=True)) or (special is not None and not render(special,instruction_boundary=True,special_boundary=True)) or (release is not None and not render(release,instruction_boundary=True,release_boundary=True)):raise ValueError('nested fixture extent')
     except (OSError,ValueError,KeyError,IndexError,TypeError,struct.error) as ex:
-        print('FORMATTER_NESTED_PREP verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
+        # A fixed, public phase label identifies the refusing component, but
+        # never prints original addresses, instruction words or exception data.
+        assert phase in {'inputs','base_plan','caller_plan','mixed_plan',
+                         'final_integer_plan','next_entry_plan',
+                         'fixture_expansion','native_install','analyzer_expansion'}
+        reason=str(ex).replace(' ','_') if str(ex) in safe else 'private_input'
+        print(f'FORMATTER_NESTED_PREP verified=0 reason={reason} phase={phase}');return 1
     kind='pre_control_hook' if q.control else 'pre_load_hook'
     print(f'FORMATTER_NESTED_PREP verified=1 labels={len(p[1][2])} {kind}=1 original_execution=0')
     return 0
