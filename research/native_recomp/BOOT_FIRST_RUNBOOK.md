@@ -14,6 +14,10 @@ These are **bounded original-game AOT fixture** milestones, not complete
   register field. The initial candidate incorrectly assumed that the
   compare reads the register just written by the byte load. Its private
   owner run correctly refused that source identity assumption.
+  The corrected [private 119 provenance run 45988749362](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45988749362)
+  subsequently passed original-file validation with an independently
+  authenticated constant operand and its successor guard. This proves
+  119's provenance, **not** execution.
 - The replacement private contract derives the comparison's **actual
   single constant operand** from the already reconstructed original
   caller GPR state. No arbitrary live register is admitted by sampling.
