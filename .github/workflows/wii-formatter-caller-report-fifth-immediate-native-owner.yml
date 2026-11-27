@@ -57,9 +57,8 @@ jobs:
           done
           g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_formatter_report_fifth_immediate.cpp -o /tmp/test_formatter_report_fifth_immediate_release
           /tmp/test_formatter_report_fifth_immediate_release
-  # The pinned 125 run below had a SKIPPED owner job. This is intentionally
-  # fail-closed until a different 125 run proves 1000 original-code visits.
-  # The independent 126 private fixture is also mandatory.
+  # Both gates pin successful original-125 execution with 1000 native visits.
+  # Source-only 126 tests and an independent 126 owner fixture are mandatory.
   prerequisites:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -81,7 +80,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           proofs=(
-              Requirement(46063854195,'9d8e76911753d1415811dd78eac295beb7a3e4c6',
+              Requirement(46066824625,'ef509262cd8c7d5cc02d75c5f4fb66e2b9d58504',
                           '.github/workflows/wii-formatter-caller-report-fourth-immediate-native-owner.yml',
                           'owner-fourth-immediate'),
               Requirement(46065005667,'ebb3c9fc656d345e761ad6d8fbe7f6319426d348',
@@ -125,7 +124,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           prerequisites=(
-              Requirement(46063854195,'9d8e76911753d1415811dd78eac295beb7a3e4c6',
+              Requirement(46066824625,'ef509262cd8c7d5cc02d75c5f4fb66e2b9d58504',
                           '.github/workflows/wii-formatter-caller-report-fourth-immediate-native-owner.yml',
                           'owner-fourth-immediate'),
               Requirement(46065005667,'ebb3c9fc656d345e761ad6d8fbe7f6319426d348',
