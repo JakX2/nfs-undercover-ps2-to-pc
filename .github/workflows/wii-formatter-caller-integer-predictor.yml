@@ -1,0 +1,21 @@
+name: Wii Formatter Caller Integer Predictor
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_formatter_caller_integer.cpp'
+      - '.github/workflows/wii-formatter-caller-integer-predictor.yml'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_caller_integer.cpp -o /tmp/test_formatter_caller_integer
+          /tmp/test_formatter_caller_integer
