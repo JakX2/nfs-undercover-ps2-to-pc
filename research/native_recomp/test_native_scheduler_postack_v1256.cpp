@@ -623,6 +623,7 @@ static_assert(formatter_caller_final_integer_private::path.size()==1u);
 static_assert(formatter_caller_final_integer_private::path.front().pc==formatter_caller_stack_move_private::next_pc);
 static_assert(formatter_caller_final_integer_private::path.front().word==formatter_caller_stack_move_private::next_word);
 static_assert(formatter_caller_final_integer_private::end_word>>26==18u&&(formatter_caller_final_integer_private::end_word&3u)==1u);
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
 static_assert(formatter_caller_next_entry_private::return_pc==formatter_caller_final_integer_private::end_pc+4u);
 static_assert(formatter_caller_next_entry_private::target<formatter_caller_final_integer_private::end_pc);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
@@ -633,6 +634,7 @@ static_assert(formatter_caller_report_byte_private::next_pc==formatter_caller_re
 static_assert(formatter_caller_report_byte_private::report_offset>=8u&&formatter_caller_report_byte_private::report_offset<128u);
 static_assert(formatter_caller_report_byte_private::parent_offset==736+int32_t(formatter_caller_report_byte_private::report_offset));
 #endif
+#endif // UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
 #endif
 #endif
 #endif
@@ -3928,6 +3930,7 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
         c.mmu.write32(formatter_caller_final_integer_private::end_pc,formatter_caller_final_integer_private::end_word);
         c.mmu.write32(formatter_caller_final_integer_private::end_pc+4u,0x44000002u);
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
         c.mmu.write32(formatter_caller_next_entry_private::target,formatter_caller_next_entry_private::word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
         c.mmu.write32(formatter_caller_report_byte_private::next_pc,formatter_caller_report_byte_private::next_word);
@@ -3935,6 +3938,7 @@ int main(int argc,char** argv)try{
 #else
         c.mmu.write32(formatter_caller_next_entry_private::target+4u,0x44000002u);
 #endif
+#endif // UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
 #else
         c.mmu.write32(formatter_caller_stack_move_private::next_pc+4u,0x44000002u);
 #endif
