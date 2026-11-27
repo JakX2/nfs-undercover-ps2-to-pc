@@ -141,6 +141,18 @@ a proposed guard shift to 122 without executing 121. The
 workflow gates the original-only fixture on the completed pinned native
 120 run and keeps both executable inputs private.
 
+The [121 fixture owner run 46009178940](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46009178940)
+**passed** its original-free and private owner jobs. It authenticated
+PPC `addi rD,r0,SIMM`, a volatile destination, exact 16-bit sign
+extension and an isolated successor guard. This proves admissibility,
+**not** original instruction-121 execution. The independent
+[zero-input native predictor run 46009420151](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46009420151)
+passed 196,608 positive synthetic immediate cases and 12 rejection
+checks. The [synthetic nested-join run 46010330879](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46010330879)
+also passed source-only testing of the fourth following-word guard,
+the `li` destination check and the new bounded continuation state.
+The production native owner path still stops before instruction 121.
+
 The 120 owner workflow runs this inspection **only after** its private
 native 120 continuation step succeeds. If the native 120 run fails or
 times out, the 121 provenance step will not run. Original DOL/ELF data
