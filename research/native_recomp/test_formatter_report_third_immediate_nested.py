@@ -113,7 +113,7 @@ class NestedThirdImmediateTests(unittest.TestCase):
             'third_immediate_contract=report_third_immediate_plan(',
             'third_immediate_extension(expanded,second_immediate_contract,third_immediate_contract)',
             'third_immediate_extension(final,second_immediate_contract,third_immediate_contract)',
-            'extent=36 if third_immediate_contract is not None else 32',
+            'else 36 if third_immediate_contract is not None else 32',
             'render_report_third_immediate(third_immediate_contract)',
             'expected[ui[3]]=(ui[0],ui[4])',
             'third_immediate_contract=third_immediate_contract',
