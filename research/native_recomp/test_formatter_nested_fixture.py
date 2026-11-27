@@ -7,7 +7,7 @@ from prepare_formatter_nested_fixture import render,expand,render_return,render_
 from guarded_continuation import GUARD
 from prepare_formatter_nested_fixture import (
     private_compare_checkpoint, _COMPARE_EXPANSION_STAGES,
-    public_nested_refusal, compare_extension, copy_extension,
+    public_nested_refusal, compare_extension, copy_extension, immediate_extension,
 )
 from prepare_formatter_report_compare_fixture import (
     promote as promote_report_compare, render as render_report_compare,
@@ -153,6 +153,47 @@ class Test(unittest.TestCase):
             bad=list(copy[1]);bad[idx]=value
             with self.assertRaisesRegex(ValueError,'copy'):
                 copy_extension(old,compare,(copy[0],tuple(bad)))
+
+    def test_121_immediate_join_retains_all_61_roots_and_exact_guard(self):
+        dst=R-0x100
+        load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        word=(31<<26)|(1<<21)|(10<<16)|(1<<11)|(444<<1)
+        immediate=(14<<26)|(3<<21)|0xfffe
+        siblings={R+0x1000+32*i:(N,GUARD) for i in range(60)}
+        old={**siblings,dst:(load,comparison,word,immediate,GUARD)}
+        copy=({dst:old[dst]},
+              (dst,dst+8,word,dst+12,immediate,1,10,0,R+4))
+        local={dst:(load,comparison,word,immediate,N,GUARD)}
+        fields=(dst,dst+12,immediate,dst+16,N,3,0xfffffffe,R+4)
+        merged,info=immediate_extension(old,copy,(local,fields))
+        self.assertEqual(len(merged),61)
+        self.assertEqual(merged[dst],local[dst])
+        self.assertEqual({at:merged[at] for at in siblings},siblings)
+        self.assertEqual(info,fields)
+        self.assertEqual(old[dst][-1],GUARD)
+        self.assertEqual(len(local),1)
+        for bad in (
+            {**old,dst:(load,comparison,word,GUARD,GUARD)},
+            {**old,dst:(load,comparison,word,immediate)},
+        ):
+            with self.subTest(bad=bad[dst]):
+                with self.assertRaisesRegex(ValueError,'immediate predecessor'):
+                    immediate_extension(bad,copy,(local,fields))
+        with self.assertRaisesRegex(ValueError,'immediate predecessor'):
+            immediate_extension(old,copy,
+                ({**local,R+0x5000:(N,GUARD)},fields))
+        with self.assertRaisesRegex(ValueError,'immediate sibling'):
+            immediate_extension(old,copy,
+                ({**local, R+0x1000:(GUARD,GUARD)},fields))
+        for index,value in ((2,immediate^1),(3,dst+20),(5,14),(7,R+8)):
+            wrong=list(fields);wrong[index]=value
+            with self.subTest(index=index):
+                with self.assertRaises(ValueError):
+                    immediate_extension(old,copy,(local,tuple(wrong)))
+        for broken in (None,(),(local,fields[:7])):
+            with self.assertRaisesRegex(ValueError,'immediate contract'):
+                immediate_extension(old,copy,broken)
 
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
