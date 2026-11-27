@@ -317,11 +317,11 @@ public:
                 if(x.stack&&!x.write){
                     const auto off=x.address;
                     if(off%x.width)return fail(6);
-                    if(off>=-int64_t(e_.frame_size)&&off+x.width<=8){
+                    if(off>=-int64_t(e_.frame_size)&&off<=8-int64_t(x.width)){
                         const auto a=unsigned(off+e_.frame_size);
                         if(k==j){for(unsigned q=0;q<x.width;++q)child_readable[a+q]=1;}
                         else for(unsigned q=0;q<x.width;++q)if(!child_readable[a+q])return fail(6);
-                    }else if(off>=8&&off+x.width<=parent.e_.frame_size){
+                    }else if(off>=8&&off<=int64_t(parent.e_.frame_size)-x.width){
                         for(unsigned q=0;q<x.width;++q)if(!parent_readable[unsigned(off)+q])return fail(6);
                     }else return fail(6);
                 }
@@ -329,7 +329,7 @@ public:
                     // Every new store must target a distinct unused byte
                     // range within the parent's real frame, never linkage,
                     // backchain, saved registers or inherited writes.
-                    if(x.address<8||x.address+x.width>parent.e_.frame_size||x.address%x.width||
+                    if(x.address<8||x.address>int64_t(parent.e_.frame_size)-x.width||x.address%x.width||
                        permitted.size()>=8u)return fail(6);
                     for(unsigned q=0;q<x.width;++q)if(parent.written_[unsigned(x.address)+q])return fail(6);
                     for(auto y:permitted)if(x.address<y.address+y.width&&y.address<x.address+x.width)return fail(6);

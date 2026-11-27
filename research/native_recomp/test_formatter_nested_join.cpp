@@ -1,6 +1,7 @@
 #include "wii_post_stm_sc_formatter.h"
 #include <cassert>
 #include <iostream>
+#include <limits>
 using namespace undercover::wii;
 constexpr uint32_t B=0x80000000u,R=B+0x100u,T=B+0x200u,L=B+0x400u,A=B+0x500u,SP=B+0xe00u;
 constexpr uint32_t ins(unsigned op,unsigned r,unsigned a,int n){return (op<<26)|(r<<21)|(a<<16)|(uint32_t(n)&0xffffu);}
@@ -131,7 +132,11 @@ static void caller_trial(unsigned fault,uint32_t seed){
         if(x.pc==T){c.gpr[1]=child_sp;c.mmu.write32(child_sp,parent_sp);}
         else if(x.pc==T+4)c.gpr[0]=link;
         else if(x.pc==T+8)c.mmu.write32(parent_sp+4,link);
-        else if(x.pc==T+12)c.mmu.write32(child_sp+8,seed&0xffffu);
+        else if(x.pc==T+12){
+            // A halfword store leaves the other two bytes physically untouched.
+            *c.mmu.get_ptr(child_sp+8)=0;
+            *c.mmu.get_ptr(child_sp+9)=0;
+        }
         else if(x.pc==T+16)c.gpr[6]=dst;
         else c.ctr=dst;
     }
@@ -147,8 +152,12 @@ static void caller_trial(unsigned fault,uint32_t seed){
     if(fault==4)more[4].address=-36;
     if(fault==5)more[5].address=704;
     if(fault==6)full[8].word^=1u;
+    if(fault==17)more[5].address=std::numeric_limits<int64_t>::max()-3;
+    if(fault==18)more[7].address=std::numeric_limits<int64_t>::max()-3;
+    if(fault==19)more[7].address=std::numeric_limits<int64_t>::min();
+    if(fault==20)more[7].address=17;
     const bool resumed=child.resume_stack_path(c,next,parent,fault==7?0xffffu:0xffff0000u,held());
-    if((fault>=1&&fault<=7)||fault==13||fault==14){assert(!resumed);return;}assert(resumed);
+    if((fault>=1&&fault<=7)||fault==13||fault==14||fault>=17){assert(!resumed);return;}assert(resumed);
     c.gpr[9]=seed&0xffffu; // Actual original load would read these live bytes.
     ++c.inst_count;assert(child.before(c,dst+8,full[9].word,held()));
     c.mmu.write32(parent_sp+16,fault==8?10u:9u);
@@ -172,6 +181,8 @@ static void caller_trial(unsigned fault,uint32_t seed){
     assert(!parent.child_frame_held(c,true,c.gpr[1],child.linkage_word()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
-    for(unsigned i=0;i<=16;++i)caller_trial(i,0x1234beefu);
+    for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=27 original_execution=0\n";}
+    // Each opaque byte position exercises all 256 possible values.
+    for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=287 original_execution=0\n";}
