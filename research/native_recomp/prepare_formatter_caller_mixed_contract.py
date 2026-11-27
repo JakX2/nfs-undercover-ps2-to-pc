@@ -19,7 +19,7 @@ from prepare_v419_full_start import MAX_DOL
 from private_plan_cache import plan_cache_scope
 
 CAP=16
-def extend(fourth,words,gp,cr,saved_mask,earlier_guards,*,cap=CAP):
+def extend(fourth,words,gp,cr,saved_mask,earlier_guards,*,cap=CAP,integer_step=step):
     blocks,info=fourth;owner,size,previous,_,_,start,start_word,other=info
     if not 1<=cap<=CAP or len(gp)!=32 or len(cr)!=32 or owner&3 or size!=4*len(words) or not 8<=size<=65536:
         raise ValueError('mixed caller geometry')
@@ -54,7 +54,7 @@ def extend(fourth,words,gp,cr,saved_mask,earlier_guards,*,cap=CAP):
                 reason='branch alternate';break
             nxt=chosen;new_gp=live;new_cr=cr;row=(pc,w,(),nxt,alternate,taken)
         else:
-            try:new_gp,proof=step(w,live,saved_mask=saved_mask)
+            try:new_gp,proof=integer_step(w,live,saved_mask=saved_mask)
             except ValueError as ex:reason=str(ex);break
             new_cr=condition_effect(w,live,new_gp,cr)
             nxt=pc+4;alternate=None;row=(pc,w,proof,nxt,None,None)
