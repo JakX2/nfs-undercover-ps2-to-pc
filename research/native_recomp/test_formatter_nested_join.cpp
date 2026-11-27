@@ -358,9 +358,9 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==104)c.mmu.write32(other,boundary_word);
     if(follow==105)c.mmu.write32(end_pc,guard_word);
     c.inst_count+=follow==102?2u:1u;
-    const auto stopped=child.stop_after_caller_branch(c,follow==101?other:chosen,boundary_word,held()&&follow!=106);
-    if(follow>=101&&follow<=106){assert(!stopped);return;}
-    assert(stopped&&child.reached_caller_branch(c,held())&&child.caller_integer_visits()==2u);
+    const auto branch_stopped=child.stop_after_caller_branch(c,follow==101?other:chosen,boundary_word,held()&&follow!=106);
+    if(follow>=101&&follow<=106){assert(!branch_stopped);return;}
+    assert(branch_stopped&&child.reached_caller_branch(c,held())&&child.caller_integer_visits()==2u);
     if(follow==107)assert(!child.stop_after_caller_branch(c,chosen,boundary_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
