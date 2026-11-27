@@ -198,3 +198,42 @@ before the entire 125 nested/log integration can be called verified.
 execution (984 visits), then authorize and pass original 124 (992 visits)
 using freshly pinned successful prerequisites, then and only then author and
 enable a gated original 125 native execution attempt. Keep PR #36 draft.
+
+## Verified original instruction 123 (2026-11-27)
+
+**Owner-original native execution is now confirmed for instruction 123.**
+[Workflow 46061883183](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46061883183)
+completed successfully at `fc4abad8332c81218abee036b2e797595f155fb0`.
+The private `owner-second-immediate` job authenticated the earlier original
+122 run and the private original 123 fixture, then emitted eight genuine
+`FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE` trials and its aggregate marker:
+
+- `owner=1 trials=8`; `second_immediates_verified=8`.
+- `total_visits=984` (eight trials of 123 original AOT instructions);
+  `fallback=0 complete_image=0 boot_verified=0`.
+- No `V1256_WITNESS_SOURCE`, `V1256_OPEN_FAILURE` or nested refusal was
+  present in the successful owner log.
+
+This proof supersedes the older *pending/failed 123* remarks elsewhere in
+this chronological handoff. The prior 122-instruction verification remains
+a historical predecessor, **not** the current execution frontier.
+
+The 124 owner workflow now pins that exact successful 123 run and SHA at
+both the eligibility stage and the private owner gate. Its source-only job
+and eligibility check passed in
+[workflow 46063770019](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46063770019);
+the 124 owner-original step still requires a successful native run and
+`total_visits=992` before the frontier advances again.
+
+The newly prepared `wii-formatter-caller-report-fourth-immediate-native-owner.yml`
+has a separate original-free 125 source gate, reuses the authenticated
+private 125 fixture
+[46024552413](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46024552413),
+and intentionally pins a **failed** historical original-124 run as the
+native prerequisite. Both gate checks must be updated to one *actually
+successful* 124 owner run before original 125 can execute. A source-only
+125 success is never proof of 125 execution. Proprietary bytes and
+game-derived generated C++ remain private.
+
+Do not claim complete boot, frontend execution or gameplay from these
+isolated native startup checkpoints. Keep PR #36 draft.
