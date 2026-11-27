@@ -1243,6 +1243,8 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
              ,formatter_caller_report_byte_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
              ,formatter_report_compare_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY
+             ,formatter_report_copy_private::next_word
 #endif
 #endif
              ))formatter_nested_refuse(2);
@@ -1266,9 +1268,6 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
         if(!formatter_report_byte->arm_native(c,*post_stm_report,step,held
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
                 ,formatter_report_compare_private::next_word
-#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY
-              ,formatter_report_copy_private::next_word
-#endif
 #endif
                 )||
            !formatter_nested->resume_caller_report_byte(c,formatter_caller_report_byte_private::parent_offset,
