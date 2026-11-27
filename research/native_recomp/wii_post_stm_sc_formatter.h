@@ -546,10 +546,14 @@ public:
     // No CTR update, link, absolute transfer, or backward poll is allowed.
     template<class C>bool resume_caller_branch(C& c,uint32_t owner_size,bool taken,
                                                 uint32_t next_pc,uint32_t next_word,bool held){
-        if(!reached_caller_integers(c,held)||!caller_parent_||owner_size<8u||
-           owner_size>65536u||(owner_size&3u)||integer_end_word_&3u||
+        const bool first=reached_caller_integers(c,held);
+        if((!first&&!reached_caller_branch(c,held))||branch_completed_>=branches_.size()||
+           !caller_parent_||owner_size<8u||owner_size>65536u||(owner_size&3u)||
            next_word==0x44000002u||!word(c,next_pc,next_word))return fail(6);
-        const auto owner=caller_parent_->e_.root,pc=integer_end_pc_,w=integer_end_word_;
+        const auto owner=caller_parent_->e_.root;
+        const auto pc=first?integer_end_pc_:branches_[branch_completed_-1].next_pc;
+        const auto w=first?integer_end_word_:branches_[branch_completed_-1].next_word;
+        if(w&3u||(!first&&owner_size!=branch_owner_size_))return fail(6);
         const auto inside=[&](uint32_t a){return !(a&3u)&&a>=owner&&uint64_t(a)+4u<=uint64_t(owner)+owner_size;};
         if(!inside(pc)||!inside(next_pc))return fail(6);
         const unsigned op=w>>26,bo=(w>>21)&31u,bi=(w>>16)&31u;
@@ -563,16 +567,22 @@ public:
         // fallthrough is guarded too, although the emitter never takes it.
         const auto other=outcome?pc+4u:dst;
         if(!inside(other)||!word(c,other,0x44000002u))return fail(6);
-        branch_next_pc_=next_pc;branch_next_word_=next_word;branch_other_pc_=other;
+        // A later selected edge may not overwrite an earlier guard.
+        for(unsigned i=0;i<branch_completed_;++i)
+            if(next_pc==branches_[i].other_pc)return fail(6);
+        branch_owner_size_=owner_size;
+        branches_[branch_completed_]={pc,w,next_pc,next_word,other};
         stage_=14u;return true;
     }
     template<class C>bool stop_after_caller_branch(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=14u||pc!=branch_next_pc_||w!=branch_next_word_||
-           !branch_storage(c,held))return fail(6);
-        stage_=15u;return true;
+        if(stage_!=14u||branch_completed_>=branches_.size()||
+           pc!=branches_[branch_completed_].next_pc||w!=branches_[branch_completed_].next_word||
+           !branch_storage(c,held,branch_completed_+1u))return fail(6);
+        ++branch_completed_;stage_=15u;return true;
     }
+    unsigned caller_branch_visits()const{return branch_completed_;}
     template<class C>bool reached_caller_branch(C& c,bool held)const{
-        return stage_==15u&&branch_storage(c,held)&&visits_==e_.path.size()+1u;
+        return stage_==15u&&branch_completed_&&branch_storage(c,held,branch_completed_)&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -672,11 +682,19 @@ private:
     std::span<const ScCallerIntegerStep> integer_path_{};
     uint32_t integer_end_pc_=0,integer_end_word_=0;
     unsigned integer_completed_=0;
-    uint32_t branch_next_pc_=0,branch_next_word_=0,branch_other_pc_=0;
-    template<class C>bool branch_storage(C& c,bool held)const{
-        return integer_completed_==integer_path_.size()&&integer_code(c)&&
-            word(c,branch_next_pc_,branch_next_word_)&&word(c,branch_other_pc_,0x44000002u)&&
-            return_storage(c,held,4u+integer_completed_);
+    struct CallerBranchEdge {uint32_t pc,word,next_pc,next_word,other_pc;};
+    std::array<CallerBranchEdge,2> branches_{};
+    unsigned branch_completed_=0;
+    uint32_t branch_owner_size_=0;
+    template<class C>bool branch_storage(C& c,bool held,unsigned n)const{
+        if(!n||n>branches_.size()||integer_completed_!=integer_path_.size()||!integer_code(c)||
+           !return_storage(c,held,3u+integer_completed_+n))return false;
+        for(unsigned i=0;i<n;++i){
+            const auto& b=branches_[i];
+            if(!word(c,b.pc,b.word)||!word(c,b.next_pc,b.next_word)||
+               !word(c,b.other_pc,0x44000002u))return false;
+        }
+        return true;
     }
     uint32_t caller_modified_mask_=0;
     // The child's return ABI was already observed strictly. Subsequent

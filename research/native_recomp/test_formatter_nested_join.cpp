@@ -306,7 +306,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow<67)return;
     const auto cmp_pc=next_pc+4u,cmp_word=ins(11,0,follow>=85?saved_dest:4u,0),end_pc=cmp_pc+4u;
     const auto end_word2=follow>=93?
-        (16u<<26)|((follow==97?8u:12u)<<21)|((follow==94?0u:1u)<<16)|
+        (16u<<26)|((follow==97?8u:12u)<<21)|((follow==94||follow>=108?0u:1u)<<16)|
         (follow==99?0xfff0u:16u)|unsigned(follow==98):
         0x60000000u;
     c.mmu.write32(cmp_pc,follow==70?guard_word:cmp_word);
@@ -343,9 +343,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==84){assert(!child.caller_integer_boundary(c,end_pc,end_word2,held()));return;}
     if(follow<93)return;
     const auto target_pc=end_pc+16u,fallthrough=end_pc+4u;
-    const bool taken=follow!=94;
+    const bool taken=follow!=94&&follow<108;
     const auto chosen=taken?target_pc:fallthrough,other=taken?fallthrough:target_pc;
-    constexpr uint32_t boundary_word=0x60000000u;
+    const uint32_t boundary_word=follow>=108?
+        (16u<<26)|(12u<<21)|(1u<<16)|(follow==113?12u:24u):0x60000000u;
     c.mmu.write32(chosen,follow==96?guard_word:boundary_word);
     c.mmu.write32(other,follow==100?boundary_word:guard_word);
     const bool branch_armed=child.resume_caller_branch(c,0x100u,follow==95?!taken:taken,
@@ -361,12 +362,32 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const auto branch_stopped=child.stop_after_caller_branch(c,follow==101?other:chosen,boundary_word,held()&&follow!=106);
     if(follow>=101&&follow<=106){assert(!branch_stopped);return;}
     assert(branch_stopped&&child.reached_caller_branch(c,held())&&child.caller_integer_visits()==2u);
-    if(follow==107)assert(!child.stop_after_caller_branch(c,chosen,boundary_word,held()));
+    if(follow==107){assert(!child.stop_after_caller_branch(c,chosen,boundary_word,held()));return;}
+    if(follow<108)return;
+    assert(child.caller_branch_visits()==1u);
+    const auto second_target=chosen+(follow==113?12u:24u),second_other=chosen+4u;
+    constexpr uint32_t after_branch=0x60000000u;
+    if(follow!=113)c.mmu.write32(second_target,after_branch);
+    c.mmu.write32(second_other,follow==112?after_branch:guard_word);
+    if(follow==111)c.mmu.write32(other,after_branch);
+    const bool second_armed=child.resume_caller_branch(c,follow==110?0x104u:0x100u,
+        follow!=109,second_target,after_branch,held());
+    if(follow>=109&&follow<=113){assert(!second_armed);return;}
+    assert(second_armed&&child.stage()==14u&&child.caller_branch_visits()==1u&&c.pc==link);
+    if(follow==116)c.mmu.write32(other,after_branch);
+    if(follow==117)c.mmu.write32(second_other,after_branch);
+    if(follow==118)c.cr[0].gt=false;
+    if(follow==119)c.mmu.write32(chosen,after_branch);
+    c.inst_count+=follow==115?2u:1u;
+    const bool second_stopped=child.stop_after_caller_branch(c,follow==114?second_other:second_target,after_branch,held()&&follow!=120);
+    if(follow>=114&&follow<=120){assert(!second_stopped);return;}
+    assert(second_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==2u);
+    if(follow==121)assert(!child.resume_caller_branch(c,0x100u,true,second_target,after_branch,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=107;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=394 original_execution=0\n";}
+    for(unsigned follow=1;follow<=121;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=408 original_execution=0\n";}
