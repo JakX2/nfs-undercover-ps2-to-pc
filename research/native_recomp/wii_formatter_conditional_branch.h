@@ -35,6 +35,10 @@ public:
            !predicted->cr_tested||predicted->ctr_decremented||
            predicted->linked||predicted->absolute||
            predicted->ctr!=c.ctr||predicted->lr!=c.lr||
+           // This witness cannot rewrite already authenticated 118-127
+           // prefix words or branch to its own/fallthrough instruction.
+           // Forward, non-adjacent local targets only.
+           uint64_t(predicted->target)<=uint64_t(pc)+4u||
            predicted->next_pc!=selected_pc)return reject();
         const auto in_owner=[&](uint32_t at){
             return !(at&3u)&&at>=root&&

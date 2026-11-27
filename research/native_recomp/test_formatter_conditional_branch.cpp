@@ -153,7 +153,7 @@ void chained_sixth_immediate_branch(){
     }
 }
 void refusal_cases(){
-    for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u}){
+    for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u}){
         Cpu c=seed(true);
         uint32_t instruction=bc(12,2,16),chosen=PC+16u;
         uint32_t size=80u;
@@ -172,11 +172,17 @@ void refusal_cases(){
             c.lr=Root+64u;
             c.mmu.write32(c.lr,Guard);
             break; // return alias inside the current owner
+        case 11:
+            instruction=bc(12,2,static_cast<uint16_t>(-16));
+            chosen=PC-16u;
+            c.mmu.write32(chosen,Next);
+            c.mmu.write32(chosen+4u,Guard);
+            break; // backward branch must not overwrite proven prefix
         }
         // Authenticate each changed branch encoding before asking whether
         // its *semantics* are admissible, rather than only testing word
         // mismatch against the initially installed branch.
-        if(fault<=2u)c.mmu.write32(PC,instruction);
+        if(fault<=2u||fault==11u)c.mmu.write32(PC,instruction);
         FormatterConditionalBranchWitness w;
         assert(!w.arm(c,Root,PC,instruction,chosen,Next,Ret,size));
         assert(w.failed()&&w.stage()==0u);
@@ -223,6 +229,6 @@ int main(){
     chained_sixth_immediate_branch();
     refusal_cases();
     observe_refusals();
-    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 arm_refusals=11"
+    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 arm_refusals=12"
              <<" observe_refusals=22 original_execution=0\n";
 }
