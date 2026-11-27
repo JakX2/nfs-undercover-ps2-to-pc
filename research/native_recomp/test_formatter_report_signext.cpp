@@ -1,6 +1,11 @@
 #include "wii_formatter_report_signext.h"
 
 #include <array>
+// This verification executable must not become vacuous when compiled with
+// release flags. All positive and negative checks use assert().
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cstdint>
 #include <iostream>
