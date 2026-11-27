@@ -152,7 +152,7 @@ class Tests(unittest.TestCase):
         self.integer=(31<<26)|(10<<21)|(9<<16)|(8<<11)|(459<<1)
         _,_,modeled,reason=self.probe()
         self.assertIsNone(modeled)
-        self.assertEqual(reason,'caller integer effects')
+        self.assertEqual(reason,'caller integer opcode')
 
     def test_indexed_byte_load(self):
         self.load=(31<<26)|(9<<21)|(7<<16)|(8<<11)|(87<<1)
