@@ -103,13 +103,13 @@ class Original126NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+36u',
             '!report_byte_storage(c,held,9u)',
             'next_entry_ninth_', '(ninth&&!eighth)',
-            'stage_<=47u', 'stage_==46u',
-            'unsigned(report_fifth_immediate_completed_)+unsigned(armed)',
-            'if(n>42u)return {};',
+            'stage_<=49u', 'stage_==46u',
+            'unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(armed)',
+            'if(n>43u)return {};',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.frame)
-        self.assertIn('!next_entry_ninth_||word(c,next_entry_pc_+40u,0x44000002u)',
+        self.assertIn('!next_entry_ninth_||word(c,next_entry_pc_+40u,next_entry_tenth_.value_or(0x44000002u))',
                       self.frame)
         self.assertIn('!next_entry_eighth_||word(c,next_entry_pc_+36u,next_entry_ninth_.value_or(0x44000002u))',
                       self.frame)
@@ -131,19 +131,23 @@ class Original126NativeWiring(unittest.TestCase):
             self.assertIn(marker, self.compare)
         for marker in (
             'std::optional<uint32_t> fifth={}',
-            'tail_matches(c,pc,following,trailing,fourth,fifth)',
-            '!fifth||word(c,pc+24u,0x44000002u)',
         ):
             self.assertIn(marker, self.second)
             self.assertIn(marker, self.signext)
+        for marker in ('tail_matches(c,pc,following,trailing,fourth,fifth)',
+                       '!fifth||word(c,pc+24u,0x44000002u)'):
+            self.assertIn(marker, self.second)
+        for marker in ('tail_matches(c,pc,following,trailing,fourth,fifth,sixth)',
+                       '!fifth||word(c,pc+24u,sixth.value_or(0x44000002u))'):
+            self.assertIn(marker, self.signext)
         for marker in (
             'std::optional<uint32_t> trailing={}',
-            'tail_matches(c,pc,following,trailing)',
-            '!trailing||word(c,pc+16u,0x44000002u)',
+            'tail_matches(c,pc,following,trailing,fourth)',
+            '!trailing||word(c,pc+16u,fourth.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.third)
         self.assertIn('std::optional<uint32_t> following={}', self.fourth)
-        self.assertIn('tail_matches(c,pc,following)', self.fourth)
+        self.assertIn('tail_matches(c,pc,following,trailing)', self.fourth)
         for marker in (
             'pc!=root+32u',
             'c.inst_count!=count_+1u',

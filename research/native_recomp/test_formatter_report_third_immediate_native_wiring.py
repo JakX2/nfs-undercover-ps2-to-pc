@@ -81,8 +81,8 @@ class Original124NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+28u',
             '!report_byte_storage(c,held,7u)',
             'next_entry_seventh_',
-            'unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(armed)',
-            'stage_<=47u',
+            'unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(armed)',
+            'stage_<=49u',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker,self.frame)

@@ -86,9 +86,9 @@ class Original125NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+32u',
             '!report_byte_storage(c,held,8u)',
             'next_entry_eighth_', 'eighth&&!seventh',
-            'stage_<=47u',
-            'unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(armed)',
-            'if(n>42u)return {};',
+            'stage_<=49u',
+            'unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(armed)',
+            'if(n>43u)return {};',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, self.frame)
@@ -110,7 +110,7 @@ class Original125NativeWiring(unittest.TestCase):
             self.assertIn(marker, self.compare)
         for marker in (
             'std::optional<uint32_t> fourth={}',
-            'tail_matches(c,pc,following,trailing,fourth,fifth)',
+            'tail_matches(c,pc,following,trailing,fourth,fifth,sixth)',
             '!fourth||word(c,pc+20u,fifth.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.second)
