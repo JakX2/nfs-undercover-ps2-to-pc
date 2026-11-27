@@ -14,6 +14,7 @@
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
 #include "wii_formatter_report_fourth_immediate.h"
 #include "wii_formatter_report_fifth_immediate.h"
+#include "wii_formatter_report_sixth_immediate.h"
 #endif
 #include "functions.h"
 #include "v624_private_ipc_expectations.h"
@@ -540,6 +541,7 @@ static std::optional<FormatterThirdImmediateWitness> formatter_report_third_imme
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
 static std::optional<FormatterFourthImmediateWitness> formatter_report_fourth_immediate;
 static std::optional<FormatterFifthImmediateWitness> formatter_report_fifth_immediate;
+static std::optional<FormatterSixthImmediateWitness> formatter_report_sixth_immediate;
 #endif
 #endif
 #endif
@@ -789,6 +791,29 @@ static_assert(formatter_report_fifth_immediate_private::value==
     ((formatter_report_fifth_immediate_private::word&0x8000u)?
      (formatter_report_fifth_immediate_private::word&0xffffu)|0xffff0000u:
       formatter_report_fifth_immediate_private::word&0xffffu));
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+static_assert(formatter_report_sixth_immediate_private::root==
+              formatter_report_fifth_immediate_private::root);
+static_assert(formatter_report_sixth_immediate_private::pc==
+              formatter_report_fifth_immediate_private::next_pc);
+static_assert(formatter_report_sixth_immediate_private::word==
+              formatter_report_fifth_immediate_private::next_word);
+static_assert(formatter_report_sixth_immediate_private::next_pc==
+              formatter_report_sixth_immediate_private::pc+4u);
+static_assert(formatter_report_sixth_immediate_private::return_pc==
+              formatter_report_fifth_immediate_private::return_pc);
+static_assert((formatter_report_sixth_immediate_private::word>>26u)==14u);
+static_assert(((formatter_report_sixth_immediate_private::word>>16u)&31u)==0u);
+static_assert(((formatter_report_sixth_immediate_private::word>>21u)&31u)==
+              formatter_report_sixth_immediate_private::destination_reg);
+static_assert(formatter_report_sixth_immediate_private::destination_reg==0u||
+              (formatter_report_sixth_immediate_private::destination_reg>=3u&&
+               formatter_report_sixth_immediate_private::destination_reg<=12u));
+static_assert(formatter_report_sixth_immediate_private::value==
+    ((formatter_report_sixth_immediate_private::word&0x8000u)?
+     (formatter_report_sixth_immediate_private::word&0xffffu)|0xffff0000u:
+      formatter_report_sixth_immediate_private::word&0xffffu));
+#endif
 #endif
 #endif
 #endif
@@ -1402,6 +1427,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1697,7 +1725,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_fifth_immediate_private::next_word,
               formatter_report_fifth_immediate_private::return_pc,
               formatter_report_fifth_immediate_private::destination_reg,
-              formatter_report_fifth_immediate_private::value)||
+              formatter_report_fifth_immediate_private::value
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+               ,formatter_report_sixth_immediate_private::next_word
+#endif
+               )||
            !formatter_nested->resume_caller_report_fifth_immediate(c,
               formatter_report_fifth_immediate_private::destination_reg,
               formatter_report_fifth_immediate_private::value,held))
@@ -1714,8 +1746,35 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
            !formatter_report_fifth_immediate->observe(c,pc,w)||
            !formatter_nested->stop_after_caller_report_fifth_immediate(c,pc,w,held))
             formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+        if(!formatter_report_sixth_immediate||
+           !formatter_report_sixth_immediate->arm(c,
+              formatter_report_sixth_immediate_private::root,
+              formatter_report_sixth_immediate_private::pc,
+              formatter_report_sixth_immediate_private::word,
+              formatter_report_sixth_immediate_private::next_word,
+              formatter_report_sixth_immediate_private::return_pc,
+              formatter_report_sixth_immediate_private::destination_reg,
+              formatter_report_sixth_immediate_private::value)||
+           !formatter_nested->resume_caller_report_sixth_immediate(c,
+              formatter_report_sixth_immediate_private::destination_reg,
+              formatter_report_sixth_immediate_private::value,held))
+            formatter_nested_refuse(2);
+        return; // the original translated addi for instruction 127 executes
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+    if(formatter_nested->stage()==48u){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_report_sixth_immediate||
+           !formatter_report_sixth_immediate->observe(c,pc,w)||
+           !formatter_nested->stop_after_caller_report_sixth_immediate(c,pc,w,held))
+            formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
@@ -4420,7 +4479,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_report_fourth_immediate_private::next_pc,formatter_report_fourth_immediate_private::next_word);
         #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
         c.mmu.write32(formatter_report_fifth_immediate_private::next_pc,formatter_report_fifth_immediate_private::next_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+        c.mmu.write32(formatter_report_sixth_immediate_private::next_pc,formatter_report_sixth_immediate_private::next_word);
+        c.mmu.write32(formatter_report_sixth_immediate_private::next_pc+4u,0x44000002u);
+#else
         c.mmu.write32(formatter_report_fifth_immediate_private::next_pc+4u,0x44000002u);
+#endif
 #else
         c.mmu.write32(formatter_report_fourth_immediate_private::next_pc+4u,0x44000002u);
 #endif
@@ -5626,6 +5690,9 @@ int main(int argc,char** argv)try{
             formatter_report_fourth_immediate.emplace();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
             formatter_report_fifth_immediate.emplace();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+            formatter_report_sixth_immediate.emplace();
+#endif
 #endif
 #endif
 #endif
@@ -5658,7 +5725,14 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
                  formatter_report_fifth_immediate&&formatter_report_fifth_immediate->stage()==2u&&
                  !formatter_report_fifth_immediate->failed()&&
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+                 formatter_report_sixth_immediate&&formatter_report_sixth_immediate->stage()==2u&&
+                 !formatter_report_sixth_immediate->failed()&&
+                 nested.reached_caller_report_sixth_immediate(c,nested_boundary_held)&&
+                 nested.caller_report_sixth_immediate_visits()==1u&&
+#else
                  nested.reached_caller_report_fifth_immediate(c,nested_boundary_held)&&
+#endif
                  nested.caller_report_fifth_immediate_visits()==1u&&
 #else
                  nested.reached_caller_report_fourth_immediate(c,nested_boundary_held)&&
@@ -5860,6 +5934,9 @@ int main(int argc,char** argv)try{
                 <<" fourth_immediate_verified="<<nested.caller_report_fourth_immediate_visits()
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
                 <<" fifth_immediate_verified="<<nested.caller_report_fifth_immediate_visits()
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+                <<" sixth_immediate_verified="<<nested.caller_report_sixth_immediate_visits()
+#endif
 #endif
 #endif
 #endif
@@ -5871,7 +5948,7 @@ int main(int argc,char** argv)try{
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
                 <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=0"
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()+nested.caller_report_signext_visits()+nested.caller_report_second_immediate_visits()+nested.caller_report_third_immediate_visits()+nested.caller_report_fourth_immediate_visits()+nested.caller_report_fifth_immediate_visits()<<'\n';
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()+nested.caller_report_signext_visits()+nested.caller_report_second_immediate_visits()+nested.caller_report_third_immediate_visits()+nested.caller_report_fourth_immediate_visits()+nested.caller_report_fifth_immediate_visits()+nested.caller_report_sixth_immediate_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5960,6 +6037,9 @@ int main(int argc,char** argv)try{
             formatter_report_fourth_immediate.reset();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
             formatter_report_fifth_immediate.reset();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+            formatter_report_sixth_immediate.reset();
+#endif
 #endif
 #endif
 #endif
@@ -6255,7 +6335,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE)
+        "FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE)
         "FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE_NATIVE"
 #elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE)
         "FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE_NATIVE"
@@ -6321,6 +6403,9 @@ int main(int argc,char** argv)try{
         <<" fourth_immediates_verified=8"
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
         <<" fifth_immediates_verified=8"
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+        <<" sixth_immediates_verified=8"
+#endif
 #endif
 #endif
 #endif
@@ -6369,6 +6454,9 @@ int main(int argc,char** argv)try{
         +1u
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
         +1u
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+        +1u
+#endif
 #endif
 #endif
 #endif
