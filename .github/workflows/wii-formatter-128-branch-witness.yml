@@ -1,0 +1,24 @@
+name: Wii Formatter 128 Conditional Branch Witness Source Tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-128-branch-witness.yml'
+      - 'research/native_recomp/wii_formatter_conditional_branch.h'
+      - 'research/native_recomp/test_formatter_conditional_branch.cpp'
+      - 'research/native_recomp/wii_formatter_branch_decision.h'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_conditional_branch.cpp -o /tmp/test_formatter_conditional_branch
+            /tmp/test_formatter_conditional_branch
+          done
