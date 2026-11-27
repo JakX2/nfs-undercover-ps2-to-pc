@@ -12,6 +12,7 @@ on:
       - 'research/native_recomp/test_formatter_report_fourth_immediate_nested.py'
       - 'research/native_recomp/test_formatter_report_fifth_immediate_nested.py'
       - 'research/native_recomp/test_formatter_report_fifth_immediate_native_wiring.py'
+      - 'research/native_recomp/test_formatter_report_fourth_immediate_native_wiring.py'
       - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
       - 'research/native_recomp/wii_formatter_report_byte_transition.h'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
@@ -37,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+          for flags in '-O2' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
             for test in test_formatter_nested_join test_formatter_report_fifth_immediate test_formatter_report_sixth_immediate; do
               g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
               "/tmp/$test"
@@ -50,5 +51,6 @@ jobs:
           python3 research/native_recomp/test_formatter_report_sixth_immediate_nested.py
           python3 research/native_recomp/test_formatter_report_sixth_immediate_log.py
           python3 research/native_recomp/test_formatter_report_fifth_immediate_native_wiring.py
+          python3 research/native_recomp/test_formatter_report_fourth_immediate_native_wiring.py
           bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
           python3 -m py_compile research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/validate_formatter_nested_log.py

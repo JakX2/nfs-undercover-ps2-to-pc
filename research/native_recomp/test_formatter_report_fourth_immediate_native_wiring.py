@@ -110,11 +110,18 @@ class Original125NativeWiring(unittest.TestCase):
             self.assertIn(marker, self.compare)
         for marker in (
             'std::optional<uint32_t> fourth={}',
-            'tail_matches(c,pc,following,trailing,fourth,fifth,sixth)',
             '!fourth||word(c,pc+20u,fifth.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.second)
             self.assertIn(marker, self.signext)
+        # Second immediate retains its five-word tail, whereas signext
+        # carries one more authenticated successor for the 127 opt-in path.
+        self.assertIn(
+            'tail_matches(c,pc,following,trailing,fourth,fifth)',
+            self.second)
+        self.assertIn(
+            'tail_matches(c,pc,following,trailing,fourth,fifth,sixth)',
+            self.signext)
 
     def test_125_markers_and_earlier_log_modes_remain_independent(self):
         tag, trial, total = mixed_markers(2, 1, 2, 2, 1,

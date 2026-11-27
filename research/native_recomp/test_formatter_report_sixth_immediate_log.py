@@ -69,6 +69,29 @@ class Original127LogTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'native refusal'):
                     verify([records[0], refusal]+records[1:], **ARGS)
 
+    def test_cpp_trial_precedence_prevents_misattributed_126_native_proof(self):
+        # The original 126 owner run failed its exact trial contract because
+        # the 125 selector was checked before the 126 selector. This check
+        # prevents another source-only pass that only fails on owner binaries.
+        source = (Path(__file__).parent /
+                  'test_native_scheduler_postack_v1256.cpp').read_text()
+        start = source.index('#if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)\\n'
+                             '            std::cout<<')
+        chunk = source[start:start+1600]
+        expected = (
+            '#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE)',
+            '"FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE_TRIAL n="',
+            '#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE)',
+            '"FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE_TRIAL n="',
+            '#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE)',
+            '"FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE_TRIAL n="',
+        )
+        offsets = [chunk.find(marker) for marker in expected]
+        self.assertTrue(all(i >= 0 for i in offsets), offsets)
+        self.assertEqual(offsets, sorted(offsets))
+        self.assertEqual(chunk.count('REPORT_SIXTH_IMMEDIATE_TRIAL n='), 1)
+        self.assertEqual(chunk.count('REPORT_FIFTH_IMMEDIATE_TRIAL n='), 1)
+
     def test_cli_and_dispatch_guard_wiring(self):
         _, records, total = valid_log()
         root = Path(__file__).parent
