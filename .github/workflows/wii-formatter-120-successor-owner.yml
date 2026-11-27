@@ -5,6 +5,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/audit_formatter_report_compare_successor.py'
+      - 'research/native_recomp/prepare_formatter_caller_integer_contract.py'
+      - 'research/native_recomp/test_formatter_caller_integer_contract.py'
       - '.github/workflows/wii-formatter-120-successor-owner.yml'
 permissions:
   contents: read
@@ -22,6 +24,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile research/native_recomp/audit_formatter_report_compare_successor.py
           python3 research/native_recomp/audit_formatter_report_compare_successor.py --self-test
+          python3 research/native_recomp/test_formatter_caller_integer_contract.py
   owner-provenance:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -74,7 +77,13 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          python3 research/native_recomp/audit_formatter_report_compare_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          summary="$(python3 research/native_recomp/audit_formatter_report_compare_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf")"
+          printf '%s\n' "$summary"
+          case "$summary" in
+            *"family=integer operation=or reads=1 writes=1 constant_inputs=0 stack_inputs=1 partial_inputs=0 other_inputs=0 condition_write=0 carry_read=0 xer_write=0 overflow_enable=0 alias=0 gpr_model=1 reason=supported original_execution=0") ;;
+            *) echo "FORMATTER_120_SYMBOLIC_GATE verified=0"; exit 1 ;;
+          esac
+          echo "FORMATTER_120_SYMBOLIC_GATE verified=1"
       - name: Remove original files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
