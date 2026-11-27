@@ -21,20 +21,22 @@ public:
              uint32_t next_word,uint32_t return_pc,unsigned dst,
              uint32_t authenticated_result,
              std::optional<uint32_t> following={},
-             std::optional<uint32_t> trailing={}) {
+             std::optional<uint32_t> trailing={},
+             std::optional<uint32_t> fourth={}) {
         const unsigned op=instruction>>26u,rt=(instruction>>21u)&31u,
                        ra=(instruction>>16u)&31u;
         if(stage_||failed_||!safe(c)||c.pc!=root||
-           root<0x80000000u||root>0x817fffdcu||(following&&root>0x817fffd8u)||(trailing&&root>0x817fffd4u)||(root&3u)||
+           root<0x80000000u||root>0x817fffdcu||(following&&root>0x817fffd8u)||(trailing&&root>0x817fffd4u)||(fourth&&root>0x817fffd0u)||(root&3u)||
            pc!=root+24u||op!=14u||ra!=0u||rt!=dst||
            !(dst==0u||(dst>=3u&&dst<=12u))||
            next_word==0x44000002u||(following&&*following==0x44000002u)||
            (trailing&&(!following||*trailing==0x44000002u))||
+           (fourth&&(!trailing||*fourth==0x44000002u))||
            return_pc!=c.lr||
-           (return_pc>=root&&return_pc<=pc+8u+4u*(unsigned(bool(following))+unsigned(bool(trailing))))||
+           (return_pc>=root&&return_pc<=pc+8u+4u*(unsigned(bool(following))+unsigned(bool(trailing))+unsigned(bool(fourth))))||
            c.inst_count==std::numeric_limits<uint64_t>::max()||
            !word(c,pc,instruction)||!word(c,pc+4u,next_word)||
-           !tail_matches(c,pc,following,trailing)||
+           !tail_matches(c,pc,following,trailing,fourth)||
            !word(c,return_pc,0x44000002u))
             return reject();
         // PPC RA=0 means literal zero, not the current contents of GPR0.
@@ -45,7 +47,7 @@ public:
            predicted->value!=authenticated_result||
            predicted->cr!=pack(c))return reject();
         cpu_=&c;root_=root;pc_=pc;instruction_=instruction;
-        next_word_=next_word;return_pc_=return_pc;following_=following;trailing_=trailing;dst_=dst;
+        next_word_=next_word;return_pc_=return_pc;following_=following;trailing_=trailing;fourth_=fourth;dst_=dst;
         expected_=authenticated_result;gpr_=c.gpr;gqr_=c.gqr;
         cr_=pack(c);xer_=c.xer;lr_=c.lr;ctr_=c.ctr;
         msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;
@@ -61,7 +63,7 @@ public:
            c.gqr!=gqr_||c.lr!=lr_||c.ctr!=ctr_||c.msr!=msr_||
            c.srr0!=srr0_||c.srr1!=srr1_||
            !word(c,pc_,instruction_)||!word(c,pc_+4u,next_word_)||
-           !tail_matches(c,pc_,following_,trailing_)||
+           !tail_matches(c,pc_,following_,trailing_,fourth_)||
            !word(c,return_pc_,0x44000002u))
             return reject();
         for(unsigned r=0;r<32u;++r)
@@ -95,12 +97,14 @@ private:
     // Only an authenticated successor may relocate the test-only guard.
     template<class C> static bool tail_matches(C& c,uint32_t pc,
             std::optional<uint32_t> following,
-             std::optional<uint32_t> trailing){
+             std::optional<uint32_t> trailing,
+             std::optional<uint32_t> fourth){
         return word(c,pc+8u,following.value_or(0x44000002u))&&
             (!following||word(c,pc+12u,trailing.value_or(0x44000002u)))&&
-            (!trailing||word(c,pc+16u,0x44000002u));
+            (!trailing||word(c,pc+16u,fourth.value_or(0x44000002u)))&&
+            (!fourth||word(c,pc+20u,0x44000002u));
     }
-    std::optional<uint32_t> following_{},trailing_{};
+    std::optional<uint32_t> following_{},trailing_{},fourth_{};
     const void* cpu_=nullptr;
     std::array<uint32_t,32> gpr_{};
     std::array<uint32_t,8> gqr_{};
