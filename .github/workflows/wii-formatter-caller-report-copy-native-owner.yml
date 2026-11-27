@@ -121,6 +121,11 @@ jobs:
           git -C "$RUNNER_TEMP/nwii120" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
           git -C "$RUNNER_TEMP/nwii120" checkout -q --detach FETCH_HEAD
           bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nwii120" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --formatter-nested-caller-report-copy
+      - name: Inspect the next guarded original instruction without executing it
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 research/native_recomp/audit_formatter_report_copy_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove original files and generated private code
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nwii120"
