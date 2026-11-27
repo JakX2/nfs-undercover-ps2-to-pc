@@ -540,6 +540,11 @@ static_assert(formatter_partial_private::path.size()==95u&&formatter_partial_pri
 static_assert(formatter_special_private::path.size()==96u&&formatter_special_private::accesses.size()==32u);
 static_assert(formatter_special_private::expected.boundary.instruction&&formatter_special_private::slots.size()==4u);
 static_assert(formatter_special_private::path.back().pc==formatter_partial_private::expected.target);
+#ifdef UNDERCOVER_FORMATTER_RELEASE
+static_assert(formatter_release_private::path.size()==97u&&formatter_release_private::accesses.size()==32u);
+static_assert(formatter_release_private::expected.target_word==0x4e800020u&&formatter_release_private::expected.boundary.instruction);
+static_assert(formatter_release_private::path.back().pc==formatter_special_private::expected.target);
+#endif
 #endif
 static_assert(formatter_partial_private::expected.boundary.instruction&&formatter_partial_private::slots.size()==4u);
 static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return a.write;})==17u);
@@ -1012,10 +1017,24 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_POST_CTR
 #ifdef UNDERCOVER_FORMATTER_PARTIAL
 #ifdef UNDERCOVER_FORMATTER_SPECIAL
-    if(pc==formatter_special_private::expected.target){
+#ifdef UNDERCOVER_FORMATTER_RELEASE
+    if(pc==formatter_release_private::expected.target){
         if(!formatter_nested->stop_before_instruction(c,pc,w,formatter_nested_held(c))||
-           c.lr!=formatter_special_private::expected.entry_lr)formatter_nested_refuse(2);
+           !formatter_nested->frame_released()||c.lr!=formatter_release_private::expected.entry_lr||
+           c.gpr[1]!=post_stm_formatter->expected_sp())formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
+    }
+#endif
+    if(pc==formatter_special_private::expected.target){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_nested->stop_before_instruction(c,pc,w,held)||
+           c.lr!=formatter_special_private::expected.entry_lr)formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_RELEASE
+        if(!formatter_nested->resume_frame_release(c,formatter_release_private::expected,held))formatter_nested_refuse(2);
+        return; // the original addi restores SP; the observer does not
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
     }
 #endif
     if(pc==formatter_partial_private::expected.target){
@@ -3483,6 +3502,9 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_partial_private::expected.target,formatter_partial_private::expected.target_word);
 #ifdef UNDERCOVER_FORMATTER_SPECIAL
         c.mmu.write32(formatter_special_private::expected.target,formatter_special_private::expected.target_word);
+#ifdef UNDERCOVER_FORMATTER_RELEASE
+        c.mmu.write32(formatter_release_private::expected.target,formatter_release_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4637,7 +4659,9 @@ int main(int argc,char** argv)try{
                 nested.reached_control_boundary(c,nested_boundary_held):nested.reached_load_boundary(c,nested_boundary_held);
 #endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
- #if defined(UNDERCOVER_FORMATTER_SPECIAL)
+ #if defined(UNDERCOVER_FORMATTER_RELEASE)
+               nested.visits()!=97u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||c.lr!=formatter_release_private::expected.entry_lr||
+#elif defined(UNDERCOVER_FORMATTER_SPECIAL)
                nested.visits()!=96u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||c.lr!=formatter_special_private::expected.entry_lr||
 #elif defined(UNDERCOVER_FORMATTER_PARTIAL)
                nested.visits()!=95u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||
@@ -4660,7 +4684,10 @@ int main(int argc,char** argv)try{
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_SPECIAL)
+#if defined(UNDERCOVER_FORMATTER_RELEASE)
+            std::cout<<"FORMATTER_RELEASE_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 return_stop=1 return_executed=0 deferred=1 reply=0 visits=97\n";
+#elif defined(UNDERCOVER_FORMATTER_SPECIAL)
             std::cout<<"FORMATTER_SPECIAL_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 instruction_stop=1 deferred=1 reply=0 visits=96\n";
 #elif defined(UNDERCOVER_FORMATTER_PARTIAL)
@@ -4977,7 +5004,9 @@ int main(int argc,char** argv)try{
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_SPECIAL)
+#if defined(UNDERCOVER_FORMATTER_RELEASE)
+    std::cout<<"FORMATTER_RELEASE_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 return_stop=8 return_executed=0 deferred=8 reply=0 visits=776 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#elif defined(UNDERCOVER_FORMATTER_SPECIAL)
     std::cout<<"FORMATTER_SPECIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 instruction_stop=8 deferred=8 reply=0 visits=768 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #elif defined(UNDERCOVER_FORMATTER_PARTIAL)
     std::cout<<"FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
