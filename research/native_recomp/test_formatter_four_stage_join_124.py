@@ -109,6 +109,33 @@ class FourStageJoinedState(unittest.TestCase):
                 self.assertEqual(after[3], ('const', 0xffffff80 if source == 3 else 0x80))
                 self.assertEqual(contract[1][6], 0x7fff)
 
+    def test_zero_base_124_does_not_read_old_destination(self):
+        # PPC addi with RA=0 must ignore any previous numerical value of rD.
+        # This test replays the *whole* 121..124 chain, not only the adder.
+        for prior in (0, 0x7f, 0x80000000, 0xffffffff):
+            with self.subTest(prior=prior):
+                self.audit.base.regs[6] = ('const', prior)
+                original, contract, stages, traces, _ = self.run_promoted(
+                    next_word=self.audit.addi(6, 0, 0xff80))
+                self.assertEqual(stages[-1][6], ('const', prior))
+                after, inputs = step(
+                    contract[1][2], stages[-1],
+                    saved_mask=original[4][2])
+                self.assertEqual(inputs, ())
+                self.assertEqual(after[6], ('const', 0xffffff80))
+                self.assertEqual(after[1], ('stack', -864))
+
+    def test_zero_register_destination_is_not_a_source_operand(self):
+        original, contract, stages, traces, _ = self.run_promoted(
+            next_word=self.audit.addi(0, 0, 0x8000))
+        after, inputs = step(
+            contract[1][2], stages[-1], saved_mask=original[4][2])
+        self.assertEqual(inputs, ())
+        self.assertEqual(contract[1][5:7], (0, 0xffff8000))
+        self.assertEqual(after[0], ('const', 0xffff8000))
+        self.assertEqual(after[1], ('stack', -864))
+        self.assertEqual(after[11], stages[-1][11])
+
     def test_unknown_successor_is_guarded_not_speculatively_executed(self):
         original, output, stages, traces, _ = self.run_promoted(
             following=0xffffffff)
