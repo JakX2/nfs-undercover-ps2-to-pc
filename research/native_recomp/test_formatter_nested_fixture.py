@@ -37,6 +37,16 @@ class Test(unittest.TestCase):
         self.assertIn('IpcDispatchWord,84> path',s)
         with self.assertRaisesRegex(ValueError,'stack boundary'):
             render(({},(R,L,R+336,0x80610000,48,0,4),rows,(),((4,32),),()),stack_boundary=True)
+    def test_instruction_header(self):
+        rows=tuple((R+4*i,N) for i in range(95))
+        c=({},(R,L,R+380,N,48,0,0),rows,(),((4,32),),())
+        s=render(c,instruction_boundary=True)
+        self.assertIn('namespace formatter_partial_private',s)
+        self.assertIn('slots,{0u,0u,false,0,true}',s)
+        self.assertIn('IpcDispatchWord,95> path',s)
+        for kwargs in (dict(stack_boundary=True,instruction_boundary=True),dict(instruction_boundary=True)):
+            bad=c if kwargs.get('stack_boundary') else (c[0],c[1][:5]+(-40,4),*c[2:])
+            with self.assertRaises(ValueError):render(bad,**kwargs)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
