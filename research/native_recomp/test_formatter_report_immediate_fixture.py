@@ -166,9 +166,14 @@ class ReportImmediateFixture(unittest.TestCase):
             'test_native_scheduler_postack_v1256.cpp')
         source = path.read_text()
         # Preserve the exact nested preprocessor guard hierarchy.
-        # New 122/123 operands must be impossible to pass in 121-only mode.
+        # The 122–125 extensions must be nested behind their own flags.
+        # In a 121-only build no later optional instruction is passed.
+        fourth = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE'
+                  r'\s*,formatter_report_fourth_immediate_private::next_word'
+                  r'\s*#endif')
         third = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE'
                  r'\s*,formatter_report_third_immediate_private::next_word'
+                 r'(?:' + fourth + r')?'
                  r'\s*#endif')
         second = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE'
                   r'\s*,formatter_report_second_immediate_private::next_word'
