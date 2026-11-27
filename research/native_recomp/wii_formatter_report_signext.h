@@ -1,0 +1,101 @@
+#pragma once
+#include "wii_formatter_caller_integer.h"
+
+#include <array>
+#include <cstdint>
+#include <limits>
+#include <optional>
+
+namespace undercover::wii {
+
+// Isolated, source-only witness for a private PPC extsb at the fifth
+// callee instruction. This class observes translated code; it never
+// executes, emulates, or substitutes the instruction itself.
+// The authenticated source and expected output are supplied by the
+// owner-private 118..122 symbolic chain.
+class FormatterSignextWitness {
+public:
+    unsigned stage() const { return stage_; }
+    bool failed() const { return failed_; }
+
+    template<class C>
+    bool arm(C& c,uint32_t root,uint32_t pc,uint32_t instruction,
+             uint32_t next_word,uint32_t return_pc,unsigned source_reg,
+             uint32_t authenticated_before,uint32_t authenticated_after) {
+        const unsigned op=instruction>>26u,rs=(instruction>>21u)&31u,
+                       ra=(instruction>>16u)&31u,rb=(instruction>>11u)&31u,
+                       xo=(instruction>>1u)&1023u;
+        if(stage_||failed_||!safe(c)||c.pc!=root||
+           root<0x80000000u||root>0x817fffe0u||(root&3u)||
+           pc!=root+16u||op!=31u||xo!=954u||rb!=0u||
+           (instruction&1u)||rs!=ra||rs!=source_reg||
+           !(rs==0u||(rs>=3u&&rs<=12u))||
+           next_word==0x44000002u||return_pc!=c.lr||
+           return_pc==root||return_pc==pc||return_pc==pc+4u||
+           return_pc==pc+8u||c.inst_count==std::numeric_limits<uint64_t>::max()||
+           !word(c,pc,instruction)||!word(c,pc+4u,next_word)||
+           !word(c,pc+8u,0x44000002u)||!word(c,return_pc,0x44000002u))
+            return reject();
+        const std::array<CallerIntegerInput,1> input{{{rs,authenticated_before}}};
+        const auto predicted=predict_caller_integer(instruction,c.gpr,
+                                                      pack(c),c.xer,input);
+        if(!predicted||!predicted->reg||*predicted->reg!=rs||
+           predicted->value!=authenticated_after||
+           predicted->cr!=pack(c))return reject();
+        cpu_=&c;root_=root;pc_=pc;instruction_=instruction;
+        next_word_=next_word;return_pc_=return_pc;dst_=rs;
+        expected_=authenticated_after;gpr_=c.gpr;gqr_=c.gqr;
+        cr_=pack(c);xer_=c.xer;lr_=c.lr;ctr_=c.ctr;
+        msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;
+        count_=c.inst_count;stage_=1u;
+        return true;
+    }
+
+    template<class C>
+    bool observe(C& c,uint32_t stop_pc,uint32_t stop_word) {
+        if(stage_!=1u||failed_||cpu_!=&c||!safe(c)||c.pc!=root_||
+           stop_pc!=pc_+4u||stop_word!=next_word_||
+           c.inst_count!=count_+1u||pack(c)!=cr_||c.xer!=xer_||
+           c.gqr!=gqr_||c.lr!=lr_||c.ctr!=ctr_||c.msr!=msr_||
+           c.srr0!=srr0_||c.srr1!=srr1_||
+           !word(c,pc_,instruction_)||!word(c,pc_+4u,next_word_)||
+           !word(c,pc_+8u,0x44000002u)||
+           !word(c,return_pc_,0x44000002u))
+            return reject();
+        for(unsigned r=0;r<32u;++r)
+            if(c.gpr[r]!=(r==dst_?expected_:gpr_[r]))
+                return reject();
+        stage_=2u;
+        return true;
+    }
+
+private:
+    bool reject(){failed_=true;return false;}
+    template<class C> static bool safe(C& c){
+        return c.is_running&&!c.in_callback&&!c.dispatch_saved_ctx;
+    }
+    template<class C> static uint32_t pack(C& c){
+        uint32_t out=0;
+        for(const auto& f:c.cr)
+            out=(out<<4u)|(unsigned(f.lt)<<3u)|(unsigned(f.gt)<<2u)|
+                (unsigned(f.eq)<<1u)|unsigned(f.so);
+        return out;
+    }
+    template<class C> static bool word(C& c,uint32_t a,uint32_t expected){
+        if((a&3u)||a<0x80000000u||a>0x817ffffcu)return false;
+        auto* first=c.mmu.get_ptr(a);
+        auto* last=c.mmu.get_ptr(a+3u);
+        return first&&last&&reinterpret_cast<uintptr_t>(last)==
+            reinterpret_cast<uintptr_t>(first)+3u&&c.mmu.read32(a)==expected;
+    }
+    const void* cpu_=nullptr;
+    std::array<uint32_t,32> gpr_{};
+    std::array<uint32_t,8> gqr_{};
+    uint32_t root_=0,pc_=0,instruction_=0,next_word_=0,return_pc_=0;
+    uint32_t expected_=0,cr_=0,xer_=0,lr_=0,ctr_=0,msr_=0,srr0_=0,srr1_=0;
+    uint64_t count_=0;
+    unsigned dst_=0,stage_=0;
+    bool failed_=false;
+};
+
+} // namespace undercover::wii
