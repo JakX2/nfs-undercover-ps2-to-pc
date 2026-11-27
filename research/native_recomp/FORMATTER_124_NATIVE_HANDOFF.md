@@ -237,3 +237,39 @@ game-derived generated C++ remain private.
 
 Do not claim complete boot, frontend execution or gameplay from these
 isolated native startup checkpoints. Keep PR #36 draft.
+
+## Verified original instruction 124 (2026-11-27)
+
+**Native owner-original execution advanced from 123 to 124 original PowerPC
+instructions per trial, with 992 authenticated visits in eight trials.**
+[Owner workflow 46063770019](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46063770019)
+completed **success** from `ed60418f61227a0f8f652a743bdd9c81a7cdcbc6`.
+The private owner job passed both provenance pins, then emitted
+`FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE_NATIVE owner=1 trials=8`
+with `third_immediates_verified=8`, `total_visits=992`,
+`fallback=0 complete_image=0 boot_verified=0`. No native witness refusal
+or fallback marker was present in the successful owner log.
+
+The original 125 owner workflow now pins that successful original-124 run
+and SHA **twice** (eligibility and final owner gate) via
+[`ef509262`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/ef509262cd8c7d5cc02d75c5f4fb66e2b9d58504).
+Its source-only and prerequisite jobs passed in
+[workflow 46066824625](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46066824625)
+(`FORMATTER_125_ELIGIBLE ready=1 original_execution=0`).
+**125 original-code execution remains unverified until the owner job
+completes**, emitting eight genuine fourth-immediate witnesses and
+`total_visits=1000` with zero fallback.
+
+Ahead of that execution gate, the 126 owner-private
+[read-only classification](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46064199288)
+and [guarded fixture](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46065005667)
+completed **success**. They authenticate a zero-input add-immediate at
+original instruction 126, preserving its successor behind a new private
+stop guard. **This is provenance verification only, not instruction-126
+native execution.** A separate original-127 read-only classifier is under
+source review; any owner result must stay independent of the 125 native
+execution gate.
+
+Keep the full translated image, native frontend, and gameplay milestones
+separate. Neither the 124 native owner proof nor later read-only audits
+constitute complete boot. Proprietary game code and executables stay private.
