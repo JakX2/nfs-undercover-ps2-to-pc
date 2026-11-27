@@ -8,6 +8,7 @@ on:
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
       - 'research/native_recomp/prepare_formatter_report_compare_fixture.py'
       - 'research/native_recomp/prepare_formatter_report_stack_copy_fixture.py'
+      - 'research/native_recomp/audit_formatter_report_copy_successor.py'
       - 'research/native_recomp/audit_formatter_report_compare_successor.py'
       - 'research/native_recomp/prepare_formatter_caller_integer_contract.py'
       - 'research/native_recomp/test_formatter_report_stack_copy_fixture.py'
@@ -43,6 +44,7 @@ jobs:
           python3 -m py_compile research/native_recomp/prepare_formatter_report_compare_fixture.py research/native_recomp/prepare_formatter_report_stack_copy_fixture.py research/native_recomp/audit_formatter_report_compare_successor.py research/native_recomp/prepare_formatter_caller_integer_contract.py research/native_recomp/audit_formatter_report_byte_successor.py research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/validate_formatter_nested_log.py
           python3 research/native_recomp/test_formatter_report_compare_fixture.py
           python3 research/native_recomp/test_formatter_report_stack_copy_fixture.py
+          python3 research/native_recomp/audit_formatter_report_copy_successor.py --self-test
           python3 research/native_recomp/test_formatter_caller_integer_contract.py
           python3 research/native_recomp/audit_formatter_report_byte_successor.py --self-test
           python3 research/native_recomp/test_formatter_nested_fixture.py
