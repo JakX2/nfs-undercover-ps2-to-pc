@@ -114,7 +114,7 @@ class NestedFourthImmediateTests(unittest.TestCase):
             'fourth_immediate_contract=report_fourth_immediate_plan(',
             'fourth_immediate_extension(expanded,third_immediate_contract,fourth_immediate_contract)',
             'fourth_immediate_extension(final,third_immediate_contract,fourth_immediate_contract)',
-            'extent=40 if fourth_immediate_contract is not None else 36',
+            'extent=44 if fifth_immediate_contract is not None else 40 if fourth_immediate_contract is not None else 36',
             'render_report_fourth_immediate(fourth_immediate_contract)',
             'expected[vi[3]]=(vi[0],vi[4])',
             'fourth_immediate_contract=fourth_immediate_contract',
