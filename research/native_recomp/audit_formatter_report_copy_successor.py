@@ -75,7 +75,7 @@ def inspect(copy, predecessor, compare):
     )
     try:
         modeled, _ = step(next_word, after_copy, saved_mask=mask,
-                          allow_stack_copy=True)
+                          allow_stack_copy=True, allow_stack_relative=True)
         if len(modeled) != 32:
             raise ValueError('caller integer registers')
         reason = 'supported'
@@ -116,7 +116,7 @@ class Tests(unittest.TestCase):
     def test_stack_arithmetic_is_visible_but_not_synthesized(self):
         family, name, counts, modeled, reason = inspect(*self.inputs())
         self.assertEqual((family, name, modeled, reason),
-                         ('integer', 'add_immediate', 0, 'caller integer inputs'))
+                         ('integer', 'add_immediate', 1, 'supported'))
         self.assertEqual(counts, (1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0))
 
     def test_constant_byte_and_comparison_are_independently_modelable(self):
