@@ -43,6 +43,17 @@ class NestedSignextTests(unittest.TestCase):
         self.assertIn('formatter_report_signext_private',
                       render_signext(self.signext))
 
+    def test_distinct_authenticated_source_preserves_immediate(self):
+        # The fifth word can consume an earlier constant without consuming li.
+        from prepare_formatter_report_signext_fixture import promote
+        src = (31 << 26) | (9 << 21) | (9 << 16) | (954 << 1)
+        immediate, copy, predecessor, compare = self.base.inputs(src)
+        signext = promote(immediate, copy, predecessor, compare, NOOP)
+        prior = {**immediate[0], ROOT_SIBLING: (NOOP, GUARD)}
+        merged, fields = signext_extension(prior, immediate, signext)
+        self.assertEqual(fields[5:8], (9, 0x5a, 0x5a))
+        self.assertEqual(merged[self.base.root][-3:], (src, NOOP, GUARD))
+
     def test_mutated_predecessor_and_sibling_are_rejected(self):
         root = self.base.root
         bad_history = {**self.old, root: self.old[root][:-2] + (NOOP, GUARD)}
