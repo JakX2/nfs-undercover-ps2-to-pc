@@ -1,0 +1,24 @@
+name: Wii Original Formatter 122 Successor Audit (No Execution)
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-122-successor-audit.yml'
+      - 'research/native_recomp/audit_formatter_report_immediate_successor.py'
+      - 'research/native_recomp/prepare_formatter_report_immediate_fixture.py'
+      - 'research/native_recomp/audit_formatter_report_copy_successor.py'
+      - 'research/native_recomp/prepare_formatter_caller_integer_contract.py'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/audit_formatter_report_immediate_successor.py
+          python3 research/native_recomp/audit_formatter_report_immediate_successor.py --self-test
+          python3 research/native_recomp/test_formatter_report_immediate_fixture.py
