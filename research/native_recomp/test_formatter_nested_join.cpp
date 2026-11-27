@@ -791,17 +791,17 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(parent_delay)assert(parent.frame_age(c)==142u&&child.caller_parent_tick_limit()==142u);
     if(follow==366)assert(!child.stop_after_caller_report_copy(c,next_entry+12u,after_copy,held()));
     if(follow<376)return;
-    // Zero-input li must remain valid even if the old volatile
-    // destination is unknown to the joined shadow state.
-    if(follow==384)c.gpr[3]=0xa5a5a5a5u;
+    // The full predecessor still refuses untracked volatile mutations.
+    // Only the isolated zero-input predictor may ignore a stale destination.
     const auto prior_immediate=c.gpr;
     if(follow==380)c.mmu.write32(next_entry+12u,entry_word);
     if(follow==381)c.mmu.write32(next_entry+20u,entry_word);
     if(follow==382)c.mmu.write32(next_entry+16u,entry_word);
     if(follow==383)++c.inst_count;
+    if(follow==384)c.gpr[3]^=0xa5a5a5a5u;
     const bool immediate_armed=child.resume_caller_report_immediate(
         c,follow==377?11u:3u,follow==378?2u:1u,held()&&follow!=379);
-    if(follow>=377&&follow<=383){assert(!immediate_armed);return;}
+    if(follow>=377&&follow<=384){assert(!immediate_armed);return;}
     assert(immediate_armed&&child.stage()==36u&&child.caller_report_immediate_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==13u&&c.gpr==prior_immediate);
     c.gpr[3]=follow==385?0u:1u;
