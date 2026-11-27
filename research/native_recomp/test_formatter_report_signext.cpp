@@ -89,7 +89,7 @@ unsigned positive_cases(){
 unsigned arm_refusals() {
     unsigned count=0;
     constexpr unsigned R=9u;
-    for(unsigned fault=0;fault<23u;++fault) {
+    for(unsigned fault=0;fault<26u;++fault) {
         Cpu c=seed(R,0x12340080u);
         uint32_t before=0x12340080u,after=0xffffff80u;
         uint32_t root=Root,pc=PC,word=instruction(R,R);
@@ -118,6 +118,11 @@ unsigned arm_refusals() {
         case 20:c.lr=PC+4u;ret=c.lr;break;
         case 21:root=0x81800000u;break;
         case 22:pc=Root+20u;break;
+        // Earlier original words are not valid synthetic return sites,
+        // even if a corrupted fixture replaces one with a syscall guard.
+        case 23:ret=Root+4u;c.lr=ret;c.mmu.write32(ret,Guard);break;
+        case 24:ret=Root+8u;c.lr=ret;c.mmu.write32(ret,Guard);break;
+        case 25:ret=Root+12u;c.lr=ret;c.mmu.write32(ret,Guard);break;
         default:assert(false);
         }
         FormatterSignextWitness w;
@@ -192,7 +197,7 @@ int main() {
     const auto wrong_arm=arm_refusals();
     const auto wrong_observation=observe_refusals();
     duplicate_and_cross_cpu_refused();
-    assert(positives==1280u&&wrong_arm==23u&&wrong_observation==24u);
+    assert(positives==1280u&&wrong_arm==26u&&wrong_observation==24u);
     std::cout<<"FORMATTER_SIGNEXT_WITNESS_SOURCE_ONLY cases="<<positives
              <<" arm_refusals="<<wrong_arm
              <<" observation_refusals="<<wrong_observation
