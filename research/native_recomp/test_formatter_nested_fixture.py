@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -170,6 +170,20 @@ class Test(unittest.TestCase):
         bad=(None,first[1][:-1]+(pc+4,))
         with self.assertRaisesRegex(ValueError,'third branch'):
             expand_third_branch(old,bad,second,post,contract)
+    def test_fourth_branch_expansion(self):
+        pc=R+44;w=(16<<26)|(12<<21)|24
+        old={R:(N,N,N,N,GUARD,N,N,GUARD,GUARD,N,N,w,GUARD,GUARD,GUARD,GUARD),T:(N,GUARD)}
+        first=(None,(R,96,R+8,N,False,R+12,N,R+28))
+        second=(None,(R,96,R+12,N,True,R+36,N,R+16))
+        third=(old,(R,96,R+40,N,False,pc,w,R+60))
+        v=list(old[R])+[GUARD]*2;v[12]=N;new={**old,R:tuple(v)}
+        info=(R,96,pc,w,False,pc+4,N,pc+24)
+        contract=(new,info)
+        self.assertIn('formatter_caller_fourth_branch_private',render_branch(contract,fourth=True))
+        self.assertEqual(expand_fourth_branch(old,first,second,third,contract),new)
+        bad=(None,first[1][:-1]+(pc+4,))
+        with self.assertRaisesRegex(ValueError,'fourth branch'):
+            expand_fourth_branch(old,bad,second,third,contract)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
