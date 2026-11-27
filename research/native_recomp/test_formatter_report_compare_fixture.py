@@ -56,7 +56,7 @@ class CompareFixtureTests(unittest.TestCase):
         prior = contract(word=comparison(10, 4, 7, 0x8000))
         candidate = promote(prior, NEXT, (7, 0x81234567))
         header = render(candidate)
-        source = ('#include "wii_post_stm_sc_formatter.h"\\n' + header + """
+        source = ('#include "wii_post_stm_sc_formatter.h"\n' + header + """
 using namespace formatter_report_compare_private;
 static_assert(compare_pc == root+4u);
 static_assert(next_pc == root+8u);
