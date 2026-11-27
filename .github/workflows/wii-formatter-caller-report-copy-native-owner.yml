@@ -20,6 +20,11 @@ on:
       - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
       - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
       - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
+      - 'research/native_recomp/test_formatter_nested_join.cpp'
+      - 'research/native_recomp/test_formatter_native_refusal_filter.py'
 permissions:
   contents: read
   actions: read
@@ -42,6 +47,7 @@ jobs:
           python3 research/native_recomp/audit_formatter_report_byte_successor.py --self-test
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_native_refusal_filter.py
           for test in test_formatter_caller_integer test_formatter_report_byte_transition test_formatter_nested_join; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
@@ -67,7 +73,7 @@ jobs:
               Requirement(45993528058,'0942c3cfb7dd038caa212a2cd8f4c07c41bb79d8',
                           '.github/workflows/wii-formatter-caller-report-compare-native-owner.yml',
                           'owner-compare'),
-              Requirement(45997621828,'dfea232b67815ada5861fbd0fb371b4a5f00eb56',
+              Requirement(45999438914,'580817b15e44fe5b5a6c963a4a1ed459b4039f05',
                           '.github/workflows/wii-formatter-120-successor-owner.yml',
                           'owner-provenance'),
           )
