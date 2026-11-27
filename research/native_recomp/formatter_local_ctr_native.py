@@ -37,7 +37,11 @@ def verify_forward_branch_body(body,pc,w):
     hits=list(re.finditer(label,body))
     if len(hits)!=1 or not body[hits[0].end():].startswith('    ++ctx.inst_count;\n'+line):
         raise ValueError('caller native branch body')
-    if len(re.findall(r'(?mi)^loc_'+f'{target:X}'+r': ;
+    if len(re.findall(r'(?mi)^loc_'+f'{target:X}'+r': ;$',body))!=1:
+        raise ValueError('caller native branch target')
+    return True
+
+def ensure_ctr_resume(main,body,owner,site,destination):
     if site==destination or destination==owner or destination&3:raise ValueError('CTR native destination')
     verify_ctr_body(body,site)
     labels=re.findall(r'(?mi)^loc_'+f'{destination:X}'+r': ;$',body)
