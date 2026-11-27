@@ -19,8 +19,14 @@ class Second(unittest.TestCase):
         self.assertEqual(c[0][P][7],GUARD);self.assertEqual(c[0][P][4],GUARD)
         self.assertEqual(c[0][P][9],N)
     def test_shared_guard(self):
+        self.w=bc(12,1,self.first_other-self.pc);self.words[3]=self.w
+        self.info=self.info[:6]+(self.w,self.info[-1])
+        self.blocks[P]=self.blocks[P][:3]+(self.w,)+self.blocks[P][4:]
         self.second=self.second[:4]+(self.first_other,self.first_other)
         self.assertEqual(self.probe(),(None,'shared_first_guard','integer'))
+    def test_changed_edge(self):
+        self.second=self.second[:4]+(self.chosen+4,self.chosen+4)
+        with self.assertRaisesRegex(ValueError,'edge'):self.probe()
     def test_existing_chosen(self):
         self.blocks[P]+=(GUARD,N)
         self.assertEqual(self.probe(),(None,'chosen_already_admitted','integer'))

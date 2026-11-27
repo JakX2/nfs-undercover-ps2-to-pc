@@ -24,7 +24,7 @@ from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
-from formatter_local_ctr_native import verify_ctr_body,verify_blr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
+from formatter_local_ctr_native import verify_ctr_body,verify_blr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination,verify_forward_branch_body
 from prepare_v680_si_helper import exact_function,verify_direct
 
 def plan(d,e,*,second=False,third=False,control=False):
@@ -316,6 +316,9 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
             except ValueError:pass
         if len(bodies)!=1:raise ValueError('nested fixture caller owner')
         verify_direct(bodies[0],caller-4,root)
+        if branch_contract is not None:
+            _,info=branch_contract
+            verify_forward_branch_body(bodies[0],info[2],info[3])
         main_text,_=ensure_resume(main_text,bodies[0],owner,caller)
     done=set();changed={}
     for file,s in sources.items():
@@ -342,7 +345,7 @@ def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
     a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()

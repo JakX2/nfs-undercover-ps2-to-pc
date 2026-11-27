@@ -24,6 +24,11 @@ def extend(first,second,words):
         raise ValueError('caller second branch predecessor')
     if first_taken or pc!=first_pc+4 or kind!='conditional' or ctr or taken is not True or back or dst!=chosen or dst is None or dst<=pc+4:
         raise ValueError('caller second branch edge')
+    # The outcome proof comes from first_plan. Recheck that its geometry
+    # really agrees with the original relative conditional instruction.
+    disp=w&0xfffc;disp=(disp^0x8000)-0x8000
+    if w>>26!=16 or w&3 or not (w>>21)&4 or pc+disp!=chosen:
+        raise ValueError('caller second branch edge')
     other=pc+4;body=blocks.get(owner,())
     if not owner<=first_other<owner+size or not owner<=other<owner+size or not owner<=chosen<owner+size or chosen&3:
         raise ValueError('caller second branch geometry')

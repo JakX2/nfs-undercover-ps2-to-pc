@@ -44,4 +44,20 @@ class ReturnBody(unittest.TestCase):
         self.assertTrue(verify_blr_body(body,0x80010100))
         for bad in (body.replace('ctx.lr','ctx.ctr'),body.replace('4E800020','4E800420'),body.replace('++ctx.inst_count;','ctx.inst_count+=2;'),body+body):
             with self.assertRaisesRegex(ValueError,'LR native body'):verify_blr_body(bad,0x80010100)
+class ForwardBody(unittest.TestCase):
+    def test_exact(self):
+        from formatter_local_ctr_native import verify_forward_branch_body
+        pc=0x80010100;dst=pc+16
+        for bo,bi,cond in ((12,2,'ctx.cr[0].eq'),(4,7,'!ctx.cr[1].so'),(20,0,'')):
+            w=(16<<26)|(bo<<21)|(bi<<16)|16
+            line=f'    if ({cond}) goto loc_{dst:X};\n' if cond else f'    goto loc_{dst:X};\n'
+            body=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {w:08X}\n    ++ctx.inst_count;\n'+line+f'loc_{dst:X}: ;\n'
+            self.assertTrue(verify_forward_branch_body(body,pc,w))
+            for bad in (body.replace('++ctx.inst_count;','ctx.inst_count+=2;'),body.replace(line,'    ctx.pc = 0; return;\n'),body.replace(line,line.replace(f'{dst:X}',f'{dst+4:X}'))):
+                with self.assertRaisesRegex(ValueError,'branch body'):verify_forward_branch_body(bad,pc,w)
+            with self.assertRaisesRegex(ValueError,'branch target'):verify_forward_branch_body(body.rsplit('loc_',1)[0],pc,w)
+    def test_reject_ctr_and_link(self):
+        from formatter_local_ctr_native import verify_forward_branch_body
+        for w in ((16<<26)|(8<<21)|16,(16<<26)|(12<<21)|17,0x48000011):
+            with self.assertRaisesRegex(ValueError,'branch body'):verify_forward_branch_body('',0x80010100,w)
 if __name__=='__main__':unittest.main(verbosity=2)
