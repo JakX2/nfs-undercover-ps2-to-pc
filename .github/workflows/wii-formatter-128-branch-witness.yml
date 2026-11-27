@@ -7,6 +7,7 @@ on:
       - '.github/workflows/wii-formatter-128-branch-witness.yml'
       - 'research/native_recomp/wii_formatter_conditional_branch.h'
       - 'research/native_recomp/test_formatter_conditional_branch.cpp'
+      - 'research/native_recomp/prepare_formatter_branch_128_fixture.py'
       - 'research/native_recomp/wii_formatter_branch_decision.h'
       - 'research/native_recomp/wii_formatter_report_sixth_immediate.h'
 permissions:
@@ -19,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
+          python3 research/native_recomp/prepare_formatter_branch_128_fixture.py --self-test
           for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
             g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_conditional_branch.cpp -o /tmp/test_formatter_conditional_branch
             /tmp/test_formatter_conditional_branch
