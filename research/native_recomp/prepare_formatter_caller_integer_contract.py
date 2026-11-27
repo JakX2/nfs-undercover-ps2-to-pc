@@ -41,6 +41,8 @@ def step(w,gp,*,saved_mask=0,allow_stack_copy=False,allow_stack_relative=False):
     if (allow_stack_copy and op==31 and xo==444 and not w&1 and
             rs==rb and isinstance(gp[rs],tuple) and len(gp[rs])==2 and
             gp[rs][0]=='stack' and type(gp[rs][1]) is int):
+        if ra not in (0,*range(3,13)):
+            raise ValueError('caller integer effects')
         out=list(gp)
         out[ra]=gp[rs]
         return tuple(out),()
