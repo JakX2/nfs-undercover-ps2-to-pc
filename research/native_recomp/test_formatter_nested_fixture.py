@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -238,6 +238,22 @@ int main(){return 0;}
         with self.assertRaisesRegex(ValueError,'overlap'):expand_mixed_byte(old,mixed,contract,bad)
         with self.assertRaisesRegex(ValueError,'expansion'):expand_mixed_byte(old,mixed,({**new,T:(N,N)},info),branches)
         with self.assertRaisesRegex(ValueError,'mixed byte'):render_mixed_byte((new,(R,pc,w|0x04000000,19,0xa5,next_pc,N)))
+    def test_post_mixed_expansion(self):
+        pc=R+48;load=0x88610013;compare=0x2c030009;branch=(16<<26)|(12<<21)|(2<<16)|16
+        old={R:(N,GUARD,GUARD,GUARD,GUARD,N,GUARD,GUARD,N,N,N,N,load,compare,GUARD),T:(N,GUARD)}
+        branches=tuple((None,(R,128,R+4,N,False,R+8,N,R+4*i)) for i in (1,2,3,4))
+        mixed=({},((pc-4,N,(),pc,R+24,True),),pc,load)
+        byte=(old,(R,pc,load,19,9,pc+4,compare))
+        end=pc+24;body=list(old[R])+[GUARD]*5;body[14]=branch;body[18]=N
+        new={**old,R:tuple(body)}
+        post=(new,((pc+4,compare,((3,9),),pc+8,None,None),
+                   (pc+8,branch,(),end,pc+12,True)),end,N)
+        self.assertIn('formatter_caller_post_mixed_private',render_post_mixed(post))
+        self.assertEqual(expand_post_mixed(old,byte,mixed,post,branches),new)
+        bad=(branches[0],branches[1],branches[2],(None,branches[3][1][:-1]+(end,)))
+        with self.assertRaisesRegex(ValueError,'overlap'):expand_post_mixed(old,byte,mixed,post,bad)
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_post_mixed(old,byte,mixed,({**new,T:(N,N)},*post[1:]),branches)
+        with self.assertRaisesRegex(ValueError,'post mixed'):expand_post_mixed(old,byte,({},mixed[1],pc+4,load),post,branches)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
