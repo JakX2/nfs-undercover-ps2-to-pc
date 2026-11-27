@@ -187,11 +187,15 @@ class StackCopyFixture(unittest.TestCase):
                    r'\s*,formatter_report_signext_private::next_word\s*')
         second = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE'
                   r'\s*,formatter_report_second_immediate_private::next_word\s*')
+        third = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE'
+                 r'\s*,formatter_report_third_immediate_private::next_word\s*')
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY'
                     r'\s*,formatter_report_copy_private::next_word\s*'
                     r'(?:' + immediate +
                     r'(?:' + signext +
-                    r'(?:' + second + r'#endif\s*)?'
+                    r'(?:' + second +
+                    r'(?:' + third + r'#endif\s*)?'
+                    r'#endif\s*)?'
                     r'#endif\s*)?'
                     r'#endif\s*)?#endif')
         for opening, terminal in calls:
