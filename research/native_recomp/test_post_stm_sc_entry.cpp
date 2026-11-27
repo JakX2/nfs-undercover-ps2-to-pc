@@ -65,6 +65,48 @@ static void trial(unsigned fault){
         if(fault==24){assert(!w.nested_frame_held(c,false,child,link));}
         if(fault==25){c.mmu.write32(Sp-32,0);assert(!w.nested_frame_held(c,true,child,link));}
         if(fault==26){c.inst_count+=129;assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault>=38){
+            // A lease captured before the old cap must not borrow the
+            // unused portion of that cap. Only independently counted
+            // continuation ticks are available after capture.
+            const uint64_t age=fault==39?250u:128u;
+            c.inst_count+=age;
+            if(fault==40)c.mmu.write32(Sp-16,1u);
+            if(fault==41)c.mmu.write32(Sp-28,link+4u);
+            if(fault==42)c.gpr[1]+=8u;
+            if(fault==43)c.mmu.write32(Sp+4,0u);
+            const bool captured=w.capture_nested_checkpoint(c,true,child,link,512u);
+            if(fault>=40&&fault<=43){
+                assert(!captured&&!w.nested_checkpoint_valid());
+                c.mmu.write32(Sp-16,0u);
+                c.mmu.write32(Sp-28,link);
+                c.gpr[1]=child;
+                c.mmu.write32(Sp+4,Caller+4u);
+                assert(w.capture_nested_checkpoint(c,true,child,link,512u));
+            }else assert(captured);
+            assert(w.nested_checkpoint_age()==age);
+            assert(w.nested_frame_held_after_checkpoint(c,true,child,link,512u,0u));
+            if(fault==44){
+                Cpu copy=c;
+                assert(!w.nested_frame_held_after_checkpoint(copy,true,child,link,512u,0u));
+            }
+            if(fault==45){
+                --c.inst_count;
+                assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,36u));
+                ++c.inst_count;
+            }
+            ++c.inst_count;
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,0u));
+            assert(w.nested_frame_held_after_checkpoint(c,true,child,link,512u,1u));
+            c.inst_count+=35u;
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,35u));
+            assert(w.nested_frame_held_after_checkpoint(c,true,child,link,512u,36u));
+            assert(w.nested_frame_held(c,true,child,link,512u,256u)==(age==128u));
+            ++c.inst_count;
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,36u));
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,37u));
+            return;
+        }
         if(fault>=27){
             c.inst_count+=fault==28?257u:256u;
             assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,1u));
@@ -91,4 +133,4 @@ static void trial(unsigned fault){
         }
     }
 }
-int main(){for(unsigned i=0;i<=37;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=38 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=45;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=46 original_execution=0\n";}
