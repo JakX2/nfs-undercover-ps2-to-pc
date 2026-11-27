@@ -107,7 +107,7 @@ class NestedSecondImmediateTests(unittest.TestCase):
             'second_immediate_contract=report_second_immediate_plan(',
             'second_immediate_extension(expanded,signext_contract,second_immediate_contract)',
             'second_immediate_extension(final,signext_contract,second_immediate_contract)',
-            'extent=32 if second_immediate_contract is not None else 28',
+            'else 32 if second_immediate_contract is not None else 28',
             'render_report_second_immediate(second_immediate_contract)',
             'expected[ti[3]]=(ti[0],ti[4])',
             'second_immediate_contract=second_immediate_contract',
