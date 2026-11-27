@@ -541,6 +541,39 @@ public:
         return stage_==13u&&!integer_path_.empty()&&integer_completed_==integer_path_.size()&&
             integer_code(c)&&return_storage(c,held,3u+integer_completed_)&&visits_==e_.path.size()+1u;
     }
+    // A forward local branch can be admitted only after the actual
+    // integer effects are observed. CR is already independently predicted.
+    // No CTR update, link, absolute transfer, or backward poll is allowed.
+    template<class C>bool resume_caller_branch(C& c,uint32_t owner_size,bool taken,
+                                                uint32_t next_pc,uint32_t next_word,bool held){
+        if(!reached_caller_integers(c,held)||!caller_parent_||owner_size<8u||
+           owner_size>65536u||(owner_size&3u)||integer_end_word_&3u||
+           next_word==0x44000002u||!word(c,next_pc,next_word))return fail(6);
+        const auto owner=caller_parent_->e_.root,pc=integer_end_pc_,w=integer_end_word_;
+        const auto inside=[&](uint32_t a){return !(a&3u)&&a>=owner&&uint64_t(a)+4u<=uint64_t(owner)+owner_size;};
+        if(!inside(pc)||!inside(next_pc))return fail(6);
+        const unsigned op=w>>26,bo=(w>>21)&31u,bi=(w>>16)&31u;
+        if(op!=16u&&op!=18u)return fail(6);
+        const auto dst=target(pc,w);
+        if(!inside(dst)||dst<=pc+4u)return fail(6);
+        if(op==16u&&!(bo&4u))return fail(6);
+        const bool outcome=op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u);
+        if(outcome!=taken||next_pc!=(outcome?dst:pc+4u))return fail(6);
+        // Keep the untaken edge guarded. For a direct branch, the skipped
+        // fallthrough is guarded too, although the emitter never takes it.
+        const auto other=outcome?pc+4u:dst;
+        if(!inside(other)||!word(c,other,0x44000002u))return fail(6);
+        branch_next_pc_=next_pc;branch_next_word_=next_word;branch_other_pc_=other;
+        stage_=14u;return true;
+    }
+    template<class C>bool stop_after_caller_branch(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=14u||pc!=branch_next_pc_||w!=branch_next_word_||
+           !branch_storage(c,held))return fail(6);
+        stage_=15u;return true;
+    }
+    template<class C>bool reached_caller_branch(C& c,bool held)const{
+        return stage_==15u&&branch_storage(c,held)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -639,6 +672,12 @@ private:
     std::span<const ScCallerIntegerStep> integer_path_{};
     uint32_t integer_end_pc_=0,integer_end_word_=0;
     unsigned integer_completed_=0;
+    uint32_t branch_next_pc_=0,branch_next_word_=0,branch_other_pc_=0;
+    template<class C>bool branch_storage(C& c,bool held)const{
+        return integer_completed_==integer_path_.size()&&integer_code(c)&&
+            word(c,branch_next_pc_,branch_next_word_)&&word(c,branch_other_pc_,0x44000002u)&&
+            return_storage(c,held,4u+integer_completed_);
+    }
     uint32_t caller_modified_mask_=0;
     // The child's return ABI was already observed strictly. Subsequent
     // caller writes are allowed only for a register whose ORIGINAL caller
