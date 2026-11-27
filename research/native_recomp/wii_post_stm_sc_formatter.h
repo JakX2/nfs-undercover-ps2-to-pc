@@ -836,14 +836,17 @@ public:
     // A linked branch is an architectural LR/PC transition, not a local
     // branch or another register-only instruction. Keep the historical
     // return LR proof intact and verify the new LR separately.
-    template<class C>bool resume_caller_next_entry(C& c,uint32_t dst,uint32_t w,uint32_t ret,bool held){
+    template<class C>bool resume_caller_next_entry(C& c,uint32_t dst,uint32_t w,uint32_t ret,bool held,
+                                                   std::optional<uint32_t> successor={}){
         if(!reached_caller_final_integer(c,held)||!caller_parent_||
            final_integer_word_>>26!=18u||(final_integer_word_&3u)!=1u||
            target(final_integer_pc_,final_integer_word_)!=dst||
            uint64_t(final_integer_pc_)+4u!=ret||dst>=caller_parent_->e_.root||
-           !decode_load(w).width||!word(c,dst,w)||!word(c,dst+4u,0x44000002u)||
+           !decode_load(w).width||!word(c,dst,w)||
+           !word(c,dst+4u,successor.value_or(0x44000002u))||
+           (successor&&(*successor==0x44000002u||uint64_t(dst)+12u>caller_parent_->e_.root||!word(c,dst+8u,0x44000002u)))||
            !word(c,ret,0x44000002u))return fail(6);
-        next_entry_pc_=dst;next_entry_word_=w;next_entry_lr_=ret;stage_=28u;return true;
+        next_entry_pc_=dst;next_entry_word_=w;next_entry_lr_=ret;next_entry_successor_=successor;stage_=28u;return true;
     }
     // Authenticate the pinned direct function's root trace before its
     // first label tick. No outer dispatcher or callback poll intervenes.
@@ -859,6 +862,34 @@ public:
     unsigned caller_next_entry_visits()const{return next_entry_completed_&&!error_?1u:0u;}
     template<class C>bool reached_caller_next_entry(C& c,bool held)const{
         return stage_==29u&&next_entry_trace_seen_&&next_entry_completed_&&next_entry_storage(c,held);
+    }
+    // Continue only after a separately authenticated report-byte transition
+    // has been armed. Keep every older frame and guard in the joined witness.
+    // The guest's actual load is performed by translated code, never here.
+    template<class C>bool resume_caller_report_byte(C& c,int32_t parent_offset,uint32_t report_offset,
+        uint8_t expected,bool transition_armed,bool held){
+        if(!reached_caller_next_entry(c,held)||!next_entry_successor_||!transition_armed||
+           report_offset<8u||report_offset>=128u||
+           parent_offset!=int32_t(736u+report_offset))return fail(6);
+        const auto form=decode_load(next_entry_word_);
+        const unsigned rt=(next_entry_word_>>21)&31u,ra=(next_entry_word_>>16)&31u,rb=(next_entry_word_>>11)&31u;
+        const uint32_t delta=form.indexed?gp_[rb]:uint32_t(int32_t((next_entry_word_&0xffffu)^0x8000u)-0x8000);
+        const int64_t address=int64_t(gp_[1])+parent_offset;
+        const uint32_t effective=(ra?gp_[ra]:0u)+delta;
+        if(form.width!=1u||form.update||form.sign||(rt!=0u&&(rt<3u||rt>12u))||
+           address!=effective||address<0x80000000ll||address>=0x81800000ll||
+           !mapped(c,{uint32_t(address),1u})||c.mmu.read8(uint32_t(address))!=expected)return fail(6);
+        report_byte_address_=uint32_t(address);report_byte_expected_=expected;
+        gp_[rt]=expected;stage_=30u;return true;
+    }
+    template<class C>bool stop_after_caller_report_byte(C& c,uint32_t pc,uint32_t w,bool transition_verified,bool held){
+        if(stage_!=30u||!transition_verified||!next_entry_successor_||pc!=next_entry_pc_+4u||w!=*next_entry_successor_||
+           !report_byte_storage(c,held))return fail(6);
+        report_byte_completed_=true;stage_=31u;return true;
+    }
+    unsigned caller_report_byte_visits()const{return report_byte_completed_&&!error_?1u:0u;}
+    template<class C>bool reached_caller_report_byte(C& c,bool held)const{
+        return stage_==31u&&report_byte_completed_&&report_byte_storage(c,held);
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -930,8 +961,8 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(armed);
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(armed);
         if(extra>38u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
@@ -939,10 +970,10 @@ public:
     // budget for an ancestor frame. No budget comes from the live counter.
     std::optional<unsigned> caller_post_fourth_tick_budget()const{
         if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
-           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=29u)))return {};
-        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u;
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=31u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u;
         const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
-            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(armed);
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(armed);
         if(n>36u)return {};
         return n;
     }
@@ -1022,12 +1053,22 @@ private:
     bool final_integer_completed_=false;
     uint32_t next_entry_pc_=0,next_entry_word_=0,next_entry_lr_=0;
     bool next_entry_completed_=false,next_entry_trace_seen_=false;
-    template<class C>bool next_entry_storage(C& c,bool held,bool label_tick=true)const{
+    std::optional<uint32_t> next_entry_successor_{};
+    uint32_t report_byte_address_=0;uint8_t report_byte_expected_=0;
+    bool report_byte_completed_=false;
+    template<class C>bool report_byte_storage(C& c,bool held)const{
+        return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
+            next_entry_storage(c,held,true,1u)&&mapped(c,{report_byte_address_,1u})&&
+            c.mmu.read8(report_byte_address_)==report_byte_expected_;
+    }
+    template<class C>bool next_entry_storage(C& c,bool held,bool label_tick=true,unsigned extra=0u)const{
         return final_integer_completed_&&stack_move_completed_&&mixed_byte_completed_&&
             post_mixed_completed_==post_mixed_path_.size()&&stack_move_code(c)&&mixed_byte_code(c)&&
-            word(c,next_entry_pc_,next_entry_word_)&&word(c,next_entry_pc_+4u,0x44000002u)&&
+            word(c,next_entry_pc_,next_entry_word_)&&
+            word(c,next_entry_pc_+4u,next_entry_successor_.value_or(0x44000002u))&&
+            (!next_entry_successor_||word(c,next_entry_pc_+8u,0x44000002u))&&
             word(c,next_entry_lr_,0x44000002u)&&
-            mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick),
+            mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick)+extra,
                 CallerArrival{next_entry_pc_,next_entry_lr_})&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stack_move_code(C& c)const{
