@@ -1,6 +1,6 @@
 # Boot-first native recompilation loop (source-only tooling)
 
-## November 27, 2026: 118 native and guarded 119 continuation
+## November 27, 2026: verified 119 native comparison, guarded 120 successor
 
 These are **bounded original-game AOT fixture** milestones, not complete
 `__start` -> `main` or proof of a first rendered frame.
@@ -9,7 +9,7 @@ These are **bounded original-game AOT fixture** milestones, not complete
   passed the original report-frame byte load and successor-label check
   in all eight trials, with no interpreter fallback; aggregate
   instruction visits in that run were 944.
-- **119 operation authenticated, execution not yet verified:** the private
+- **119 provenance (historical prerequisite):** the private
   source audit identified an immediate comparison that writes a condition
   register field. The initial candidate incorrectly assumed that the
   compare reads the register just written by the byte load. Its private
@@ -17,7 +17,7 @@ These are **bounded original-game AOT fixture** milestones, not complete
   The corrected [private 119 provenance run 45988749362](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45988749362)
   subsequently passed original-file validation with an independently
   authenticated constant operand and its successor guard. This proves
-  119's provenance, **not** execution.
+  119's provenance, **not yet** execution at that point.
 - The replacement private contract derives the comparison's **actual
   single constant operand** from the already reconstructed original
   caller GPR state. No arbitrary live register is admitted by sampling.
@@ -51,20 +51,31 @@ These are **bounded original-game AOT fixture** milestones, not complete
 - [Commit 0942c3c](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/0942c3cfb7dd038caa212a2cd8f4c07c41bb79d8)
   admits a **subset of already authenticated roots**, without altering
   sibling roots or accepting new roots. Its original-free and standalone
-  private provenance CI passed. An eight-trial native owner result is
-  still required before advancing the execution frontier.
+  private provenance CI passed, followed by the successful native run below.
 - The 119 source-only plan now **reuses one authenticated byte-load
   predecessor GPR snapshot** instead of independently repeating the
   full private caller/ancestor analysis. Regression tests guard the
   single-snapshot contract.
 
-The opt-in native runner mode is
-`--formatter-nested-caller-report-compare`. It must not be used to
-advance the verified counter until the private provenance gate and
-eight original-game trials finish successfully with valid compare CR
-effects and zero interpreter fallback.
+- **119 original native execution: verified.**
+  [Owner run 45993528058](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45993528058)
+  completed successfully on commit `0942c3cfb7dd038caa212a2cd8f4c07c41bb79d8`.
+  All eight original AOT comparison trials passed, all eight comparison
+  CR effects were verified, the stop after the compare was authenticated,
+  there were **952 aggregate instruction visits**, and **zero interpreter
+  fallbacks**. The report marker contains `compares_verified=8`,
+  `next_label_stop=8`, `fallback=0`, `complete_image=0`,
+  and `boot_verified=0`. These values were checked in the completed
+  private owner logs, not inferred from source-only tests.
 
-**Current verified frontier for this bounded fixture: 118 original instructions.**
+The verified runner mode is
+`--formatter-nested-caller-report-compare`, with the 119 owner result
+pinned above. The next original word at the callee's guarded successor
+label remains **unexecuted**. A separate owner-gated 120 successor
+classification audits its instruction family and symbolic dependencies
+without admitting execution or publishing proprietary words.
+
+**Current verified frontier for this bounded fixture: 119 original instructions.**
 The continuous original `__start` lane, whole-image link/startup lane,
 and bounded report/formatter lane are distinct and must not be aggregated
 into a single boot achievement. The game `main`, frontend, first real
