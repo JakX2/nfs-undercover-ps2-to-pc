@@ -142,8 +142,12 @@ def expand_integers(old,contract,info):
     if set(old)!=set(blocks) or owner not in old or start<=owner or start&3 or rows[0][:2]!=(start,w):
         raise ValueError('nested fixture caller integers')
     i=(start-owner)//4;end=(end_pc-owner)//4;body=old[owner]
-    if not 0<=i<len(body)-1 or body[i]!=w or any(x!=GUARD for x in body[i+1:]):
+    if not 0<=i<len(body)-1 or body[i]!=w:
         raise ValueError('nested fixture caller integers')
+    # Only the actual newly admitted labels and their next guard must be
+    # empty. Other authenticated labels from earlier, disjoint paths stay.
+    if any(body[j]!=GUARD for j in range(i+1,min(end+2,len(body)))):
+        raise ValueError('nested fixture caller integer overlap')
     expected=list(body)+[GUARD]*max(0,end+2-len(body))
     for j,(_,word,_) in enumerate(rows):expected[i+j]=word
     expected[end]=end_word
@@ -371,7 +375,7 @@ def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
     a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');modes.add_argument('--caller-second-branch',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()

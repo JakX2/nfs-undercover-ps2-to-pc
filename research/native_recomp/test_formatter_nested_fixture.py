@@ -117,6 +117,17 @@ class Test(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'caller branch'):render_branch(bad)
         with self.assertRaisesRegex(ValueError,'branch expansion'):
             expand_branch(old,({**new,T:(N,N)},info),integer)
+    def test_integer_preserves_disjoint_labels(self):
+        call=0x48000001|((T-R)&0x03fffffc);load=0x88610013;add=0x38830001
+        info=(R,R+4,load,call,19,9,R+8,add)
+        old={R:(call,load,add,GUARD,GUARD,GUARD,N),T:(N,GUARD)}
+        new={**old,R:(call,load,add,N,GUARD,GUARD,N)}
+        contract=(new,((R+8,add,((3,9),)),),R+12,N)
+        self.assertEqual(expand_integers(old,contract,info),new)
+        for i in (3,4):
+            bad=list(old[R]);bad[i]=N
+            with self.assertRaisesRegex(ValueError,'overlap'):
+                expand_integers({**old,R:tuple(bad)},contract,info)
     def test_second_branch_expansion(self):
         pc=R+8;w=(16<<26)|(12<<21)|16;second_pc=pc+4
         second_word=(16<<26)|(12<<21)|(1<<16)|24
