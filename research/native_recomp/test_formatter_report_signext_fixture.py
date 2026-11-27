@@ -79,6 +79,18 @@ class SignextFixtureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 sign_extend_byte(value)
 
+    def test_authenticated_source_can_precede_immediate(self):
+        # Original 122 must not be assumed to consume the result of 121.
+        # Earlier byte loads and seeded constants can also be proven inputs.
+        for reg, before, expected in ((9, 0x5a, 0x5a),
+                                      (7, 0x81234567, 0x67)):
+            with self.subTest(reg=reg):
+                contract = promote(*self.contracts(extsb(reg)), FOLLOWING)
+                self.assertEqual(contract[1][5:8], (reg, before, expected))
+                render(contract)
+        with self.assertRaisesRegex(ValueError, 'signext provenance'):
+            promote(*self.contracts(extsb(8)), FOLLOWING)
+
     def test_zero_and_other_volatile_registers(self):
         for reg in (0, 3, 4, 9, 12):
             with self.subTest(reg=reg):
