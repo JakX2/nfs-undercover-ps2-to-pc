@@ -155,7 +155,11 @@ class Tests(unittest.TestCase):
         blocks, fields = sixth
         for slot in (2, 3, 4, 5, 9):
             original = blocks[self.ROOT]
-            bad = original[:slot] + (original[slot] | 1,) + original[slot+1:]
+            # Record-bit mutation applies to 120/122. Other slots use
+            # an unsupported CR-affecting opcode, not a harmless addi
+            # immediate change which is still non-recording.
+            altered = original[slot] | 1 if slot in (2, 4) else 0x7c000001
+            bad = original[:slot] + (altered,) + original[slot+1:]
             with self.subTest(slot=slot):
                 with self.assertRaises(ValueError):
                     inspect(({**blocks, self.ROOT: bad}, fields), compare)
