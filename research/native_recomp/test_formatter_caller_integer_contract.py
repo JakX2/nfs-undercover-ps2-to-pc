@@ -41,6 +41,28 @@ class CallerInteger(unittest.TestCase):
     def test_alias(self):
         out,inputs=step(x(3,5,3,444),self.gp)
         self.assertEqual(inputs,((3,128),));self.assertEqual(out[5],('const',128))
+    def test_symbolic_stack_copy_is_explicitly_opt_in(self):
+        word=x(1,10,1,444)
+        self.gp[1]=('stack',-912)
+        with self.assertRaisesRegex(ValueError,'inputs'):
+            step(word,self.gp)
+        out,inputs=step(word,self.gp,allow_stack_copy=True)
+        self.assertEqual(inputs,())
+        self.assertEqual(out[10],('stack',-912))
+        self.assertEqual(out[1],self.gp[1])
+        self.assertEqual(self.gp[10],('reg',10))
+
+    def test_symbolic_copy_rejects_non_identity_and_record(self):
+        self.gp[1]=('stack',-912)
+        for word in (x(1,10,2,444),x(1,10,1,444,1),
+                     x(1,10,1,316)):
+            with self.subTest(word=word):
+                with self.assertRaisesRegex(ValueError,'inputs'):
+                    step(word,self.gp,allow_stack_copy=True)
+        self.gp[1]=('stack',True)
+        with self.assertRaisesRegex(ValueError,'inputs'):
+            step(x(1,10,1,444),self.gp,allow_stack_copy=True)
+
     def test_wrap(self):
         self.gp[3]=('const',0xffffffff)
         self.assertEqual(step(d(14,5,3,1),self.gp)[0][5],('const',0))
