@@ -1,0 +1,25 @@
+name: Wii Formatter 125 Independent Native Witness Regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-125-witness.yml'
+      - 'research/native_recomp/wii_formatter_report_fourth_immediate.h'
+      - 'research/native_recomp/test_formatter_report_fourth_immediate.cpp'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_fourth_immediate.cpp -o /tmp/wii-formatter-125-witness
+            /tmp/wii-formatter-125-witness
+            rm -f /tmp/wii-formatter-125-witness
+          done
