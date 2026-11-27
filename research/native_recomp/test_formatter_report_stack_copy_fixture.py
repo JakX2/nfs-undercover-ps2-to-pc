@@ -128,8 +128,19 @@ class StackCopyFixture(unittest.TestCase):
                 self.assertNotIn('UNDERCOVER_FORMATTER_CALLER_MIXED',
                                  [value for _, value in scopes])
                 seen.add('post-integer')
+            if 'if(formatter_nested->stage()==28u)' in line:
+                values = [value for _, value in scopes]
+                self.assertEqual(values.count('UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY'), 1)
+                self.assertNotIn('UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE', values)
+                seen.add('next-entry')
+            if 'if(formatter_nested->stage()==30u)' in line:
+                values = [value for _, value in scopes]
+                self.assertEqual(values.count('UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY'), 1)
+                self.assertEqual(values.count('UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE'), 1)
+                self.assertNotIn('UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE', values)
+                seen.add('byte')
         self.assertEqual(scopes, [], 'unterminated native harness conditionals')
-        self.assertEqual(seen, {'main', 'post-integer'})
+        self.assertEqual(seen, {'main', 'post-integer', 'next-entry', 'byte'})
 
     def test_private_header_compiles(self):
         compiler=shutil.which('g++')
