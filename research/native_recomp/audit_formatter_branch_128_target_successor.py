@@ -91,7 +91,7 @@ class Tests(unittest.TestCase):
                 self.assertIn(result[7], BRANCH_FORMS)
 
     def test_unsupported_encodings_are_classification_not_execution(self):
-        result = classify_target(self.fixture(0xffffffff))
+        result = classify_target(self.fixture(0x00000000))
         self.assertEqual(result[0], 'other')
         self.assertEqual(result[6], 0)
         self.assertEqual(result[7], 'not_branch')
