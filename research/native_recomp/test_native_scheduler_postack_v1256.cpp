@@ -617,6 +617,8 @@ static_assert(formatter_caller_final_integer_private::path.size()==1u);
 static_assert(formatter_caller_final_integer_private::path.front().pc==formatter_caller_stack_move_private::next_pc);
 static_assert(formatter_caller_final_integer_private::path.front().word==formatter_caller_stack_move_private::next_word);
 static_assert(formatter_caller_final_integer_private::end_word>>26==18u&&(formatter_caller_final_integer_private::end_word&3u)==1u);
+static_assert(formatter_caller_next_entry_private::return_pc==formatter_caller_final_integer_private::end_pc+4u);
+static_assert(formatter_caller_next_entry_private::target<formatter_caller_final_integer_private::end_pc);
 #endif
 #endif
 #endif
@@ -1184,8 +1186,19 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
     if(formatter_nested->stage()==26u){
         if(!formatter_nested->stop_after_caller_final_integer(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+        if(!formatter_nested->resume_caller_next_entry(c,formatter_caller_next_entry_private::target,formatter_caller_next_entry_private::word,formatter_caller_next_entry_private::return_pc,formatter_nested_held(c)))formatter_nested_refuse(2);
+        return;
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+    if(formatter_nested->stage()==28u){
+        if(!formatter_nested->stop_at_caller_next_entry(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
@@ -3849,6 +3862,8 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
         c.mmu.write32(formatter_caller_final_integer_private::end_pc,formatter_caller_final_integer_private::end_word);
         c.mmu.write32(formatter_caller_final_integer_private::end_pc+4u,0x44000002u);
+        c.mmu.write32(formatter_caller_next_entry_private::target,formatter_caller_next_entry_private::word);
+        c.mmu.write32(formatter_caller_next_entry_private::target+4u,0x44000002u);
 #else
         c.mmu.write32(formatter_caller_stack_move_private::next_pc+4u,0x44000002u);
 #endif
@@ -5017,7 +5032,9 @@ int main(int argc,char** argv)try{
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             const bool nested_reached=
 #if defined(UNDERCOVER_FORMATTER_CALLER_POST_MIXED)
-#if defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
+#if defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
+                nested.reached_caller_next_entry(c,nested_boundary_held)&&nested.caller_next_entry_visits()==1u&&nested.caller_final_integer_visits()==1u&&nested.caller_stack_move_visits()==1u&&nested.caller_mixed_byte_visits()==1u&&
+#elif defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
                 nested.reached_caller_final_integer(c,nested_boundary_held)&&nested.caller_final_integer_visits()==1u&&nested.caller_stack_move_visits()==1u&&nested.caller_mixed_byte_visits()==1u&&
 #elif defined(UNDERCOVER_FORMATTER_CALLER_STACK_MOVE)
                 nested.reached_caller_stack_move(c,nested_boundary_held)&&nested.caller_stack_move_visits()==1u&&nested.caller_mixed_byte_visits()==1u&&
@@ -5110,7 +5127,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
+#if defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
+                "FORMATTER_CALLER_NEXT_ENTRY_TRIAL n="
+#elif defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
                 "FORMATTER_CALLER_FINAL_INTEGER_TRIAL n="
 #elif defined(UNDERCOVER_FORMATTER_CALLER_STACK_MOVE)
                 "FORMATTER_CALLER_STACK_MOVE_TRIAL n="
@@ -5140,7 +5159,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
                 <<" final_integer_verified="<<nested.caller_final_integer_visits()
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()<<'\n';
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+                <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=0"
+#endif
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5503,7 +5525,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
+#if defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
+        "FORMATTER_CALLER_NEXT_ENTRY_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER)
         "FORMATTER_CALLER_FINAL_INTEGER_NATIVE"
 #elif defined(UNDERCOVER_FORMATTER_CALLER_STACK_MOVE)
         "FORMATTER_CALLER_STACK_MOVE_NATIVE"
@@ -5531,6 +5555,9 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
         <<" final_integers_verified=8"
 #endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+        <<" next_entries_verified=8 callee_loads_executed=0"
+#endif
         <<" next_label_stop=8 deferred=8 reply=0 visits=784 total_visits="<<824u+8u*(formatter_caller_integer_private::path.size()+formatter_caller_post_integer_private::path.size()+formatter_caller_mixed_private::path.size()
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
         +1u
@@ -5542,6 +5569,9 @@ int main(int argc,char** argv)try{
         +1u
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_FINAL_INTEGER
+        +1u
+#endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
         +1u
 #endif
         )
