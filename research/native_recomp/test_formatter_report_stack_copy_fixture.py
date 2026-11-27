@@ -74,9 +74,13 @@ class StackCopyFixture(unittest.TestCase):
             self.contract(word=or_copy(dst=16))
         valid, fields = self.contract(word=or_copy(dst=10))
         self.assertEqual(fields[6], 10)
-        nonvolatile = fields[:6] + (16,) + fields[7:]
+        # Keep the encoded destination and the contract field consistent
+        # so the rendered-header rejection is specifically about register class.
+        nonvolatile = list(fields)
+        nonvolatile[2] = or_copy(dst=16)
+        nonvolatile[6] = 16
         with self.assertRaisesRegex(ValueError, 'report copy rendering'):
-            render((valid, nonvolatile))
+            render((valid, tuple(nonvolatile)))
 
     def test_range_and_untrusted_state_refusals(self):
         for offset in (-0x01800000, 0x01800000):
