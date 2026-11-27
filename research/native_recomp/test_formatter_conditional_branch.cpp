@@ -70,6 +70,33 @@ void positives(){
         assert(!w.observe(c,chosen,Next)&&w.failed());
     }
 }
+void condition_register_matrix(){
+    // Exercise every CR field/bit and both true/false branch outcomes.
+    // These are synthetic label transitions, not executed PPC instructions.
+    for(unsigned bi=0u;bi<32u;++bi)
+    for(const unsigned bo:{4u,12u})
+    for(const bool set:{false,true}){
+        Cpu c=seed(set,bo);
+        c.cr[0].eq=false;
+        auto& f=c.cr[bi/4u];
+        switch(bi%4u){
+        case 0u:f.lt=set;break;
+        case 1u:f.gt=set;break;
+        case 2u:f.eq=set;break;
+        case 3u:f.so=set;break;
+        default:assert(false);
+        }
+        const uint32_t instruction=bc(bo,bi,16);
+        const bool taken=bo==12u?set:!set;
+        const uint32_t selected=taken?PC+16u:PC+4u;
+        c.mmu.write32(PC,instruction);
+        FormatterConditionalBranchWitness witness;
+        assert(witness.arm(c,Root,PC,instruction,selected,Next,Ret,80u));
+        assert(witness.taken()==taken&&witness.stage()==1u);
+        ++c.inst_count;
+        assert(witness.observe(c,selected,Next)&&witness.stage()==2u);
+    }
+}
 void refusal_cases(){
     for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u}){
         Cpu c=seed(true);
@@ -101,7 +128,7 @@ void refusal_cases(){
     }
 }
 void observe_refusals(){
-    for(unsigned fault=0;fault<17u;++fault){
+    for(unsigned fault=0;fault<22u;++fault){
         Cpu c=seed(true);
         FormatterConditionalBranchWitness w;
         assert(w.arm(c,Root,PC,bc(12,2,16),PC+16u,Next,Ret,80u));
@@ -125,6 +152,11 @@ void observe_refusals(){
         case 14:c.mmu.write32(PC+20u,Next);break;
         case 15:c.mmu.write32(Ret,Next);break;
         case 16:c.pc+=4u;break;
+        case 17:c.mmu.write32(PC,bc(12u,3u,16));break;
+        case 18:c.mmu.write32(PC+16u,bc(20u,0u,4));break;
+        case 19:c.is_running=false;break;
+        case 20:c.dispatch_saved_ctx=1u;break;
+        case 21:c.mmu.write32(PC+4u,bc(20u,0u,4));break;
         }
         assert(!w.observe(c,at,word)&&w.failed()&&w.stage()==1u);
     }
@@ -132,8 +164,9 @@ void observe_refusals(){
 }
 int main(){
     positives();
+    condition_register_matrix();
     refusal_cases();
     observe_refusals();
-    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 arm_refusals=11"
-             <<" observe_refusals=17 original_execution=0\n";
+    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 arm_refusals=11"
+             <<" observe_refusals=22 original_execution=0\n";
 }
