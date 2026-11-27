@@ -18,6 +18,8 @@ on:
       - 'research/native_recomp/test_formatter_nested_join.cpp'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/test_formatter_nested_log.py'
+      - 'research/native_recomp/test_formatter_native_refusal_filter.py'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
       - '.github/workflows/wii-formatter-report-compare-contract.yml'
 permissions:
   contents: read
@@ -37,6 +39,7 @@ jobs:
           python3 research/native_recomp/test_formatter_report_compare_fixture.py
           python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_native_refusal_filter.py
           python3 research/native_recomp/audit_formatter_report_byte_successor.py --self-test
           python3 research/native_recomp/prepare_formatter_next_entry_report_byte_contract.py --self-test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_caller_integer.cpp -o /tmp/test_formatter_caller_integer
