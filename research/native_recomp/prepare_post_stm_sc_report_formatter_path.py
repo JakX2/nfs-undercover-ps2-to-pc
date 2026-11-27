@@ -27,7 +27,7 @@ def val(v):
     if v[0]!='const':raise ValueError('formatter unknown value')
     return v[1]
 def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,resume=None,details=False,
-               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None,stack_refusal=None,partial_origin=None,step_observer=None):
+               seed_bytes=None,initial_cr=None,initial_ctr=None,entry_lr=('lr',0),read_resolver=None,read_refusal=None,control_refusal=None,local_ctr_edge=None,stack_refusal=None,partial_origin=None,step_observer=None,partial_caller_stores=()):
     if (start is None)!=(resume is None):raise ValueError('formatter resume state')
     seen,bounds,_=closure(root,ws,start)
     edge_used=False
@@ -62,6 +62,19 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
             raise ValueError('formatter partial origin')
         if not 0<sum(origin+i not in mem for i in range(4))<4:
             raise ValueError('formatter partial origin')
+    # Explicit, owner-local symbolic exception for a bounded caller buffer.
+    # No existing parent cell, frame linkage, or saved register can be replaced.
+    caller_store_used=set()
+    if partial_caller_stores:
+        if partial_origin is None or len(partial_caller_stores)>2:raise ValueError('formatter partial caller contract')
+        occupied=set()
+        pcs=set()
+        for site,at,n,kind in partial_caller_stores:
+            if site&3 or not root<=site<root+4*len(ws) or site in pcs or n not in (1,2,4) or at%n or not caller_sp+8<=at<at+n<=8 or kind not in ('const','partial'):
+                raise ValueError('formatter partial caller contract')
+            if any(i in occupied or i in mem or i in protected for i in range(at,at+n)):
+                raise ValueError('formatter partial caller contract')
+            occupied.update(range(at,at+n));pcs.add(site)
     def bytes_of(v,n):
         if v[0]=='partial':
             if partial_origin is None or n not in (1,2,4):raise ValueError('formatter partial store')
@@ -106,6 +119,13 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
         return const(int.from_bytes(value,'big'))
     def write(a,v,n=4):
         k,at=a
+        if k=='stack' and partial_caller_stores and at>=caller_sp+8:
+            admitted=(pc,at,n,v[0])
+            if admitted not in partial_caller_stores or pc in caller_store_used or any(i in mem or i in protected for i in range(at,at+n)):
+                raise ValueError('formatter partial caller write')
+            caller_store_used.add(pc)
+            for i,x in enumerate(bytes_of(v,n)):mem[at+i]=x
+            return
         if k!='stack' or not frame or n not in (1,2,4) or at%n or not caller_sp-frame<=at<at+n<=caller_sp+8:
             raise ValueError('formatter stack write provenance')
         if at>=caller_sp and (at!=caller_sp+4 or n!=4 or v!=entry_lr):

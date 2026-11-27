@@ -49,6 +49,21 @@ def store_location(w,gp,mem,parent,sp,frame,section=lambda a,n:'unclassified'):
     else:region='cross_boundary'
     return n,region,sum(i in mem for i in range(at,end)),sum(i in parent for i in range(at,end)),source,int(at%min(n,4)==0)
 
+def caller_store_candidate(row,parent,sp,frame,expected_kind):
+    pc,w,gp,mem=row
+    n,region,prior,inherited,source,aligned=store_location(w,gp,mem,parent,sp,frame)
+    if n not in (1,2,4) or region!='caller_storage' or prior or inherited or not aligned or source!=expected_kind:
+        raise ValueError('partial copy caller geometry')
+    op,ra,rb=w>>26,(w>>16)&31,(w>>11)&31
+    a=gp[ra] if ra else ('const',0)
+    if op==31:b=gp[rb]
+    elif op in (36,37,38,39,44,45):b=('const',((w&0xffff)^0x8000)-0x8000)
+    else:raise ValueError('partial copy caller geometry')
+    if a[0]=='const' and b[0]=='stack':a,b=b,a
+    if a[0]!='stack' or b[0]!='const':raise ValueError('partial copy caller geometry')
+    at=a[1]+(((b[1]&0xffffffff)^0x80000000)-0x80000000)
+    return pc,at,n,source
+
 def copied_cells(mem,origin):
     return sum(v[0]=='uninitialized' and not origin<=at<origin+4 for at,v in mem.items())
 
@@ -64,28 +79,46 @@ def plan(d,e):
     if (offset,k,use)!=(4,'store','read'):raise ValueError('partial copy first use')
     store=ws[i+offset];sw,source,address=store_shape(store,loaded)
     allowed={(a,len(blob)):blob for a,blob in cells}
-    seen=[];extra=set()
-    def resolve(a,n):
-        if (a,n) in allowed:return allowed[a,n]
-        extra.add((a,n))
-        if len(extra)>32:raise ValueError('partial copy data cap')
-        return immutable_read(d,e,a,n)
-    def observe(pc,w,gp,mem):
-        seen.append((pc,w,gp,mem))
-    state=(gp,mem,cr,ctr,lr,frame,saves)
-    reason='call'
-    try:
-        first_path(root,ws,{}, {},readonly,initial[1][1],start=pc,resume=state,details=True,
-                   read_resolver=resolve,partial_origin=(at,n),step_observer=observe,entry_lr=lr)
-    except ValueError as ex:
-        # Only aggregate classes are exposed, not private words, addresses or data.
-        reason={'formatter unknown value':'unknown_value','formatter unknown arithmetic':'unknown_arithmetic',
-                'formatter stack read provenance':'stack_read','formatter pointer provenance':'pointer',
-                'formatter protected stack write':'protected_write','formatter stack write provenance':'stack_write',
-                'formatter indexed store provenance':'indexed_store','formatter indexed load provenance':'indexed_load',
-                'formatter data read provenance':'data_read','nested data not immutable':'data_read',
-                'formatter other boundary':'control','formatter CR provenance':'condition',
-                'formatter CTR provenance':'counter','formatter path bound':'path_bound'}.get(str(ex),'other')
+    def replay(admitted):
+        seen=[];extra=set()
+        def resolve(a,n):
+            if (a,n) in allowed:return allowed[a,n]
+            extra.add((a,n))
+            if len(extra)>32:raise ValueError('partial copy data cap')
+            return immutable_read(d,e,a,n)
+        def observe(pc,w,gp,mem):
+            seen.append((pc,w,gp,mem))
+        state=(gp,mem,cr,ctr,lr,frame,saves)
+        reason='call'
+        try:
+            first_path(root,ws,{}, {},readonly,initial[1][1],start=pc,resume=state,details=True,
+                       read_resolver=resolve,partial_origin=(at,n),step_observer=observe,entry_lr=lr,partial_caller_stores=admitted)
+        except ValueError as ex:
+            # Only aggregate classes are exposed, not private words, addresses or data.
+            reason={'formatter unknown value':'unknown_value','formatter unknown arithmetic':'unknown_arithmetic',
+                    'formatter stack read provenance':'stack_read','formatter pointer provenance':'pointer',
+                    'formatter protected stack write':'protected_write','formatter stack write provenance':'stack_write','formatter partial caller write':'caller_write',
+                    'formatter indexed store provenance':'indexed_store','formatter indexed load provenance':'indexed_load',
+                    'formatter data read provenance':'data_read','nested data not immutable':'data_read',
+                    'formatter other boundary':'control','formatter CR provenance':'condition',
+                    'formatter CTR provenance':'counter','formatter path bound':'path_bound'}.get(str(ex),'other')
+        return seen,reason
+    seen,reason=replay(())
+    admitted=[]
+    if len(seen)==4 and reason=='stack_write' and seen[-1][0]==pc+12:
+        first=caller_store_candidate(seen[-1],parent,initial[1][1],frame,'const')
+        admitted.append(first)
+        next_seen,next_reason=replay(tuple(admitted))
+        if next_seen[:4]!=seen:raise ValueError('partial copy replay prefix')
+        seen,reason=next_seen,next_reason
+    # Admit the identified first use only when its address is independently
+    # established and the source is the same opaque partial register.
+    if len(seen)==offset+1 and reason in ('stack_write','caller_write') and seen[-1][0]==pc+4*offset and source and not address:
+        candidate=caller_store_candidate(seen[-1],parent,initial[1][1],frame,'partial')
+        admitted.append(candidate)
+        next_seen,next_reason=replay(tuple(admitted))
+        if next_seen[:len(seen)]!=seen:raise ValueError('partial copy replay prefix')
+        seen,reason=next_seen,next_reason
     if len(seen)<2 or seen[0][0]!=pc or seen[1][2][loaded][0]!='partial':
         raise ValueError('partial copy load witness')
     # The observer is pre-instruction. A following observation proves the
@@ -96,18 +129,21 @@ def plan(d,e):
     peak=max(copied_cells(row[3],at) for row in seen)
     _,last_word,last_gp,last_mem=seen[-1]
     location=store_location(last_word,last_gp,last_mem,parent,initial[1][1],frame,lambda a,n:classify_section(e,a,n))
-    return sw,source,address,int(store_seen),int(store_done),copied,peak,len(seen)-1,reason,location
+    completed=sum(any(row[0]==site for row in seen[:-1]) for site,*_ in admitted)
+    return sw,source,address,int(store_seen),int(store_done),copied,peak,len(seen)-1,reason,location,(len(admitted),completed)
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','partial copy predecessor','partial copy first use','partial copy store form','partial copy load witness'}
+    safe={'size','partial copy predecessor','partial copy first use','partial copy store form','partial copy load witness','partial copy caller geometry','partial copy replay prefix'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():
-            width,source,address,seen,done,copied,peak,visits,reason,location=plan(q.dol.read_bytes(),q.elf.read_bytes())
+            width,source,address,seen,done,copied,peak,visits,reason,location,caller_stores=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,TypeError,KeyError,IndexError,struct.error) as ex:
         print('FORMATTER_PARTIAL_COPY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
     print(f'FORMATTER_PARTIAL_COPY verified=1 store_width={width} source_dependency={source} address_dependency={address} store_seen={seen} store_symbolic={done} copied_unknown_bytes={copied} peak_unknown_copies={peak} symbolic_steps={visits} boundary={reason} value_supplied=0 original_execution=0')
+    admitted,completed=caller_stores
+    print(f'FORMATTER_PARTIAL_COPY_CALLER admitted={admitted} symbolic_stores={completed} original_execution=0')
     n,region,prior,parent,source,aligned=location
     print(f'FORMATTER_PARTIAL_COPY_BOUNDARY width={n} region={region} prior_bytes={prior} inherited_bytes={parent} source={source} aligned={aligned} value_supplied=0 original_execution=0')
     return 0
