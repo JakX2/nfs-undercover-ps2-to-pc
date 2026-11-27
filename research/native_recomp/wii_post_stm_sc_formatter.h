@@ -547,12 +547,14 @@ public:
     template<class C>bool resume_caller_branch(C& c,uint32_t owner_size,bool taken,
                                                 uint32_t next_pc,uint32_t next_word,bool held){
         const bool first=reached_caller_integers(c,held);
-        if((!first&&!reached_caller_branch(c,held))||branch_completed_>=branches_.size()||
+        const bool after_post=branch_completed_==2u&&reached_caller_post_integers(c,held);
+        const bool second=branch_completed_==1u&&reached_caller_branch(c,held);
+        if((!first&&!second&&!after_post)||branch_completed_>=branches_.size()||
            !caller_parent_||owner_size<8u||owner_size>65536u||(owner_size&3u)||
            next_word==0x44000002u||!word(c,next_pc,next_word))return fail(6);
         const auto owner=caller_parent_->e_.root;
-        const auto pc=first?integer_end_pc_:branches_[branch_completed_-1].next_pc;
-        const auto w=first?integer_end_word_:branches_[branch_completed_-1].next_word;
+        const auto pc=first?integer_end_pc_:after_post?post_integer_end_pc_:branches_[branch_completed_-1].next_pc;
+        const auto w=first?integer_end_word_:after_post?post_integer_end_word_:branches_[branch_completed_-1].next_word;
         if(w&3u||(!first&&owner_size!=branch_owner_size_))return fail(6);
         const auto inside=[&](uint32_t a){return !(a&3u)&&a>=owner&&uint64_t(a)+4u<=uint64_t(owner)+owner_size;};
         if(!inside(pc)||!inside(next_pc))return fail(6);
@@ -577,12 +579,15 @@ public:
     template<class C>bool stop_after_caller_branch(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=14u||branch_completed_>=branches_.size()||
            pc!=branches_[branch_completed_].next_pc||w!=branches_[branch_completed_].next_word||
-           !branch_storage(c,held,branch_completed_+1u))return fail(6);
+           !branch_storage(c,held,branch_completed_+1u,branch_completed_==2u?post_integer_completed_:0u)||
+           (branch_completed_==2u&&!post_integer_code(c)))return fail(6);
         ++branch_completed_;stage_=15u;return true;
     }
     unsigned caller_branch_visits()const{return branch_completed_;}
     template<class C>bool reached_caller_branch(C& c,bool held)const{
-        return stage_==15u&&branch_completed_&&branch_storage(c,held,branch_completed_)&&visits_==e_.path.size()+1u;
+        return stage_==15u&&branch_completed_&&
+            branch_storage(c,held,branch_completed_,branch_completed_==3u?post_integer_completed_:0u)&&
+            (branch_completed_!=3u||post_integer_code(c))&&visits_==e_.path.size()+1u;
     }
     // A second register-only block begins at the selected branch label.
     // Preserve the first block and both edge proofs throughout this stage.
@@ -597,8 +602,8 @@ public:
         for(unsigned i=0;i<path.size();++i)
             if(path[i].pc!=path.front().pc+4u*i||path[i].word==0x44000002u||
                path[i].inputs.size()>3u||!word(c,path[i].pc,path[i].word))return fail(6);
-        for(auto b:branches_)
-            if(b.other_pc>=path.front().pc&&b.other_pc<=end_pc)return fail(6);
+        for(unsigned i=0;i<branch_completed_;++i)
+            if(branches_[i].other_pc>=path.front().pc&&branches_[i].other_pc<=end_pc)return fail(6);
         post_integer_path_=path;post_integer_end_pc_=end_pc;post_integer_end_word_=end_word;
         if(!predict_integer(c,path.front()))return fail(6);
         stage_=16u;return true;
@@ -719,7 +724,7 @@ private:
     uint32_t integer_end_pc_=0,integer_end_word_=0;
     unsigned integer_completed_=0;
     struct CallerBranchEdge {uint32_t pc,word,next_pc,next_word,other_pc;};
-    std::array<CallerBranchEdge,2> branches_{};
+    std::array<CallerBranchEdge,3> branches_{};
     unsigned branch_completed_=0;
     uint32_t branch_owner_size_=0;
     template<class C>bool branch_storage(C& c,bool held,unsigned n,unsigned extra=0u)const{
@@ -735,11 +740,13 @@ private:
     std::span<const ScCallerIntegerStep> post_integer_path_{};
     uint32_t post_integer_end_pc_=0,post_integer_end_word_=0;
     unsigned post_integer_completed_=0;
-    template<class C>bool post_integer_storage(C& c,bool held,unsigned n)const{
-        if(branch_completed_!=2u||!branch_storage(c,held,2u,n)||
-           !word(c,post_integer_end_pc_,post_integer_end_word_))return false;
+    template<class C>bool post_integer_code(C& c)const{
+        if(post_integer_path_.empty()||!word(c,post_integer_end_pc_,post_integer_end_word_))return false;
         for(auto step:post_integer_path_)if(!word(c,step.pc,step.word))return false;
         return true;
+    }
+    template<class C>bool post_integer_storage(C& c,bool held,unsigned n)const{
+        return branch_completed_==2u&&branch_storage(c,held,2u,n)&&post_integer_code(c);
     }
     uint32_t caller_modified_mask_=0;
     // The child's return ABI was already observed strictly. Subsequent
