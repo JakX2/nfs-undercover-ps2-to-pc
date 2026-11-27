@@ -81,8 +81,8 @@ class Original124NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+28u',
             '!report_byte_storage(c,held,7u)',
             'next_entry_seventh_',
-            'unsigned(report_third_immediate_completed_)+unsigned(armed)',
-            'stage_<=43u',
+            'unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(armed)',
+            'stage_<=45u',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker,self.frame)
@@ -91,14 +91,14 @@ class Original124NativeWiring(unittest.TestCase):
         for marker in (
             'std::optional<uint32_t> seventh_original = {}',
             'native_seventh_ = seventh_original',
-            'native_seventh_&&!word(c,step_.pc+32u,0x44000002u)',
+            'native_seventh_&&!word(c,step_.pc+32u,native_eighth_.value_or(0x44000002u))',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker,self.byte)
         for marker in (
             'std::optional<uint32_t> sixth_original={}',
             'sixth_=sixth_original',
-            'sixth_&&!word(c,label+24u,0x44000002u)',
+            'sixth_&&!word(c,label+24u,seventh_.value_or(0x44000002u))',
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker,self.cmp)
