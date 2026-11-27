@@ -76,11 +76,14 @@ public:
                      std::optional<uint32_t> fifth_original = {},
                      std::optional<uint32_t> sixth_original = {},
                      std::optional<uint32_t> seventh_original = {},
-                     std::optional<uint32_t> eighth_original = {}) {
-        const uint32_t guard_offset = eighth_original ? 36u : seventh_original ? 32u : sixth_original ? 28u : fifth_original ? 24u : fourth_original ? 20u : third_original ? 16u : following_original ? 12u : 8u;
+                     std::optional<uint32_t> eighth_original = {},
+                     std::optional<uint32_t> ninth_original = {}) {
+        const uint32_t guard_offset = ninth_original ? 40u : eighth_original ? 36u : seventh_original ? 32u : sixth_original ? 28u : fifth_original ? 24u : fourth_original ? 20u : third_original ? 16u : following_original ? 12u : 8u;
         if (s.pc > std::numeric_limits<uint32_t>::max() - guard_offset ||
             s.next_pc != s.pc + 4u || s.lr == s.pc || s.lr == s.next_pc ||
             (s.lr>=s.pc && s.lr<=s.pc+guard_offset) ||
+            (ninth_original && (!eighth_original || s.lr == s.pc+36u ||
+                  *ninth_original == 0x44000002u || !word(c,s.pc+36u,*ninth_original))) ||
             (eighth_original && (!seventh_original || s.lr == s.pc+32u ||
                  *eighth_original == 0x44000002u || !word(c,s.pc+32u,*eighth_original))) ||
             (seventh_original && (!sixth_original || s.lr == s.pc+28u ||
@@ -107,6 +110,7 @@ public:
         native_sixth_ = sixth_original;
         native_seventh_ = seventh_original;
         native_eighth_ = eighth_original;
+        native_ninth_ = ninth_original;
         native_label_ = true;
         return true;
     }
@@ -123,7 +127,8 @@ public:
              (native_fifth_&&!word(c,step_.pc+24u,native_sixth_.value_or(0x44000002u))) ||
             (native_sixth_&&!word(c,step_.pc+28u,native_seventh_.value_or(0x44000002u))) ||
             (native_seventh_&&!word(c,step_.pc+32u,native_eighth_.value_or(0x44000002u))) ||
-            (native_eighth_&&!word(c,step_.pc+36u,0x44000002u)) ||
+            (native_eighth_&&!word(c,step_.pc+36u,native_ninth_.value_or(0x44000002u))) ||
+            (native_ninth_&&!word(c,step_.pc+40u,0x44000002u)) ||
             !word(c,step_.lr,0x44000002u))
             return reject();
         return observe_effect(c,report,held,step_.pc);
@@ -191,7 +196,7 @@ private:
     uint32_t msr_ = 0, cr_ = 0, ctr_ = 0, xer_ = 0, srr0_ = 0, srr1_ = 0;
     uint64_t start_ = 0;
     unsigned rt_ = 0, stage_ = 0;
-    std::optional<uint32_t> native_following_{}, native_third_{}, native_fourth_{}, native_fifth_{}, native_sixth_{}, native_seventh_{}, native_eighth_{};
+    std::optional<uint32_t> native_following_{}, native_third_{}, native_fourth_{}, native_fifth_{}, native_sixth_{}, native_seventh_{}, native_eighth_{}, native_ninth_{};
     bool indexed_ = false, failed_ = false, native_label_ = false;
 };
 } // namespace undercover::wii
