@@ -128,7 +128,14 @@ public:
         }else if(op==31u&&xo==339u&&!(w&1u)&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
         else if(op==31u&&xo==467u&&!(w&1u)&&(ra|(rb<<5))==9u)ctr_=gp_[rs];
         else if(op==31u&&xo==467u&&!(w&1u)&&(ra|(rb<<5))==8u)lr_=gp_[rs];
-        else if((op==14u||op==15u)&&rs!=1u)gp_[rs]=(ra?gp_[ra]:0u)+(op==15u?imm<<16u:imm);
+        else if(op==14u&&rs==1u&&ra==1u){
+            // The one authorized epilogue instruction releases precisely
+            // this child frame, after all return ABI identities are proven.
+            if(!release_authorized_||frame_released_||imm!=e_.frame_size||
+               gp_[1]!=frame_.base||ea!=incoming_[1]||visits_!=e_.path.size()||
+               lr_!=e_.entry_lr)return fail(6);
+            gp_[1]=ea;frame_released_=true;release_authorized_=false;
+        }else if((op==14u||op==15u)&&rs!=1u)gp_[rs]=(ra?gp_[ra]:0u)+(op==15u?imm<<16u:imm);
         else if(op==10u||op==11u){
             if(w&0x00200000u)return fail(6);
             const uint32_t a=gp_[ra],b=op==10u?w&0xffffu:imm;
@@ -356,7 +363,7 @@ public:
     // deliberately narrower than resume_stack_path: no fresh writes or
     // additional conditional bytes are authorized here.
     template<class C>bool resume_instruction_path(C& c,ScFormatterExpectation next,bool held){
-        if(!reached_instruction_boundary(c,held)||!caller_parent_||!conditional_offset_||!owner_size_||!last_||
+        if(!reached_instruction_boundary(c,held)||frame_released_||!caller_parent_||!conditional_offset_||!owner_size_||!last_||
            !caller_parent_->child_frame_held_with_stores(c,held,*this)||
            next.root!=e_.root||next.entry_lr!=e_.entry_lr||next.frame_size!=e_.frame_size||
            next.control.destination||next.control.word||next.control.owner_size||
@@ -410,6 +417,19 @@ public:
         e_=next;boundary_due_=false;stage_=1u;--last_;
         return before(c,pc,w,held);
     }
+    // Authenticate a single frame-release instruction and stop before
+    // the original unconditional return. Neither SP nor LR is assigned
+    // by this observer to the actual CPU.
+    template<class C>bool resume_frame_release(C& c,ScFormatterExpectation next,bool held){
+        if(!reached_instruction_boundary(c,held)||frame_released_||release_authorized_||
+           !caller_parent_||e_.target_word!=(0x38210000u|e_.frame_size)||
+           next.path.size()!=e_.path.size()+1u||next.accesses.size()!=e_.accesses.size()||
+           next.target!=e_.target+4u||next.target_word!=0x4e800020u||
+           gp_[1]!=frame_.base||lr_!=e_.entry_lr||!return_registers_held())return fail(6);
+        release_authorized_=true;
+        return resume_instruction_path(c,next,held);
+    }
+    bool frame_released()const{return frame_released_;}
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -459,7 +479,7 @@ public:
     // child-predicted values at already witnessed caller-store sites.
     template<class C>bool child_frame_held_with_stores(C& c,bool held,const ScFormatterWitness& child)const{
         if(child.caller_parent_!=this||child.cpu_!=cpu_||child.error_||!held||stage_!=2u||!due_||
-           error_||cpu_!=&c||!safe(c)||c.gpr[1]!=frame_.base-48u||
+           error_||cpu_!=&c||!safe(c)||c.gpr[1]!=(child.frame_released_?frame_.base:frame_.base-48u)||
            c.inst_count<last_||c.inst_count-last_>128u||!mapped(c,frame_)||
            child.caller_expected_.size()!=shadow_.size()||child.caller_written_.size()!=shadow_.size())return false;
         for(unsigned i=0;i<shadow_.size();++i){
@@ -501,6 +521,7 @@ private:
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0;
     uint64_t last_=0,seen_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
+    bool release_authorized_=false,frame_released_=false;
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
     template<class C>bool control_storage(C& c,bool held)const{
         return e_.control.destination&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&abi(c)&&
@@ -546,9 +567,14 @@ private:
             shadow_[j]=uint8_t(v>>(8u*(n-i-1u)));}
         return true;
     }
+    bool return_registers_held()const{
+        for(unsigned r=14;r<32u;++r)if(gp_[r]!=incoming_[r])return false;
+        return gp_[2]==incoming_[2]&&gp_[13]==incoming_[13];
+    }
     template<class C>bool abi(C& c)const{
         if(stores_+loads_!=e_.accesses.size()||unsigned(std::popcount(seen_))!=e_.accesses.size()||authenticated_loads_!=unsigned(std::count_if(e_.accesses.begin(),e_.accesses.end(),[](auto a){return a.expected_value.has_value();}))||
-           gp_[1]!=frame_.base||c.mmu.read32(frame_.base)!=incoming_[1]||
+           gp_[1]!=(frame_released_?incoming_[1]:frame_.base)||c.mmu.read32(frame_.base)!=incoming_[1]||
+           (frame_released_&&(lr_!=e_.entry_lr||!return_registers_held()))||
            gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return false;
         for(auto s:e_.slots){
             const auto a=uint32_t(int64_t(incoming_[1])+s.caller_offset);

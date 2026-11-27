@@ -109,7 +109,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
         {T+12,2,-40,true,true},{T+16,4,A,false,false,dst}}};
     const std::array<StmFinalSlot,1> cs{{{4,32}}};
     const uint32_t branch=0x4e800420u,body=ins(14,7,0,9),load=ins(32,9,1,8);
-    const uint32_t guard=follow>=13?(31u<<26)|(7u<<21)|(8u<<16)|(467u<<1):0x60000000u;
+    const uint32_t guard=follow>=13?(31u<<26)|((follow>=15&&follow!=22?0u:7u)<<21)|(8u<<16)|(467u<<1):0x60000000u;
     std::vector<IpcDispatchWord> mid(cp.begin(),cp.end());mid.push_back({T,site,branch});mid.push_back({T,dst,body});
     std::vector<IpcDispatchWord> full(mid);full.push_back({T,partial,load});
     full.push_back({T,dst+8,ins(36,7,1,64)});full.push_back({T,dst+12,ins(36,9,1,68)});
@@ -192,8 +192,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
         later_access.push_back({pc,4,offset-48,true,follow==11});
         c.mmu.write32(pc,word);
     }
-    const auto end=stop+4u*(extra+1u);c.mmu.write32(end,guard);
-    ScFormatterExpectation later_e{T,link,end,guard,48,later,later_access,cs,{0,0,false,0,true}};
+    const auto end=stop+4u*(extra+1u);
+    const auto end_word=follow>=15?ins(14,1,1,follow==23?44:48):guard;
+    c.mmu.write32(end,end_word);
+    ScFormatterExpectation later_e{T,link,end,end_word,48,later,later_access,cs,{0,0,false,0,true}};
     if(follow==5)later[0].word^=1u;
     if(follow==6)later_access[0].address=-44;
     if(follow==8)later_e.target=stop;
@@ -205,7 +207,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     assert(continued);
     // Independent synthetic CPU effect of the boundary instruction.
     // The usual ori is a no-op; the new mtlr copies all 32 source bits.
-    if(follow>=13)c.lr=follow==14?8u:9u;
+    if(follow>=13)c.lr=follow>=15&&follow!=22?link:follow==14?8u:9u;
     for(unsigned i=0;i<extra;++i){
         ++c.inst_count;const auto& row=later[full.size()+1u+i];
         const bool ok=child.before(c,row.pc,row.word,held());
@@ -213,14 +215,40 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
         assert(ok);c.gpr[12]=(seed&0xffffu)^unsigned(follow==7);
     }
     ++c.inst_count;
-    assert(child.stop_before_instruction(c,end,guard,held())&&child.reached_instruction_boundary(c,held()));
+    assert(child.stop_before_instruction(c,end,end_word,held())&&child.reached_instruction_boundary(c,held()));
     assert(child.caller_store_count()==2&&child.visits()==full.size()+1u+extra&&child.loads()==2u+extra&&child.stores()==5);
     assert(c.mmu.read32(parent_sp+20)==(seed&0xffffu));
+    if(follow<15)return;
+    const auto ret=end+(follow==24?8u:4u),ret_word=follow==17?0x60000000u:0x4e800020u;
+    c.mmu.write32(ret,ret_word);
+    auto epilogue=later;epilogue.push_back({T,end,end_word});
+    auto epi_access=later_access;
+    if(follow==18)epi_access.push_back({end,4,20,true,false});
+    if(follow==25)epilogue[0].word^=1u;
+    ScFormatterExpectation ep{T,link,ret,ret_word,48,epilogue,epi_access,cs,{0,0,false,0,true}};
+    const bool released=follow==16?child.resume_instruction_path(c,ep,held()):
+        child.resume_frame_release(c,ep,held());
+    if(follow==16||follow==17||follow==18||follow==22||follow==23||follow==24||follow==25){
+        assert(!released);return;
+    }
+    assert(released&&child.frame_released()&&child.expected_sp()==parent_sp&&c.gpr[1]==child_sp);
+    // Independent execution of addi r1,r1,48; wrong SP or corrupted frame
+    // bytes are rejected by the next boundary even after prediction.
+    c.gpr[1]=parent_sp-(follow==19?4u:0u);
+    if(follow==20)c.mmu.write32(parent_sp+20,0);
+    if(follow==21)c.mmu.write32(child_sp+8,0);
+    if(follow==27)c.gpr[14]^=1u;
+    ++c.inst_count;
+    const bool ret_held=child.stop_before_instruction(c,ret,ret_word,held());
+    if(follow==19||follow==20||follow==21||follow==27){assert(!ret_held);return;}
+    assert(ret_held&&child.reached_instruction_boundary(c,held())&&child.visits()==epilogue.size());
+    assert(c.lr==link&&c.gpr[1]==parent_sp&&c.mmu.read32(parent_sp+20)==(seed&0xffffu));
+    if(follow==26)assert(!child.resume_instruction_path(c,ep,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=14;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=301 original_execution=0\n";}
+    for(unsigned follow=1;follow<=27;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=314 original_execution=0\n";}
