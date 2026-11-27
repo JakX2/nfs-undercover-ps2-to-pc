@@ -112,8 +112,41 @@ unsigned run(unsigned steps,int fault_phase=-1,uint32_t fault_address=0){
     assert(c.inst_count==104u);
     return 4;
 }
+// Refuse gaps in authenticated successors and reject return aliases to
+// either the fourth successor or the relocated synthetic stop guard.
+void reject_unproven_fourth_tail(){
+    Cpu c;
+    c.gpr[R]=0x12345680u;
+    c.gpr[0]=0xdeadbeefu;
+    c.mmu.write32(Start,Extsb);
+    c.mmu.write32(Start+4u,Li0);
+    c.mmu.write32(Start+8u,Li9);
+    c.mmu.write32(Start+12u,Lookahead);
+    c.mmu.write32(Start+16u,Next126);
+    c.mmu.write32(Start+20u,Guard);
+    c.mmu.write32(Ret,Guard);
+    auto attempt=[&](std::optional<uint32_t> f,
+                     std::optional<uint32_t> t,
+                     std::optional<uint32_t> q,uint32_t ret=Ret){
+        Cpu probe=c;
+        probe.lr=ret;
+        FormatterSignextWitness witness;
+        return witness.arm(probe,Root,Start,Extsb,Li0,ret,R,
+                           0x12345680u,0xffffff80u,f,t,q);
+    };
+    assert(attempt(Li9,Lookahead,Next126));
+    assert(!attempt({},Lookahead,Next126));
+    assert(!attempt(Li9,{},Next126));
+    assert(!attempt(Li9,Lookahead,{}));
+    assert(!attempt(Li9,Lookahead,Guard));
+    assert(!attempt(Li9,Guard,Next126));
+    assert(!attempt(Guard,Lookahead,Next126));
+    assert(!attempt(Li9,Lookahead,Next126,Start+16u));
+    assert(!attempt(Li9,Lookahead,Next126,Start+20u));
+}
 }
 int main(){
+    reject_unproven_fourth_tail();
     unsigned positive=0,negative=0;
     for(unsigned steps=1;steps<=4;++steps){
         assert(run(steps)==steps);++positive;
