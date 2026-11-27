@@ -30,6 +30,17 @@ These are **bounded original-game AOT fixture** milestones, not complete
   The [first dedicated 119 native owner workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45989548040)
   passed its original-free job; the private job refused because the
   pinned 119 provenance audit had not completed.
+  The retried owner job subsequently cleared that provenance gate, but
+  [run 45989548040, attempt 2](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45989548040)
+  failed during `prepare_formatter_nested_fixture.py --fixture` with
+  `FORMATTER_NESTED_PREP verified=0 reason=private_input phase=fixture_expansion`.
+  It did **not** compile or execute the 119 original comparison.
+  Source-only regression passes cannot turn this refusal into a checkpoint.
+- Subsequent source changes added fixed **redacted** expansion checkpoints
+  (no original values), more precise span/root/sibling/predecessor refusal
+  categories, and original-free C++ generated-constant compilation checks.
+  These changes remain contingent on owner execution and must preserve the
+  118 verified predecessor and previous 61-root fixture census.
 - The 119 source-only plan now **reuses one authenticated byte-load
   predecessor GPR snapshot** instead of independently repeating the
   full private caller/ancestor analysis. Regression tests guard the
