@@ -19,6 +19,22 @@ class Branch128NativeFixtureJoin(unittest.TestCase):
         self.assertEqual(merged[sixth[1][0]], sixth[0][sixth[1][0]])
         self.assertEqual(info[6], 1)
 
+    def test_fixture_analyzer_and_installer_use_identical_opt_in(self):
+        from pathlib import Path
+        text=Path(__file__).with_name('prepare_formatter_nested_fixture.py').read_text()
+        for marker in (
+            "modes.add_argument('--caller-report-branch-128',action='store_true')",
+            'if q.caller_report_branch_128:q.caller_report_sixth_immediate=True',
+            'branch_128_contract=report_branch_128_plan(d,e)',
+            'branch_128_extension(expanded,sixth_immediate_contract,branch_128_contract)',
+            'branch_128_extension(final,sixth_immediate_contract,branch_128_contract)',
+            'expected[bi[3]]=(bi[3],bi[4])',
+            'header+=render_report_branch_128(branch_128_contract)',
+            'new_roots=2 if branch_128_contract is not None else 1',
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker,text)
+
     def test_refuse_fallthrough_and_forged_target(self):
         sixth, compare, words, size = self.base.inputs(eq=False)
         fallthrough = promote(sixth, compare, words, size)
