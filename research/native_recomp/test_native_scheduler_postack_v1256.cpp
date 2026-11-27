@@ -769,15 +769,15 @@ static_assert(formatter_report_fourth_immediate_private::value==
       formatter_report_fourth_immediate_private::word&0xffffu));
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 static_assert(formatter_report_fifth_immediate_private::root==
-              formatter_report_third_immediate_private::root);
+              formatter_report_fourth_immediate_private::root);
 static_assert(formatter_report_fifth_immediate_private::pc==
-              formatter_report_third_immediate_private::next_pc);
+              formatter_report_fourth_immediate_private::next_pc);
 static_assert(formatter_report_fifth_immediate_private::word==
-              formatter_report_third_immediate_private::next_word);
+              formatter_report_fourth_immediate_private::next_word);
 static_assert(formatter_report_fifth_immediate_private::next_pc==
               formatter_report_fifth_immediate_private::pc+4u);
 static_assert(formatter_report_fifth_immediate_private::return_pc==
-              formatter_report_third_immediate_private::return_pc);
+              formatter_report_fourth_immediate_private::return_pc);
 static_assert((formatter_report_fifth_immediate_private::word>>26u)==14u);
 static_assert(((formatter_report_fifth_immediate_private::word>>16u)&31u)==0u);
 static_assert(((formatter_report_fifth_immediate_private::word>>21u)&31u)==
