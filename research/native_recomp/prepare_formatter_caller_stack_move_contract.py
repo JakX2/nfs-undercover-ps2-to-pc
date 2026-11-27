@@ -24,8 +24,11 @@ def extend(byte,words,live,cr,saved_mask,earlier_guards,initial):
     if w>>26!=31 or (w>>1)&1023!=444 or w&1 or rs!=rb or ra==rs or ra not in (0,*range(3,13)):
         raise ValueError('stack move encoding')
     value=after[rs]
-    if value[0]!='stack' or value!=initial[rs] or value!=initial[1]:
+    if value[0]!='stack' or value!=initial[rs]:
         raise ValueError('stack move provenance')
+    offset=value[1]-initial[1][1]
+    if not isinstance(offset,int) or not 0<=offset<704:
+        raise ValueError('stack move range')
     i=(pc-owner)//4;body=blocks.get(owner,())
     if pc&3 or owner&3 or not 0<=i<len(body) or i+2>=len(words) or body[i]!=w or words[i]!=w:
         raise ValueError('stack move geometry')
@@ -40,7 +43,7 @@ def extend(byte,words,live,cr,saved_mask,earlier_guards,initial):
     expanded={**blocks,owner:tuple(out)}
     check_spans({a:4*len(b) for a,b in expanded.items()})
     result=list(after);result[ra]=value
-    return (expanded,(owner,size,pc,w,0,pc+4,words[i+1])),tuple(result),cr,tuple(sorted(guards))
+    return (expanded,(owner,size,pc,w,offset,pc+4,words[i+1])),tuple(result),cr,tuple(sorted(guards))
 
 def plan(d,e):
     args=byte_plan(d,e,with_state=True)
@@ -49,12 +52,12 @@ def plan(d,e):
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','stack move predecessor','stack move frame','stack move encoding','stack move provenance','stack move geometry','stack move guard','stack move overlap','stack move history'}
+    safe={'size','stack move predecessor','stack move frame','stack move encoding','stack move provenance','stack move range','stack move geometry','stack move guard','stack move overlap','stack move history'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():(_,info),_,_,_=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,TypeError,KeyError,IndexError,struct.error) as ex:
         print('FORMATTER_CALLER_STACK_MOVE verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
-    print(f'FORMATTER_CALLER_STACK_MOVE verified=1 admitted=1 family=or stack_identity=1 volatile_destination=1 condition_write=0 next_family={boundary_shape(info[-1])} next_guard=1 original_execution=0')
+    print(f'FORMATTER_CALLER_STACK_MOVE verified=1 admitted=1 family=or stack_identity=1 within_parent=1 volatile_destination=1 condition_write=0 next_family={boundary_shape(info[-1])} next_guard=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

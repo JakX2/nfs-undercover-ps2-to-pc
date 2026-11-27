@@ -25,6 +25,15 @@ class StackMove(unittest.TestCase):
         self.assertEqual(live[4],('stack',-704));self.assertEqual(live[1],self.initial[1])
         self.assertEqual(cr[:4],(False,False,True,None))
         self.assertTrue(all(blocks[P][(a-P)//4]==GUARD for a in guards))
+    def test_offset(self):
+        self.words[11]=x_or(7,4,7);self.live[7]=('stack',-704+124)
+        self.initial=tuple(self.live)
+        (_,info),live,_,_=self.probe()
+        self.assertEqual(info[4],124);self.assertEqual(live[4],('stack',-580))
+    def test_outside_parent(self):
+        for offset in (-4,704):
+            self.words[11]=x_or(7,4,7);self.live[7]=('stack',-704+offset);self.initial=tuple(self.live)
+            with self.assertRaisesRegex(ValueError,'range'):self.probe()
     def test_record(self):
         self.words[11]|=1
         with self.assertRaisesRegex(ValueError,'encoding'):self.probe()
