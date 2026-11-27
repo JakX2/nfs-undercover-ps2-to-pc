@@ -75,6 +75,7 @@ class Original123LogTests(unittest.TestCase):
         runner=(root/'run_v1256_native_scheduler_postack.sh').read_text()
         nested=(root/'prepare_formatter_nested_fixture.py').read_text()
         header=(root/'wii_post_stm_sc_formatter.h').read_text()
+        harness=(root/'test_native_scheduler_postack_v1256.cpp').read_text()
         for text in (
             '--formatter-nested-caller-report-second-immediate',
             'formatter_caller_report_second_immediate_mode=1',
@@ -95,6 +96,18 @@ class Original123LogTests(unittest.TestCase):
             'caller_report_second_immediate_visits()',
         ):
             self.assertIn(text,header)
+        for text in (
+            'formatter_nested->stage()==40u',
+            'formatter_report_second_immediate->observe(c,pc,w)',
+            'formatter_nested->stop_after_caller_report_second_immediate(',
+            'formatter_report_second_immediate_private::next_pc+4u,0x44000002u',
+            'nested.caller_report_second_immediate_visits()==1u',
+            'second_immediates_verified=8',
+            'FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE_NATIVE',
+            'formatter_report_second_immediate.emplace()',
+        ):
+            with self.subTest(text=text):
+                self.assertIn(text,harness)
 
 
 if __name__=='__main__':
