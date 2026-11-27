@@ -77,6 +77,10 @@ class ReportByteFixture(unittest.TestCase):
         self.old[T]=(LBZ,INTEGER)
         with self.assertRaisesRegex(ValueError,'history'):self.probe()
 
+    def test_truncated_caller_refused(self):
+        self.old[P]=(GUARD,GUARD,BL)
+        with self.assertRaisesRegex(ValueError,'history'):self.probe()
+
     def test_return_guard_refused(self):
         self.old[P]=(GUARD,GUARD,BL,INTEGER)
         self.new[P]=self.old[P]
