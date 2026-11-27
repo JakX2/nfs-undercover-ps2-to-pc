@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand
+from prepare_formatter_nested_fixture import render,expand,render_return
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -65,6 +65,12 @@ class Test(unittest.TestCase):
         self.assertIn('slots,{0u,0u,false,0,true}',s)
         for kwargs in (dict(release_boundary=True),dict(instruction_boundary=True,special_boundary=True,release_boundary=True)):
             with self.assertRaisesRegex(ValueError,'instruction boundary'):render(c,**kwargs)
+    def test_return_header(self):
+        s=render_return((R,R+4,GUARD,'integer','const'))
+        self.assertIn('namespace formatter_return_private',s)
+        self.assertIn('caller=0x80010004u,guard=0x44000002u',s)
+        for args in ((R,R,GUARD,'integer','const'),(R,R+4,N,'integer','const')):
+            with self.assertRaisesRegex(ValueError,'return guard'):render_return(args)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)

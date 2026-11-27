@@ -13,6 +13,15 @@ def verify_ctr_body(body,site):
         raise ValueError('CTR native body')
     return True
 
+def verify_blr_body(body,site):
+    # The pinned emitter uses the same unconditional native return form as
+    # bctr, selecting LR instead. Only the exact original blr is admitted.
+    label=r'(?mi)^loc_'+f'{site:X}'+r': ;\n    // 0x'+f'{site:08X}'+r': 4E800020\n'
+    hits=list(re.finditer(label,body))
+    if len(hits)!=1 or not body[hits[0].end():].startswith('    ++ctx.inst_count;\n    ctx.pc = ctx.lr; return;\n'):
+        raise ValueError('LR native body')
+    return True
+
 def ensure_ctr_resume(main,body,owner,site,destination):
     if site==destination or destination==owner or destination&3:raise ValueError('CTR native destination')
     verify_ctr_body(body,site)

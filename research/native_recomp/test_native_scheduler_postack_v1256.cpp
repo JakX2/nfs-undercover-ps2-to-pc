@@ -544,6 +544,11 @@ static_assert(formatter_special_private::path.back().pc==formatter_partial_priva
 static_assert(formatter_release_private::path.size()==97u&&formatter_release_private::accesses.size()==32u);
 static_assert(formatter_release_private::expected.target_word==0x4e800020u&&formatter_release_private::expected.boundary.instruction);
 static_assert(formatter_release_private::path.back().pc==formatter_special_private::expected.target);
+#ifdef UNDERCOVER_FORMATTER_RETURN
+static_assert(formatter_return_private::caller==formatter_release_private::expected.entry_lr);
+static_assert(formatter_return_private::owner==formatter_continuation_private::expected.owner);
+static_assert(formatter_return_private::guard==0x44000002u);
+#endif
 #endif
 #endif
 static_assert(formatter_partial_private::expected.boundary.instruction&&formatter_partial_private::slots.size()==4u);
@@ -1022,7 +1027,13 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
         if(!formatter_nested->stop_before_instruction(c,pc,w,formatter_nested_held(c))||
            !formatter_nested->frame_released()||c.lr!=formatter_release_private::expected.entry_lr||
            c.gpr[1]!=post_stm_formatter->expected_sp())formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_RETURN
+        if(!formatter_nested->arm_native_return(c,formatter_return_private::caller,formatter_return_private::guard,
+                                                formatter_nested_held(c)))formatter_nested_refuse(2);
+        return; // the original translated blr transfers to LR
+#else
         ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
     }
 #endif
     if(pc==formatter_special_private::expected.target){
@@ -2528,6 +2539,12 @@ bool process_pending_callbacks(CPUContext& c){
 #ifdef UNDERCOVER_FORMATTER_NESTED
     if(formatter_nested){
         const bool held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_RETURN
+        if(formatter_nested->stage()==6u){
+            if(!formatter_nested->native_return_poll(c,held))formatter_nested_refuse(4);
+            ++formatter_nested_count;throw FormatterNestedStop{}; // before caller dispatcher tick
+        }
+#endif
 #ifdef UNDERCOVER_FORMATTER_ARRIVAL
         if(formatter_nested->stage()==2u){
             if(!formatter_nested->control_transfer_poll(c,held))formatter_nested_refuse(4);
@@ -3504,6 +3521,10 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_special_private::expected.target,formatter_special_private::expected.target_word);
 #ifdef UNDERCOVER_FORMATTER_RELEASE
         c.mmu.write32(formatter_release_private::expected.target,formatter_release_private::expected.target_word);
+#ifdef UNDERCOVER_FORMATTER_RETURN
+        // The private return contract authenticates this synthetic fixture guard.
+        c.mmu.write32(formatter_return_private::caller,formatter_return_private::guard);
+#endif
 #endif
 #endif
 #endif
@@ -4648,7 +4669,9 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             const bool nested_boundary_held=formatter_nested_held(c);
-#if defined(UNDERCOVER_FORMATTER_PARTIAL)
+#if defined(UNDERCOVER_FORMATTER_RETURN)
+            const bool nested_reached=nested.reached_native_return(c,nested_boundary_held);
+#elif defined(UNDERCOVER_FORMATTER_PARTIAL)
             const bool nested_reached=nested.reached_instruction_boundary(c,nested_boundary_held);
 #elif defined(UNDERCOVER_FORMATTER_POST_CTR)
             const bool nested_reached=nested.reached_load_boundary(c,nested_boundary_held);
@@ -4659,7 +4682,9 @@ int main(int argc,char** argv)try{
                 nested.reached_control_boundary(c,nested_boundary_held):nested.reached_load_boundary(c,nested_boundary_held);
 #endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
- #if defined(UNDERCOVER_FORMATTER_RELEASE)
+ #if defined(UNDERCOVER_FORMATTER_RETURN)
+               nested.visits()!=98u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||c.lr!=formatter_return_private::caller||c.pc!=formatter_return_private::caller||
+#elif defined(UNDERCOVER_FORMATTER_RELEASE)
                nested.visits()!=97u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||c.lr!=formatter_release_private::expected.entry_lr||
 #elif defined(UNDERCOVER_FORMATTER_SPECIAL)
                nested.visits()!=96u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||c.lr!=formatter_special_private::expected.entry_lr||
@@ -4684,7 +4709,10 @@ int main(int argc,char** argv)try{
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_RELEASE)
+#if defined(UNDERCOVER_FORMATTER_RETURN)
+            std::cout<<"FORMATTER_RETURN_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_arrival=1 caller_body=0 caller_guard=1 deferred=1 reply=0 visits=98\n";
+#elif defined(UNDERCOVER_FORMATTER_RELEASE)
             std::cout<<"FORMATTER_RELEASE_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 return_stop=1 return_executed=0 deferred=1 reply=0 visits=97\n";
 #elif defined(UNDERCOVER_FORMATTER_SPECIAL)
@@ -5004,7 +5032,9 @@ int main(int argc,char** argv)try{
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_RELEASE)
+#if defined(UNDERCOVER_FORMATTER_RETURN)
+    std::cout<<"FORMATTER_RETURN_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_arrival=8 caller_body=0 caller_guard=8 deferred=8 reply=0 visits=784 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#elif defined(UNDERCOVER_FORMATTER_RELEASE)
     std::cout<<"FORMATTER_RELEASE_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 return_stop=8 return_executed=0 deferred=8 reply=0 visits=776 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #elif defined(UNDERCOVER_FORMATTER_SPECIAL)
     std::cout<<"FORMATTER_SPECIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 instruction_stop=8 deferred=8 reply=0 visits=768 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

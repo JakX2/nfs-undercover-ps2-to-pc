@@ -36,8 +36,11 @@ SPECIAL_TOTAL='FORMATTER_SPECIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=1
 RELEASE_TRIAL=re.compile(r'FORMATTER_RELEASE_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 return_stop=1 return_executed=0 deferred=1 reply=0 visits=97')
 RELEASE_TOTAL='FORMATTER_RELEASE_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 return_stop=8 return_executed=0 deferred=8 reply=0 visits=776 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
 
-def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False,partial=False,special=False,release=False):
-    if sum((second,third,control,arrival,post_ctr,partial,special,release))>1:raise ValueError('native mode')
+RETURN_TRIAL=re.compile(r'FORMATTER_RETURN_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_arrival=1 caller_body=0 caller_guard=1 deferred=1 reply=0 visits=98')
+RETURN_TOTAL='FORMATTER_RETURN_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_arrival=8 caller_body=0 caller_guard=8 deferred=8 reply=0 visits=784 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
+
+def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False,partial=False,special=False,release=False,return_mode=False):
+    if sum((second,third,control,arrival,post_ctr,partial,special,release,return_mode))>1:raise ValueError('native mode')
     tag,trial,total=markers(second)
     if third:tag,trial,total='FORMATTER_THIRD',THIRD_TRIAL,None
     if control:tag,trial,total='FORMATTER_CONTROL',CONTROL_TRIAL,CONTROL_TOTAL
@@ -46,6 +49,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
     if partial:tag,trial,total='FORMATTER_PARTIAL',PARTIAL_TRIAL,PARTIAL_TOTAL
     if special:tag,trial,total='FORMATTER_SPECIAL',SPECIAL_TRIAL,SPECIAL_TOTAL
     if release:tag,trial,total='FORMATTER_RELEASE',RELEASE_TRIAL,RELEASE_TOTAL
+    if return_mode:tag,trial,total='FORMATTER_RETURN',RETURN_TRIAL,RETURN_TOTAL
     details=None;third_total=None
     trials=set();cells={};aggregate=None;native=False
     for line in lines:
@@ -59,7 +63,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
                 details=current
             trials.add(int(m[1]))
         elif line.startswith('FORMATTER_NESTED_CELL_TRIAL '):
-            if control or arrival or post_ctr or partial or special or release:raise ValueError('unexpected cell observation')
+            if control or arrival or post_ctr or partial or special or release or return_mode:raise ValueError('unexpected cell observation')
             m=CELL.fullmatch(line)
             if not m or int(m[1]) in cells:raise ValueError('cell trial')
             v=tuple(map(int,m.groups()[1:]))
@@ -67,7 +71,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
                 raise ValueError('cell consistency')
             cells[int(m[1])]=v
         elif line.startswith('FORMATTER_NESTED_CELL_NATIVE '):
-            if control or arrival or post_ctr or partial or special or release:raise ValueError('unexpected cell observation')
+            if control or arrival or post_ctr or partial or special or release or return_mode:raise ValueError('unexpected cell observation')
             m=CELL_TOTAL.fullmatch(line)
             if not m or aggregate is not None:raise ValueError('cell aggregate')
             aggregate=tuple(map(int,m.groups()))
@@ -82,20 +86,20 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
             native=True
         elif line.startswith('FORMATTER_NESTED_REFUSAL '):
             raise ValueError('native refusal')
-    if trials!=set(range(8)) or not native or (not (control or arrival or post_ctr or partial or special or release) and set(cells)!=trials):
+    if trials!=set(range(8)) or not native or (not (control or arrival or post_ctr or partial or special or release or return_mode) and set(cells)!=trials):
         raise ValueError('trial coverage')
     if (third or post_ctr) and third_total!=tuple(8*v for v in details):raise ValueError('native totals')
-    if control or arrival or post_ctr or partial or special or release:return (total,)
+    if control or arrival or post_ctr or partial or special or release or return_mode:return (total,)
     if aggregate!=tuple(sum(v[i] for v in cells.values()) for i in range(3)):
         raise ValueError('cell totals')
     return (f'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match={aggregate[0]} live_match={aggregate[1]} sample_equal={aggregate[2]} endpoint_only=1 guest_loads=0 guest_writes=0',total)
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');m.add_argument('--control',action='store_true');m.add_argument('--arrival',action='store_true');m.add_argument('--post-ctr',action='store_true');m.add_argument('--partial',action='store_true');m.add_argument('--special',action='store_true');m.add_argument('--release',action='store_true');q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');m.add_argument('--control',action='store_true');m.add_argument('--arrival',action='store_true');m.add_argument('--post-ctr',action='store_true');m.add_argument('--partial',action='store_true');m.add_argument('--special',action='store_true');m.add_argument('--release',action='store_true');m.add_argument('--return',dest='return_mode',action='store_true');q=a.parse_args()
     safe={'unexpected cell observation','native mode','native trial details','native totals','native trial','cell trial','cell consistency','cell aggregate','native aggregate','native refusal','trial coverage','cell totals'}
     try:
         if q.log.stat().st_size>16*1024*1024:raise ValueError('log size')
-        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third,control=q.control,arrival=q.arrival,post_ctr=q.post_ctr,partial=q.partial,special=q.special,release=q.release)
+        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third,control=q.control,arrival=q.arrival,post_ctr=q.post_ctr,partial=q.partial,special=q.special,release=q.release,return_mode=q.return_mode)
     except (ValueError,OSError) as ex:
         print('FORMATTER_NESTED_LOG verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'input'));return 1
     print(*result,sep='\n');return 0

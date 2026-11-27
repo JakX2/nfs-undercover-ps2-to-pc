@@ -11,6 +11,7 @@ from prepare_formatter_post_ctr_contract import plan as post_ctr_plan
 from prepare_formatter_partial_native_contract import plan as partial_plan
 from prepare_formatter_special_contract import plan as special_plan
 from prepare_formatter_release_contract import plan as release_plan
+from prepare_formatter_return_contract import plan as return_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import check_spans
@@ -19,7 +20,7 @@ from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
-from formatter_local_ctr_native import verify_ctr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
+from formatter_local_ctr_native import verify_ctr_body,verify_blr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
 from prepare_v680_si_helper import exact_function
 
 def plan(d,e,*,second=False,third=False,control=False):
@@ -58,6 +59,14 @@ def render(contract,*,stack_boundary=False,instruction_boundary=False,special_bo
         f'inline constexpr std::array<undercover::wii::StmFinalSlot,{len(slots)}> slots'+'{'+sr+'};\n'
         'inline constexpr undercover::wii::ScFormatterExpectation expected{'+fmt((root,caller,target,word,frame))+',path,accesses,slots,'+boundary+(',{'+fmt(control)+'}' if control else '')+'};\n}\n')
 
+def render_return(contract):
+    owner,caller,guard,_,_=contract
+    if owner==caller or owner&3 or caller&3 or caller<=owner or guard!=GUARD:
+        raise ValueError('nested fixture return guard')
+    return ('namespace formatter_return_private {\n'
+            f'inline constexpr uint32_t owner=0x{owner:08x}u,caller=0x{caller:08x}u,guard=0x{guard:08x}u;\n'
+            '}\n')
+
 def expand(old,blocks,live,root):
     if set(blocks)!=set(old) or root not in old or any(live.get(a)!=ws for a,ws in old.items()):
         raise ValueError('nested fixture predecessor')
@@ -67,7 +76,8 @@ def expand(old,blocks,live,root):
     check_spans({a:4*len(ws) for a,ws in result.items()})
     return result
 
-def extend(directory,p,*,post=None,partial=None,special=None,release=None):
+def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None):
+    if return_contract is not None and release is None:raise ValueError('nested fixture mode')
     if release is not None and special is None:raise ValueError('nested fixture mode')
     if special is not None and partial is None:raise ValueError('nested fixture mode')
     if partial is not None and post is None:raise ValueError('nested fixture mode')
@@ -81,6 +91,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None):
     if partial is not None:header+=render(partial,instruction_boundary=True)
     if special is not None:header+=render(special,instruction_boundary=True,special_boundary=True)
     if release is not None:header+=render(release,instruction_boundary=True,release_boundary=True)
+    if return_contract is not None:header+=render_return(return_contract)
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(header)
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
@@ -94,7 +105,8 @@ def scope(d,e,sizes,p):
     before={**sizes,root:4*len(old[root])}
     return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root]})
 
-def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None):
+def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None):
+    if return_contract is not None and release is None:raise ValueError('nested fixture mode')
     if release is not None and special is None:raise ValueError('nested fixture mode')
     if special is not None and partial is None:raise ValueError('nested fixture mode')
     if partial is not None and (post is None or not arrival):raise ValueError('nested fixture mode')
@@ -122,6 +134,7 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
         if len(owners)!=1:raise ValueError('nested fixture control owner')
         site=control_fields[2]
         verify_ctr_body(owners[0],site)
+        if return_contract is not None:verify_blr_body(owners[0],target)
         if arrival:main_text,_=ensure_ctr_resume(main_text,owners[0],root,site,dst)
     done=set();changed={}
     for file,s in sources.items():
@@ -146,26 +159,27 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture instruction boundary','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');q=a.parse_args()
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
-            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release)
-            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release else None
-            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release else None
+            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode)
+            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode else None
+            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode else None
             special=None
-            if q.special or q.release:
+            if q.special or q.release or q.return_mode:
                 special,info=special_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial)
                 if info[:2]!=('link',1):raise ValueError('nested fixture special provenance')
-            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release else None
-            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release);return 0
-            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release,post=post,partial=partial,special=special,release=release);return 0
+            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode else None
+            return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode else None
+            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract);return 0
+            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode,post=post,partial=partial,special=special,release=release,return_contract=return_contract);return 0
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
                 source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p))
-                if q.arrival or q.post_ctr or q.partial or q.special or q.release:
+                if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode:
                     fields=p[1][1];source=analyzer_local_edge(source,fields[0],fields[2],fields[7])
                 q.analyzer.write_text(source)
                 print('FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0

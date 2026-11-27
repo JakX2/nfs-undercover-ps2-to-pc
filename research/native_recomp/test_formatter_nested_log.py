@@ -147,4 +147,19 @@ class Release(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(Special().logs(),release=True)
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),release=True,special=True)
+class Return(unittest.TestCase):
+    def logs(self):
+        return [f'FORMATTER_RETURN_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_arrival=1 caller_body=0 caller_guard=1 deferred=1 reply=0 visits=98' for i in range(8)]+['FORMATTER_RETURN_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_arrival=8 caller_body=0 caller_guard=8 deferred=8 reply=0 visits=784 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        x=self.logs();self.assertEqual(verify(x,return_mode=True),(x[-1],))
+    def test_caller_body(self):
+        x=self.logs();x[0]=x[0].replace('caller_body=0','caller_body=1')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,return_mode=True)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('visits=784','visits=776')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,return_mode=True)
+    def test_previous_not_accepted(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(Release().logs(),return_mode=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),return_mode=True,release=True)
 if __name__=='__main__':unittest.main(verbosity=2)

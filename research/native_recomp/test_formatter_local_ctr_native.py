@@ -35,4 +35,11 @@ class Test(unittest.TestCase):
             ensure_ctr_resume(self.main,self.body.replace(f'case 0x{D:X}: goto loc_{D:X};',''),R,S,D)
         with self.assertRaisesRegex(ValueError,'destination'):
             ensure_ctr_resume(self.main,self.body.replace(f'loc_{D:X}: ;',''),R,S,D)
+class ReturnBody(unittest.TestCase):
+    def test_exact(self):
+        from formatter_local_ctr_native import verify_blr_body
+        body='loc_80010100: ;\n    // 0x80010100: 4E800020\n    ++ctx.inst_count;\n    ctx.pc = ctx.lr; return;\n'
+        self.assertTrue(verify_blr_body(body,0x80010100))
+        for bad in (body.replace('ctx.lr','ctx.ctr'),body.replace('4E800020','4E800420'),body.replace('++ctx.inst_count;','ctx.inst_count+=2;'),body+body):
+            with self.assertRaisesRegex(ValueError,'LR native body'):verify_blr_body(bad,0x80010100)
 if __name__=='__main__':unittest.main(verbosity=2)
