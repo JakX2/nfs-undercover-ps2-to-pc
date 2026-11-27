@@ -43,7 +43,8 @@ def promote(compare, predecessor, next_word):
     after, _ = step(cmp, after, saved_mask=mask)
     rs, ra, rb = (word >> 21) & 31, (word >> 16) & 31, (word >> 11) & 31
     if (word >> 26 != 31 or (word >> 1) & 1023 != 444 or word & 1 or
-            rs != rb or ra == rs or after[rs][0] != 'stack' or
+            rs != rb or ra == rs or not (ra == 0 or 3 <= ra <= 12) or
+            after[rs][0] != 'stack' or
             after[1][0] != 'stack' or type(after[rs][1]) is not int or
             type(after[1][1]) is not int):
         raise ValueError('report copy encoding')
@@ -63,6 +64,7 @@ def render(contract):
     _, (root, pc, word, next_pc, next_word, rs, ra, offset, ret) = contract
     if (root & 3 or pc != root + 8 or next_pc != pc + 4 or
             rs >= 32 or ra >= 32 or rs == ra or
+            not (ra == 0 or 3 <= ra <= 12) or
             word >> 26 != 31 or (word >> 1) & 1023 != 444 or
             word & 1 or (word >> 21) & 31 != rs or
             (word >> 16) & 31 != ra or (word >> 11) & 31 != rs or
