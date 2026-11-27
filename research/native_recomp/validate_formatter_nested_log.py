@@ -3,6 +3,15 @@
 import argparse,re
 from pathlib import Path
 
+# Fail closed on explicit runtime failure diagnostics even if a stale/forged
+# log also contains a complete eight-trial aggregate. These are fixed,
+# redacted public marker families; no owner-only values are inspected.
+NATIVE_FAILURE_MARKER=re.compile(
+    r'(?:V1256_(?:OPEN_FAILURE|WITNESS_SOURCE)|'
+    r'FORMATTER_[A-Z0-9_]+_(?:REFUSAL|FAILURE))(?=\s|$)|'
+    r'V1256 execution failed(?=\s|$)'
+)
+
 CELL=re.compile(r'FORMATTER_NESTED_CELL_TRIAL n=([0-7]) cold_match=([01]) live_match=([01]) sample_equal=([01]) guest_load=0')
 CELL_TOTAL=re.compile(r'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match=([0-8]) live_match=([0-8]) sample_equal=([0-8]) endpoint_only=1 guest_loads=0 guest_writes=0')
 def markers(second):
@@ -193,7 +202,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
                 total=line
             elif line!=total:raise ValueError('native aggregate')
             native=True
-        elif line.startswith('FORMATTER_NESTED_REFUSAL '):
+        elif NATIVE_FAILURE_MARKER.match(line):
             raise ValueError('native refusal')
     if trials!=set(range(8)) or not native or (not (control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers or caller_branch or caller_second_branch or caller_post_integers or caller_third_branch or caller_fourth_branch or mixed_mode) and set(cells)!=trials):
         raise ValueError('trial coverage')

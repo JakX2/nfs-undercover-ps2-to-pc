@@ -54,6 +54,40 @@ class Original124LogTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     verify(bad,**ARGS)
 
+    def test_known_runtime_failure_markers_reject_valid_124_aggregate(self):
+        # The real 123 attempt emitted a generic V1256_OPEN_FAILURE.
+        # Neither that line nor its redacted source-line diagnostic may
+        # coexist with an accepted native 124 witness, regardless of where
+        # the failure occurs in the log.
+        _, valid, _ = valid_log()
+        failures = (
+            'V1256_OPEN_FAILURE kind=witness trial=0 stage=8 reason=0 line=0',
+            'V1256_WITNESS_SOURCE source_line=1511 original_data=0',
+            'FORMATTER_NESTED_REFUSAL kind=2 stage=40',
+            'FORMATTER_CALLER_FRAME_LEASE_REFUSAL stage=40',
+            'FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE_REFUSAL stage=43',
+            'FORMATTER_NESTED_FAILURE trial=0',
+            'V1256 execution failed rc=1',
+        )
+        for marker in failures:
+            for index in (0, len(valid)//2, len(valid)):
+                with self.subTest(marker=marker, index=index):
+                    mixed = valid.copy()
+                    mixed.insert(index, marker)
+                    with self.assertRaisesRegex(ValueError, 'native refusal'):
+                        verify(mixed, **ARGS)
+
+    def test_non_failure_metadata_does_not_create_false_refusal(self):
+        _, valid, total = valid_log()
+        # The validator deliberately ignores unrelated status records in
+        # the full owner log, but not any recognized failure family.
+        neutral = (
+            'V1256_OPEN_FAILURE_ARCHIVE field=redacted',
+            'V1256_SCHED_TRIAL n=0 waiting=1',
+            'LOG_NOTE V1256_WITNESS_SOURCE archived=1',
+        )
+        self.assertEqual(verify([*valid, *neutral], **ARGS), (total,))
+
     def test_all_earlier_modes_reject_124_log(self):
         _,lines,_=valid_log()
         for field in ('caller_report_second_immediate',
