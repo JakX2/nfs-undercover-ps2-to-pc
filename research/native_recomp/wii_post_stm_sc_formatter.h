@@ -776,18 +776,31 @@ public:
     // The pointer is a privately authenticated relative identity, not an
     // inferred constant. Predict only a volatile register copy; no memory
     // is accessed at the resulting pointer.
-    template<class C>bool resume_caller_stack_move(C& c,int32_t offset,uint32_t next_pc,uint32_t next_word,bool held){
+    template<class C>bool resume_caller_stack_move(C& c,int32_t offset,uint32_t next_pc,uint32_t next_word,bool held,
+        std::optional<ScCallerIntegerStep> final_integer={},uint32_t final_pc=0,uint32_t final_word=0){
         if(!reached_caller_post_mixed(c,held)||!caller_parent_||
            uint64_t(post_mixed_end_pc_)+4u!=next_pc||next_word==0x44000002u||
            uint64_t(next_pc)+8u>uint64_t(caller_parent_->e_.root)+branch_owner_size_||
-           !word(c,next_pc,next_word)||!word(c,next_pc+4u,0x44000002u))return fail(6);
+           !word(c,next_pc,next_word))return fail(6);
+        if(final_integer){
+            if(final_integer->pc!=next_pc||final_integer->word!=next_word||next_word>>26!=14u||
+               final_integer->inputs.size()>1u||uint64_t(next_pc)+4u!=final_pc||
+               uint64_t(final_pc)+8u>uint64_t(caller_parent_->e_.root)+branch_owner_size_||
+               final_word>>26!=18u||(final_word&3u)!=1u||
+               !word(c,final_pc,final_word)||!word(c,final_pc+4u,0x44000002u))return fail(6);
+            for(unsigned j=0;j<branch_completed_;++j)if(final_pc==branches_[j].other_pc)return fail(6);
+            for(auto s:mixed_path_)if(final_pc==s.other_pc)return fail(6);
+            for(auto s:post_mixed_path_)if(final_pc==s.other_pc)return fail(6);
+        }else if(final_pc||final_word||!word(c,next_pc+4u,0x44000002u))return fail(6);
         for(unsigned j=0;j<branch_completed_;++j)if(next_pc==branches_[j].other_pc)return fail(6);
         for(auto s:mixed_path_)if(next_pc==s.other_pc)return fail(6);
         for(auto s:post_mixed_path_)if(next_pc==s.other_pc)return fail(6);
         const auto effect=predict_caller_stack_move(post_mixed_end_word_,gp_,cr_,incoming_[1],offset);
         if(!effect||!effect->reg)return fail(6);
         gp_[*effect->reg]=effect->value;
-        stack_move_next_pc_=next_pc;stack_move_next_word_=next_word;stage_=24u;return true;
+        stack_move_next_pc_=next_pc;stack_move_next_word_=next_word;
+        final_integer_=final_integer;final_integer_pc_=final_pc;final_integer_word_=final_word;
+        stage_=24u;return true;
     }
     template<class C>bool stop_after_caller_stack_move(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=24u||pc!=stack_move_next_pc_||w!=stack_move_next_word_||
@@ -800,6 +813,25 @@ public:
         return stage_==25u&&stack_move_completed_&&mixed_byte_completed_&&
             post_mixed_completed_==post_mixed_path_.size()&&stack_move_code(c)&&mixed_byte_code(c)&&
             mixed_storage(c,held,mixed_completed_+2u+post_mixed_completed_)&&visits_==e_.path.size()+1u;
+    }
+    // Authenticate the last register-only operation before an external BL.
+    // The branch itself remains unexecuted at stage 27.
+    template<class C>bool resume_caller_final_integer(C& c,bool held){
+        if(!reached_caller_stack_move(c,held)||!final_integer_||
+           !predict_integer(c,*final_integer_))return fail(6);
+        stage_=26u;return true;
+    }
+    template<class C>bool stop_after_caller_final_integer(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=26u||pc!=final_integer_pc_||w!=final_integer_word_||
+           !stack_move_code(c)||!mixed_byte_code(c)||
+           !mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_))return fail(6);
+        final_integer_completed_=true;stage_=27u;return true;
+    }
+    unsigned caller_final_integer_visits()const{return final_integer_completed_&&!error_?1u:0u;}
+    template<class C>bool reached_caller_final_integer(C& c,bool held)const{
+        return stage_==27u&&final_integer_completed_&&stack_move_completed_&&mixed_byte_completed_&&
+            post_mixed_completed_==post_mixed_path_.size()&&stack_move_code(c)&&mixed_byte_code(c)&&
+            mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_)&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -871,9 +903,9 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(armed);
-        if(extra>36u)return 128u;
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(armed);
+        if(extra>37u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
     bool has_caller_stores()const{return caller_parent_!=nullptr;}
@@ -945,8 +977,13 @@ private:
     bool mixed_byte_completed_=false;
     bool stack_move_completed_=false;
     uint32_t stack_move_next_pc_=0,stack_move_next_word_=0;
+    std::optional<ScCallerIntegerStep> final_integer_{};
+    uint32_t final_integer_pc_=0,final_integer_word_=0;
+    bool final_integer_completed_=false;
     template<class C>bool stack_move_code(C& c)const{
-        return word(c,stack_move_next_pc_,stack_move_next_word_)&&word(c,stack_move_next_pc_+4u,0x44000002u);
+        if(!word(c,stack_move_next_pc_,stack_move_next_word_))return false;
+        if(!final_integer_)return word(c,stack_move_next_pc_+4u,0x44000002u);
+        return word(c,final_integer_pc_,final_integer_word_)&&word(c,final_integer_pc_+4u,0x44000002u);
     }
     std::span<const ScCallerMixedStep> post_mixed_path_{};
     uint32_t post_mixed_end_pc_=0,post_mixed_end_word_=0;
