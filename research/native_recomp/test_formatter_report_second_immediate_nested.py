@@ -57,11 +57,12 @@ class NestedSecondImmediateTests(unittest.TestCase):
         for reg, before, value in ((7,0x81234567,0x67),
                                     (9,0x5a,0x5a)):
             with self.subTest(reg=reg):
+                immediate,copy,predecessor,compare=self.base.inputs(extsb(reg))
                 original=promote_signext(
-                    *self.base.inputs(extsb(reg)),addi(3,0x8000))
+                    immediate,copy,predecessor,compare,addi(3,0x8000))
                 second=promote_second(
-                    original,self.immediate,self.copy,
-                    self.predecessor,self.compare,NOOP)
+                    original,immediate,copy,
+                    predecessor,compare,NOOP)
                 prior={**original[0],SIBLING:(NOOP,GUARD)}
                 merged,info=second_immediate_extension(prior,original,second)
                 self.assertEqual(original[1][5:8],(reg,before,value))
