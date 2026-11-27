@@ -476,6 +476,33 @@ public:
     template<class C>bool reached_caller_arrival(C& c,bool held)const{
         return stage_==9u&&caller_arrival_&&return_storage(c,held,2u)&&visits_==e_.path.size()+1u;
     }
+    // Execute only a single non-updating byte load from a proven child
+    // output byte in the still-live parent frame. Keep the nested census
+    // separate; the caller's load is counted only after its native body.
+    template<class C>bool resume_caller_byte(C& c,int32_t offset,uint8_t expected,
+                                            uint32_t next_pc,uint32_t next_word,bool held){
+        if(!reached_caller_arrival(c,held)||!caller_parent_||offset<8||
+           uint32_t(offset)>=caller_parent_->e_.frame_size||
+           next_pc!=return_pc_+4u||next_word==0x44000002u||!word(c,next_pc,next_word)||
+           !caller_written_[unsigned(offset)]||caller_expected_[unsigned(offset)]!=expected)return fail(6);
+        const auto form=decode_load(return_word_);
+        const unsigned rt=(return_word_>>21)&31u,ra=(return_word_>>16)&31u,rb=(return_word_>>11)&31u;
+        const uint32_t imm=uint32_t(int32_t((return_word_&0xffffu)^0x8000u)-0x8000);
+        const uint32_t a=(ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm);
+        if(form.width!=1u||form.update||form.sign||(rt!=0u&&(rt<3u||rt>12u))||
+           a!=incoming_[1]+uint32_t(offset)||!mapped(c,{a,1u})||c.mmu.read8(a)!=expected)return fail(6);
+        gp_[rt]=expected;caller_next_pc_=next_pc;caller_next_word_=next_word;stage_=10u;
+        return true;
+    }
+    template<class C>bool stop_after_caller_byte(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=10u||pc!=caller_next_pc_||w!=caller_next_word_||
+           !word(c,pc,w)||!return_storage(c,held,3u))return fail(6);
+        stage_=11u;return true;
+    }
+    template<class C>bool reached_caller_byte(C& c,bool held)const{
+        return stage_==11u&&word(c,caller_next_pc_,caller_next_word_)&&
+            return_storage(c,held,3u)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -570,6 +597,7 @@ private:
     bool release_authorized_=false,frame_released_=false;
     uint32_t return_pc_=0,return_word_=0;
     bool caller_arrival_=false;
+    uint32_t caller_next_pc_=0,caller_next_word_=0;
     template<class C>bool return_storage(C& c,bool held,uint64_t delta=0)const{
         return frame_released_&&caller_parent_&&return_pc_==e_.entry_lr&&
             c.pc==return_pc_&&c.inst_count>=last_&&c.inst_count-last_==delta&&word(c,return_pc_,return_word_)&&
