@@ -162,4 +162,19 @@ class Return(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(Release().logs(),return_mode=True)
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),return_mode=True,release=True)
+class CallerArrival(unittest.TestCase):
+    def logs(self):
+        return [f'FORMATTER_CALLER_ARRIVAL_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_label=1 caller_body=0 caller_guard=0 deferred=1 reply=0 visits=98' for i in range(8)]+['FORMATTER_CALLER_ARRIVAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_label=8 caller_body=0 caller_guard=0 deferred=8 reply=0 visits=784 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        x=self.logs();self.assertEqual(verify(x,caller_arrival=True),(x[-1],))
+    def test_caller_body(self):
+        x=self.logs();x[0]=x[0].replace('caller_body=0','caller_body=1')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,caller_arrival=True)
+    def test_caller_label(self):
+        x=self.logs();x[-1]=x[-1].replace('caller_label=8','caller_label=7')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_arrival=True)
+    def test_previous_not_accepted(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(Return().logs(),caller_arrival=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_arrival=True,return_mode=True)
 if __name__=='__main__':unittest.main(verbosity=2)
