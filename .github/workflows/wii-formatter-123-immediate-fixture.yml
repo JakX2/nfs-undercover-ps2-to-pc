@@ -7,6 +7,8 @@ on:
       - '.github/workflows/wii-formatter-123-immediate-fixture.yml'
       - 'research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/test_formatter_report_second_immediate_nested.py'
       - 'research/native_recomp/audit_formatter_report_signext_successor.py'
       - 'research/native_recomp/prepare_formatter_report_signext_fixture.py'
 permissions:
@@ -25,6 +27,9 @@ jobs:
           set -euo pipefail
           python3 -m py_compile research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py
           python3 research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_second_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_signext_nested.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
           python3 research/native_recomp/audit_formatter_report_signext_successor.py --self-test
           python3 research/native_recomp/test_formatter_report_signext_fixture.py
   owner-provenance:
