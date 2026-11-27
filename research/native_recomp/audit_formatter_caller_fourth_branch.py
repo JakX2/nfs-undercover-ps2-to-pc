@@ -17,7 +17,7 @@ from make_v624_ipc_geometry import exact_words
 from prepare_v419_full_start import MAX_DOL
 from private_plan_cache import plan_cache_scope
 
-def audit(first,second,post,third,words,details):
+def audit(first,second,post,third,words,details,*,exact=False):
     blocks,info=third;owner,size,pc,w,taken,at,next_word,other=info
     rows,end,word,_,cr,_=details
     if first[1][:2]!=(owner,size) or second[1][:2]!=(owner,size) or len(words)*4!=size or size>65536 or owner&3:
@@ -41,9 +41,10 @@ def audit(first,second,post,third,words,details):
     alternate=None if chosen is None else at+4 if outcome else dst
     def occupied(a):
         return a is not None and 0<=(a-owner)//4<len(body) and body[(a-owner)//4]!=GUARD
+    if exact:return (at,next_word),(kind,ctr,outcome,back,dst,chosen),tuple(sorted(guards))
     return kind,ctr,outcome,back,int(dst is not None),int(chosen in guards),int(occupied(chosen)),int(occupied(alternate)),boundary_shape(words[(chosen-owner)//4]) if chosen is not None else 'unresolved',sum(x is not None for x in cr)
 
-def plan(d,e):
+def plan(d,e,*,exact=False):
     byte=byte_plan(d,e);integer,_=integer_plan(d,e,byte=byte)
     if integer is None:raise ValueError('fourth branch predecessor')
     first,outcome=first_plan(d,e,byte=byte,contract=integer)
@@ -55,7 +56,8 @@ def plan(d,e):
     owner,size,*_=third[1];words=exact_words(d,e,owner,size//4)
     _,_,trace,_,entry,_=replay_plan(d,e,details=True)
     details=post_audit(byte,integer,first,second,trace[-1][2],entry[1],words,continuation_plan(d,e)[6],details=True)
-    return audit(first,second,post,third,words,details)
+    result=audit(first,second,post,third,words,details,exact=exact)
+    return (third,words,result) if exact else result
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

@@ -15,6 +15,11 @@ class Fourth(unittest.TestCase):
         self.third=({P:tuple(b)},(P,96,pc,w,False,pc+4,self.words[11],P+60))
     def probe(self):return audit(self.first,self.second,self.post,self.third,self.words,self.details)
     def test_exact(self):self.assertEqual(self.probe(),('conditional',False,True,False,1,0,0,0,'integer',3))
+    def test_exact_private(self):
+        (pc,w),edge,guards=audit(self.first,self.second,self.post,self.third,self.words,self.details,exact=True)
+        self.assertEqual((pc,w),(P+44,self.words[11]))
+        self.assertEqual(edge,('conditional',False,True,False,P+68,P+68))
+        self.assertEqual(guards,(P+16,P+28,P+60))
     def test_unknown(self):
         self.details=self.details[:4]+((False,False,None,None)+(None,)*28,)+self.details[5:]
         self.assertEqual(self.probe()[2],None)
