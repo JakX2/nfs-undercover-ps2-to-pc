@@ -157,6 +157,71 @@ class ReportImmediateFixture(unittest.TestCase):
                 plan(b'dol', b'elf', predecessor=predecessor,
                      compare=compare, copy=copy)
 
+    def test_121_native_harness_has_exact_fourth_guard_call_chain(self):
+        # The full game harness is intentionally compiled only on the
+        # private owner. Catch missing optional witness arguments and a
+        # missing guard in the public fixture tests instead.
+        import re
+        path = Path(__file__).with_name(
+            'test_native_scheduler_postack_v1256.cpp')
+        source = path.read_text()
+        expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
+                    r'\s*,formatter_report_immediate_private::next_word\s*#endif')
+        for opening, ending in (
+            ('!formatter_nested->resume_caller_next_entry(c,',
+             '))formatter_nested_refuse(2);'),
+            ('!formatter_report_byte->arm_native(',
+             '||'),
+            ('!formatter_report_compare->arm(',
+             '||'),
+        ):
+            with self.subTest(call=opening):
+                self.assertEqual(source.count(opening), 1)
+                fragment = source.split(opening,1)[1].split(ending,1)[0]
+                self.assertRegex(fragment,expected)
+                self.assertEqual(fragment.count(
+                    'formatter_report_immediate_private::next_word'),1)
+        self.assertIn('if(formatter_nested->stage()==36u)',source)
+        self.assertIn('!formatter_nested->resume_caller_report_immediate(',source)
+        self.assertIn('!formatter_nested->stop_after_caller_report_immediate(',source)
+        self.assertIn(
+            'c.mmu.write32(formatter_report_immediate_private::next_pc+4u,0x44000002u);',
+            source)
+        self.assertIn('nested.caller_report_immediate_visits()==1u',source)
+        self.assertIn('immediates_verified=8',source)
+        scopes = []
+        for number,line in enumerate(source.splitlines(),1):
+            m = re.match(r'\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b',line)
+            if not m:
+                continue
+            if m[1] in ('if','ifdef','ifndef'):
+                scopes.append(number)
+            elif m[1]=='endif':
+                self.assertTrue(scopes,f'unmatched endif: {number}')
+                scopes.pop()
+            else:
+                self.assertTrue(scopes,f'unmatched preprocessor else: {number}')
+        self.assertEqual(scopes,[])
+
+    def test_121_runner_mode_is_separate_from_verified_120(self):
+        runner=Path(__file__).with_name(
+            'run_v1256_native_scheduler_postack.sh').read_text()
+        self.assertIn('--formatter-nested-caller-report-immediate',runner)
+        self.assertIn('nested_args=(--caller-report-immediate)',runner)
+        self.assertIn('-DUNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE',runner)
+        fixture=Path(__file__).with_name(
+            'prepare_formatter_nested_fixture.py').read_text()
+        for fragment in (
+            "modes.add_argument('--caller-report-immediate'",
+            'if q.caller_report_immediate:q.caller_report_copy=True',
+            'immediate_contract=report_immediate_plan(',
+            'immediate_extension(expanded,copy_contract,immediate_contract)',
+            'immediate_extension(final,copy_contract,immediate_contract)',
+            'extent=24 if immediate_contract is not None',
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment,fixture)
+
     def test_generated_private_header_is_valid_cpp(self):
         compiler = shutil.which('g++')
         if not compiler:
