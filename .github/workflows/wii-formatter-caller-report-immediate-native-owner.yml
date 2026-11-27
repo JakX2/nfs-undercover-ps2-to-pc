@@ -9,6 +9,7 @@ on:
       - 'research/native_recomp/prepare_formatter_report_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_immediate_fixture.py'
       - 'research/native_recomp/prepare_formatter_report_stack_copy_fixture.py'
+      - 'research/native_recomp/test_formatter_report_stack_copy_fixture.py'
       - 'research/native_recomp/test_formatter_nested_fixture.py'
       - 'research/native_recomp/wii_post_stm_sc_formatter.h'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
