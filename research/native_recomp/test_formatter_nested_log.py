@@ -309,4 +309,25 @@ class CallerMixed(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
     def test_prior(self):
         with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerFourthBranch().logs())
+class CallerMixedByte(unittest.TestCase):
+    def logs(self):
+        rows=CallerMixed().logs(integers=2,taken=2,fallthrough=1)
+        return [s.replace('FORMATTER_CALLER_MIXED_TRIAL','FORMATTER_CALLER_MIXED_BYTE_TRIAL').replace(' next_label_stop=1',' mixed_byte_verified=1 next_label_stop=1').replace('total_visits=111','total_visits=112') for s in rows[:-1]]+[rows[-1].replace('FORMATTER_CALLER_MIXED_NATIVE','FORMATTER_CALLER_MIXED_BYTE_NATIVE').replace(' next_label_stop=8',' mixed_bytes_verified=8 next_label_stop=8').replace('total_visits=888','total_visits=896')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_mixed_byte=True,integer_count=2,post_integer_count=1,mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        x=self.logs();self.assertEqual(self.probe(x),(x[-1],))
+    def test_missing_load(self):
+        x=self.logs();x[0]=x[0].replace(' mixed_byte_verified=1','')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(x)
+    def test_old_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=896','total_visits=888')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_missing_aggregate(self):
+        x=self.logs();x[-1]=x[-1].replace(' mixed_bytes_verified=8','')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerMixed().logs(integers=2,taken=2,fallthrough=1))
+    def test_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_mixed=True)
 if __name__=='__main__':unittest.main(verbosity=2)
