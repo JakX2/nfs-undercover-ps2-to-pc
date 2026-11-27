@@ -10,8 +10,14 @@ translated game code are stored here.
   fallbacks** in the bounded formatter continuation lane.
 - The owner-original **123-instruction** workflow
   [46020094169](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46020094169)
-  was still running when this note was written. It must complete successfully
-  with the exact 984-visit marker before the execution frontier becomes 123.
+  **failed** after translating the original code and completing the formatter
+  continuation. Trial 0 emitted `V1256_OPEN_FAILURE kind=witness ... stage=8
+  reason=0 line=0`, without a nested-refusal marker or 984-visit total.
+  **Stage 8 is not a reliable failing-location identifier:** the shared
+  `last_stage` field may be inherited from an earlier witness. A later source
+  change logs `V1256_WITNESS_SOURCE source_line=...` for generic witness throws,
+  without logging guest addresses or original values. This requires a new
+  private owner run. **Do not advance the verified native frontier above 122.**
 - The **124th original word** was authenticated as non-record,
   zero-base PowerPC `addi` with one volatile GPR destination. The private
   source-only fixture passed in
@@ -88,6 +94,24 @@ If 123 fails or times out, fix and reverify 123 first, then update the exact
 pinned requirement for a new successful 123 run before authorizing 124.
 Do not lower the guard, reinterpret fixture success as original execution,
 or publish original DOL/ELF instructions in GitHub.
+
+## Current owner execution blocker
+
+The failed original 123 run is a **hard stop** for the gated 124 original-code
+execution. The 124 owner workflow requires that exact successful 123 owner job
+and currently skips execution. Do not edit the prerequisite to accept a failed
+job, remove the condition, or claim 124 original execution from source tests.
+
+The inherited source-only 120/121/122 assertions also needed to recognize the
+optional 124 nested guard. Their amendments preserve the original modes and
+are verified by the relevant original-free regressions, not by guessing a
+new original checkpoint. The 123 execution diagnostic patch was committed
+after the failed run; its source-line result has not yet been observed
+on original game code.
+
+The separate instruction-125 private read-only audit already succeeded,
+and the instruction-125 zero-input fixture is independently gated by it.
+125 source-only preparation does not unblock native 123 or 124.
 
 **Unchanged larger limit:** no continuous game `__start` to `main`, native
 frontend, rendered first frame, or playable game is claimed by this bounded
