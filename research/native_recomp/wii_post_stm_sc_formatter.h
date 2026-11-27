@@ -679,6 +679,40 @@ public:
             mixed_integers_+mixed_taken_+mixed_fallthrough_==mixed_completed_&&
             mixed_storage(c,held,mixed_completed_)&&visits_==e_.path.size()+1u;
     }
+    // Observe the next original byte load only after the complete mixed
+    // path. Predict its GPR effect without writing any live CPU state.
+    template<class C>bool resume_caller_mixed_byte(C& c,int32_t offset,uint8_t expected,
+                                                   uint32_t next_pc,uint32_t next_word,bool held){
+        if(!reached_caller_mixed(c,held)||!caller_parent_||offset<8||
+           uint32_t(offset)>=caller_parent_->e_.frame_size||
+           uint64_t(mixed_end_pc_)+4u!=next_pc||next_word==0x44000002u||
+           uint64_t(next_pc)+8u>uint64_t(caller_parent_->e_.root)+branch_owner_size_||
+           !word(c,next_pc,next_word)||!word(c,next_pc+4u,0x44000002u)||
+           !caller_written_[unsigned(offset)]||caller_expected_[unsigned(offset)]!=expected)return fail(6);
+        for(unsigned j=0;j<branch_completed_;++j)
+            if(next_pc==branches_[j].other_pc)return fail(6);
+        for(auto s:mixed_path_)if(next_pc==s.other_pc)return fail(6);
+        const auto form=decode_load(mixed_end_word_);
+        const unsigned rt=(mixed_end_word_>>21)&31u,ra=(mixed_end_word_>>16)&31u,rb=(mixed_end_word_>>11)&31u;
+        const uint32_t imm=uint32_t(int32_t((mixed_end_word_&0xffffu)^0x8000u)-0x8000);
+        const uint32_t a=(ra?gp_[ra]:0u)+(form.indexed?gp_[rb]:imm);
+        if(form.width!=1u||form.update||form.sign||(rt!=0u&&(rt<3u||rt>12u))||
+           a!=incoming_[1]+uint32_t(offset)||!mapped(c,{a,1u})||c.mmu.read8(a)!=expected)return fail(6);
+        gp_[rt]=expected;mixed_byte_next_pc_=next_pc;mixed_byte_next_word_=next_word;stage_=20u;
+        return true;
+    }
+    template<class C>bool stop_after_caller_mixed_byte(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=20u||pc!=mixed_byte_next_pc_||w!=mixed_byte_next_word_||
+           !word(c,pc,w)||!word(c,pc+4u,0x44000002u)||
+           !mixed_storage(c,held,mixed_completed_+1u))return fail(6);
+        stage_=21u;return true;
+    }
+    unsigned caller_mixed_byte_visits()const{return stage_==21u&&!error_?1u:0u;}
+    template<class C>bool reached_caller_mixed_byte(C& c,bool held)const{
+        return stage_==21u&&word(c,mixed_byte_next_pc_,mixed_byte_next_word_)&&
+            word(c,mixed_byte_next_pc_+4u,0x44000002u)&&
+            mixed_storage(c,held,mixed_completed_+1u)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -803,7 +837,7 @@ private:
         return branch_completed_==2u&&branch_storage(c,held,2u,n)&&post_integer_code(c);
     }
     std::span<const ScCallerMixedStep> mixed_path_{};
-    uint32_t mixed_end_pc_=0,mixed_end_word_=0;
+    uint32_t mixed_end_pc_=0,mixed_end_word_=0,mixed_byte_next_pc_=0,mixed_byte_next_word_=0;
     unsigned mixed_completed_=0,mixed_integers_=0,mixed_taken_=0,mixed_fallthrough_=0;
     bool mixed_edge(const ScCallerMixedStep& s,bool check_condition)const{
         const unsigned op=s.word>>26,bo=(s.word>>21)&31u,bi=(s.word>>16)&31u;
