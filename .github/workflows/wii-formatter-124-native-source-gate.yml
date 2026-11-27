@@ -1,0 +1,39 @@
+name: Wii Formatter 124 Guarded Native Harness Source Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-124-native-source-gate.yml'
+      - 'research/native_recomp/test_formatter_report_third_immediate_native_wiring.py'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+permissions:
+  contents: read
+concurrency:
+  group: wii-formatter-124-native-source-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/test_formatter_report_third_immediate_native_wiring.py research/native_recomp/validate_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_native_wiring.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_log.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_second_immediate_nested.py
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_byte_transition.cpp -o /tmp/wii-formatter-124-guards
+          /tmp/wii-formatter-124-guards
+          g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_byte_transition.cpp -o /tmp/wii-formatter-124-guards-sanitized
+          /tmp/wii-formatter-124-guards-sanitized
