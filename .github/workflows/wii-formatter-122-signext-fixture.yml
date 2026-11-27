@@ -35,6 +35,8 @@ jobs:
           python3 research/native_recomp/test_formatter_nested_fixture.py
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_report_signext.cpp -o /tmp/test_formatter_report_signext
           /tmp/test_formatter_report_signext
+          g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_formatter_report_signext.cpp -o /tmp/test_formatter_report_signext_release
+          /tmp/test_formatter_report_signext_release
           python3 research/native_recomp/audit_formatter_report_immediate_successor.py --self-test
           python3 research/native_recomp/test_formatter_report_immediate_fixture.py
   owner-provenance:
