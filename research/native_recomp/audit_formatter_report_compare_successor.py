@@ -163,7 +163,7 @@ class Tests(unittest.TestCase):
         expected=promote_compare(self.byte,self.word,(7,0x81234567))
         with patch('prepare_formatter_next_entry_report_byte_contract.plan',
                    return_value=predecessor) as load, \
-             patch('audit_formatter_report_compare_successor.compare_plan',
+             patch(__name__+'.compare_plan',
                    return_value=expected) as compare:
             result=plan(b'fixture',b'elf')
         load.assert_called_once_with(b'fixture',b'elf',with_live=True)
