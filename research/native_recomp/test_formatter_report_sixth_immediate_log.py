@@ -75,7 +75,7 @@ class Original127LogTests(unittest.TestCase):
         # prevents another source-only pass that only fails on owner binaries.
         source = (Path(__file__).parent /
                   'test_native_scheduler_postack_v1256.cpp').read_text()
-        start = source.index('#if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)\\n'
+        start = source.index('#if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)\n'
                              '            std::cout<<')
         chunk = source[start:start+1600]
         expected = (
