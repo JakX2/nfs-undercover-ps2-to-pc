@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -140,6 +140,22 @@ class Test(unittest.TestCase):
         self.assertEqual(expand_second_branch(first,(first,first_info),(second,second_info)),second)
         with self.assertRaisesRegex(ValueError,'second branch'):
             expand_second_branch(first,(first,first_info),(second,second_info[:5]+(pc+16,)+second_info[6:]))
+    def test_post_integer_expansion(self):
+        pc=R+8;w=(16<<26)|(12<<21)|16;second_pc=pc+4
+        second_word=(16<<26)|(12<<21)|(1<<16)|24
+        target=second_pc+24;cmp=0x2c030009
+        old={R:(N,N,w,second_word,GUARD,N,GUARD,GUARD,GUARD,cmp,GUARD,GUARD,N),T:(N,GUARD)}
+        first=(None,(R,64,pc,w,False,second_pc,second_word,pc+16))
+        second=(old,(R,64,second_pc,second_word,True,target,cmp,second_pc+4))
+        v=list(old[R]);v[10]=N;new={**old,R:tuple(v)}
+        contract=(new,((target,cmp,((3,9),)),),target+4,N)
+        self.assertIn('formatter_caller_post_integer_private',render_integers(contract,post_branch=True))
+        self.assertEqual(expand_post_integers(old,contract,first,second),new)
+        bad=(None,first[1][:-1]+(target+4,))
+        with self.assertRaisesRegex(ValueError,'guard'):
+            expand_post_integers(old,contract,bad,second)
+        with self.assertRaisesRegex(ValueError,'expansion'):
+            expand_post_integers(old,({**new,T:(N,N)},*contract[1:]),first,second)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
