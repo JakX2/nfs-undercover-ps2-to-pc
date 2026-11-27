@@ -69,12 +69,17 @@ class NestedThirdImmediateTests(unittest.TestCase):
             {**self.old,root:oldroot[:-1]+(0,)},
             {**self.old,root:oldroot[:5]+(0,)+oldroot[6:]},
             {**self.old,root+4:(0,GUARD)},
-            {**self.old,SIBLING:(0,GUARD)},
         )
         for before in mutations:
             with self.subTest(before=tuple(before)):
                 with self.assertRaises(ValueError):
                     third_immediate_extension(before,self.second,self.third)
+        # This fixture authenticates the callee root; unrelated siblings
+        # are owned by the earlier fixture and must be preserved verbatim.
+        changed={**self.old,SIBLING:(0,GUARD)}
+        merged,_=third_immediate_extension(changed,self.second,self.third)
+        self.assertEqual(merged[SIBLING],(0,GUARD))
+        self.assertEqual(self.old[SIBLING],(NOOP,GUARD))
         blocks,fields=self.third
         altered=(
             ({**blocks,root:blocks[root][:-1]+(0,)},fields),
