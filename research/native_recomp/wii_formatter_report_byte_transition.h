@@ -40,11 +40,13 @@ public:
         const uint32_t imm = uint32_t(int32_t((s.word & 0xffffu) ^ 0x8000u) - 0x8000);
         const uint32_t address = base + (indexed_ ? c.gpr[rb] : imm);
         if (address != s.guest_address ||
-            address < 0x80000000u || address >= 0x81800000u ||
-            !report.observed_child_byte(c,held,s.child_sp,s.child_link,
-                                        s.child_depth,address,s.extra_frame).has_value() ||
-            report.observed_child_byte(c,held,s.child_sp,s.child_link,
-                                       s.child_depth,address,s.extra_frame).value() != s.expected_byte)
+            address < 0x80000000u || address >= 0x81800000u)
+            return reject();
+        // One checked snapshot per boundary. The report witness owns all
+        // live-frame, linkage and byte-provenance checks.
+        const auto report_byte = report.observed_child_byte(
+            c,held,s.child_sp,s.child_link,s.child_depth,address,s.extra_frame);
+        if (!report_byte || *report_byte != s.expected_byte)
             return reject();
 
         cpu_ = &c;
@@ -107,17 +109,16 @@ private:
             c.srr0 != srr0_ || c.srr1 != srr1_ ||
             !word(c,step_.pc,step_.word) ||
             !word(c,step_.next_pc,step_.next_word) ||
-            c.gpr[rt_] != step_.expected_byte ||
-            !report.observed_child_byte(c,held,step_.child_sp,step_.child_link,
-                                        step_.child_depth,step_.guest_address,
-                                        step_.extra_frame).has_value() ||
-            report.observed_child_byte(c,held,step_.child_sp,step_.child_link,
-                                       step_.child_depth,step_.guest_address,
-                                       step_.extra_frame).value() != step_.expected_byte)
+            c.gpr[rt_] != step_.expected_byte)
             return reject();
         for (unsigned r = 0; r < previous_.size(); ++r)
             if (r != rt_ && c.gpr[r] != previous_[r])
                 return reject();
+        const auto report_byte = report.observed_child_byte(
+            c,held,step_.child_sp,step_.child_link,step_.child_depth,
+            step_.guest_address,step_.extra_frame);
+        if (!report_byte || *report_byte != step_.expected_byte)
+            return reject();
         stage_ = 2u;
         return true;
     }
