@@ -72,11 +72,14 @@ public:
     bool arm_native(C& c, Report& report, const FormatterReportByteStep& s, bool held,
                     std::optional<uint32_t> following_original = {},
                     std::optional<uint32_t> third_original = {},
-                     std::optional<uint32_t> fourth_original = {}) {
-        const uint32_t guard_offset = fourth_original ? 20u : third_original ? 16u : following_original ? 12u : 8u;
+                     std::optional<uint32_t> fourth_original = {},
+                     std::optional<uint32_t> fifth_original = {}) {
+        const uint32_t guard_offset = fifth_original ? 24u : fourth_original ? 20u : third_original ? 16u : following_original ? 12u : 8u;
         if (s.pc > std::numeric_limits<uint32_t>::max() - guard_offset ||
             s.next_pc != s.pc + 4u || s.lr == s.pc || s.lr == s.next_pc ||
             s.lr == s.pc + 8u || s.lr == s.pc + guard_offset ||
+            (fifth_original && (!fourth_original || s.lr == s.pc+20u ||
+                 *fifth_original == 0x44000002u || !word(c,s.pc+20u,*fifth_original))) ||
             (fourth_original && (!third_original || s.lr == s.pc+16u ||
                  *fourth_original == 0x44000002u || !word(c,s.pc+16u,*fourth_original))) ||
              (third_original && (!following_original || s.lr == s.pc+12u ||
@@ -91,6 +94,7 @@ public:
         native_following_ = following_original;
         native_third_ = third_original;
         native_fourth_ = fourth_original;
+        native_fifth_ = fifth_original;
         native_label_ = true;
         return true;
     }
@@ -103,7 +107,8 @@ public:
             !word(c,step_.pc+8u,native_following_.value_or(0x44000002u)) ||
             (native_following_&&!word(c,step_.pc+12u,native_third_.value_or(0x44000002u))) ||
             (native_third_&&!word(c,step_.pc+16u,native_fourth_.value_or(0x44000002u))) ||
-             (native_fourth_&&!word(c,step_.pc+20u,0x44000002u)) ||
+             (native_fourth_&&!word(c,step_.pc+20u,native_fifth_.value_or(0x44000002u))) ||
+             (native_fifth_&&!word(c,step_.pc+24u,0x44000002u)) ||
             !word(c,step_.lr,0x44000002u))
             return reject();
         return observe_effect(c,report,held,step_.pc);
@@ -171,7 +176,7 @@ private:
     uint32_t msr_ = 0, cr_ = 0, ctr_ = 0, xer_ = 0, srr0_ = 0, srr1_ = 0;
     uint64_t start_ = 0;
     unsigned rt_ = 0, stage_ = 0;
-    std::optional<uint32_t> native_following_{}, native_third_{}, native_fourth_{};
+    std::optional<uint32_t> native_following_{}, native_third_{}, native_fourth_{}, native_fifth_{};
     bool indexed_ = false, failed_ = false, native_label_ = false;
 };
 } // namespace undercover::wii

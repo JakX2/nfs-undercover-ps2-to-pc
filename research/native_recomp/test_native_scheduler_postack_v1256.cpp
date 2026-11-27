@@ -2,6 +2,9 @@
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
 #include "wii_formatter_report_byte_transition.h"
 #endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+#include "wii_formatter_report_signext.h"
+#endif
 #include "functions.h"
 #include "v624_private_ipc_expectations.h"
 #include "v626_private_words.h"
@@ -518,6 +521,9 @@ static ScFormatterWitness* formatter_nested=nullptr;
 static std::optional<FormatterReportByteTransition> formatter_report_byte;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
 static std::optional<CallerImmediateCompareWitness> formatter_report_compare;
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+static std::optional<FormatterSignextWitness> formatter_report_signext;
+#endif
 #endif
 #endif
 static unsigned formatter_nested_count=0;
@@ -666,6 +672,23 @@ static_assert(((formatter_report_immediate_private::word>>16u)&31u)==0u);
 static_assert(((formatter_report_immediate_private::word>>21u)&31u)==formatter_report_immediate_private::destination_reg);
 static_assert(formatter_report_immediate_private::destination_reg==0u||
               (formatter_report_immediate_private::destination_reg>=3u&&formatter_report_immediate_private::destination_reg<=12u));
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+static_assert(formatter_report_signext_private::root==formatter_report_immediate_private::root);
+static_assert(formatter_report_signext_private::pc==formatter_report_immediate_private::next_pc);
+static_assert(formatter_report_signext_private::word==formatter_report_immediate_private::next_word);
+static_assert(formatter_report_signext_private::next_pc==formatter_report_signext_private::pc+4u);
+static_assert(formatter_report_signext_private::return_pc==formatter_report_immediate_private::return_pc);
+static_assert((formatter_report_signext_private::word>>26u)==31u);
+static_assert(((formatter_report_signext_private::word>>1u)&1023u)==954u);
+static_assert(((formatter_report_signext_private::word>>11u)&31u)==0u);
+static_assert((formatter_report_signext_private::word&1u)==0u);
+static_assert(((formatter_report_signext_private::word>>21u)&31u)==formatter_report_signext_private::destination_reg);
+static_assert(((formatter_report_signext_private::word>>16u)&31u)==formatter_report_signext_private::destination_reg);
+static_assert(formatter_report_signext_private::destination_reg==0u||
+              (formatter_report_signext_private::destination_reg>=3u&&formatter_report_signext_private::destination_reg<=12u));
+static_assert(formatter_report_signext_private::output_value==
+    (((formatter_report_signext_private::input_value&0xffu)^0x80u)-0x80u));
+#endif
 #endif
 #endif
 #endif
@@ -1259,6 +1282,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
              ,formatter_report_copy_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
 ,formatter_report_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+,formatter_report_signext_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1288,6 +1314,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
                 ,formatter_report_copy_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
 ,formatter_report_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+,formatter_report_signext_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1319,6 +1348,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
                ,formatter_report_copy_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
 ,formatter_report_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+,formatter_report_signext_private::next_word
+#endif
 #endif
 #endif
                )||
@@ -1366,10 +1398,40 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     }
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
     if(formatter_nested->stage()==36u){
-        if(!formatter_nested->stop_after_caller_report_immediate(c,pc,w,
-               formatter_nested_held(c)))formatter_nested_refuse(2);
+        const bool held=formatter_nested_held(c);
+        if(!formatter_nested->stop_after_caller_report_immediate(c,pc,w,held))
+            formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+        if(!formatter_report_signext||
+           !formatter_report_signext->arm(c,
+              formatter_report_signext_private::root,
+              formatter_report_signext_private::pc,
+              formatter_report_signext_private::word,
+              formatter_report_signext_private::next_word,
+              formatter_report_signext_private::return_pc,
+              formatter_report_signext_private::destination_reg,
+              formatter_report_signext_private::input_value,
+              formatter_report_signext_private::output_value)||
+           !formatter_nested->resume_caller_report_signext(c,
+              formatter_report_signext_private::destination_reg,
+              formatter_report_signext_private::input_value,
+              formatter_report_signext_private::output_value,held))
+            formatter_nested_refuse(2);
+        return; // the original translated extsb executes exactly once
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+    if(formatter_nested->stage()==38u){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_report_signext||
+           !formatter_report_signext->observe(c,pc,w)||
+           !formatter_nested->stop_after_caller_report_signext(c,pc,w,held))
+            formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
@@ -4059,7 +4121,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_report_copy_private::next_pc,formatter_report_copy_private::next_word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
         c.mmu.write32(formatter_report_immediate_private::next_pc,formatter_report_immediate_private::next_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+        c.mmu.write32(formatter_report_signext_private::next_pc,formatter_report_signext_private::next_word);
+        c.mmu.write32(formatter_report_signext_private::next_pc+4u,0x44000002u);
+#else
         c.mmu.write32(formatter_report_immediate_private::next_pc+4u,0x44000002u);
+#endif
 #else
         c.mmu.write32(formatter_report_copy_private::next_pc+4u,0x44000002u);
 #endif
@@ -5240,6 +5307,9 @@ int main(int argc,char** argv)try{
             formatter_report_byte.emplace();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
             formatter_report_compare.emplace();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+            formatter_report_signext.emplace();
+#endif
 #endif
 #endif
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
@@ -5252,7 +5322,14 @@ int main(int argc,char** argv)try{
                 formatter_report_compare&&formatter_report_compare->stage()==2u&&!formatter_report_compare->failed()&&
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY
                 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
+                #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+                 formatter_report_signext&&formatter_report_signext->stage()==2u&&
+                 !formatter_report_signext->failed()&&
+                 nested.reached_caller_report_signext(c,nested_boundary_held)&&
+                 nested.caller_report_signext_visits()==1u&&
+                #else
                  nested.reached_caller_report_immediate(c,nested_boundary_held)&&
+                #endif
                  nested.caller_report_immediate_visits()==1u&&
 #else
                  nested.reached_caller_report_copy(c,nested_boundary_held)&&
@@ -5368,7 +5445,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT)
+                "FORMATTER_CALLER_REPORT_SIGNEXT_TRIAL n="
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE)
                 "FORMATTER_CALLER_REPORT_IMMEDIATE_TRIAL n="
 #elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_COPY)
                 "FORMATTER_CALLER_REPORT_COPY_TRIAL n="
@@ -5416,13 +5495,16 @@ int main(int argc,char** argv)try{
                 <<" copy_verified="<<nested.caller_report_copy_visits()
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
                 <<" immediate_verified="<<nested.caller_report_immediate_visits()
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+                <<" signext_verified="<<nested.caller_report_signext_visits()
+#endif
 #endif
 #endif
 #endif
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
                 <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=0"
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()<<'\n';
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()+nested.caller_report_copy_visits()+nested.caller_report_immediate_visits()+nested.caller_report_signext_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5501,6 +5583,9 @@ int main(int argc,char** argv)try{
             formatter_report_byte.reset();
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
             formatter_report_compare.reset();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+            formatter_report_signext.reset();
+#endif
 #endif
 #endif
 #endif
@@ -5791,7 +5876,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT)
+        "FORMATTER_CALLER_REPORT_SIGNEXT_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE)
         "FORMATTER_CALLER_REPORT_IMMEDIATE_NATIVE"
 #elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_COPY)
         "FORMATTER_CALLER_REPORT_COPY_NATIVE"
@@ -5837,6 +5924,9 @@ int main(int argc,char** argv)try{
         <<" copies_verified=8"
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
         <<" immediates_verified=8"
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+        <<" signexts_verified=8"
+#endif
 #endif
 #endif
 #endif
@@ -5870,6 +5960,9 @@ int main(int argc,char** argv)try{
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE
         +1u
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT
+        +1u
+#endif
 #endif
         )
         <<" ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
