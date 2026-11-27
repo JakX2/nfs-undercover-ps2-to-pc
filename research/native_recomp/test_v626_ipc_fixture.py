@@ -67,7 +67,7 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             assemble({**blocks,start+61*4:(0x4e800020,)},start,max_roots=61)
         with self.assertRaises(ValueError):
-            assemble({**blocks,start+0x50000:(0x4e800020,)},start,max_roots=61)
+            assemble({**{a:w for a,w in blocks.items() if a!=start+60*4},start+0x50000:(0x4e800020,)},start,max_roots=61)
         with self.assertRaises(ValueError):
             assemble({**blocks,start+4:(0x4e800020,0x4e800020)},start,max_roots=61)
     def test_isolated_sections(self):
