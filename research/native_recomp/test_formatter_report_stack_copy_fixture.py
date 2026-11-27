@@ -177,8 +177,13 @@ class StackCopyFixture(unittest.TestCase):
             ('!formatter_report_compare->arm(',
              'return;'),
         )
+        # The 120 argument must remain inside its own guard. A separately
+        # gated original 121 successor is allowed before that guard closes.
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY'
-                    r'\s*,formatter_report_copy_private::next_word\s*#endif')
+                    r'\s*,formatter_report_copy_private::next_word\s*'
+                    r'(?:#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
+                    r'\s*,formatter_report_immediate_private::next_word'
+                    r'\s*#endif\s*)?#endif')
         for opening, terminal in calls:
             with self.subTest(call=opening):
                 self.assertEqual(source.count(opening), 1)
