@@ -1,5 +1,49 @@
 # Boot-first native recompilation loop (source-only tooling)
 
+## November 27, 2026: 118 native and guarded 119 continuation
+
+These are **bounded original-game AOT fixture** milestones, not complete
+`__start` -> `main` or proof of a first rendered frame.
+
+- **118 verified:** [owner-native run 45981017489](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45981017489)
+  passed the original report-frame byte load and successor-label check
+  in all eight trials, with no interpreter fallback; aggregate
+  instruction visits in that run were 944.
+- **119 operation authenticated, execution not yet verified:** the private
+  source audit identified an immediate comparison that writes a condition
+  register field. The initial candidate incorrectly assumed that the
+  compare reads the register just written by the byte load. Its private
+  owner run correctly refused that source identity assumption.
+- The replacement private contract derives the comparison's **actual
+  single constant operand** from the already reconstructed original
+  caller GPR state. No arbitrary live register is admitted by sampling.
+  The original following word is preserved and guarded one word later.
+  The comparison and prior byte-load witnesses remain read-only.
+- The synthetic joined comparison regressions check signed and unsigned
+  conditions, the selected CR field, XER.SO, all other CR fields,
+  source identity, register preservation, exactly one guest tick,
+  preserved callee return guard and corrupted following-word guards.
+  The [first dedicated 119 native owner workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45989548040)
+  passed its original-free job; the private job refused because the
+  pinned 119 provenance audit had not completed.
+- The 119 source-only plan now **reuses one authenticated byte-load
+  predecessor GPR snapshot** instead of independently repeating the
+  full private caller/ancestor analysis. Regression tests guard the
+  single-snapshot contract.
+
+The opt-in native runner mode is
+`--formatter-nested-caller-report-compare`. It must not be used to
+advance the verified counter until the private provenance gate and
+eight original-game trials finish successfully with valid compare CR
+effects and zero interpreter fallback.
+
+**Current verified frontier for this bounded fixture: 118 original instructions.**
+The continuous original `__start` lane, whole-image link/startup lane,
+and bounded report/formatter lane are distinct and must not be aggregated
+into a single boot achievement. The game `main`, frontend, first real
+frame and gameplay remain unreached.
+
+
 ## V415: complete-image native link lane (independent of NAND startup)
 
 The authenticated November 17 whole-image run
