@@ -534,6 +534,12 @@ static constexpr uint32_t post_ctr_written_mask=[]{
     return m;
 }();
 static_assert(std::popcount(post_ctr_written_mask)==16);
+#ifdef UNDERCOVER_FORMATTER_PARTIAL
+static_assert(formatter_partial_private::path.size()==95u&&formatter_partial_private::accesses.size()==26u);
+static_assert(formatter_partial_private::expected.boundary.instruction&&formatter_partial_private::slots.size()==4u);
+static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return a.write;})==17u);
+static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return a.expected_value.has_value();})==5u);
+#endif
 #endif
 #elif defined(UNDERCOVER_FORMATTER_THIRD)
 static_assert(formatter_nested_private::path.size()==74u&&formatter_nested_private::accesses.size()==18u);
@@ -981,7 +987,9 @@ static bool formatter_nested_held(nw::CPUContext& c){
         sp,post_stm_report->linkage_word(),864u+extra,256u);
     const auto report=post_stm_report->child_frame_held(c,outer,sp,post_stm_helper->linkage_word(),736u+extra,extra);
     const auto helper=post_stm_helper->child_frame_held(c,report,sp,post_stm_formatter->linkage_word(),704u+extra,extra);
-    const auto parent_held=post_stm_formatter->child_frame_held(c,helper,sp,formatter_nested->linkage_word());
+    const auto parent_held=formatter_nested->has_caller_stores()?
+        post_stm_formatter->child_frame_held_with_stores(c,helper,*formatter_nested):
+        post_stm_formatter->child_frame_held(c,helper,sp,formatter_nested->linkage_word());
     return post_stm_formatter_leaf->object_held(c,post_stm_resume->object_held(c,post_stm_dependency->object_held(c,
         post_stm_version_data->data_held(c,post_stm_objects->objects_held(c,parent_held)))));
 }
@@ -996,9 +1004,21 @@ static bool formatter_nested_held(nw::CPUContext& c){
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!formatter_nested)formatter_nested_refuse(2);
 #ifdef UNDERCOVER_FORMATTER_POST_CTR
-    if(pc==formatter_post_ctr_private::expected.target){
-        if(!formatter_nested->stop_before_load(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_PARTIAL
+    if(pc==formatter_partial_private::expected.target){
+        if(!formatter_nested->stop_before_instruction(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
+    }
+#endif
+    if(pc==formatter_post_ctr_private::expected.target){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_nested->stop_before_load(c,pc,w,held))formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_PARTIAL
+        if(!formatter_nested->resume_stack_path(c,formatter_partial_private::expected,*post_stm_formatter,post_ctr_written_mask,held))formatter_nested_refuse(2);
+        return; // the original load body reads the existing guest bytes
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
     }
 #elif defined(UNDERCOVER_FORMATTER_ARRIVAL)
     if(pc==formatter_nested_private::expected.control.destination){
@@ -3439,6 +3459,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_POST_CTR
         for(auto w:formatter_post_ctr_private::path)c.mmu.write32(w.pc,w.word);
         c.mmu.write32(formatter_post_ctr_private::expected.target,formatter_post_ctr_private::expected.target_word);
+#ifdef UNDERCOVER_FORMATTER_PARTIAL
+        for(auto w:formatter_partial_private::path)c.mmu.write32(w.pc,w.word);
+        c.mmu.write32(formatter_partial_private::expected.target,formatter_partial_private::expected.target_word);
+#endif
 #endif
 #endif
 #endif
@@ -4580,7 +4604,9 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             const bool nested_boundary_held=formatter_nested_held(c);
-#ifdef UNDERCOVER_FORMATTER_POST_CTR
+#if defined(UNDERCOVER_FORMATTER_PARTIAL)
+            const bool nested_reached=nested.reached_instruction_boundary(c,nested_boundary_held);
+#elif defined(UNDERCOVER_FORMATTER_POST_CTR)
             const bool nested_reached=nested.reached_load_boundary(c,nested_boundary_held);
 #elif defined(UNDERCOVER_FORMATTER_ARRIVAL)
             const bool nested_reached=nested.reached_control_destination(c,nested_boundary_held);
@@ -4589,7 +4615,9 @@ int main(int argc,char** argv)try{
                 nested.reached_control_boundary(c,nested_boundary_held):nested.reached_load_boundary(c,nested_boundary_held);
 #endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
- #ifdef UNDERCOVER_FORMATTER_POST_CTR
+ #if defined(UNDERCOVER_FORMATTER_PARTIAL)
+               nested.visits()!=95u||nested.loads()!=9u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||
+#elif defined(UNDERCOVER_FORMATTER_POST_CTR)
                nested.visits()!=84u||nested.loads()!=8u||nested.authenticated_loads()!=post_ctr_authenticated||nested.stores()!=13u||
                nested.stack_boundary_written_mask(c,nested_boundary_held)!=post_ctr_written_mask||
 #else
@@ -4608,7 +4636,10 @@ int main(int argc,char** argv)try{
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_POST_CTR)
+#if defined(UNDERCOVER_FORMATTER_PARTIAL)
+            std::cout<<"FORMATTER_PARTIAL_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95\n";
+#elif defined(UNDERCOVER_FORMATTER_POST_CTR)
             std::cout<<"FORMATTER_POST_CTR_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads="<<post_ctr_authenticated
                 <<" local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84\n";
@@ -4919,7 +4950,9 @@ int main(int argc,char** argv)try{
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_POST_CTR)
+#if defined(UNDERCOVER_FORMATTER_PARTIAL)
+    std::cout<<"FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=72 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#elif defined(UNDERCOVER_FORMATTER_POST_CTR)
     std::cout<<"FORMATTER_POST_CTR_NATIVE owner=1 trials=8 native_prefix=8 loads=64 stores=104 nonvolatile=24 authenticated_loads="<<8u*post_ctr_authenticated
         <<" local_transfer=8 stack_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=672 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #elif defined(UNDERCOVER_FORMATTER_ARRIVAL)

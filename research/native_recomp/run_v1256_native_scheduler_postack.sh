@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
-reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0;formatter_second_mode=0;formatter_third_mode=0;formatter_control_mode=0;formatter_arrival_mode=0;formatter_post_ctr_mode=0
+reply_entry_mode=0;reply_body_mode=0;wake_ready_mode=0;nested_wake_mode=0;reply_return_mode=0;ready_idle_mode=0;coop_save_mode=0;reply_helper_mode=0;save_continuity_mode=0;selection_mode=0;coop_load_mode=0;sleep_resume_mode=0;sleep_exit_mode=0;submit_resume_mode=0;allocator_release_mode=0;allocator_metadata_mode=0;open_return_mode=0;second_open_mode=0;second_request_mode=0;second_submit_mode=0;second_scheduler_mode=0;second_reply_mode=0;second_restore_mode=0;second_free_mode=0;second_return_mode=0;stm_ioctl_mode=0;ioctl_prefix_mode=0;ioctl_alloc_mode=0;ioctl_build_mode=0;ioctl_flush_mode=0;ioctl_output_mode=0;ioctl_submit_prefix_mode=0;ioctl_header_mode=0;ioctl_queue_mode=0;ipc_profile_mode=0;ipc_dispatch_mode=0;ipc_deferred_mode=0;async_return_mode=0;async_wrapper_mode=0;stm_event_return_mode=0;stm_outer_mode=0;stm_vector_mode=0;stm_dispatch_mode=0;stm_ack_mode=0;stm_active_return_mode=0;stm_resumed_restore_mode=0;stm_final_return_mode=0;post_stm_sc_mode=0;post_stm_disable_mode=0;post_stm_decision_mode=0;post_stm_restore_mode=0;post_stm_version_mode=0;post_stm_report_mode=0;post_stm_helper_mode=0;post_stm_dependency_mode=0;post_stm_resume_mode=0;post_stm_formatter_mode=0;post_stm_formatter_leaf_mode=0;formatter_continuation_mode=0;formatter_nested_mode=0;formatter_second_mode=0;formatter_third_mode=0;formatter_control_mode=0;formatter_arrival_mode=0;formatter_post_ctr_mode=0;formatter_partial_mode=0
+if [[ $# == 4 && "$4" == --formatter-nested-partial ]];then
+  formatter_partial_mode=1
+  set -- "$1" "$2" "$3" --formatter-nested-post-ctr
+fi
 if [[ $# == 4 && "$4" == --formatter-nested-post-ctr ]];then
   formatter_post_ctr_mode=1
   set -- "$1" "$2" "$3" --formatter-nested-arrival
@@ -340,6 +344,7 @@ if [[ "$formatter_third_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_THIRD)
 if [[ "$formatter_control_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_CONTROL);nested_args=(--control);fi
 if [[ "$formatter_arrival_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_ARRIVAL);nested_args=(--arrival);fi
 if [[ "$formatter_post_ctr_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_POST_CTR);nested_args=(--post-ctr);fi
+if [[ "$formatter_partial_mode" == 1 ]];then extra+=(-DUNDERCOVER_FORMATTER_PARTIAL);nested_args=(--partial);fi
 helper_args=()
 if [[ "$reply_helper_mode" == 1 ]];then extra+=(-DUNDERCOVER_V1316_REPLY_HELPER);helper_args=(--helper);fi
 root="$(realpath "$1")";here="$(cd "$(dirname "$0")" && pwd)"
@@ -556,13 +561,14 @@ grep -Ex 'FORMATTER_THIRD_TRIAL n=[0-7] native_prefix=1 frame=48 loads=5 stores=
 grep -Ex 'FORMATTER_CONTROL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 pre_transfer_stop=1 transfer_executed=0 deferred=1 reply=0 visits=76' "$work/run.log" || true
 grep -Ex 'FORMATTER_ARRIVAL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77' "$work/run.log" || true
 grep -Ex 'FORMATTER_POST_CTR_TRIAL n=[0-7] native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=5 local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84' "$work/run.log" || true
-if [[ "$formatter_post_ctr_mode" == 1 ]];then
+if [[ "$formatter_post_ctr_mode" == 1 && "$formatter_partial_mode" == 0 ]];then
   for i in {0..7};do
     marker="FORMATTER_POST_CTR_STACK_PROVENANCE_TRIAL n=$i written_bytes=2 unwritten_bytes=2 mask_match=1 guest_load=0"
     [[ "$(grep -Fxc "$marker" "$work/run.log" || true)" == 1 ]] || { echo "FORMATTER_POST_CTR_STACK_PROVENANCE verified=0";exit 1; }
   done
   echo 'FORMATTER_POST_CTR_STACK_PROVENANCE verified=1 trials=8 written_bytes=16 unwritten_bytes=16 guest_loads=0'
 fi
+grep -Ex 'FORMATTER_PARTIAL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 
