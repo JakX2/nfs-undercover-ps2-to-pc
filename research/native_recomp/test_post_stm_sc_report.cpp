@@ -1,4 +1,4 @@
-#include "wii_post_stm_sc_report.h"
+#include "wii_formatter_report_byte_transition.h"
 #include <cassert>
 #include <iostream>
 using namespace undercover::wii;
@@ -54,6 +54,54 @@ static void trial(unsigned fault){
     const auto parent=c.gpr[1];const auto child_link=c.lr;
     c.mmu.write32(parent+4,child_link);c.gpr[1]=parent-736;
     assert(w.child_frame_held(c,true,c.gpr[1],child_link,736));
+    if(fault>=21){
+        constexpr uint32_t callee=B+0x300u;
+        uint32_t load=ins(34,fault==39?1u:9u,7,0);
+        if(fault==37)load=(31u<<26)|(9u<<21)|(7u<<16)|(8u<<11)|(87u<<1);
+        if(fault==38)load=ins(35,9,7,0); // update-form is not admitted
+        c.gpr[7]=parent+(fault==40?24u:8u);
+        c.gpr[8]=0u;
+        c.pc=callee;
+        c.mmu.write32(callee,load);
+        c.mmu.write32(callee+4,Nop);
+        FormatterReportByteTransition observer;
+        FormatterReportByteStep s{callee,load,callee+4,Nop,c.lr,
+            c.gpr[7],c.gpr[1],child_link,736u,0u,1u};
+        const bool armed=observer.arm(c,w,s,true);
+        if(fault==38||fault==39||fault==40){
+            assert(!armed&&observer.failed()&&observer.stage()==0u);
+            return;
+        }
+        assert(armed&&observer.stage()==1u&&!observer.failed());
+        ++c.inst_count;
+        c.pc=callee+4;
+        c.gpr[9]=fault==22?0u:1u;
+        if(fault==23)c.gpr[5]^=1u;
+        if(fault==24)c.ctr^=1u;
+        if(fault==25)c.lr^=4u;
+        if(fault==26)c.pc+=4u;
+        if(fault==27)c.gqr[3]^=1u;
+        if(fault==28)c.cr[0].eq=!c.cr[0].eq;
+        if(fault==29)c.msr^=0x8000u;
+        if(fault==30)++c.inst_count;
+        if(fault==31)c.mmu.write32(parent+8u,0u);
+        if(fault==32)c.mmu.write32(callee+4,Nop^1u);
+        if(fault==33)c.mmu.write32(callee,load^1u);
+        if(fault==34)c.gpr[7]+=1u;
+        if(fault==36)c.lr+=4u;
+        if(fault==43)c.srr1^=1u;
+        if(fault==42){
+            Cpu copy=c;
+            assert(!observer.observe(copy,w,true)&&observer.failed());
+            return;
+        }
+        const bool stopped=observer.observe(c,w,fault!=35);
+        if(fault==21||fault==37||fault==41){
+            assert(stopped&&observer.stage()==2u&&!observer.failed());
+            if(fault==41)assert(!observer.observe(c,w,true)&&observer.failed());
+        }else assert(!stopped&&observer.failed());
+        return;
+    }
     if(fault>=14){
         const auto observe=[&](uint32_t a,bool held=true){
             return w.observed_child_byte(c,held,c.gpr[1],child_link,736u,a);
@@ -131,5 +179,5 @@ static void missing_entry(){
     assert(w.begin(c,true)&&w.poll(c,true));c.inst_count+=2;
     assert(!w.before(c,R,path[0].word,true));
 }
-int main(){for(unsigned i=0;i<=20;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
-    std::cout<<"POST_STM_SC_REPORT_TEST cases=24 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=43;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
+    std::cout<<"POST_STM_SC_REPORT_TEST cases=47 original_execution=0\n";}
