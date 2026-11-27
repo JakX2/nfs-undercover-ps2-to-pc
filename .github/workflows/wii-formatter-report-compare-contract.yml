@@ -5,6 +5,7 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/prepare_formatter_report_compare_fixture.py'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
       - 'research/native_recomp/test_formatter_report_compare_fixture.py'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
       - 'research/native_recomp/test_formatter_caller_integer.cpp'
@@ -25,8 +26,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           set -euo pipefail
-          python3 -m py_compile research/native_recomp/prepare_formatter_report_compare_fixture.py research/native_recomp/test_formatter_report_compare_fixture.py
+          python3 -m py_compile research/native_recomp/prepare_formatter_report_compare_fixture.py research/native_recomp/test_formatter_report_compare_fixture.py research/native_recomp/prepare_formatter_nested_fixture.py
           python3 research/native_recomp/test_formatter_report_compare_fixture.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_caller_integer.cpp -o /tmp/test_formatter_caller_integer
           /tmp/test_formatter_caller_integer
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_report_byte_transition.cpp -o /tmp/test_formatter_report_byte_transition
