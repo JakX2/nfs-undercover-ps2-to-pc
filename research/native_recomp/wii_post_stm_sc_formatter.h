@@ -584,6 +584,42 @@ public:
     template<class C>bool reached_caller_branch(C& c,bool held)const{
         return stage_==15u&&branch_completed_&&branch_storage(c,held,branch_completed_)&&visits_==e_.path.size()+1u;
     }
+    // A second register-only block begins at the selected branch label.
+    // Preserve the first block and both edge proofs throughout this stage.
+    template<class C>bool resume_caller_post_integers(C& c,std::span<const ScCallerIntegerStep> path,
+                                                      uint32_t end_pc,uint32_t end_word,bool held){
+        if(!reached_caller_branch(c,held)||branch_completed_!=2u||path.empty()||path.size()>8u||
+           path.front().pc!=branches_[1].next_pc||path.front().word!=branches_[1].next_word||
+           uint64_t(path.front().pc)+4u*path.size()!=end_pc||end_word==0x44000002u||
+           !word(c,end_pc,end_word))return fail(6);
+        const auto owner=caller_parent_->e_.root;
+        if(end_pc<owner||uint64_t(end_pc)+4u>uint64_t(owner)+branch_owner_size_)return fail(6);
+        for(unsigned i=0;i<path.size();++i)
+            if(path[i].pc!=path.front().pc+4u*i||path[i].word==0x44000002u||
+               path[i].inputs.size()>3u||!word(c,path[i].pc,path[i].word))return fail(6);
+        for(auto b:branches_)
+            if(b.other_pc>=path.front().pc&&b.other_pc<=end_pc)return fail(6);
+        post_integer_path_=path;post_integer_end_pc_=end_pc;post_integer_end_word_=end_word;
+        if(!predict_integer(c,path.front()))return fail(6);
+        stage_=16u;return true;
+    }
+    template<class C>bool caller_post_integer_boundary(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=16u||post_integer_completed_>=post_integer_path_.size()||
+           !post_integer_storage(c,held,post_integer_completed_+1u))return fail(6);
+        const auto i=post_integer_completed_+1u;
+        const bool done=i==post_integer_path_.size();
+        if(pc!=(done?post_integer_end_pc_:post_integer_path_[i].pc)||
+           w!=(done?post_integer_end_word_:post_integer_path_[i].word))return fail(6);
+        ++post_integer_completed_;
+        if(done){stage_=17u;return true;}
+        if(!predict_integer(c,post_integer_path_[i]))return fail(6);
+        return true;
+    }
+    unsigned caller_post_integer_visits()const{return post_integer_completed_;}
+    template<class C>bool reached_caller_post_integers(C& c,bool held)const{
+        return stage_==17u&&!post_integer_path_.empty()&&post_integer_completed_==post_integer_path_.size()&&
+            post_integer_storage(c,held,post_integer_completed_)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -686,14 +722,23 @@ private:
     std::array<CallerBranchEdge,2> branches_{};
     unsigned branch_completed_=0;
     uint32_t branch_owner_size_=0;
-    template<class C>bool branch_storage(C& c,bool held,unsigned n)const{
+    template<class C>bool branch_storage(C& c,bool held,unsigned n,unsigned extra=0u)const{
         if(!n||n>branches_.size()||integer_completed_!=integer_path_.size()||!integer_code(c)||
-           !return_storage(c,held,3u+integer_completed_+n))return false;
+           !return_storage(c,held,3u+integer_completed_+n+extra))return false;
         for(unsigned i=0;i<n;++i){
             const auto& b=branches_[i];
             if(!word(c,b.pc,b.word)||!word(c,b.next_pc,b.next_word)||
                !word(c,b.other_pc,0x44000002u))return false;
         }
+        return true;
+    }
+    std::span<const ScCallerIntegerStep> post_integer_path_{};
+    uint32_t post_integer_end_pc_=0,post_integer_end_word_=0;
+    unsigned post_integer_completed_=0;
+    template<class C>bool post_integer_storage(C& c,bool held,unsigned n)const{
+        if(branch_completed_!=2u||!branch_storage(c,held,2u,n)||
+           !word(c,post_integer_end_pc_,post_integer_end_word_))return false;
+        for(auto step:post_integer_path_)if(!word(c,step.pc,step.word))return false;
         return true;
     }
     uint32_t caller_modified_mask_=0;
