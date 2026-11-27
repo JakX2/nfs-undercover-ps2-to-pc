@@ -9,7 +9,7 @@ struct ScFormatterAccess {
     bool stack,write;
     std::optional<uint32_t> expected_value{}; // independently authenticated raw load value
 };
-struct ScFormatterBoundary {uint32_t address=0,width=0;bool stack=false;int32_t caller_offset=0;};
+struct ScFormatterBoundary {uint32_t address=0,width=0;bool stack=false;int32_t caller_offset=0;bool instruction=false;};
 struct ScFormatterControlBoundary {uint32_t destination=0,word=0,owner_size=0;};
 struct ScFormatterExpectation {
     uint32_t root,entry_lr,target,target_word,frame_size;
@@ -54,6 +54,7 @@ public:
                !word(c,dst,e_.control.word)||
                std::any_of(e_.path.begin(),e_.path.end(),[&](auto x){return !inside(x.pc)||x.pc==dst||x.pc==e_.target;}))return fail(1);
         }else if(e_.control.word||e_.control.owner_size)return fail(1);
+        if(e_.boundary.instruction)return fail(1); // only via authenticated stack continuation
         if(e_.boundary.width){
             if(e_.boundary.stack||e_.boundary.caller_offset)return fail(1); // only via authenticated control continuation
             const auto form=decode_load(e_.target_word);
@@ -98,18 +99,18 @@ public:
         const uint32_t imm=uint32_t(int32_t((w&0xffffu)^0x8000u)-0x8000);
         const uint32_t ea=(ra?gp_[ra]:0u)+imm;
         if(op==37u&&rs==1u&&ra==1u){
-            if(stores_||gp_[1]!=incoming_[1]||ea!=frame_.base||!access(pc,ea,4,true)||!store(ea,4,gp_[1]))return fail(5);
+            if(stores_||gp_[1]!=incoming_[1]||ea!=frame_.base||!access(pc,ea,4,true)||!store(pc,ea,4,gp_[1]))return fail(5);
             ++stores_;gp_[1]=ea;
         }else if(op==36u||op==38u||op==44u||op==47u||op==37u||op==39u||op==45u){
             const unsigned n=op==36u||op==37u||op==47u?4u:op==38u||op==39u?1u:2u,count=op==47u?32u-rs:1u;
             if(gp_[1]!=frame_.base||!access(pc,ea,n*count,true))return fail(5);
-            for(unsigned i=0;i<count;++i)if(!store(ea+n*i,n,gp_[rs+i]))return fail(5);
+            for(unsigned i=0;i<count;++i)if(!store(pc,ea+n*i,n,gp_[rs+i]))return fail(5);
             ++stores_;
             if(op==37u||op==39u||op==45u){if(!ra||ra==1u)return fail(5);gp_[ra]=ea;}
         }else if(op==31u&&(xo==151u||xo==183u||xo==215u||xo==247u||xo==407u||xo==439u)){
             const unsigned n=xo==151u||xo==183u?4u:xo==215u||xo==247u?1u:2u;
             const uint32_t a=(ra?gp_[ra]:0u)+gp_[rb];
-            if(gp_[1]!=frame_.base||!access(pc,a,n,true)||!store(a,n,gp_[rs]))return fail(5);
+            if(gp_[1]!=frame_.base||!access(pc,a,n,true)||!store(pc,a,n,gp_[rs]))return fail(5);
             ++stores_;
             if(xo==183u||xo==247u||xo==439u){if(!ra||ra==1u)return fail(5);gp_[ra]=a;}
         }else if(const auto form=decode_load(w);form.width){
@@ -232,7 +233,7 @@ public:
         if(stage_!=4u||c.pc!=e_.control.destination||c.inst_count-last_!=1u||
            !control_storage(c,held)||next.root!=e_.root||next.entry_lr!=e_.entry_lr||
            next.frame_size!=e_.frame_size||next.control.destination||next.control.word||next.control.owner_size||
-           !next.boundary.stack||next.boundary.address||next.boundary.width!=4u||
+           !next.boundary.stack||next.boundary.instruction||next.boundary.address||next.boundary.width!=4u||
            next.boundary.caller_offset%4||next.boundary.caller_offset<4-int64_t(e_.frame_size)||
            next.boundary.caller_offset>-4||decode_load(next.target_word).width!=4u||
            next.path.size()<e_.path.size()+2u||next.path.size()>128u||
@@ -263,8 +264,83 @@ public:
         }
         // The native branch has already completed and the outer dispatcher
         // tick is observed. No CPU or guest memory state is changed here.
-        e_=next;++visits_;last_=c.inst_count;boundary_due_=false;stage_=1u;return true;
+        owner_size_=e_.control.owner_size;e_=next;++visits_;last_=c.inst_count;boundary_due_=false;stage_=1u;return true;
     }
+    // Continue at the already-ticked, verified partial load. The caller
+    // shadow is owned by the original parent witness, not a new guest seed.
+    // Unknown initial bytes remain conditional live observations.
+    template<class C>bool resume_stack_path(C& c,ScFormatterExpectation next,
+            const ScFormatterWitness& parent,uint32_t written_mask,bool held){
+        if(!reached_load_boundary(c,held)||!e_.boundary.stack||!owner_size_||caller_parent_||
+           stack_boundary_written_mask(c,held)!=written_mask||std::popcount(written_mask)!=16||
+           next.root!=e_.root||next.entry_lr!=e_.entry_lr||next.frame_size!=e_.frame_size||
+           next.control.destination||next.control.word||next.control.owner_size||
+           !next.boundary.instruction||next.boundary.width||next.boundary.address||next.boundary.stack||next.boundary.caller_offset||
+           next.path.size()<=e_.path.size()||next.path.size()>128u||
+           next.accesses.size()<=e_.accesses.size()||next.accesses.size()>32u||
+           next.slots.size()!=e_.slots.size()||!word(c,next.target,next.target_word)||
+           !parent.child_frame_held(c,held,frame_.base,linkage_word())||
+           parent.frame_.base!=incoming_[1]||parent.cpu_!=cpu_||parent.e_.frame_size!=704u)return fail(6);
+        const auto i=e_.path.size(),j=e_.accesses.size();
+        const auto inside=[&](uint32_t a){return !(a&3u)&&a>=e_.root&&uint64_t(a)+4u<=uint64_t(e_.root)+owner_size_;};
+        if(!inside(next.target)||next.path[i].pc!=e_.target||next.path[i].word!=e_.target_word)return fail(6);
+        for(unsigned k=0;k<next.path.size();++k){
+            const auto x=next.path[k];
+            if(x.owner!=e_.root||!inside(x.pc)||x.pc==next.target||!word(c,x.pc,x.word)||
+               std::count_if(next.path.begin(),next.path.end(),[&](auto y){return x.pc==y.pc;})!=1||
+               (k<i&&(x.pc!=e_.path[k].pc||x.word!=e_.path[k].word)))return fail(6);
+        }
+        for(unsigned k=0;k<next.slots.size();++k)if(next.slots[k].reg!=e_.slots[k].reg||
+            next.slots[k].caller_offset!=e_.slots[k].caller_offset)return fail(6);
+        std::vector<ScFormatterAccess> permitted;
+        const auto partial=next.accesses[j];
+        if(partial.pc!=e_.target||partial.width!=4u||partial.address!=e_.boundary.caller_offset||
+           !partial.stack||partial.write||partial.expected_value)return fail(6);
+        for(unsigned k=0;k<next.accesses.size();++k){
+            const auto x=next.accesses[k];
+            if(k<j){
+                const auto y=e_.accesses[k];
+                if(x.pc!=y.pc||x.width!=y.width||x.address!=y.address||x.stack!=y.stack||x.write!=y.write||x.expected_value!=y.expected_value)return fail(6);
+            }else{
+                if((x.width!=1u&&x.width!=2u&&x.width!=4u)||
+                   std::none_of(next.path.begin()+i,next.path.end(),[&](auto y){return x.pc==y.pc;})||
+                   (!x.stack&&(!x.expected_value||x.write))||(x.stack&&x.expected_value))return fail(6);
+                if(x.write){
+                    // Every new store must target a distinct unused byte
+                    // range within the parent's real frame, never linkage,
+                    // backchain, saved registers or inherited writes.
+                    if(x.address<8||x.address+x.width>parent.e_.frame_size||x.address%x.width||
+                       permitted.size()>=8u)return fail(6);
+                    for(unsigned q=0;q<x.width;++q)if(parent.written_[unsigned(x.address)+q])return fail(6);
+                    for(auto y:permitted)if(x.address<y.address+y.width&&y.address<x.address+x.width)return fail(6);
+                    permitted.push_back(x);
+                }
+            }
+            if(std::count_if(next.accesses.begin(),next.accesses.end(),[&](auto y){return x.pc==y.pc;})!=1)return fail(6);
+        }
+        if(permitted.empty()||!last_)return fail(6);
+        caller_parent_=&parent;caller_stores_=std::move(permitted);
+        caller_expected_=parent.shadow_;caller_written_.resize(parent.shadow_.size());
+        // The boundary hook already counted its native label tick, but
+        // the load body has not run. Reuse that tick in before(), not a
+        // second guest tick. No register or guest memory is modified.
+        const auto pc=e_.target,w=e_.target_word;
+        e_=next;boundary_due_=false;stage_=1u;--last_;
+        return before(c,pc,w,held);
+    }
+    template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
+           visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
+           c.inst_count-last_!=1u||!common(c,held)||!word(c,pc,w)||!abi(c)||
+           caller_stores_.size()!=caller_store_count_)return fail(6);
+        last_=c.inst_count;stage_=2u;return true;
+    }
+    template<class C>bool reached_instruction_boundary(C& c,bool held)const{
+        return stage_==2u&&e_.boundary.instruction&&boundary_due_&&!due_&&!back_poll_due_&&
+            common(c,held)&&c.inst_count==last_&&abi(c)&&word(c,e_.target,e_.target_word)&&
+            caller_stores_.size()==caller_store_count_;
+    }
+    unsigned caller_store_count()const{return caller_store_count_;}
     template<class C>bool stop_before_control_destination(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=4u||pc!=e_.control.destination||c.pc!=pc||w!=e_.control.word||
            c.inst_count-last_!=2u||!control_storage(c,held))return fail(6);
@@ -297,6 +373,23 @@ public:
         }
         return true;
     }
+    // Parent checks *all* original bytes, replacing only the exact
+    // child-predicted values at already witnessed caller-store sites.
+    template<class C>bool child_frame_held_with_stores(C& c,bool held,const ScFormatterWitness& child)const{
+        if(child.caller_parent_!=this||child.cpu_!=cpu_||child.error_||!held||stage_!=2u||!due_||
+           error_||cpu_!=&c||!safe(c)||c.gpr[1]!=frame_.base-48u||
+           c.inst_count<last_||c.inst_count-last_>128u||!mapped(c,frame_)||
+           child.caller_expected_.size()!=shadow_.size()||child.caller_written_.size()!=shadow_.size())return false;
+        for(unsigned i=0;i<shadow_.size();++i){
+            if(i>=4u&&i<8u&&written_[i])return false;
+            if(child.caller_written_[i]&&(i<8u||i>=e_.frame_size||written_[i]))return false;
+            const auto v=(i>=4u&&i<8u)?uint8_t(child.linkage_word()>>(24u-8u*(i-4u))):
+                child.caller_written_[i]?child.caller_expected_[i]:shadow_[i];
+            if(c.mmu.read8(frame_.base+i)!=v)return false;
+        }
+        return true;
+    }
+    bool has_caller_stores()const{return caller_parent_!=nullptr;}
 private:
     struct LoadForm {unsigned width=0;bool indexed=false,update=false,sign=false;};
     static LoadForm decode_load(uint32_t w){
@@ -318,6 +411,10 @@ private:
     ScFormatterExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
     std::vector<uint8_t> shadow_,written_;
+    const ScFormatterWitness* caller_parent_=nullptr;
+    std::vector<ScFormatterAccess> caller_stores_;
+    std::vector<uint8_t> caller_expected_,caller_written_;
+    unsigned caller_store_count_=0;uint32_t owner_size_=0;
     uint32_t msr_=0,cr_=0,lr_=0,ctr_=0,xer_=0,srr0_=0,srr1_=0;
     uint64_t last_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0,seen_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
@@ -326,7 +423,7 @@ private:
         return e_.control.destination&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&abi(c)&&
             ctr_==e_.control.destination&&word(c,e_.target,e_.target_word)&&word(c,e_.control.destination,e_.control.word);
     }
-    bool local_stop()const{return e_.boundary.width||e_.control.destination;}
+    bool local_stop()const{return e_.boundary.width||e_.boundary.instruction||e_.control.destination;}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t mask(unsigned mb,unsigned me){
         uint32_t v=0;for(unsigned i=0;i<32u;++i)if(mb<=me?(i>=mb&&i<=me):(i>=mb||i<=me))v|=1u<<(31u-i);return v;
@@ -347,7 +444,16 @@ private:
         if(expected<0||expected>0xffffffffll||a!=uint32_t(expected))return false;
         const auto i=unsigned(x-e_.accesses.begin());if(seen_&(1u<<i))return false;seen_|=1u<<i;return true;
     }
-    bool store(uint32_t a,unsigned n,uint32_t v){
+    bool store(uint32_t pc,uint32_t a,unsigned n,uint32_t v){
+        if(caller_parent_&&a>=incoming_[1]+8u){
+            const auto off=int64_t(a)-incoming_[1];
+            const auto it=std::find_if(caller_stores_.begin(),caller_stores_.end(),[&](auto x){return x.pc==pc&&x.address==off&&x.width==n;});
+            if(it==caller_stores_.end()||off<8||off+n>caller_parent_->e_.frame_size||a%n)return false;
+            for(unsigned i=0;i<n;++i)if(caller_written_[unsigned(off)+i])return false;
+            for(unsigned i=0;i<n;++i){const auto j=unsigned(off)+i;caller_written_[j]=1;
+                caller_expected_[j]=uint8_t(v>>(8u*(n-i-1u)));}
+            ++caller_store_count_;return true;
+        }
         if(!frame_.contains(a,n)||(a%n)||(a>=incoming_[1]&&(a!=incoming_[1]+4u||n!=4u||v!=e_.entry_lr)))return false;
         for(unsigned i=0;i<n;++i){const auto j=a-frame_.base+i;if(written_[j])return false;written_[j]=1;
             shadow_[j]=uint8_t(v>>(8u*(n-i-1u)));}

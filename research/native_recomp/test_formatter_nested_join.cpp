@@ -74,4 +74,92 @@ static void trial(unsigned fault){
     assert(ok&&child.reached_load_boundary(c,held())&&!parent.frame_held(c,true));
     assert(child.visits()==6&&child.loads()==1&&child.authenticated_loads()==1&&child.stores()==3&&c.mmu.unresolved_reads==0);
 }
-int main(){for(unsigned i=0;i<8;++i)trial(i);std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=8 original_execution=0\n";}
+// Synthetic joined frames: original computed transfer, partial load and
+// two caller stores. The observer predicts effects; the fixture applies
+// the independent instruction effects, including deliberately varied bytes.
+static void caller_trial(unsigned fault,uint32_t seed){
+    Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.mmu.write32(A,T+0x100u);
+    for(unsigned i=14;i<32;++i)c.gpr[i]=0x100u+i;
+    constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u,stop=dst+20u;
+    const auto parent_sp=SP-704u,child_sp=parent_sp-48u;
+    c.mmu.write32(child_sp+8,seed);c.mmu.write32(parent_sp+16,0xfacecafeu);
+    const std::array<IpcDispatchWord,5> pp{{{R,R,ins(37,1,1,-704)},{R,R+4,0x7c0802a6},
+        {R,R+8,ins(36,0,1,708)},{R,R+12,ins(47,16,1,640)},{R,R+16,bl(R+16,T)}}};
+    const std::array<ScFormatterAccess,3> pa{{{R,4,-704,true,true},{R+8,4,4,true,true},{R+12,64,-64,true,true}}};
+    std::array<StmFinalSlot,17> ps{};ps[0]={4,32};for(unsigned r=16;r<32;++r)ps[r-15]={int32_t(4*(int(r)-32)),r};
+    for(auto x:pp)c.mmu.write32(x.pc,x.word);
+    ScFormatterWitness parent({R,L,T,ins(37,1,1,-48),704,pp,pa,ps});
+    // Child entry word must be mapped before parent.begin.
+    c.mmu.write32(T,ins(37,1,1,-48));
+    assert(parent.begin(c,true)&&parent.poll(c,true));++c.inst_count;assert(parent.entry(c,R,true));
+    for(auto x:pp){
+        ++c.inst_count;assert(parent.before(c,x.pc,x.word,true));
+        if(x.pc==R){c.gpr[1]=parent_sp;c.mmu.write32(parent_sp,SP);}
+        else if(x.pc==R+4)c.gpr[0]=L;
+        else if(x.pc==R+8)c.mmu.write32(SP+4,L);
+        else if(x.pc==R+12)for(unsigned r=16;r<32;++r)c.mmu.write32(SP-64+4*(r-16),c.gpr[r]);
+        else {c.pc=T;c.lr=link;}
+    }
+    assert(parent.entry(c,T,true)&&parent.reached(c,true));
+    const std::array<IpcDispatchWord,6> cp{{{T,T,ins(37,1,1,-48)},{T,T+4,0x7c0802a6},
+        {T,T+8,ins(36,0,1,52)},{T,T+12,ins(44,5,1,8)},{T,T+16,ins(32,6,3,0)},{T,T+20,0x7cc903a6}}};
+    const std::array<ScFormatterAccess,4> ca{{{T,4,-48,true,true},{T+8,4,4,true,true},
+        {T+12,2,-40,true,true},{T+16,4,A,false,false,dst}}};
+    const std::array<StmFinalSlot,1> cs{{{4,32}}};
+    const uint32_t branch=0x4e800420u,body=ins(14,7,0,9),load=ins(32,9,1,8),guard=0x60000000u;
+    std::vector<IpcDispatchWord> mid(cp.begin(),cp.end());mid.push_back({T,site,branch});mid.push_back({T,dst,body});
+    std::vector<IpcDispatchWord> full(mid);full.push_back({T,partial,load});
+    full.push_back({T,dst+8,ins(36,7,1,64)});full.push_back({T,dst+12,ins(36,9,1,68)});
+    full.push_back({T,dst+16,ins(14,8,7,1)});
+    std::vector<ScFormatterAccess> more(ca.begin(),ca.end());
+    more.push_back({partial,4,-40,true,false});
+    more.push_back({dst+8,4,16,true,true});
+    more.push_back({dst+12,4,20,true,true});
+    for(auto x:full)c.mmu.write32(x.pc,x.word);
+    c.mmu.write32(stop,guard);
+    ScFormatterWitness child({T,link,site,branch,48,cp,ca,cs,{}, {dst,body,0x200u}});
+    auto held=[&](){return child.has_caller_stores()?parent.child_frame_held_with_stores(c,true,child):
+        parent.child_frame_held(c,true,c.gpr[1],child.linkage_word());};
+    assert(child.begin(c,parent.frame_held(c,true))&&child.poll(c,held()));++c.inst_count;assert(child.entry(c,T,held()));
+    c.gpr[5]=0; // Must match the initial state captured by both witnesses.
+    for(auto x:cp){
+        ++c.inst_count;assert(child.before(c,x.pc,x.word,held()));
+        if(x.pc==T){c.gpr[1]=child_sp;c.mmu.write32(child_sp,parent_sp);}
+        else if(x.pc==T+4)c.gpr[0]=link;
+        else if(x.pc==T+8)c.mmu.write32(parent_sp+4,link);
+        else if(x.pc==T+12)c.mmu.write32(child_sp+8,seed&0xffffu);
+        else if(x.pc==T+16)c.gpr[6]=dst;
+        else c.ctr=dst;
+    }
+    ++c.inst_count;assert(child.stop_before_control(c,site,branch,held()));
+    c.pc=dst;assert(child.control_transfer_poll(c,held()));++c.inst_count;assert(child.control_destination_entry(c,dst,held()));
+    ScFormatterExpectation m{T,link,partial,load,48,mid,ca,cs,{0,4,true,-40}};
+    assert(child.resume_control_path(c,m,held()));++c.inst_count;assert(child.before(c,dst,body,held()));c.gpr[7]=9;
+    ++c.inst_count;assert(child.stop_before_load(c,partial,load,held()));
+    ScFormatterExpectation next{T,link,stop,guard,48,full,more,cs,{0,0,false,0,true}};
+    if(fault==1)more[5].address=640;
+    if(fault==2)more[6].address=16;
+    if(fault==3)more[5].address=4;
+    if(fault==4)more[4].address=-36;
+    if(fault==5)more[5].address=704;
+    if(fault==6)full[8].word^=1u;
+    const bool resumed=child.resume_stack_path(c,next,parent,fault==7?0xffffu:0xffff0000u,held());
+    if(fault>=1&&fault<=7){assert(!resumed);return;}assert(resumed);
+    c.gpr[9]=seed&0xffffu; // Actual original load would read these live bytes.
+    ++c.inst_count;assert(child.before(c,dst+8,full[9].word,held()));
+    c.mmu.write32(parent_sp+16,fault==8?10u:9u);
+    if(fault==9)c.mmu.write32(parent_sp+24,0x11u);
+    ++c.inst_count;const bool ok=child.before(c,dst+12,full[10].word,held());
+    if(fault==8||fault==9){assert(!ok);return;}assert(ok);
+    c.mmu.write32(parent_sp+20,fault==10?c.gpr[9]^1u:c.gpr[9]);
+    ++c.inst_count;const bool ok2=child.before(c,dst+16,full[11].word,held());
+    if(fault==10){assert(!ok2);return;}assert(ok2);c.gpr[8]=10;
+    ++c.inst_count;assert(child.stop_before_instruction(c,stop,guard,held())&&child.reached_instruction_boundary(c,held()));
+    assert(child.caller_store_count()==2&&child.visits()==12&&child.loads()==2&&child.stores()==5);
+    assert(c.mmu.read32(parent_sp+20)==(seed&0xffffu));
+    assert(!parent.child_frame_held(c,true,c.gpr[1],child.linkage_word()));
+}
+int main(){for(unsigned i=0;i<8;++i)trial(i);
+    for(unsigned i=0;i<=10;++i)caller_trial(i,0x1234beefu);
+    caller_trial(0,0u);caller_trial(0,0xffffffffu);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=21 original_execution=0\n";}
