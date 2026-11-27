@@ -10,6 +10,7 @@ on:
       - 'research/native_recomp/test_formatter_local_ctr_native.py'
       - '.github/workflows/wii-formatter-control-source.yml'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/test_formatter_nested_fixture.py'
       - 'research/native_recomp/prepare_formatter_control_contract.py'
 permissions:
   contents: read
