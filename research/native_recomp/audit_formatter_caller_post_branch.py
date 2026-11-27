@@ -22,7 +22,7 @@ from prepare_v419_full_start import MAX_DOL
 from private_plan_cache import plan_cache_scope
 
 CAP=8
-def audit(byte,integer,first,second,gp,initial,words,saved_mask,*,cap=CAP):
+def audit(byte,integer,first,second,gp,initial,words,saved_mask,*,cap=CAP,details=False):
     owner=byte[1][0];size=4*len(words);_,rows,end,w=integer
     if not 1<=cap<=CAP or len(rows)!=2 or size>65536 or owner&3:
         raise ValueError('post branch geometry')
@@ -35,7 +35,7 @@ def audit(byte,integer,first,second,gp,initial,words,saved_mask,*,cap=CAP):
         after,proof=step(word,live,saved_mask=saved_mask)
         if proof!=inputs:raise ValueError('post branch predecessor')
         cr=condition_effect(word,live,after,cr);live=after;pc+=4
-    if (pc,w)!=(end,integer[3]):raise ValueError('post branch predecessor')
+    if pc!=end or not original(end,w) or first[1][2:4]!=(end,w):raise ValueError('post branch predecessor')
     for n,contract in enumerate((first,second)):
         blocks,info=contract;root,extent,at,word,taken,chosen,cword,other=info
         if root!=owner or extent!=size or at!=pc or not original(at,word) or not original(chosen,cword):
@@ -47,7 +47,7 @@ def audit(byte,integer,first,second,gp,initial,words,saved_mask,*,cap=CAP):
         j=(other-owner)//4
         if not 0<=j<len(body) or body[j]!=0x44000002:raise ValueError('post branch predecessor')
         pc=chosen
-    counts=Counter();inputs=0;saved_writes=0;reason='cap'
+    counts=Counter();inputs=0;saved_writes=0;reason='cap';admitted=[]
     for _ in range(cap):
         if not owner<=pc<owner+size:raise ValueError('post branch geometry')
         word=words[(pc-owner)//4]
@@ -56,11 +56,13 @@ def audit(byte,integer,first,second,gp,initial,words,saved_mask,*,cap=CAP):
             reason=str(ex);break
         name,_,writes,*_=classify(word)
         counts[name]+=1;inputs+=len(proof);saved_writes+=sum(r>=14 for r in writes)
+        admitted.append((pc,word,proof))
         cr=condition_effect(word,live,after,cr);live=after;pc+=4
     if not owner<=pc<owner+size:raise ValueError('post branch geometry')
     word=words[(pc-owner)//4]
     next_family=boundary_shape(word);next_name,reads,writes,*_=classify(word)
     kinds=Counter(live[r][0] for r in set(reads))
+    if details:return tuple(admitted),pc,word,live,cr,reason
     return counts,inputs,saved_writes,reason,next_family,next_name,kinds,sum(x is not None for x in cr)
 
 def plan(d,e):

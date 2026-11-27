@@ -22,6 +22,14 @@ class PostBranch(unittest.TestCase):
     def test_exact(self):
         counts,inputs,saved,reason,family,name,kinds,cr=self.probe()
         self.assertEqual((dict(counts),inputs,saved,reason,family,cr),({'add_immediate':2},2,1,'caller integer opcode','load',3))
+    def test_details(self):
+        rows,pc,w,live,cr,reason=self.probe(details=True)
+        self.assertEqual((len(rows),pc,w,live[5],reason),(2,P+52,self.words[13],('const',15),'caller integer opcode'))
+        self.assertEqual(rows[0],(P+44,self.words[11],((4,10),)))
+        self.assertEqual(sum(v is not None for v in cr),3)
+    def test_boundary_word(self):
+        self.integer=self.integer[:3]+(N,)
+        with self.assertRaisesRegex(ValueError,'predecessor'):self.probe()
     def test_cap(self):
         x=self.probe(cap=1)
         self.assertEqual((sum(x[0].values()),x[3],x[4]),(1,'cap','integer'))
