@@ -60,7 +60,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           proofs=(
-              Requirement(46020094169,'0b036a779d9bfd0913642c3a1926ef2bd34f3a1d',
+              Requirement(46061883183,'fc4abad8332c81218abee036b2e797595f155fb0',
                           '.github/workflows/wii-formatter-caller-report-second-immediate-native-owner.yml',
                           'owner-second-immediate'),
               Requirement(46021379576,'4292e39f7084d845f92272c7cd9707ce991a7ff3',
@@ -104,7 +104,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           prerequisites=(
-              Requirement(46020094169,'0b036a779d9bfd0913642c3a1926ef2bd34f3a1d',
+              Requirement(46061883183,'fc4abad8332c81218abee036b2e797595f155fb0',
                           '.github/workflows/wii-formatter-caller-report-second-immediate-native-owner.yml',
                           'owner-second-immediate'),
               Requirement(46021379576,'4292e39f7084d845f92272c7cd9707ce991a7ff3',
