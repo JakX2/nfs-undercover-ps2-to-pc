@@ -548,8 +548,8 @@ public:
                                                 uint32_t next_pc,uint32_t next_word,bool held){
         const bool first=reached_caller_integers(c,held);
         const bool after_post=branch_completed_==2u&&reached_caller_post_integers(c,held);
-        const bool second=branch_completed_==1u&&reached_caller_branch(c,held);
-        if((!first&&!second&&!after_post)||branch_completed_>=branches_.size()||
+        const bool consecutive=(branch_completed_==1u||branch_completed_==3u)&&reached_caller_branch(c,held);
+        if((!first&&!consecutive&&!after_post)||branch_completed_>=branches_.size()||
            !caller_parent_||owner_size<8u||owner_size>65536u||(owner_size&3u)||
            next_word==0x44000002u||!word(c,next_pc,next_word))return fail(6);
         const auto owner=caller_parent_->e_.root;
@@ -579,15 +579,15 @@ public:
     template<class C>bool stop_after_caller_branch(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=14u||branch_completed_>=branches_.size()||
            pc!=branches_[branch_completed_].next_pc||w!=branches_[branch_completed_].next_word||
-           !branch_storage(c,held,branch_completed_+1u,branch_completed_==2u?post_integer_completed_:0u)||
-           (branch_completed_==2u&&!post_integer_code(c)))return fail(6);
+           !branch_storage(c,held,branch_completed_+1u,branch_completed_>=2u?post_integer_completed_:0u)||
+           (branch_completed_>=2u&&!post_integer_code(c)))return fail(6);
         ++branch_completed_;stage_=15u;return true;
     }
     unsigned caller_branch_visits()const{return branch_completed_;}
     template<class C>bool reached_caller_branch(C& c,bool held)const{
         return stage_==15u&&branch_completed_&&
-            branch_storage(c,held,branch_completed_,branch_completed_==3u?post_integer_completed_:0u)&&
-            (branch_completed_!=3u||post_integer_code(c))&&visits_==e_.path.size()+1u;
+            branch_storage(c,held,branch_completed_,branch_completed_>=3u?post_integer_completed_:0u)&&
+            (branch_completed_<3u||post_integer_code(c))&&visits_==e_.path.size()+1u;
     }
     // A second register-only block begins at the selected branch label.
     // Preserve the first block and both edge proofs throughout this stage.
@@ -724,7 +724,7 @@ private:
     uint32_t integer_end_pc_=0,integer_end_word_=0;
     unsigned integer_completed_=0;
     struct CallerBranchEdge {uint32_t pc,word,next_pc,next_word,other_pc;};
-    std::array<CallerBranchEdge,3> branches_{};
+    std::array<CallerBranchEdge,4> branches_{};
     unsigned branch_completed_=0;
     uint32_t branch_owner_size_=0;
     template<class C>bool branch_storage(C& c,bool held,unsigned n,unsigned extra=0u)const{
