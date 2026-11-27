@@ -188,6 +188,17 @@ public:
         return stage_==2u&&e_.boundary.width&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&
             c.inst_count==last_&&abi(c)&&word(c,e_.target,e_.target_word);
     }
+    // Report only which bytes were written by the witnessed instructions.
+    // The initial frame snapshot is not original-value provenance. No guest
+    // byte is modified or exposed, and the unresolved load remains stopped.
+    template<class C>std::optional<uint32_t> stack_boundary_written_mask(C& c,bool held)const{
+        if(!e_.boundary.stack||e_.boundary.width!=4u||!reached_load_boundary(c,held))return {};
+        const auto a=uint32_t(int64_t(incoming_[1])+e_.boundary.caller_offset);
+        if(!frame_.contains(a,4u))return {};
+        uint32_t mask=0;
+        for(unsigned i=0;i<4u;++i)if(written_[a-frame_.base+i])mask|=0xffu<<(24u-8u*i);
+        return mask;
+    }
     // Stop at the instrumented bctr label before executing its native body.
     template<class C>bool stop_before_control(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.control.destination||!boundary_due_||back_poll_due_||due_||

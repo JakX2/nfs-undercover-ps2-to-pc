@@ -249,11 +249,11 @@ static void control_stop(unsigned fault,unsigned arrival=0){
 }
 // Retain the pre-transfer stack shadow and counters through a native
 // interior entry, then stop before a partially initialized stack word.
-static void control_tail(unsigned fault){
+static void control_tail(unsigned fault,uint32_t seed=0xdeadbeefu){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.gpr[5]=0x1234;
     const auto site=R+24u,dst=R+0x100u,end=dst+8u;
     const uint32_t branch=0x4e800420u,body=ins(40,7,1,8),load=ins(32,9,1,8);
-    c.mmu.write32(A,dst);c.mmu.write32(SP-40,0xdeadbeefu);
+    c.mmu.write32(A,dst);c.mmu.write32(SP-40,seed);
     std::array<IpcDispatchWord,6> prefix{{{R,R,ins(37,1,1,-48)},{R,R+4,0x7c0802a6},
         {R,R+8,ins(36,0,1,52)},{R,R+12,ins(44,5,1,8)},{R,R+16,ins(32,6,3,0)},{R,R+20,0x7cc903a6}}};
     const std::array<ScFormatterAccess,4> access{{{R,4,-48,true,true},{R+8,4,4,true,true},
@@ -271,7 +271,7 @@ static void control_tail(unsigned fault){
         if(x.pc==R){c.gpr[1]=SP-48;c.mmu.write32(SP-48,SP);}
         else if(x.pc==R+4)c.gpr[0]=L;
         else if(x.pc==R+8)c.mmu.write32(SP+4,L);
-        else if(x.pc==R+12)c.mmu.write32(SP-40,0x1234beefu);
+        else if(x.pc==R+12)c.mmu.write32(SP-40,0x12340000u|(seed&0xffffu));
         else if(x.pc==R+16)c.gpr[6]=dst;
         else c.ctr=dst;
     }
@@ -282,15 +282,23 @@ static void control_tail(unsigned fault){
     if(fault==2)more[0].address=-44;
     if(fault==3)full[6].word^=1u;
     if(fault==4)more.back().write=true;
-    if(fault==5)c.mmu.write32(SP-40,0x1234ffffu);
+    if(fault==5)c.mmu.write32(SP-40,(0x12340000u|(seed&0xffffu))^1u);
     const bool resumed=w.resume_control_path(c,next,true);
     if(fault&&fault<=5){assert(!resumed);return;}
-    assert(resumed);++c.inst_count;assert(w.before(c,dst,body,true));
+    assert(resumed);assert(!w.stack_boundary_written_mask(c,true));++c.inst_count;assert(w.before(c,dst,body,true));
     c.gpr[7]=fault==6?0u:0x1234u;
     ++c.inst_count;const bool second=w.before(c,dst+4,full.back().word,true);
     if(fault==6){assert(!second);return;}assert(second);c.gpr[8]=0x1235;
     ++c.inst_count;assert(w.stop_before_load(c,end,load,true)&&w.reached_load_boundary(c,true));
     assert(w.visits()==9&&w.loads()==2&&w.stores()==3&&w.authenticated_loads()==1&&c.gpr[9]==0);
+    assert(w.stack_boundary_written_mask(c,true)==0xffff0000u);
+    assert(!w.stack_boundary_written_mask(c,false));
+    const auto observed=c.mmu.read32(SP-40);
+    assert(observed==(0x12340000u|(seed&0xffffu)));
+    c.mmu.write32(SP-40,observed^1u);
+    assert(!w.stack_boundary_written_mask(c,true)); // even an unwritten byte must remain unchanged
+    c.mmu.write32(SP-40,observed);
+    assert(w.stack_boundary_written_mask(c,true)==0xffff0000u);
 }
 int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_accesses(i);
     for(auto xo:{23u,55u,87u,119u,279u,311u,343u,375u}){
@@ -304,4 +312,5 @@ int main(){for(unsigned i=0;i<=8;++i)trial(i);for(unsigned i=0;i<=4;++i)many_acc
     for(unsigned i=0;i<=10;++i)control_stop(i);
     for(unsigned i=1;i<=10;++i)control_stop(0,i);
     for(unsigned i=0;i<=6;++i)control_tail(i);
-    std::cout<<"FORMATTER_BOUNDARY_TEST cases=64 original_execution=0\n";}
+    for(uint32_t seed:{0u,0xffffffffu,0x56789abcu})control_tail(0,seed);
+    std::cout<<"FORMATTER_BOUNDARY_TEST cases=67 original_execution=0\n";}
