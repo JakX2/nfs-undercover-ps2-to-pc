@@ -5,6 +5,13 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - '.github/workflows/wii-formatter-caller-report-compare-native-owner.yml'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/prepare_formatter_report_compare_fixture.py'
+      - 'research/native_recomp/prepare_formatter_next_entry_report_byte_contract.py'
+      - 'research/native_recomp/audit_formatter_report_byte_successor.py'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
 permissions:
   contents: read
   actions: read

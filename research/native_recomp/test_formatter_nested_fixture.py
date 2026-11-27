@@ -1,12 +1,36 @@
 #!/usr/bin/env python3
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry,verify_next_entry_trace,render_report_byte,expand_report_byte
 from guarded_continuation import GUARD
+from prepare_formatter_nested_fixture import (
+    private_compare_checkpoint, _COMPARE_EXPANSION_STAGES,
+)
 from prepare_formatter_report_compare_fixture import (
     promote as promote_report_compare, render as render_report_compare,
 )
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
+    def test_private_119_checkpoints_are_fixed_and_redacted(self):
+        accepted = (
+            'begin', 'base_joined', 'caller_joined', 'callee_joined',
+            'byte_joined', 'compare_joined', 'spans_checked',
+            'census_checked', 'image_rebuilt', 'header_rendered',
+        )
+        self.assertEqual(_COMPARE_EXPANSION_STAGES, frozenset(accepted))
+        output = StringIO()
+        with redirect_stdout(output):
+            for stage in accepted:
+                private_compare_checkpoint(stage)
+        self.assertEqual(output.getvalue().splitlines(), [
+            f'FORMATTER_NESTED_119_STAGE stage={stage}' for stage in accepted
+        ])
+        for illegal in ('0x80010000', 'compare=1234', 'private_input', '', None):
+            with self.subTest(illegal=illegal):
+                with self.assertRaisesRegex(ValueError, 'diagnostic stage'):
+                    private_compare_checkpoint(illegal)
+
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
         s=render(c)
