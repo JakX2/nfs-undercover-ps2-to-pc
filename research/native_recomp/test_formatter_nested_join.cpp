@@ -586,7 +586,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const auto move_next=post_mix_end+4u;
     const uint32_t move_word=follow>=272?ins(14,8,6,3):0x60000000u;
     const auto final_pc=move_next+4u;
-    const auto final_word=bl(final_pc,T);
+    constexpr uint32_t next_entry=B+0x40u;
+    const auto final_word=bl(final_pc,follow>=292?next_entry:T);
     const std::array<CallerIntegerInput,1> final_input{{{6,follow==280?8u:9u}}};
     const auto final_step=follow>=272?std::optional<ScCallerIntegerStep>{{move_next,move_word,final_input}}:std::nullopt;
     c.mmu.write32(move_next,follow==252?guard_word:move_word);
@@ -625,7 +626,33 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow>=282&&follow<=290){assert(!final_done);return;}
     assert(final_done&&child.reached_caller_final_integer(c,held())&&child.caller_final_integer_visits()==1u);
     if(parent_delay)assert(parent.frame_age(c)==138u&&child.caller_parent_tick_limit()==138u);
-    if(follow==291)assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));
+    if(follow==291){assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));return;}
+    if(follow<292)return;
+    const uint32_t entry_word=ins(32,9,7,0),ret=final_pc+4u;
+    c.mmu.write32(next_entry,follow==294?guard_word:entry_word);
+    c.mmu.write32(next_entry+4u,follow==295?entry_word:guard_word);
+    if(follow==296)c.mmu.write32(ret,entry_word);
+    const bool entry_armed=child.resume_caller_next_entry(c,follow==293?next_entry+4u:next_entry,
+        follow==297?0x60000000u:entry_word,ret+(follow==298?4u:0u),held()&&follow!=299);
+    if(follow>=293&&follow<=299){assert(!entry_armed);return;}
+    assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
+    // Execute only the synthetic BL effect. The callee's load never runs.
+    c.pc=follow==300?next_entry+4u:next_entry;
+    c.lr=follow==301?ret+4u:ret;
+    if(follow==302)c.gpr[7]^=1u;
+    if(follow==304)c.mmu.write32(next_entry,guard_word);
+    if(follow==305)c.mmu.write32(next_entry+4u,entry_word);
+    if(follow==306)c.mmu.write32(ret,entry_word);
+    if(follow==307)c.mmu.write32(other,entry_word);
+    if(follow==308)c.mmu.write32(parent_sp+16,8u);
+    if(follow==309)c.cr[0].eq=false;
+    if(follow==310)c.ctr^=1u;
+    c.inst_count+=follow==303?2u:1u;
+    const bool entry_done=child.stop_at_caller_next_entry(c,follow==311?next_entry+4u:next_entry,entry_word,held()&&follow!=312);
+    if(follow>=300&&follow<=312){assert(!entry_done);return;}
+    assert(entry_done&&child.reached_caller_next_entry(c,held())&&child.caller_next_entry_visits()==1u);
+    if(parent_delay)assert(parent.frame_age(c)==139u&&child.caller_parent_tick_limit()==139u);
+    if(follow==313)assert(!child.stop_at_caller_next_entry(c,next_entry,entry_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -645,4 +672,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,268,128u-baseline);
     for(unsigned follow=272;follow<=291;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,272,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=583 original_execution=0\n";}
+    for(unsigned follow=292;follow<=313;++follow)caller_trial(0,0x1234beefu,follow);
+    caller_trial(0,0x1234beefu,292,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=606 original_execution=0\n";}
