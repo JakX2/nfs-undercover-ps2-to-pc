@@ -79,7 +79,11 @@ class Original127LogTests(unittest.TestCase):
                              '            std::cout<<')
         chunk = source[start:start+1600]
         expected = (
-            '#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE)',
+            # The original-128 taken branch is a dedicated opt-in successor.
+            # Older modes must still select their own native trial records.
+            '#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BRANCH_128)',
+            '"FORMATTER_CALLER_REPORT_BRANCH_128_TRIAL n="',
+            '#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE)',
             '"FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE_TRIAL n="',
             '#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE)',
             '"FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE_TRIAL n="',
@@ -89,6 +93,7 @@ class Original127LogTests(unittest.TestCase):
         offsets = [chunk.find(marker) for marker in expected]
         self.assertTrue(all(i >= 0 for i in offsets), offsets)
         self.assertEqual(offsets, sorted(offsets))
+        self.assertEqual(chunk.count('REPORT_BRANCH_128_TRIAL n='), 1)
         self.assertEqual(chunk.count('REPORT_SIXTH_IMMEDIATE_TRIAL n='), 1)
         self.assertEqual(chunk.count('REPORT_FIFTH_IMMEDIATE_TRIAL n='), 1)
 
