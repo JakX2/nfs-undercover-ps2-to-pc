@@ -662,7 +662,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const uint32_t after_third=follow>=436?ins(14,6,0,0xfffe):0x60000000u;
     const uint32_t after_fourth=follow>=450?ins(14,7,0,0x7fff):0x60000000u;
     const uint32_t after_fifth=follow>=470?ins(14,8,0,0x8000):0x60000000u;
-    const uint32_t after_sixth=0x60000000u;
+    const uint32_t after_sixth=follow>=490?
+        ((16u<<26u)|(12u<<21u)|(4u<<16u)|24u):0x60000000u;
     if(follow>=318){
         c.mmu.write32(move_value,0x5a000000u);
         c.mmu.write32(next_entry+8u,follow>=338?after_compare:guard_word);
@@ -1019,6 +1020,36 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         assert(!child.stop_after_caller_report_sixth_immediate(
             c,next_entry+40u,after_sixth,held()));return;
     }
+    if(follow<490)return;
+    const uint32_t target128=next_entry+64u;
+    const uint32_t target_word=0x60000000u;
+    c.mmu.write32(target128,follow==495?guard_word:target_word);
+    c.mmu.write32(target128+4u,follow==496?target_word:guard_word);
+    if(follow==497)c.mmu.write32(next_entry+44u,target_word);
+    const bool branch_armed=child.resume_caller_report_branch_128(
+        c,follow==491?target128+4u:target128,
+        follow==492?guard_word:target_word,
+        follow==493?64u:80u,held()&&follow!=494);
+    if(follow>=491&&follow<=497){assert(!branch_armed);return;}
+    assert(branch_armed&&child.stage()==50u);
+    assert(child.caller_post_fourth_tick_budget()==20u);
+    assert(child.caller_report_branch_128_visits()==0u);
+    if(follow==499)c.cr[1].lt=false;
+    if(follow==500)c.gpr[5]^=1u;
+    if(follow==501)c.mmu.write32(target128+4u,target_word);
+    c.inst_count+=follow==502?2u:1u;
+    const bool branch_done=child.stop_after_caller_report_branch_128(
+        c,follow==503?target128+4u:target128,
+        follow==504?guard_word:target_word,held()&&follow!=505);
+    if(follow>=499&&follow<=505){assert(!branch_done);return;}
+    assert(branch_done&&child.stage()==51u&&
+           child.caller_report_branch_128_visits()==1u&&
+           child.reached_caller_report_branch_128(c,held()));
+    assert(child.caller_post_fourth_tick_budget()==20u);
+    if(follow==506){
+        assert(!child.stop_after_caller_report_branch_128(
+            c,target128,target_word,held()));return;
+    }
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -1044,6 +1075,7 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
     for(unsigned follow=348;follow<=483;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=490;follow<=506;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
     // The full 124/125 stage transitions must also survive the original
     // parent's independently measured 128-tick lease threshold.
@@ -1051,4 +1083,5 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,436,128u-baseline);
     caller_trial(0,0x1234beefu,450,128u-baseline);
     caller_trial(0,0x1234beefu,470,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=778 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 original_execution=0\n";}
+    caller_trial(0,0x1234beefu,490,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=795 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 branch_128_cases=17 original_execution=0\n";}

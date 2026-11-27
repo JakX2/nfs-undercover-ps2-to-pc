@@ -1,6 +1,7 @@
 #pragma once
 #include "wii_post_stm_sc_report_helper.h"
 #include "wii_formatter_caller_integer.h"
+#include "wii_formatter_branch_decision.h"
 #include <bit>
 #include <optional>
 namespace undercover::wii {
@@ -1226,6 +1227,60 @@ public:
         return stage_==49u&&report_sixth_immediate_completed_&&
             report_byte_storage(c,held,10u);
     }
+    // The privately classified original 128 branch is a taken, CR-only
+    // forward-local branch. This parent join does not execute or redirect
+    // guest code; it only leases one additional native AOT instruction
+    // after the independently observed original-127 label.
+    template<class C>bool resume_caller_report_branch_128(C& c,
+        uint32_t selected_pc,uint32_t selected_word,
+        uint32_t owner_size,bool held){
+        if(!reached_caller_report_sixth_immediate(c,held)||
+           !next_entry_tenth_||selected_word==0x44000002u||
+           owner_size<52u||owner_size>65536u||(owner_size&3u)||
+           uint64_t(next_entry_pc_)+owner_size>0x81800000ull)
+            return fail(6);
+        const uint32_t branch_pc=next_entry_pc_+40u;
+        const auto predicted=predict_formatter_branch(
+            *next_entry_tenth_,branch_pc,pack(c),c.ctr,c.lr);
+        if(!predicted||
+           predicted->kind!=FormatterBranchPrediction::Kind::Conditional||
+           !predicted->cr_tested||predicted->ctr_decremented||
+           predicted->linked||predicted->absolute||!predicted->taken||
+           predicted->target<=branch_pc+4u||
+           predicted->next_pc!=selected_pc||
+           selected_pc<next_entry_pc_||
+           uint64_t(selected_pc)+8u>uint64_t(next_entry_pc_)+owner_size||
+           selected_pc==next_entry_lr_||
+           (next_entry_lr_>=next_entry_pc_&&
+            uint64_t(next_entry_lr_)<uint64_t(next_entry_pc_)+owner_size)||
+           !word(c,selected_pc,selected_word)||
+           !word(c,selected_pc+4u,0x44000002u)||
+           !word(c,branch_pc+4u,0x44000002u))
+            return fail(6);
+        branch_128_pc_=selected_pc;
+        branch_128_word_=selected_word;
+        branch_128_size_=owner_size;
+        stage_=50u;return true;
+    }
+    template<class C>bool stop_after_caller_report_branch_128(C& c,
+        uint32_t pc,uint32_t w,bool held){
+        if(stage_!=50u||pc!=branch_128_pc_||w!=branch_128_word_||
+           !branch_128_size_||
+           !word(c,branch_128_pc_,branch_128_word_)||
+           !word(c,branch_128_pc_+4u,0x44000002u)||
+           !report_byte_storage(c,held,11u))return fail(6);
+        branch_128_completed_=true;stage_=51u;return true;
+    }
+    unsigned caller_report_branch_128_visits()const{
+        return branch_128_completed_&&!error_?1u:0u;
+    }
+    template<class C>bool reached_caller_report_branch_128(C& c,
+        bool held)const{
+        return stage_==51u&&branch_128_completed_&&
+            word(c,branch_128_pc_,branch_128_word_)&&
+            word(c,branch_128_pc_+4u,0x44000002u)&&
+            report_byte_storage(c,held,11u);
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -1296,8 +1351,8 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(armed);
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed);
         if(extra>45u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
@@ -1305,10 +1360,10 @@ public:
     // budget for an ancestor frame. No budget comes from the live counter.
     std::optional<unsigned> caller_post_fourth_tick_budget()const{
         if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
-           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=49u)))return {};
-        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u;
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=51u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u;
         const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
-            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(armed);
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed);
         if(n>43u)return {};
         return n;
     }
@@ -1411,6 +1466,8 @@ private:
     unsigned report_sixth_immediate_destination_=0u;
     uint32_t report_sixth_immediate_value_=0u;
     bool report_sixth_immediate_completed_=false;
+    uint32_t branch_128_pc_=0u,branch_128_word_=0u,branch_128_size_=0u;
+    bool branch_128_completed_=false;
     template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u)const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
             next_entry_storage(c,held,true,tick)&&mapped(c,{report_byte_address_,1u})&&

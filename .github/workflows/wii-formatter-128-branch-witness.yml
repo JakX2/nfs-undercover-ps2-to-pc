@@ -10,6 +10,8 @@ on:
       - 'research/native_recomp/prepare_formatter_branch_128_fixture.py'
       - 'research/native_recomp/wii_formatter_branch_decision.h'
       - 'research/native_recomp/wii_formatter_report_sixth_immediate.h'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/test_formatter_nested_join.cpp'
 permissions:
   contents: read
 jobs:
@@ -24,4 +26,6 @@ jobs:
           for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
             g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_conditional_branch.cpp -o /tmp/test_formatter_conditional_branch
             /tmp/test_formatter_conditional_branch
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp research/native_recomp/test_formatter_nested_join.cpp -o /tmp/test_formatter_128_parent_join
+          /tmp/test_formatter_128_parent_join
           done
