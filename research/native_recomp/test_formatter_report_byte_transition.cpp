@@ -412,6 +412,55 @@ static unsigned extended_guard_cases() {
     return 15u;
 }
 
+// An optional fourth native word may move the guard to the fifth slot.
+// The original 120 path remains unchanged when that option is omitted.
+static unsigned fourth_guard_cases() {
+    constexpr uint32_t guard=0x44000002u;
+    constexpr uint32_t cmp=(11u<<26u)|(3u<<23u)|(8u<<16u)|16u;
+    constexpr uint32_t copy=(31u<<26u)|(1u<<21u)|(10u<<16u)|(1u<<11u)|(444u<<1u);
+    constexpr uint32_t immediate=(14u<<26u)|(3u<<21u)|0xfffeu;
+    constexpr uint32_t following=0x60000000u;
+    for(unsigned fault=0;fault<15u;++fault){
+        Harness h(9u,0x5au,false);
+        h.step.next_word=cmp;
+        h.cpu.mmu.write32(Entry+4u,cmp);
+        h.cpu.mmu.write32(Entry+8u,copy);
+        h.cpu.mmu.write32(Entry+12u,immediate);
+        h.cpu.mmu.write32(Entry+16u,following);
+        h.cpu.mmu.write32(Entry+20u,guard);
+        h.cpu.mmu.write32(Link,guard);
+        if(fault==1u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==2u)h.cpu.mmu.write32(Entry+20u,0u);
+        if(fault==3u){h.cpu.lr=Entry+16u;h.step.lr=h.cpu.lr;}
+        if(fault==4u) {
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,copy,immediate,following==guard?following:guard));
+            continue;
+        }
+        if(fault==5u){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,copy,{},following));
+            continue;
+        }
+        if(fault>=1u&&fault<=3u){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,copy,immediate,following));
+            continue;
+        }
+        assert(h.witness.arm_native(h.cpu,h.report,h.step,true,copy,immediate,following));
+        ++h.cpu.inst_count;h.cpu.gpr[9]=0x5au;
+        if(fault==6u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==7u)h.cpu.mmu.write32(Entry+20u,0u);
+        if(fault==8u)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==9u)h.cpu.mmu.write32(Entry+8u,0u);
+        if(fault==10u)h.cpu.mmu.write32(Link,0u);
+        if(fault==11u)h.cpu.gpr[7]^=1u;
+        if(fault==12u)++h.cpu.inst_count;
+        if(fault==13u)h.cpu.lr=Entry+16u;
+        if(fault==14u)h.cpu.cr[2].eq=!h.cpu.cr[2].eq;
+        assert(h.witness.observe_native_label(h.cpu,h.report,
+            Entry+4u,cmp,true)==(fault==0u));
+    }
+    return 15u;
+}
+
 int main() {
     const auto successful=positives();
     const auto native_successful=native_positives();
@@ -421,10 +470,12 @@ int main() {
     native_compare_chain_rejections();
     const auto independent_rejected=native_independent_compare_refusals();
     const auto extended=extended_guard_cases();
+    const auto fourth=fourth_guard_cases();
+    assert(fourth==15u);
     assert(compare_chain==24576u&&independent_rejected==4u);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
              <<" native_valid="<<native_successful
              <<" rejected=47 compare_chain="<<compare_chain
              <<" compare_chain_rejected=9 independent_source_rejected="
-             <<independent_rejected<<" extended_guard_cases="<<extended<<" original_execution=0\n";
+             <<independent_rejected<<" extended_guard_cases="<<extended<<" fourth_guard_cases="<<fourth<<" original_execution=0\n";
 }
