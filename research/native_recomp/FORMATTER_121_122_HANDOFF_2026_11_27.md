@@ -1,63 +1,71 @@
-# Wii formatter: verified instruction 121, guarded instruction 122
+# Wii formatter: original 122 native verified, original 123 guarded
 
-Recorded: 2026-11-27 (UTC). This handoff describes a bounded original
-Wii AOT native continuation, not a complete executable boot or frontend.
+Recorded 2026-11-27 UTC. This is a bounded original Wii PowerPC AOT
+continuation, **not** complete original game startup, frontend, or gameplay.
 
-## Verified native frontier
+## Verified native execution (owner original code)
 
-- [Owner workflow 46012175547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012175547) succeeded.
-- Eight trials x 121 original instruction visits = **968 aggregate visits**.
-- Its log reports immediate_verified for all eight trials, fallback=0,
-  complete_image=0 and boot_verified=0.
-- The previous 120-instruction path and all earlier guards remain
-  mandatory predecessors.
+- Original instruction 121, zero-input `addi`:
+  [owner run 46012175547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012175547)
+  **passed** with 8 x 121 = **968 original visits**, zero interpreter
+  fallbacks. The previous 120-instruction path and guard chain passed.
+- Original instruction 122, non-record `extsb`:
+  [owner run 46016564555](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46016564555)
+  **passed** with 8 x 122 = **976 original visits**, zero interpreter
+  fallbacks. Its exact final marker is
+  `FORMATTER_CALLER_REPORT_SIGNEXT_NATIVE` with
+  `signexts_verified=8`, `immediates_verified=8`,
+  `total_visits=976`, `fallback=0`, `complete_image=0`,
+  `boot_verified=0`. The original next label remains protected.
+- The highest **verified original native frontier is 122 instructions
+  per trial**. Do not equate aggregate visits with 976 consecutive
+  instructions, or claim a full boot.
 
-## Instruction 122 provenance, not native execution
+## Instruction 123: separate original provenance and fixture
 
-- The [read-only 122 audit](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46013062762)
-  passed. The original word is a non-record PPC extsb, with one proven
-  constant register input, source/destination aliasing, and no CR/XER
-  modification.
-- The first private 122 fixture attempt failed because it incorrectly
-  assumed this source register was the one written by instruction 121.
-  The amended fixture replays original 118 byte load, 119 compare,
-  120 stack copy, and 121 zero-input immediate symbolically, then
-  selects the authentic 122 source by its own encoding. An unknown
-  input is rejected; no original word or register value is printed.
-- The private signext fixture and nested-fixture builder now support
-  an opt-in 122 word and guarded original 123 successor. Scope and
-  translated-code installation use a 28-byte callee extent in this
-  mode, versus 24 bytes for instruction 121.
-- The new source-only C++ FormatterSignextWitness verifies a decoded
-  non-record extsb, authenticated input, a one-instruction native tick,
-  unchanged other GPRs/CR/XER/GQR/PC-related state, and the next
-  original word and synthetic guard. This witness cannot substitute
-  or emulate original Wii code.
+- [Read-only owner audit 46017050592](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46017050592)
+  **passed**: original 123 is another zero-base `addi`, reads zero
+  registers, writes one register, has zero CR/carry/XER/overflow effects,
+  and has a fully modeled immediate result. This is **classification**,
+  not execution.
+- [Private owner fixture 46017777084](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46017777084)
+  **passed**. Marker
+  `FORMATTER_123_IMMEDIATE_FIXTURE verified=1 previous_122_fixture=1
+  instruction_123=add_immediate zero_input=1 volatile_destination=1
+  next_guard=1 original_execution=0`.
+- The nested builder's opt-in `--caller-report-second-immediate`
+  mode carries the authenticated 123 word and guarded original 124
+  successor through private image, translation hooks and analyzer
+  scope. The callee fixture extent advances from the 122 mode's 28
+  bytes to **32 bytes** with the test guard.
+- A separate source-only C++ `FormatterSecondImmediateWitness`
+  observes the translated 123 zero-input addi. It is not a guest
+  instruction interpreter. Its full-range synthetic tests are
+  **prerequisites**, not an original 123 native proof.
+- An exact **8 x 123 = 984** native result is the next execution target.
+  It requires a separate complete owner execution, all eight genuine
+  immediate operations, preserved CPU/ancestor state and zero fallback.
+  Do not advance the verified frontier to 123 on fixture or synthetic
+  results alone.
 
-## New regression coverage
+## Guards, privacy and regressions
 
-- test_formatter_report_signext_fixture.py: 256 byte outcomes,
-  provenance from different earlier constants, alias restrictions,
-  tampered predecessors, original-word match, and extent.
-- test_formatter_report_signext_nested.py: guarded merge, sibling
-  preservation, source independence, mode/scope/install wiring.
-- test_formatter_report_signext.cpp: 1,280 positive combinations
-  plus arm, observation, duplicate and cross-CPU negative tests.
-  The 122 source-only workflow builds with address and undefined
-  behavior sanitizers.
-- The owner fixture is pinned to successful original 122 read-only
-  audit and stages proprietary DOL/ELF only on the private runner.
-  No original word, address, asset or translated game code is public.
+- The original 122 private fixture initially refused an incorrect
+  assumption that the `extsb` input register was written by 121.
+  The accepted implementation replays original 118 byte load,
+  119 compare, 120 stack copy and 121 immediate to authenticate the
+  actual original 122 source, without exposing operand data.
+- Regession tests keep the older 120 and 121 guarded-word chains intact
+  while allowing opt-in nested successors. The older 120 test's
+  obsolete 121-only regex was independently repaired to include the
+  nested 122 and 123 conditions. Never drop the base 120 check.
+- Keep proprietary DOL/ELF, original instruction words, private
+  register values, game assets and translated game C++ on private
+  owner runners. The public repository only contains independent
+  tooling, tests, and fixed-class result summaries.
+- Continue original Wii native startup/runtime work and verify each
+  discrete milestone. Complete executable linking, real main,
+  first frame, frontend and gameplay remain **unverified**.
 
-## Remaining verification
-
-1. Confirm the corrected original-122 owner fixture workflow passes.
-2. Connect the 122 witness with the complete original-code native
-   runner while preserving 120/121 modes and stopping before 123.
-3. Validate exactly eight trials x 122 visits = 976, with negative
-   regressions rejecting old 121 outputs and changed CPU snapshots.
-4. Gate original 122 native execution on BOTH successful 121 native
-   execution and successful corrected 122 owner fixture.
-5. Native game boot, frontend and gameplay remain future milestones.
-
-The existing hourly Undercover task continues; no duplicate is needed.
+The existing hourly Undercover task is already active. Do not create
+a duplicate scheduled task.
