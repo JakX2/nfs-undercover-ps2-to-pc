@@ -16,7 +16,7 @@ class Tests(unittest.TestCase):
         blocks={start+4*i:(0x4e800020,) for i in range(53)}
         d=assemble(blocks,start,max_roots=53)
         self.assertEqual(words_at(d,start,53),(0x4e800020,)*53)
-        for cap in (32,51,52,61):
+        for cap in (32,51,52,62):
             with self.subTest(cap=cap),self.assertRaises(ValueError):
                 assemble(blocks,start,max_roots=cap)
         with self.assertRaises(ValueError):
@@ -25,39 +25,51 @@ class Tests(unittest.TestCase):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(55)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=55),start,55),(0x4e800020,)*55)
-        for cap in (53,54,61):
+        for cap in (53,54,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_report_roots(self):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(56)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=56),start,56),(0x4e800020,)*56)
-        for cap in (54,55,61):
+        for cap in (54,55,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_report_helper_roots(self):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(57)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=57),start,57),(0x4e800020,)*57)
-        for cap in (55,56,61):
+        for cap in (55,56,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_report_resume_roots(self):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(58)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=58),start,58),(0x4e800020,)*58)
-        for cap in (56,57,61):
+        for cap in (56,57,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_formatter_roots(self):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(59)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=59),start,59),(0x4e800020,)*59)
-        for cap in (57,58,61):
+        for cap in (57,58,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
     def test_formatter_continuation_roots(self):
         start=0x80510000
         blocks={start+4*i:(0x4e800020,) for i in range(60)}
         self.assertEqual(words_at(assemble(blocks,start,max_roots=60),start,60),(0x4e800020,)*60)
-        for cap in (32,59,61):
+        for cap in (32,59,62):
             with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
         with self.assertRaises(ValueError):assemble({**blocks,start+60*4:(0x4e800020,)},start,max_roots=60)
+    def test_explicit_next_callee_root(self):
+        start=0x80510000
+        blocks={start+4*i:(0x4e800020,) for i in range(61)}
+        self.assertEqual(words_at(assemble(blocks,start,max_roots=61),start,61),(0x4e800020,)*61)
+        for cap in (32,60,62):
+            with self.assertRaises(ValueError):assemble(blocks,start,max_roots=cap)
+        with self.assertRaises(ValueError):
+            assemble({**blocks,start+61*4:(0x4e800020,)},start,max_roots=61)
+        with self.assertRaises(ValueError):
+            assemble({**blocks,start+0x50000:(0x4e800020,)},start,max_roots=61)
+        with self.assertRaises(ValueError):
+            assemble({**blocks,start+4:(0x4e800020,0x4e800020)},start,max_roots=61)
     def test_isolated_sections(self):
         start=0x80510000
         blocks={start:(0x4e800020,),start+16:(0x4e800020,)}
