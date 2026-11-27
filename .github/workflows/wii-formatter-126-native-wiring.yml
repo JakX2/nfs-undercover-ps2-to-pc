@@ -1,0 +1,49 @@
+name: Wii Original Formatter 126 Native Wiring (Source Only)
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-126-native-wiring.yml'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+      - 'research/native_recomp/wii_formatter_report_fifth_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_fourth_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_third_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_second_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_signext.h'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_formatter_report_fifth_immediate_*.py'
+      - 'research/native_recomp/test_formatter_report_fourth_immediate_*.py'
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/validate_formatter_nested_log.py research/native_recomp/test_formatter_report_fifth_immediate_native_wiring.py research/native_recomp/test_formatter_report_fifth_immediate_nested.py research/native_recomp/test_formatter_report_fifth_immediate_log.py
+          for test in \
+            test_formatter_report_fourth_immediate_fixture \
+            test_formatter_report_fourth_immediate_nested \
+            test_formatter_report_fourth_immediate_log \
+            test_formatter_report_fourth_immediate_native_wiring \
+            test_formatter_report_fifth_immediate_fixture \
+            test_formatter_report_fifth_immediate_nested \
+            test_formatter_report_fifth_immediate_log \
+            test_formatter_report_fifth_immediate_native_wiring; do
+            python3 "research/native_recomp/${test}.py"
+          done
+          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_fifth_immediate.cpp -o /tmp/wii-formatter-126-harness-source
+            /tmp/wii-formatter-126-harness-source
+            rm -f /tmp/wii-formatter-126-harness-source
+          done
