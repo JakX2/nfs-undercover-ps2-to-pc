@@ -921,7 +921,7 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
                                                                         if signext_contract is not None:
                                                                             si=signext_contract[1]
                                                                             if (si[0]!=ii[0] or si[1:3]!=ii[3:5] or
-                                                                                    si[5:7]!=ii[5:7] or si[8]!=ii[7] or
+                                                                                    (si[5]==ii[5] and si[6]!=ii[6]) or si[8]!=ii[7] or
                                                                                     si[3] in expected):
                                                                                 raise ValueError('nested fixture report signext expansion')
                                                                             expected[si[3]]=(si[0],si[4])
