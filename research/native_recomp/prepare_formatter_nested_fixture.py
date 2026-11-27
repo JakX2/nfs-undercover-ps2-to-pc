@@ -508,7 +508,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
             if report_byte_contract is not None:
                 expanded={**expanded,**expand_report_byte(next_entry_contract[0],next_entry_contract,report_byte_contract)}
                 if compare_contract is not None:
-                    candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                    candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
                     if compare_contract!=(candidate,fields) or candidate[fields[0]]!=(
                             *expanded[fields[0]][:2],fields[3],GUARD) or any(
                             candidate[a]!=words for a,words in expanded.items() if a!=fields[0]):
@@ -597,7 +597,7 @@ def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract
             if report_byte_contract is not None:
                 final=expand_report_byte(final,next_entry_contract,report_byte_contract)
                 if compare_contract is not None:
-                    promoted,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                    promoted,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
                     if compare_contract!=(promoted,fields) or any(
                             promoted[a]!=words for a,words in final.items() if a!=fields[0]):
                         raise ValueError('nested fixture report compare expansion')
@@ -740,7 +740,7 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
                                                             if ri[5] in expected:raise ValueError('nested fixture report byte expansion')
                                                             expected[ri[5]]=(ri[0],ri[6])
                                                             if compare_contract is not None:
-                                                                candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                                                                candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
                                                                 if compare_contract!=(candidate,fields) or fields[2] in expected:
                                                                     raise ValueError('nested fixture report compare expansion')
                                                                 expected[fields[2]]=(fields[0],fields[3])

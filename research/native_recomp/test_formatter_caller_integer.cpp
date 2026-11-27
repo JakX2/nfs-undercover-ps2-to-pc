@@ -64,6 +64,28 @@ unsigned compare_witness_cases(){
     }
     return count;
 }
+unsigned compare_witness_wide_input_cases(){
+    unsigned count=0;
+    for(unsigned op:{10u,11u})
+    for(unsigned field=0;field<8u;++field)
+    for(uint32_t value:{0u,255u,256u,0x7fffffffu,0x80000000u,0xffffffffu})
+    for(unsigned so:{0u,1u}){
+        CompareCpu c;seed_cr(c);
+        c.gpr[7]=value;c.gpr[9]=0x5au;c.xer=(so<<31u)|0x60000000u;
+        const uint32_t instruction=cmpword(op,field,7u,0x8000u);
+        c.mmu.write32(Label,instruction);c.mmu.write32(Label+4u,After);
+        c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
+        CallerImmediateCompareWitness witness;
+        assert(witness.arm(c,Root,Label,instruction,After,{7u,value}));
+        const int64_t lhs=op==11u?int64_t(std::bit_cast<int32_t>(value)):int64_t(value);
+        const int64_t rhs=op==11u?-32768ll:32768ll;
+        c.cr[field]={lhs<rhs,lhs>rhs,lhs==rhs,bool(so)};
+        ++c.inst_count;
+        assert(witness.observe(c,Label+4u,After));
+        ++count;
+    }
+    return count;
+}
 unsigned compare_witness_rejections(){
     constexpr auto w=(11u<<26u)|(3u<<23u)|(9u<<16u)|42u;
     unsigned count=0;
@@ -83,7 +105,7 @@ unsigned compare_witness_rejections(){
         case 7:instruction=(14u<<26u)|(9u<<16u);c.mmu.write32(Label,instruction);break;
         case 23:c.mmu.write32(Label+8u,0u);break;
         case 24:c.mmu.write32(c.lr,0u);break;
-        case 25:c.gpr[9]=256u;operand=256u;break;
+        case 25:c.gpr[9]=256u;operand=255u;break;
         case 26:arm_root=Root+4u;break;
         case 27:arm_label=Label+4u;break;
         case 28:c.lr=Label+4u;break;
@@ -241,10 +263,11 @@ int main(){
     }
     assert(relative_cases==240);
     const auto compare_cases=compare_witness_cases();
+    const auto wide_cases=compare_witness_wide_input_cases();
     const auto compare_rejected=compare_witness_rejections();
-    assert(compare_cases==73728u&&compare_rejected==33u);
+    assert(compare_cases==73728u&&wide_cases==192u&&compare_rejected==33u);
     std::cout<<"FORMATTER_IMMEDIATE_COMPARE_WITNESS_TEST valid="<<compare_cases
-             <<" rejected="<<compare_rejected<<" original_execution=0\n";
+             <<" wide_inputs="<<wide_cases<<" rejected="<<compare_rejected<<" original_execution=0\n";
 
     std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=64 stack_relative_cases="<<relative_cases<<" original_execution=0\n";
 }

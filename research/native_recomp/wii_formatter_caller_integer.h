@@ -131,7 +131,7 @@ public:
         if(stage_||failed_||!safe(c)||c.pc!=root||
            root<0x80000000u||root>0x817ffff0u||(root&3u)||
            label!=root+4u||!(op==10u||op==11u)||
-           ((instruction>>16u)&31u)!=input.reg||input.value>255u||
+           ((instruction>>16u)&31u)!=input.reg||
            next_word==0x44000002u||!word(c,label,instruction)||
            !word(c,label+4u,next_word)||
            !word(c,label+8u,0x44000002u)||

@@ -26,7 +26,7 @@ _ALLOWED_REASONS = {
 }
 
 
-def inspect(contract, registers, *, saved_mask=0):
+def inspect(contract, registers, *, saved_mask=0, return_input=False):
     """Classify a proven byte load's successor, without inventing registers."""
     blocks, info = contract
     if len(info) != 8 or len(registers) != 32:
@@ -65,10 +65,22 @@ def inspect(contract, registers, *, saved_mask=0):
     except ValueError as ex:
         modeled = None
         reason = str(ex) if str(ex) in _ALLOWED_REASONS else 'not_modelled'
-    return name, counts, modeled, reason
+    result = (name, counts, modeled, reason)
+    if not return_input:
+        return result
+    # Return only a previously authenticated symbolic constant. The byte
+    # destination is not necessarily the compare source register.
+    if name != 'compare_immediate' or reason != 'supported' or modeled is None or len(set(reads)) != 1:
+        raise ValueError('successor compare source')
+    source = next(iter(reads))
+    tag = after[source]
+    if (tag[0] != 'const' or type(tag[1]) is not int or
+            not 0 <= tag[1] <= 0xffffffff):
+        raise ValueError('successor compare source')
+    return (*result, (source, tag[1]))
 
 
-def plan(d, e):
+def plan(d, e, *, return_input=False):
     from prepare_formatter_next_entry_report_byte_contract import plan as byte_plan
     from prepare_formatter_caller_stack_move_contract import plan as move_plan
     from audit_formatter_caller_after_stack_move import extend as integer_extend
@@ -88,7 +100,7 @@ def plan(d, e):
         raise ValueError('successor history')
     if byte[0].get(byte[1][0]) != (byte[1][1], byte[1][6], GUARD):
         raise ValueError('successor history')
-    return inspect(byte, registers, saved_mask=mask)
+    return inspect(byte, registers, saved_mask=mask, return_input=return_input)
 
 
 class Tests(unittest.TestCase):
@@ -134,6 +146,26 @@ class Tests(unittest.TestCase):
         self.assertEqual(counts[6],1)
         self.assertEqual(reason,'supported')
         self.assertEqual(modeled[9], ('const',0x5a))
+        details = inspect(self.contract(), tuple(self.regs), return_input=True)
+        self.assertEqual(details[-1], (9, 0x5a))
+
+    def test_different_constant_register_is_authenticated(self):
+        self.integer = (10<<26)|(4<<23)|(7<<16)|0x8000
+        self.regs[7] = ('const', 0x81234567)
+        details = inspect(self.contract(), tuple(self.regs), return_input=True)
+        self.assertEqual(details[0], 'compare_immediate')
+        self.assertEqual(details[3], 'supported')
+        self.assertEqual(details[-1], (7, 0x81234567))
+        self.assertNotEqual(details[-1][0], (self.load>>21)&31)
+        self.assertEqual(self.regs[9], ('reg',9))
+
+    def test_unproven_comparison_input_refused(self):
+        self.integer = (11<<26)|(3<<23)|(7<<16)|0
+        with self.assertRaisesRegex(ValueError, 'successor compare source'):
+            inspect(self.contract(), tuple(self.regs), return_input=True)
+        self.integer = (14<<26)|(10<<21)|(9<<16)|1
+        with self.assertRaisesRegex(ValueError, 'successor compare source'):
+            inspect(self.contract(), tuple(self.regs), return_input=True)
 
     def test_untracked_input_is_not_concretized(self):
         self.integer = (14<<26)|(10<<21)|(7<<16)|1

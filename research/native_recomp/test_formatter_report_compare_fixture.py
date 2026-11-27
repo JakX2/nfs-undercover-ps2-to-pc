@@ -33,13 +33,13 @@ class CompareFixtureTests(unittest.TestCase):
                     prior = contract(word=comparison(op, field, 9, byte),
                                      value=byte)
                     old = {root: words for root, words in prior[0].items()}
-                    expanded, fields = promote(prior, NEXT)
+                    expanded, fields = promote(prior, NEXT, (9, byte))
                     self.assertEqual(expanded[ROOT],
                                      (LOAD, comparison(op, field, 9, byte),
                                       NEXT, GUARD))
                     self.assertEqual(fields[2:], (ROOT+8, NEXT, 9, byte, RETURN))
                     self.assertEqual(prior[0], old)
-                    self.assertIn('source_byte=', render((expanded, fields)))
+                    self.assertIn('source_value=', render((expanded, fields)))
                     count += 1
         self.assertEqual(count, 4096)
 
@@ -62,19 +62,38 @@ class CompareFixtureTests(unittest.TestCase):
         for item in cases:
             with self.subTest(case=item[1][:2]):
                 with self.assertRaises(ValueError):
-                    promote(item, NEXT)
+                    promote(item, NEXT, (9, 0x5a))
 
     def test_successor_refusals(self):
         for successor in (GUARD, -1, 0x100000000, True, None, 'code'):
             with self.subTest(successor=successor):
                 with self.assertRaises(ValueError):
-                    promote(contract(), successor)
+                    promote(contract(), successor, (9, 0x5a))
+
+    def test_non_byte_compare_source_and_full_width_value(self):
+        # The predecessor byte load changes r9; the comparison reads r7.
+        source = (7, 0x81234567)
+        prior = contract(word=comparison(10, 4, 7, 0x8000))
+        out, fields = promote(prior, NEXT, source)
+        self.assertEqual(fields[4:6], source)
+        self.assertEqual(out[ROOT], (LOAD, comparison(10,4,7,0x8000), NEXT, GUARD))
+        self.assertIn('source_value=0x81234567u', render((out, fields)))
+
+    def test_provenance_mismatch_and_invalid_source(self):
+        wrong = contract(word=comparison(11, 3, 7, 5))
+        with self.assertRaisesRegex(ValueError, 'input identity'):
+            promote(wrong, NEXT, (9, 0x5a))
+        for source in ((7, True), (7, -1), (7, 0x100000000),
+                       (32, 0), (False, 1), ('7', 1), [7, 1], None):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(ValueError, 'source provenance'):
+                    promote(wrong, NEXT, source)
 
     def test_callee_guard_isolated_from_siblings(self):
         sibling = ROOT + 0x200
         old = {ROOT: (LOAD, comparison(), GUARD),
                sibling: (0x60000000, GUARD)}
-        out, fields = promote(contract(blocks=old), NEXT)
+        out, fields = promote(contract(blocks=old), NEXT, (9, 0x5a))
         self.assertEqual(out[sibling], old[sibling])
         self.assertEqual(out[ROOT+0] if ROOT+0 in out else (), out[ROOT])
         self.assertEqual(fields[0], ROOT)
