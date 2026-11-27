@@ -436,7 +436,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const bool fourth_taken=follow!=159;
     const auto fourth_next=fourth_taken?fourth_target:fourth_fallthrough;
     const auto fourth_other=fourth_taken?fourth_fallthrough:fourth_target;
-    constexpr uint32_t fourth_boundary=0x60000000u;
+    const uint32_t fourth_boundary=follow>=180?ins(14,5,16,1):0x60000000u;
     if(follow!=166)c.mmu.write32(fourth_next,follow==162?guard_word:fourth_boundary);
     c.mmu.write32(fourth_other,follow==163?fourth_boundary:guard_word);
     if(follow==168)c.mmu.write32(second_other,fourth_boundary);
@@ -456,12 +456,58 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow>=169&&follow<=178){assert(!fourth_stopped);return;}
     assert(fourth_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==4u);
     assert(child.caller_integer_visits()==2u&&child.caller_post_integer_visits()==1u);
-    if(follow==179)assert(!child.resume_caller_branch(c,0x100u,true,fourth_next,fourth_boundary,held()));
+    if(follow==179){assert(!child.resume_caller_branch(c,0x100u,true,fourth_next,fourth_boundary,held()));return;}
+    if(follow<180)return;
+    const auto mix_cmp=fourth_next+4u,mix_branch=fourth_next+8u,mix_other=mix_branch+4u,mix_end=mix_branch+16u;
+    const auto mix_cmp_word=ins(11,0,5,10);
+    const auto mix_branch_word=(16u<<26)|((follow==190?8u:12u)<<21)|(2u<<16)|16u|unsigned(follow==191);
+    constexpr uint32_t mix_end_word=0x60000000u;
+    c.mmu.write32(mix_cmp,mix_cmp_word);
+    c.mmu.write32(mix_branch,mix_branch_word);
+    c.mmu.write32(mix_other,follow==187?mix_end_word:guard_word);
+    c.mmu.write32(mix_end,follow==186?guard_word:mix_end_word);
+    const std::array<CallerIntegerInput,1> mix_in1{{{16,follow==184?8u:9u}}},mix_in2{{{5,follow==194?9u:10u}}};
+    std::array<ScCallerMixedStep,3> mix{{
+        {fourth_next,fourth_boundary,mix_in1,mix_cmp,0u,false},
+        {mix_cmp,mix_cmp_word,mix_in2,mix_branch,0u,false},
+        {mix_branch,mix_branch_word,{},mix_end,mix_other,true}
+    }};
+    if(follow==183)mix[0].next_pc+=4u;
+    if(follow==185)mix[0].inputs={};
+    if(follow==188)mix[2].other_pc=third_target;
+    if(follow==189)mix[2].taken=false;
+    const auto mix_path=follow==181?std::span<const ScCallerMixedStep>{}:std::span<const ScCallerMixedStep>{mix};
+    const bool mix_armed=child.resume_caller_mixed(c,mix_path,mix_end+(follow==182?4u:0u),mix_end_word,held()&&follow!=192);
+    if(follow>=181&&follow<=192){assert(!mix_armed);return;}
+    assert(mix_armed&&child.stage()==18u&&child.caller_mixed_visits()==0u);
+    c.gpr[5]=follow==193?9u:10u;
+    if(follow==195)c.mmu.write32(mix_other,mix_end_word);
+    if(follow==196)c.mmu.write32(other,mix_end_word);
+    c.inst_count+=follow==197?2u:1u;
+    const bool mix_one=child.caller_mixed_boundary(c,mix_cmp,mix_cmp_word,held());
+    if(follow>=193&&follow<=197){assert(!mix_one);return;}
+    assert(mix_one&&child.caller_mixed_visits()==1u);
+    c.cr[0]={false,false,true,false};
+    if(follow==198)c.cr[0].eq=false;
+    if(follow==199)c.mmu.write32(mix_branch,guard_word);
+    ++c.inst_count;
+    const bool mix_two=child.caller_mixed_boundary(c,mix_branch,mix_branch_word,held());
+    if(follow==198||follow==199){assert(!mix_two);return;}
+    assert(mix_two&&child.caller_mixed_visits()==2u);
+    if(follow==202)c.mmu.write32(mix_other,mix_end_word);
+    if(follow==203)c.gpr[5]^=1u;
+    if(follow==204)c.mmu.write32(fourth_other,mix_end_word);
+    c.inst_count+=follow==201?2u:1u;
+    const bool mix_three=child.caller_mixed_boundary(c,follow==200?mix_other:mix_end,mix_end_word,held()&&follow!=205);
+    if(follow>=200&&follow<=205){assert(!mix_three);return;}
+    assert(mix_three&&child.reached_caller_mixed(c,held())&&child.caller_mixed_visits()==3u);
+    assert(child.caller_mixed_integers()==2u&&child.caller_mixed_taken()==1u&&child.caller_mixed_fallthrough()==0u);
+    if(follow==206)assert(!child.caller_mixed_boundary(c,mix_end,mix_end_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=179;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=466 original_execution=0\n";}
+    for(unsigned follow=1;follow<=206;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=493 original_execution=0\n";}

@@ -16,6 +16,12 @@ struct ScCallerIntegerStep {
     uint32_t pc,word;
     std::span<const CallerIntegerInput> inputs;
 };
+struct ScCallerMixedStep {
+    uint32_t pc,word;
+    std::span<const CallerIntegerInput> inputs;
+    uint32_t next_pc,other_pc; // other_pc==0 for register-only operations
+    bool taken;
+};
 struct ScFormatterExpectation {
     uint32_t root,entry_lr,target,target_word,frame_size;
     std::span<const IpcDispatchWord> path;
@@ -625,6 +631,54 @@ public:
         return stage_==17u&&!post_integer_path_.empty()&&post_integer_completed_==post_integer_path_.size()&&
             post_integer_storage(c,held,post_integer_completed_)&&visits_==e_.path.size()+1u;
     }
+    // Authenticate a bounded mixed continuation with one observer per
+    // original label. No live register, CR or guest PC is assigned here.
+    template<class C>bool resume_caller_mixed(C& c,std::span<const ScCallerMixedStep> path,
+                                              uint32_t end_pc,uint32_t end_word,bool held){
+        if(!reached_caller_branch(c,held)||branch_completed_!=4u||path.empty()||path.size()>16u||
+           path.front().pc!=branches_[3].next_pc||path.front().word!=branches_[3].next_word||
+           end_word==0x44000002u||!word(c,end_pc,end_word))return fail(6);
+        const auto owner=caller_parent_->e_.root;
+        const auto inside=[&](uint32_t a){return !(a&3u)&&a>=owner&&uint64_t(a)+4u<=uint64_t(owner)+branch_owner_size_;};
+        if(!inside(end_pc))return fail(6);
+        for(unsigned i=0;i<path.size();++i){
+            const auto& s=path[i];
+            if(!inside(s.pc)||!inside(s.next_pc)||s.next_pc<=s.pc||
+               s.next_pc!=(i+1u==path.size()?end_pc:path[i+1u].pc)||
+               s.word==0x44000002u||s.inputs.size()>3u||!word(c,s.pc,s.word))return fail(6);
+            for(unsigned j=0;j<branch_completed_;++j)
+                if(s.pc==branches_[j].other_pc||s.next_pc==branches_[j].other_pc)return fail(6);
+            for(auto t:path)if(t.other_pc&&(s.pc==t.other_pc||s.next_pc==t.other_pc))return fail(6);
+            if(s.other_pc){
+                if(!inside(s.other_pc)||s.other_pc==s.next_pc||!s.inputs.empty()||
+                   !word(c,s.other_pc,0x44000002u)||!mixed_edge(s,false))return fail(6);
+            }else if(s.taken||uint64_t(s.pc)+4u!=s.next_pc)return fail(6);
+        }
+        mixed_path_=path;mixed_end_pc_=end_pc;mixed_end_word_=end_word;
+        if(!predict_mixed(c,path.front()))return fail(6);
+        stage_=18u;return true;
+    }
+    template<class C>bool caller_mixed_boundary(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=18u||mixed_completed_>=mixed_path_.size()||!mixed_storage(c,held,mixed_completed_+1u))return fail(6);
+        const unsigned i=mixed_completed_+1u;const bool done=i==mixed_path_.size();
+        if(pc!=(done?mixed_end_pc_:mixed_path_[i].pc)||w!=(done?mixed_end_word_:mixed_path_[i].word))return fail(6);
+        if(mixed_path_[mixed_completed_].other_pc){
+            if(mixed_path_[mixed_completed_].taken)++mixed_taken_;else ++mixed_fallthrough_;
+        }else ++mixed_integers_;
+        ++mixed_completed_;
+        if(done){stage_=19u;return true;}
+        if(!predict_mixed(c,mixed_path_[i]))return fail(6);
+        return true;
+    }
+    unsigned caller_mixed_visits()const{return mixed_completed_;}
+    unsigned caller_mixed_integers()const{return mixed_integers_;}
+    unsigned caller_mixed_taken()const{return mixed_taken_;}
+    unsigned caller_mixed_fallthrough()const{return mixed_fallthrough_;}
+    template<class C>bool reached_caller_mixed(C& c,bool held)const{
+        return stage_==19u&&!mixed_path_.empty()&&mixed_completed_==mixed_path_.size()&&
+            mixed_integers_+mixed_taken_+mixed_fallthrough_==mixed_completed_&&
+            mixed_storage(c,held,mixed_completed_)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -747,6 +801,29 @@ private:
     }
     template<class C>bool post_integer_storage(C& c,bool held,unsigned n)const{
         return branch_completed_==2u&&branch_storage(c,held,2u,n)&&post_integer_code(c);
+    }
+    std::span<const ScCallerMixedStep> mixed_path_{};
+    uint32_t mixed_end_pc_=0,mixed_end_word_=0;
+    unsigned mixed_completed_=0,mixed_integers_=0,mixed_taken_=0,mixed_fallthrough_=0;
+    bool mixed_edge(const ScCallerMixedStep& s,bool check_condition)const{
+        const unsigned op=s.word>>26,bo=(s.word>>21)&31u,bi=(s.word>>16)&31u;
+        if((op!=16u&&op!=18u)||(s.word&3u)||(op==16u&&!(bo&4u)))return false;
+        const auto dst=target(s.pc,s.word);
+        if(uint64_t(dst)<=uint64_t(s.pc)+4u||s.next_pc!=(s.taken?dst:s.pc+4u)||
+           s.other_pc!=(s.taken?s.pc+4u:dst)||(!s.taken&&op==18u))return false;
+        const bool outcome=op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u);
+        return !check_condition||outcome==s.taken;
+    }
+    template<class C>bool predict_mixed(C& c,const ScCallerMixedStep& s){
+        return s.other_pc?mixed_edge(s,true):predict_integer(c,{s.pc,s.word,s.inputs});
+    }
+    template<class C>bool mixed_storage(C& c,bool held,unsigned n)const{
+        if(branch_completed_!=4u||!branch_storage(c,held,4u,post_integer_completed_+n)||
+           !post_integer_code(c)||!word(c,mixed_end_pc_,mixed_end_word_))return false;
+        for(auto s:mixed_path_){
+            if(!word(c,s.pc,s.word)||(s.other_pc&&!word(c,s.other_pc,0x44000002u)))return false;
+        }
+        return true;
     }
     uint32_t caller_modified_mask_=0;
     // The child's return ABI was already observed strictly. Subsequent
