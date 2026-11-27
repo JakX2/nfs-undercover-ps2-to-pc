@@ -127,3 +127,30 @@ The subsequent 123 owner attempt [46025030157](https://github.com/JakX2/nfs-unde
 The 123 isolated witness tests [46058494734](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494734) and the inherited 124 source integration [46058494576](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494576) passed. The new synthetic three-lane successor-chain regression exercises the 122, 123 and 124 layouts using shared CPU state and independently mutates each remaining word and terminal/return guard before and after each witness. Its results are source-only.
 
 The repaired original 123 owner attempt is [46058494707](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494707). It was pending when this update was authored. The original 124 owner pins remain unchanged until a successful original 123 execution is verified. **The execution frontier remains 122.** No original bytes are included in these changes.
+
+## Instruction-125 observer preparation (source-only)
+
+The authenticated read-only 125 provenance remains
+[46024552413](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46024552413).
+A separate independently authored `FormatterFourthImmediateWitness` now
+models the **observation contract** for a future 125 AOT step, not execution
+of original code. It enforces PPC zero-base `addi` semantics; a single
+volatile-GPR write; unchanged CR, XER, GQR, LR, CTR, MSR and SRR registers;
+an exact instruction-count delta; and both immutable guest guard slots.
+
+- [125 independent source-only witness 46059195465](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059195465):
+  optimized and ASan/UBSan builds passed, covering **327,680 synthetic
+  results**, **29 arm** and **24 observation** refusal mutations.
+- [124 predecessor witness 46059344119](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059344119)
+  and [125 paired successor witness 46059344178](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46059344178)
+  passed. The 124 witness preserves its existing short-mode guard, while an
+  optional explicitly supplied authenticated lookahead relocates the terminal
+  guard for a possible 125 test. The additional paired test manually applies
+  synthetic GPR changes and mutates predecessor words, successor words, the
+  terminal guard and return guard at arm and observation boundaries.
+
+The 125 observer is **not wired to the private native harness**. It is not
+proof that 125, 124 or 123 original instructions execute. The earlier
+verified original 122-instruction frontier must advance through distinct
+owner-original CI gates before any 125 execution claim. Neither original
+instruction bytes nor generated game translation code appear in these files.
