@@ -30,8 +30,13 @@ class StackMove(unittest.TestCase):
         self.initial=tuple(self.live)
         (_,info),live,_,_=self.probe()
         self.assertEqual(info[4],124);self.assertEqual(live[4],('stack',-580))
-    def test_outside_parent(self):
-        for offset in (-4,704):
+    def test_pointer_outside_parent(self):
+        for offset in (-48,704,864):
+            self.words[11]=x_or(7,4,7);self.live[7]=('stack',-704+offset);self.initial=tuple(self.live)
+            (_,info),live,_,_=self.probe()
+            self.assertEqual(info[4],offset);self.assertEqual(live[4],self.initial[7])
+    def test_invalid_relative_range(self):
+        for offset in (-0x01800000,0x01800000):
             self.words[11]=x_or(7,4,7);self.live[7]=('stack',-704+offset);self.initial=tuple(self.live)
             with self.assertRaisesRegex(ValueError,'range'):self.probe()
     def test_record(self):

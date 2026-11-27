@@ -74,10 +74,20 @@ int main(){
         assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,7));
         assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,-1));
         assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,704));
+        gp[8]=sp+704u;
+        move=predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,704);
+        assert(bool(move)==(sp+704u<0x81800000u));
+        if(move)assert(move->value==sp+704u);
+        gp[8]=sp-48u;
+        move=predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,-48);
+        assert(bool(move)==(sp>=0x80000030u));
+        if(move)assert(move->value==sp-48u);
+        assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,0x01800000));
+        assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp,-0x01800000));
     }
     for(const auto sp:{0x7ffffff8u,0x80000001u,0x817ffd48u,0xfffffff8u}){
         gp[1]=sp;
         assert(!predict_caller_stack_move(x(1,5,1,444),gp,0u,sp));
     }
-    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=52 original_execution=0\n";
+    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=64 original_execution=0\n";
 }

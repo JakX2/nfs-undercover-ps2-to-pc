@@ -27,7 +27,10 @@ def extend(byte,words,live,cr,saved_mask,earlier_guards,initial):
     if value[0]!='stack' or value!=initial[rs]:
         raise ValueError('stack move provenance')
     offset=value[1]-initial[1][1]
-    if not isinstance(offset,int) or not 0<=offset<704:
+    # A pointer copy is not a memory access. It may preserve a pointer
+    # into another live stack frame; the runtime checks the exact resolved
+    # address against MEM1 without authorizing any dereference.
+    if not isinstance(offset,int) or not -0x01800000<offset<0x01800000:
         raise ValueError('stack move range')
     i=(pc-owner)//4;body=blocks.get(owner,())
     if pc&3 or owner&3 or not 0<=i<len(body) or i+2>=len(words) or body[i]!=w or words[i]!=w:
@@ -58,6 +61,7 @@ def main():
         with plan_cache_scope():(_,info),_,_,_=plan(q.dol.read_bytes(),q.elf.read_bytes())
     except (OSError,ValueError,TypeError,KeyError,IndexError,struct.error) as ex:
         print('FORMATTER_CALLER_STACK_MOVE verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
-    print(f'FORMATTER_CALLER_STACK_MOVE verified=1 admitted=1 family=or stack_identity=1 within_parent=1 volatile_destination=1 condition_write=0 next_family={boundary_shape(info[-1])} next_guard=1 original_execution=0')
+    region='below_parent' if info[4]<0 else 'parent' if info[4]<704 else 'above_parent'
+    print(f'FORMATTER_CALLER_STACK_MOVE verified=1 admitted=1 family=or stack_identity=1 relative_region={region} dereference=0 volatile_destination=1 condition_write=0 next_family={boundary_shape(info[-1])} next_guard=1 original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())

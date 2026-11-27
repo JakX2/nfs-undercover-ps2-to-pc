@@ -80,9 +80,10 @@ inline std::optional<CallerIntegerEffect> predict_caller_stack_move(
     if(op!=31u||xo!=444u||(w&1u)||rs!=rb||ra==rs||
        !(ra==0u||(ra>=3u&&ra<=12u))||gp[1]!=parent_sp||
        parent_sp<0x80000000u||parent_sp>0x81800000u-704u||(parent_sp&7u)||
-       offset<0||offset>=704)return {};
-    const uint32_t expected=parent_sp+uint32_t(offset);
-    if(gp[rs]!=expected)return {};
-    return CallerIntegerEffect{ra,expected,cr};
+       offset<=-0x01800000||offset>=0x01800000)return {};
+    const int64_t address=int64_t(parent_sp)+int64_t(offset);
+    if(address<0x80000000ll||address>=0x81800000ll||gp[rs]!=uint32_t(address))return {};
+    // Copy only. Being inside MEM1 does not authorize reading or writing it.
+    return CallerIntegerEffect{ra,uint32_t(address),cr};
 }
 }
