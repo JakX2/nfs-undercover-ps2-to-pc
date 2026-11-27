@@ -516,6 +516,9 @@ struct FormatterContinuationStop{};
 static ScFormatterWitness* formatter_nested=nullptr;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
 static std::optional<FormatterReportByteTransition> formatter_report_byte;
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+static std::optional<CallerImmediateCompareWitness> formatter_report_compare;
+#endif
 #endif
 static unsigned formatter_nested_count=0;
 static unsigned nested_cold_match=0,nested_live_match=0,nested_sample_equal=0;
@@ -633,6 +636,14 @@ static_assert(formatter_caller_report_byte_private::return_pc==formatter_caller_
 static_assert(formatter_caller_report_byte_private::next_pc==formatter_caller_report_byte_private::pc+4u);
 static_assert(formatter_caller_report_byte_private::report_offset>=8u&&formatter_caller_report_byte_private::report_offset<128u);
 static_assert(formatter_caller_report_byte_private::parent_offset==736+int32_t(formatter_caller_report_byte_private::report_offset));
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+static_assert(formatter_report_compare_private::root==formatter_caller_report_byte_private::pc);
+static_assert(formatter_report_compare_private::compare_pc==formatter_caller_report_byte_private::next_pc);
+static_assert(formatter_report_compare_private::compare_word==formatter_caller_report_byte_private::next_word);
+static_assert(formatter_report_compare_private::next_pc==formatter_report_compare_private::root+8u);
+static_assert(formatter_report_compare_private::return_pc==formatter_caller_report_byte_private::return_pc);
+static_assert(((formatter_report_compare_private::compare_word>>16u)&31u)==formatter_report_compare_private::source_reg);
+#endif
 #endif
 #endif // UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
 #endif
@@ -1217,6 +1228,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
              formatter_caller_next_entry_private::word,formatter_caller_next_entry_private::return_pc,formatter_nested_held(c)
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
              ,formatter_caller_report_byte_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+             ,formatter_report_compare_private::next_word
+#endif
 #endif
              ))formatter_nested_refuse(2);
         return;
@@ -1236,7 +1250,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
             formatter_caller_report_byte_private::next_word,formatter_caller_report_byte_private::return_pc,
             uint32_t(address),c.gpr[1],post_stm_helper->linkage_word(),736u,0u,
             formatter_caller_report_byte_private::value};
-        if(!formatter_report_byte->arm_native(c,*post_stm_report,step,held)||
+        if(!formatter_report_byte->arm_native(c,*post_stm_report,step,held
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+                ,formatter_report_compare_private::next_word
+#endif
+                )||
            !formatter_nested->resume_caller_report_byte(c,formatter_caller_report_byte_private::parent_offset,
              formatter_caller_report_byte_private::report_offset,formatter_caller_report_byte_private::value,
              formatter_report_byte->stage()==1u,held))formatter_nested_refuse(2);
@@ -1252,8 +1270,33 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
            !formatter_report_byte->observe_native_label(c,*post_stm_report,pc,w,held)||
            !formatter_nested->stop_after_caller_report_byte(c,pc,w,formatter_report_byte->stage()==2u,held))
             formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+        if(!formatter_report_compare||
+           !formatter_report_compare->arm(c,formatter_report_compare_private::root,
+               formatter_report_compare_private::compare_pc,
+               formatter_report_compare_private::compare_word,
+               formatter_report_compare_private::next_word,
+               {formatter_report_compare_private::source_reg,
+                formatter_report_compare_private::source_value})||
+           !formatter_nested->resume_caller_report_compare(c,
+               formatter_report_compare_private::source_reg,
+               formatter_report_compare_private::source_value,
+               formatter_report_compare->stage()==1u,held))formatter_nested_refuse(2);
+        return; // original AOT comparison executes and updates CR
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+    if(formatter_nested->stage()==32u){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_report_compare||
+           !formatter_report_compare->observe(c,pc,w)||
+           !formatter_nested->stop_after_caller_report_compare(c,pc,w,
+               formatter_report_compare->stage()==2u,held))formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
@@ -3934,7 +3977,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_caller_next_entry_private::target,formatter_caller_next_entry_private::word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
         c.mmu.write32(formatter_caller_report_byte_private::next_pc,formatter_caller_report_byte_private::next_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+        c.mmu.write32(formatter_report_compare_private::next_pc,formatter_report_compare_private::next_word);
+        c.mmu.write32(formatter_report_compare_private::next_pc+4u,0x44000002u);
+#else
         c.mmu.write32(formatter_caller_report_byte_private::next_pc+4u,0x44000002u);
+#endif
 #else
         c.mmu.write32(formatter_caller_next_entry_private::target+4u,0x44000002u);
 #endif
@@ -5104,13 +5152,22 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
             formatter_report_byte.emplace();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+            formatter_report_compare.emplace();
+#endif
 #endif
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             const bool nested_boundary_held=formatter_nested_held(c);
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             const bool nested_reached=
 #if defined(UNDERCOVER_FORMATTER_CALLER_POST_MIXED)
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE)
+                formatter_report_byte&&formatter_report_byte->stage()==2u&&!formatter_report_byte->failed()&&
+                formatter_report_compare&&formatter_report_compare->stage()==2u&&!formatter_report_compare->failed()&&
+                nested.reached_caller_report_compare(c,nested_boundary_held)&&nested.caller_report_compare_visits()==1u&&
+                nested.caller_report_byte_visits()==1u&&nested.caller_next_entry_visits()==1u&&
+                nested.caller_final_integer_visits()==1u&&nested.caller_stack_move_visits()==1u&&nested.caller_mixed_byte_visits()==1u&&
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
                 formatter_report_byte&&formatter_report_byte->stage()==2u&&!formatter_report_byte->failed()&&
                 nested.reached_caller_report_byte(c,nested_boundary_held)&&nested.caller_report_byte_visits()==1u&&
                 nested.caller_next_entry_visits()==1u&&nested.caller_final_integer_visits()==1u&&nested.caller_stack_move_visits()==1u&&nested.caller_mixed_byte_visits()==1u&&
@@ -5214,7 +5271,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE)
+                "FORMATTER_CALLER_REPORT_COMPARE_TRIAL n="
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
                 "FORMATTER_CALLER_REPORT_BYTE_TRIAL n="
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
                 "FORMATTER_CALLER_NEXT_ENTRY_TRIAL n="
@@ -5250,10 +5309,13 @@ int main(int argc,char** argv)try{
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
                 <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=1 report_byte_verified="<<nested.caller_report_byte_visits()
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+                <<" compare_verified="<<nested.caller_report_compare_visits()
+#endif
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
                 <<" next_entry_verified="<<nested.caller_next_entry_visits()<<" callee_load_executed=0"
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()<<'\n';
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()+nested.caller_stack_move_visits()+nested.caller_final_integer_visits()+nested.caller_next_entry_visits()+nested.caller_report_byte_visits()+nested.caller_report_compare_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5330,6 +5392,9 @@ int main(int argc,char** argv)try{
             formatter_nested=nullptr;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
             formatter_report_byte.reset();
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+            formatter_report_compare.reset();
+#endif
 #endif
 #endif
 #endif
@@ -5619,7 +5684,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
+#if defined(UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE)
+        "FORMATTER_CALLER_REPORT_COMPARE_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE)
         "FORMATTER_CALLER_REPORT_BYTE_NATIVE"
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
         "FORMATTER_CALLER_NEXT_ENTRY_NATIVE"
@@ -5653,6 +5720,9 @@ int main(int argc,char** argv)try{
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
         <<" next_entries_verified=8 callee_loads_executed=8 report_bytes_verified=8"
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
+        <<" compares_verified=8"
+#endif
 #elif defined(UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY)
         <<" next_entries_verified=8 callee_loads_executed=0"
 #endif
@@ -5673,6 +5743,9 @@ int main(int argc,char** argv)try{
         +1u
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BYTE
+        +1u
+#endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COMPARE
         +1u
 #endif
         )
