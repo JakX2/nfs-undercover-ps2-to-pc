@@ -217,7 +217,7 @@ class ReportImmediateFixture(unittest.TestCase):
             'immediate_contract=report_immediate_plan(',
             'immediate_extension(expanded,copy_contract,immediate_contract)',
             'immediate_extension(final,copy_contract,immediate_contract)',
-            'extent=24 if immediate_contract is not None',
+            'extent=28 if signext_contract is not None else 24 if immediate_contract is not None',
         ):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment,fixture)
