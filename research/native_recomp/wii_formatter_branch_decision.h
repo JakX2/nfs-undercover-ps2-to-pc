@@ -33,6 +33,12 @@ inline std::optional<FormatterBranchPrediction> predict_formatter_branch(
     }else if(op==19u) {
         const unsigned xo=(word>>1u)&1023u;
         if(xo!=16u&&xo!=528u)return {};
+        // XL-form bits 16..18 are reserved; BH=01/10 are reserved
+        // PowerPC branch hints. Do not treat malformed encodings as
+        // successfully decoded guest instructions.
+        if(word&0x0000e000u)return {};
+        const unsigned bh=(word>>11u)&3u;
+        if(bh==1u||bh==2u)return {};
         out.kind=xo==16u?FormatterBranchPrediction::Kind::LinkRegister:
                             FormatterBranchPrediction::Kind::CountRegister;
         if(xo==528u&&!(word&0x00800000u))return {}; // bcctr cannot decrement CTR
