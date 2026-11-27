@@ -937,14 +937,19 @@ public:
         const uint32_t w=*next_entry_following_;
         if(w>>26!=31u||((w>>1u)&1023u)!=444u||(w&1u)||
            ((w>>21u)&31u)!=src||((w>>11u)&31u)!=src||
-           ((w>>16u)&31u)!=dst||dst==1u||dst==2u||dst==13u||
-           (dst>=14u&&!parent_saved_register(c,dst)))return fail(6);
+           ((w>>16u)&31u)!=dst)return fail(6);
+        // Keep this native path as narrow as its independent symbolic
+        // provenance: an ABI-saved nonvolatile destination is not sufficient.
+        const auto predicted=predict_caller_stack_relative(
+            w,c.gpr,pack(c),gp_[1],src,offset);
         const int64_t address=int64_t(gp_[1])+int64_t(offset);
-        if(address<0x80000000ll||address>=0x81800000ll||
-           gp_[src]!=uint32_t(address)||c.gpr[src]!=uint32_t(address))return fail(6);
-        gp_[dst]=uint32_t(address);
-        report_copy_destination_=dst;report_copy_value_=uint32_t(address);
-        if(dst>=14u)caller_modified_mask_|=uint32_t(1)<<dst;
+        if(!predicted||predicted->reg!=dst||predicted->cr!=cr_||
+           address<0x80000000ll||address>=0x81800000ll||
+           predicted->value!=uint32_t(address)||
+           gp_[src]!=uint32_t(address)||c.gpr[src]!=uint32_t(address))
+            return fail(6);
+        gp_[dst]=predicted->value;
+        report_copy_destination_=dst;report_copy_value_=predicted->value;
         stage_=34u;return true;
     }
     template<class C>bool stop_after_caller_report_copy(C& c,uint32_t pc,
