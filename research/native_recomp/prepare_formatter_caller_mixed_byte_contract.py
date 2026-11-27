@@ -44,14 +44,19 @@ def extend(mixed,owner,words,live,mem,initial,parent,admitted,earlier_guards):
     check_spans({a:4*len(b) for a,b in expanded.items()})
     return expanded,(owner,pc,w,at-sp,cell[1],pc+4,words[i+1])
 
-def plan(d,e):
+def plan(d,e,*,with_state=False):
     third,words,proof,gp,cr,saved_mask=fourth_audit(d,e,with_state=True)
     fourth,_,_=fourth_extend(third,words,proof)
     if fourth is None:raise ValueError('mixed byte predecessor')
-    mixed,_,live,_=mixed_extend(fourth,words,gp,cr,saved_mask,proof[2])
+    mixed,_,live,cr=mixed_extend(fourth,words,gp,cr,saved_mask,proof[2])
     _,_,trace,admitted,entry,_=replay_plan(d,e,details=True)
     _,_,_,mem=trace[-1];_,initial,parent,_,_=entry
-    return extend(mixed,fourth[1][0],words,live,mem,initial,parent,admitted,(*proof[2],fourth[1][7]))
+    earlier=(*proof[2],fourth[1][7])
+    contract=extend(mixed,fourth[1][0],words,live,mem,initial,parent,admitted,earlier)
+    if not with_state:return contract
+    _,info=contract;after=list(live);after[(info[2]>>21)&31]=('const',info[4])
+    guards=tuple(sorted(set(earlier)|{row[4] for row in mixed[1] if row[4] is not None}))
+    return contract,words,tuple(after),cr,saved_mask,guards
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
