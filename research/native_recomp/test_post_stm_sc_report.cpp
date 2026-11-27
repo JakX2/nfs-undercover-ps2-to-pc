@@ -18,6 +18,16 @@ struct Cpu{
     uint32_t pc=R,lr=B+0x400u,ctr=1,xer=0,msr=0x8032,srr0=R,srr1=0x8032,dispatch_saved_ctx=0;
     uint64_t inst_count=100;bool is_running=true,in_callback=false;
 };
+struct CountingReport {
+    ScReportWitness& inner;
+    unsigned reads=0;
+    template<class C>std::optional<uint8_t> observed_child_byte(
+        C& c,bool held,uint32_t sp,uint32_t link,uint32_t depth,
+        uint32_t address,uint32_t extra){
+        ++reads;
+        return inner.observed_child_byte(c,held,sp,link,depth,address,extra);
+    }
+};
 static void trial(unsigned fault){
     Cpu c;c.gpr[1]=Sp;for(unsigned i=3;i<11;++i)c.gpr[i]=0x100u+i;
     std::vector<IpcDispatchWord> path;
@@ -73,7 +83,10 @@ static void trial(unsigned fault){
         FormatterReportByteTransition observer;
         FormatterReportByteStep s{callee,load,callee+4,Nop,c.lr,
             c.gpr[7],c.gpr[1],child_link,736u,0u,1u};
-        const bool armed=fault>=44?observer.arm_native(c,w,s,true):observer.arm(c,w,s,true);
+        CountingReport counted{w};
+        const bool armed=fault==55?observer.arm_native(c,counted,s,true):
+                         fault>=44?observer.arm_native(c,w,s,true):observer.arm(c,w,s,true);
+        if(fault==55)assert(counted.reads==1u);
         if(fault==38||fault==39||fault==40||fault==45||fault==46){
             assert(!armed&&observer.failed()&&observer.stage()==0u);
             return;
@@ -107,9 +120,12 @@ static void trial(unsigned fault){
             if(fault==52){
                 assert(!observer.observe(c,w,true)&&observer.failed());return;
             }
-            const bool stopped=observer.observe_native_label(c,w,
-                fault==48?callee+8u:callee+4u,fault==49?Nop^1u:Nop,fault!=53);
-            if(fault==44||fault==54){
+            const bool stopped=fault==55?
+                observer.observe_native_label(c,counted,callee+4u,Nop,true):
+                observer.observe_native_label(c,w,
+                    fault==48?callee+8u:callee+4u,fault==49?Nop^1u:Nop,fault!=53);
+            if(fault==55)assert(counted.reads==2u);
+            if(fault==44||fault==54||fault==55){
                 assert(stopped&&observer.stage()==2u&&!observer.failed());
                 if(fault==54)assert(!observer.observe_native_label(c,w,callee+4u,Nop,true));
             }else assert(!stopped&&observer.failed());
@@ -199,5 +215,5 @@ static void missing_entry(){
     assert(w.begin(c,true)&&w.poll(c,true));c.inst_count+=2;
     assert(!w.before(c,R,path[0].word,true));
 }
-int main(){for(unsigned i=0;i<=54;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
-    std::cout<<"POST_STM_SC_REPORT_TEST cases=58 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=55;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
+    std::cout<<"POST_STM_SC_REPORT_TEST cases=59 original_execution=0\n";}
