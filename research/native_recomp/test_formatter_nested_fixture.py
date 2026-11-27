@@ -202,6 +202,29 @@ class Test(unittest.TestCase):
             expand_mixed(old,contract,(first,second,third,bad))
         with self.assertRaisesRegex(ValueError,'mixed'):
             render_mixed((new,((pc,add,((3,9),),pc+8,None,None),),pc+8,N))
+    def test_mixed_generated_header_compiles(self):
+        import shutil,subprocess,tempfile
+        from pathlib import Path
+        cxx=shutil.which('g++')
+        if cxx is None:self.skipTest('g++ not installed')
+        pc=R+48;add=0x38830001;branch=(16<<26)|(12<<21)|(2<<16)|16
+        end=pc+20
+        contract=({},((pc,add,((3,9),),pc+4,None,None),
+                      (pc+4,branch,(),end,pc+8,True)),end,N)
+        # Entirely synthetic words; compile the actual generated C++ data
+        # against the real witness types rather than a duplicated schema.
+        source='#include "wii_post_stm_sc_formatter.h"\n'+render_mixed(contract)+'''
+using namespace formatter_caller_mixed_private;
+static_assert(path.size()==2);
+static_assert(path[0].inputs.size()==1 && path[0].inputs[0].reg==3);
+static_assert(path[1].inputs.empty() && path[1].taken);
+static_assert(path[1].next_pc==end_pc);
+int main(){return 0;}
+'''
+        with tempfile.TemporaryDirectory() as d:
+            src=Path(d)/'header.cpp';src.write_text(source)
+            result=subprocess.run([cxx,'-std=c++20','-Wall','-Wextra','-Werror','-fsyntax-only','-I',str(Path(__file__).resolve().parent),str(src)],capture_output=True,text=True,timeout=30)
+            self.assertEqual(result.returncode,0,result.stderr)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
