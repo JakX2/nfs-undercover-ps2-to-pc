@@ -409,6 +409,12 @@ def render_next_entry(contract):
             f'inline constexpr uint32_t target=0x{dst:08x}u,word=0x{entry:08x}u,return_pc=0x{ret:08x}u;\n'
             '}\n')
 
+def verify_next_entry_trace(source,dst):
+    trace=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{dst:X}) nwii::runtime::trace_call(0x{dst:X}, ctx);'
+    label=f'loc_{dst:08X}: ;'
+    if source.count(trace)!=1 or source.count(label)!=1 or source.index(trace)>source.index(label):
+        raise ValueError('nested fixture caller next entry trace')
+
 def expand_next_entry(old,final_integer,contract):
     blocks,(owner,size,pc,w,dst,entry,ret)=contract
     render_next_entry(contract)
@@ -696,6 +702,12 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
         if next_entry_contract is not None:
             _,info=next_entry_contract
             verify_direct(bodies[0],info[2],info[4])
+            target_bodies=[]
+            for source in sources.values():
+                try:target_bodies.append(exact_function(source,info[4]))
+                except ValueError:pass
+            if len(target_bodies)!=1:raise ValueError('nested fixture caller next entry trace')
+            verify_next_entry_trace(target_bodies[0],info[4])
         main_text,_=ensure_resume(main_text,bodies[0],owner,caller)
     done=set();changed={}
     for file,s in sources.items():
@@ -727,7 +739,7 @@ def main():
     if q.caller_stack_move:q.caller_post_mixed=True
     if q.caller_post_mixed:q.caller_mixed_byte=True
     if q.caller_mixed_byte:q.caller_mixed=True
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()

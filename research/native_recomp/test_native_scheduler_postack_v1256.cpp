@@ -2194,6 +2194,12 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_FORMATTER_NESTED
     if(formatter_nested){
         const bool held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+        if(formatter_nested->stage()==28u){
+            if(!formatter_nested->caller_next_entry_trace(c,pc,held))formatter_nested_refuse(3);
+            return;
+        }
+#endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_ARRIVAL
         if(formatter_nested->stage()==7u){
             if(!formatter_nested->caller_arrival_entry(c,pc,held))formatter_nested_refuse(3);
@@ -5114,7 +5120,12 @@ int main(int argc,char** argv)try{
 #endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
  #if defined(UNDERCOVER_FORMATTER_RETURN)
-               nested.visits()!=98u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||c.lr!=formatter_return_private::caller||c.pc!=formatter_return_private::caller||
+               nested.visits()!=98u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||
+#ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
+               c.lr!=formatter_caller_next_entry_private::return_pc||c.pc!=formatter_caller_next_entry_private::target||
+#else
+               c.lr!=formatter_return_private::caller||c.pc!=formatter_return_private::caller||
+#endif
 #elif defined(UNDERCOVER_FORMATTER_RELEASE)
                nested.visits()!=97u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||!nested.frame_released()||c.gpr[1]!=post_stm_formatter->expected_sp()||c.lr!=formatter_release_private::expected.entry_lr||
 #elif defined(UNDERCOVER_FORMATTER_SPECIAL)

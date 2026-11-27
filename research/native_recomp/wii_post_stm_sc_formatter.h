@@ -845,14 +845,20 @@ public:
            !word(c,ret,0x44000002u))return fail(6);
         next_entry_pc_=dst;next_entry_word_=w;next_entry_lr_=ret;stage_=28u;return true;
     }
+    // Authenticate the pinned direct function's root trace before its
+    // first label tick. No outer dispatcher or callback poll intervenes.
+    template<class C>bool caller_next_entry_trace(C& c,uint32_t pc,bool held){
+        if(stage_!=28u||next_entry_trace_seen_||pc!=next_entry_pc_||!next_entry_storage(c,held,false))return fail(6);
+        next_entry_trace_seen_=true;return true;
+    }
     template<class C>bool stop_at_caller_next_entry(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=28u||pc!=next_entry_pc_||w!=next_entry_word_||
+        if(stage_!=28u||!next_entry_trace_seen_||pc!=next_entry_pc_||w!=next_entry_word_||
            !next_entry_storage(c,held))return fail(6);
         next_entry_completed_=true;stage_=29u;return true;
     }
     unsigned caller_next_entry_visits()const{return next_entry_completed_&&!error_?1u:0u;}
     template<class C>bool reached_caller_next_entry(C& c,bool held)const{
-        return stage_==29u&&next_entry_completed_&&next_entry_storage(c,held);
+        return stage_==29u&&next_entry_trace_seen_&&next_entry_completed_&&next_entry_storage(c,held);
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -1015,13 +1021,13 @@ private:
     uint32_t final_integer_pc_=0,final_integer_word_=0;
     bool final_integer_completed_=false;
     uint32_t next_entry_pc_=0,next_entry_word_=0,next_entry_lr_=0;
-    bool next_entry_completed_=false;
-    template<class C>bool next_entry_storage(C& c,bool held)const{
+    bool next_entry_completed_=false,next_entry_trace_seen_=false;
+    template<class C>bool next_entry_storage(C& c,bool held,bool label_tick=true)const{
         return final_integer_completed_&&stack_move_completed_&&mixed_byte_completed_&&
             post_mixed_completed_==post_mixed_path_.size()&&stack_move_code(c)&&mixed_byte_code(c)&&
             word(c,next_entry_pc_,next_entry_word_)&&word(c,next_entry_pc_+4u,0x44000002u)&&
             word(c,next_entry_lr_,0x44000002u)&&
-            mixed_storage(c,held,mixed_completed_+4u+post_mixed_completed_,
+            mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick),
                 CallerArrival{next_entry_pc_,next_entry_lr_})&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stack_move_code(C& c)const{

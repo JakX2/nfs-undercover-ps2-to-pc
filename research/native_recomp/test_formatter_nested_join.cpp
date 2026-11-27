@@ -656,6 +656,13 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     // Execute only the synthetic BL effect. The callee's load never runs.
     c.pc=follow==300?next_entry+4u:next_entry;
     c.lr=follow==301?next_ret+4u:next_ret;
+    if(follow==317)++c.inst_count;
+    if(follow!=314){
+        const bool traced=child.caller_next_entry_trace(c,follow==316?next_entry+4u:next_entry,held());
+        if(follow==300||follow==301||follow==316||follow==317){assert(!traced);return;}
+        assert(traced);
+        if(follow==315){assert(!child.caller_next_entry_trace(c,next_entry,held()));return;}
+    }
     if(follow==302)c.gpr[7]^=1u;
     if(follow==304)c.mmu.write32(next_entry,guard_word);
     if(follow==305)c.mmu.write32(next_entry+4u,entry_word);
@@ -666,7 +673,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow==310)c.ctr^=1u;
     c.inst_count+=follow==303?2u:1u;
     const bool entry_done=child.stop_at_caller_next_entry(c,follow==311?next_entry+4u:next_entry,entry_word,held()&&follow!=312);
-    if(follow>=300&&follow<=312){assert(!entry_done);return;}
+    if((follow>=300&&follow<=312)||follow==314){assert(!entry_done);return;}
     assert(entry_done&&child.reached_caller_next_entry(c,held())&&child.caller_next_entry_visits()==1u);
     assert(child.caller_post_fourth_tick_budget()==9u);
     if(parent_delay)assert(parent.frame_age(c)==139u&&child.caller_parent_tick_limit()==139u);
@@ -690,6 +697,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,268,128u-baseline);
     for(unsigned follow=272;follow<=291;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,272,128u-baseline);
-    for(unsigned follow=292;follow<=313;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=292;follow<=317;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,292,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=606 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=610 original_execution=0\n";}
