@@ -322,6 +322,39 @@ static void native_compare_chain_rejections() {
     }
 }
 
+// The authentic 119 boundary consumes a constant other than the
+// preceding load's destination. Refuse incorrect proof, post-arm writes,
+// selected-CR corruption, and corruption of an unrelated CR field.
+static unsigned native_independent_compare_refusals() {
+    constexpr uint32_t guard=0x44000002u;
+    const uint32_t cmp=(11u<<26u)|(3u<<23u)|(8u<<16u)|16u;
+    for(unsigned fault=0;fault<4u;++fault) {
+        Harness h(9u,0x5au,false);
+        h.step.next_word=cmp;
+        h.cpu.mmu.write32(Entry+4u,cmp);
+        h.cpu.mmu.write32(Entry+8u,Nop);
+        h.cpu.mmu.write32(Entry+12u,guard);
+        h.cpu.mmu.write32(Link,guard);
+        assert(h.witness.arm_native(h.cpu,h.report,h.step,true,Nop));
+        ++h.cpu.inst_count;h.cpu.gpr[9]=0x5au;
+        assert(h.witness.observe_native_label(h.cpu,h.report,
+            Entry+4u,cmp,true));
+        CallerImmediateCompareWitness compare;
+        if(fault==0u) {
+            assert(!compare.arm(h.cpu,Entry,Entry+4u,cmp,Nop,{8u,17u}));
+            continue;
+        }
+        assert(compare.arm(h.cpu,Entry,Entry+4u,cmp,Nop,{8u,16u}));
+        h.cpu.cr[3]={false,false,true,false};
+        if(fault==1u)h.cpu.gpr[8]=17u;
+        if(fault==2u)h.cpu.cr[3].eq=false;
+        if(fault==3u)h.cpu.cr[0].eq=true;
+        ++h.cpu.inst_count;
+        assert(!compare.observe(h.cpu,Entry+8u,Nop));
+    }
+    return 4u;
+}
+
 int main() {
     const auto successful=positives();
     const auto native_successful=native_positives();
@@ -329,9 +362,11 @@ int main() {
     for(unsigned fault=0;fault<=13u;++fault)native_negative(fault);
     const auto compare_chain=native_compare_chain();
     native_compare_chain_rejections();
-    assert(compare_chain==24576u);
+    const auto independent_rejected=native_independent_compare_refusals();
+    assert(compare_chain==24576u&&independent_rejected==4u);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
              <<" native_valid="<<native_successful
              <<" rejected=47 compare_chain="<<compare_chain
-             <<" compare_chain_rejected=9 original_execution=0\n";
+             <<" compare_chain_rejected=9 independent_source_rejected="
+             <<independent_rejected<<" original_execution=0\n";
 }
