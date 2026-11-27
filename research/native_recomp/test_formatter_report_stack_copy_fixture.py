@@ -70,7 +70,10 @@ class StackCopyFixture(unittest.TestCase):
         # exact 120th original word must keep the volatile-only contract.
         # Neither the private fixture nor the generated header may widen it.
         self.mask = (1 << 16)
-        with self.assertRaisesRegex(ValueError, 'report copy encoding'):
+        # The independent predecessor classifier refuses this before the
+        # fixture reaches its own encoding gate. Preserve that fail-closed
+        # diagnostic, even when the nonvolatile register was saved.
+        with self.assertRaisesRegex(ValueError, 'report copy provenance'):
             self.contract(word=or_copy(dst=16))
         valid, fields = self.contract(word=or_copy(dst=10))
         self.assertEqual(fields[6], 10)
