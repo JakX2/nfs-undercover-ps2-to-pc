@@ -116,7 +116,7 @@ class NestedFifthImmediateTests(unittest.TestCase):
             'fifth_immediate_contract=report_fifth_immediate_plan(',
             'fifth_immediate_extension(expanded,fourth_immediate_contract,fifth_immediate_contract)',
             'fifth_immediate_extension(final,fourth_immediate_contract,fifth_immediate_contract)',
-            'extent=44 if fifth_immediate_contract is not None',
+            'else 44 if fifth_immediate_contract is not None',
             'render_report_fifth_immediate(fifth_immediate_contract)',
             'expected[wi[3]]=(wi[0],wi[4])',
             'fifth_immediate_contract=fifth_immediate_contract',
