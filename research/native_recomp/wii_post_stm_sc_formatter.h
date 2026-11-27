@@ -839,22 +839,25 @@ public:
     template<class C>bool resume_caller_next_entry(C& c,uint32_t dst,uint32_t w,uint32_t ret,bool held,
                                                    std::optional<uint32_t> successor={},
                                                    std::optional<uint32_t> following={},
-                                                   std::optional<uint32_t> third={}){
+                                                   std::optional<uint32_t> third={},
+                                                    std::optional<uint32_t> fourth={}){
         if(!reached_caller_final_integer(c,held)||!caller_parent_||
            final_integer_word_>>26!=18u||(final_integer_word_&3u)!=1u||
            target(final_integer_pc_,final_integer_word_)!=dst||
            uint64_t(final_integer_pc_)+4u!=ret||dst>=caller_parent_->e_.root||
            !decode_load(w).width||!word(c,dst,w)||
            !word(c,dst+4u,successor.value_or(0x44000002u))||
-           (following&&!successor)||(third&&!following)||
+           (following&&!successor)||(third&&!following)||(fourth&&!third)||
            (successor&&(*successor==0x44000002u||
-             uint64_t(dst)+(third?20u:following?16u:12u)>caller_parent_->e_.root||
+             uint64_t(dst)+(fourth?24u:third?20u:following?16u:12u)>caller_parent_->e_.root||
              !word(c,dst+8u,following.value_or(0x44000002u))))||
            (following&&(*following==0x44000002u||!word(c,dst+12u,third.value_or(0x44000002u))))||
-           (third&&(*third==0x44000002u||!word(c,dst+16u,0x44000002u)))||
+           (third&&(*third==0x44000002u||!word(c,dst+16u,fourth.value_or(0x44000002u))))||
+            (fourth&&(*fourth==0x44000002u||!word(c,dst+20u,0x44000002u)))||
            !word(c,ret,0x44000002u))return fail(6);
         next_entry_pc_=dst;next_entry_word_=w;next_entry_lr_=ret;
-        next_entry_successor_=successor;next_entry_following_=following;next_entry_third_=third;stage_=28u;return true;
+        next_entry_successor_=successor;next_entry_following_=following;
+        next_entry_third_=third;next_entry_fourth_=fourth;stage_=28u;return true;
     }
     // Authenticate the pinned direct function's root trace before its
     // first label tick. No outer dispatcher or callback poll intervenes.
@@ -1129,7 +1132,7 @@ private:
     bool final_integer_completed_=false;
     uint32_t next_entry_pc_=0,next_entry_word_=0,next_entry_lr_=0;
     bool next_entry_completed_=false,next_entry_trace_seen_=false;
-    std::optional<uint32_t> next_entry_successor_{},next_entry_following_{},next_entry_third_{};
+    std::optional<uint32_t> next_entry_successor_{},next_entry_following_{},next_entry_third_{},next_entry_fourth_{};
     uint32_t report_byte_address_=0;uint8_t report_byte_expected_=0;
     bool report_byte_completed_=false,compare_completed_=false,report_copy_completed_=false;
     unsigned report_copy_destination_=0u;uint32_t report_copy_value_=0u;
@@ -1145,7 +1148,8 @@ private:
             word(c,next_entry_pc_+4u,next_entry_successor_.value_or(0x44000002u))&&
             (!next_entry_successor_||word(c,next_entry_pc_+8u,next_entry_following_.value_or(0x44000002u)))&&
             (!next_entry_following_||word(c,next_entry_pc_+12u,next_entry_third_.value_or(0x44000002u)))&&
-            (!next_entry_third_||word(c,next_entry_pc_+16u,0x44000002u))&&
+            (!next_entry_third_||word(c,next_entry_pc_+16u,next_entry_fourth_.value_or(0x44000002u)))&&
+            (!next_entry_fourth_||word(c,next_entry_pc_+20u,0x44000002u))&&
             word(c,next_entry_lr_,0x44000002u)&&
             mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick)+extra,
                 CallerArrival{next_entry_pc_,next_entry_lr_})&&visits_==e_.path.size()+1u;
