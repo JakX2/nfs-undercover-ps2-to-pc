@@ -1247,7 +1247,8 @@ static bool formatter_nested_held(nw::CPUContext& c){
     formatter_nested_parent_baseline=formatter_nested->caller_parent_baseline();
     return leaf;
 }
-[[noreturn]]static void formatter_nested_refuse(unsigned kind){
+[[noreturn]]static void formatter_nested_refuse(unsigned kind,
+        std::source_location where=std::source_location::current()){
     std::cout<<"FORMATTER_NESTED_REFUSAL kind="<<kind<<" stage="<<(formatter_nested?formatter_nested->stage():0u)
         <<" reason="<<(formatter_nested?formatter_nested->failure():0u)
         <<" visits="<<(formatter_nested?formatter_nested->visits():0u)
@@ -1260,7 +1261,7 @@ static bool formatter_nested_held(nw::CPUContext& c){
         <<" parent_limit="<<formatter_nested_parent_limit<<" parent_baseline="<<formatter_nested_parent_baseline
         <<" outer_age="<<formatter_nested_outer_age<<" outer_limit="<<formatter_nested_outer_limit
         <<" outer_baseline="<<formatter_nested_outer_baseline<<'\n';
-    throw WitnessFailure{};
+    throw WitnessFailure{where};
 }
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!formatter_nested)formatter_nested_refuse(2);
@@ -1503,16 +1504,17 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
            !formatter_nested->stop_after_caller_report_signext(c,pc,w,held))
             formatter_nested_refuse(2);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
-        if(!formatter_report_second_immediate||
-           !formatter_report_second_immediate->arm(c,
+        if(!formatter_report_second_immediate)formatter_nested_refuse(2);
+        if(!formatter_report_second_immediate->arm(c,
               formatter_report_second_immediate_private::root,
               formatter_report_second_immediate_private::pc,
               formatter_report_second_immediate_private::word,
               formatter_report_second_immediate_private::next_word,
               formatter_report_second_immediate_private::return_pc,
               formatter_report_second_immediate_private::destination_reg,
-              formatter_report_second_immediate_private::value)||
-           !formatter_nested->resume_caller_report_second_immediate(c,
+              formatter_report_second_immediate_private::value))
+            formatter_nested_refuse(2);
+        if(!formatter_nested->resume_caller_report_second_immediate(c,
               formatter_report_second_immediate_private::destination_reg,
               formatter_report_second_immediate_private::value,held))
             formatter_nested_refuse(2);
@@ -1524,9 +1526,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE
     if(formatter_nested->stage()==40u){
         const bool held=formatter_nested_held(c);
-        if(!formatter_report_second_immediate||
-           !formatter_report_second_immediate->observe(c,pc,w)||
-           !formatter_nested->stop_after_caller_report_second_immediate(c,pc,w,held))
+        if(!formatter_report_second_immediate)formatter_nested_refuse(2);
+        if(!formatter_report_second_immediate->observe(c,pc,w))formatter_nested_refuse(2);
+        if(!formatter_nested->stop_after_caller_report_second_immediate(c,pc,w,held))
             formatter_nested_refuse(2);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
         if(!formatter_report_third_immediate||
