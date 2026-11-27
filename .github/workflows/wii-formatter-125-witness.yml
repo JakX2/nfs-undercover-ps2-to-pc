@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/wii-formatter-125-witness.yml'
       - 'research/native_recomp/wii_formatter_report_fourth_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_signext.h'
+      - 'research/native_recomp/wii_formatter_report_second_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_third_immediate.h'
+      - 'research/native_recomp/test_formatter_report_successor_chain.cpp'
       - 'research/native_recomp/wii_formatter_report_third_immediate.h'
       - 'research/native_recomp/test_formatter_report_fourth_immediate.cpp'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
@@ -20,7 +24,9 @@ jobs:
       - run: |
           set -euo pipefail
           for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
-            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_fourth_immediate.cpp -o /tmp/wii-formatter-125-witness
-            /tmp/wii-formatter-125-witness
-            rm -f /tmp/wii-formatter-125-witness
+            for source in test_formatter_report_fourth_immediate test_formatter_report_successor_chain; do
+              g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/${source}.cpp" -o "/tmp/${source}"
+              "/tmp/${source}"
+              rm -f "/tmp/${source}"
+            done
           done
