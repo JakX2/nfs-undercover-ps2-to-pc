@@ -14,6 +14,8 @@ on:
       - 'research/native_recomp/test_formatter_nested_join.cpp'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
       - 'research/native_recomp/test_formatter_branch_128_nested.py'
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+      - 'research/native_recomp/test_formatter_branch_128_log.py'
 permissions:
   contents: read
 jobs:
@@ -26,6 +28,7 @@ jobs:
           set -euo pipefail
           python3 research/native_recomp/prepare_formatter_branch_128_fixture.py --self-test
           python3 research/native_recomp/test_formatter_branch_128_nested.py
+          python3 research/native_recomp/test_formatter_branch_128_log.py
           for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
             g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_conditional_branch.cpp -o /tmp/test_formatter_conditional_branch
             /tmp/test_formatter_conditional_branch
