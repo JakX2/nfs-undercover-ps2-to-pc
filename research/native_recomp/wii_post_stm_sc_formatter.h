@@ -943,13 +943,16 @@ public:
         if(address<0x80000000ll||address>=0x81800000ll||
            gp_[src]!=uint32_t(address)||c.gpr[src]!=uint32_t(address))return fail(6);
         gp_[dst]=uint32_t(address);
+        report_copy_destination_=dst;report_copy_value_=uint32_t(address);
         if(dst>=14u)caller_modified_mask_|=uint32_t(1)<<dst;
         stage_=34u;return true;
     }
     template<class C>bool stop_after_caller_report_copy(C& c,uint32_t pc,
         uint32_t w,bool held){
         if(stage_!=34u||!next_entry_third_||pc!=next_entry_pc_+12u||
-           w!=*next_entry_third_||!report_byte_storage(c,held,3u))
+           w!=*next_entry_third_||c.gpr[report_copy_destination_]!=report_copy_value_||
+           gp_[report_copy_destination_]!=report_copy_value_||
+           !report_byte_storage(c,held,3u))
             return fail(6);
         report_copy_completed_=true;stage_=35u;return true;
     }
@@ -1124,6 +1127,7 @@ private:
     std::optional<uint32_t> next_entry_successor_{},next_entry_following_{},next_entry_third_{};
     uint32_t report_byte_address_=0;uint8_t report_byte_expected_=0;
     bool report_byte_completed_=false,compare_completed_=false,report_copy_completed_=false;
+    unsigned report_copy_destination_=0u;uint32_t report_copy_value_=0u;
     template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u)const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
             next_entry_storage(c,held,true,tick)&&mapped(c,{report_byte_address_,1u})&&
