@@ -27,8 +27,8 @@ ARRIVAL_TOTAL='FORMATTER_ARRIVAL_NATIVE owner=1 trials=8 native_prefix=8 loads=4
 POST_CTR_TRIAL=re.compile(r'FORMATTER_POST_CTR_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads=(5) local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84')
 POST_CTR_TOTAL=re.compile(r'FORMATTER_POST_CTR_NATIVE owner=1 trials=8 native_prefix=8 loads=64 stores=104 nonvolatile=24 authenticated_loads=([0-9]{2}) local_transfer=8 stack_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=672 ios_steps=5 fallback=0 complete_image=0 boot_verified=0')
 
-PARTIAL_TRIAL=re.compile(r'FORMATTER_PARTIAL_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95')
-PARTIAL_TOTAL='FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=72 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
+PARTIAL_TRIAL=re.compile(r'FORMATTER_PARTIAL_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95')
+PARTIAL_TOTAL='FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
 
 def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False,partial=False):
     if sum((second,third,control,arrival,post_ctr,partial))>1:raise ValueError('native mode')

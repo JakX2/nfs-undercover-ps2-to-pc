@@ -535,9 +535,10 @@ static constexpr uint32_t post_ctr_written_mask=[]{
 }();
 static_assert(std::popcount(post_ctr_written_mask)==16);
 #ifdef UNDERCOVER_FORMATTER_PARTIAL
-static_assert(formatter_partial_private::path.size()==95u&&formatter_partial_private::accesses.size()==26u);
+static_assert(formatter_partial_private::path.size()==95u&&formatter_partial_private::accesses.size()==32u);
 static_assert(formatter_partial_private::expected.boundary.instruction&&formatter_partial_private::slots.size()==4u);
 static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return a.write;})==17u);
+static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return !a.write;})==15u);
 static_assert(std::count_if(formatter_partial_private::accesses.begin(),formatter_partial_private::accesses.end(),[](auto a){return a.expected_value.has_value();})==5u);
 #endif
 #endif
@@ -4616,7 +4617,7 @@ int main(int argc,char** argv)try{
 #endif
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
  #if defined(UNDERCOVER_FORMATTER_PARTIAL)
-               nested.visits()!=95u||nested.loads()!=9u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||
+               nested.visits()!=95u||nested.loads()!=15u||nested.stores()!=17u||nested.authenticated_loads()!=5u||nested.caller_store_count()!=4u||
 #elif defined(UNDERCOVER_FORMATTER_POST_CTR)
                nested.visits()!=84u||nested.loads()!=8u||nested.authenticated_loads()!=post_ctr_authenticated||nested.stores()!=13u||
                nested.stack_boundary_written_mask(c,nested_boundary_held)!=post_ctr_written_mask||
@@ -4638,7 +4639,7 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_PARTIAL)
             std::cout<<"FORMATTER_PARTIAL_TRIAL n="<<trial
-                <<" native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95\n";
+                <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95\n";
 #elif defined(UNDERCOVER_FORMATTER_POST_CTR)
             std::cout<<"FORMATTER_POST_CTR_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads="<<post_ctr_authenticated
@@ -4951,7 +4952,7 @@ int main(int argc,char** argv)try{
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
 #if defined(UNDERCOVER_FORMATTER_PARTIAL)
-    std::cout<<"FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=72 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+    std::cout<<"FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
 #elif defined(UNDERCOVER_FORMATTER_POST_CTR)
     std::cout<<"FORMATTER_POST_CTR_NATIVE owner=1 trials=8 native_prefix=8 loads=64 stores=104 nonvolatile=24 authenticated_loads="<<8u*post_ctr_authenticated
         <<" local_transfer=8 stack_stop=8 unresolved_loads=0 deferred=8 reply=0 visits=672 ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

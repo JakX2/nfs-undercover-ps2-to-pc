@@ -568,7 +568,7 @@ if [[ "$formatter_post_ctr_mode" == 1 && "$formatter_partial_mode" == 0 ]];then
   done
   echo 'FORMATTER_POST_CTR_STACK_PROVENANCE verified=1 trials=8 written_bytes=16 unwritten_bytes=16 guest_loads=0'
 fi
-grep -Ex 'FORMATTER_PARTIAL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95' "$work/run.log" || true
+grep -Ex 'FORMATTER_PARTIAL_TRIAL n=[0-7] native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95' "$work/run.log" || true
 [[ "$rc" == 0 ]] || { echo "V1256 execution failed rc=$rc";exit 1; }
 grep -Fx 'V1256_SCHED_NATIVE owner=1 trials=8 submitted=8 ack=8 waiting=8 saved=8 idle=8 ee=8 pending_irq=8 irq_entered=0 reply=0 seeded_thread=1 synthetic_ack=1 synthetic_caller=1 synthetic_bridge=1 seeded_vector=1 fallback=0 complete_image=0 boot_verified=0' "$work/run.log"
 

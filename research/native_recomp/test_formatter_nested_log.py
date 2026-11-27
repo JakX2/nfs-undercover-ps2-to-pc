@@ -97,9 +97,14 @@ class PostCtr(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'mode'):verify(post_ctr_log(),post_ctr=True,arrival=True)
         with self.assertRaisesRegex(ValueError,'coverage'):verify(arrival_log(),post_ctr=True)
 def partial_log():
-    return [f'FORMATTER_PARTIAL_TRIAL n={i} native_prefix=1 frame=48 loads=9 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95' for i in range(8)]+['FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=72 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    return [f'FORMATTER_PARTIAL_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=3 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 instruction_stop=1 deferred=1 reply=0 visits=95' for i in range(8)]+['FORMATTER_PARTIAL_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=24 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 instruction_stop=8 deferred=8 reply=0 visits=760 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
 class Partial(unittest.TestCase):
     def test_exact(self):self.assertEqual(verify(partial_log(),partial=True),tuple(partial_log()[-1:]))
+    def test_reject_stale_load_totals(self):
+        x=partial_log();x[0]=x[0].replace('loads=15','loads=9')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,partial=True)
+        x=partial_log();x[-1]=x[-1].replace('loads=120','loads=72')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,partial=True)
     def test_parent(self):
         x=partial_log();x[1]=x[1].replace('parent_overlay=1','parent_overlay=0')
         with self.assertRaisesRegex(ValueError,'trial'):verify(x,partial=True)
