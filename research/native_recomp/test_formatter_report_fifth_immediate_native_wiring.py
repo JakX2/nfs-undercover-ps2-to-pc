@@ -119,14 +119,14 @@ class Original126NativeWiring(unittest.TestCase):
             'std::optional<uint32_t> ninth_original = {}',
             'native_ninth_ = ninth_original',
             'native_eighth_&&!word(c,step_.pc+36u,native_ninth_.value_or(0x44000002u))',
-            'native_ninth_&&!word(c,step_.pc+40u,0x44000002u)',
+            'native_ninth_&&!word(c,step_.pc+40u,native_tenth_.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.byte)
         for marker in (
             'std::optional<uint32_t> eighth_original={}',
             'eighth_=eighth_original',
             'seventh_&&!word(c,label+28u,eighth_.value_or(0x44000002u))',
-            'eighth_&&!word(c,label+32u,0x44000002u)',
+            'eighth_&&!word(c,label+32u,ninth_.value_or(0x44000002u))',
         ):
             self.assertIn(marker, self.compare)
         for marker in (
