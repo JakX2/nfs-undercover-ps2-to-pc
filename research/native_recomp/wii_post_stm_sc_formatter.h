@@ -557,27 +557,27 @@ public:
         const bool consecutive=(branch_completed_==1u||branch_completed_==3u)&&reached_caller_branch(c,held);
         if((!first&&!consecutive&&!after_post)||branch_completed_>=branches_.size()||
            !caller_parent_||owner_size<8u||owner_size>65536u||(owner_size&3u)||
-           next_word==0x44000002u||!word(c,next_pc,next_word))return fail(6);
+           next_word==0x44000002u||!word(c,next_pc,next_word))return branch_reject(1);
         const auto owner=caller_parent_->e_.root;
         const auto pc=first?integer_end_pc_:after_post?post_integer_end_pc_:branches_[branch_completed_-1].next_pc;
         const auto w=first?integer_end_word_:after_post?post_integer_end_word_:branches_[branch_completed_-1].next_word;
-        if(w&3u||(!first&&owner_size!=branch_owner_size_))return fail(6);
+        if(w&3u||(!first&&owner_size!=branch_owner_size_))return branch_reject(2);
         const auto inside=[&](uint32_t a){return !(a&3u)&&a>=owner&&uint64_t(a)+4u<=uint64_t(owner)+owner_size;};
-        if(!inside(pc)||!inside(next_pc))return fail(6);
+        if(!inside(pc)||!inside(next_pc))return branch_reject(3);
         const unsigned op=w>>26,bo=(w>>21)&31u,bi=(w>>16)&31u;
-        if(op!=16u&&op!=18u)return fail(6);
+        if(op!=16u&&op!=18u)return branch_reject(4);
         const auto dst=target(pc,w);
-        if(!inside(dst)||dst<=pc+4u)return fail(6);
-        if(op==16u&&!(bo&4u))return fail(6);
+        if(!inside(dst)||dst<=pc+4u)return branch_reject(5);
+        if(op==16u&&!(bo&4u))return branch_reject(6);
         const bool outcome=op==18u||(bo&16u)||bool((cr_>>(31u-bi))&1u)==bool(bo&8u);
-        if(outcome!=taken||next_pc!=(outcome?dst:pc+4u))return fail(6);
+        if(outcome!=taken||next_pc!=(outcome?dst:pc+4u))return branch_reject(7);
         // Keep the untaken edge guarded. For a direct branch, the skipped
         // fallthrough is guarded too, although the emitter never takes it.
         const auto other=outcome?pc+4u:dst;
-        if(!inside(other)||!word(c,other,0x44000002u))return fail(6);
+        if(!inside(other)||!word(c,other,0x44000002u))return branch_reject(8);
         // A later selected edge may not overwrite an earlier guard.
         for(unsigned i=0;i<branch_completed_;++i)
-            if(next_pc==branches_[i].other_pc)return fail(6);
+            if(next_pc==branches_[i].other_pc)return branch_reject(9);
         branch_owner_size_=owner_size;
         branches_[branch_completed_]={pc,w,next_pc,next_word,other};
         stage_=14u;return true;
@@ -586,10 +586,11 @@ public:
         if(stage_!=14u||branch_completed_>=branches_.size()||
            pc!=branches_[branch_completed_].next_pc||w!=branches_[branch_completed_].next_word||
            !branch_storage(c,held,branch_completed_+1u,branch_completed_>=2u?post_integer_completed_:0u)||
-           (branch_completed_>=2u&&!post_integer_code(c)))return fail(6);
+           (branch_completed_>=2u&&!post_integer_code(c)))return branch_reject(10);
         ++branch_completed_;stage_=15u;return true;
     }
     unsigned caller_branch_visits()const{return branch_completed_;}
+    unsigned branch_refusal_detail()const{return branch_detail_;}
     template<class C>bool reached_caller_branch(C& c,bool held)const{
         return stage_==15u&&branch_completed_&&
             branch_storage(c,held,branch_completed_,branch_completed_>=3u?post_integer_completed_:0u)&&
@@ -917,6 +918,8 @@ private:
             ctr_==e_.control.destination&&word(c,e_.target,e_.target_word)&&word(c,e_.control.destination,e_.control.word);
     }
     bool local_stop()const{return e_.boundary.width||e_.boundary.instruction||e_.control.destination;}
+    unsigned branch_detail_=0;
+    bool branch_reject(unsigned detail){if(!branch_detail_)branch_detail_=detail;return fail(6);}
     bool fail(unsigned n){if(!error_)error_=n;return false;}
     static uint32_t mask(unsigned mb,unsigned me){
         uint32_t v=0;for(unsigned i=0;i<32u;++i)if(mb<=me?(i>=mb&&i<=me):(i>=mb||i<=me))v|=1u<<(31u-i);return v;

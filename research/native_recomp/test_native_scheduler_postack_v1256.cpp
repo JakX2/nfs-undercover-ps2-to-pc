@@ -1082,7 +1082,10 @@ static bool formatter_nested_held(nw::CPUContext& c){
         <<" reason="<<(formatter_nested?formatter_nested->failure():0u)
         <<" visits="<<(formatter_nested?formatter_nested->visits():0u)
         <<" loads="<<(formatter_nested?formatter_nested->loads():0u)
-        <<" stores="<<(formatter_nested?formatter_nested->stores():0u)<<'\n';
+        <<" stores="<<(formatter_nested?formatter_nested->stores():0u)
+        <<" branches="<<(formatter_nested?formatter_nested->caller_branch_visits():0u)
+        <<" post="<<(formatter_nested?formatter_nested->caller_post_integer_visits():0u)
+        <<" branch_detail="<<(formatter_nested?formatter_nested->branch_refusal_detail():0u)<<'\n';
     throw WitnessFailure{};
 }
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
