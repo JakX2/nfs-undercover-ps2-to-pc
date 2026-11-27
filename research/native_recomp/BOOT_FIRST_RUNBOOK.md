@@ -75,6 +75,30 @@ label remains **unexecuted**. A separate owner-gated 120 successor
 classification audits its instruction family and symbolic dependencies
 without admitting execution or publishing proprietary words.
 
+### Instruction 120: authenticated stack-derived register copy (pending native execution)
+
+The [120 provenance audit 45997621828](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45997621828)
+completed successfully and established a non-record PowerPC `or` with
+one stack-derived source, one destination, and no CR/XER/carry effects.
+That audit **classified** 120 but declined to model the stack pointer;
+it did not execute the instruction.
+
+Subsequent original-free changes add a deliberately opt-in symbolic
+`or rA,rS,rS` model, guarded 120 fixture, source and destination
+provenance checks, 61-root-preserving fixture expansion, and native
+destination-register verification at the following guarded instruction.
+The [new 120 provenance workflow 45999438914](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45999438914)
+passed original-free and owner provenance with the symbolic model.
+The [dedicated 120 native workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/workflows/wii-formatter-caller-report-copy-native-owner.yml)
+also passed its first original-free job. Its private owner run and
+subsequent revision checks must complete before the 120 frontier can
+be claimed. The invocation is `--formatter-nested-caller-report-copy`;
+its guarded successor is **not** authorized to execute.
+
+The independent scheduler root-cap regression was updated to reflect
+the existing 61-root maximum (and still reject 62). This is a test
+expectation repair, not evidence that the game advanced.
+
 **Current verified frontier for this bounded fixture: 119 original instructions.**
 The continuous original `__start` lane, whole-image link/startup lane,
 and bounded report/formatter lane are distinct and must not be aggregated
