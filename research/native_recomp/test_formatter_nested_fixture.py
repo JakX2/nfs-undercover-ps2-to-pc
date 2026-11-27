@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import unittest
+from unittest.mock import patch
 from contextlib import redirect_stdout
 from io import StringIO
 from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry,verify_next_entry_trace,render_report_byte,expand_report_byte
@@ -107,13 +108,17 @@ class Test(unittest.TestCase):
         unknown=R+0x3000
         poisoned=dict(local)
         poisoned[unknown]=(N,GUARD)
-        with self.assertRaisesRegex(ValueError,'report compare root set'):
-            compare_extension(old,byte,(poisoned,fields))
+        with patch('prepare_formatter_nested_fixture.promote_report_compare',
+                   return_value=(poisoned,fields)):
+            with self.assertRaisesRegex(ValueError,'report compare root set'):
+                compare_extension(old,byte,(poisoned,fields))
         sibling=next(iter(siblings))
         corrupted=dict(local)
         corrupted[sibling]=(GUARD,GUARD)
-        with self.assertRaisesRegex(ValueError,'report compare sibling'):
-            compare_extension(old,byte,(corrupted,fields))
+        with patch('prepare_formatter_nested_fixture.promote_report_compare',
+                   return_value=(corrupted,fields)):
+            with self.assertRaisesRegex(ValueError,'report compare sibling'):
+                compare_extension(old,byte,(corrupted,fields))
 
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
