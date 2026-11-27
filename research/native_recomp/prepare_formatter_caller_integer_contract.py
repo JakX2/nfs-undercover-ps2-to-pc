@@ -24,7 +24,7 @@ def mask(mb,me):
     return sum(1<<(31-i) for i in range(32) if (mb<=i<=me if mb<=me else i>=mb or i<=me))
 def rot(v,n):return ((v<<n)|(v>>(32-n)))&MASK
 
-def step(w,gp,*,saved_mask=0):
+def step(w,gp,*,saved_mask=0,allow_stack_copy=False):
     if len(gp)!=32:raise ValueError('caller integer registers')
     op,rs,ra,rb,xo=w>>26,(w>>21)&31,(w>>16)&31,(w>>11)&31,(w>>1)&1023
     name,reads,writes,_,carry,xer,oe=classify(w)
@@ -35,6 +35,15 @@ def step(w,gp,*,saved_mask=0):
         raise ValueError('caller integer opcode')
     if (op in (10,11) and w&0x00600000) or (op==31 and xo in (0,32) and w&0x00600001) or (op==31 and xo in (922,954) and rb):
         raise ValueError('caller integer encoding')
+    # Opt-in provenance-only modeling of PPC mr (or rA,rS,rS).
+    # No concrete guest stack pointer is synthesized, and callers which
+    # construct native numeric witnesses must retain their original gate.
+    if (allow_stack_copy and op==31 and xo==444 and not w&1 and
+            rs==rb and isinstance(gp[rs],tuple) and len(gp[rs])==2 and
+            gp[rs][0]=='stack' and type(gp[rs][1]) is int):
+        out=list(gp)
+        out[ra]=gp[rs]
+        return tuple(out),()
     if any(gp[r][0]!='const' or not 0<=gp[r][1]<=MASK for r in reads):
         raise ValueError('caller integer inputs')
     inputs=tuple((r,gp[r][1]) for r in sorted(set(reads)))
