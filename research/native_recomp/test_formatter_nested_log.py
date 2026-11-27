@@ -402,4 +402,31 @@ class CallerNextEntry(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerFinalInteger().logs())
     def test_modes(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_final_integer=True)
+class CallerReportByte(unittest.TestCase):
+    def logs(self):
+        rows=CallerNextEntry().logs()
+        return [s.replace('FORMATTER_CALLER_NEXT_ENTRY_TRIAL','FORMATTER_CALLER_REPORT_BYTE_TRIAL')
+                 .replace('callee_load_executed=0','callee_load_executed=1 report_byte_verified=1')
+                 .replace('total_visits=117','total_visits=118') for s in rows[:-1]]+[
+            rows[-1].replace('FORMATTER_CALLER_NEXT_ENTRY_NATIVE','FORMATTER_CALLER_REPORT_BYTE_NATIVE')
+            .replace('callee_loads_executed=0','callee_loads_executed=8 report_bytes_verified=8')
+            .replace('total_visits=936','total_visits=944')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_report_byte=True,integer_count=2,post_integer_count=1,
+                      mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        rows=self.logs();self.assertEqual(self.probe(rows),(rows[-1],))
+    def test_prior_entry_not_load(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerNextEntry().logs())
+    def test_missing_byte(self):
+        rows=self.logs();rows[0]=rows[0].replace('report_byte_verified=1','report_byte_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(rows)
+    def test_aggregate_count(self):
+        rows=self.logs();rows[-1]=rows[-1].replace('report_bytes_verified=8','report_bytes_verified=7')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(rows)
+    def test_prior_total(self):
+        rows=self.logs();rows[-1]=rows[-1].replace('total_visits=944','total_visits=936')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(rows)
+    def test_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_next_entry=True)
 if __name__=='__main__':unittest.main(verbosity=2)
