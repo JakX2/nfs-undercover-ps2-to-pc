@@ -684,10 +684,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow<318)return;
     if(follow==323)c.mmu.write32(move_value,0x5b000000u);
     if(follow==324)c.mmu.write32(next_entry+8u,entry_word);
-    const bool armed=child.resume_caller_report_byte(c,follow==321?753:752,follow==322?17:16,
+    const bool report_armed=child.resume_caller_report_byte(c,follow==321?753:752,follow==322?17:16,
         follow==320?0x5b:0x5a,follow!=319,held()&&follow!=325);
-    if(follow>=319&&follow<=325){assert(!armed);return;}
-    assert(armed&&child.stage()==30u&&child.caller_report_byte_visits()==0u);
+    if(follow>=319&&follow<=325){assert(!report_armed);return;}
+    assert(report_armed&&child.stage()==30u&&child.caller_report_byte_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==10u);
     // Standalone transition checks are covered separately with a report witness.
     // The guest load is modeled independently here; the witness predicts only.
