@@ -59,6 +59,10 @@ class CallerInteger(unittest.TestCase):
             with self.subTest(word=word):
                 with self.assertRaisesRegex(ValueError,'inputs'):
                     step(word,self.gp,allow_stack_copy=True)
+        self.gp[1]=('stack',-912)
+        with self.assertRaisesRegex(ValueError,'effects'):
+            step(x(1,16,1,444),self.gp,saved_mask=1<<16,
+                 allow_stack_copy=True)
         self.gp[1]=('stack',True)
         with self.assertRaisesRegex(ValueError,'inputs'):
             step(x(1,10,1,444),self.gp,allow_stack_copy=True)
