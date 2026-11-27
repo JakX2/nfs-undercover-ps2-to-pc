@@ -17,6 +17,13 @@ on:
       - 'research/native_recomp/test_formatter_report_third_immediate_nested.py'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/test_formatter_report_fourth_immediate_log.py'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/test_formatter_report_third_immediate_native_wiring.py'
+      - 'research/native_recomp/test_formatter_report_fourth_immediate_native_wiring.py'
+      - 'research/native_recomp/test_formatter_nested_join.cpp'
       - 'research/native_recomp/wii_formatter_report_third_immediate.h'
       - 'research/native_recomp/test_formatter_report_fourth_immediate.cpp'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
@@ -36,10 +43,18 @@ jobs:
           python3 research/native_recomp/test_formatter_report_fourth_immediate_nested.py
           python3 research/native_recomp/test_formatter_report_third_immediate_log.py
           python3 research/native_recomp/test_formatter_report_fourth_immediate_log.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_native_wiring.py
+          python3 research/native_recomp/test_formatter_report_fourth_immediate_native_wiring.py
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
           for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
             for source in test_formatter_report_fourth_immediate test_formatter_report_successor_chain; do
               g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/${source}.cpp" -o "/tmp/${source}"
               "/tmp/${source}"
               rm -f "/tmp/${source}"
             done
+          done
+          for flags in '-O2' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_nested_join.cpp -o /tmp/wii-formatter-nested-125-join
+            /tmp/wii-formatter-nested-125-join
+            rm -f /tmp/wii-formatter-nested-125-join
           done
