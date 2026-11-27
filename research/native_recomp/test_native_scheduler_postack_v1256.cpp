@@ -524,6 +524,16 @@ static constexpr unsigned post_ctr_authenticated=std::count_if(formatter_post_ct
 static_assert(post_ctr_authenticated==5u);
 static_assert(std::count_if(formatter_post_ctr_private::accesses.begin(),formatter_post_ctr_private::accesses.end(),[](auto a){return a.stack&&!a.write;})==3u);
 static_assert(formatter_post_ctr_private::slots.size()==4u);
+static constexpr uint32_t post_ctr_written_mask=[]{
+    uint32_t m=0;
+    for(const auto a:formatter_post_ctr_private::accesses)if(a.stack&&a.write)
+        for(unsigned i=0;i<4u;++i){
+            const auto p=int64_t(formatter_post_ctr_private::expected.boundary.caller_offset)+i;
+            if(a.address<=p&&p<a.address+a.width)m|=0xffu<<(24u-8u*i);
+        }
+    return m;
+}();
+static_assert(std::popcount(post_ctr_written_mask)==16);
 #endif
 #elif defined(UNDERCOVER_FORMATTER_THIRD)
 static_assert(formatter_nested_private::path.size()==74u&&formatter_nested_private::accesses.size()==18u);
@@ -4581,6 +4591,7 @@ int main(int argc,char** argv)try{
             if(!nested_done||formatter_nested_count!=trial+1u||!nested_reached||
  #ifdef UNDERCOVER_FORMATTER_POST_CTR
                nested.visits()!=84u||nested.loads()!=8u||nested.authenticated_loads()!=post_ctr_authenticated||nested.stores()!=13u||
+               nested.stack_boundary_written_mask(c,nested_boundary_held)!=post_ctr_written_mask||
 #else
                nested.visits()!=nested_visits||nested.loads()!=nested_loads||nested.authenticated_loads()!=nested_authenticated||nested.stores()!=nested_stores||
 #endif
@@ -4601,6 +4612,8 @@ int main(int argc,char** argv)try{
             std::cout<<"FORMATTER_POST_CTR_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=8 stores=13 nonvolatile=3 authenticated_loads="<<post_ctr_authenticated
                 <<" local_transfer=1 stack_stop=1 unresolved_load=0 deferred=1 reply=0 visits=84\n";
+            std::cout<<"FORMATTER_POST_CTR_STACK_PROVENANCE_TRIAL n="<<trial
+                <<" written_bytes=2 unwritten_bytes=2 mask_match=1 guest_load=0\n";
 #elif defined(UNDERCOVER_FORMATTER_ARRIVAL)
             std::cout<<"FORMATTER_ARRIVAL_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=6 stores=13 nonvolatile=3 authenticated_loads=5 conditional_loads=3 ctr_match=1 destination_word=1 transfer_executed=1 destination_arrival=1 destination_body=0 deferred=1 reply=0 visits=77\n";
