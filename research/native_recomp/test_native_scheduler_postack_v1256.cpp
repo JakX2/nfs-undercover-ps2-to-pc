@@ -856,7 +856,11 @@ static unsigned submit_polls=0;
 static SecondCompletionAck* si_ack=nullptr;
 static unsigned callbacks=0,loop_polls=0,control_writes=0,last_stage=0,last_reason=0,last_trial=0;
 struct HarnessFailure:std::runtime_error{unsigned line;explicit HarnessFailure(unsigned n):std::runtime_error("harness assertion"),line(n){}};
-struct WitnessFailure:std::runtime_error{WitnessFailure():std::runtime_error("witness refusal"){}};
+struct WitnessFailure:std::runtime_error{
+    unsigned source_line;
+    explicit WitnessFailure(std::source_location where=std::source_location::current())
+        :std::runtime_error("witness refusal"),source_line(where.line()){}
+};
 static void need(bool b,const std::source_location l=std::source_location::current()){
     if(!b)throw HarnessFailure(l.line());
 }
@@ -6316,7 +6320,11 @@ int main(int argc,char** argv)try{
 #endif
 #endif
 #endif
-}catch(const WitnessFailure&){
+}catch(const WitnessFailure& failure){
+    // Public, source-only line number of the harness throw site; never a
+    // guest PC, proprietary instruction word, operand, or memory value.
+    std::cout<<"V1256_WITNESS_SOURCE source_line="<<failure.source_line
+             <<" original_data=0\n";
     std::cout<<"V1256_OPEN_FAILURE kind=witness trial="<<last_trial<<" stage="<<last_stage<<" reason="<<last_reason<<" line=0\n";return 1;
 }catch(const HarnessFailure& e){
     std::cout<<"V1256_OPEN_FAILURE kind=assertion trial="<<last_trial<<" stage="<<last_stage<<" reason=0 line="<<e.line<<"\n";return 1;
