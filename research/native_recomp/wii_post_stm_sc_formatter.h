@@ -441,12 +441,40 @@ public:
            !caller_parent_->child_frame_held_with_stores(c,held,*this))return fail(6);
         return_pc_=caller;return_word_=guard_word;stage_=6u;return true;
     }
+    // A distinct future checkpoint may replace the synthetic caller guard
+    // with an authenticated original label. Verify the original direct
+    // call edge as well as both current code words; never synthesize PC.
+    template<class C>bool arm_caller_arrival(C& c,uint32_t owner,uint32_t caller,uint32_t caller_word,
+                                             uint32_t call_word,bool held){
+        if(!reached_instruction_boundary(c,held)||!frame_released_||!caller_parent_||
+           e_.target_word!=0x4e800020u||caller!=e_.entry_lr||lr_!=caller||
+           owner!=caller_parent_->e_.root||(owner&3u)||(caller&3u)||caller<=owner||
+           uint64_t(caller)-owner>65536u||caller==e_.target||caller_word==0x44000002u||
+           call_word>>26!=18u||(call_word&3u)!=1u||target(caller-4u,call_word)!=e_.root||
+           !word(c,caller-4u,call_word)||!word(c,caller,caller_word)||
+           !return_registers_held()||!caller_parent_->child_frame_held_with_stores(c,held,*this))return fail(6);
+        return_pc_=caller;return_word_=caller_word;caller_arrival_=true;stage_=6u;return true;
+    }
     template<class C>bool native_return_poll(C& c,bool held){
         if(stage_!=6u||!return_storage(c,held))return fail(6);
         ++visits_;stage_=7u;return true;
     }
     template<class C>bool reached_native_return(C& c,bool held)const{
         return stage_==7u&&return_storage(c,held)&&visits_==e_.path.size()+1u;
+    }
+    // The pinned dispatcher increments once before entering the caller.
+    // The original local label then increments once before its body.
+    // These are boundary ticks, not additional completed guest visits.
+    template<class C>bool caller_arrival_entry(C& c,uint32_t pc,bool held){
+        if(stage_!=7u||!caller_arrival_||pc!=return_pc_||!return_storage(c,held,1u))return fail(6);
+        stage_=8u;return true;
+    }
+    template<class C>bool stop_before_caller_instruction(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=8u||!caller_arrival_||pc!=return_pc_||w!=return_word_||!return_storage(c,held,2u))return fail(6);
+        stage_=9u;return true;
+    }
+    template<class C>bool reached_caller_arrival(C& c,bool held)const{
+        return stage_==9u&&caller_arrival_&&return_storage(c,held,2u)&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -541,9 +569,10 @@ private:
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     bool release_authorized_=false,frame_released_=false;
     uint32_t return_pc_=0,return_word_=0;
-    template<class C>bool return_storage(C& c,bool held)const{
+    bool caller_arrival_=false;
+    template<class C>bool return_storage(C& c,bool held,uint64_t delta=0)const{
         return frame_released_&&caller_parent_&&return_pc_==e_.entry_lr&&
-            c.pc==return_pc_&&c.inst_count==last_&&word(c,return_pc_,return_word_)&&
+            c.pc==return_pc_&&c.inst_count>=last_&&c.inst_count-last_==delta&&word(c,return_pc_,return_word_)&&
             word(c,e_.target,e_.target_word)&&common(c,held)&&abi(c)&&
             caller_parent_->child_frame_held_with_stores(c,held,*this);
     }

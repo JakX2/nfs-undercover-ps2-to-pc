@@ -246,10 +246,15 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==26){assert(!child.resume_instruction_path(c,ep,held()));return;}
     if(follow<28)return;
     constexpr uint32_t guard_word=0x44000002u;
-    c.mmu.write32(link,guard_word);
+    const auto caller_word=ins(32,3,1,16),call_word=pp.back().word;
+    c.mmu.write32(link,follow>=40?caller_word:guard_word);
     if(follow==30)c.mmu.write32(link,0x60000000u);
-    const bool armed=child.arm_native_return(c,link+(follow==29?4u:0u),guard_word,held()&&follow!=31);
-    if(follow==29||follow==30||follow==31){assert(!armed);return;}
+    if(follow==43)c.mmu.write32(link-4,0x60000000u);
+    const bool armed=follow>=40?
+        child.arm_caller_arrival(c,follow==41?R+4:R,link,follow==44?guard_word:caller_word,
+                                 follow==42?call_word^4u:call_word,held()):
+        child.arm_native_return(c,link+(follow==29?4u:0u),guard_word,held()&&follow!=31);
+    if(follow==29||follow==30||follow==31||(follow>=41&&follow<=44)){assert(!armed);return;}
     assert(armed&&child.stage()==6u&&child.visits()==epilogue.size());
     assert(c.pc==dst); // observer has not redirected the guest
     // Independent architectural effect of the original blr.
@@ -262,12 +267,25 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const bool arrived=child.native_return_poll(c,held()&&follow!=38);
     if(follow>=32&&follow<=38){assert(!arrived);return;}
     assert(arrived&&child.reached_native_return(c,held())&&child.visits()==epilogue.size()+1u);
-    if(follow==39)assert(!child.native_return_poll(c,held())); // no double counting
+    if(follow==39){assert(!child.native_return_poll(c,held()));return;} // no double counting
+    if(follow<40)return;
+    c.inst_count+=follow==45?2u:1u;
+    if(follow==46)c.pc+=4;
+    const bool entry=child.caller_arrival_entry(c,link,held());
+    if(follow==45||follow==46){assert(!entry);return;}
+    assert(entry&&child.stage()==8u);
+    c.inst_count+=follow==47?2u:1u;
+    if(follow==48)c.gpr[3]=9; // caller load body must not have run
+    if(follow==49)c.mmu.write32(link,guard_word);
+    const bool arrival=child.stop_before_caller_instruction(c,link,caller_word,held());
+    if(follow>=47&&follow<=49){assert(!arrival);return;}
+    assert(arrival&&child.reached_caller_arrival(c,held())&&child.visits()==epilogue.size()+1u);
+    if(follow==50)assert(!child.stop_before_caller_instruction(c,link,caller_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=39;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=326 original_execution=0\n";}
+    for(unsigned follow=1;follow<=50;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=337 original_execution=0\n";}
