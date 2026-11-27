@@ -10,7 +10,7 @@ constexpr uint32_t Root=0x80010000u,Label=Root+4u,Guard=0x44000002u;
 struct CompareMem {
     std::array<uint8_t,16> bytes{};
     uint8_t* get_ptr(uint32_t a){
-        return a>=Root&&a-Root<bytes.size()?bytes.data()+a-Root:nullptr;
+        return a>=Root&&a-Root<bytes.size()?bytes.data()+(a-Root):nullptr;
     }
     void write32(uint32_t a,uint32_t value){
         for(unsigned i=0;i<4;++i)*get_ptr(a+i)=uint8_t(value>>(24u-i*8u));
