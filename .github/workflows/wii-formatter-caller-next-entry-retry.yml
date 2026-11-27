@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Require successful pinned 116 job from the earlier retry attempt
+      - name: Require successful pinned 116 native diagnostic and original callee geometry
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -55,18 +55,18 @@ jobs:
               if len(raw)>2*1024*1024:raise ValueError('metadata size')
               return json.loads(raw)
           try:
-              run_id=45970231112
+              run_id=45976423264
               prior=fetch(f'actions/runs/{run_id}')
-              attempt=prior.get('run_attempt')
-              census=fetch(f'actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100') if type(attempt) is int and attempt==1 else {}
-              jobs=census.get('jobs',[])
-              owner=[j for j in jobs if j.get('name')=='owner-caller-final-integer']
-              ok=(prior.get('id')==run_id and prior.get('head_sha')=='348d9f80141dc00fcfaf0e4c2ebd3fc1d250ce92'
+              job=fetch('actions/jobs/140430069379')
+              ok=(prior.get('id')==run_id
+                  and prior.get('head_sha')=='9f4cd969e47901aef91ed26eb35f88ef73d7c188'
                   and prior.get('head_branch')=='research/wii-native-recomp-preflight'
-                  and prior.get('path')=='.github/workflows/wii-formatter-caller-ancestor-retry.yml'
-                  and prior.get('status')=='completed' and census.get('total_count')==len(jobs)
-                  and 1<=len(jobs)<=100 and len(owner)==1 and owner[0].get('run_id')==run_id
-                  and owner[0].get('status')=='completed' and owner[0].get('conclusion')=='success'
+                  and prior.get('path')=='.github/workflows/wii-formatter-final-prep-diagnostic.yml'
+                  and prior.get('run_attempt')==1
+                  and prior.get('status')=='completed' and prior.get('conclusion')=='success'
+                  and job.get('id')==140430069379 and job.get('run_id')==run_id
+                  and job.get('run_attempt')==1 and job.get('name')=='owner-diagnostic'
+                  and job.get('status')=='completed' and job.get('conclusion')=='success'
                   and all(verify(fetch,req) for req in reqs))
           except (OSError,ValueError,subprocess.SubprocessError):
               ok=False
