@@ -24,7 +24,7 @@ def mask(mb,me):
     return sum(1<<(31-i) for i in range(32) if (mb<=i<=me if mb<=me else i>=mb or i<=me))
 def rot(v,n):return ((v<<n)|(v>>(32-n)))&MASK
 
-def step(w,gp,*,saved_mask=0,allow_stack_copy=False):
+def step(w,gp,*,saved_mask=0,allow_stack_copy=False,allow_stack_relative=False):
     if len(gp)!=32:raise ValueError('caller integer registers')
     op,rs,ra,rb,xo=w>>26,(w>>21)&31,(w>>16)&31,(w>>11)&31,(w>>1)&1023
     name,reads,writes,_,carry,xer,oe=classify(w)
@@ -43,6 +43,23 @@ def step(w,gp,*,saved_mask=0,allow_stack_copy=False):
             gp[rs][0]=='stack' and type(gp[rs][1]) is int):
         out=list(gp)
         out[ra]=gp[rs]
+        return tuple(out),()
+    # Opt-in symbolic addi/addis of one authenticated stack-relative token.
+    # No numeric stack base is guessed and no guest memory is accessed.
+    # This mirrors the bounded volatile-register part of the native predictor.
+    if (allow_stack_relative and op in (14,15) and ra != 0 and
+            isinstance(gp[ra],tuple) and len(gp[ra])==2 and
+            gp[ra][0]=='stack' and type(gp[ra][1]) is int):
+        if rs not in (0,*range(3,13)):
+            raise ValueError('caller integer effects')
+        offset=gp[ra][1]
+        delta=signed(w&0xffff,16)*(65536 if op==15 else 1)
+        result=offset+delta
+        if not (-0x01800000<offset<0x01800000 and
+                -0x01800000<result<0x01800000):
+            raise ValueError('caller integer inputs')
+        out=list(gp)
+        out[rs]=('stack',result)
         return tuple(out),()
     if any(gp[r][0]!='const' or not 0<=gp[r][1]<=MASK for r in reads):
         raise ValueError('caller integer inputs')
