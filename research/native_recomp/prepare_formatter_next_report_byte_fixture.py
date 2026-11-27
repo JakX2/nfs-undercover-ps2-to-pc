@@ -49,6 +49,7 @@ def expand_report_byte(old, next_entry, report_byte):
             set(blocks) != set(old) or
             old[root] != (entry_word, GUARD) or
             blocks[root] != (entry_word, next_word, GUARD) or
+            not 0 <= (return_pc-owner)//4 < len(old[owner]) or
             old[owner][(return_pc-owner)//4] != GUARD):
         raise ValueError('report byte fixture history')
     if any(blocks[at] != words for at,words in old.items() if at != root):
