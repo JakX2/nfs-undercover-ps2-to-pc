@@ -268,6 +268,10 @@ int main(){
     unsigned zero_input_cases=0,zero_input_rejected=0;
     for(unsigned imm=0u;imm<65536u;++imm)
     for(unsigned dst:{0u,3u,12u}){
+        // A zero-input instruction must ignore the prior destination
+        // value. This does not bypass the joined witness's separate
+        // full-state predecessor proof.
+        gp[dst]=(imm*2654435761u)^(dst*0x1234567u);
         const uint32_t instruction=d(14,dst,0,imm);
         const auto effect=predict_caller_zero_input_addi(
             instruction,gp,0xdeadbeefu,0x80000001u);
