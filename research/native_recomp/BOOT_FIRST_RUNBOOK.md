@@ -169,11 +169,13 @@ The first actual 121 native owner attempt cleared original-free validation
 in [run 46012175547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012175547)
 and entered its original native-execution stage. Its result has not yet
 been admitted as a verified milestone here. One subsequent runtime
-hardening fix removes an unjustified old-destination-value equality
-check from zero-input PPC `li`: the instruction overwrites a volatile
-GPR and has no register inputs. Synthetic regression 384 now requires
-acceptance of that stale pre-write value while still checking the
-new value, predecessor state and guarded successor.
+hardening fix removes a redundant old-destination-value equality
+check from zero-input PPC `li`: the instruction overwrites its volatile
+destination and has no register inputs. The *separate full-state
+predecessor witness still refuses any untracked live GPR mutation*,
+including synthetic regression 384. The independent 196,608-case
+zero-input predictor now varies the overwritten old destination to
+verify arithmetic independence without weakening that predecessor.
 
 ### Instruction 122: read-only successor classification preparation
 
