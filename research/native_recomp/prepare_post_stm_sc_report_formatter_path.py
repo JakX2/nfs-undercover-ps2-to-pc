@@ -66,7 +66,7 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
     # No existing parent cell, frame linkage, or saved register can be replaced.
     caller_store_used=set()
     if partial_caller_stores:
-        if partial_origin is None or len(partial_caller_stores)>2:raise ValueError('formatter partial caller contract')
+        if partial_origin is None or len(partial_caller_stores)>8:raise ValueError('formatter partial caller contract')
         occupied=set()
         pcs=set()
         for site,at,n,kind in partial_caller_stores:
@@ -89,7 +89,8 @@ def first_path(root,ws,args,stack_slots,readonly,caller_sp=-160,*,start=None,res
             return const(int.from_bytes(bytes(x[1] for x in cells),'big'))
         if all(x is not None and x[0]=='part' and x[1]==cells[0][1] and x[2:]==(n,i) for i,x in enumerate(cells)):
             return cells[0][1]
-        if partial_origin is not None and n in (1,2,4) and not at%n and caller_sp-frame+4<=at<at+n<=caller_sp:
+        caller_copy=any(site in caller_store_used and start<=at<at+n<=start+width for site,start,width,_ in partial_caller_stores)
+        if partial_origin is not None and n in (1,2,4) and not at%n and (caller_sp-frame+4<=at<at+n<=caller_sp or caller_copy):
             origin,width=partial_origin
             if all(x is not None or origin<=at+i<origin+width for i,x in enumerate(cells)):
                 parts=tuple(('uninitialized',at+i) if x is None else x for i,x in enumerate(cells))

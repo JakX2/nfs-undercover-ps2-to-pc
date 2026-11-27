@@ -119,6 +119,21 @@ def plan(d,e):
         next_seen,next_reason=replay(tuple(admitted))
         if next_seen[:len(seen)]!=seen:raise ValueError('partial copy replay prefix')
         seen,reason=next_seen,next_reason
+    # After the two independently classified stores, admit only additional
+    # nonoverlapping caller stores whose address and source are established
+    # by the unchanged preceding symbolic trace. Stop at any other refusal.
+    while len(admitted)<8 and len(seen)>offset+1 and reason in ('stack_write','caller_write'):
+        row=seen[-1]
+        loc=store_location(row[1],row[2],row[3],parent,initial[1][1],frame)
+        if loc[4] not in ('const','partial'):break
+        try:candidate=caller_store_candidate(row,parent,initial[1][1],frame,loc[4])
+        except ValueError:break
+        if any(candidate[0]==x[0] or candidate[1]<x[1]+x[2] and x[1]<candidate[1]+candidate[2] for x in admitted):break
+        next_seen,next_reason=replay(tuple(admitted+[candidate]))
+        if next_seen[:len(seen)]!=seen:raise ValueError('partial copy replay prefix')
+        if len(next_seen)<=len(seen):break
+        admitted.append(candidate)
+        seen,reason=next_seen,next_reason
     if len(seen)<2 or seen[0][0]!=pc or seen[1][2][loaded][0]!='partial':
         raise ValueError('partial copy load witness')
     # The observer is pre-instruction. A following observation proves the

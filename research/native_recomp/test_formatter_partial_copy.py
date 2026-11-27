@@ -85,4 +85,20 @@ class PartialCopy(unittest.TestCase):
         self.assertEqual(caller_store_candidate(row,{},SP,FRAME,'const'),(B,SP+12,4,'const'))
         for parent,kind in (({SP+12:('byte',0)},'const'),({},'partial')):
             with self.assertRaisesRegex(ValueError,'caller geometry'):caller_store_candidate(row,parent,SP,FRAME,kind)
+    def test_caller_copy_reload(self):
+        body=[d(32,3,1,8),d(36,3,1,60),d(32,4,1,60),d(44,4,1,64),d(40,5,1,64)]
+        first=(B+4,SP+12,4,'partial');second=(B+12,SP+16,2,'partial')
+        r=self.probe(body,caller_stores=(first,second))
+        self.assertEqual(r[5][4],r[5][3])
+        self.assertEqual(r[5][5],('partial',(('byte',0),('byte',0),('uninitialized',ORIGIN+2),('uninitialized',ORIGIN+3))))
+        self.assertEqual(copied_cells(r[6],ORIGIN),4)
+        with self.assertRaisesRegex(ValueError,'stack read provenance'):
+            self.probe(body[:2]+[d(32,4,1,64)],caller_stores=(first,))
+    def test_caller_budget_and_overlap(self):
+        body=[d(32,3,1,8)]+[d(36,3,1,60+4*i) for i in range(9)]
+        rows=tuple((B+4+4*i,SP+12+4*i,4,'partial') for i in range(9))
+        with self.assertRaisesRegex(ValueError,'partial caller contract'):self.probe(body,caller_stores=rows)
+        with self.assertRaisesRegex(ValueError,'partial caller write'):self.probe(body,caller_stores=rows[:8])
+        with self.assertRaisesRegex(ValueError,'partial caller contract'):
+            self.probe(body,caller_stores=(rows[0],(B+8,SP+12,4,'partial')))
 if __name__=='__main__':unittest.main(verbosity=2)
