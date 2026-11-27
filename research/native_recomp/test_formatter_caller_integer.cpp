@@ -6,7 +6,7 @@ constexpr uint32_t d(unsigned op,unsigned r,unsigned a,unsigned n){return (op<<2
 constexpr uint32_t x(unsigned r,unsigned a,unsigned b,unsigned xo,bool rc=false){return (31u<<26)|(r<<21)|(a<<16)|(b<<11)|(xo<<1)|unsigned(rc);}
 
 namespace {
-constexpr uint32_t Root=0x80010000u,Label=Root+4u,Guard=0x44000002u;
+constexpr uint32_t Root=0x80010000u,Label=Root+4u,Guard=0x44000002u,After=0x60000000u;
 struct CompareMem {
     std::array<uint8_t,512> bytes{};
     uint8_t* get_ptr(uint32_t a){
@@ -48,18 +48,18 @@ unsigned compare_witness_cases(){
         CompareCpu c;seed_cr(c);
         c.gpr[9]=value;c.xer=(so<<31u)|0x60000000u;
         const auto w=cmpword(op,f,9u,imm);
-        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,After);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
         CallerImmediateCompareWitness witness;
-        assert(witness.arm(c,Root,Label,w,Guard,{9u,value}));
+        assert(witness.arm(c,Root,Label,w,After,{9u,value}));
         assert(witness.stage()==1u&&!witness.failed());
         // Independent arithmetic reference for a zero-extended byte and
         // the signed or unsigned 16-bit immediate. Preserve other fields.
         const int64_t rhs=op==11u&&imm>=32768u?int64_t(imm)-65536:int64_t(imm);
         c.cr[f]={int64_t(value)<rhs,int64_t(value)>rhs,int64_t(value)==rhs,bool(so)};
         ++c.inst_count;
-        assert(witness.observe(c,Label+4u,Guard));
+        assert(witness.observe(c,Label+4u,After));
         assert(witness.stage()==2u&&!witness.failed());
-        assert(!witness.observe(c,Label+4u,Guard)&&witness.failed());
+        assert(!witness.observe(c,Label+4u,After)&&witness.failed());
         ++count;
     }
     return count;
@@ -69,7 +69,7 @@ unsigned compare_witness_rejections(){
     unsigned count=0;
     for(unsigned fault=0;fault<33;++fault){
         CompareCpu c;seed_cr(c);c.gpr[9]=42u;
-        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,After);c.mmu.write32(Label+8u,Guard);c.mmu.write32(c.lr,Guard);
         CallerImmediateCompareWitness witness;
         uint32_t instruction=w,operand=42u,reg=9u,arm_root=Root,arm_label=Label;
         switch(fault){
@@ -91,12 +91,12 @@ unsigned compare_witness_rejections(){
         default:break;
         }
         if(fault<8 || (fault>=23&&fault<=29)){
-            assert(!witness.arm(c,arm_root,arm_label,instruction,Guard,{reg,operand}));
+            assert(!witness.arm(c,arm_root,arm_label,instruction,After,{reg,operand}));
             assert(witness.failed()&&witness.stage()==0u);
         }else{
-            assert(witness.arm(c,Root,Label,w,Guard,{9u,42u}));
+            assert(witness.arm(c,Root,Label,w,After,{9u,42u}));
             c.cr[3]={false,false,true,false};++c.inst_count;
-            uint32_t label=Label+4u,word=Guard;
+            uint32_t label=Label+4u,word=After;
             switch(fault){
             case 8:c.cr[3].eq=false;break;
             case 9:c.cr[4].eq=!c.cr[4].eq;break;
