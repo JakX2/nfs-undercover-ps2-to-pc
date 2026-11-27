@@ -27,7 +27,12 @@ class Scheduler(unittest.TestCase):
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=51),ROOT,1),(BLR,))
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=58),ROOT,1),(BLR,))
         self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=60),ROOT,1),(BLR,))
-        with self.assertRaises(ValueError):assemble(blocks,ROOT,max_roots=61)
+        self.assertEqual(words_at(assemble(blocks,ROOT,max_roots=61),ROOT,1),(BLR,))
+        at_joined_cap={ROOT+4*i:(BLR,) for i in range(61)}
+        self.assertEqual(words_at(assemble(at_joined_cap,ROOT,max_roots=61),ROOT,61),(BLR,)*61)
+        with self.assertRaises(ValueError):assemble(at_joined_cap,ROOT,max_roots=60)
+        with self.assertRaises(ValueError):
+            assemble({**at_joined_cap,ROOT+4*61:(BLR,)},ROOT,max_roots=61)
         at_continuation_cap={ROOT+4*i:(BLR,) for i in range(60)}
         self.assertEqual(words_at(assemble(at_continuation_cap,ROOT,max_roots=60),ROOT,60),(BLR,)*60)
         with self.assertRaises(ValueError):assemble(at_continuation_cap,ROOT,max_roots=59)
