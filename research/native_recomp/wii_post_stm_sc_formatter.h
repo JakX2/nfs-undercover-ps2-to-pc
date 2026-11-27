@@ -583,10 +583,21 @@ public:
         stage_=14u;return true;
     }
     template<class C>bool stop_after_caller_branch(C& c,uint32_t pc,uint32_t w,bool held){
-        if(stage_!=14u||branch_completed_>=branches_.size()||
-           pc!=branches_[branch_completed_].next_pc||w!=branches_[branch_completed_].next_word||
-           !branch_storage(c,held,branch_completed_+1u,branch_completed_>=2u?post_integer_completed_:0u)||
-           (branch_completed_>=2u&&!post_integer_code(c)))return branch_reject(10);
+        if(stage_!=14u||branch_completed_>=branches_.size())return branch_reject(10);
+        if(pc!=branches_[branch_completed_].next_pc)return branch_reject(11);
+        if(w!=branches_[branch_completed_].next_word)return branch_reject(12);
+        if(!held)return branch_reject(13);
+        if(branch_completed_>=2u&&!post_integer_code(c))return branch_reject(14);
+        const uint64_t delta=3u+integer_completed_+branch_completed_+1u+
+            (branch_completed_>=2u?post_integer_completed_:0u);
+        if(!branch_storage(c,held,branch_completed_+1u,branch_completed_>=2u?post_integer_completed_:0u)){
+            if(c.inst_count<last_||c.inst_count-last_!=delta)return branch_reject(15);
+            if(c.pc!=return_pc_)return branch_reject(16);
+            if(!common(c,held))return branch_reject(17);
+            if(!abi(c))return branch_reject(18);
+            if(!caller_parent_||!caller_parent_->child_frame_held_with_stores(c,held,*this))return branch_reject(19);
+            return branch_reject(20);
+        }
         ++branch_completed_;stage_=15u;return true;
     }
     unsigned caller_branch_visits()const{return branch_completed_;}
@@ -623,7 +634,18 @@ public:
         if(pc!=(done?post_integer_end_pc_:post_integer_path_[i].pc)||
            w!=(done?post_integer_end_word_:post_integer_path_[i].word))return fail(6);
         ++post_integer_completed_;
-        if(done){stage_=17u;return true;}
+        if(done){
+            // Freeze the proven 104-instruction checkpoint's parent-frame
+            // age. Only the exact subsequent witnessed caller instruction
+            // budget may extend this baseline; no unbounded age relaxation.
+            if(frame_released_&&caller_parent_&&integer_completed_==2u&&
+               branch_completed_==2u&&post_integer_completed_==1u){
+                const auto age=caller_parent_->frame_age(c);
+                if(age>128u)return fail(6);
+                parent_checkpoint_age_=age;parent_checkpoint_valid_=true;
+            }
+            stage_=17u;return true;
+        }
         if(!predict_integer(c,post_integer_path_[i]))return fail(6);
         return true;
     }
@@ -801,7 +823,7 @@ public:
     template<class C>bool child_frame_held_with_stores(C& c,bool held,const ScFormatterWitness& child)const{
         if(child.caller_parent_!=this||child.cpu_!=cpu_||child.error_||!held||stage_!=2u||!due_||
            error_||cpu_!=&c||!safe(c)||c.gpr[1]!=(child.frame_released_?frame_.base:frame_.base-48u)||
-           c.inst_count<last_||c.inst_count-last_>128u||!mapped(c,frame_)||
+           c.inst_count<last_||c.inst_count-last_>child.caller_parent_tick_limit()||!mapped(c,frame_)||
            child.caller_expected_.size()!=shadow_.size()||child.caller_written_.size()!=shadow_.size())return false;
         for(unsigned i=0;i<shadow_.size();++i){
             if(i>=4u&&i<8u&&written_[i])return false;
@@ -811,6 +833,20 @@ public:
             if(c.mmu.read8(frame_.base+i)!=v)return false;
         }
         return true;
+    }
+    template<class C>uint64_t frame_age(C& c)const{
+        return c.inst_count>=last_?c.inst_count-last_:UINT64_MAX;
+    }
+    uint64_t caller_parent_baseline()const{return parent_checkpoint_valid_?parent_checkpoint_age_:0u;}
+    uint64_t caller_parent_tick_limit()const{
+        if(!parent_checkpoint_valid_||!frame_released_||branch_completed_<2u||
+           integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
+        // The current instruction is counted only in an armed stage.
+        // Return-storage checks still enforce its exact one-tick delta.
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(armed);
+        if(extra>35u)return 128u;
+        return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
     bool has_caller_stores()const{return caller_parent_!=nullptr;}
 private:
@@ -866,6 +902,8 @@ private:
     std::span<const ScCallerIntegerStep> post_integer_path_{};
     uint32_t post_integer_end_pc_=0,post_integer_end_word_=0;
     unsigned post_integer_completed_=0;
+    uint64_t parent_checkpoint_age_=0;
+    bool parent_checkpoint_valid_=false;
     template<class C>bool post_integer_code(C& c)const{
         if(post_integer_path_.empty()||!word(c,post_integer_end_pc_,post_integer_end_word_))return false;
         for(auto step:post_integer_path_)if(!word(c,step.pc,step.word))return false;

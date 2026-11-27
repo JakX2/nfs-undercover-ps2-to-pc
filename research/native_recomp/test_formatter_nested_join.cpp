@@ -78,7 +78,7 @@ static void trial(unsigned fault){
 // Synthetic joined frames: original computed transfer, partial load and
 // two caller stores. The observer predicts effects; the fixture applies
 // the independent instruction effects, including deliberately varied bytes.
-static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
+static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t parent_delay=0,uint64_t* measured=nullptr){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.mmu.write32(A,T+0x100u);
     for(unsigned i=14;i<32;++i)c.gpr[i]=0x100u+i;
     constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u;
@@ -103,6 +103,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
         else {c.pc=T;c.lr=link;}
     }
     assert(parent.entry(c,T,true)&&parent.reached(c,true));
+    c.inst_count+=parent_delay;
     const std::array<IpcDispatchWord,6> cp{{{T,T,ins(37,1,1,-48)},{T,T+4,0x7c0802a6},
         {T,T+8,ins(36,0,1,52)},{T,T+12,ins(44,5,1,8)},{T,T+16,ins(32,6,3,0)},{T,T+20,0x7cc903a6}}};
     const std::array<ScFormatterAccess,4> ca{{{T,4,-48,true,true},{T+8,4,4,true,true},
@@ -406,6 +407,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow>=130&&follow<=137){assert(!post_stopped);return;}
     assert(post_stopped&&child.reached_caller_post_integers(c,held())&&child.caller_post_integer_visits()==1u);
     assert(child.caller_integer_visits()==2u&&child.caller_branch_visits()==2u);
+    if(measured)*measured=child.caller_parent_baseline();
+    if(parent_delay)assert(child.caller_parent_baseline()==128u&&parent.frame_age(c)==128u&&child.caller_parent_tick_limit()==128u);
     if(follow==138){assert(!child.caller_post_integer_boundary(c,post_end,post_word,held()));return;}
     if(follow<139)return;
     const auto third_target=post_end+16u,third_next=post_end+4u;
@@ -419,6 +422,13 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
         third_next,third_boundary,held());
     if(follow>=140&&follow<=147){assert(!third_armed);return;}
     assert(third_armed&&child.stage()==14u&&child.caller_branch_visits()==2u);
+    if(follow==249){
+        assert(parent_delay&&child.caller_parent_tick_limit()==129u);
+        c.inst_count+=2u;
+        assert(!held());
+        assert(!child.stop_after_caller_branch(c,third_next,third_boundary,held()));
+        return;
+    }
     if(follow==150)c.cr[0].eq=false;
     if(follow==151)c.mmu.write32(other,third_boundary);
     if(follow==152)c.mmu.write32(second_other,third_boundary);
@@ -429,6 +439,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const bool third_stopped=child.stop_after_caller_branch(c,follow==148?third_target:third_next,third_boundary,held()&&follow!=156);
     if(follow>=148&&follow<=156){assert(!third_stopped);return;}
     assert(third_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==3u);
+    if(parent_delay)assert(parent.frame_age(c)==129u&&child.caller_parent_tick_limit()==129u);
     assert(child.caller_integer_visits()==2u&&child.caller_post_integer_visits()==1u);
     if(follow==157){assert(!child.resume_caller_branch(c,0x100u,false,third_next,third_boundary,held()));return;}
     if(follow<158)return;
@@ -562,6 +573,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow>=242&&follow<=247){assert(!post_mix_done);return;}
     assert(post_mix_done&&child.reached_caller_post_mixed(c,held())&&child.caller_mixed_byte_visits()==1u);
     assert(child.caller_post_mixed_visits()==2u&&child.caller_post_mixed_integers()==1u&&child.caller_post_mixed_taken()==1u&&child.caller_post_mixed_fallthrough()==0u);
+    if(parent_delay)assert(parent.frame_age(c)==136u&&child.caller_parent_tick_limit()==136u);
     if(follow==248)assert(!child.caller_post_mixed_boundary(c,post_mix_end,post_mix_end_word,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
@@ -570,4 +582,10 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
     for(unsigned follow=1;follow<=248;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=535 original_execution=0\n";}
+    uint64_t baseline=0,stressed=0;
+    caller_trial(0,0x1234beefu,228,0,&baseline);
+    assert(baseline>0u&&baseline<128u);
+    caller_trial(0,0x1234beefu,228,128u-baseline,&stressed);
+    assert(stressed==128u);
+    caller_trial(0,0x1234beefu,249,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=538 original_execution=0\n";}

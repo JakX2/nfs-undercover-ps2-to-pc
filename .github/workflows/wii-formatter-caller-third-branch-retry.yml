@@ -1,4 +1,4 @@
-name: Wii Original Formatter Third Branch Diagnostic Retry
+name: Wii Original Formatter Third Branch Bounded Frame Retry
 on:
   workflow_dispatch:
   push:
@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Execute original 105-instruction path through third caller branch
+      - name: Execute original 105-instruction path with checkpoint-bound parent-frame age and detailed refusal
         env:
           UNDERCOVER_EXPECTED_CALLER_INTEGER_COUNT: '2'
           UNDERCOVER_EXPECTED_CALLER_POST_INTEGER_COUNT: '1'

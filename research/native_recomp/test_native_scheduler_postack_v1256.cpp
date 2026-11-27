@@ -1059,23 +1059,36 @@ void formatter_continuation_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
     if(!formatter_continuation||!formatter_continuation->before(c,pc,w,formatter_continuation_held(c)))formatter_continuation_refuse(2);
 }
 #ifdef UNDERCOVER_FORMATTER_NESTED
+static unsigned formatter_nested_held_mask=0;
+static uint64_t formatter_nested_parent_age=0,formatter_nested_parent_limit=0,formatter_nested_parent_baseline=0;
 static bool formatter_nested_held(nw::CPUContext& c){
+    formatter_nested_held_mask=0;formatter_nested_parent_age=0;formatter_nested_parent_limit=0;formatter_nested_parent_baseline=0;
     if(!formatter_nested||!post_stm_formatter||!post_stm_formatter_leaf||!post_stm_resume||
        !post_stm_dependency||!post_stm_helper||!post_stm_report||!post_stm_version_data||
        !post_stm_objects||!post_stm_frame||!third_return_join)return false;
     const auto sp=c.gpr[1],parent=post_stm_formatter->expected_sp();
     if(sp!=parent&&sp!=parent-48u)return false;
     const unsigned extra=parent-sp;
-    const auto outer=post_stm_frame->nested_frame_held(c,
-        third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr),
+    const auto joined=third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr);
+    const auto outer=post_stm_frame->nested_frame_held(c,joined,
         sp,post_stm_report->linkage_word(),864u+extra,256u);
     const auto report=post_stm_report->child_frame_held(c,outer,sp,post_stm_helper->linkage_word(),736u+extra,extra);
     const auto helper=post_stm_helper->child_frame_held(c,report,sp,post_stm_formatter->linkage_word(),704u+extra,extra);
     const auto parent_held=formatter_nested->has_caller_stores()?
         post_stm_formatter->child_frame_held_with_stores(c,helper,*formatter_nested):
         post_stm_formatter->child_frame_held(c,helper,sp,formatter_nested->linkage_word());
-    return post_stm_formatter_leaf->object_held(c,post_stm_resume->object_held(c,post_stm_dependency->object_held(c,
-        post_stm_version_data->data_held(c,post_stm_objects->objects_held(c,parent_held)))));
+    const auto objects=post_stm_objects->objects_held(c,parent_held);
+    const auto data=post_stm_version_data->data_held(c,objects);
+    const auto dependency=post_stm_dependency->object_held(c,data);
+    const auto resume=post_stm_resume->object_held(c,dependency);
+    const auto leaf=post_stm_formatter_leaf->object_held(c,resume);
+    formatter_nested_held_mask=unsigned(joined)|(unsigned(outer)<<1)|(unsigned(report)<<2)|(unsigned(helper)<<3)|
+        (unsigned(parent_held)<<4)|(unsigned(objects)<<5)|(unsigned(data)<<6)|(unsigned(dependency)<<7)|
+        (unsigned(resume)<<8)|(unsigned(leaf)<<9);
+    formatter_nested_parent_age=std::min<uint64_t>(999u,post_stm_formatter->frame_age(c));
+    formatter_nested_parent_limit=formatter_nested->caller_parent_tick_limit();
+    formatter_nested_parent_baseline=formatter_nested->caller_parent_baseline();
+    return leaf;
 }
 [[noreturn]]static void formatter_nested_refuse(unsigned kind){
     std::cout<<"FORMATTER_NESTED_REFUSAL kind="<<kind<<" stage="<<(formatter_nested?formatter_nested->stage():0u)
@@ -1085,7 +1098,9 @@ static bool formatter_nested_held(nw::CPUContext& c){
         <<" stores="<<(formatter_nested?formatter_nested->stores():0u)
         <<" branches="<<(formatter_nested?formatter_nested->caller_branch_visits():0u)
         <<" post="<<(formatter_nested?formatter_nested->caller_post_integer_visits():0u)
-        <<" branch_detail="<<(formatter_nested?formatter_nested->branch_refusal_detail():0u)<<'\n';
+        <<" branch_detail="<<(formatter_nested?formatter_nested->branch_refusal_detail():0u)
+        <<" held_mask="<<formatter_nested_held_mask<<" parent_age="<<formatter_nested_parent_age
+        <<" parent_limit="<<formatter_nested_parent_limit<<" parent_baseline="<<formatter_nested_parent_baseline<<'\n';
     throw WitnessFailure{};
 }
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
@@ -5027,6 +5042,9 @@ int main(int argc,char** argv)try{
                 <<" caller_branches="<<nested.caller_branch_visits()<<" post_integers="<<nested.caller_post_integer_visits()
                 <<" fallthrough=3 taken=1 alternate_checks=4 next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_THIRD_BRANCH)
+            std::cout<<"FORMATTER_CALLER_FRAME_LEASE_TRIAL n="<<trial<<" parent_baseline="<<formatter_nested_parent_baseline
+                <<" parent_age="<<formatter_nested_parent_age<<" parent_limit="<<formatter_nested_parent_limit
+                <<" held_mask="<<formatter_nested_held_mask<<'\n';
             std::cout<<"FORMATTER_CALLER_THIRD_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
                 <<" caller_branches="<<nested.caller_branch_visits()<<" post_integers="<<nested.caller_post_integer_visits()
