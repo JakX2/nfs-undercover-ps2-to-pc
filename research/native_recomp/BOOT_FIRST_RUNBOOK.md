@@ -41,6 +41,18 @@ These are **bounded original-game AOT fixture** milestones, not complete
   categories, and original-free C++ generated-constant compilation checks.
   These changes remain contingent on owner execution and must preserve the
   118 verified predecessor and previous 61-root fixture census.
+- The next authenticated owner attempt
+  [45993050023](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45993050023)
+  narrowed the refusal to
+  `nested_fixture_report_compare_root_set` **after**
+  `base_joined`, `caller_joined`, `callee_joined`, and `byte_joined`.
+  This shows the failure precedes native translation and is specifically
+  in merging the 119 callee into the larger 118 fixture.
+- [Commit 0942c3c](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/0942c3cfb7dd038caa212a2cd8f4c07c41bb79d8)
+  admits a **subset of already authenticated roots**, without altering
+  sibling roots or accepting new roots. Its original-free and standalone
+  private provenance CI passed. An eight-trial native owner result is
+  still required before advancing the execution frontier.
 - The 119 source-only plan now **reuses one authenticated byte-load
   predecessor GPR snapshot** instead of independently repeating the
   full private caller/ancestor analysis. Regression tests guard the
