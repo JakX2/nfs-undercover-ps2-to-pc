@@ -521,7 +521,7 @@ public:
             if(path[i].pc!=caller_next_pc_+4u*i||path[i].word==0x44000002u||
                path[i].inputs.size()>3u||!word(c,path[i].pc,path[i].word))return fail(6);
         integer_path_=path;integer_end_pc_=end_pc;integer_end_word_=end_word;
-        if(!predict_integer(path.front()))return fail(6);
+        if(!predict_integer(c,path.front()))return fail(6);
         stage_=12u;return true;
     }
     template<class C>bool caller_integer_boundary(C& c,uint32_t pc,uint32_t w,bool held){
@@ -533,7 +533,7 @@ public:
            w!=(done?integer_end_word_:integer_path_[i].word))return fail(6);
         ++integer_completed_;
         if(done){stage_=13u;return true;}
-        if(!predict_integer(integer_path_[i]))return fail(6);
+        if(!predict_integer(c,integer_path_[i]))return fail(6);
         return true;
     }
     unsigned caller_integer_visits()const{return integer_completed_;}
@@ -639,11 +639,47 @@ private:
     std::span<const ScCallerIntegerStep> integer_path_{};
     uint32_t integer_end_pc_=0,integer_end_word_=0;
     unsigned integer_completed_=0;
-    bool predict_integer(const ScCallerIntegerStep& step){
-        const auto effect=predict_caller_integer(step.word,gp_,cr_,xer_,step.inputs);
+    uint32_t caller_modified_mask_=0;
+    // The child's return ABI was already observed strictly. Subsequent
+    // caller writes are allowed only for a register whose ORIGINAL caller
+    // value is still saved in an independently witnessed caller-frame slot.
+    template<class C>bool parent_saved_register(C& c,unsigned r)const{
+        if(!caller_parent_||r<14u||r>=32u)return false;
+        const auto& p=*caller_parent_;
+        const auto it=std::find_if(p.e_.slots.begin(),p.e_.slots.end(),[&](auto x){return x.reg==r;});
+        if(it==p.e_.slots.end())return false;
+        const int64_t at=int64_t(p.incoming_[1])+it->caller_offset;
+        const int64_t off=at-p.frame_.base;
+        if(off<8||off>int64_t(p.e_.frame_size)-4||off%4||
+           !mapped(c,{uint32_t(at),4u}))return false;
+        uint32_t v=0;
+        for(unsigned i=0;i<4u;++i){
+            const auto j=unsigned(off)+i;
+            if(!p.written_[j]||caller_written_[j])return false;
+            v=(v<<8)|p.shadow_[j];
+        }
+        return v==p.incoming_[r]&&c.mmu.read32(uint32_t(at))==v;
+    }
+    template<class C>bool predict_integer(C& c,const ScCallerIntegerStep& step){
+        uint32_t saved=0;
+        for(unsigned r=14;r<32u;++r)if(parent_saved_register(c,r))saved|=uint32_t(1)<<r;
+        const auto effect=predict_caller_integer(step.word,gp_,cr_,xer_,step.inputs,saved);
         if(!effect)return false;
-        if(effect->reg)gp_[*effect->reg]=effect->value;
+        if(effect->reg){
+            const auto r=*effect->reg;
+            if(r>=14u)caller_modified_mask_|=uint32_t(1)<<r;
+            gp_[r]=effect->value;
+        }
         cr_=effect->cr;return true;
+    }
+    template<class C>bool caller_return_registers_held(C& c)const{
+        if(gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return false;
+        for(unsigned r=14;r<32u;++r){
+            if(caller_modified_mask_&(uint32_t(1)<<r)){
+                if(!parent_saved_register(c,r))return false;
+            }else if(gp_[r]!=incoming_[r])return false;
+        }
+        return true;
     }
     template<class C>bool integer_code(C& c)const{
         for(auto step:integer_path_)if(!word(c,step.pc,step.word))return false;
@@ -707,13 +743,15 @@ private:
     template<class C>bool abi(C& c)const{
         if(stores_+loads_!=e_.accesses.size()||unsigned(std::popcount(seen_))!=e_.accesses.size()||authenticated_loads_!=unsigned(std::count_if(e_.accesses.begin(),e_.accesses.end(),[](auto a){return a.expected_value.has_value();}))||
            gp_[1]!=(frame_released_?incoming_[1]:frame_.base)||c.mmu.read32(frame_.base)!=incoming_[1]||
-           (frame_released_&&(lr_!=e_.entry_lr||!return_registers_held()))||
+           (frame_released_&&(lr_!=e_.entry_lr||
+             !(stage_>=12u?caller_return_registers_held(c):return_registers_held())))||
            gp_[2]!=incoming_[2]||gp_[13]!=incoming_[13])return false;
         for(auto s:e_.slots){
             const auto a=uint32_t(int64_t(incoming_[1])+s.caller_offset);
             if(c.mmu.read32(a)!=(s.reg==32u?e_.entry_lr:incoming_[s.reg]))return false;
         }
         for(unsigned r=14;r<32u;++r)if(gp_[r]!=incoming_[r]&&
+            !(stage_>=12u&&(caller_modified_mask_&(uint32_t(1)<<r)))&&
             std::none_of(e_.slots.begin(),e_.slots.end(),[&](auto s){return s.reg==r;}))return false;
         return true;
     }

@@ -29,6 +29,12 @@ class CallerInteger(unittest.TestCase):
         self.assertEqual(self.probe(),(None,'caller integer inputs'))
     def test_protected(self):
         with self.assertRaisesRegex(ValueError,'effects'):step(d(14,14,3,1),self.gp)
+    def test_saved_parent(self):
+        w=x(3,16,3,444)
+        out,inputs=step(w,self.gp,saved_mask=1<<16)
+        self.assertEqual((out[16],inputs),(('const',128),((3,128),)))
+        for mask in (0,1<<17,(1<<16)|1):
+            with self.assertRaisesRegex(ValueError,'effects'):step(w,self.gp,saved_mask=mask)
     def test_compare(self):
         out,inputs=step(d(11,0,3,0),self.gp)
         self.assertEqual(out,tuple(self.gp));self.assertEqual(inputs,((3,128),))

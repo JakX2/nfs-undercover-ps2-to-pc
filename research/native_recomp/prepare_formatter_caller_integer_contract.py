@@ -8,6 +8,7 @@ XER.SO, and stops before the next original label. No branches are admitted.
 import argparse,struct
 from pathlib import Path
 from prepare_formatter_caller_byte_contract import plan as byte_plan
+from prepare_formatter_continuation_plan import plan as continuation_plan
 from audit_formatter_caller_integer import after_byte
 from audit_formatter_partial_integer import classify
 from audit_formatter_partial_copy import plan as replay_plan,boundary_shape
@@ -23,11 +24,12 @@ def mask(mb,me):
     return sum(1<<(31-i) for i in range(32) if (mb<=i<=me if mb<=me else i>=mb or i<=me))
 def rot(v,n):return ((v<<n)|(v>>(32-n)))&MASK
 
-def step(w,gp):
+def step(w,gp,*,saved_mask=0):
     if len(gp)!=32:raise ValueError('caller integer registers')
     op,rs,ra,rb,xo=w>>26,(w>>21)&31,(w>>16)&31,(w>>11)&31,(w>>1)&1023
     name,reads,writes,_,carry,xer,oe=classify(w)
-    if carry or xer or oe or any(r not in (0,*range(3,13)) for r in writes):raise ValueError('caller integer effects')
+    if not 0<=saved_mask<=MASK or saved_mask&0x3fff or carry or xer or oe or any(r not in (0,*range(3,13)) and not (r>=14 and saved_mask&(1<<r)) for r in writes):
+        raise ValueError('caller integer effects')
     if not (op in (10,11,14,15,20,21,23,24,25,26,27,28,29) or
             op==31 and xo in (0,32,28,40,266,316,444,922,954)):
         raise ValueError('caller integer opcode')
@@ -60,7 +62,7 @@ def step(w,gp):
     elif writes:raise ValueError('caller integer effects')
     return tuple(out),inputs
 
-def extend(byte,words,gp,initial,*,cap=CAP):
+def extend(byte,words,gp,initial,*,cap=CAP,saved_mask=0):
     blocks,info=byte
     owner,caller,load,call,_,_,start,w=info
     live,_=after_byte(info,gp,initial)
@@ -73,7 +75,7 @@ def extend(byte,words,gp,initial,*,cap=CAP):
         raise ValueError('caller integer history')
     rows=[];reason='cap'
     for j in range(i,min(i+cap,len(words)-1)):
-        try:next_gp,inputs=step(words[j],live)
+        try:next_gp,inputs=step(words[j],live,saved_mask=saved_mask)
         except ValueError as ex:
             reason=str(ex);break
         if j>i and j<len(body) and body[j]!=GUARD:raise ValueError('caller integer overlap')
@@ -94,7 +96,9 @@ def plan(d,e,*,byte=None):
     owner=byte[1][0];size=parse_functions(e).get(owner,0)
     if not 4<=size<=65536 or size%4:raise ValueError('caller integer extent')
     _,_,trace,_,entry,_=replay_plan(d,e,details=True)
-    return extend(byte,exact_words(d,e,owner,size//4),trace[-1][2],entry[1])
+    saved_mask=continuation_plan(d,e)[6]
+    if saved_mask.bit_count()!=16 or saved_mask&0x3fff:raise ValueError('caller integer effects')
+    return extend(byte,exact_words(d,e,owner,size//4),trace[-1][2],entry[1],saved_mask=saved_mask)
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

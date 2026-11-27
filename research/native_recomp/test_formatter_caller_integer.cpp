@@ -39,6 +39,11 @@ int main(){
     const std::array<CallerIntegerInput,2> dup{{{3,gp[3]},{3,gp[3]}}};
     const std::array<CallerIntegerInput,1> bad{{{32,0u}}};
     assert(!run(d(14,5,3,1),wrong));assert(!run(d(14,5,3,1),dup));assert(!run(d(14,5,3,1),bad));
+    p=predict_caller_integer(x(3,16,3,444),gp,0u,0u,a,1u<<16);
+    assert(p&&p->reg==16u&&p->value==gp[3]);
+    assert(!predict_caller_integer(x(3,14,3,444),gp,0u,0u,a,1u<<16));
+    assert(!predict_caller_integer(x(3,2,3,444),gp,0u,0u,a,1u<<2));
+    assert(!predict_caller_integer(x(3,16,3,444),gp,0u,0u,a,(1u<<16)|1u));
     // All byte values, including the sign boundary, verify against an
     // independent arithmetic expression rather than the implementation.
     for(unsigned i=0;i<256;++i){

@@ -285,7 +285,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     assert(arrival&&child.reached_caller_arrival(c,held())&&child.visits()==epilogue.size()+1u);
     if(follow==50){assert(!child.stop_before_caller_instruction(c,link,caller_word,held()));return;}
     if(follow<51)return;
-    const auto next_pc=link+4u,next_word=follow>=67?ins(14,4,3,-10):0x60000000u;
+    const unsigned saved_dest=follow==86?14u:follow==87?2u:16u;
+    const auto next_pc=link+4u,next_word=follow>=85?
+        (31u<<26)|(3u<<21)|(saved_dest<<16)|(3u<<11)|(444u<<1):
+        follow>=67?ins(14,4,3,-10):0x60000000u;
     c.mmu.write32(next_pc,follow==54?guard_word:next_word);
     const auto offset=follow==52?18:follow==53?24:follow==62?704:19;
     const bool caller_load=child.resume_caller_byte(c,offset,follow==55?8u:9u,
@@ -301,31 +304,36 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     assert(loaded&&child.reached_caller_byte(c,held())&&child.visits()==epilogue.size()+1u);
     if(follow==66){assert(!child.stop_after_caller_byte(c,next_pc,next_word,held()));return;}
     if(follow<67)return;
-    const auto cmp_pc=next_pc+4u,cmp_word=ins(11,0,4,0),end_pc=cmp_pc+4u,end_word2=0x60000000u;
+    const auto cmp_pc=next_pc+4u,cmp_word=ins(11,0,follow>=85?saved_dest:4u,0),end_pc=cmp_pc+4u,end_word2=0x60000000u;
     c.mmu.write32(cmp_pc,follow==70?guard_word:cmp_word);
     c.mmu.write32(end_pc,end_word2);
-    const std::array<CallerIntegerInput,1> in1{{{3,follow==72?8u:9u}}},in2{{{4,follow==78?0u:0xffffffffu}}};
+    const std::array<CallerIntegerInput,1> in1{{{3,follow==72?8u:9u}}},in2{{{follow>=85?saved_dest:4u,follow>=85?9u:follow==78?0u:0xffffffffu}}};
     std::array<ScCallerIntegerStep,2> sequence{{{next_pc,next_word,in1},{cmp_pc,cmp_word,in2}}};
     if(follow==71)sequence[1].pc+=4u;
     if(follow==73)sequence[0].inputs={};
     const auto path=follow==68?std::span<const ScCallerIntegerStep>{}:std::span<const ScCallerIntegerStep>{sequence};
     const auto armed_integer=child.resume_caller_integers(c,path,end_pc+(follow==69?4u:0u),end_word2,held());
-    if(follow>=68&&follow<=73){assert(!armed_integer);return;}
+    if((follow>=68&&follow<=73)||follow==86||follow==87){assert(!armed_integer);return;}
     assert(armed_integer&&child.stage()==12u&&child.caller_integer_visits()==0u&&c.gpr[4]!=0xffffffffu);
-    c.gpr[4]=follow==74?0u:0xffffffffu;
+    if(follow>=85)c.gpr[saved_dest]=follow==88?8u:9u;
+    else c.gpr[4]=follow==74?0u:0xffffffffu;
+    if(follow==89)c.mmu.write32(SP-64u,0u);
+    if(follow==90)c.gpr[17]^=1u;
     if(follow==75)c.mmu.write32(parent_sp+16,8u);
     if(follow==76)c.mmu.write32(next_pc,guard_word);
     c.inst_count+=follow==77?2u:1u;
     const auto second=child.caller_integer_boundary(c,cmp_pc,cmp_word,held());
-    if(follow>=74&&follow<=78){assert(!second);return;}
+    if((follow>=74&&follow<=78)||(follow>=88&&follow<=90)){assert(!second);return;}
     assert(second&&child.caller_integer_visits()==1u&&child.stage()==12u);
-    c.cr[0]={true,false,false,false};
+    c.cr[0]={follow<85,follow>=85,false,false};
     if(follow==79)c.cr[0].lt=false;
     if(follow==80)c.gpr[8]^=1u;
     if(follow==81)c.mmu.write32(end_pc,guard_word);
+    if(follow==91)c.gpr[16]=0x110u; // restoring early is also a wrong instruction effect
+    if(follow==92)c.mmu.write32(SP-64u,0u);
     ++c.inst_count;
     const auto finished=child.caller_integer_boundary(c,end_pc+(follow==82?4u:0u),end_word2,held()&&follow!=83);
-    if(follow>=79&&follow<=83){assert(!finished);return;}
+    if((follow>=79&&follow<=83)||follow==91||follow==92){assert(!finished);return;}
     assert(finished&&child.reached_caller_integers(c,held())&&child.caller_integer_visits()==2u);
     assert(child.visits()==epilogue.size()+1u);
     if(follow==84)assert(!child.caller_integer_boundary(c,end_pc,end_word2,held()));
@@ -335,5 +343,5 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=84;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=371 original_execution=0\n";}
+    for(unsigned follow=1;follow<=92;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=379 original_execution=0\n";}

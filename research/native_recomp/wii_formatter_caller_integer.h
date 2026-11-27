@@ -15,15 +15,16 @@ struct CallerIntegerEffect {
 };
 inline std::optional<CallerIntegerEffect> predict_caller_integer(
     uint32_t w,const std::array<uint32_t,32>& gp,uint32_t cr,uint32_t xer,
-    std::span<const CallerIntegerInput> inputs){
-    if(inputs.size()>3u)return {};
+    std::span<const CallerIntegerInput> inputs,uint32_t saved_mask=0u){
+    if(inputs.size()>3u||(saved_mask&0x3fffu))return {};
     uint32_t declared=0,used=0;
     for(auto x:inputs){
         if(x.reg>=32u||(declared&(uint32_t(1)<<x.reg))||gp[x.reg]!=x.value)return {};
         declared|=uint32_t(1)<<x.reg;
     }
     const auto read=[&](unsigned r){used|=uint32_t(1)<<r;return gp[r];};
-    const auto writable=[](unsigned r){return r==0u||(r>=3u&&r<=12u);};
+    const auto writable=[&](unsigned r){return r==0u||(r>=3u&&r<=12u)||
+        (r>=14u&&(saved_mask&(uint32_t(1)<<r)));};
     CallerIntegerEffect out;out.cr=cr;
     const auto compare=[&](unsigned f,bool lt,bool eq){
         const unsigned sh=28u-4u*f;
