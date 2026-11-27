@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source-only regression: the 119 native CR stages retain redacted refusal logs."""
+"""Source-only regression: the 119/120 native continuation stages retain redacted refusal logs."""
 import re
 import unittest
 from pathlib import Path
@@ -36,12 +36,12 @@ def sample(stage, **fields):
 
 
 class RefusalFilterTests(unittest.TestCase):
-    def test_comparison_refusal_stages_are_visible(self):
+    def test_comparison_and_copy_refusal_stages_are_visible(self):
         pattern = refusal_expression()
-        for stage in range(34):
+        for stage in range(36):
             with self.subTest(stage=stage):
                 self.assertIsNotNone(re.fullmatch(pattern, sample(stage)))
-        for stage in (34, 35, 40, -1):
+        for stage in (36, 37, 40, -1):
             with self.subTest(stage=stage):
                 self.assertIsNone(re.fullmatch(pattern, sample(stage)))
 
@@ -49,7 +49,7 @@ class RefusalFilterTests(unittest.TestCase):
         pattern = refusal_expression()
         for corrupted in (
             sample(32, kind=8), sample(32, reason=7),
-            sample(33, branches=5), sample(33, visits=1234),
+            sample(35, branches=5), sample(34, visits=1234),
             sample(32) + ' pc=0x80000000',
             sample(33).replace('stage=33 ', 'stage=33 private_word=0 '),
             'FORMATTER_NESTED_REFUSAL stage=32',
