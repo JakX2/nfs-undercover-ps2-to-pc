@@ -166,9 +166,76 @@ static void negative(unsigned fault) {
     }
     assert(!h.observe()&&h.witness.failed());
 }
+
+static unsigned native_positives() {
+    // The translated PPC callee reaches a local native label while the
+    // dispatch PC remains at the function root. Both must be checked.
+    unsigned cases=0;
+    constexpr std::array<unsigned,11> targets{0,3,4,5,6,7,8,9,10,11,12};
+    for(bool indexed:{false,true})
+        for(unsigned rt:targets)
+            for(unsigned value=0;value<=255u;++value) {
+                Harness h(rt,value,indexed);
+                h.cpu.mmu.write32(Entry+8u,0x44000002u);
+                h.cpu.mmu.write32(Link,0x44000002u);
+                assert(h.witness.arm_native(h.cpu,h.report,h.step,true));
+                ++h.cpu.inst_count;
+                h.cpu.gpr[rt]=value;
+                assert(h.cpu.pc==Entry);
+                assert(h.witness.observe_native_label(h.cpu,h.report,
+                    Entry+4u,Nop,true));
+                assert(h.witness.stage()==2u&&!h.witness.failed());
+                assert(!h.witness.observe_native_label(h.cpu,h.report,
+                    Entry+4u,Nop,true));
+                ++cases;
+            }
+    return cases;
+}
+static void native_negative(unsigned fault) {
+    Harness h(9u,0x5au,false);
+    h.cpu.mmu.write32(Entry+8u,0x44000002u);
+    h.cpu.mmu.write32(Link,0x44000002u);
+    if(fault==0)h.cpu.mmu.write32(Entry+8u,Nop);
+    if(fault==1)h.cpu.mmu.write32(Link,Nop);
+    if(fault==2){h.cpu.lr=Entry;h.step.lr=Entry;}
+    if(fault<=2) {
+        assert(!h.witness.arm_native(h.cpu,h.report,h.step,true));
+        assert(h.witness.failed());
+        return;
+    }
+    assert(h.witness.arm_native(h.cpu,h.report,h.step,true));
+    ++h.cpu.inst_count;
+    h.cpu.gpr[9]=0x5au;
+    if(fault==3)h.cpu.pc=Entry+4u;
+    if(fault==6)h.cpu.mmu.write32(Entry+8u,Nop);
+    if(fault==7)h.cpu.mmu.write32(Link,Nop);
+    if(fault==8)h.report.byte^=1u;
+    if(fault==10)h.cpu.cr[1].eq=true;
+    if(fault==12) {
+        assert(!h.witness.arm_native(h.cpu,h.report,h.step,true));
+        assert(h.witness.failed());
+        return;
+    }
+    if(fault==13)++h.cpu.inst_count;
+    if(fault==9) {
+        assert(!h.observe()&&h.witness.failed());
+        return;
+    }
+    const bool ok=h.witness.observe_native_label(h.cpu,h.report,
+        fault==4?Entry:Entry+4u,fault==5?Nop^1u:Nop,true);
+    if(fault==11) {
+        assert(ok&&!h.witness.failed());
+        assert(!h.witness.observe_native_label(h.cpu,h.report,
+            Entry+4u,Nop,true)&&h.witness.failed());
+    } else assert(!ok&&h.witness.failed());
+}
+
 int main() {
     const auto successful=positives();
+    const auto native_successful=native_positives();
     for(unsigned fault=0;fault<=32u;++fault)negative(fault);
+    for(unsigned fault=0;fault<=13u;++fault)native_negative(fault);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
-             <<" rejected=33 original_execution=0\n";
+             <<" native_valid="<<native_successful
+             <<" rejected=47 original_execution=0\n";
 }
