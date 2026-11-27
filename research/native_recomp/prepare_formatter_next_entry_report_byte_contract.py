@@ -48,7 +48,7 @@ def extend(entry, words, live, initial, inherited, current, report_size, classif
     return expanded, (target, w, at - parent_sp, at + report_size, cell[1],
                       target + 4, words[1], ret)
 
-def plan(d, e):
+def plan(d, e, *, with_live=False):
     from prepare_formatter_caller_next_entry_contract import plan as entry_plan
     from audit_formatter_next_entry_ancestor_byte import plan as ancestor_plan
     from prepare_formatter_caller_stack_move_contract import plan as move_plan
@@ -66,8 +66,9 @@ def plan(d, e):
     classification = ancestor_plan(d, e)
     move, live, cr, guards = move_plan(d, e)
     owner, size, *_ = move[1]
+    saved_mask = continuation_plan(d, e)[6]
     contract, _, live, cr = integer_extend(move, exact_words(d, e, owner, size // 4),
-                                          live, cr, continuation_plan(d, e)[6], guards)
+                                          live, cr, saved_mask, guards)
     if contract[2:4] != info[2:4]:
         raise ValueError('report byte history')
     _, _, trace, _, replay_entry, _ = replay_plan(d, e, details=True)
@@ -79,8 +80,9 @@ def plan(d, e):
         raise ValueError('report byte geometry')
     rw = exact_words(d, e, REPORT, sizes[REPORT] // 4)
     _, _, _, _, report_size, _ = report_trace(REPORT, rw)
-    return extend(entry, exact_words(d, e, target, 3), live, initial,
-                  inherited, current, report_size, classification)
+    result = extend(entry, exact_words(d, e, target, 3), live, initial,
+                    inherited, current, report_size, classification)
+    return (result, tuple(live), saved_mask) if with_live else result
 
 class Tests(unittest.TestCase):
     def setUp(self):

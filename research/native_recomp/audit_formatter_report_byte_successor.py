@@ -80,27 +80,16 @@ def inspect(contract, registers, *, saved_mask=0, return_input=False):
     return (*result, (source, tag[1]))
 
 
-def plan(d, e, *, return_input=False):
+def plan(d, e, *, return_input=False, include_byte=False):
     from prepare_formatter_next_entry_report_byte_contract import plan as byte_plan
-    from prepare_formatter_caller_stack_move_contract import plan as move_plan
-    from audit_formatter_caller_after_stack_move import extend as integer_extend
-    from prepare_formatter_continuation_plan import plan as continuation_plan
-    from make_v624_ipc_geometry import exact_words
-    from prepare_formatter_caller_next_entry_contract import plan as entry_plan
 
-    byte = byte_plan(d, e)
-    entry, _, _, _ = entry_plan(d, e)
-    move, live, cr, guards = move_plan(d, e)
-    owner, size, *_ = move[1]
-    mask = continuation_plan(d, e)[6]
-    tail, _, registers, _ = integer_extend(
-        move, exact_words(d, e, owner, size // 4),
-        live, cr, mask, guards)
-    if tail is None or tail[2:4] != entry[1][2:4]:
-        raise ValueError('successor history')
+    # Reuse the already validated 118 contract's original caller GPR state.
+    # No second full caller/ancestor re-analysis of the same boundary.
+    byte, registers, mask = byte_plan(d, e, with_live=True)
     if byte[0].get(byte[1][0]) != (byte[1][1], byte[1][6], GUARD):
         raise ValueError('successor history')
-    return inspect(byte, registers, saved_mask=mask, return_input=return_input)
+    result = inspect(byte, registers, saved_mask=mask, return_input=return_input)
+    return (byte, result) if include_byte else result
 
 
 class Tests(unittest.TestCase):

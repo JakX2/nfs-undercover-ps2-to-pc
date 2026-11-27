@@ -12,7 +12,6 @@ from pathlib import Path
 
 from guarded_continuation import GUARD, check_spans
 from prepare_formatter_next_report_byte_fixture import render_report_byte
-from prepare_formatter_next_entry_report_byte_contract import plan as byte_plan
 from audit_formatter_report_byte_successor import plan as successor_plan
 from make_private_elf_symbol_map import parse_functions
 from make_v624_ipc_geometry import exact_words
@@ -63,7 +62,8 @@ def render(contract):
 
 
 def plan(dol, elf):
-    byte = byte_plan(dol, elf)
+    byte, (name, counts, modeled, reason, source) = successor_plan(
+        dol, elf, return_input=True, include_byte=True)
     root, load, _, _, _, _, comparison, _ = byte[1]
     size = parse_functions(elf).get(root, 0)
     if not 16 <= size <= 65536 or size % 4:
@@ -71,7 +71,6 @@ def plan(dol, elf):
     actual = exact_words(dol, elf, root, 3)
     if len(actual) != 3 or actual[0] != load or actual[1] != comparison:
         raise ValueError('report compare provenance')
-    name, counts, modeled, reason, source = successor_plan(dol, elf, return_input=True)
     if (name != 'compare_immediate' or reason != 'supported' or modeled is None or
             counts[0] != 1 or counts[2] != 1 or counts[6] != 1 or
             any(counts[i] for i in (1, 3, 4, 5, 7, 8, 9, 10))):
