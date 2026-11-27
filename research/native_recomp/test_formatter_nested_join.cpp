@@ -389,6 +389,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool second_stopped=child.stop_after_caller_branch(c,follow==114?second_other:second_target,after_branch,held()&&follow!=120);
     if(follow>=114&&follow<=120){assert(!second_stopped);return;}
     assert(second_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==2u);
+    assert(!child.caller_post_fourth_tick_budget());
     if(follow==121){assert(!child.resume_caller_branch(c,0x100u,true,second_target,after_branch,held()));return;}
     if(follow<122)return;
     const auto post_end=second_target+4u;
@@ -445,6 +446,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool third_stopped=child.stop_after_caller_branch(c,follow==148?third_target:third_next,third_boundary,held()&&follow!=156);
     if(follow>=148&&follow<=156){assert(!third_stopped);return;}
     assert(third_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==3u);
+    assert(!child.caller_post_fourth_tick_budget());
     if(parent_delay)assert(parent.frame_age(c)==129u&&child.caller_parent_tick_limit()==129u);
     assert(child.caller_integer_visits()==2u&&child.caller_post_integer_visits()==1u);
     if(follow==157){assert(!child.resume_caller_branch(c,0x100u,false,third_next,third_boundary,held()));return;}
@@ -472,6 +474,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool fourth_stopped=child.stop_after_caller_branch(c,follow==169?fourth_other:fourth_next,fourth_boundary,held()&&follow!=178);
     if(follow>=169&&follow<=178){assert(!fourth_stopped);return;}
     assert(fourth_stopped&&child.reached_caller_branch(c,held())&&child.caller_branch_visits()==4u);
+    assert(child.caller_post_fourth_tick_budget()==0u);
     assert(child.caller_integer_visits()==2u&&child.caller_post_integer_visits()==1u);
     if(follow==179){assert(!child.resume_caller_branch(c,0x100u,true,fourth_next,fourth_boundary,held()));return;}
     if(follow<180)return;
@@ -497,6 +500,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool mix_armed=child.resume_caller_mixed(c,mix_path,mix_end+(follow==182?4u:0u),mix_end_word,held()&&follow!=192);
     if(follow>=181&&follow<=192){assert(!mix_armed);return;}
     assert(mix_armed&&child.stage()==18u&&child.caller_mixed_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==1u);
     c.gpr[5]=follow==193?9u:10u;
     if(follow==195)c.mmu.write32(mix_other,mix_end_word);
     if(follow==196)c.mmu.write32(other,mix_end_word);
@@ -504,6 +508,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool mix_one=child.caller_mixed_boundary(c,mix_cmp,mix_cmp_word,held());
     if(follow>=193&&follow<=197){assert(!mix_one);return;}
     assert(mix_one&&child.caller_mixed_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==2u);
     c.cr[0]={false,false,true,false};
     if(follow==198)c.cr[0].eq=false;
     if(follow==199)c.mmu.write32(mix_branch,guard_word);
@@ -511,6 +516,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool mix_two=child.caller_mixed_boundary(c,mix_branch,mix_branch_word,held());
     if(follow==198||follow==199){assert(!mix_two);return;}
     assert(mix_two&&child.caller_mixed_visits()==2u);
+    assert(child.caller_post_fourth_tick_budget()==3u);
     if(follow==202)c.mmu.write32(mix_other,mix_end_word);
     if(follow==203)c.gpr[5]^=1u;
     if(follow==204)c.mmu.write32(fourth_other,mix_end_word);
@@ -518,6 +524,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool mix_three=child.caller_mixed_boundary(c,follow==200?mix_other:mix_end,mix_end_word,held()&&follow!=205);
     if(follow>=200&&follow<=205){assert(!mix_three);return;}
     assert(mix_three&&child.reached_caller_mixed(c,held())&&child.caller_mixed_visits()==3u);
+    assert(child.caller_post_fourth_tick_budget()==3u);
     assert(child.caller_mixed_integers()==2u&&child.caller_mixed_taken()==1u&&child.caller_mixed_fallthrough()==0u);
     if(follow==206){assert(!child.caller_mixed_boundary(c,mix_end,mix_end_word,held()));return;}
     if(follow<207)return;
@@ -549,6 +556,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         post_mix_path,follow>=228?post_mix_end:0u,follow>=228?post_mix_end_word:0u);
     if((follow>=208&&follow<=218)||(follow>=229&&follow<=233)){assert(!byte_armed);return;}
     assert(byte_armed&&child.stage()==20u&&child.caller_mixed_byte_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==4u);
     // Separate synthetic architectural effect, not a witness assignment.
     c.gpr[6]=follow==219?8u:9u;
     if(follow==221)c.mmu.write32(parent_sp+16,8u);
@@ -559,11 +567,13 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool byte_done=child.stop_after_caller_mixed_byte(c,follow==225?mix_other:byte_next,byte_next_word,held()&&follow!=226);
     if(follow>=219&&follow<=226){assert(!byte_done);return;}
     assert(byte_done&&child.reached_caller_mixed_byte(c,held())&&child.caller_mixed_byte_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==4u);
     if(follow==227){assert(!child.stop_after_caller_mixed_byte(c,byte_next,byte_next_word,held()));return;}
     if(follow<228)return;
     const bool post_mix_armed=child.resume_caller_post_mixed(c,held()&&follow!=235);
     if(follow==234||follow==235){assert(!post_mix_armed);return;}
     assert(post_mix_armed&&child.stage()==22u&&child.caller_post_mixed_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==5u);
     c.cr[0]={false,false,follow!=236,false};
     if(follow==237)c.mmu.write32(post_mix_other,byte_next_word);
     if(follow==238)c.mmu.write32(mix_other,byte_next_word);
@@ -572,6 +582,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool post_mix_first=child.caller_post_mixed_boundary(c,follow==241?post_mix_end:post_mix_branch,post_mix_word,held());
     if(follow>=236&&follow<=241){assert(!post_mix_first);return;}
     assert(post_mix_first&&child.caller_post_mixed_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==6u);
     if(follow==242)c.gpr[6]^=1u;
     if(follow==243)c.mmu.write32(post_mix_end,guard_word);
     if(follow==244)c.mmu.write32(other,byte_next_word);
@@ -579,6 +590,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool post_mix_done=child.caller_post_mixed_boundary(c,follow==246?post_mix_other:post_mix_end,post_mix_end_word,held()&&follow!=247);
     if(follow>=242&&follow<=247){assert(!post_mix_done);return;}
     assert(post_mix_done&&child.reached_caller_post_mixed(c,held())&&child.caller_mixed_byte_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==6u);
     assert(child.caller_post_mixed_visits()==2u&&child.caller_post_mixed_integers()==1u&&child.caller_post_mixed_taken()==1u&&child.caller_post_mixed_fallthrough()==0u);
     if(parent_delay)assert(parent.frame_age(c)==136u&&child.caller_parent_tick_limit()==136u);
     if(follow==248){assert(!child.caller_post_mixed_boundary(c,post_mix_end,post_mix_end_word,held()));return;}
@@ -599,6 +611,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         follow>=272?final_pc+(follow==275?4u:0u):0u,follow>=272?(follow==276?final_word^1u:final_word):0u);
     if((follow>=251&&follow<=257)||follow==270||(follow>=273&&follow<=276)){assert(!move_armed);return;}
     assert(move_armed&&child.stage()==24u&&child.caller_stack_move_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==7u);
     c.gpr[7]=move_value^((follow==258||follow==271)?1u:0u);
     if(follow==260)c.mmu.write32(move_next,guard_word);
     if(follow==261)c.mmu.write32(move_next+4u,move_word);
@@ -609,12 +622,14 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool move_done=child.stop_after_caller_stack_move(c,follow==265?post_mix_other:move_next,move_word,held()&&follow!=266);
     if((follow>=258&&follow<=266)||follow==271){assert(!move_done);return;}
     assert(move_done&&child.reached_caller_stack_move(c,held())&&child.caller_stack_move_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==7u);
     if(parent_delay)assert(parent.frame_age(c)==137u&&child.caller_parent_tick_limit()==137u);
     if(follow==267){assert(!child.stop_after_caller_stack_move(c,move_next,move_word,held()));return;}
     if(follow<272)return;
     const bool final_armed=child.resume_caller_final_integer(c,held()&&follow!=281);
     if(follow==280||follow==281){assert(!final_armed);return;}
     assert(final_armed&&child.stage()==26u&&child.caller_final_integer_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==8u);
     c.gpr[8]=follow==282?13u:12u;
     if(follow==284)c.mmu.write32(final_pc,guard_word);
     if(follow==285)c.mmu.write32(final_pc+4u,move_word);
@@ -625,6 +640,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool final_done=child.stop_after_caller_final_integer(c,follow==289?final_pc+4u:final_pc,final_word,held()&&follow!=290);
     if(follow>=282&&follow<=290){assert(!final_done);return;}
     assert(final_done&&child.reached_caller_final_integer(c,held())&&child.caller_final_integer_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==8u);
     if(parent_delay)assert(parent.frame_age(c)==138u&&child.caller_parent_tick_limit()==138u);
     if(follow==291){assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));return;}
     if(follow<292)return;
@@ -636,6 +652,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299);
     if(follow>=293&&follow<=299){assert(!entry_armed);return;}
     assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==9u);
     // Execute only the synthetic BL effect. The callee's load never runs.
     c.pc=follow==300?next_entry+4u:next_entry;
     c.lr=follow==301?next_ret+4u:next_ret;
@@ -651,6 +668,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool entry_done=child.stop_at_caller_next_entry(c,follow==311?next_entry+4u:next_entry,entry_word,held()&&follow!=312);
     if(follow>=300&&follow<=312){assert(!entry_done);return;}
     assert(entry_done&&child.reached_caller_next_entry(c,held())&&child.caller_next_entry_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==9u);
     if(parent_delay)assert(parent.frame_age(c)==139u&&child.caller_parent_tick_limit()==139u);
     if(follow==313)assert(!child.stop_at_caller_next_entry(c,next_entry,entry_word,held()));
 }
