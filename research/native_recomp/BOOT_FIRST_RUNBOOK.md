@@ -99,6 +99,21 @@ The independent scheduler root-cap regression was updated to reflect
 the existing 61-root maximum (and still reject 62). This is a test
 expectation repair, not evidence that the game advanced.
 
+### Instruction 121: guarded provenance audit only
+
+The independent `audit_formatter_report_copy_successor.py` tool has
+original-free tests for the authenticated 118-byte load, 119 comparison,
+120 stack-copy and the still-guarded following word. It preserves stack
+values symbolically, reports coarse input-dependency classes, and refuses
+altered predecessor or guard geometry. It does **not** translate or
+execute instruction 121, and its original-game classification has not
+yet been verified.
+
+The 120 owner workflow runs this inspection **only after** its private
+native 120 continuation step succeeds. If the native 120 run fails or
+times out, the 121 provenance step will not run. Original DOL/ELF data
+and translated game code remain private.
+
 **Current verified frontier for this bounded fixture: 119 original instructions.**
 The continuous original `__start` lane, whole-image link/startup lane,
 and bounded report/formatter lane are distinct and must not be aggregated
