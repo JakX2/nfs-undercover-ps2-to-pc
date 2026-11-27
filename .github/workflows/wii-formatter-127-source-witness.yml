@@ -1,0 +1,31 @@
+name: Wii Formatter 127 Original-Free Witness
+on:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/wii_formatter_report_fifth_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_sixth_immediate.h'
+      - 'research/native_recomp/test_formatter_report_sixth_immediate.cpp'
+      - 'research/native_recomp/test_formatter_report_fifth_immediate.cpp'
+      - '.github/workflows/wii-formatter-127-source-witness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test original-free 126/127 witness and chained guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            for test in test_formatter_report_fifth_immediate test_formatter_report_sixth_immediate; do
+              g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+              "/tmp/$test"
+              rm -f "/tmp/$test"
+            done
+          done
+          python3 research/native_recomp/test_formatter_report_sixth_immediate_fixture.py
