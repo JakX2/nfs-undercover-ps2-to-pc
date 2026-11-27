@@ -116,3 +116,14 @@ and the instruction-125 zero-input fixture is independently gated by it.
 **Unchanged larger limit:** no continuous game `__start` to `main`, native
 frontend, rendered first frame, or playable game is claimed by this bounded
 formatter lane. Keep pull request #36 draft.
+
+## Predecessor guard repair (2026-11-27)
+
+The subsequent 123 owner attempt [46025030157](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46025030157) failed with the same generic witness marker. Two independent issues were identified by source inspection:
+
+1. The native runner suppressed the new source-line marker and nested refusal stages above 35. Commit `7839814` preserves only the fixed, redacted diagnostic shapes through stage 43, separates the 123 observer and parent-lease failure sites, and tests the actual grep filter.
+2. The independent 122 sign-extension witness still required a fixed syscall guard at its second successor. The 123 and 124 fixtures intentionally replace that slot with an authenticated word. The 123 immediate witness had the analogous problem in the 124 lane. Commit `b696b97` binds explicit optional successor words at arm time, verifies the moved guard at arm and observation, and refuses gaps, mutated words, or return aliases. Legacy short modes keep their fixed guard.
+
+The 123 isolated witness tests [46058494734](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494734) and the inherited 124 source integration [46058494576](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494576) passed. The new synthetic three-lane successor-chain regression exercises the 122, 123 and 124 layouts using shared CPU state and independently mutates each remaining word and terminal/return guard before and after each witness. Its results are source-only.
+
+The repaired original 123 owner attempt is [46058494707](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46058494707). It was pending when this update was authored. The original 124 owner pins remain unchanged until a successful original 123 execution is verified. **The execution frontier remains 122.** No original bytes are included in these changes.

@@ -12,6 +12,12 @@ on:
       - 'research/native_recomp/wii_formatter_report_byte_transition.h'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
       - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
+      - 'research/native_recomp/wii_formatter_report_signext.h'
+      - 'research/native_recomp/wii_formatter_report_second_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_third_immediate.h'
+      - 'research/native_recomp/test_formatter_report_signext.cpp'
+      - 'research/native_recomp/test_formatter_report_successor_chain.cpp'
+      - 'research/native_recomp/test_formatter_native_refusal_filter.py'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
 permissions:
@@ -37,3 +43,10 @@ jobs:
           /tmp/wii-formatter-124-guards
           g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_byte_transition.cpp -o /tmp/wii-formatter-124-guards-sanitized
           /tmp/wii-formatter-124-guards-sanitized
+          python3 research/native_recomp/test_formatter_native_refusal_filter.py
+          for test in test_formatter_report_signext test_formatter_report_successor_chain; do
+            g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test-release"
+            "/tmp/$test-release"
+            g++ -std=c++20 -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test-sanitized"
+            "/tmp/$test-sanitized"
+          done
