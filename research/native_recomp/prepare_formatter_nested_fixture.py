@@ -27,6 +27,10 @@ from prepare_formatter_caller_stack_move_contract import plan as stack_move_plan
 from audit_formatter_caller_after_stack_move import plan as final_integer_plan
 from prepare_formatter_caller_next_entry_contract import plan as next_entry_plan
 from prepare_formatter_next_entry_report_byte_contract import plan as report_byte_plan
+from prepare_formatter_report_compare_fixture import (
+    plan as report_compare_plan, promote as promote_report_compare,
+    render as render_report_compare,
+)
 from audit_formatter_partial_copy import boundary_shape
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
@@ -458,7 +462,8 @@ def expand_report_byte(old,entry,contract):
     check_spans({a:4*len(ws) for a,ws in blocks.items()})
     return blocks
 
-def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
+def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None):
+    if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
     if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
@@ -502,6 +507,13 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
             expanded={**expanded,**expand_next_entry(final_integer_contract[0],final_integer_contract,next_entry_contract)}
             if report_byte_contract is not None:
                 expanded={**expanded,**expand_report_byte(next_entry_contract[0],next_entry_contract,report_byte_contract)}
+                if compare_contract is not None:
+                    candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                    if compare_contract!=(candidate,fields) or candidate[fields[0]]!=(
+                            *expanded[fields[0]][:2],fields[3],GUARD) or any(
+                            candidate[a]!=words for a,words in expanded.items() if a!=fields[0]):
+                        raise ValueError('nested fixture report compare expansion')
+                    expanded={**expanded,**candidate}
         check_spans({a:4*len(ws) for a,ws in expanded.items()})
     # The previously authenticated formatter image has 58 CSV roots
     # plus two vector roots. Admit exactly one new authenticated callee.
@@ -533,13 +545,15 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     if final_integer_contract is not None:header+=render_final_integer(final_integer_contract)
     if next_entry_contract is not None:header+=render_next_entry(next_entry_contract)
     if report_byte_contract is not None:header+=render_report_byte(next_entry_contract,report_byte_contract)
+    if compare_contract is not None:header+=render_report_compare(compare_contract)
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(header)
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
     kind='guarded_instruction' if partial is not None else 'guarded_stack' if post is not None else 'guarded_control' if len(fields)==10 else 'guarded_load'
     print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(final[2])} {kind}=1 new_roots={int(next_entry_contract is not None)}')
 
-def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
+def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None):
+    if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
     if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
@@ -580,13 +594,21 @@ def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract
         if next_entry_contract is not None:
             final=expand_next_entry(final,final_integer_contract,next_entry_contract)
             dst=next_entry_contract[1][4]
-            if report_byte_contract is not None:final=expand_report_byte(final,next_entry_contract,report_byte_contract)
-            extent=12 if report_byte_contract is not None else 8
+            if report_byte_contract is not None:
+                final=expand_report_byte(final,next_entry_contract,report_byte_contract)
+                if compare_contract is not None:
+                    promoted,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                    if compare_contract!=(promoted,fields) or any(
+                            promoted[a]!=words for a,words in final.items() if a!=fields[0]):
+                        raise ValueError('nested fixture report compare expansion')
+                    final={**final,**promoted}
+            extent=16 if compare_contract is not None else 12 if report_byte_contract is not None else 8
             if dst in old or sizes.get(dst)!=extent or 4*len(final[dst])!=extent:raise ValueError('nested fixture caller next entry extent')
             before.pop(dst);extra[dst]=extent
     return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root],**extra})
 
-def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None):
+def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None):
+    if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
     if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
     if final_integer_contract is not None and stack_move_contract is None:raise ValueError('nested fixture mode')
@@ -717,6 +739,11 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
                                                             ri=report_byte_contract[1]
                                                             if ri[5] in expected:raise ValueError('nested fixture report byte expansion')
                                                             expected[ri[5]]=(ri[0],ri[6])
+                                                            if compare_contract is not None:
+                                                                candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3])
+                                                                if compare_contract!=(candidate,fields) or fields[2] in expected:
+                                                                    raise ValueError('nested fixture report compare expansion')
+                                                                expected[fields[2]]=(fields[0],fields[3])
     audit_native(sources.values(),main_text,expected)
     if len(control_fields)==10:
         owners=[]
@@ -787,14 +814,15 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');modes.add_argument('--caller-second-branch',action='store_true');modes.add_argument('--caller-post-integers',action='store_true');modes.add_argument('--caller-third-branch',action='store_true');modes.add_argument('--caller-fourth-branch',action='store_true');modes.add_argument('--caller-mixed',action='store_true');modes.add_argument('--caller-mixed-byte',action='store_true');modes.add_argument('--caller-post-mixed',action='store_true');modes.add_argument('--caller-stack-move',action='store_true');modes.add_argument('--caller-final-integer',action='store_true');modes.add_argument('--caller-next-entry',action='store_true');modes.add_argument('--caller-report-byte',action='store_true');q=a.parse_args()
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');modes.add_argument('--caller-second-branch',action='store_true');modes.add_argument('--caller-post-integers',action='store_true');modes.add_argument('--caller-third-branch',action='store_true');modes.add_argument('--caller-fourth-branch',action='store_true');modes.add_argument('--caller-mixed',action='store_true');modes.add_argument('--caller-mixed-byte',action='store_true');modes.add_argument('--caller-post-mixed',action='store_true');modes.add_argument('--caller-stack-move',action='store_true');modes.add_argument('--caller-final-integer',action='store_true');modes.add_argument('--caller-next-entry',action='store_true');modes.add_argument('--caller-report-byte',action='store_true');modes.add_argument('--caller-report-compare',action='store_true');q=a.parse_args()
+    if q.caller_report_compare:q.caller_report_byte=True
     if q.caller_report_byte:q.caller_next_entry=True
     if q.caller_next_entry:q.caller_final_integer=True
     if q.caller_final_integer:q.caller_stack_move=True
     if q.caller_stack_move:q.caller_post_mixed=True
     if q.caller_post_mixed:q.caller_mixed_byte=True
     if q.caller_mixed_byte:q.caller_mixed=True
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','nested fixture caller next entry root census','fixture geometry','fixture range','fixture span','fixture overlap','completion roundtrip','nested fixture report byte','nested fixture report byte expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','nested fixture caller next entry root census','fixture geometry','fixture range','fixture span','fixture overlap','completion roundtrip','nested fixture report byte','nested fixture report byte expansion','nested fixture report compare expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     phase='inputs'
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
@@ -858,14 +886,15 @@ def main():
                             phase='next_entry_plan'
                             if q.caller_next_entry:next_entry_contract,_,_,_=next_entry_plan(d,e)
                             if q.caller_report_byte:report_byte_contract=report_byte_plan(d,e)
+            compare_contract=report_compare_plan(d,e) if q.caller_report_compare else None
             phase='fixture_expansion'
-            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract);return 0
+            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract);return 0
             phase='native_install'
-            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract);return 0
+            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract);return 0
             phase='analyzer_expansion'
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
-                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract))
+                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract))
                 if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed:
                     fields=p[1][1];source=analyzer_local_edge(source,fields[0],fields[2],fields[7])
                 q.analyzer.write_text(source)
