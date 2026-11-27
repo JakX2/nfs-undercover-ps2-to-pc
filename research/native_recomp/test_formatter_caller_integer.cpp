@@ -4,6 +4,118 @@
 using namespace undercover::wii;
 constexpr uint32_t d(unsigned op,unsigned r,unsigned a,unsigned n){return (op<<26)|(r<<21)|(a<<16)|(n&0xffffu);}
 constexpr uint32_t x(unsigned r,unsigned a,unsigned b,unsigned xo,bool rc=false){return (31u<<26)|(r<<21)|(a<<16)|(b<<11)|(xo<<1)|unsigned(rc);}
+
+namespace {
+constexpr uint32_t Root=0x80010000u,Label=Root+4u,Guard=0x44000002u;
+struct CompareMem {
+    std::array<uint8_t,16> bytes{};
+    uint8_t* get_ptr(uint32_t a){
+        return a>=Root&&a-Root<bytes.size()?bytes.data()+a-Root:nullptr;
+    }
+    void write32(uint32_t a,uint32_t value){
+        for(unsigned i=0;i<4;++i)*get_ptr(a+i)=uint8_t(value>>(24u-i*8u));
+    }
+    uint32_t read32(uint32_t a){
+        uint32_t value=0;
+        for(unsigned i=0;i<4;++i)value=(value<<8u)|*get_ptr(a+i);
+        return value;
+    }
+};
+struct CompareCpu {
+    struct Field{bool lt=false,gt=false,eq=false,so=false;};
+    CompareMem mmu;
+    std::array<uint32_t,32> gpr{};
+    std::array<uint32_t,8> gqr{};
+    std::array<Field,8> cr{};
+    uint32_t pc=Root,lr=Root+0x100u,ctr=1,xer=0,msr=0x8032,
+             srr0=Root,srr1=0x8032,dispatch_saved_ctx=0;
+    uint64_t inst_count=100;
+    bool is_running=true,in_callback=false;
+};
+uint32_t cmpword(unsigned op,unsigned field,unsigned reg,unsigned imm){
+    return (op<<26u)|(field<<23u)|(reg<<16u)|imm;
+}
+void seed_cr(CompareCpu& c){
+    for(unsigned f=0;f<8;++f)c.cr[f]={bool(f&1u),bool(f&2u),bool(f&4u),bool(f&1u)};
+}
+unsigned compare_witness_cases(){
+    unsigned count=0;
+    for(unsigned op:{10u,11u})
+    for(unsigned f=0;f<8;++f)
+    for(unsigned so:{0u,1u})
+    for(unsigned value=0;value<256u;++value)
+    for(unsigned imm:{0u,1u,127u,128u,255u,256u,0x7fffu,0x8000u,0xffffu}){
+        CompareCpu c;seed_cr(c);
+        c.gpr[9]=value;c.xer=(so<<31u)|0x60000000u;
+        const auto w=cmpword(op,f,9u,imm);
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);
+        CallerImmediateCompareWitness witness;
+        assert(witness.arm(c,Root,Label,w,Guard,{9u,value}));
+        assert(witness.stage()==1u&&!witness.failed());
+        // Independent arithmetic reference for a zero-extended byte and
+        // the signed or unsigned 16-bit immediate. Preserve other fields.
+        const int64_t rhs=op==11u&&imm>=32768u?int64_t(imm)-65536:int64_t(imm);
+        c.cr[f]={int64_t(value)<rhs,int64_t(value)>rhs,int64_t(value)==rhs,bool(so)};
+        ++c.inst_count;
+        assert(witness.observe(c,Label+4u,Guard));
+        assert(witness.stage()==2u&&!witness.failed());
+        assert(!witness.observe(c,Label+4u,Guard)&&witness.failed());
+        ++count;
+    }
+    return count;
+}
+unsigned compare_witness_rejections(){
+    constexpr auto w=(11u<<26u)|(3u<<23u)|(9u<<16u)|42u;
+    unsigned count=0;
+    for(unsigned fault=0;fault<23;++fault){
+        CompareCpu c;seed_cr(c);c.gpr[9]=42u;
+        c.mmu.write32(Label,w);c.mmu.write32(Label+4u,Guard);
+        CallerImmediateCompareWitness witness;
+        uint32_t instruction=w,operand=42u,reg=9u;
+        switch(fault){
+        case 0:instruction|=0x00200000u;c.mmu.write32(Label,instruction);break;
+        case 1:instruction|=0x00400000u;c.mmu.write32(Label,instruction);break;
+        case 2:operand=43u;break;
+        case 3:reg=8u;break;
+        case 4:c.mmu.write32(Label+4u,0u);break;
+        case 5:c.inst_count=std::numeric_limits<uint64_t>::max();break;
+        case 6:c.in_callback=true;break;
+        case 7:instruction=(14u<<26u)|(9u<<16u);c.mmu.write32(Label,instruction);break;
+        default:break;
+        }
+        if(fault<8){
+            assert(!witness.arm(c,Root,Label,instruction,Guard,{reg,operand}));
+            assert(witness.failed()&&witness.stage()==0u);
+        }else{
+            assert(witness.arm(c,Root,Label,w,Guard,{9u,42u}));
+            c.cr[3]={false,false,true,false};++c.inst_count;
+            uint32_t label=Label+4u,word=Guard;
+            switch(fault){
+            case 8:c.cr[3].eq=false;break;
+            case 9:c.cr[4].eq=!c.cr[4].eq;break;
+            case 10:c.cr[3].so=true;break;
+            case 11:c.gpr[9]^=1u;break;
+            case 12:c.gpr[7]^=1u;break;
+            case 13:c.xer^=1u;break;
+            case 14:c.gqr[3]^=1u;break;
+            case 15:++c.inst_count;break;
+            case 16:c.pc=Label+4u;break;
+            case 17:c.lr+=4u;break;
+            case 18:c.mmu.write32(Label,w^1u);break;
+            case 19:c.mmu.write32(Label+4u,0u);break;
+            case 20:label=Label;break;
+            case 21:word=0u;break;
+            case 22:c.dispatch_saved_ctx=1u;break;
+            default:assert(false);
+            }
+            assert(!witness.observe(c,label,word)&&witness.failed());
+        }
+        ++count;
+    }
+    return count;
+}
+}
+
 int main(){
     std::array<uint32_t,32> gp{};gp[3]=0x80000080u;gp[4]=0xffffffffu;
     const std::array<CallerIntegerInput,1> a{{{3,gp[3]}}};
@@ -118,5 +230,11 @@ int main(){
         }
     }
     assert(relative_cases==240);
+    const auto compare_cases=compare_witness_cases();
+    const auto compare_rejected=compare_witness_rejections();
+    assert(compare_cases==73728u&&compare_rejected==23u);
+    std::cout<<"FORMATTER_IMMEDIATE_COMPARE_WITNESS_TEST valid="<<compare_cases
+             <<" rejected="<<compare_rejected<<" original_execution=0\n";
+
     std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=64 stack_relative_cases="<<relative_cases<<" original_execution=0\n";
 }
