@@ -63,6 +63,48 @@ class CallerInteger(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'inputs'):
             step(x(1,10,1,444),self.gp,allow_stack_copy=True)
 
+    def test_symbolic_stack_relative_add_is_explicitly_opt_in(self):
+        self.gp[10]=('stack',-912)
+        for word,offset in (
+            (d(14,11,10,4),-908),
+            (d(14,11,10,0xfffc),-916),
+            (d(15,11,10,1),64624),
+            (d(15,11,10,0xffff),-66448),
+            (d(14,10,10,8),-904),
+        ):
+            with self.subTest(word=word):
+                with self.assertRaisesRegex(ValueError,'inputs'):
+                    step(word,self.gp)
+                out,inputs=step(word,self.gp,allow_stack_relative=True)
+                self.assertEqual(inputs,())
+                self.assertEqual(out[(word>>21)&31],('stack',offset))
+                self.assertEqual(out[1],self.gp[1])
+                self.assertEqual(self.gp[10],('stack',-912))
+
+    def test_symbolic_stack_relative_rejects_bad_effects_and_ranges(self):
+        self.gp[10]=('stack',-912)
+        for word in (d(14,16,10,8),d(14,1,10,8),
+                     d(14,2,10,8),d(14,13,10,8)):
+            with self.subTest(word=word):
+                with self.assertRaisesRegex(ValueError,'effects'):
+                    step(word,self.gp,allow_stack_relative=True,saved_mask=1<<16)
+        for offset in (-0x01800000,0x01800000,0x017fffff,
+                       -0x017fffff):
+            self.gp[10]=('stack',offset)
+            word=d(14,11,10,1 if offset>=0 else 0xffff)
+            with self.subTest(offset=offset):
+                with self.assertRaisesRegex(ValueError,'inputs'):
+                    step(word,self.gp,allow_stack_relative=True)
+        for malformed in (True, 'opaque', None):
+            self.gp[10]=('stack',malformed)
+            with self.assertRaisesRegex(ValueError,'inputs'):
+                step(d(14,11,10,4),self.gp,allow_stack_relative=True)
+        self.gp[10]=('stack',-912)
+        with self.assertRaisesRegex(ValueError,'inputs'):
+            step(x(10,11,10,444,1),self.gp,allow_stack_relative=True)
+        with self.assertRaisesRegex(ValueError,'inputs'):
+            step(d(14,11,8,4),self.gp,allow_stack_relative=True)
+
     def test_wrap(self):
         self.gp[3]=('const',0xffffffff)
         self.assertEqual(step(d(14,5,3,1),self.gp)[0][5],('const',0))
