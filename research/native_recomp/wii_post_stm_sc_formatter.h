@@ -932,7 +932,7 @@ public:
     template<class C>bool resume_caller_report_copy(C& c,unsigned src,unsigned dst,
         int32_t offset,bool held){
         if(!reached_caller_report_compare(c,held)||!next_entry_third_||
-           src>=32u||dst>=32u||src==dst||c.pc!=next_entry_pc_+8u||
+           src>=32u||dst>=32u||src==dst||
            !next_entry_following_)return fail(6);
         const uint32_t w=*next_entry_following_;
         if(w>>26!=31u||((w>>1u)&1023u)!=444u||(w&1u)||
