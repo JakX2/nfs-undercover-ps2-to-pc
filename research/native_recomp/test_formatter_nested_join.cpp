@@ -80,7 +80,8 @@ static void trial(unsigned fault){
 static void caller_trial(unsigned fault,uint32_t seed){
     Cpu c;c.gpr[1]=SP;c.gpr[3]=A;c.mmu.write32(A,T+0x100u);
     for(unsigned i=14;i<32;++i)c.gpr[i]=0x100u+i;
-    constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u,stop=dst+20u;
+    constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u;
+    const uint32_t stop=dst+(fault>=11?24u:20u);
     const auto parent_sp=SP-704u,child_sp=parent_sp-48u;
     c.mmu.write32(child_sp+8,seed);c.mmu.write32(parent_sp+16,0xfacecafeu);
     const std::array<IpcDispatchWord,5> pp{{{R,R,ins(37,1,1,-704)},{R,R+4,0x7c0802a6},
@@ -111,10 +112,13 @@ static void caller_trial(unsigned fault,uint32_t seed){
     std::vector<IpcDispatchWord> full(mid);full.push_back({T,partial,load});
     full.push_back({T,dst+8,ins(36,7,1,64)});full.push_back({T,dst+12,ins(36,9,1,68)});
     full.push_back({T,dst+16,ins(14,8,7,1)});
+    if(fault>=11)full.push_back({T,dst+20,ins(32,10,1,fault==11?68:fault==12?8:fault==13?72:64)});
     std::vector<ScFormatterAccess> more(ca.begin(),ca.end());
     more.push_back({partial,4,-40,true,false});
     more.push_back({dst+8,4,16,true,true});
     more.push_back({dst+12,4,20,true,true});
+    if(fault>=11)more.push_back({dst+20,4,fault==11?20:fault==12?-40:fault==13?24:16,true,false});
+    if(fault==14)std::swap(more[5],more[7]); // reordered proof must not authorize future writes
     for(auto x:full)c.mmu.write32(x.pc,x.word);
     c.mmu.write32(stop,guard);
     ScFormatterWitness child({T,link,site,branch,48,cp,ca,cs,{}, {dst,body,0x200u}});
@@ -144,7 +148,7 @@ static void caller_trial(unsigned fault,uint32_t seed){
     if(fault==5)more[5].address=704;
     if(fault==6)full[8].word^=1u;
     const bool resumed=child.resume_stack_path(c,next,parent,fault==7?0xffffu:0xffff0000u,held());
-    if(fault>=1&&fault<=7){assert(!resumed);return;}assert(resumed);
+    if((fault>=1&&fault<=7)||fault==13||fault==14){assert(!resumed);return;}assert(resumed);
     c.gpr[9]=seed&0xffffu; // Actual original load would read these live bytes.
     ++c.inst_count;assert(child.before(c,dst+8,full[9].word,held()));
     c.mmu.write32(parent_sp+16,fault==8?10u:9u);
@@ -154,12 +158,20 @@ static void caller_trial(unsigned fault,uint32_t seed){
     c.mmu.write32(parent_sp+20,fault==10?c.gpr[9]^1u:c.gpr[9]);
     ++c.inst_count;const bool ok2=child.before(c,dst+16,full[11].word,held());
     if(fault==10){assert(!ok2);return;}assert(ok2);c.gpr[8]=10;
-    ++c.inst_count;assert(child.stop_before_instruction(c,stop,guard,held())&&child.reached_instruction_boundary(c,held()));
-    assert(child.caller_store_count()==2&&child.visits()==12&&child.loads()==2&&child.stores()==5);
+    if(fault>=11){
+        ++c.inst_count;assert(child.before(c,dst+20,full[12].word,held()));
+        c.gpr[10]=fault==15?9u:seed&0xffffu;
+        if(fault==16)c.gpr[10]^=1u;
+    }
+    ++c.inst_count;
+    const bool stopped=child.stop_before_instruction(c,stop,guard,held());
+    if(fault==16){assert(!stopped);return;}
+    assert(stopped&&child.reached_instruction_boundary(c,held()));
+    assert(child.caller_store_count()==2&&child.visits()==(fault>=11?13u:12u)&&child.loads()==(fault>=11?3u:2u)&&child.stores()==5);
     assert(c.mmu.read32(parent_sp+20)==(seed&0xffffu));
     assert(!parent.child_frame_held(c,true,c.gpr[1],child.linkage_word()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
-    for(unsigned i=0;i<=10;++i)caller_trial(i,0x1234beefu);
+    for(unsigned i=0;i<=16;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=21 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=27 original_execution=0\n";}

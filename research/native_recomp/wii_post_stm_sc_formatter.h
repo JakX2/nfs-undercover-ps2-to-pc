@@ -293,6 +293,12 @@ public:
         for(unsigned k=0;k<next.slots.size();++k)if(next.slots[k].reg!=e_.slots[k].reg||
             next.slots[k].caller_offset!=e_.slots[k].caller_offset)return fail(6);
         std::vector<ScFormatterAccess> permitted;
+        // Preflight new access rows in execution order. A later stack load
+        // must read bytes already covered by the observed child/parent
+        // writes or the exact conditional word admitted at this boundary.
+        // Never mistake arbitrary initial frame contents for provenance.
+        auto child_readable=written_,parent_readable=parent.written_;
+        auto prev_path=next.path.begin()+i;
         const auto partial=next.accesses[j];
         if(partial.pc!=e_.target||partial.width!=4u||partial.address!=e_.boundary.caller_offset||
            !partial.stack||partial.write||partial.expected_value)return fail(6);
@@ -305,6 +311,20 @@ public:
                 if((x.width!=1u&&x.width!=2u&&x.width!=4u)||
                    std::none_of(next.path.begin()+i,next.path.end(),[&](auto y){return x.pc==y.pc;})||
                    (!x.stack&&(!x.expected_value||x.write))||(x.stack&&x.expected_value))return fail(6);
+                const auto row=std::find_if(next.path.begin()+i,next.path.end(),[&](auto y){return x.pc==y.pc;});
+                if(row==next.path.end()||(k==j?row!=prev_path:row<=prev_path))return fail(6);
+                prev_path=row;
+                if(x.stack&&!x.write){
+                    const auto off=x.address;
+                    if(off%x.width)return fail(6);
+                    if(off>=-int64_t(e_.frame_size)&&off+x.width<=8){
+                        const auto a=unsigned(off+e_.frame_size);
+                        if(k==j){for(unsigned q=0;q<x.width;++q)child_readable[a+q]=1;}
+                        else for(unsigned q=0;q<x.width;++q)if(!child_readable[a+q])return fail(6);
+                    }else if(off>=8&&off+x.width<=parent.e_.frame_size){
+                        for(unsigned q=0;q<x.width;++q)if(!parent_readable[unsigned(off)+q])return fail(6);
+                    }else return fail(6);
+                }
                 if(x.write){
                     // Every new store must target a distinct unused byte
                     // range within the parent's real frame, never linkage,
@@ -313,6 +333,7 @@ public:
                        permitted.size()>=8u)return fail(6);
                     for(unsigned q=0;q<x.width;++q)if(parent.written_[unsigned(x.address)+q])return fail(6);
                     for(auto y:permitted)if(x.address<y.address+y.width&&y.address<x.address+x.width)return fail(6);
+                    for(unsigned q=0;q<x.width;++q)parent_readable[unsigned(x.address)+q]=1;
                     permitted.push_back(x);
                 }
             }
