@@ -6,6 +6,7 @@ from prepare_formatter_nested_fixture import render,expand,render_return,render_
 from guarded_continuation import GUARD
 from prepare_formatter_nested_fixture import (
     private_compare_checkpoint, _COMPARE_EXPANSION_STAGES,
+    public_nested_refusal,
 )
 from prepare_formatter_report_compare_fixture import (
     promote as promote_report_compare, render as render_report_compare,
@@ -30,6 +31,17 @@ class Test(unittest.TestCase):
             with self.subTest(illegal=illegal):
                 with self.assertRaisesRegex(ValueError, 'diagnostic stage'):
                     private_compare_checkpoint(illegal)
+
+    def test_private_nested_refusal_is_redacted_and_specific(self):
+        whitelist={'nested fixture expansion'}
+        self.assertEqual(public_nested_refusal(ValueError('prefix ownership'),whitelist),
+                         'nested_fixture_span_overlap')
+        self.assertEqual(public_nested_refusal(ValueError('nested fixture expansion'),whitelist),
+                         'nested_fixture_expansion')
+        for error in (ValueError('private address 0x80010000'),
+                      TypeError('secret instruction word'),
+                      KeyError('unknown address')):
+            self.assertEqual(public_nested_refusal(error,whitelist),'private_input')
 
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))

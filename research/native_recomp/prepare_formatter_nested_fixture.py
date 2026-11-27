@@ -476,6 +476,14 @@ def private_compare_checkpoint(stage):
     print(f'FORMATTER_NESTED_119_STAGE stage={stage}', flush=True)
 
 
+def public_nested_refusal(error, safe):
+    """Preserve privacy while separating span conflicts from unknown input."""
+    reason = str(error)
+    if type(error) is ValueError and reason == 'prefix ownership':
+        return 'nested_fixture_span_overlap'
+    return reason.replace(' ', '_') if type(error) is ValueError and reason in safe else 'private_input'
+
+
 def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None,stage_trace=False):
     if stage_trace:private_compare_checkpoint('begin')
     if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
@@ -937,7 +945,7 @@ def main():
         assert phase in {'inputs','base_plan','caller_plan','mixed_plan',
                          'final_integer_plan','next_entry_plan',
                          'fixture_expansion','native_install','analyzer_expansion'}
-        reason=str(ex).replace(' ','_') if str(ex) in safe else 'private_input'
+        reason=public_nested_refusal(ex,safe)
         print(f'FORMATTER_NESTED_PREP verified=0 reason={reason} phase={phase}');return 1
     kind='pre_control_hook' if q.control else 'pre_load_hook'
     print(f'FORMATTER_NESTED_PREP verified=1 labels={len(p[1][2])} {kind}=1 original_execution=0')
