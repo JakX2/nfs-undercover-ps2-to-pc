@@ -165,6 +165,28 @@ of original instruction-121 execution is justified until its final
 native result succeeds. Both original DOL/ELF and translated functions
 remain private.
 
+The first actual 121 native owner attempt cleared original-free validation
+in [run 46012175547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012175547)
+and entered its original native-execution stage. Its result has not yet
+been admitted as a verified milestone here. One subsequent runtime
+hardening fix removes an unjustified old-destination-value equality
+check from zero-input PPC `li`: the instruction overwrites a volatile
+GPR and has no register inputs. Synthetic regression 384 now requires
+acceptance of that stale pre-write value while still checking the
+new value, predecessor state and guarded successor.
+
+### Instruction 122: read-only successor classification preparation
+
+The [original-free audit 46012597091](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012597091)
+**passed** for `audit_formatter_report_immediate_successor.py`. It
+reconstructs the authenticated 118 load, 119 compare, 120 stack copy,
+and 121 zero-input immediate, then classifies the still-unexecuted next
+word by coarse input-dependency category. Tests verify constant
+propagation from `li`, that opaque registers remain opaque, and
+that changed guards/predecessors are rejected. No original 122
+classification is claimed until a separately gated private owner
+audit runs after successful 121 native execution.
+
 The 120 owner workflow runs this inspection **only after** its private
 native 120 continuation step succeeds. If the native 120 run fails or
 times out, the 121 provenance step will not run. Original DOL/ELF data
