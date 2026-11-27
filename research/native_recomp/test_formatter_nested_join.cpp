@@ -980,4 +980,4 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
     for(unsigned follow=348;follow<=449;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=711 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=744 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 original_execution=0\n";}
