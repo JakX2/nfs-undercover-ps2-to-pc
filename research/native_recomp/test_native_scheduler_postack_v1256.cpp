@@ -11,6 +11,9 @@
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
 #include "wii_formatter_report_third_immediate.h"
 #endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+#include "wii_formatter_report_fourth_immediate.h"
+#endif
 #include "functions.h"
 #include "v624_private_ipc_expectations.h"
 #include "v626_private_words.h"
@@ -533,6 +536,9 @@ static std::optional<FormatterSignextWitness> formatter_report_signext;
 static std::optional<FormatterSecondImmediateWitness> formatter_report_second_immediate;
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
 static std::optional<FormatterThirdImmediateWitness> formatter_report_third_immediate;
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+static std::optional<FormatterFourthImmediateWitness> formatter_report_fourth_immediate;
+#endif
 #endif
 #endif
 #endif
@@ -737,6 +743,29 @@ static_assert(formatter_report_third_immediate_private::value==
     ((formatter_report_third_immediate_private::word&0x8000u)?
      (formatter_report_third_immediate_private::word&0xffffu)|0xffff0000u:
       formatter_report_third_immediate_private::word&0xffffu));
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+static_assert(formatter_report_fourth_immediate_private::root==
+              formatter_report_third_immediate_private::root);
+static_assert(formatter_report_fourth_immediate_private::pc==
+              formatter_report_third_immediate_private::next_pc);
+static_assert(formatter_report_fourth_immediate_private::word==
+              formatter_report_third_immediate_private::next_word);
+static_assert(formatter_report_fourth_immediate_private::next_pc==
+              formatter_report_fourth_immediate_private::pc+4u);
+static_assert(formatter_report_fourth_immediate_private::return_pc==
+              formatter_report_third_immediate_private::return_pc);
+static_assert((formatter_report_fourth_immediate_private::word>>26u)==14u);
+static_assert(((formatter_report_fourth_immediate_private::word>>16u)&31u)==0u);
+static_assert(((formatter_report_fourth_immediate_private::word>>21u)&31u)==
+              formatter_report_fourth_immediate_private::destination_reg);
+static_assert(formatter_report_fourth_immediate_private::destination_reg==0u||
+              (formatter_report_fourth_immediate_private::destination_reg>=3u&&
+               formatter_report_fourth_immediate_private::destination_reg<=12u));
+static_assert(formatter_report_fourth_immediate_private::value==
+    ((formatter_report_fourth_immediate_private::word&0x8000u)?
+     (formatter_report_fourth_immediate_private::word&0xffffu)|0xffff0000u:
+      formatter_report_fourth_immediate_private::word&0xffffu));
+#endif
 #endif
 #endif
 #endif
@@ -1344,6 +1373,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_second_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
 ,formatter_report_third_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+,formatter_report_fourth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1382,6 +1414,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_second_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
 ,formatter_report_third_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+,formatter_report_fourth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1422,6 +1457,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_second_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
 ,formatter_report_third_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+,formatter_report_fourth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1490,6 +1528,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               ,formatter_report_second_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
               ,formatter_report_third_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+              ,formatter_report_fourth_immediate_private::next_word
+#endif
 #endif
 #endif
               )||
@@ -1522,6 +1563,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_second_immediate_private::value
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
               ,formatter_report_third_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+              ,formatter_report_fourth_immediate_private::next_word
+#endif
 #endif
               ))
             formatter_nested_refuse(2);
@@ -1550,7 +1594,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_third_immediate_private::next_word,
               formatter_report_third_immediate_private::return_pc,
               formatter_report_third_immediate_private::destination_reg,
-              formatter_report_third_immediate_private::value)||
+              formatter_report_third_immediate_private::value
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+              ,formatter_report_fourth_immediate_private::next_word
+#endif
+              )||
            !formatter_nested->resume_caller_report_third_immediate(c,
               formatter_report_third_immediate_private::destination_reg,
               formatter_report_third_immediate_private::value,held))
@@ -1567,8 +1615,35 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
            !formatter_report_third_immediate->observe(c,pc,w)||
            !formatter_nested->stop_after_caller_report_third_immediate(c,pc,w,held))
             formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+        if(!formatter_report_fourth_immediate||
+           !formatter_report_fourth_immediate->arm(c,
+              formatter_report_fourth_immediate_private::root,
+              formatter_report_fourth_immediate_private::pc,
+              formatter_report_fourth_immediate_private::word,
+              formatter_report_fourth_immediate_private::next_word,
+              formatter_report_fourth_immediate_private::return_pc,
+              formatter_report_fourth_immediate_private::destination_reg,
+              formatter_report_fourth_immediate_private::value)||
+           !formatter_nested->resume_caller_report_fourth_immediate(c,
+              formatter_report_fourth_immediate_private::destination_reg,
+              formatter_report_fourth_immediate_private::value,held))
+            formatter_nested_refuse(2);
+        return; // the original translated addi for instruction 125 executes
+#else
+        ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+    }
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+    if(formatter_nested->stage()==44u){
+        const bool held=formatter_nested_held(c);
+        if(!formatter_report_fourth_immediate||
+           !formatter_report_fourth_immediate->observe(c,pc,w)||
+           !formatter_nested->stop_after_caller_report_fourth_immediate(c,pc,w,held))
+            formatter_nested_refuse(2);
         ++formatter_nested_count;throw FormatterNestedStop{};
     }
+#endif
 #endif
 #endif
 #endif
@@ -4267,7 +4342,12 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_report_second_immediate_private::next_pc,formatter_report_second_immediate_private::next_word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE
         c.mmu.write32(formatter_report_third_immediate_private::next_pc,formatter_report_third_immediate_private::next_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE
+        c.mmu.write32(formatter_report_fourth_immediate_private::next_pc,formatter_report_fourth_immediate_private::next_word);
+        c.mmu.write32(formatter_report_fourth_immediate_private::next_pc+4u,0x44000002u);
+#else
         c.mmu.write32(formatter_report_third_immediate_private::next_pc+4u,0x44000002u);
+#endif
 #else
         c.mmu.write32(formatter_report_second_immediate_private::next_pc+4u,0x44000002u);
 #endif
