@@ -769,7 +769,9 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         follow>=393?std::optional<uint32_t>{after_signext}:std::nullopt,
         follow>=393?std::optional<uint32_t>{after_second}:std::nullopt,
         follow>=417?std::optional<uint32_t>{after_third}:std::nullopt,
-        follow>=436?std::optional<uint32_t>{after_fourth}:std::nullopt);
+        follow>=436?std::optional<uint32_t>{after_fourth}:std::nullopt,
+        follow>=450?std::optional<uint32_t>{after_fifth}:std::nullopt,
+        follow>=470?std::optional<uint32_t>{after_sixth}:std::nullopt);
     if(follow==339){assert(!compare_armed);return;}
     assert(compare_armed&&compare.stage()==1u);
     const bool joined=child.resume_caller_report_compare(c,8u,12u,
