@@ -26,7 +26,8 @@ public:
         const unsigned op=instruction>>26u,rt=(instruction>>21u)&31u,
                        ra=(instruction>>16u)&31u;
         if(stage_||failed_||!safe(c)||c.pc!=root||
-           root<0x80000000u||root>0x817fffdcu||(root&3u)||
+           root<0x80000000u||root>0x817fffdcu||
+           (fourth&&root>0x817fffd4u)||(root&3u)||
            pc!=root+20u||op!=14u||ra!=0u||rt!=dst||
            !(dst==0u||(dst>=3u&&dst<=12u))||
            next_word==0x44000002u||return_pc!=c.lr||
