@@ -733,7 +733,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     CallerImmediateCompareWitness compare;
     const bool compare_armed=compare.arm(c,next_entry,next_entry+4u,
         entry_successor,after_compare,{follow==339?7u:8u,12u},
-        follow>=348?std::optional<uint32_t>{after_copy}:std::nullopt);
+        follow>=348?std::optional<uint32_t>{after_copy}:std::nullopt,
+        follow>=369?std::optional<uint32_t>{after_immediate}:std::nullopt);
     if(follow==339){assert(!compare_armed);return;}
     assert(compare_armed&&compare.stage()==1u);
     const bool joined=child.resume_caller_report_compare(c,8u,12u,
