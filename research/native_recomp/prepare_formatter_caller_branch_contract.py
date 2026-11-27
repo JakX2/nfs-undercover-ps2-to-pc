@@ -33,14 +33,24 @@ def extend(byte,contract,gp,initial,words,saved_mask):
     if not owner<=other<owner+size or not owner<=chosen<owner+size or chosen==other:
         raise ValueError('caller branch contract edge')
     body=blocks.get(owner,());i=(pc-owner)//4;j=(chosen-owner)//4;k=(other-owner)//4
-    if not 0<=i<len(body) or body[i]!=w or any(x!=GUARD for x in body[i+1:]):
-        raise ValueError('caller branch contract guard')
+    if not 0<=i<len(body) or body[i]!=w:
+        raise ValueError('caller branch contract source')
+    # Earlier paths may already have admitted disjoint labels beyond this
+    # branch. Preserve all of them; only the selected and alternate edges
+    # must be previously guarded (or beyond the current fixture extent).
+    if j<len(body) and body[j]!=GUARD:raise ValueError('caller branch contract chosen')
+    if k<len(body) and body[k]!=GUARD:raise ValueError('caller branch contract alternate')
     if any(v!=GUARD and (a>=len(words) or v!=words[a]) for a,v in enumerate(body)):
         raise ValueError('caller branch contract history')
     if words[j]==GUARD or j+1>=len(words):
-        raise ValueError('caller branch contract guard')
+        raise ValueError('caller branch contract boundary')
+    # The next label is an observation boundary, not an instruction body.
+    # An already authenticated historical successor is safe to preserve;
+    # all previously absent cells remain synthetic guards.
+    if j+1<len(body) and body[j+1]!=GUARD and body[j+1]!=words[j+1]:
+        raise ValueError('caller branch contract history')
     out=list(body)+[GUARD]*max(0,max(j+1,k)+1-len(body));out[j]=words[j]
-    if out[k]!=GUARD or out[j+1]!=GUARD:raise ValueError('caller branch contract guard')
+    if out[k]!=GUARD:raise ValueError('caller branch contract alternate')
     expanded={**blocks,owner:tuple(out)}
     check_spans({a:4*len(x) for a,x in expanded.items()})
     second=branch(chosen,words[j],cr,owner,size)
@@ -56,7 +66,7 @@ def plan(d,e):
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','caller branch contract predecessor','caller branch contract edge','caller branch contract guard','caller branch contract history'}
+    safe={'size','caller branch contract predecessor','caller branch contract edge','caller branch contract source','caller branch contract chosen','caller branch contract alternate','caller branch contract boundary','caller branch contract history'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():(_,info),second=plan(q.dol.read_bytes(),q.elf.read_bytes())

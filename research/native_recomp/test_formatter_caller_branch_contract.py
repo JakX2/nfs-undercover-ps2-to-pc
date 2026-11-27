@@ -36,7 +36,16 @@ class BranchContract(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'history'):self.probe()
     def test_existing_edge(self):
         self.blocks[P]=tuple(self.words[:6])+(GUARD,)
-        with self.assertRaisesRegex(ValueError,'guard'):self.probe()
+        with self.assertRaisesRegex(ValueError,'chosen'):self.probe()
+    def test_historical_successor_preserved(self):
+        self.blocks[P]=tuple(self.words[:5])+(GUARD,self.words[6],GUARD,GUARD,self.words[9])
+        (blocks,_),_=self.probe()
+        self.assertEqual(blocks[P][6],self.words[6])
+        self.assertEqual(blocks[P][9],self.words[9])
+        self.assertEqual(blocks[P][8],GUARD)
+    def test_alternate_occupied(self):
+        self.blocks[P]=tuple(self.words[:5])+(GUARD,GUARD,GUARD,self.words[8])
+        with self.assertRaisesRegex(ValueError,'alternate'):self.probe()
     def test_changed_proof(self):
         self.rows=(self.rows[0],(P+12,self.cmp,((4,9),)))
         with self.assertRaisesRegex(ValueError,'predecessor'):self.probe()
