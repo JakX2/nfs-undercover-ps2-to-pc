@@ -1,0 +1,30 @@
+name: Wii Formatter 124 Nested Guard Integration
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-124-nested-guard.yml'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/test_formatter_report_third_immediate_nested.py'
+      - 'research/native_recomp/prepare_formatter_report_third_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_third_immediate_fixture.py'
+permissions:
+  contents: read
+concurrency:
+  group: wii-formatter-124-nested-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/test_formatter_report_third_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_third_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_second_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_signext_nested.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
