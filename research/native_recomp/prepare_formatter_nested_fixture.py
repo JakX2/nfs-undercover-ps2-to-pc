@@ -12,16 +12,17 @@ from prepare_formatter_partial_native_contract import plan as partial_plan
 from prepare_formatter_special_contract import plan as special_plan
 from prepare_formatter_release_contract import plan as release_plan
 from prepare_formatter_return_contract import plan as return_plan
+from prepare_formatter_caller_arrival_contract import plan as caller_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import GUARD,check_spans
-from prepare_v1337_open_completion import rebuild,hook_submit
+from prepare_v1337_open_completion import rebuild,hook_submit,ensure_resume
 from prepare_v419_full_start import MAX_DOL,words_at
 from prepare_v1281_reply_fixture import symbols
 from prepare_v1270_ipc_epilogue import analyzer
 from prepare_v625_ipc_client import audit_native
 from formatter_local_ctr_native import verify_ctr_body,verify_blr_body,ensure_ctr_resume,analyzer_local_edge,trace_ctr_destination
-from prepare_v680_si_helper import exact_function
+from prepare_v680_si_helper import exact_function,verify_direct
 
 def plan(d,e,*,second=False,third=False,control=False):
     if sum((second,third,control))>1:raise ValueError('nested fixture mode')
@@ -67,6 +68,28 @@ def render_return(contract):
             f'inline constexpr uint32_t owner=0x{owner:08x}u,caller=0x{caller:08x}u,guard=0x{guard:08x}u;\n'
             '}\n')
 
+def render_caller(info):
+    owner,caller,word,call=info
+    if owner==caller or owner&3 or caller&3 or caller<=owner or word==GUARD or call>>26!=18 or call&3!=1:
+        raise ValueError('nested fixture caller geometry')
+    return ('namespace formatter_caller_private {\n'
+            f'inline constexpr uint32_t owner=0x{owner:08x}u,caller=0x{caller:08x}u,word=0x{word:08x}u,call=0x{call:08x}u;\n'
+            '}\n')
+
+def expand_caller(old,blocks,info):
+    owner,caller,word,call=info
+    if set(old)!=set(blocks) or owner not in old or caller<=owner or caller&3 or owner&3:
+        raise ValueError('nested fixture caller geometry')
+    i=(caller-owner)//4
+    body=old[owner];out=blocks[owner]
+    if not 1<=i<len(body) or body[i]!=GUARD or body[i-1]!=call or word==GUARD:
+        raise ValueError('nested fixture caller geometry')
+    expected=list(body)+[GUARD]*max(0,i+2-len(body));expected[i]=word
+    if tuple(expected)!=out or any(blocks[a]!=ws for a,ws in old.items() if a!=owner):
+        raise ValueError('nested fixture caller expansion')
+    check_spans({a:4*len(ws) for a,ws in blocks.items()})
+    return blocks
+
 def expand(old,blocks,live,root):
     if set(blocks)!=set(old) or root not in old or any(live.get(a)!=ws for a,ws in old.items()):
         raise ValueError('nested fixture predecessor')
@@ -76,7 +99,8 @@ def expand(old,blocks,live,root):
     check_spans({a:4*len(ws) for a,ws in result.items()})
     return result
 
-def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None):
+def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None):
+    if caller_contract is not None and return_contract is None:raise ValueError('nested fixture mode')
     if return_contract is not None and release is None:raise ValueError('nested fixture mode')
     if release is not None and special is None:raise ValueError('nested fixture mode')
     if special is not None and partial is None:raise ValueError('nested fixture mode')
@@ -85,6 +109,10 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     image=directory/'fixture.dol';csv=directory/'symbols.csv';raw=image.read_bytes()
     live={a:words_at(raw,a,n//4) for a,n in symbols(csv.read_text()).items()}
     expanded=expand(old,blocks,live,root)
+    if caller_contract is not None:
+        caller_blocks,info=caller_contract
+        expanded={**expanded,**expand_caller(blocks,caller_blocks,info)}
+        check_spans({a:4*len(ws) for a,ws in expanded.items()})
     new=rebuild(raw,expanded,max_roots=60)
     header=render(contract)
     if post is not None:header+=render(post,stack_boundary=True)
@@ -92,20 +120,28 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     if special is not None:header+=render(special,instruction_boundary=True,special_boundary=True)
     if release is not None:header+=render(release,instruction_boundary=True,release_boundary=True)
     if return_contract is not None:header+=render_return(return_contract)
+    if caller_contract is not None:header+=render_caller(caller_contract[1])
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(header)
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
     kind='guarded_instruction' if partial is not None else 'guarded_stack' if post is not None else 'guarded_control' if len(fields)==10 else 'guarded_load'
     print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(final[2])} {kind}=1 new_roots=0')
 
-def scope(d,e,sizes,p):
+def scope(d,e,sizes,p,*,caller_contract=None):
     prior,contract=p;old=prior[1][0];blocks,fields,*_=contract;root=fields[0]
     if set(blocks)!=set(old) or sizes.get(root)!=4*len(blocks[root]):
         raise ValueError('nested fixture extent')
     before={**sizes,root:4*len(old[root])}
-    return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root]})
+    extra={}
+    if caller_contract is not None:
+        caller_blocks,info=caller_contract;owner=info[0]
+        if owner==root or sizes.get(owner)!=4*len(expand_caller(blocks,caller_blocks,info)[owner]):
+            raise ValueError('nested fixture caller extent')
+        before[owner]=4*len(old[owner]);extra[owner]=sizes[owner]
+    return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root],**extra})
 
-def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None):
+def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None):
+    if caller_contract is not None and return_contract is None:raise ValueError('nested fixture mode')
     if return_contract is not None and release is None:raise ValueError('nested fixture mode')
     if release is not None and special is None:raise ValueError('nested fixture mode')
     if special is not None and partial is None:raise ValueError('nested fixture mode')
@@ -125,6 +161,10 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
             if dst in expected:raise ValueError('nested fixture arrival mode')
             expected[dst]=(root,dword)
         elif expected.get(dst)!=(root,dword):raise ValueError('nested fixture arrival mode')
+    if caller_contract is not None:
+        _,(owner,caller,cword,call)=caller_contract
+        if caller in expected or owner==root:raise ValueError('nested fixture caller geometry')
+        expected[caller]=(owner,cword)
     audit_native(sources.values(),main_text,expected)
     if len(control_fields)==10:
         owners=[]
@@ -136,6 +176,14 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
         verify_ctr_body(owners[0],site)
         if return_contract is not None:verify_blr_body(owners[0],target)
         if arrival:main_text,_=ensure_ctr_resume(main_text,owners[0],root,site,dst)
+    if caller_contract is not None:
+        bodies=[]
+        for source in sources.values():
+            try:bodies.append(exact_function(source,owner))
+            except ValueError:pass
+        if len(bodies)!=1:raise ValueError('nested fixture caller owner')
+        verify_direct(bodies[0],caller-4,root)
+        main_text,_=ensure_resume(main_text,bodies[0],owner,caller)
     done=set();changed={}
     for file,s in sources.items():
         old=s
@@ -146,6 +194,7 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
             if pc in done or s.count(hook)!=1:raise ValueError('nested fixture native hook')
             done.add(pc);s=s.replace(hook,hook.replace('v1344_before','formatter_nested_before'))
             if arrival and pc==dst:s=trace_ctr_destination(s,pc,w)
+            if caller_contract is not None and pc==caller:s=trace_ctr_destination(s,pc,w,caller=True)
         if s!=old:
             anchor='#include "runtime/cpu_context.h"'
             if s.count(anchor)!=1:raise ValueError('nested fixture native hook')
@@ -159,27 +208,28 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');q=a.parse_args()
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
-            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode)
-            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode else None
-            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode else None
+            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival)
+            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival else None
+            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode or q.caller_arrival else None
             special=None
-            if q.special or q.release or q.return_mode:
+            if q.special or q.release or q.return_mode or q.caller_arrival:
                 special,info=special_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial)
                 if info[:2]!=('link',1):raise ValueError('nested fixture special provenance')
-            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode else None
-            return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode else None
-            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract);return 0
-            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode,post=post,partial=partial,special=special,release=release,return_contract=return_contract);return 0
+            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode or q.caller_arrival else None
+            return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode or q.caller_arrival else None
+            caller_contract=caller_plan(d,e,release=release,previous=p[0][1],return_info=return_contract) if q.caller_arrival else None
+            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract);return 0
+            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract);return 0
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
-                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p))
-                if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode:
+                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract))
+                if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival:
                     fields=p[1][1];source=analyzer_local_edge(source,fields[0],fields[2],fields[7])
                 q.analyzer.write_text(source)
                 print('FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0

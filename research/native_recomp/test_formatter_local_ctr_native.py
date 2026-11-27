@@ -16,6 +16,8 @@ class Test(unittest.TestCase):
         s=self.body.replace('    ++ctx.inst_count;\n}',f'    ++ctx.inst_count;\n    formatter_nested_before(ctx,0x{D:08x}u,0x60000000u);\n}}')
         out=trace_ctr_destination(s,D,0x60000000)
         self.assertIn(f'ctx.pc == 0x{D:X}) nwii::runtime::trace_call',out)
+        caller=trace_ctr_destination(s,D,0x60000000,caller=True)
+        self.assertIn('// caller return label',caller)
         with self.assertRaisesRegex(ValueError,'trace'):trace_ctr_destination(out,D,0x60000000)
     def test_exact(self):self.assertTrue(verify_ctr_body(self.body,S))
     def test_resume(self):

@@ -40,12 +40,13 @@ def analyzer_local_edge(source,owner,site,destination):
           f'local_jump_targets.insert(0x{destination:08x}u); }} // verified local CTR edge')
     return source.replace(anchor,anchor+line,1)
 
-def trace_ctr_destination(source,pc,w):
+def trace_ctr_destination(source,pc,w,*,caller=False):
     label=r'(?mi)^loc_'+f'{pc:X}'+r': ;\n    // 0x'+f'{pc:08X}: {w:08X}'+r'\n'
     pat=re.compile(label+r'    \+\+ctx\.inst_count;\n    formatter_nested_before\(ctx,0x'+f'{pc:08x}u,0x{w:08x}u'+r'\);')
     hits=list(pat.finditer(source))
     if len(hits)!=1:raise ValueError('CTR destination trace')
     pos=hits[0].start()+len(re.match(label,source[hits[0].start():])[0])
-    line=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{pc:X}) nwii::runtime::trace_call(0x{pc:X}, ctx); // original CTR destination\n'
+    comment='caller return label' if caller else 'original CTR destination'
+    line=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{pc:X}) nwii::runtime::trace_call(0x{pc:X}, ctx); // {comment}\n'
     if line in source:raise ValueError('CTR destination trace')
     return source[:pos]+line+source[pos:]

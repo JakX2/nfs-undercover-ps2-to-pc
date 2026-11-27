@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -71,6 +71,16 @@ class Test(unittest.TestCase):
         self.assertIn('caller=0x80010004u,guard=0x44000002u',s)
         for args in ((R,R,GUARD,'integer','const'),(R,R+4,N,'integer','const')):
             with self.assertRaisesRegex(ValueError,'return guard'):render_return(args)
+    def test_caller_header_and_expansion(self):
+        call=0x48000001|((T-R)&0x03fffffc);load=0x80610010
+        info=(R,R+4,load,call)
+        self.assertIn('namespace formatter_caller_private',render_caller(info))
+        old={R:(call,GUARD),T:(N,GUARD)}
+        new={**old,R:(call,load,GUARD)}
+        self.assertEqual(expand_caller(old,new,info),new)
+        for bad in ({**new,T:(N,N)},{**new,R:(call,load,N)},{**new,R:(N,load,GUARD)}):
+            with self.assertRaisesRegex(ValueError,'caller expansion'):expand_caller(old,bad,info)
+        with self.assertRaisesRegex(ValueError,'caller geometry'):render_caller((R,R+4,GUARD,call))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
