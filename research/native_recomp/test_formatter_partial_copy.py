@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import unittest
 from prepare_post_stm_sc_report_formatter_path import first_path,const
-from audit_formatter_partial_copy import store_shape,copied_cells,store_location,caller_store_candidate
+from audit_formatter_partial_copy import store_shape,copied_cells,store_location,caller_store_candidate,boundary_shape
 B=0x80001000;T=0x80002000;SP=-160;FRAME=48;S=SP-FRAME;ORIGIN=S+8;DEST=S+16
 def d(op,rt,ra,imm=0):return (op<<26)|(rt<<21)|(ra<<16)|(imm&0xffff)
 def bl(pc,dst):return 0x48000001|((dst-pc)&0x03fffffc)
@@ -101,4 +101,9 @@ class PartialCopy(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'partial caller write'):self.probe(body,caller_stores=rows[:8])
         with self.assertRaisesRegex(ValueError,'partial caller contract'):
             self.probe(body,caller_stores=(rows[0],(B+8,SP+12,4,'partial')))
+    def test_boundary_shape(self):
+        for op,kind in ((48,'floating_load'),(54,'floating_store'),(59,'floating_arithmetic'),(4,'paired_single'),(56,'paired_single_memory'),(32,'load'),(36,'store'),(14,'integer')):
+            self.assertEqual(boundary_shape(d(op,3,1)),kind)
+        self.assertEqual(boundary_shape(x(599,3,1,4)),'floating_load')
+        self.assertEqual(boundary_shape(x(144,3,1,4)),'condition_transfer')
 if __name__=='__main__':unittest.main(verbosity=2)

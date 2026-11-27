@@ -5,6 +5,8 @@ from pathlib import Path
 from analyze_formatter_after_ctr import plan as after_ctr
 from analyze_formatter_nested_path import immutable_read
 from audit_formatter_nested_read import classify_section
+from audit_osinit_suffix_v929 import category
+from prepare_formatter_continuation_plan import plan as continuation_plan
 from audit_formatter_partial_word_flow import first_use
 from audit_formatter_partial_stack_read import known_mask
 from prepare_post_stm_sc_report_formatter_path import first_path
@@ -64,10 +66,25 @@ def caller_store_candidate(row,parent,sp,frame,expected_kind):
     at=a[1]+(((b[1]&0xffffffff)^0x80000000)-0x80000000)
     return pc,at,n,source
 
+def boundary_shape(w):
+    # Coarse instruction family only. No raw opcode, operands, address,
+    # immediate or symbol name is emitted from the private executable.
+    op=w>>26;xo=(w>>1)&1023
+    if op in (48,49,50,51):return 'floating_load'
+    if op in (52,53,54,55):return 'floating_store'
+    if op==31 and xo in (535,567,599,631):return 'floating_load'
+    if op==31 and xo in (663,695,727,759,983):return 'floating_store'
+    if op in (59,63):return 'floating_arithmetic'
+    if op==4:return 'paired_single'
+    if op in (56,57,60,61):return 'paired_single_memory'
+    if op==19 and xo in (33,129,193,225,257,289,417,449):return 'condition_logical'
+    if op==31 and xo in (19,144):return 'condition_transfer'
+    return category(w)
+
 def copied_cells(mem,origin):
     return sum(v[0]=='uninitialized' and not origin<=at<origin+4 for at,v in mem.items())
 
-def plan(d,e):
+def plan(d,e,*,details=False):
     kind,path,frame,sites,_,width,region,counts,entry,record,cells=after_ctr(d,e,details=True)
     if (kind,len(path),frame,len(sites),width,region,counts)!=('stack_load',84,48,21,4,'child_local',(2,0)):
         raise ValueError('partial copy predecessor')
@@ -142,18 +159,30 @@ def plan(d,e):
     store_done=store_seen and len(seen)>offset+1
     copied=copied_cells(seen[offset+1][3],at) if store_done else 0
     peak=max(copied_cells(row[3],at) for row in seen)
-    _,last_word,last_gp,last_mem=seen[-1]
+    last_pc,last_word,last_gp,last_mem=seen[-1]
     location=store_location(last_word,last_gp,last_mem,parent,initial[1][1],frame,lambda a,n:classify_section(e,a,n))
     completed=sum(any(row[0]==site for row in seen[:-1]) for site,*_ in admitted)
-    return sw,source,address,int(store_seen),int(store_done),copied,peak,len(seen)-1,reason,location,(len(admitted),completed)
+    result=(sw,source,address,int(store_seen),int(store_done),copied,peak,len(seen)-1,reason,location,(len(admitted),completed))
+    # The actual parent formatter owns a 704-byte frame, independently
+    # established by the original continuation contract. Do not equate
+    # unused symbolic cells with unrestricted caller memory.
+    continuation=continuation_plan(d,e)
+    if continuation[3]!=root:raise ValueError('partial copy parent identity')
+    parent_sp=initial[1][1]
+    bounded=all(parent_sp+8<=a<a+width<=parent_sp+704 for _,a,width,_ in admitted)
+    if not bounded:raise ValueError('partial copy parent extent')
+    shape=boundary_shape(last_word)
+    extra=(shape,len(seen)-1,int(bounded),sum(width for _,_,width,_ in admitted))
+    return (result,extra,tuple(seen),tuple(admitted),entry,record) if details else (result,extra)
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
-    safe={'size','partial copy predecessor','partial copy first use','partial copy store form','partial copy load witness','partial copy caller geometry','partial copy replay prefix'}
+    safe={'size','partial copy predecessor','partial copy first use','partial copy store form','partial copy load witness','partial copy caller geometry','partial copy replay prefix','partial copy parent identity','partial copy parent extent'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():
-            width,source,address,seen,done,copied,peak,visits,reason,location,caller_stores=plan(q.dol.read_bytes(),q.elf.read_bytes())
+            result,extra=plan(q.dol.read_bytes(),q.elf.read_bytes())
+            width,source,address,seen,done,copied,peak,visits,reason,location,caller_stores=result
     except (OSError,ValueError,TypeError,KeyError,IndexError,struct.error) as ex:
         print('FORMATTER_PARTIAL_COPY verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
     print(f'FORMATTER_PARTIAL_COPY verified=1 store_width={width} source_dependency={source} address_dependency={address} store_seen={seen} store_symbolic={done} copied_unknown_bytes={copied} peak_unknown_copies={peak} symbolic_steps={visits} boundary={reason} value_supplied=0 original_execution=0')
@@ -161,5 +190,7 @@ def main():
     print(f'FORMATTER_PARTIAL_COPY_CALLER admitted={admitted} symbolic_stores={completed} original_execution=0')
     n,region,prior,parent,source,aligned=location
     print(f'FORMATTER_PARTIAL_COPY_BOUNDARY width={n} region={region} prior_bytes={prior} inherited_bytes={parent} source={source} aligned={aligned} value_supplied=0 original_execution=0')
+    shape,steps,bounded,byte_count=extra
+    print(f'FORMATTER_PARTIAL_COPY_NEXT family={shape} completed_steps={steps} parent_frame_bounded={bounded} caller_write_bytes={byte_count} original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())
