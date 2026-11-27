@@ -70,11 +70,14 @@ public:
     // The guarded return and next unexecuted instruction must remain intact.
     template<class C, class Report>
     bool arm_native(C& c, Report& report, const FormatterReportByteStep& s, bool held,
-                    std::optional<uint32_t> following_original = {}) {
-        const uint32_t guard_offset = following_original ? 12u : 8u;
+                    std::optional<uint32_t> following_original = {},
+                    std::optional<uint32_t> third_original = {}) {
+        const uint32_t guard_offset = third_original ? 16u : following_original ? 12u : 8u;
         if (s.pc > std::numeric_limits<uint32_t>::max() - guard_offset ||
             s.next_pc != s.pc + 4u || s.lr == s.pc || s.lr == s.next_pc ||
             s.lr == s.pc + 8u || s.lr == s.pc + guard_offset ||
+            (third_original && (!following_original || s.lr == s.pc+12u ||
+                *third_original == 0x44000002u || !word(c,s.pc+12u,*third_original))) ||
             (following_original &&
                 (*following_original == 0x44000002u ||
                  !word(c,s.pc+8u,*following_original))) ||
@@ -83,6 +86,7 @@ public:
             return reject();
         if (!arm(c,report,s,held)) return false;
         native_following_ = following_original;
+        native_third_ = third_original;
         native_label_ = true;
         return true;
     }
@@ -93,7 +97,8 @@ public:
         if (!native_label_ || label_pc != step_.next_pc ||
             label_word != step_.next_word ||
             !word(c,step_.pc+8u,native_following_.value_or(0x44000002u)) ||
-            (native_following_&&!word(c,step_.pc+12u,0x44000002u)) ||
+            (native_following_&&!word(c,step_.pc+12u,native_third_.value_or(0x44000002u))) ||
+            (native_third_&&!word(c,step_.pc+16u,0x44000002u)) ||
             !word(c,step_.lr,0x44000002u))
             return reject();
         return observe_effect(c,report,held,step_.pc);
@@ -161,7 +166,7 @@ private:
     uint32_t msr_ = 0, cr_ = 0, ctr_ = 0, xer_ = 0, srr0_ = 0, srr1_ = 0;
     uint64_t start_ = 0;
     unsigned rt_ = 0, stage_ = 0;
-    std::optional<uint32_t> native_following_{};
+    std::optional<uint32_t> native_following_{}, native_third_{};
     bool indexed_ = false, failed_ = false, native_label_ = false;
 };
 } // namespace undercover::wii
