@@ -147,10 +147,11 @@ public:
              std::optional<uint32_t> third_original={},
              std::optional<uint32_t> fourth_original={},
              std::optional<uint32_t> fifth_original={},
-             std::optional<uint32_t> sixth_original={}) {
+             std::optional<uint32_t> sixth_original={},
+             std::optional<uint32_t> seventh_original={}) {
         const unsigned op=instruction>>26u;
         if(stage_||failed_||!safe(c)||c.pc!=root||
-           root<0x80000000u||root>(sixth_original?0x817fffdcu:fifth_original?0x817fffe0u:fourth_original?0x817fffe4u:0x817ffff0u)||(root&3u)||
+           root<0x80000000u||root>(seventh_original?0x817fffd8u:sixth_original?0x817fffdcu:fifth_original?0x817fffe0u:fourth_original?0x817fffe4u:0x817ffff0u)||(root&3u)||
            label!=root+4u||!(op==10u||op==11u)||
            ((instruction>>16u)&31u)!=input.reg||
            next_word==0x44000002u||!word(c,label,instruction)||
@@ -168,7 +169,9 @@ public:
            (fifth_original&&(!fourth_original||*fifth_original==0x44000002u||
               !word(c,label+24u,sixth_original.value_or(0x44000002u))||c.lr==label+24u))||
            (sixth_original&&(!fifth_original||*sixth_original==0x44000002u||
-              !word(c,label+28u,0x44000002u)||c.lr==label+28u))||
+              !word(c,label+28u,seventh_original.value_or(0x44000002u))||c.lr==label+28u))||
+           (seventh_original&&(!sixth_original||*seventh_original==0x44000002u||
+              !word(c,label+32u,0x44000002u)||c.lr==label+32u))||
            c.lr==root||c.lr==label||c.lr==label+4u||c.lr==label+8u||
            !word(c,c.lr,0x44000002u)||
            c.inst_count==std::numeric_limits<uint64_t>::max())
@@ -179,6 +182,7 @@ public:
         cpu_=&c;root_=root;label_=label;instruction_=instruction;
         next_word_=next_word;following_=following_original;third_=third_original;
         fourth_=fourth_original;fifth_=fifth_original;sixth_=sixth_original;
+        seventh_=seventh_original;
         gpr_=c.gpr;gqr_=c.gqr;cr_=expected->cr;xer_=c.xer;
         lr_=c.lr;ctr_=c.ctr;msr_=c.msr;srr0_=c.srr0;srr1_=c.srr1;
         count_=c.inst_count;stage_=1u;
@@ -198,7 +202,8 @@ public:
            (third_&&!word(c,label+12u,fourth_.value_or(0x44000002u)))||
            (fourth_&&!word(c,label+16u,fifth_.value_or(0x44000002u)))||
            (fifth_&&!word(c,label+20u,sixth_.value_or(0x44000002u)))||
-           (sixth_&&!word(c,label+24u,0x44000002u))||
+           (sixth_&&!word(c,label+24u,seventh_.value_or(0x44000002u)))||
+           (seventh_&&!word(c,label+28u,0x44000002u))||
            !word(c,lr_,0x44000002u))
             return reject();
         stage_=2u;
@@ -228,7 +233,7 @@ private:
     std::array<uint32_t,32> gpr_{};
     std::array<uint32_t,8> gqr_{};
     uint32_t root_=0,label_=0,instruction_=0,next_word_=0,cr_=0,xer_=0;
-    std::optional<uint32_t> following_{},third_{},fourth_{},fifth_{},sixth_{};
+    std::optional<uint32_t> following_{},third_{},fourth_{},fifth_{},sixth_{},seventh_{};
     uint32_t lr_=0,ctr_=0,msr_=0,srr0_=0,srr1_=0;
     uint64_t count_=0;
     unsigned stage_=0;
