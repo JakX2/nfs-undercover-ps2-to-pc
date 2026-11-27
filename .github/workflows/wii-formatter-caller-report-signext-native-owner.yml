@@ -18,6 +18,7 @@ on:
       - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/test_formatter_report_signext_log.py'
+      - 'research/native_recomp/test_formatter_report_immediate_fixture.py'
 permissions:
   contents: read
   actions: read

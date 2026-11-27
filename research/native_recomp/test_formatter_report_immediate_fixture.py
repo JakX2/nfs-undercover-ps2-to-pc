@@ -166,7 +166,10 @@ class ReportImmediateFixture(unittest.TestCase):
             'test_native_scheduler_postack_v1256.cpp')
         source = path.read_text()
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
-                    r'\s*,formatter_report_immediate_private::next_word\s*#endif')
+                    r'\s*,formatter_report_immediate_private::next_word'
+                    r'(?:\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT'
+                    r'\s*,formatter_report_signext_private::next_word'
+                    r'\s*#endif)?\s*#endif')
         for opening, ending in (
             ('!formatter_nested->resume_caller_next_entry(c,',
              '))formatter_nested_refuse(2);'),
