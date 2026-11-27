@@ -75,7 +75,7 @@ label remains **unexecuted**. A separate owner-gated 120 successor
 classification audits its instruction family and symbolic dependencies
 without admitting execution or publishing proprietary words.
 
-### Instruction 120: authenticated stack-derived register copy (pending native execution)
+### Instruction 120: authenticated stack-derived register copy (verified native)
 
 The [120 provenance audit 45997621828](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45997621828)
 completed successfully and established a non-record PowerPC `or` with
@@ -90,10 +90,13 @@ destination-register verification at the following guarded instruction.
 The [new 120 provenance workflow 45999438914](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45999438914)
 passed original-free and owner provenance with the symbolic model.
 The [dedicated 120 native workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/workflows/wii-formatter-caller-report-copy-native-owner.yml)
-also passed its first original-free job. Its private owner run and
-subsequent revision checks must complete before the 120 frontier can
-be claimed. The invocation is `--formatter-nested-caller-report-copy`;
-its guarded successor is **not** authorized to execute.
+has completed original-free validation and **native execution** in
+[owner run 46004078927](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46004078927)
+at commit `9453a1b9c9a38130efdf7c5b7384e596ca9ace41`.
+The original private translated 120-copy path passed 8/8 trials with
+**960 total original instruction visits**, 8 verified register copies,
+0 interpreter fallbacks, and `boot_verified=0`. The invocation was
+`--formatter-nested-caller-report-copy`; its guarded successor was not executed.
 
 The first [120 native owner run 46000303363](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46000303363)
 completed the guarded 61-root fixture, analyzer, and source translation,
@@ -105,8 +108,9 @@ original word through the harness's next-entry, byte and comparison
 admission calls. Original-free rejection tests cover the extended guard,
 including modifications to the still-unexecuted next word and return
 guards. The [later 120 owner run 46004078927](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46004078927)
-passed its original-free job. Its native owner result is separate and
-must be checked before declaring instruction 120 executed.
+subsequently **passed both** the original-free and private owner jobs.
+Its native step succeeded after the prior witness overload repair.
+The read-only instruction-121 audit also completed within that run.
 
 A separate source-only parity rule now restricts the 120 stack-copy
 destination to volatile GPRs **both** in the private symbolic fixture
@@ -124,15 +128,25 @@ original-free tests for the authenticated 118-byte load, 119 comparison,
 120 stack-copy and the still-guarded following word. It preserves stack
 values symbolically, reports coarse input-dependency classes, and refuses
 altered predecessor or guard geometry. It does **not** translate or
-execute instruction 121, and its original-game classification has not
-yet been verified.
+execute instruction 121.
+
+The [private inspection in owner run 46004078927](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46004078927)
+succeeded and classified original 121 as a PPC `add_immediate`: **0
+register inputs**, 1 GPR write, no condition/XER/carry effects, and
+`gpr_model=1`. Its instruction word and numeric operands were not
+published. The independent `prepare_formatter_report_immediate_fixture.py`
+and `test_formatter_report_immediate_fixture.py` now define and test
+a proposed guard shift to 122 without executing 121. The
+[`wii-formatter-121-immediate-owner.yml`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/workflows/wii-formatter-121-immediate-owner.yml)
+workflow gates the original-only fixture on the completed pinned native
+120 run and keeps both executable inputs private.
 
 The 120 owner workflow runs this inspection **only after** its private
 native 120 continuation step succeeds. If the native 120 run fails or
 times out, the 121 provenance step will not run. Original DOL/ELF data
 and translated game code remain private.
 
-**Current verified frontier for this bounded fixture: 119 original instructions.**
+**Current verified frontier for this bounded fixture: 120 original instructions.**
 The continuous original `__start` lane, whole-image link/startup lane,
 and bounded report/formatter lane are distinct and must not be aggregated
 into a single boot achievement. The game `main`, frontend, first real
