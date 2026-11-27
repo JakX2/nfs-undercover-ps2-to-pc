@@ -151,7 +151,19 @@ passed 196,608 positive synthetic immediate cases and 12 rejection
 checks. The [synthetic nested-join run 46010330879](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46010330879)
 also passed source-only testing of the fourth following-word guard,
 the `li` destination check and the new bounded continuation state.
-The production native owner path still stops before instruction 121.
+The previously verified `--formatter-nested-caller-report-copy` mode still
+stops before instruction 121. A new opt-in
+`--formatter-nested-caller-report-immediate` mode extends the 61-root
+native fixture/translation hooks and observes the original 121 `li`
+effect at a separately guarded 122 boundary. It uses the independent
+zero-input predictor, fourth-word report-byte and compare witnesses,
+bounded parent-frame tick accounting, and an exact 8-trial/968-visit
+log validator. Its source-only test job in
+[owner run 46012175547](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46012175547)
+**passed**. That run's private owner execution is separate; no claim
+of original instruction-121 execution is justified until its final
+native result succeeds. Both original DOL/ELF and translated functions
+remain private.
 
 The 120 owner workflow runs this inspection **only after** its private
 native 120 continuation step succeeds. If the native 120 run fails or
