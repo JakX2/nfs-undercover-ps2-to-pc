@@ -54,6 +54,11 @@ class Original128NativeWiring(unittest.TestCase):
         self.assertEqual(self.harness.count('formatter_branch_128->arm(c,'),1)
         self.assertEqual(self.harness.count('formatter_branch_128->observe(c,pc,w)'),1)
         self.assertIn('if(formatter_nested->stage()==50u)',self.harness)
+        branch=(ROOT/'wii_formatter_conditional_branch.h').read_text()
+        # The selected forward-local target is its own translated root.
+        # At the hook the upstream recompiler has assigned ctx.pc=target.
+        self.assertIn('c.pc!=selected_pc_',branch)
+        self.assertNotIn('c.pc!=root_||',branch)
 
     def test_parent_128_lease_and_original_127_default(self):
         for marker in ('resume_caller_report_branch_128(',

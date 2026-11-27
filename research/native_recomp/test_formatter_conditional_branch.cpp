@@ -68,6 +68,7 @@ void positives(){
         assert(w.arm(c,Root,PC,bc(bo,2,16),chosen,Next,Ret,80u));
         assert(c.gpr==gpr&&c.inst_count==count&&w.taken()==taken&&w.stage()==1u);
         ++c.inst_count;
+        c.pc=chosen; // generated cross-root dispatch assigns ctx.pc
         assert(w.observe(c,chosen,Next)&&w.stage()==2u&&!w.failed());
         assert(!w.observe(c,chosen,Next)&&w.failed());
     }
@@ -96,6 +97,7 @@ void condition_register_matrix(){
         assert(witness.arm(c,Root,PC,instruction,selected,Next,Ret,80u));
         assert(witness.taken()==taken&&witness.stage()==1u);
         ++c.inst_count;
+        c.pc=selected;
         assert(witness.observe(c,selected,Next)&&witness.stage()==2u);
     }
 }
@@ -122,6 +124,7 @@ void chained_sixth_immediate_branch(){
         FormatterConditionalBranchWitness branch_edge;
         assert(branch_edge.arm(c,Root,PC,branch,selected,Next,Ret,80u));
         ++c.inst_count;
+        c.pc=selected;
         assert(branch_edge.observe(c,selected,Next));
         assert(branch_edge.stage()==2u&&!branch_edge.failed());
     }
@@ -188,12 +191,24 @@ void refusal_cases(){
         assert(w.failed()&&w.stage()==0u);
     }
 }
+void observe_refuses_old_root_without_native_dispatch(){
+    Cpu c=seed(true);
+    FormatterConditionalBranchWitness witness;
+    assert(witness.arm(c,Root,PC,bc(12u,2u,16u),
+                       PC+16u,Next,Ret,80u));
+    ++c.inst_count;
+    // A caller continuing with the old root does not prove that the
+    // selected target root was actually dispatched.
+    assert(!witness.observe(c,PC+16u,Next));
+    assert(witness.failed()&&witness.stage()==1u);
+}
 void observe_refusals(){
     for(unsigned fault=0;fault<22u;++fault){
         Cpu c=seed(true);
         FormatterConditionalBranchWitness w;
         assert(w.arm(c,Root,PC,bc(12,2,16),PC+16u,Next,Ret,80u));
         ++c.inst_count;
+        c.pc=PC+16u; // correct AOT target-root context for every refusal
         uint32_t at=PC+16u,word=Next;
         switch(fault){
         case 0:at+=4u;break;
@@ -228,7 +243,8 @@ int main(){
     condition_register_matrix();
     chained_sixth_immediate_branch();
     refusal_cases();
+    observe_refuses_old_root_without_native_dispatch();
     observe_refusals();
-    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 arm_refusals=12"
+    std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 cross_root=1 arm_refusals=12"
              <<" observe_refusals=22 original_execution=0\n";
 }

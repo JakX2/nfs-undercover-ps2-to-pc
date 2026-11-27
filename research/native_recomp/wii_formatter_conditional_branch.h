@@ -59,8 +59,13 @@ public:
         stage_=1u;return true;
     }
 
+    // NWiiRecomp's non-local conditional branch dispatch assigns ctx.pc
+    // to the selected translated function root before calling that root.
+    // The branch target is a separate authenticated 2-word code span;
+    // expecting the old root here would reject genuine AOT execution.
     template<class C>bool observe(C& c,uint32_t arrival_pc,uint32_t arrival_word){
-        if(stage_!=1u||failed_||cpu_!=&c||!safe(c)||c.pc!=root_||
+        if(stage_!=1u||failed_||cpu_!=&c||!safe(c)||
+           c.pc!=selected_pc_||
            arrival_pc!=selected_pc_||arrival_word!=selected_word_||
            c.inst_count!=count_+1u||c.gpr!=gpr_||c.gqr!=gqr_||
            pack(c)!=cr_||c.xer!=xer_||c.lr!=lr_||c.ctr!=ctr_||
