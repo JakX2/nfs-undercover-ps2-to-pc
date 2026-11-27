@@ -1026,12 +1026,12 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     c.mmu.write32(target128,follow==495?guard_word:target_word);
     c.mmu.write32(target128+4u,follow==496?target_word:guard_word);
     if(follow==497)c.mmu.write32(next_entry+44u,target_word);
-    const bool branch_armed=child.resume_caller_report_branch_128(
+    const bool branch128_armed=child.resume_caller_report_branch_128(
         c,follow==491?target128+4u:target128,
         follow==492?guard_word:target_word,
         follow==493?64u:80u,held()&&follow!=494);
-    if(follow>=491&&follow<=497){assert(!branch_armed);return;}
-    assert(branch_armed&&child.stage()==50u);
+    if(follow>=491&&follow<=497){assert(!branch128_armed);return;}
+    assert(branch128_armed&&child.stage()==50u);
     assert(child.caller_post_fourth_tick_budget()==20u);
     assert(child.caller_report_branch_128_visits()==0u);
     if(follow==499)c.cr[1].lt=false;
