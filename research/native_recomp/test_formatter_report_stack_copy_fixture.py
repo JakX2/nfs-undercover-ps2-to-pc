@@ -179,11 +179,21 @@ class StackCopyFixture(unittest.TestCase):
         )
         # The 120 argument must remain inside its own guard. A separately
         # gated original 121 successor is allowed before that guard closes.
+        # Every later successor must remain nested inside its predecessor,
+        # so older 120-only native modes still compile without new arguments.
+        immediate = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
+                     r'\s*,formatter_report_immediate_private::next_word\s*')
+        signext = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIGNEXT'
+                   r'\s*,formatter_report_signext_private::next_word\s*')
+        second = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE'
+                  r'\s*,formatter_report_second_immediate_private::next_word\s*')
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY'
                     r'\s*,formatter_report_copy_private::next_word\s*'
-                    r'(?:#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
-                    r'\s*,formatter_report_immediate_private::next_word'
-                    r'\s*#endif\s*)?#endif')
+                    r'(?:' + immediate +
+                    r'(?:' + signext +
+                    r'(?:' + second + r'#endif\s*)?'
+                    r'#endif\s*)?'
+                    r'#endif\s*)?#endif')
         for opening, terminal in calls:
             with self.subTest(call=opening):
                 self.assertEqual(source.count(opening), 1)
