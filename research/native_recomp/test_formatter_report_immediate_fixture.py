@@ -167,8 +167,12 @@ class ReportImmediateFixture(unittest.TestCase):
         source = path.read_text()
         # Preserve the exact nested preprocessor guard hierarchy.
         # New 122/123 operands must be impossible to pass in 121-only mode.
+        third = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_THIRD_IMMEDIATE'
+                 r'\s*,formatter_report_third_immediate_private::next_word'
+                 r'\s*#endif')
         second = (r'\s*#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SECOND_IMMEDIATE'
                   r'\s*,formatter_report_second_immediate_private::next_word'
+                  r'(?:' + third + r')?'
                   r'\s*#endif')
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_IMMEDIATE'
                     r'\s*,formatter_report_immediate_private::next_word'
@@ -226,7 +230,7 @@ class ReportImmediateFixture(unittest.TestCase):
             'immediate_contract=report_immediate_plan(',
             'immediate_extension(expanded,copy_contract,immediate_contract)',
             'immediate_extension(final,copy_contract,immediate_contract)',
-            'extent=32 if second_immediate_contract is not None else 28 if signext_contract is not None else 24 if immediate_contract is not None',
+            'else 32 if second_immediate_contract is not None else 28 if signext_contract is not None else 24 if immediate_contract is not None',
         ):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment,fixture)
