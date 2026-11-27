@@ -262,6 +262,35 @@ int main(){
         }
     }
     assert(relative_cases==240);
+    // Exhaustive original-free PPC li prediction: every signed SIMM
+    // value, including the sign boundary, in three volatile destinations.
+    // Unknown live register data must not influence the zero-input result.
+    unsigned zero_input_cases=0,zero_input_rejected=0;
+    for(unsigned imm=0u;imm<65536u;++imm)
+    for(unsigned dst:{0u,3u,12u}){
+        const uint32_t instruction=d(14,dst,0,imm);
+        const auto effect=predict_caller_zero_input_addi(
+            instruction,gp,0xdeadbeefu,0x80000001u);
+        const uint32_t expected=imm>=0x8000u?imm|0xffff0000u:imm;
+        assert(effect&&effect->reg==dst&&effect->value==expected&&
+               effect->cr==0xdeadbeefu);
+        ++zero_input_cases;
+    }
+    for(unsigned dst:{1u,2u,13u,14u,16u,31u}){
+        assert(!predict_caller_zero_input_addi(
+            d(14,dst,0,0x8000u),gp,0u,0u));
+        ++zero_input_rejected;
+    }
+    for(uint32_t instruction:{d(14,3,1,1),d(14,3,7,1),
+                              d(15,3,0,1),d(13,3,0,1),
+                              d(11,3,0,1),d(32,3,0,1)}){
+        assert(!predict_caller_zero_input_addi(instruction,gp,0u,0u));
+        ++zero_input_rejected;
+    }
+    assert(zero_input_cases==196608u&&zero_input_rejected==12u);
+    std::cout<<"FORMATTER_ZERO_INPUT_ADDI_TEST valid="<<zero_input_cases
+             <<" rejected="<<zero_input_rejected<<" original_execution=0\n";
+
     const auto compare_cases=compare_witness_cases();
     const auto wide_cases=compare_witness_wide_input_cases();
     const auto compare_rejected=compare_witness_rejections();
