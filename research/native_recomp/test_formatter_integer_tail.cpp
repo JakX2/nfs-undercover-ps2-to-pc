@@ -158,9 +158,46 @@ void reject_contracts(){
     apply(other,0);
     assert(!w.observe(other,Start+4u,original[1].word)&&w.failed());
 }
+// The advertised 16-step bound must succeed at its actual limit, not
+// merely refuse 17 instructions. Use an aliasing arithmetic chain whose
+// numeric operands originate from earlier synthetic writes.
+void maximum_tail(){
+    std::array<Step,FormatterIntegerTailWitness::max_steps> steps{};
+    uint32_t value=0xfffffff8u;
+    steps[0]={addi(0,0,0xfff8),{},0,0u,value};
+    // RA=0 is literal zero in addi, so use r3 for a genuinely dependent
+    // wraparound chain after independently initializing it.
+    steps[1]={addi(3,0,0xfff8),{},0,3u,value};
+    for(unsigned i=2;i<steps.size();++i){
+        steps[i]={addi(3,3,1),{{{3u,value}}},1,3u,value+1u};
+        ++value;
+    }
+    Cpu c=seed(steps);
+    c.inst_count=UINT64_MAX-steps.size();
+    FormatterIntegerTailWitness witness;
+    assert(witness.arm(c,Root,Start,steps,Next,Ret));
+    value=0xfffffff8u;
+    for(unsigned i=0;i<steps.size();++i){
+        if(i==0)c.gpr[0]=value;
+        else if(i==1)c.gpr[3]=value;
+        else c.gpr[3]=++value;
+        ++c.inst_count;
+        assert(witness.observe(c,Start+4u*(i+1u),
+            i+1u==steps.size()?Next:steps[i+1u].word));
+        assert(witness.completed()==i+1u);
+    }
+    assert(witness.finished()&&c.inst_count==UINT64_MAX);
+    c=seed(steps);c.inst_count=UINT64_MAX-steps.size()+1u;
+    FormatterIntegerTailWitness overflow;
+    assert(!overflow.arm(c,Root,Start,steps,Next,Ret));
+    c=seed(steps);c.lr=Start+4u*unsigned(steps.size())+4u;
+    FormatterIntegerTailWitness alias;
+    assert(!alias.arm(c,Root,Start,steps,Next,c.lr));
+}
 }
 int main(){
     reject_contracts();
+    maximum_tail();
     unsigned failures=0;
     for(unsigned n=1;n<=4;++n){
         assert(run(n)==n);
