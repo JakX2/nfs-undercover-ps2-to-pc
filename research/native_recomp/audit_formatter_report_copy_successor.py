@@ -128,6 +128,27 @@ class Tests(unittest.TestCase):
                          ('integer', 'compare_immediate', 1, 'supported'))
         self.assertEqual((counts[1], counts[2], counts[6]), (0, 1, 1))
 
+    def test_second_symbolic_copy_is_only_predicted(self):
+        following = (31 << 26) | (10 << 21) | (11 << 16) | (10 << 11) | (444 << 1)
+        predecessor = self.inputs()
+        before = (dict(predecessor[1][0][0]), predecessor[1][1])
+        family, name, counts, modeled, reason = inspect(*self.inputs(following))
+        self.assertEqual((family, name, modeled, reason),
+                         ('integer', 'or', 1, 'supported'))
+        self.assertEqual(counts, (1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual((predecessor[1][0][0], predecessor[1][1]), before)
+
+    def test_record_or_nonvolatile_destination_does_not_concretize_stack(self):
+        move = (31 << 26) | (10 << 21) | (16 << 16) | (10 << 11) | (444 << 1)
+        family, name, counts, modeled, reason = inspect(*self.inputs(move))
+        self.assertEqual((family, name, modeled, reason),
+                         ('integer', 'or', 0, 'caller integer effects'))
+        self.assertEqual((counts[1], counts[3]), (1, 1))
+        record = move & ~(31 << 16) | (11 << 16) | 1
+        _, _, counts, modeled, reason = inspect(*self.inputs(record))
+        self.assertEqual((modeled, reason), (0, 'caller integer inputs'))
+        self.assertEqual(counts[6], 1)
+
     def test_branch_is_only_classified(self):
         following = (16 << 26) | (12 << 21) | (2 << 16) | 16
         family, name, counts, modeled, reason = inspect(*self.inputs(following))
