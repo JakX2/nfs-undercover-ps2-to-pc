@@ -15,6 +15,7 @@ from audit_formatter_report_immediate_successor import inspect as inspect_122
 from guarded_continuation import GUARD, check_spans
 from make_private_elf_symbol_map import parse_functions
 from make_v624_ipc_geometry import exact_words
+from prepare_formatter_caller_integer_contract import step
 from prepare_formatter_next_entry_report_byte_contract import plan as byte_plan
 from prepare_formatter_report_compare_fixture import plan as compare_plan
 from prepare_formatter_report_stack_copy_fixture import plan as copy_plan
@@ -72,12 +73,29 @@ def promote(immediate, copy, predecessor, compare, following):
             ret in tuple(root + n for n in range(0, 28, 4))):
         raise ValueError('report signext predecessor')
     dest = encoding(word)
-    if dest != prior_dst:
-        raise ValueError('report signext input')
-    value = sign_extend_byte(prior_value)
+    # The source need not be the destination of 121's li. Replay the
+    # authenticated state, rather than inventing a dependence on that li.
+    try:
+        byte, registers, saved_mask = predecessor
+        live = list(registers)
+        load, byte_value = byte[1][1], byte[1][4]
+        live[(load >> 21) & 31] = ('const', byte_value)
+        after_compare, _ = step(byte[1][6], tuple(live), saved_mask=saved_mask)
+        after_copy, _ = step(copy[1][2], after_compare,
+                             saved_mask=saved_mask, allow_stack_copy=True)
+        after_121, _ = step(word_121, after_copy, saved_mask=saved_mask)
+        source = after_121[dest]
+        if (not isinstance(source, tuple) or len(source) != 2 or
+                source[0] != 'const' or type(source[1]) is not int or
+                not 0 <= source[1] <= 0xffffffff):
+            raise ValueError('report signext input')
+        before = source[1]
+    except (ValueError, KeyError, TypeError, IndexError) as error:
+        raise ValueError('report signext input') from error
+    value = sign_extend_byte(before)
     out = {**blocks, root: blocks[root][:-1] + (following, GUARD)}
     check_spans({address: 4 * len(words) for address, words in out.items()})
-    return out, (root, pc, word, pc + 4, following, dest, prior_value, value, ret)
+    return out, (root, pc, word, pc + 4, following, dest, before, value, ret)
 
 
 def render(contract):
