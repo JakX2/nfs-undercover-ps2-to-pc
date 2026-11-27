@@ -86,6 +86,10 @@ void refusal_cases(){
         case 7:c.lr^=4u;break; // forged return
         case 8:c.cr[0].eq=false;break; // wrong condition
         }
+        // Authenticate each changed branch encoding before asking whether
+        // its *semantics* are admissible, rather than only testing word
+        // mismatch against the initially installed branch.
+        if(fault<=2u)c.mmu.write32(PC,instruction);
         FormatterConditionalBranchWitness w;
         assert(!w.arm(c,Root,PC,instruction,chosen,Next,Ret,size));
         assert(w.failed()&&w.stage()==0u);
