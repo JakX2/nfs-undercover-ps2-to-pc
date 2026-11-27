@@ -8,11 +8,12 @@ on:
       - 'research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py'
       - 'research/native_recomp/audit_formatter_report_signext_successor.py'
+      - 'research/native_recomp/prepare_formatter_report_signext_fixture.py'
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: wii-formatter-123-fixture-${{ github.ref }}
+  group: wii-formatter-123-immediate-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   original-free:
@@ -33,7 +34,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Require pinned original instruction 123 read-only audit
+      - name: Require completed pinned original instruction 123 classification
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -56,7 +57,7 @@ jobs:
           try:ok=verify(fetch,requirement)
           except (OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):ok=False
           if not ok:raise SystemExit('FORMATTER_123_FIXTURE_GATE verified=0')
-          print('FORMATTER_123_FIXTURE_GATE verified=1 original_classification=1')
+          print('FORMATTER_123_FIXTURE_GATE verified=1 original_123_classification=1')
           PY
       - uses: actions/checkout@v4
         with:
@@ -74,7 +75,7 @@ jobs:
           set -euo pipefail
           umask 077
           python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
-      - name: Authenticate original instruction 123 and guard at 124
+      - name: Authenticate original instruction 123 immediate and next guard
         run: |
           set -euo pipefail
           umask 077
