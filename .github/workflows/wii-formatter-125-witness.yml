@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/wii-formatter-125-witness.yml'
       - 'research/native_recomp/wii_formatter_report_fourth_immediate.h'
+      - 'research/native_recomp/wii_formatter_report_third_immediate.h'
       - 'research/native_recomp/test_formatter_report_fourth_immediate.cpp'
       - 'research/native_recomp/wii_formatter_caller_integer.h'
 permissions:

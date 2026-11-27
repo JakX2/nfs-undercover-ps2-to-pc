@@ -1,4 +1,5 @@
 #include "wii_formatter_report_fourth_immediate.h"
+#include "wii_formatter_report_third_immediate.h"
 
 #include <array>
 #ifdef NDEBUG
@@ -194,11 +195,58 @@ void duplicate_and_cross_cpu_refused() {
     assert(!y.observe(c,PC+4u,Next)&&y.failed());
 }
 }
+
+void paired_124_125_regression() {
+    // All guest instructions are synthetic. The predecessor is observed,
+    // never emulated by either witness.
+    constexpr unsigned previous_dst=5u, current_dst=9u;
+    constexpr uint16_t previous_imm=0x8001u, current_imm=0xff80u;
+    constexpr uint32_t previous_pc=PC-4u;
+    constexpr uint32_t previous_word=addi(previous_dst,0u,previous_imm);
+    constexpr uint32_t current_word=addi(current_dst,0u,current_imm);
+    const auto run=[](int phase,uint32_t fault_address)->unsigned {
+        Cpu c=seed(current_dst,current_imm);
+        c.mmu.write32(previous_pc,previous_word);
+        const auto mutate=[&](int at) {
+            if(phase==at)
+                c.mmu.write32(fault_address,c.mmu.read32(fault_address)^1u);
+        };
+        FormatterThirdImmediateWitness third;
+        mutate(0);
+        if(!third.arm(c,Root,previous_pc,previous_word,current_word,Return,
+                      previous_dst,signextend(previous_imm),Next))return 0u;
+        c.gpr[previous_dst]=signextend(previous_imm);
+        ++c.inst_count;
+        mutate(1);
+        if(!third.observe(c,PC,current_word))return 1u;
+        FormatterFourthImmediateWitness fourth;
+        mutate(2);
+        if(!arm(fourth,c,current_dst,current_imm))return 2u;
+        c.gpr[current_dst]=signextend(current_imm);
+        ++c.inst_count;
+        mutate(3);
+        if(!fourth.observe(c,PC+4u,Next))return 3u;
+        assert(third.stage()==2u&&!third.failed());
+        assert(fourth.stage()==2u&&!fourth.failed());
+        assert(c.inst_count==102u);
+        return 4u;
+    };
+    assert(run(-1,0u)==4u);
+    for(int phase=0;phase<=3;++phase) {
+        const std::array<uint32_t,5> targets{
+            previous_pc,PC,PC+4u,PC+8u,Return
+        };
+        for(unsigned i=(phase>=2?1u:0u);i<targets.size();++i)
+            assert(run(phase,targets[i])==unsigned(phase));
+    }
+}
+
 int main() {
     const unsigned good=positives();
     const unsigned reject_arm=arm_refusals();
     const unsigned reject_observe=observation_refusals();
     duplicate_and_cross_cpu_refused();
+    paired_124_125_regression();
     assert(good==5u*65536u&&reject_arm==29u&&reject_observe==24u);
     std::cout<<"FORMATTER_FOURTH_IMMEDIATE_SOURCE_ONLY cases="<<good
              <<" arm_refusals="<<reject_arm
