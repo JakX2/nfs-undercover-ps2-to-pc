@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import unittest
 from prepare_post_stm_sc_report_formatter_path import first_path,const
-from audit_formatter_partial_copy import store_shape,copied_cells
+from audit_formatter_partial_copy import store_shape,copied_cells,store_location
 B=0x80001000;T=0x80002000;SP=-160;FRAME=48;S=SP-FRAME;ORIGIN=S+8;DEST=S+16
 def d(op,rt,ra,imm=0):return (op<<26)|(rt<<21)|(ra<<16)|(imm&0xffff)
 def bl(pc,dst):return 0x48000001|((dst-pc)&0x03fffffc)
@@ -52,4 +52,17 @@ class PartialCopy(unittest.TestCase):
         self.assertEqual(store_shape(x(151,3,1,3),3),(4,1,1))
         self.assertEqual(store_shape(d(38,3,0),0),(1,0,0))
         with self.assertRaises(ValueError):store_shape(d(32,3,1),3)
+    def test_store_location(self):
+        gp=[('reg',r) for r in range(32)];gp[1]=('stack',S);gp[3]=const(9)
+        mem={DEST:('byte',1)};parent={SP+12:('byte',2)}
+        def loc(w):return store_location(w,gp,mem,parent,SP,FRAME)
+        self.assertEqual(loc(d(36,3,1,16)),(4,'child',1,0,'const',1))
+        self.assertEqual(loc(d(36,3,1,60)),(4,'caller_storage',0,1,'const',1))
+        self.assertEqual(loc(d(36,3,1,52)),(4,'caller_linkage',0,0,'const',1))
+        self.assertEqual(loc(d(36,3,1,-4)),(4,'below_child',0,0,'const',1))
+        gp[4]=const(0x80010000);gp[5]=const(-4)
+        self.assertEqual(loc(x(151,3,4,5)),(4,'unclassified',0,0,'const',1))
+        gp[4]=('partial',())
+        self.assertEqual(loc(d(36,3,4,0)),(4,'unknown_address',0,0,'const',0))
+        self.assertEqual(loc(d(32,3,1,0)),(0,'not_store',0,0,'none',0))
 if __name__=='__main__':unittest.main(verbosity=2)
