@@ -429,4 +429,34 @@ class CallerReportByte(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(rows)
     def test_modes(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_next_entry=True)
+class CallerReportCompare(unittest.TestCase):
+    def logs(self):
+        rows=CallerReportByte().logs()
+        return [line.replace('FORMATTER_CALLER_REPORT_BYTE_TRIAL','FORMATTER_CALLER_REPORT_COMPARE_TRIAL')
+                    .replace(' report_byte_verified=1',' report_byte_verified=1 compare_verified=1')
+                    .replace('total_visits=118','total_visits=119') for line in rows[:-1]]+[
+            rows[-1].replace('FORMATTER_CALLER_REPORT_BYTE_NATIVE','FORMATTER_CALLER_REPORT_COMPARE_NATIVE')
+                .replace(' report_bytes_verified=8',' report_bytes_verified=8 compares_verified=8')
+                .replace('total_visits=944','total_visits=952')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_report_compare=True,integer_count=2,post_integer_count=1,
+                      mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        rows=self.logs()
+        self.assertEqual(self.probe(rows),(rows[-1],))
+    def test_missing_compare(self):
+        rows=self.logs()
+        rows[0]=rows[0].replace('compare_verified=1','compare_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(rows)
+    def test_aggregate_compare(self):
+        rows=self.logs()
+        rows[-1]=rows[-1].replace('compares_verified=8','compares_verified=7')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(rows)
+    def test_old_118_rejected(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(CallerReportByte().logs())
+    def test_mode_conflict(self):
+        with self.assertRaisesRegex(ValueError,'mode'):
+            self.probe(self.logs(),caller_report_byte=True)
+
 if __name__=='__main__':unittest.main(verbosity=2)
