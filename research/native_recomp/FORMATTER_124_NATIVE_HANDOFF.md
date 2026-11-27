@@ -273,3 +273,54 @@ execution gate.
 Keep the full translated image, native frontend, and gameplay milestones
 separate. Neither the 124 native owner proof nor later read-only audits
 constitute complete boot. Proprietary game code and executables stay private.
+
+## Verified original instruction 125 (2026-11-27)
+
+**Owner-original native execution advanced to 125 original Wii PowerPC
+instructions per trial, with 1,000 authenticated visits in eight trials.**
+[Owner workflow 46066824625](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46066824625)
+completed successfully from `ef509262cd8c7d5cc02d75c5f4fb66e2b9d58504`.
+The private owner job emitted
+`FORMATTER_CALLER_REPORT_FOURTH_IMMEDIATE_NATIVE owner=1 trials=8`
+with `fourth_immediates_verified=8`, `total_visits=1000`,
+`fallback=0 complete_image=0 boot_verified=0`. The run contained no
+native witness or nested-refusal markers. This proof supersedes the
+chronologically earlier pending-125 notes above.
+
+The 126 source integration adds authenticated optional successor #9,
+a private 126 fixture join, the guarded AOT observation stages 46 and 47,
+strict 126 observer and 125 predecessor checks, an opt-in
+`--formatter-nested-caller-report-fifth-immediate` runner, and exact
+eight-trial / 1,008-visit owner log validation. The independent
+[126 source-only CI 46069757597](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46069757597)
+passed Python nested/fixture/log/wiring checks plus optimized and
+ASan/UBSan C++ synthetic tests. The synthetic fifth-immediate witness
+covered 327,680 positive cases, 29 invalid arms and 24 invalid observations
+per build; `original_execution=0` in all source-only tests.
+
+The [126 native owner workflow](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46069757610)
+pins **both** references to the successful original 125 run and its
+precise SHA, and independently requires the original 126 private fixture
+[46065005667](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46065005667).
+**No original 126 native execution is verified here.** A preceding 126
+workflow source gate failed before reaching its owner, due inherited
+121/120 guard-call source regexes that stopped at instruction 125.
+Those were updated for the optional 126 successor. One copied 126
+compile-time predecessor assertion was corrected to reference the
+**125th** instruction directly, and a source-only test was added to
+guard against regressing to the 124th predecessor.
+
+The 127 read-only owner audit
+[46066886969](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46066886969)
+and owner-private fixture
+[46067342027](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46067342027)
+completed successfully and identified another zero-input add-immediate
+with an authenticated successor stop guard. These are provenance
+observations only, not 127 original native execution.
+
+The only way to advance the native execution frontier to 126 is a new,
+fully completed successful original owner run with eight fifth-immediate
+witnesses, `total_visits=1008` and `fallback=0`. Neither the
+125 original proof nor the 126/127 fixture proofs constitute full boot,
+frontend loading or gameplay. Keep PR #36 draft and all proprietary
+game-derived bytes, binaries and translated code private.
