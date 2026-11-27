@@ -288,10 +288,10 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const auto next_pc=link+4u,next_word=0x60000000u;
     c.mmu.write32(next_pc,follow==54?guard_word:next_word);
     const auto offset=follow==52?18:follow==53?24:follow==62?704:19;
-    const bool load=child.resume_caller_byte(c,offset,follow==55?8u:9u,
+    const bool caller_load=child.resume_caller_byte(c,offset,follow==55?8u:9u,
                                             next_pc+(follow==56?4u:0u),next_word,held()&&follow!=57);
-    if((follow>=52&&follow<=57)||(follow>=59&&follow<=62)){assert(!load);return;}
-    assert(load&&child.stage()==10u&&c.gpr[3]==A);
+    if((follow>=52&&follow<=57)||(follow>=59&&follow<=62)){assert(!caller_load);return;}
+    assert(caller_load&&child.stage()==10u&&c.gpr[3]==A);
     c.gpr[3]=follow==58?8u:9u; // independent native lbz effect
     if(follow==63)c.mmu.write32(parent_sp+16,8u);
     if(follow==64)c.mmu.write32(next_pc,guard_word);
