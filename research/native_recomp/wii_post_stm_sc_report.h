@@ -1,5 +1,6 @@
 #pragma once
 #include "wii_post_stm_sc_version.h"
+#include <optional>
 namespace undercover::wii {
 struct ScReportExpectation {
     uint32_t root,target,target_word,frame_size;
@@ -25,6 +26,21 @@ public:
             if(c.mmu.read8(frame_.base+i)!=expected)return false;
         }
         return true;
+    }
+    // Read only a byte established by this witness's original prologue.
+    // The full live frame must still match its shadow, including linkage.
+    // Exclude the back chain, reserved child link, uninitialized padding
+    // and the caller-owned words beyond this frame. This observes a value;
+    // it does not authorize or perform the guest's pending load.
+    template<class C>std::optional<uint8_t> observed_child_byte(C& c,bool held,
+        uint32_t child_sp,uint32_t child_link,uint32_t depth,uint32_t address,
+        uint32_t extra_frame=0u)const{
+        if(address<frame_.base||address-frame_.base<8u||
+           address-frame_.base>=e_.frame_size||
+           !child_frame_held(c,held,child_sp,child_link,depth,extra_frame))return {};
+        const auto i=address-frame_.base;
+        if(i>=written_.size()||i>=shadow_.size()||!written_[i])return {};
+        return shadow_[i];
     }
     uint32_t linkage_word()const{
         uint32_t v=0;for(unsigned i=0;i<4;++i)v=(v<<8)|shadow_[e_.frame_size+4+i];return v;

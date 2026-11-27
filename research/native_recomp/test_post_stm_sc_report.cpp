@@ -54,6 +54,55 @@ static void trial(unsigned fault){
     const auto parent=c.gpr[1];const auto child_link=c.lr;
     c.mmu.write32(parent+4,child_link);c.gpr[1]=parent-736;
     assert(w.child_frame_held(c,true,c.gpr[1],child_link,736));
+    if(fault>=14){
+        const auto observe=[&](uint32_t a,bool held=true){
+            return w.observed_child_byte(c,held,c.gpr[1],child_link,736u,a);
+        };
+        if(fault==14){
+            assert(!observe(parent-1u));
+            for(unsigned i=0;i<136u;++i){
+                const auto value=observe(parent+i);
+                const bool owned=(i>=8u&&i<20u)||(i>=32u&&i<64u);
+                assert(value.has_value()==owned);
+                if(owned){
+                    const uint32_t expected=i<12u?0x01000000u:i<16u?parent+136u:
+                        i<20u?parent+32u:incoming[3u+(i-32u)/4u];
+                    assert(*value==uint8_t(expected>>(24u-8u*(i&3u))));
+                }
+            }
+            assert(!observe(0xffffffffu));
+        }
+        if(fault==15){
+            assert(!observe(parent+8u,false));
+            assert(!w.observed_child_byte(c,true,c.gpr[1]+8u,child_link,736u,parent+8u));
+            assert(!w.observed_child_byte(c,true,c.gpr[1],child_link+4u,736u,parent+8u));
+            assert(!w.observed_child_byte(c,true,c.gpr[1],child_link,735u,parent+8u));
+        }
+        if(fault==16){
+            Cpu copy=c;
+            assert(!w.observed_child_byte(copy,true,copy.gpr[1],child_link,736u,parent+8u));
+        }
+        if(fault==17){
+            c.inst_count+=513u;
+            assert(!observe(parent+8u));
+        }
+        if(fault==18){
+            c.mmu.write32(parent+20u,1u); // unrelated padding corrupted
+            assert(!observe(parent+8u));
+        }
+        if(fault==19){
+            c.mmu.write32(parent+8u,0u);
+            assert(!observe(parent+8u));
+        }
+        if(fault==20){
+            c.gpr[1]-=48u;
+            assert(!observe(parent+8u));
+            assert(w.observed_child_byte(c,true,c.gpr[1],child_link,784u,parent+8u,48u)==1u);
+            assert(!w.observed_child_byte(c,true,c.gpr[1],child_link,784u,parent+4u,48u));
+            assert(!w.observed_child_byte(c,true,c.gpr[1],child_link,784u,parent+8u,56u));
+        }
+        return;
+    }
     c.gpr[1]-=48;
     assert(!w.child_frame_held(c,true,c.gpr[1],child_link,784));
     assert(w.child_frame_held(c,true,c.gpr[1],child_link,784,48));
@@ -82,5 +131,5 @@ static void missing_entry(){
     assert(w.begin(c,true)&&w.poll(c,true));c.inst_count+=2;
     assert(!w.before(c,R,path[0].word,true));
 }
-int main(){for(unsigned i=0;i<=13;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
-    std::cout<<"POST_STM_SC_REPORT_TEST cases=17 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=20;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
+    std::cout<<"POST_STM_SC_REPORT_TEST cases=24 original_execution=0\n";}
