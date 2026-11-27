@@ -1474,6 +1474,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1520,6 +1523,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1594,6 +1600,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1632,6 +1641,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
 #endif
@@ -1667,6 +1679,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               ,formatter_report_fourth_immediate_private::next_word
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
 ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
 #endif
               )||
@@ -1698,6 +1713,9 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
               formatter_report_fourth_immediate_private::value
 #ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE
               ,formatter_report_fifth_immediate_private::next_word
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE
+,formatter_report_sixth_immediate_private::next_word
+#endif
 #endif
               )||
            !formatter_nested->resume_caller_report_fourth_immediate(c,
