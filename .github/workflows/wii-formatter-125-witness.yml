@@ -14,6 +14,7 @@ on:
       - 'research/native_recomp/prepare_formatter_report_fourth_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_fourth_immediate_fixture.py'
       - 'research/native_recomp/test_formatter_report_fourth_immediate_nested.py'
+      - 'research/native_recomp/test_formatter_report_third_immediate_nested.py'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/test_formatter_report_fourth_immediate_log.py'
       - 'research/native_recomp/wii_formatter_report_third_immediate.h'
