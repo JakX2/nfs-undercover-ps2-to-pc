@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -284,6 +284,16 @@ int main(){return 0;}
         with self.assertRaisesRegex(ValueError,'overlap'):expand_final_integer(old,move,mixed,post,contract,bad)
         with self.assertRaisesRegex(ValueError,'final integer'):render_final_integer((*contract[:3],bl^1))
         with self.assertRaisesRegex(ValueError,'expansion'):expand_final_integer(old,move,mixed,post,({**new,T:(N,N)},*contract[1:]),branches)
+    def test_next_entry_expansion(self):
+        pc=R+48;dst=R-0x100;w=(18<<26)|((dst-pc)&0x03fffffc)|1;entry=0x88630000
+        old={R:(N,)*12+(w,GUARD),T:(N,GUARD)}
+        final=(old,((pc-4,N,(),pc,None,None),),pc,w)
+        new={**old,dst:(entry,GUARD)};info=(R,128,pc,w,dst,entry,pc+4)
+        self.assertIn('formatter_caller_next_entry_private',render_next_entry((new,info)))
+        self.assertEqual(expand_next_entry(old,final,(new,info)),new)
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_next_entry(old,final,({**new,dst:(entry,N)},info))
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_next_entry(old,final,({**new,T:(N,N)},info))
+        with self.assertRaisesRegex(ValueError,'next entry'):render_next_entry((new,(*info[:4],dst+4,entry,pc+4)))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
