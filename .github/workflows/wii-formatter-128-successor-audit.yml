@@ -7,6 +7,7 @@ on:
       - '.github/workflows/wii-formatter-128-successor-audit.yml'
       - 'research/native_recomp/audit_formatter_report_sixth_immediate_successor.py'
       - 'research/native_recomp/audit_formatter_branch_128_geometry.py'
+      - 'research/native_recomp/audit_formatter_branch_128_decision.py'
       - 'research/native_recomp/prepare_formatter_report_sixth_immediate_fixture.py'
       - 'research/native_recomp/audit_formatter_report_fifth_immediate_successor.py'
 permissions:
@@ -26,6 +27,7 @@ jobs:
           python3 -m py_compile research/native_recomp/audit_formatter_report_sixth_immediate_successor.py
           python3 research/native_recomp/audit_formatter_report_sixth_immediate_successor.py --self-test
           python3 research/native_recomp/audit_formatter_branch_128_geometry.py --self-test
+          python3 research/native_recomp/audit_formatter_branch_128_decision.py --self-test
           python3 research/native_recomp/test_formatter_report_sixth_immediate_fixture.py
           python3 research/native_recomp/audit_formatter_report_fifth_immediate_successor.py --self-test
   owner-provenance:
@@ -82,6 +84,7 @@ jobs:
           umask 077
           python3 research/native_recomp/audit_formatter_report_sixth_immediate_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
           python3 research/native_recomp/audit_formatter_branch_128_geometry.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          python3 research/native_recomp/audit_formatter_branch_128_decision.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove original files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals"
