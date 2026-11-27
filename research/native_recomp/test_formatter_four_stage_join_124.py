@@ -106,7 +106,7 @@ class FourStageJoinedState(unittest.TestCase):
                 after, _ = step(contract[1][2], stages[-1],
                                 saved_mask=original[4][2])
                 self.assertEqual(after[9], ('const', 0x7fff))
-                self.assertEqual(after[3], ('const', 0xffffff80))
+                self.assertEqual(after[3], ('const', 0xffffff80 if source == 3 else 0x80))
                 self.assertEqual(contract[1][6], 0x7fff)
 
     def test_unknown_successor_is_guarded_not_speculatively_executed(self):
@@ -128,8 +128,6 @@ class FourStageJoinedState(unittest.TestCase):
         for position in range(7):
             forged = list(blocks[self.root])
             forged[position] ^= 1
-            if position == 7:
-                continue
             with self.subTest(position=position):
                 with self.assertRaises(ValueError):
                     promote(({**blocks, self.root: tuple(forged)}, fields),
