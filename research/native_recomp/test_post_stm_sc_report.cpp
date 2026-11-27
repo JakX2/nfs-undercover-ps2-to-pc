@@ -62,19 +62,25 @@ static void trial(unsigned fault){
         c.gpr[7]=parent+(fault==40?24u:8u);
         c.gpr[8]=0u;
         c.pc=callee;
+        constexpr uint32_t return_guard=B+0x380u, guard=0x44000002u;
+        if(fault>=44){
+            c.lr=return_guard;
+            c.mmu.write32(callee+8u,fault==45?Nop:guard);
+            c.mmu.write32(return_guard,fault==46?Nop:guard);
+        }
         c.mmu.write32(callee,load);
         c.mmu.write32(callee+4,Nop);
         FormatterReportByteTransition observer;
         FormatterReportByteStep s{callee,load,callee+4,Nop,c.lr,
             c.gpr[7],c.gpr[1],child_link,736u,0u,1u};
-        const bool armed=observer.arm(c,w,s,true);
-        if(fault==38||fault==39||fault==40){
+        const bool armed=fault>=44?observer.arm_native(c,w,s,true):observer.arm(c,w,s,true);
+        if(fault==38||fault==39||fault==40||fault==45||fault==46){
             assert(!armed&&observer.failed()&&observer.stage()==0u);
             return;
         }
         assert(armed&&observer.stage()==1u&&!observer.failed());
         ++c.inst_count;
-        c.pc=callee+4;
+        c.pc=fault>=44&&fault!=47?callee:callee+4;
         c.gpr[9]=fault==22?0u:1u;
         if(fault==23)c.gpr[5]^=1u;
         if(fault==24)c.ctr^=1u;
@@ -93,6 +99,20 @@ static void trial(unsigned fault){
         if(fault==42){
             Cpu copy=c;
             assert(!observer.observe(copy,w,true)&&observer.failed());
+            return;
+        }
+        if(fault>=44){
+            if(fault==50)c.mmu.write32(callee+8u,Nop);
+            if(fault==51)c.mmu.write32(return_guard,Nop);
+            if(fault==52){
+                assert(!observer.observe(c,w,true)&&observer.failed());return;
+            }
+            const bool stopped=observer.observe_native_label(c,w,
+                fault==48?callee+8u:callee+4u,fault==49?Nop^1u:Nop,fault!=53);
+            if(fault==44||fault==54){
+                assert(stopped&&observer.stage()==2u&&!observer.failed());
+                if(fault==54)assert(!observer.observe_native_label(c,w,callee+4u,Nop,true));
+            }else assert(!stopped&&observer.failed());
             return;
         }
         const bool stopped=observer.observe(c,w,fault!=35);
@@ -179,5 +199,5 @@ static void missing_entry(){
     assert(w.begin(c,true)&&w.poll(c,true));c.inst_count+=2;
     assert(!w.before(c,R,path[0].word,true));
 }
-int main(){for(unsigned i=0;i<=43;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
-    std::cout<<"POST_STM_SC_REPORT_TEST cases=47 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=54;++i)trial(i);branch_check(false);branch_check(true);missing_entry();
+    std::cout<<"POST_STM_SC_REPORT_TEST cases=58 original_execution=0\n";}
