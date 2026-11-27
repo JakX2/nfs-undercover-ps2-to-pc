@@ -86,7 +86,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const auto parent_sp=SP-704u,child_sp=parent_sp-48u;
     // Cross-frame pointers are established before either witness begins.
     // These are synthetic inputs, not values learned from a stopped CPU.
-    const int32_t move_offset=follow>=268?(follow==269?-48:864):0;
+    const int32_t move_offset=follow>=318?752:follow>=268?(follow==269?-48:864):0;
     const unsigned move_source=follow>=268?14u:1u;
     const uint32_t move_value=uint32_t(int64_t(parent_sp)+move_offset);
     if(follow>=268)c.gpr[14]=move_value;
@@ -644,12 +644,15 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(parent_delay)assert(parent.frame_age(c)==138u&&child.caller_parent_tick_limit()==138u);
     if(follow==291){assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));return;}
     if(follow<292)return;
-    const uint32_t entry_word=ins(32,9,7,0),next_ret=final_pc+4u;
+    const uint32_t entry_word=ins(follow>=318?34:32,9,7,0),next_ret=final_pc+4u;
+    const uint32_t entry_successor=ins(14,10,9,1);
+    if(follow>=318){c.mmu.write32(move_value,0x5a000000u);c.mmu.write32(next_entry+8u,guard_word);}
     c.mmu.write32(next_entry,follow==294?guard_word:entry_word);
-    c.mmu.write32(next_entry+4u,follow==295?entry_word:guard_word);
+    c.mmu.write32(next_entry+4u,follow==295?entry_word:follow>=318?entry_successor:guard_word);
     if(follow==296)c.mmu.write32(next_ret,entry_word);
     const bool entry_armed=child.resume_caller_next_entry(c,follow==293?next_entry+4u:next_entry,
-        follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299);
+        follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299,
+        follow>=318?std::optional<uint32_t>{entry_successor}:std::nullopt);
     if(follow>=293&&follow<=299){assert(!entry_armed);return;}
     assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==9u);
@@ -677,7 +680,32 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     assert(entry_done&&child.reached_caller_next_entry(c,held())&&child.caller_next_entry_visits()==1u);
     assert(child.caller_post_fourth_tick_budget()==9u);
     if(parent_delay)assert(parent.frame_age(c)==139u&&child.caller_parent_tick_limit()==139u);
-    if(follow==313)assert(!child.stop_at_caller_next_entry(c,next_entry,entry_word,held()));
+    if(follow==313){assert(!child.stop_at_caller_next_entry(c,next_entry,entry_word,held()));return;}
+    if(follow<318)return;
+    if(follow==323)c.mmu.write32(move_value,0x5b000000u);
+    if(follow==324)c.mmu.write32(next_entry+8u,entry_word);
+    const bool armed=child.resume_caller_report_byte(c,follow==321?753:752,follow==322?17:16,
+        follow==320?0x5b:0x5a,follow!=319,held()&&follow!=325);
+    if(follow>=319&&follow<=325){assert(!armed);return;}
+    assert(armed&&child.stage()==30u&&child.caller_report_byte_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==10u);
+    // Standalone transition checks are covered separately with a report witness.
+    // The guest load is modeled independently here; the witness predicts only.
+    c.gpr[9]=follow==326?0x5bu:0x5au;
+    if(follow==328)c.mmu.write32(move_value,0x5b000000u);
+    if(follow==329)c.mmu.write32(next_ret,entry_word);
+    if(follow==330)c.lr^=4u;
+    if(follow==331)c.mmu.write32(parent_sp+16,8u);
+    if(follow==332)c.mmu.write32(next_entry+8u,entry_word);
+    if(follow==333)c.gpr[14]^=1u;
+    c.inst_count+=follow==327?2u:1u;
+    const bool done=child.stop_after_caller_report_byte(c,follow==334?next_entry+8u:next_entry+4u,
+        entry_successor,follow!=336,held()&&follow!=335);
+    if(follow>=326&&follow<=336){assert(!done);return;}
+    assert(done&&child.reached_caller_report_byte(c,held())&&child.caller_report_byte_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==10u);
+    if(parent_delay)assert(parent.frame_age(c)==140u&&child.caller_parent_tick_limit()==140u);
+    if(follow==337)assert(!child.stop_after_caller_report_byte(c,next_entry+4u,entry_successor,true,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -699,4 +727,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,272,128u-baseline);
     for(unsigned follow=292;follow<=317;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,292,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=610 original_execution=0\n";}
+    for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
+    caller_trial(0,0x1234beefu,318,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=631 original_execution=0\n";}
