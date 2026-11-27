@@ -85,7 +85,7 @@ class NestedSignextTests(unittest.TestCase):
             'signext_contract=report_signext_plan(',
             'signext_extension(expanded,immediate_contract,signext_contract)',
             'signext_extension(final,immediate_contract,signext_contract)',
-            'extent=28 if signext_contract is not None else 24 if immediate_contract is not None',
+            'extent=32 if second_immediate_contract is not None else 28 if signext_contract is not None else 24 if immediate_contract is not None',
             'render_report_signext(signext_contract)',
             'expected[si[3]]=(si[0],si[4])',
             'immediate_contract=immediate_contract,signext_contract=signext_contract',
