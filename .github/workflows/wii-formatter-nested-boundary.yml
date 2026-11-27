@@ -11,6 +11,8 @@ on:
       - 'research/native_recomp/wii_post_stm_sc_report.h'
       - 'research/native_recomp/test_post_stm_sc_report_helper.cpp'
       - 'research/native_recomp/test_post_stm_sc_report.cpp'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/test_formatter_report_byte_transition.cpp'
       - 'research/native_recomp/test_post_stm_sc_formatter_boundary.cpp'
       - 'research/native_recomp/test_formatter_nested_join.cpp'
       - '.github/workflows/wii-formatter-nested-boundary.yml'
@@ -26,7 +28,7 @@ jobs:
           set -euo pipefail
           python3 research/native_recomp/test_post_stm_sc_report_formatter_path.py
           python3 research/native_recomp/test_formatter_nested_path.py
-          for test in test_post_stm_sc_formatter test_post_stm_sc_formatter_boundary test_register_continuation_join test_post_stm_sc_report_helper test_post_stm_sc_report test_formatter_nested_join; do
+          for test in test_post_stm_sc_formatter test_post_stm_sc_formatter_boundary test_register_continuation_join test_post_stm_sc_report_helper test_post_stm_sc_report test_formatter_report_byte_transition test_formatter_nested_join; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
             "/tmp/$test"
           done
