@@ -34,6 +34,9 @@ from prepare_formatter_report_compare_fixture import (
 from prepare_formatter_report_stack_copy_fixture import (
     plan as report_copy_plan, render as render_report_copy,
 )
+from prepare_formatter_report_immediate_fixture import (
+    plan as report_immediate_plan, render as render_report_immediate,
+)
 from audit_formatter_partial_copy import boundary_shape
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
@@ -531,6 +534,32 @@ def copy_extension(prior, compare_contract, copy_contract):
         raise ValueError('nested fixture report copy sibling')
     merged = {**prior, **blocks}
     check_spans({address:4*len(words) for address,words in merged.items()})
+    return merged, info
+
+
+
+def immediate_extension(prior, copy_contract, immediate_contract):
+    """Move the private 121 guard, without widening any authenticated root."""
+    if (not isinstance(immediate_contract, tuple) or
+            len(immediate_contract) != 2 or
+            not isinstance(immediate_contract[1], tuple) or
+            len(immediate_contract[1]) != 8):
+        raise ValueError('nested fixture report immediate contract')
+    blocks, info = immediate_contract
+    root, pc, word, next_pc, next_word, dst, value, ret = info
+    copy_blocks, copy_info = copy_contract
+    if (root != copy_info[0] or (pc, word) != copy_info[3:5] or
+            ret != copy_info[8] or next_pc != pc + 4 or
+            root not in prior or root not in blocks or
+            not set(blocks).issubset(prior) or
+            prior[root] != copy_blocks[root] or
+            blocks[root] != (*prior[root][:4], next_word, GUARD)):
+        raise ValueError('nested fixture report immediate predecessor')
+    render_report_immediate(immediate_contract)
+    if any(prior[at] != words for at,words in blocks.items() if at != root):
+        raise ValueError('nested fixture report immediate sibling')
+    merged = {**prior, **blocks}
+    check_spans({address: 4 * len(words) for address, words in merged.items()})
     return merged, info
 
 
