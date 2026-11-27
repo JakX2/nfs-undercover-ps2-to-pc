@@ -95,6 +95,24 @@ subsequent revision checks must complete before the 120 frontier can
 be claimed. The invocation is `--formatter-nested-caller-report-copy`;
 its guarded successor is **not** authorized to execute.
 
+The first [120 native owner run 46000303363](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46000303363)
+completed the guarded 61-root fixture, analyzer, and source translation,
+but failed in C++ compilation with a redacted **native witness overload**
+at the byte-load harness call (old commit `306c763`). This is **not**
+guest instruction execution. Later changes added the optional third guard
+to the byte-load and immediate-compare witnesses and passed the extra
+original word through the harness's next-entry, byte and comparison
+admission calls. Original-free rejection tests cover the extended guard,
+including modifications to the still-unexecuted next word and return
+guards. The [later 120 owner run 46004078927](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46004078927)
+passed its original-free job. Its native owner result is separate and
+must be checked before declaring instruction 120 executed.
+
+A separate source-only parity rule now restricts the 120 stack-copy
+destination to volatile GPRs **both** in the private symbolic fixture
+and in the native predictor. A source-only harness call-arity regression
+guards against repeating the first compile overload.
+
 The independent scheduler root-cap regression was updated to reflect
 the existing 61-root maximum (and still reject 62). This is a test
 expectation repair, not evidence that the game advanced.
