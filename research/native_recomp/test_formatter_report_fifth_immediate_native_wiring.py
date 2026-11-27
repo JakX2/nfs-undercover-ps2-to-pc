@@ -81,6 +81,15 @@ class Original126NativeWiring(unittest.TestCase):
         self.assertIn('formatter_report_fourth_immediate->observe(c,pc,w)', self.harness)
         self.assertIn('formatter_report_fifth_immediate_private::word==',
                       self.harness)
+        # Direct 125 -> 126 source continuity is a compile-time contract.
+        # Never accidentally compare the fifth word against original 124.
+        fifth_asserts = self.harness.split(
+            '#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE\\n'
+            'static_assert(', 1)[1].split('#endif', 1)[0]
+        self.assertEqual(fifth_asserts.count(
+            'formatter_report_fourth_immediate_private::'), 4)
+        self.assertNotIn('formatter_report_third_immediate_private::',
+                         fifth_asserts)
 
     def test_parent_lease_requires_exact_ninth_label(self):
         for marker in (
