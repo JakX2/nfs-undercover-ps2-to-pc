@@ -45,8 +45,8 @@ def extend(third,words,proof):
     check_spans({a:4*len(v) for a,v in expanded.items()})
     return (expanded,(owner,size,pc,w,taken,chosen,words[j],other)),'admitted',family
 
-def plan(d,e):
-    return extend(*audit_plan(d,e,exact=True))
+def plan(d,e,**prior):
+    return extend(*audit_plan(d,e,exact=True,**prior))
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()

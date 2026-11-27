@@ -44,19 +44,24 @@ def audit(first,second,post,third,words,details,*,exact=False):
     if exact:return (at,next_word),(kind,ctr,outcome,back,dst,chosen),tuple(sorted(guards))
     return kind,ctr,outcome,back,int(dst is not None),int(chosen in guards),int(occupied(chosen)),int(occupied(alternate)),boundary_shape(words[(chosen-owner)//4]) if chosen is not None else 'unresolved',sum(x is not None for x in cr)
 
-def plan(d,e,*,exact=False):
-    byte=byte_plan(d,e);integer,_=integer_plan(d,e,byte=byte)
+def plan(d,e,*,exact=False,with_state=False,byte=None,integer=None,first=None,second=None,post=None,third=None):
+    if byte is None:byte=byte_plan(d,e)
+    if integer is None:integer,_=integer_plan(d,e,byte=byte)
     if integer is None:raise ValueError('fourth branch predecessor')
-    first,outcome=first_plan(d,e,byte=byte,contract=integer)
-    second,_,_=second_plan(d,e,byte=byte,integer=integer,first=first,second=outcome)
+    if first is None or second is None:
+        first,outcome=first_plan(d,e,byte=byte,contract=integer)
+        second,_,_=second_plan(d,e,byte=byte,integer=integer,first=first,second=outcome)
     if second is None:raise ValueError('fourth branch predecessor')
-    post,edge,_=post_plan(d,e,byte=byte,integer=integer,first=first,second=second)
-    third,_,_=third_plan(d,e,byte=byte,integer=integer,first=first,second=second,post=post,edge=edge)
+    if post is None or third is None:
+        post,edge,_=post_plan(d,e,byte=byte,integer=integer,first=first,second=second)
+        third,_,_=third_plan(d,e,byte=byte,integer=integer,first=first,second=second,post=post,edge=edge)
     if third is None:raise ValueError('fourth branch predecessor')
     owner,size,*_=third[1];words=exact_words(d,e,owner,size//4)
     _,_,trace,_,entry,_=replay_plan(d,e,details=True)
-    details=post_audit(byte,integer,first,second,trace[-1][2],entry[1],words,continuation_plan(d,e)[6],details=True)
-    result=audit(first,second,post,third,words,details,exact=exact)
+    saved_mask=continuation_plan(d,e)[6]
+    details=post_audit(byte,integer,first,second,trace[-1][2],entry[1],words,saved_mask,details=True)
+    result=audit(first,second,post,third,words,details,exact=exact or with_state)
+    if with_state:return third,words,result,details[3],details[4],saved_mask
     return (third,words,result) if exact else result
 
 def main():
