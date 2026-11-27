@@ -83,6 +83,38 @@ class Test(unittest.TestCase):
         self.assertEqual(local, {dst:(load,comparison,N,GUARD)})
         self.assertEqual(prior[dst],(load,comparison,GUARD))
 
+    def test_119_partial_merge_preserves_all_61_fixture_roots(self):
+        dst=R-0x100
+        load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        # The owner image has 61 roots; the comparison provenance contract
+        # need not enumerate the 60 sibling functions already authenticated.
+        siblings={R+0x1000+32*i:(N,GUARD) for i in range(60)}
+        old={**siblings,dst:(load,comparison,GUARD)}
+        byte=({dst:old[dst]},
+              (dst,load,753,17,0xa5,dst+4,comparison,R+4))
+        local,fields=promote_report_compare(byte,N,(7,0x81234567))
+        joined,info=compare_extension(old,byte,(local,fields))
+        self.assertEqual(len(old),61)
+        self.assertEqual(len(joined),61)
+        self.assertEqual(info,fields)
+        self.assertEqual(joined[dst],(load,comparison,N,GUARD))
+        self.assertEqual({at:joined[at] for at in siblings},siblings)
+        self.assertEqual(old[dst],(load,comparison,GUARD))
+        self.assertEqual(len(local),1)
+        self.assertNotEqual(local,joined)
+        # One unverified root or one tampered sibling is never merged.
+        unknown=R+0x3000
+        poisoned=dict(local)
+        poisoned[unknown]=(N,GUARD)
+        with self.assertRaisesRegex(ValueError,'report compare root set'):
+            compare_extension(old,byte,(poisoned,fields))
+        sibling=next(iter(siblings))
+        corrupted=dict(local)
+        corrupted[sibling]=(GUARD,GUARD)
+        with self.assertRaisesRegex(ValueError,'report compare sibling'):
+            compare_extension(old,byte,(corrupted,fields))
+
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))
         s=render(c)
