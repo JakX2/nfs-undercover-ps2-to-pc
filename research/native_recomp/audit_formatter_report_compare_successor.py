@@ -83,7 +83,7 @@ def inspect(compare_contract, predecessor):
             len(set(reads))-kinds['const']-kinds['stack']-kinds['partial'],
             cr,carry,xer,oe,int(bool(set(reads)&set(writes))))
     try:
-        modeled,_=step(next_word,gpr,saved_mask=mask)
+        modeled,_=step(next_word,gpr,saved_mask=mask,allow_stack_copy=True)
         if len(modeled)!=32:
             raise ValueError('caller integer registers')
         reason='supported'
@@ -129,6 +129,16 @@ class Tests(unittest.TestCase):
             blocks,info=self.byte
             self.byte=(blocks,info[:4]+(byte,)+info[5:])
             self.assertEqual(self.probe()[3],1)
+
+    def test_authenticated_shape_of_symbolic_stack_move(self):
+        # PPC non-record OR of an identical register is a pointer copy.
+        word=(31<<26)|(1<<21)|(10<<16)|(1<<11)|(444<<1)
+        family,name,counts,modeled,reason=self.probe(word)
+        self.assertEqual((family,name,modeled,reason),
+                         ('integer','or',1,'supported'))
+        self.assertEqual(counts,(1,1,0,1,0,0,0,0,0,0,0))
+        for bad in (word|1,word^(1<<11)):
+            self.assertEqual(self.probe(bad)[3],0)
 
     def test_branch_is_visible_not_executed(self):
         word=(16<<26)|(12<<21)|(2<<16)|16
