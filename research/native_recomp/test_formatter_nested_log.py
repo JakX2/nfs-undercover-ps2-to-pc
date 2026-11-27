@@ -244,4 +244,21 @@ class CallerSecondBranch(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_second_branch=True,integer_count=2)
     def test_prior(self):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerBranch().logs(),caller_second_branch=True,integer_count=2)
+class CallerPostIntegers(unittest.TestCase):
+    def logs(self,count=2,post=1):
+        return [f'FORMATTER_CALLER_POST_INTEGERS_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers={count} caller_branches=2 post_integers={post} fallthrough=1 taken=1 alternate_guards=2 next_label_stop=1 deferred=1 reply=0 visits=98 total_visits={101+count+post}' for i in range(8)]+[f'FORMATTER_CALLER_POST_INTEGERS_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers={8*count} caller_branches=16 post_integers={8*post} fallthrough=8 taken=8 alternate_guards=16 next_label_stop=8 deferred=8 reply=0 visits=784 total_visits={808+8*(count+post)} ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        for post in range(1,9):
+            x=self.logs(post=post);self.assertEqual(verify(x,caller_post_integers=True,integer_count=2,post_integer_count=post),(x[-1],))
+    def test_count(self):
+        with self.assertRaisesRegex(ValueError,'trial'):verify(self.logs(),caller_post_integers=True,integer_count=2,post_integer_count=2)
+    def test_missing(self):
+        with self.assertRaisesRegex(ValueError,'count'):verify(self.logs(),caller_post_integers=True,integer_count=2)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=832','total_visits=824')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_post_integers=True,integer_count=2,post_integer_count=1)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerSecondBranch().logs(),caller_post_integers=True,integer_count=2,post_integer_count=1)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_second_branch=True,integer_count=2,post_integer_count=1)
 if __name__=='__main__':unittest.main(verbosity=2)
