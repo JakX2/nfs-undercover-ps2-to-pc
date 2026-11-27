@@ -6,6 +6,8 @@ on:
     paths:
       - 'research/native_recomp/prepare_formatter_report_compare_fixture.py'
       - 'research/native_recomp/test_formatter_report_compare_fixture.py'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_formatter_caller_integer.cpp'
       - '.github/workflows/wii-formatter-report-compare-contract.yml'
 permissions:
   contents: read
