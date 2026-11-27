@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -184,6 +184,24 @@ class Test(unittest.TestCase):
         bad=(None,first[1][:-1]+(pc+4,))
         with self.assertRaisesRegex(ValueError,'fourth branch'):
             expand_fourth_branch(old,bad,second,third,contract)
+    def test_mixed_expansion(self):
+        pc=R+48;add=0x38830001;branch=(16<<26)|(12<<21)|(2<<16)|16
+        old={R:(N,N,N,N,GUARD,N,N,GUARD,GUARD,N,N,N,add,GUARD,GUARD,GUARD,GUARD,GUARD),T:(N,GUARD)}
+        first=(None,(R,128,R+8,N,False,R+12,N,R+28))
+        second=(None,(R,128,R+12,N,True,R+36,N,R+16))
+        third=(None,(R,128,R+40,N,False,R+44,N,R+60))
+        fourth=(old,(R,128,R+44,N,False,pc,add,R+68))
+        end=pc+20;v=list(old[R])+[GUARD];v[13]=branch;v[17]=N;new={**old,R:tuple(v)}
+        # The branch's selected edge must not consume the earlier guard.
+        fourth=(old,fourth[1][:-1]+(R+64,))
+        contract=(new,((pc,add,((3,9),),pc+4,None,None),(pc+4,branch,(),end,pc+8,True)),end,N)
+        self.assertIn('ScCallerMixedStep,2> path',render_mixed(contract))
+        self.assertEqual(expand_mixed(old,contract,(first,second,third,fourth)),new)
+        bad=(old,fourth[1][:-1]+(end,))
+        with self.assertRaisesRegex(ValueError,'overlap'):
+            expand_mixed(old,contract,(first,second,third,bad))
+        with self.assertRaisesRegex(ValueError,'mixed'):
+            render_mixed((new,((pc,add,((3,9),),pc+8,None,None),),pc+8,N))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)

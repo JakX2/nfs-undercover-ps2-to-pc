@@ -75,10 +75,11 @@ def extend(fourth,words,gp,cr,saved_mask,earlier_guards,*,cap=CAP):
     check_spans({a:4*len(v) for a,v in expanded.items()})
     return (expanded,tuple(rows),pc,words[(pc-owner)//4]),reason,live,cr
 
-def plan(d,e):
-    third,words,proof,gp,cr,saved_mask=fourth_audit(d,e,with_state=True)
-    fourth,reason,_=fourth_extend(third,words,proof)
-    if fourth is None:raise ValueError('mixed caller predecessor')
+def plan(d,e,*,fourth=None,**prior):
+    third,words,proof,gp,cr,saved_mask=fourth_audit(d,e,with_state=True,**prior)
+    verified,reason,_=fourth_extend(third,words,proof)
+    if verified is None or fourth is not None and fourth!=verified:raise ValueError('mixed caller predecessor')
+    fourth=verified
     return extend(fourth,words,gp,cr,saved_mask,proof[2])
 
 def main():
