@@ -112,6 +112,42 @@ def render(fixture):
             blocks.get(root, ())[:11][-1:] != (branch,) or
             selected not in blocks and selected != root + 44):
         raise ValueError('branch fixture render')
+    # Rendering is an independent trust boundary. A caller must not be
+    # able to forge selected-edge metadata after private planning.
+    root_span = blocks.get(root)
+    if (not isinstance(root_span, tuple) or
+            not all(type(x) is int and 0 <= x <= 0xffffffff
+                    for x in root_span) or
+            branch == GUARD or word == GUARD or
+            selected == unused or
+            selected == ret or unused == ret):
+        raise ValueError('branch fixture render')
+    try:
+        shape = geometry(branch, root, pc, extent, ret)
+        if shape != ('conditional_direct', 'forward_local', 1, 0, 0, 0):
+            raise ValueError('branch fixture render')
+        delta = ((branch & 0xfffc) ^ 0x8000) - 0x8000
+        target = pc + delta
+        if (target <= pc + 4 or
+                target + 4 >= root + extent or
+                selected + 4 >= root + extent or
+                selected != (target if taken else pc + 4) or
+                unused != (pc + 4 if taken else target)):
+            raise ValueError('branch fixture render')
+        if taken:
+            if (len(root_span) != 12 or root_span[11] != GUARD or
+                    blocks.get(selected) != (word, GUARD)):
+                raise ValueError('branch fixture render')
+        else:
+            if (len(root_span) != 13 or
+                    root_span[11:] != (word, GUARD) or
+                    (target != root + 48 and
+                     blocks.get(target) != (GUARD,))):
+                raise ValueError('branch fixture render')
+        check_spans({address: 4 * len(data)
+                     for address, data in blocks.items()})
+    except (ValueError, KeyError, TypeError) as error:
+        raise ValueError('branch fixture render') from error
     # No details are exported by tests or CI. This string is generated
     # exclusively inside the private owner build workspace.
     return (
@@ -199,6 +235,49 @@ class Tests(unittest.TestCase):
         altered_words = words2[:10] + (branch,) + words2[11:]
         with self.assertRaises(ValueError):
             promote(modified, compare2, altered_words, extent)
+
+    def test_render_refuses_altered_edge_and_guard_metadata(self):
+        for eq in (False, True):
+            sixth, compare, words, extent = self.inputs(eq=eq)
+            blocks, fields = promote(sixth, compare, words, extent)
+            self.assertIn('formatter_branch_128_private',
+                          render((blocks, fields)))
+            for slot, replacement in (
+                    (3, fields[3] + 4),  # selected label
+                    (4, fields[4] ^ 1),  # selected original word
+                    (5, fields[5] + 4),  # untaken label
+                    (6, 1 - fields[6])):  # inverted decision
+                modified = fields[:slot] + (replacement,) + fields[slot + 1:]
+                with self.subTest(eq=eq, field=slot):
+                    with self.assertRaises(ValueError):
+                        render((blocks, modified))
+            selected = fields[3]
+            corrupted = dict(blocks)
+            if eq:
+                corrupted[selected] = (fields[4], 0x60000000)
+            else:
+                corrupted[self.ROOT] = (
+                    corrupted[self.ROOT][:-1] + (0x60000000,))
+            with self.assertRaises(ValueError):
+                render((corrupted, fields))
+            missing = dict(blocks)
+            if eq:
+                del missing[selected]
+            else:
+                del missing[fields[5]]
+            with self.assertRaises(ValueError):
+                render((missing, fields))
+
+    def test_render_rejects_replayed_or_overlapping_spans(self):
+        sixth, compare, words, extent = self.inputs()
+        blocks, fields = promote(sixth, compare, words, extent)
+        forged = dict(blocks)
+        forged[fields[3] + 4] = (GUARD,)
+        with self.assertRaises(ValueError):
+            render((forged, fields))
+        bad = fields[:4] + (GUARD,) + fields[5:]
+        with self.assertRaises(ValueError):
+            render((blocks, bad))
 
     def test_plan_requires_exact_owner_words(self):
         sixth, compare, words, extent = self.inputs()
