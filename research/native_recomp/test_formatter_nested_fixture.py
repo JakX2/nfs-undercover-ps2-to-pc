@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry,verify_next_entry_trace
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry,verify_next_entry_trace,render_report_byte,expand_report_byte
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -294,6 +294,29 @@ int main(){return 0;}
         with self.assertRaisesRegex(ValueError,'expansion'):expand_next_entry(old,final,({**new,dst:(entry,N)},info))
         with self.assertRaisesRegex(ValueError,'expansion'):expand_next_entry(old,final,({**new,T:(N,N)},info))
         with self.assertRaisesRegex(ValueError,'next entry'):render_next_entry((new,(*info[:4],dst+4,entry,pc+4)))
+    def test_report_byte_expansion(self):
+        pc=R+48;dst=R-0x100
+        w=(18<<26)|((dst-pc)&0x03fffffc)|1;load=0x88630000
+        after=0x38630001
+        old={R:(N,)*12+(w,GUARD),T:(N,GUARD),dst:(load,GUARD)}
+        entry=(old,(R,128,pc,w,dst,load,pc+4))
+        new={**old,dst:(load,after,GUARD)}
+        info=(dst,load,753,17,0xa5,dst+4,after,pc+4)
+        contract=(new,info)
+        header=render_report_byte(entry,contract)
+        self.assertIn('formatter_caller_report_byte_private',header)
+        self.assertIn('parent_offset=753;',header)
+        self.assertIn('report_offset=17u;',header)
+        self.assertEqual(expand_report_byte(old,entry,contract),new)
+        for blocks in ({**new,R:(N,)*14},{**new,T:(N,N)},
+                       {**new,dst:(load,after,N)},old,{**new,L:(N,)}):
+            with self.assertRaisesRegex(ValueError,'report byte expansion'):
+                expand_report_byte(old,entry,(blocks,info))
+        for index,value in ((0,dst+4),(1,load^1),(2,752),(3,7),
+                            (4,256),(5,dst+8),(6,GUARD),(7,pc+8)):
+            bad=list(info);bad[index]=value
+            with self.assertRaisesRegex(ValueError,'report byte'):
+                render_report_byte(entry,(new,tuple(bad)))
     def test_next_entry_trace(self):
         dst=R-0x100
         trace=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{dst:X}) nwii::runtime::trace_call(0x{dst:X}, ctx);'
