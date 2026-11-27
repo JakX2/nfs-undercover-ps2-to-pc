@@ -1,5 +1,6 @@
 #pragma once
 #include "wii_post_stm_sc_report_helper.h"
+#include "wii_formatter_caller_integer.h"
 #include <bit>
 #include <optional>
 namespace undercover::wii {
@@ -11,6 +12,10 @@ struct ScFormatterAccess {
 };
 struct ScFormatterBoundary {uint32_t address=0,width=0;bool stack=false;int32_t caller_offset=0;bool instruction=false;};
 struct ScFormatterControlBoundary {uint32_t destination=0,word=0,owner_size=0;};
+struct ScCallerIntegerStep {
+    uint32_t pc,word;
+    std::span<const CallerIntegerInput> inputs;
+};
 struct ScFormatterExpectation {
     uint32_t root,entry_lr,target,target_word,frame_size;
     std::span<const IpcDispatchWord> path;
@@ -503,6 +508,39 @@ public:
         return stage_==11u&&word(c,caller_next_pc_,caller_next_word_)&&
             return_storage(c,held,3u)&&visits_==e_.path.size()+1u;
     }
+    // A bounded straight-line register-only continuation. Each predicted
+    // effect must be observed at the next original label before counting it.
+    // The parent frame, child output overlay and restored ABI stay live.
+    template<class C>bool resume_caller_integers(C& c,std::span<const ScCallerIntegerStep> path,
+                                                 uint32_t end_pc,uint32_t end_word,bool held){
+        if(!reached_caller_byte(c,held)||path.empty()||path.size()>8u||
+           path.front().pc!=caller_next_pc_||path.front().word!=caller_next_word_||
+           uint64_t(caller_next_pc_)+4u*path.size()!=end_pc||end_word==0x44000002u||
+           !word(c,end_pc,end_word))return fail(6);
+        for(unsigned i=0;i<path.size();++i)
+            if(path[i].pc!=caller_next_pc_+4u*i||path[i].word==0x44000002u||
+               path[i].inputs.size()>3u||!word(c,path[i].pc,path[i].word))return fail(6);
+        integer_path_=path;integer_end_pc_=end_pc;integer_end_word_=end_word;
+        if(!predict_integer(path.front()))return fail(6);
+        stage_=12u;return true;
+    }
+    template<class C>bool caller_integer_boundary(C& c,uint32_t pc,uint32_t w,bool held){
+        if(stage_!=12u||integer_completed_>=integer_path_.size()||
+           !return_storage(c,held,4u+integer_completed_)||!integer_code(c))return fail(6);
+        const auto i=integer_completed_+1u;
+        const bool done=i==integer_path_.size();
+        if(pc!=(done?integer_end_pc_:integer_path_[i].pc)||
+           w!=(done?integer_end_word_:integer_path_[i].word))return fail(6);
+        ++integer_completed_;
+        if(done){stage_=13u;return true;}
+        if(!predict_integer(integer_path_[i]))return fail(6);
+        return true;
+    }
+    unsigned caller_integer_visits()const{return integer_completed_;}
+    template<class C>bool reached_caller_integers(C& c,bool held)const{
+        return stage_==13u&&!integer_path_.empty()&&integer_completed_==integer_path_.size()&&
+            integer_code(c)&&return_storage(c,held,3u+integer_completed_)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -598,6 +636,19 @@ private:
     uint32_t return_pc_=0,return_word_=0;
     bool caller_arrival_=false;
     uint32_t caller_next_pc_=0,caller_next_word_=0;
+    std::span<const ScCallerIntegerStep> integer_path_{};
+    uint32_t integer_end_pc_=0,integer_end_word_=0;
+    unsigned integer_completed_=0;
+    bool predict_integer(const ScCallerIntegerStep& step){
+        const auto effect=predict_caller_integer(step.word,gp_,cr_,xer_,step.inputs);
+        if(!effect)return false;
+        if(effect->reg)gp_[*effect->reg]=effect->value;
+        cr_=effect->cr;return true;
+    }
+    template<class C>bool integer_code(C& c)const{
+        for(auto step:integer_path_)if(!word(c,step.pc,step.word))return false;
+        return word(c,integer_end_pc_,integer_end_word_);
+    }
     template<class C>bool return_storage(C& c,bool held,uint64_t delta=0)const{
         return frame_released_&&caller_parent_&&return_pc_==e_.entry_lr&&
             c.pc==return_pc_&&c.inst_count>=last_&&c.inst_count-last_==delta&&word(c,return_pc_,return_word_)&&
