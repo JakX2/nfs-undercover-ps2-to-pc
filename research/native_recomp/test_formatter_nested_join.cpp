@@ -645,14 +645,21 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow==291){assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));return;}
     if(follow<292)return;
     const uint32_t entry_word=ins(follow>=318?34:32,9,7,0),next_ret=final_pc+4u;
-    const uint32_t entry_successor=ins(14,10,9,1);
-    if(follow>=318){c.mmu.write32(move_value,0x5a000000u);c.mmu.write32(next_entry+8u,guard_word);}
+    const uint32_t entry_successor=follow>=338?
+        ((11u<<26)|(1u<<23)|(8u<<16)|16u):ins(14,10,9,1);
+    const uint32_t after_compare=0x60000000u;
+    if(follow>=318){
+        c.mmu.write32(move_value,0x5a000000u);
+        c.mmu.write32(next_entry+8u,follow>=338?after_compare:guard_word);
+        if(follow>=338)c.mmu.write32(next_entry+12u,guard_word);
+    }
     c.mmu.write32(next_entry,follow==294?guard_word:entry_word);
     c.mmu.write32(next_entry+4u,follow==295?entry_word:follow>=318?entry_successor:guard_word);
     if(follow==296)c.mmu.write32(next_ret,entry_word);
     const bool entry_armed=child.resume_caller_next_entry(c,follow==293?next_entry+4u:next_entry,
         follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299,
-        follow>=318?std::optional<uint32_t>{entry_successor}:std::nullopt);
+        follow>=318?std::optional<uint32_t>{entry_successor}:std::nullopt,
+        follow>=338?std::optional<uint32_t>{after_compare}:std::nullopt);
     if(follow>=293&&follow<=299){assert(!entry_armed);return;}
     assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==9u);
@@ -706,6 +713,33 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     assert(child.caller_post_fourth_tick_budget()==10u);
     if(parent_delay)assert(parent.frame_age(c)==140u&&child.caller_parent_tick_limit()==140u);
     if(follow==337)assert(!child.stop_after_caller_report_byte(c,next_entry+4u,entry_successor,true,held()));
+    if(follow<338)return;
+    CallerImmediateCompareWitness compare;
+    const bool compare_armed=compare.arm(c,next_entry,next_entry+4u,
+        entry_successor,after_compare,{follow==339?7u:8u,12u});
+    if(follow==339){assert(!compare_armed);return;}
+    assert(compare_armed&&compare.stage()==1u);
+    const bool joined=child.resume_caller_report_compare(c,8u,12u,
+        follow!=340,held());
+    if(follow==340){assert(!joined);return;}
+    assert(joined&&child.stage()==32u);
+    assert(child.caller_post_fourth_tick_budget()==11u);
+    // Original cmpwi cr1,r8,16: r8 is 12, independent of the r9 byte load.
+    c.cr[1]={follow!=341,false,false,bool(c.xer>>31u)};
+    if(follow==345)c.cr[0].eq=!c.cr[0].eq;
+    if(follow==343)c.gpr[5]^=1u;
+    if(follow==344)c.mmu.write32(next_entry+12u,entry_word);
+    c.inst_count+=follow==342?2u:1u;
+    const bool observed=compare.observe(c,next_entry+8u,after_compare);
+    if(follow>=341&&follow<=345){assert(!observed);return;}
+    assert(observed&&compare.stage()==2u);
+    const bool done_compare=child.stop_after_caller_report_compare(c,
+        next_entry+8u,follow==346?entry_word:after_compare,true,held()&&follow!=347);
+    if(follow==346||follow==347){assert(!done_compare);return;}
+    assert(done_compare&&child.stage()==33u&&
+        child.reached_caller_report_compare(c,held())&&
+        child.caller_report_compare_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==11u);
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -729,4 +763,5 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,292,128u-baseline);
     for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,318,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=631 original_execution=0\n";}
+    for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=641 compare_cases=10 original_execution=0\n";}
