@@ -6,7 +6,7 @@ from prepare_formatter_nested_fixture import render,expand,render_return,render_
 from guarded_continuation import GUARD
 from prepare_formatter_nested_fixture import (
     private_compare_checkpoint, _COMPARE_EXPANSION_STAGES,
-    public_nested_refusal,
+    public_nested_refusal, compare_extension,
 )
 from prepare_formatter_report_compare_fixture import (
     promote as promote_report_compare, render as render_report_compare,
@@ -42,6 +42,27 @@ class Test(unittest.TestCase):
                       TypeError('secret instruction word'),
                       KeyError('unknown address')):
             self.assertEqual(public_nested_refusal(error,whitelist),'private_input')
+
+    def test_report_compare_join_refuses_sibling_and_root_mutations(self):
+        dst=R-0x100
+        load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        prior={R:(N,GUARD),dst:(load,comparison,GUARD)}
+        byte=(prior,(dst,load,753,17,0xa5,dst+4,comparison,R+4))
+        extended,fields=promote_report_compare(byte,N,(7,0x81234567))
+        compare=(extended,fields)
+        self.assertEqual(compare_extension(prior,byte,compare),compare)
+        invalid=[
+            ({dst:prior[dst]},'root set'),
+            ({**prior,R:(GUARD,GUARD)},'sibling'),
+            ({**prior,dst:(load,GUARD,GUARD)},'predecessor'),
+        ]
+        for state,reason in invalid:
+            with self.subTest(reason=reason):
+                with self.assertRaisesRegex(ValueError,'report compare '+reason):
+                    compare_extension(state,byte,compare)
+        with self.assertRaisesRegex(ValueError,'report compare contract'):
+            compare_extension(prior,byte,(extended,fields[:-1]+(R+8,)))
 
     def test_header(self):
         c=({},(R,L,R+4,0x80630000,48,A,4),((R,N),),((R,4,A,False,False),),((4,32),),((R,A,b'abcd'),))

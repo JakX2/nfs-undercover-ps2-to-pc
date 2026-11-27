@@ -484,6 +484,24 @@ def public_nested_refusal(error, safe):
     return reason.replace(' ', '_') if type(error) is ValueError and reason in safe else 'private_input'
 
 
+def compare_extension(prior, byte_contract, compare_contract):
+    """Admit only a local guard move in one existing authenticated callee."""
+    candidate, fields = promote_report_compare(
+        byte_contract, compare_contract[1][3], compare_contract[1][4:6])
+    if compare_contract != (candidate, fields):
+        raise ValueError('nested fixture report compare contract')
+    root = fields[0]
+    if set(prior) != set(candidate) or root not in prior:
+        raise ValueError('nested fixture report compare root set')
+    if prior[root] != (candidate[root][0], candidate[root][1], GUARD):
+        raise ValueError('nested fixture report compare predecessor')
+    if candidate[root] != (*prior[root][:2], fields[3], GUARD):
+        raise ValueError('nested fixture report compare contract')
+    if any(candidate[at] != words for at,words in prior.items() if at != root):
+        raise ValueError('nested fixture report compare sibling')
+    return candidate, fields
+
+
 def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None,stage_trace=False):
     if stage_trace:private_compare_checkpoint('begin')
     if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
@@ -535,12 +553,8 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
                 expanded={**expanded,**expand_report_byte(next_entry_contract[0],next_entry_contract,report_byte_contract)}
                 if stage_trace:private_compare_checkpoint('byte_joined')
                 if compare_contract is not None:
-                    candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
-                    if compare_contract!=(candidate,fields) or candidate[fields[0]]!=(
-                            *expanded[fields[0]][:2],fields[3],GUARD) or any(
-                            candidate[a]!=words for a,words in expanded.items() if a!=fields[0]):
-                        raise ValueError('nested fixture report compare expansion')
-                    expanded={**expanded,**candidate}
+                    candidate,_=compare_extension(expanded,report_byte_contract,compare_contract)
+                    expanded=candidate
                     if stage_trace:private_compare_checkpoint('compare_joined')
         check_spans({a:4*len(ws) for a,ws in expanded.items()})
         if stage_trace:private_compare_checkpoint('spans_checked')
@@ -629,11 +643,7 @@ def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract
             if report_byte_contract is not None:
                 final=expand_report_byte(final,next_entry_contract,report_byte_contract)
                 if compare_contract is not None:
-                    promoted,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
-                    if compare_contract!=(promoted,fields) or any(
-                            promoted[a]!=words for a,words in final.items() if a!=fields[0]):
-                        raise ValueError('nested fixture report compare expansion')
-                    final={**final,**promoted}
+                    final,_=compare_extension(final,report_byte_contract,compare_contract)
             extent=16 if compare_contract is not None else 12 if report_byte_contract is not None else 8
             if dst in old or sizes.get(dst)!=extent or 4*len(final[dst])!=extent:raise ValueError('nested fixture caller next entry extent')
             before.pop(dst);extra[dst]=extent
@@ -854,7 +864,7 @@ def main():
     if q.caller_stack_move:q.caller_post_mixed=True
     if q.caller_post_mixed:q.caller_mixed_byte=True
     if q.caller_mixed_byte:q.caller_mixed=True
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','nested fixture caller next entry root census','fixture geometry','fixture range','fixture span','fixture overlap','completion roundtrip','nested fixture report byte','nested fixture report byte expansion','nested fixture report compare expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer overlap','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','nested fixture caller post integers','nested fixture caller post integer overlap','nested fixture caller post integer guard','nested fixture caller post integer expansion','nested fixture caller third branch','nested fixture caller fourth branch','nested fixture caller mixed','nested fixture caller mixed guard','nested fixture caller mixed overlap','nested fixture caller mixed expansion','nested fixture caller mixed byte','nested fixture caller mixed byte overlap','nested fixture caller mixed byte guard','nested fixture caller mixed byte expansion','nested fixture caller post mixed','nested fixture caller stack move','nested fixture caller stack move overlap','nested fixture caller stack move guard','nested fixture caller stack move expansion','nested fixture caller final integer','nested fixture caller next entry','nested fixture caller next entry trace','nested fixture caller next entry expansion','nested fixture caller next entry overlap','nested fixture caller next entry extent','nested fixture caller next entry root census','fixture geometry','fixture range','fixture span','fixture overlap','completion roundtrip','nested fixture report byte','nested fixture report byte expansion','nested fixture report compare expansion','nested fixture report compare contract','nested fixture report compare root set','nested fixture report compare predecessor','nested fixture report compare sibling','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     phase='inputs'
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
