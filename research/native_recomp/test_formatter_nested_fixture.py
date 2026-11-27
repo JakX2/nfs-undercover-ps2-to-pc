@@ -2,6 +2,9 @@
 import unittest
 from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move,render_final_integer,expand_final_integer,render_next_entry,expand_next_entry,verify_next_entry_trace,render_report_byte,expand_report_byte
 from guarded_continuation import GUARD
+from prepare_formatter_report_compare_fixture import (
+    promote as promote_report_compare, render as render_report_compare,
+)
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
     def test_header(self):
@@ -317,6 +320,40 @@ int main(){return 0;}
             bad=list(info);bad[index]=value
             with self.assertRaisesRegex(ValueError,'report byte'):
                 render_report_byte(entry,(new,tuple(bad)))
+    def test_report_compare_stays_within_existing_callee_root(self):
+        # The 119th operation must extend the verified 118 callee, not
+        # introduce a second synthetic function or overwrite its caller.
+        pc=R+48
+        dst=R-0x100
+        branch=(18<<26)|((dst-pc)&0x03fffffc)|1
+        byte_load=(34<<26)|(9<<21)|(3<<16)
+        comparison=(11<<26)|(2<<23)|(7<<16)|0x8000
+        following=N
+        original={R:(N,)*12+(branch,GUARD),T:(N,GUARD),dst:(byte_load,GUARD)}
+        entry=(original,(R,128,pc,branch,dst,byte_load,pc+4))
+        byte_blocks={**original,dst:(byte_load,comparison,GUARD)}
+        byte=(byte_blocks,(dst,byte_load,753,17,0xa5,dst+4,comparison,pc+4))
+        self.assertEqual(expand_report_byte(original,entry,byte),byte_blocks)
+        extended,fields=promote_report_compare(byte,following,(7,0x81234567))
+        self.assertEqual(set(extended),set(original))
+        self.assertEqual(len(extended),3)
+        self.assertEqual(extended[R],original[R])
+        self.assertEqual(extended[T],original[T])
+        self.assertEqual(extended[dst],
+                         (byte_load,comparison,following,GUARD))
+        self.assertEqual(fields[2:6],(dst+8,following,7,0x81234567))
+        self.assertIn('source_value=0x81234567u',
+                      render_report_compare((extended,fields)))
+        self.assertEqual(byte_blocks[dst],(byte_load,comparison,GUARD))
+        for bad in ((32,0),(7,0x100000000),('7',0)):
+            with self.subTest(source=bad):
+                with self.assertRaisesRegex(ValueError,'source provenance'):
+                    promote_report_compare(byte,following,bad)
+        with self.assertRaisesRegex(ValueError,'input identity'):
+            promote_report_compare(byte,following,(9,0xa5))
+        with self.assertRaisesRegex(ValueError,'successor'):
+            promote_report_compare(byte,GUARD,(7,0x81234567))
+
     def test_next_entry_trace(self):
         dst=R-0x100
         trace=f'    if (nwii::runtime::g_trace_calls && ctx.pc == 0x{dst:X}) nwii::runtime::trace_call(0x{dst:X}, ctx);'
