@@ -562,6 +562,13 @@ static_assert(!formatter_caller_integer_private::path.empty()&&formatter_caller_
 static_assert(formatter_caller_integer_private::path.front().pc==formatter_caller_byte_private::next_pc);
 static_assert(formatter_caller_integer_private::path.front().word==formatter_caller_byte_private::next_word);
 static_assert(formatter_caller_integer_private::end_pc==formatter_caller_integer_private::path.back().pc+4u);
+#ifdef UNDERCOVER_FORMATTER_CALLER_BRANCH
+static_assert(formatter_caller_branch_private::pc==formatter_caller_integer_private::end_pc);
+static_assert(formatter_caller_branch_private::word==formatter_caller_integer_private::end_word);
+static_assert(formatter_caller_branch_private::owner==formatter_caller_private::owner);
+static_assert(!formatter_caller_branch_private::taken);
+static_assert(formatter_caller_branch_private::next_pc==formatter_caller_branch_private::pc+4u);
+#endif
 #endif
 #endif
 #endif
@@ -1039,10 +1046,25 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_ARRIVAL
 #ifdef UNDERCOVER_FORMATTER_CALLER_BYTE
 #ifdef UNDERCOVER_FORMATTER_CALLER_INTEGERS
+#ifdef UNDERCOVER_FORMATTER_CALLER_BRANCH
+    if(formatter_nested->stage()==14u){
+        if(!formatter_nested->stop_after_caller_branch(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+        ++formatter_nested_count;throw FormatterNestedStop{};
+    }
+#endif
     if(formatter_nested->stage()==12u){
-        if(!formatter_nested->caller_integer_boundary(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
-        if(formatter_nested->stage()==13u){++formatter_nested_count;throw FormatterNestedStop{};}
-        return; // the original next integer body executes
+        const bool held=formatter_nested_held(c);
+        if(!formatter_nested->caller_integer_boundary(c,pc,w,held))formatter_nested_refuse(2);
+        if(formatter_nested->stage()==13u){
+#ifdef UNDERCOVER_FORMATTER_CALLER_BRANCH
+            if(!formatter_nested->resume_caller_branch(c,formatter_caller_branch_private::owner_size,
+                formatter_caller_branch_private::taken,formatter_caller_branch_private::next_pc,
+                formatter_caller_branch_private::next_word,held))formatter_nested_refuse(2);
+#else
+            ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
+        }
+        return; // the original next integer or branch body executes
     }
 #endif
     if(pc==formatter_caller_byte_private::next_pc){
@@ -3595,6 +3617,10 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_INTEGERS
         for(auto step:formatter_caller_integer_private::path)c.mmu.write32(step.pc,step.word);
         c.mmu.write32(formatter_caller_integer_private::end_pc,formatter_caller_integer_private::end_word);
+#ifdef UNDERCOVER_FORMATTER_CALLER_BRANCH
+        c.mmu.write32(formatter_caller_branch_private::next_pc,formatter_caller_branch_private::next_word);
+        c.mmu.write32(formatter_caller_branch_private::other_pc,0x44000002u);
+#endif
 #endif
 #endif
 #else
@@ -4746,7 +4772,10 @@ int main(int argc,char** argv)try{
             formatter_nested=&nested;
             bool nested_done=false;try{run_game(c);}catch(const FormatterNestedStop&){nested_done=true;}
             const bool nested_boundary_held=formatter_nested_held(c);
-#if defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
+#if defined(UNDERCOVER_FORMATTER_CALLER_BRANCH)
+            const bool nested_reached=nested.reached_caller_branch(c,nested_boundary_held)&&
+                nested.caller_integer_visits()==formatter_caller_integer_private::path.size();
+#elif defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
             const bool nested_reached=nested.reached_caller_integers(c,nested_boundary_held)&&
                 nested.caller_integer_visits()==formatter_caller_integer_private::path.size();
 #elif defined(UNDERCOVER_FORMATTER_CALLER_BYTE)
@@ -4793,7 +4822,11 @@ int main(int argc,char** argv)try{
                 <<" live_match="<<unsigned(observed->boundary_matches_file)
                 <<" sample_equal="<<unsigned(observed->sampled_values_equal)<<" guest_load=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
+#if defined(UNDERCOVER_FORMATTER_CALLER_BRANCH)
+            std::cout<<"FORMATTER_CALLER_BRANCH_TRIAL n="<<trial
+                <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
+                <<" caller_branch=1 fallthrough=1 alternate_guard=1 next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<100u+nested.caller_integer_visits()<<'\n';
+#elif defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
             std::cout<<"FORMATTER_CALLER_INTEGERS_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
                 <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()<<'\n';
@@ -5126,7 +5159,11 @@ int main(int argc,char** argv)try{
         <<" live_match="<<nested_live_match<<" sample_equal="<<nested_sample_equal
         <<" endpoint_only=1 guest_loads=0 guest_writes=0\n";
 #endif
-#if defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
+#if defined(UNDERCOVER_FORMATTER_CALLER_BRANCH)
+    std::cout<<"FORMATTER_CALLER_BRANCH_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers="<<8u*formatter_caller_integer_private::path.size()
+        <<" caller_branches=8 fallthrough=8 alternate_guard=8 next_label_stop=8 deferred=8 reply=0 visits=784 total_visits="<<800u+8u*formatter_caller_integer_private::path.size()
+        <<" ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";
+#elif defined(UNDERCOVER_FORMATTER_CALLER_INTEGERS)
     std::cout<<"FORMATTER_CALLER_INTEGERS_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers="<<8u*formatter_caller_integer_private::path.size()
         <<" next_label_stop=8 deferred=8 reply=0 visits=784 total_visits="<<792u+8u*formatter_caller_integer_private::path.size()
         <<" ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

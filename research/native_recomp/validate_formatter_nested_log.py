@@ -51,8 +51,14 @@ def integer_markers(count):
     total=f'FORMATTER_CALLER_INTEGERS_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers={8*count} next_label_stop=8 deferred=8 reply=0 visits=784 total_visits={792+8*count} ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
     return 'FORMATTER_CALLER_INTEGERS',trial,total
 
-def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False,partial=False,special=False,release=False,return_mode=False,caller_arrival=False,caller_byte=False,caller_integers=False,integer_count=None):
-    if sum((second,third,control,arrival,post_ctr,partial,special,release,return_mode,caller_arrival,caller_byte,caller_integers))>1:raise ValueError('native mode')
+def branch_markers(count):
+    if not isinstance(count,int) or isinstance(count,bool) or not 1<=count<=8:raise ValueError('native integer count')
+    trial=re.compile(f'FORMATTER_CALLER_BRANCH_TRIAL n=([0-7]) native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers={count} caller_branch=1 fallthrough=1 alternate_guard=1 next_label_stop=1 deferred=1 reply=0 visits=98 total_visits={100+count}')
+    total=f'FORMATTER_CALLER_BRANCH_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers={8*count} caller_branches=8 fallthrough=8 alternate_guard=8 next_label_stop=8 deferred=8 reply=0 visits=784 total_visits={800+8*count} ios_steps=5 fallback=0 complete_image=0 boot_verified=0'
+    return 'FORMATTER_CALLER_BRANCH',trial,total
+
+def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr=False,partial=False,special=False,release=False,return_mode=False,caller_arrival=False,caller_byte=False,caller_integers=False,caller_branch=False,integer_count=None):
+    if sum((second,third,control,arrival,post_ctr,partial,special,release,return_mode,caller_arrival,caller_byte,caller_integers,caller_branch))>1:raise ValueError('native mode')
     tag,trial,total=markers(second)
     if third:tag,trial,total='FORMATTER_THIRD',THIRD_TRIAL,None
     if control:tag,trial,total='FORMATTER_CONTROL',CONTROL_TRIAL,CONTROL_TOTAL
@@ -65,6 +71,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
     if caller_arrival:tag,trial,total='FORMATTER_CALLER_ARRIVAL',CALLER_ARRIVAL_TRIAL,CALLER_ARRIVAL_TOTAL
     if caller_byte:tag,trial,total='FORMATTER_CALLER_BYTE',CALLER_BYTE_TRIAL,CALLER_BYTE_TOTAL
     if caller_integers:tag,trial,total=integer_markers(integer_count)
+    elif caller_branch:tag,trial,total=branch_markers(integer_count)
     elif integer_count is not None:raise ValueError('native mode')
     details=None;third_total=None
     trials=set();cells={};aggregate=None;native=False
@@ -79,7 +86,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
                 details=current
             trials.add(int(m[1]))
         elif line.startswith('FORMATTER_NESTED_CELL_TRIAL '):
-            if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers:raise ValueError('unexpected cell observation')
+            if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers or caller_branch:raise ValueError('unexpected cell observation')
             m=CELL.fullmatch(line)
             if not m or int(m[1]) in cells:raise ValueError('cell trial')
             v=tuple(map(int,m.groups()[1:]))
@@ -87,7 +94,7 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
                 raise ValueError('cell consistency')
             cells[int(m[1])]=v
         elif line.startswith('FORMATTER_NESTED_CELL_NATIVE '):
-            if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers:raise ValueError('unexpected cell observation')
+            if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers or caller_branch:raise ValueError('unexpected cell observation')
             m=CELL_TOTAL.fullmatch(line)
             if not m or aggregate is not None:raise ValueError('cell aggregate')
             aggregate=tuple(map(int,m.groups()))
@@ -102,20 +109,20 @@ def verify(lines,*,second=False,third=False,control=False,arrival=False,post_ctr
             native=True
         elif line.startswith('FORMATTER_NESTED_REFUSAL '):
             raise ValueError('native refusal')
-    if trials!=set(range(8)) or not native or (not (control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers) and set(cells)!=trials):
+    if trials!=set(range(8)) or not native or (not (control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers or caller_branch) and set(cells)!=trials):
         raise ValueError('trial coverage')
     if (third or post_ctr) and third_total!=tuple(8*v for v in details):raise ValueError('native totals')
-    if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers:return (total,)
+    if control or arrival or post_ctr or partial or special or release or return_mode or caller_arrival or caller_byte or caller_integers or caller_branch:return (total,)
     if aggregate!=tuple(sum(v[i] for v in cells.values()) for i in range(3)):
         raise ValueError('cell totals')
     return (f'FORMATTER_NESTED_CELL_NATIVE owner=1 trials=8 cold_match={aggregate[0]} live_match={aggregate[1]} sample_equal={aggregate[2]} endpoint_only=1 guest_loads=0 guest_writes=0',total)
 
 def main():
-    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');m.add_argument('--control',action='store_true');m.add_argument('--arrival',action='store_true');m.add_argument('--post-ctr',action='store_true');m.add_argument('--partial',action='store_true');m.add_argument('--special',action='store_true');m.add_argument('--release',action='store_true');m.add_argument('--return',dest='return_mode',action='store_true');m.add_argument('--caller-arrival',action='store_true');m.add_argument('--caller-byte',action='store_true');m.add_argument('--caller-integers',action='store_true');a.add_argument('--integer-count',type=int);q=a.parse_args()
+    a=argparse.ArgumentParser();a.add_argument('log',type=Path);m=a.add_mutually_exclusive_group();m.add_argument('--second',action='store_true');m.add_argument('--third',action='store_true');m.add_argument('--control',action='store_true');m.add_argument('--arrival',action='store_true');m.add_argument('--post-ctr',action='store_true');m.add_argument('--partial',action='store_true');m.add_argument('--special',action='store_true');m.add_argument('--release',action='store_true');m.add_argument('--return',dest='return_mode',action='store_true');m.add_argument('--caller-arrival',action='store_true');m.add_argument('--caller-byte',action='store_true');m.add_argument('--caller-integers',action='store_true');m.add_argument('--caller-branch',action='store_true');a.add_argument('--integer-count',type=int);q=a.parse_args()
     safe={'unexpected cell observation','native mode','native integer count','native trial details','native totals','native trial','cell trial','cell consistency','cell aggregate','native aggregate','native refusal','trial coverage','cell totals'}
     try:
         if q.log.stat().st_size>16*1024*1024:raise ValueError('log size')
-        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third,control=q.control,arrival=q.arrival,post_ctr=q.post_ctr,partial=q.partial,special=q.special,release=q.release,return_mode=q.return_mode,caller_arrival=q.caller_arrival,caller_byte=q.caller_byte,caller_integers=q.caller_integers,integer_count=q.integer_count)
+        with q.log.open(encoding='utf-8',errors='replace') as f:result=verify(f,second=q.second,third=q.third,control=q.control,arrival=q.arrival,post_ctr=q.post_ctr,partial=q.partial,special=q.special,release=q.release,return_mode=q.return_mode,caller_arrival=q.caller_arrival,caller_byte=q.caller_byte,caller_integers=q.caller_integers,caller_branch=q.caller_branch,integer_count=q.integer_count)
     except (ValueError,OSError) as ex:
         print('FORMATTER_NESTED_LOG verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'input'));return 1
     print(*result,sep='\n');return 0
