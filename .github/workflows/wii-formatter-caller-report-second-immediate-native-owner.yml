@@ -1,0 +1,121 @@
+name: Wii Original Formatter 123 Immediate Native Continuation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-caller-report-second-immediate-native-owner.yml'
+      - 'research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_second_immediate_nested.py'
+      - 'research/native_recomp/test_formatter_report_second_immediate_log.py'
+      - 'research/native_recomp/wii_formatter_report_second_immediate.h'
+      - 'research/native_recomp/test_formatter_report_second_immediate.cpp'
+      - 'research/native_recomp/wii_post_stm_sc_formatter.h'
+      - 'research/native_recomp/wii_formatter_report_byte_transition.h'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
+      - 'research/native_recomp/prepare_formatter_nested_fixture.py'
+      - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
+      - 'research/native_recomp/validate_formatter_nested_log.py'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-formatter-123-native-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_formatter_report_post_signext_immediate_fixture.py research/native_recomp/prepare_formatter_nested_fixture.py research/native_recomp/validate_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_report_post_signext_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_second_immediate_nested.py
+          python3 research/native_recomp/test_formatter_report_second_immediate_log.py
+          python3 research/native_recomp/test_formatter_report_signext_log.py
+          python3 research/native_recomp/test_formatter_report_signext_nested.py
+          python3 research/native_recomp/test_formatter_report_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_stack_copy_fixture.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
+          python3 research/native_recomp/test_formatter_nested_log.py
+          for test in test_formatter_caller_integer test_formatter_report_byte_transition test_formatter_nested_join test_formatter_report_signext test_formatter_report_second_immediate; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
+          g++ -std=c++20 -O2 -DNDEBUG -Wall -Wextra -Werror -Iresearch/native_recomp research/native_recomp/test_formatter_report_second_immediate.cpp -o /tmp/test_formatter_report_second_immediate_release
+          /tmp/test_formatter_report_second_immediate_release
+  owner-second-immediate:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require pinned original 122 native execution and original 123 fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          prerequisites=(
+              Requirement(46016564555,'96ee9aa5c4dae4ab59da93b7863d215b38919bab',
+                          '.github/workflows/wii-formatter-caller-report-signext-native-owner.yml',
+                          'owner-signext'),
+              Requirement(46017777084,'6ca623a78a5675a958e5247658453c5f61fe57f5',
+                          '.github/workflows/wii-formatter-123-immediate-fixture.yml',
+                          'owner-provenance'),
+          )
+          def fetch(endpoint):
+              raw=subprocess.check_output(
+                  ['gh','api',f"repos/{os.environ['GH_REPO']}/{endpoint}"],
+                  stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:ok=all(verify(fetch,requirement) for requirement in prerequisites)
+          except (OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):ok=False
+          if not ok:raise SystemExit('FORMATTER_123_NATIVE_GATE verified=0')
+          print('FORMATTER_123_NATIVE_GATE verified=1 original_122=1 authenticated_123=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage authenticated private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original 123-instruction guarded native continuation
+        env:
+          UNDERCOVER_EXPECTED_CALLER_INTEGER_COUNT: '2'
+          UNDERCOVER_EXPECTED_CALLER_POST_INTEGER_COUNT: '1'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_INTEGERS: '2'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_TAKEN: '2'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_FALLTHROUGH: '1'
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nwii123"
+          git -C "$RUNNER_TEMP/nwii123" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nwii123" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nwii123" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nwii123" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --formatter-nested-caller-report-second-immediate
+      - name: Remove original files and generated translated code
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nwii123"
