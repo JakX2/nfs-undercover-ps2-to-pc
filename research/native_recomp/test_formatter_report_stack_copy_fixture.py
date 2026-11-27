@@ -193,13 +193,15 @@ class StackCopyFixture(unittest.TestCase):
                   r'\s*,formatter_report_fourth_immediate_private::next_word\s*')
         fifth = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_FIFTH_IMMEDIATE'
                  r'\s*,formatter_report_fifth_immediate_private::next_word\s*')
+        sixth = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_SIXTH_IMMEDIATE'
+                 r'\s*,formatter_report_sixth_immediate_private::next_word\s*')
         expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY'
                     r'\s*,formatter_report_copy_private::next_word\s*'
                     r'(?:' + immediate +
                     r'(?:' + signext +
                     r'(?:' + second +
                     r'(?:' + third +
-                    r'(?:' + fourth + r'(?:' + fifth + r'#endif\s*)?' + r'#endif\s*)?'
+                    r'(?:' + fourth + r'(?:' + fifth + r'(?:' + sixth + r'#endif\s*)?' + r'#endif\s*)?' + r'#endif\s*)?'
                     r'#endif\s*)?'
                     r'#endif\s*)?'
                     r'#endif\s*)?'
