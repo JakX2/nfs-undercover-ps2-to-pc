@@ -51,5 +51,28 @@ int main(){
         p=run(x(3,5,0,954),one);
         assert(p&&p->value==(i<128u?i:0xffffff00u+i));
     }
-    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 original_execution=0\n";
+    // Runtime stack base is deliberately varied: no fixed address is a
+    // valid substitute for the private symbolic parent stack identity.
+    for(const auto sp:{0x80000000u,0x80012000u,0x817ffd40u}){
+        gp[1]=sp;gp[7]=sp;gp[8]=sp+8u;
+        auto move=predict_caller_stack_move(x(1,5,1,444),gp,0x12345678u,sp);
+        assert(move&&move->reg==5u&&move->value==sp&&move->cr==0x12345678u);
+        move=predict_caller_stack_move(x(7,6,7,444),gp,0x87654321u,sp);
+        assert(move&&move->reg==6u&&move->value==sp&&move->cr==0x87654321u);
+        assert(!predict_caller_stack_move(x(1,5,1,444,true),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,5,7,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(8,5,8,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,16,1,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,1,1,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,2,1,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,13,1,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(7,7,7,444),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,5,1,28),gp,0u,sp));
+        assert(!predict_caller_stack_move(x(1,5,1,444),gp,0u,sp+8u));
+    }
+    for(const auto sp:{0x7ffffff8u,0x80000001u,0x817ffd48u,0xfffffff8u}){
+        gp[1]=sp;
+        assert(!predict_caller_stack_move(x(1,5,1,444),gp,0u,sp));
+    }
+    std::cout<<"FORMATTER_CALLER_INTEGER_TEST byte_patterns=256 stack_move_cases=40 original_execution=0\n";
 }

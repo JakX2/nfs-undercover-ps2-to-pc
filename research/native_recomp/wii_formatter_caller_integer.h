@@ -70,4 +70,16 @@ inline std::optional<CallerIntegerEffect> predict_caller_integer(
     if(used!=declared||(out.reg&&!writable(*out.reg)))return {};
     return out;
 }
+
+// Exact stack identity, not a sampled arbitrary operand. The caller must
+// have independently authenticated parent_sp as its still-live frame base.
+// Accept only a non-record OR of an identical register into a volatile GPR.
+inline std::optional<CallerIntegerEffect> predict_caller_stack_move(
+    uint32_t w,const std::array<uint32_t,32>& gp,uint32_t cr,uint32_t parent_sp){
+    const unsigned op=w>>26,rs=(w>>21)&31u,ra=(w>>16)&31u,rb=(w>>11)&31u,xo=(w>>1)&1023u;
+    if(op!=31u||xo!=444u||(w&1u)||rs!=rb||ra==rs||
+       !(ra==0u||(ra>=3u&&ra<=12u))||gp[1]!=parent_sp||gp[rs]!=parent_sp||
+       parent_sp<0x80000000u||parent_sp>0x81800000u-704u||(parent_sp&7u))return {};
+    return CallerIntegerEffect{ra,parent_sp,cr};
+}
 }
