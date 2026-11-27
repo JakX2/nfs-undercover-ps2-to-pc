@@ -177,4 +177,19 @@ class CallerArrival(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(Return().logs(),caller_arrival=True)
     def test_mode(self):
         with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_arrival=True,return_mode=True)
+class CallerByte(unittest.TestCase):
+    def logs(self):
+        return [f'FORMATTER_CALLER_BYTE_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 next_label_stop=1 deferred=1 reply=0 visits=98 total_visits=99' for i in range(8)]+['FORMATTER_CALLER_BYTE_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 next_label_stop=8 deferred=8 reply=0 visits=784 total_visits=792 ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def test_exact(self):
+        x=self.logs();self.assertEqual(verify(x,caller_byte=True),(x[-1],))
+    def test_byte(self):
+        x=self.logs();x[0]=x[0].replace('caller_byte_verified=1','caller_byte_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):verify(x,caller_byte=True)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=792','total_visits=784')
+        with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_byte=True)
+    def test_previous_not_accepted(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerArrival().logs(),caller_byte=True)
+    def test_mode(self):
+        with self.assertRaisesRegex(ValueError,'mode'):verify(self.logs(),caller_byte=True,caller_arrival=True)
 if __name__=='__main__':unittest.main(verbosity=2)
