@@ -5,8 +5,6 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - '.github/workflows/wii-formatter-post-ctr-owner.yml'
-      # Re-run only when the explicit native written-byte witness is updated.
-      - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
 permissions:
   contents: read
   actions: read
