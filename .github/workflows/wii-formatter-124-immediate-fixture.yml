@@ -45,7 +45,7 @@ jobs:
           import json,os,subprocess
           from verify_v1062_owner_gate import Requirement,verify
           requirement=Requirement(
-              46020534517,'a10d32cbd5a3f0efaf74c398f277aa04c619d387',
+              46020534517,'a10d32cbd5a3c46ce1e59c2591bacbe56093916c',
               '.github/workflows/wii-formatter-124-successor-audit.yml',
               'owner-provenance')
           def fetch(endpoint):
