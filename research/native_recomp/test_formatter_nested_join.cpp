@@ -84,6 +84,12 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     constexpr uint32_t link=R+20,dst=T+0x100u,site=T+24u,partial=dst+4u;
     const uint32_t stop=dst+(fault>=11?24u:20u);
     const auto parent_sp=SP-704u,child_sp=parent_sp-48u;
+    // Cross-frame pointers are established before either witness begins.
+    // These are synthetic inputs, not values learned from a stopped CPU.
+    const int32_t move_offset=follow>=268?(follow==269?-48:864):0;
+    const unsigned move_source=follow>=268?14u:1u;
+    const uint32_t move_value=uint32_t(int64_t(parent_sp)+move_offset);
+    if(follow>=268)c.gpr[14]=move_value;
     c.mmu.write32(child_sp+8,seed);c.mmu.write32(parent_sp+16,0xfacecafeu);
     const std::array<IpcDispatchWord,5> pp{{{R,R,ins(37,1,1,-704)},{R,R+4,0x7c0802a6},
         {R,R+8,ins(36,0,1,708)},{R,R+12,ins(47,16,1,640)},{R,R+16,bl(R+16,T)}}};
@@ -520,7 +526,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const auto post_mix_branch=byte_next+4u,post_mix_other=post_mix_branch+4u,post_mix_end=post_mix_branch+16u;
     const uint32_t post_mix_word=(16u<<26)|(12u<<21)|(2u<<16)|16u;
     const uint32_t post_mix_end_word=follow>=250?
-        (31u<<26)|(1u<<21)|(7u<<16)|(1u<<11)|(444u<<1)|unsigned(follow==254):0x60000000u;
+        (31u<<26)|(move_source<<21)|(7u<<16)|(move_source<<11)|(444u<<1)|unsigned(follow==254):0x60000000u;
     c.mmu.write32(byte_next,follow==211?guard_word:byte_next_word);
     c.mmu.write32(byte_next+4u,follow>=228?post_mix_word:follow==212?byte_next_word:guard_word);
     const std::array<CallerIntegerInput,1> post_mix_inputs{{{6,follow==234?8u:9u}}};
@@ -582,11 +588,11 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     c.mmu.write32(move_next,follow==252?guard_word:move_word);
     c.mmu.write32(move_next+4u,follow==253?move_word:guard_word);
     if(follow==255)c.mmu.write32(post_mix_other,move_word);
-    const bool move_armed=child.resume_caller_stack_move(c,follow==251?8:0,
+    const bool move_armed=child.resume_caller_stack_move(c,(follow==251||follow==270)?move_offset+8:move_offset,
         move_next+(follow==256?4u:0u),move_word,held()&&follow!=257);
-    if(follow>=251&&follow<=257){assert(!move_armed);return;}
+    if((follow>=251&&follow<=257)||follow==270){assert(!move_armed);return;}
     assert(move_armed&&child.stage()==24u&&child.caller_stack_move_visits()==0u);
-    c.gpr[7]=parent_sp^(follow==258?1u:0u);
+    c.gpr[7]=move_value^((follow==258||follow==271)?1u:0u);
     if(follow==260)c.mmu.write32(move_next,guard_word);
     if(follow==261)c.mmu.write32(move_next+4u,move_word);
     if(follow==262)c.mmu.write32(post_mix_other,move_word);
@@ -594,7 +600,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(follow==264)c.gpr[16]^=1u;
     c.inst_count+=follow==259?2u:1u;
     const bool move_done=child.stop_after_caller_stack_move(c,follow==265?post_mix_other:move_next,move_word,held()&&follow!=266);
-    if(follow>=258&&follow<=266){assert(!move_done);return;}
+    if((follow>=258&&follow<=266)||follow==271){assert(!move_done);return;}
     assert(move_done&&child.reached_caller_stack_move(c,held())&&child.caller_stack_move_visits()==1u);
     if(parent_delay)assert(parent.frame_age(c)==137u&&child.caller_parent_tick_limit()==137u);
     if(follow==267)assert(!child.stop_after_caller_stack_move(c,move_next,move_word,held()));
@@ -613,4 +619,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,249,128u-baseline);
     for(unsigned follow=250;follow<=267;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,250,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=557 original_execution=0\n";}
+    for(unsigned follow=268;follow<=271;++follow)caller_trial(0,0x1234beefu,follow);
+    caller_trial(0,0x1234beefu,268,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=562 original_execution=0\n";}
