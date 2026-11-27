@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -91,6 +91,20 @@ class Test(unittest.TestCase):
         for bad in ({**new,T:(N,N)},{**new,R:(call,load,N,N)}):
             with self.assertRaisesRegex(ValueError,'caller byte expansion'):expand_byte(old,bad,info)
         with self.assertRaisesRegex(ValueError,'caller byte'):render_byte(info[:4]+(704,9)+info[6:])
+    def test_integer_header_and_expansion(self):
+        call=0x48000001|((T-R)&0x03fffffc);load=0x88610013;add=0x38830001
+        info=(R,R+4,load,call,19,9,R+8,add)
+        old={R:(call,load,add,GUARD),T:(N,GUARD)}
+        new={**old,R:(call,load,add,N,GUARD)}
+        contract=(new,((R+8,add,((3,9),)),),R+12,N)
+        header=render_integers(contract)
+        self.assertIn('ScCallerIntegerStep,1> path',header)
+        self.assertIn('CallerIntegerInput{3u,0x00000009u}',header)
+        self.assertEqual(expand_integers(old,contract,info),new)
+        for bad in ((new,(),R+12,N),(new,((R+8,add,((3,9),(3,9))),),R+12,N)):
+            with self.assertRaisesRegex(ValueError,'caller integers'):render_integers(bad)
+        with self.assertRaisesRegex(ValueError,'integer expansion'):
+            expand_integers(old,({**new,T:(N,N)},*contract[1:]),info)
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
