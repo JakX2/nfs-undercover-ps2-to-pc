@@ -291,4 +291,22 @@ class CallerFourthBranch(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'aggregate'):verify(x,caller_fourth_branch=True,integer_count=2,post_integer_count=1)
     def test_prior(self):
         with self.assertRaisesRegex(ValueError,'coverage'):verify(CallerThirdBranch().logs(),caller_fourth_branch=True,integer_count=2,post_integer_count=1)
+class CallerMixed(unittest.TestCase):
+    def logs(self,count=2,post=1,integers=2,taken=1,fallthrough=0):
+        return [f'FORMATTER_CALLER_MIXED_TRIAL n={i} native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers={count} caller_branches=4 post_integers={post} mixed_integers={integers} mixed_taken={taken} mixed_fallthrough={fallthrough} next_label_stop=1 deferred=1 reply=0 visits=98 total_visits={103+count+post+integers+taken+fallthrough}' for i in range(8)]+[f'FORMATTER_CALLER_MIXED_NATIVE owner=1 trials=8 native_prefix=8 loads=120 stores=136 nonvolatile=144 authenticated_loads=40 conditional_stack_loads=8 caller_stores=32 parent_overlay=8 lr_restored=8 frame_release=8 original_return=8 caller_dispatch=8 caller_loads=8 caller_bytes_verified=8 caller_integers={8*count} caller_branches=32 post_integers={8*post} mixed_integers={8*integers} mixed_taken={8*taken} mixed_fallthrough={8*fallthrough} next_label_stop=8 deferred=8 reply=0 visits=784 total_visits={824+8*(count+post+integers+taken+fallthrough)} ios_steps=5 fallback=0 complete_image=0 boot_verified=0']
+    def probe(self,logs,integers=2,taken=1,fallthrough=0):
+        return verify(logs,caller_mixed=True,integer_count=2,post_integer_count=1,mixed_integers=integers,mixed_taken=taken,mixed_fallthrough=fallthrough)
+    def test_exact(self):
+        for a,b,c in ((2,1,0),(0,0,1),(16,0,0),(0,8,8)):
+            x=self.logs(integers=a,taken=b,fallthrough=c);self.assertEqual(self.probe(x,a,b,c),(x[-1],))
+    def test_count(self):
+        for counts in ((0,0,0),(16,1,0),(None,1,0),(True,1,0)):
+            with self.assertRaisesRegex(ValueError,'mixed count'):self.probe(self.logs(),*counts)
+    def test_outcome(self):
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(self.logs(),2,0,1)
+    def test_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=872','total_visits=848')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerFourthBranch().logs())
 if __name__=='__main__':unittest.main(verbosity=2)
