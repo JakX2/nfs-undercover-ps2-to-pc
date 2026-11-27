@@ -867,13 +867,13 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
            child.caller_report_signext_visits()==1u);
     assert(child.caller_post_fourth_tick_budget()==14u);
     if(follow==409)c.mmu.write32(next_entry+24u,entry_word);
-    const bool second_armed=child.resume_caller_report_second_immediate(
+    const bool second_immediate_armed=child.resume_caller_report_second_immediate(
         c,follow==406?5u:4u,follow==407?0u:0xfffffffeu,
         held()&&follow!=408);
     if(follow>=406&&follow<=409){
-        assert(!second_armed);return;
+        assert(!second_immediate_armed);return;
     }
-    assert(second_armed&&child.stage()==40u&&
+    assert(second_immediate_armed&&child.stage()==40u&&
            child.caller_report_second_immediate_visits()==0u);
     assert(child.caller_post_fourth_tick_budget()==15u);
     c.gpr[4]=follow==410?0u:0xfffffffeu;
