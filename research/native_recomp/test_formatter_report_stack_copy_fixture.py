@@ -155,6 +155,34 @@ class StackCopyFixture(unittest.TestCase):
         self.assertEqual(scopes, [], 'unterminated native harness conditionals')
         self.assertEqual(seen, {'main', 'post-integer', 'next-entry', 'byte'})
 
+    def test_native_120_call_chain_keeps_three_guarded_words(self):
+        # The first owner attempt reached native compilation before failing
+        # on an extended witness overload. Catch missing copy arguments in
+        # the shared harness during original-free checks instead.
+        import re
+        source = Path(__file__).with_name(
+            'test_native_scheduler_postack_v1256.cpp').read_text()
+        calls = (
+            ('!formatter_nested->resume_caller_next_entry(',
+             'return;'),
+            ('!formatter_report_byte->arm_native(',
+             'return;'),
+            ('!formatter_report_compare->arm(',
+             'return;'),
+        )
+        expected = (r'#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_COPY'
+                    r'\s*,formatter_report_copy_private::next_word\s*#endif')
+        for opening, terminal in calls:
+            with self.subTest(call=opening):
+                self.assertEqual(source.count(opening), 1)
+                fragment = source.split(opening, 1)[1].split(terminal, 1)[0]
+                self.assertRegex(fragment, expected)
+                self.assertEqual(
+                    fragment.count('formatter_report_copy_private::next_word'), 1)
+        self.assertIn(
+            'c.mmu.write32(formatter_report_copy_private::next_pc+4u,0x44000002u);',
+            source)
+
     def test_private_header_compiles(self):
         compiler=shutil.which('g++')
         if not compiler:
