@@ -430,6 +430,24 @@ public:
         return resume_instruction_path(c,next,held);
     }
     bool frame_released()const{return frame_released_;}
+    // The local blr label has already ticked. Arm only the exact original
+    // return, and require the unchanged native body to reach the guard
+    // at the caller's dispatcher poll. No guest PC is assigned here.
+    template<class C>bool arm_native_return(C& c,uint32_t caller,uint32_t guard_word,bool held){
+        if(!reached_instruction_boundary(c,held)||!frame_released_||!caller_parent_||
+           e_.target_word!=0x4e800020u||caller!=e_.entry_lr||lr_!=caller||
+           (caller&3u)||guard_word!=0x7fe00008u||!word(c,caller,guard_word)||
+           caller==e_.target||!return_registers_held()||
+           !caller_parent_->child_frame_held_with_stores(c,held,*this))return fail(6);
+        return_pc_=caller;return_word_=guard_word;stage_=6u;return true;
+    }
+    template<class C>bool native_return_poll(C& c,bool held){
+        if(stage_!=6u||!return_storage(c,held))return fail(6);
+        ++visits_;stage_=7u;return true;
+    }
+    template<class C>bool reached_native_return(C& c,bool held)const{
+        return stage_==7u&&return_storage(c,held)&&visits_==e_.path.size()+1u;
+    }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
            visits_!=e_.path.size()||pc!=e_.target||w!=e_.target_word||
@@ -522,6 +540,13 @@ private:
     uint64_t last_=0,seen_=0;unsigned stage_=0,error_=0,visits_=0,stores_=0,loads_=0,authenticated_loads_=0;
     bool initial_poll_=false,entry_seen_=false,due_=false,back_poll_due_=false,boundary_due_=false;
     bool release_authorized_=false,frame_released_=false;
+    uint32_t return_pc_=0,return_word_=0;
+    template<class C>bool return_storage(C& c,bool held)const{
+        return frame_released_&&caller_parent_&&return_pc_==e_.entry_lr&&
+            c.pc==return_pc_&&c.inst_count==last_&&word(c,return_pc_,return_word_)&&
+            word(c,e_.target,e_.target_word)&&common(c,held)&&abi(c)&&
+            caller_parent_->child_frame_held_with_stores(c,held,*this);
+    }
     uint32_t poll_pc_=0,poll_ctr_=0;unsigned back_polls_=0;
     template<class C>bool control_storage(C& c,bool held)const{
         return e_.control.destination&&boundary_due_&&!due_&&!back_poll_due_&&common(c,held)&&abi(c)&&

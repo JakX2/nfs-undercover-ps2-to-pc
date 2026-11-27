@@ -243,12 +243,31 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==19||follow==20||follow==21||follow==27){assert(!ret_held);return;}
     assert(ret_held&&child.reached_instruction_boundary(c,held())&&child.visits()==epilogue.size());
     assert(c.lr==link&&c.gpr[1]==parent_sp&&c.mmu.read32(parent_sp+20)==(seed&0xffffu));
-    if(follow==26)assert(!child.resume_instruction_path(c,ep,held()));
+    if(follow==26){assert(!child.resume_instruction_path(c,ep,held()));return;}
+    if(follow<28)return;
+    constexpr uint32_t guard_word=0x7fe00008u;
+    c.mmu.write32(link,guard_word);
+    if(follow==30)c.mmu.write32(link,0x60000000u);
+    const bool armed=child.arm_native_return(c,link+(follow==29?4u:0u),guard_word,held()&&follow!=31);
+    if(follow==29||follow==30||follow==31){assert(!armed);return;}
+    assert(armed&&child.stage()==6u&&child.visits()==epilogue.size());
+    assert(c.pc==dst); // observer has not redirected the guest
+    // Independent architectural effect of the original blr.
+    c.pc=follow==32?link+4u:link;
+    if(follow==33)++c.inst_count;
+    if(follow==34)c.gpr[3]^=1u;
+    if(follow==35)c.mmu.write32(parent_sp+20,0u);
+    if(follow==36)c.mmu.write32(link,0x60000000u);
+    if(follow==37)c.lr^=4u;
+    const bool arrived=child.native_return_poll(c,held()&&follow!=38);
+    if(follow>=32&&follow<=38){assert(!arrived);return;}
+    assert(arrived&&child.reached_native_return(c,held())&&child.visits()==epilogue.size()+1u);
+    if(follow==39)assert(!child.native_return_poll(c,held())); // no double counting
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=27;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=314 original_execution=0\n";}
+    for(unsigned follow=1;follow<=39;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=326 original_execution=0\n";}
