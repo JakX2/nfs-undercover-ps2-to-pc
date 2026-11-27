@@ -103,8 +103,17 @@ def render(contract):
     if (not isinstance(contract, tuple) or len(contract) != 2 or
             not isinstance(contract[1], tuple) or len(contract[1]) != 9):
         raise ValueError('report signext rendering')
-    root, pc, word, next_pc, following, reg, before, after, ret = contract[1]
-    if (any(type(x) is not int for x in contract[1]) or
+    blocks, fields = contract
+    root, pc, word, next_pc, following, reg, before, after, ret = fields
+    if (not isinstance(blocks, dict) or root not in blocks or
+            not isinstance(blocks[root], tuple) or len(blocks[root]) != 7 or
+            blocks[root][4:] != (word, following, GUARD)):
+        raise ValueError('report signext rendering')
+    try:
+        check_spans({address: 4 * len(words) for address, words in blocks.items()})
+    except (ValueError, KeyError, TypeError) as error:
+        raise ValueError('report signext rendering') from error
+    if (any(type(x) is not int for x in fields) or
             root & 3 or not MEM1_BEGIN <= root < MEM1_END - 28 or
             pc != root + 16 or next_pc != root + 20 or
             following == GUARD or not 0 <= following <= 0xffffffff or
