@@ -1,0 +1,29 @@
+name: Wii Formatter 126 Independent Native Witness Regression
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-126-witness.yml'
+      - 'research/native_recomp/wii_formatter_report_fifth_immediate.h'
+      - 'research/native_recomp/test_formatter_report_fifth_immediate.cpp'
+      - 'research/native_recomp/wii_formatter_caller_integer.h'
+      - 'research/native_recomp/prepare_formatter_report_fifth_immediate_fixture.py'
+      - 'research/native_recomp/test_formatter_report_fifth_immediate_fixture.py'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile research/native_recomp/prepare_formatter_report_fifth_immediate_fixture.py
+          python3 research/native_recomp/test_formatter_report_fifth_immediate_fixture.py
+          for flags in '-O2 -DNDEBUG' '-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie'; do
+            g++ -std=c++20 $flags -Wall -Wextra -Werror -pedantic -Iresearch/native_recomp research/native_recomp/test_formatter_report_fifth_immediate.cpp -o /tmp/wii-formatter-126-witness
+            /tmp/wii-formatter-126-witness
+            rm -f /tmp/wii-formatter-126-witness
+          done
