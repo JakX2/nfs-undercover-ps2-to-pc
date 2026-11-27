@@ -62,12 +62,46 @@ public:
         return true;
     }
 
+    // NWiiRecomp local instruction labels do not imply a new dispatch PC.
+    // Keep the callee root in CPUContext::pc and authenticate the exact
+    // successor label/word supplied by the generated native hook instead.
+    // The guarded return and next unexecuted instruction must remain intact.
+    template<class C, class Report>
+    bool arm_native(C& c, Report& report, const FormatterReportByteStep& s, bool held) {
+        if (s.pc > std::numeric_limits<uint32_t>::max() - 8u ||
+            s.next_pc != s.pc + 4u || s.lr == s.pc || s.lr == s.next_pc ||
+            s.lr == s.pc + 8u || !word(c,s.pc+8u,0x44000002u) ||
+            !word(c,s.lr,0x44000002u))
+            return reject();
+        if (!arm(c,report,s,held)) return false;
+        native_label_ = true;
+        return true;
+    }
+
+    template<class C, class Report>
+    bool observe_native_label(C& c, Report& report, uint32_t label_pc,
+                              uint32_t label_word, bool held) {
+        if (!native_label_ || label_pc != step_.next_pc ||
+            label_word != step_.next_word ||
+            !word(c,step_.pc+8u,0x44000002u) ||
+            !word(c,step_.lr,0x44000002u))
+            return reject();
+        return observe_effect(c,report,held,step_.pc);
+    }
+
     template<class C, class Report>
     bool observe(C& c, Report& report, bool held) {
+        if (native_label_) return reject();
+        return observe_effect(c,report,held,step_.next_pc);
+    }
+
+private:
+    template<class C, class Report>
+    bool observe_effect(C& c, Report& report, bool held, uint32_t dispatch_pc) {
         if (stage_ != 1u || failed_ || cpu_ != &c || !safe(c) ||
             start_ == std::numeric_limits<uint64_t>::max() ||
             c.inst_count != start_ + 1u ||
-            c.pc != step_.next_pc || c.lr != step_.lr ||
+            c.pc != dispatch_pc || c.lr != step_.lr ||
             c.gqr != gqr_ || c.msr != msr_ || pack(c) != cr_ ||
             c.ctr != ctr_ || c.xer != xer_ ||
             c.srr0 != srr0_ || c.srr1 != srr1_ ||
@@ -88,7 +122,6 @@ public:
         return true;
     }
 
-private:
     bool reject() { failed_ = true; return false; }
     static bool volatile_register(unsigned r) {
         return r == 0u || (r >= 3u && r <= 12u);
@@ -119,6 +152,6 @@ private:
     uint32_t msr_ = 0, cr_ = 0, ctr_ = 0, xer_ = 0, srr0_ = 0, srr1_ = 0;
     uint64_t start_ = 0;
     unsigned rt_ = 0, stage_ = 0;
-    bool indexed_ = false, failed_ = false;
+    bool indexed_ = false, failed_ = false, native_label_ = false;
 };
 } // namespace undercover::wii
