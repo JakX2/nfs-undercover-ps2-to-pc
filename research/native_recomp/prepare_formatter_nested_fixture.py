@@ -16,6 +16,7 @@ from prepare_formatter_caller_arrival_contract import plan as caller_plan
 from prepare_formatter_caller_byte_contract import plan as byte_plan
 from prepare_formatter_caller_integer_contract import plan as integer_plan
 from prepare_formatter_caller_branch_contract import plan as branch_plan
+from prepare_formatter_caller_second_branch_contract import plan as second_branch_plan
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
 from prepare_post_stm_sc_join import GUARD,check_spans
@@ -151,7 +152,7 @@ def expand_integers(old,contract,info):
     check_spans({a:4*len(ws) for a,ws in blocks.items()})
     return blocks
 
-def render_branch(contract):
+def render_branch(contract,*,second=False):
     _,(owner,size,pc,w,taken,chosen,cword,other)=contract
     if owner&3 or not 8<=size<=65536 or size%4 or not isinstance(taken,bool) or w>>26 not in (16,18) or w&3 or cword==GUARD:
         raise ValueError('nested fixture caller branch')
@@ -162,7 +163,8 @@ def render_branch(contract):
     n=16 if w>>26==16 else 26
     disp=w&((1<<n)-4);disp=(disp^(1<<(n-1)))-(1<<(n-1))
     if pc+disp!=(chosen if taken else other):raise ValueError('nested fixture caller branch')
-    return ('namespace formatter_caller_branch_private {\n'
+    name='formatter_caller_second_branch_private' if second else 'formatter_caller_branch_private'
+    return (f'namespace {name} {{\n'
             f'inline constexpr uint32_t owner=0x{owner:08x}u,owner_size={size}u,pc=0x{pc:08x}u,word=0x{w:08x}u;\n'
             f'inline constexpr bool taken={str(taken).lower()};\n'
             f'inline constexpr uint32_t next_pc=0x{chosen:08x}u,next_word=0x{cword:08x}u,other_pc=0x{other:08x}u;\n'
@@ -182,6 +184,15 @@ def expand_branch(old,contract,integer):
     check_spans({a:4*len(ws) for a,ws in blocks.items()})
     return blocks
 
+def expand_second_branch(old,first,second):
+    _,a=first;_,b=second
+    if a[:2]!=b[:2] or a[4] or not b[4] or a[5:7]!=b[2:4] or a[7]==b[5]:
+        raise ValueError('nested fixture caller second branch')
+    expanded=expand_branch(old,second,(None,(),a[5],a[6]))
+    if expanded[a[0]][(a[7]-a[0])//4]!=GUARD:
+        raise ValueError('nested fixture caller second branch')
+    return expanded
+
 def expand(old,blocks,live,root):
     if set(blocks)!=set(old) or root not in old or any(live.get(a)!=ws for a,ws in old.items()):
         raise ValueError('nested fixture predecessor')
@@ -191,7 +202,8 @@ def expand(old,blocks,live,root):
     check_spans({a:4*len(ws) for a,ws in result.items()})
     return result
 
-def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None):
+def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None):
+    if second_branch_contract is not None and branch_contract is None:raise ValueError('nested fixture mode')
     if branch_contract is not None and integer_contract is None:raise ValueError('nested fixture mode')
     if integer_contract is not None and byte_contract is None:raise ValueError('nested fixture mode')
     if byte_contract is not None and caller_contract is None:raise ValueError('nested fixture mode')
@@ -210,6 +222,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
         if byte_contract is not None:expanded={**expanded,**expand_byte(caller_blocks,*byte_contract)}
         if integer_contract is not None:expanded={**expanded,**expand_integers(byte_contract[0],integer_contract,byte_contract[1])}
         if branch_contract is not None:expanded={**expanded,**expand_branch(integer_contract[0],branch_contract,integer_contract)}
+        if second_branch_contract is not None:expanded={**expanded,**expand_second_branch(branch_contract[0],branch_contract,second_branch_contract)}
         check_spans({a:4*len(ws) for a,ws in expanded.items()})
     new=rebuild(raw,expanded,max_roots=60)
     header=render(contract)
@@ -222,13 +235,15 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     if byte_contract is not None:header+=render_byte(byte_contract[1])
     if integer_contract is not None:header+=render_integers(integer_contract)
     if branch_contract is not None:header+=render_branch(branch_contract)
+    if second_branch_contract is not None:header+=render_branch(second_branch_contract,second=True)
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(header)
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
     kind='guarded_instruction' if partial is not None else 'guarded_stack' if post is not None else 'guarded_control' if len(fields)==10 else 'guarded_load'
     print(f'FORMATTER_NESTED_FIXTURE verified=1 labels={len(final[2])} {kind}=1 new_roots=0')
 
-def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None):
+def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None):
+    if second_branch_contract is not None and branch_contract is None:raise ValueError('nested fixture mode')
     if branch_contract is not None and integer_contract is None:raise ValueError('nested fixture mode')
     if integer_contract is not None and byte_contract is None:raise ValueError('nested fixture mode')
     if byte_contract is not None and caller_contract is None:raise ValueError('nested fixture mode')
@@ -243,12 +258,14 @@ def scope(d,e,sizes,p,*,caller_contract=None,byte_contract=None,integer_contract
         if byte_contract is not None:final=expand_byte(final,*byte_contract)
         if integer_contract is not None:final=expand_integers(final,integer_contract,byte_contract[1])
         if branch_contract is not None:final=expand_branch(final,branch_contract,integer_contract)
+        if second_branch_contract is not None:final=expand_second_branch(final,branch_contract,second_branch_contract)
         if owner==root or sizes.get(owner)!=4*len(final[owner]):
             raise ValueError('nested fixture caller extent')
         before[owner]=4*len(old[owner]);extra[owner]=sizes[owner]
     return check_spans({**dict(continuation_scope(d,e,before,prior)),root:sizes[root],**extra})
 
-def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None):
+def install(directory,p,*,arrival=False,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None):
+    if second_branch_contract is not None and branch_contract is None:raise ValueError('nested fixture mode')
     if branch_contract is not None and integer_contract is None:raise ValueError('nested fixture mode')
     if integer_contract is not None and byte_contract is None:raise ValueError('nested fixture mode')
     if byte_contract is not None and caller_contract is None:raise ValueError('nested fixture mode')
@@ -298,6 +315,12 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
                     if info[0]!=owner or info[2:4]!=(end_pc,end_word) or info[5] in expected:
                         raise ValueError('nested fixture caller branch')
                     expected[info[5]]=(owner,info[6])
+                    if second_branch_contract is not None:
+                        _,second_info=second_branch_contract
+                        render_branch(second_branch_contract,second=True)
+                        if second_info[:2]!=info[:2] or second_info[2:4]!=info[5:7] or second_info[5] in expected:
+                            raise ValueError('nested fixture caller second branch')
+                        expected[second_info[5]]=(owner,second_info[6])
     audit_native(sources.values(),main_text,expected)
     if len(control_fields)==10:
         owners=[]
@@ -318,6 +341,9 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
         verify_direct(bodies[0],caller-4,root)
         if branch_contract is not None:
             _,info=branch_contract
+            verify_forward_branch_body(bodies[0],info[2],info[3])
+        if second_branch_contract is not None:
+            _,info=second_branch_contract
             verify_forward_branch_body(bodies[0],info[2],info[3])
         main_text,_=ensure_resume(main_text,bodies[0],owner,caller)
     done=set();changed={}
@@ -344,36 +370,40 @@ def install(directory,p,*,arrival=False,post=None,partial=None,special=None,rele
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path)
     m=a.add_mutually_exclusive_group();m.add_argument('--fixture',type=Path);m.add_argument('--install',type=Path);m.add_argument('--analyzer',type=Path)
-    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');q=a.parse_args()
-    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
+    a.add_argument('--symbols',type=Path);modes=a.add_mutually_exclusive_group();modes.add_argument('--second',action='store_true');modes.add_argument('--third',action='store_true');modes.add_argument('--control',action='store_true');modes.add_argument('--arrival',action='store_true');modes.add_argument('--post-ctr',action='store_true');modes.add_argument('--partial',action='store_true');modes.add_argument('--special',action='store_true');modes.add_argument('--release',action='store_true');modes.add_argument('--return',dest='return_mode',action='store_true');modes.add_argument('--caller-arrival',action='store_true');modes.add_argument('--caller-byte',action='store_true');modes.add_argument('--caller-integers',action='store_true');modes.add_argument('--caller-branch',action='store_true');modes.add_argument('--caller-second-branch',action='store_true');q=a.parse_args()
+    safe={'size','nested fixture instruction boundary','nested fixture return guard','nested fixture caller geometry','nested fixture caller expansion','nested fixture caller extent','nested fixture caller owner','nested fixture caller byte','nested fixture caller byte expansion','nested fixture caller integers','nested fixture caller integer expansion','nested fixture caller branch','nested fixture caller branch expansion','nested fixture caller second branch','caller native branch body','caller native branch target','LR native body','nested fixture stack boundary','CTR analyzer geometry','CTR analyzer anchor','CTR destination trace','CTR native destination','completion local resume','completion outer resume','completion root dispatch','nested fixture arrival mode','CTR native body','nested fixture control owner','nested fixture control contract','nested fixture mode','nested fixture data contract','nested fixture predecessor','nested fixture expansion','nested fixture extent','nested fixture load boundary','nested fixture native hook','nested fixture coverage'}
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         d,e=q.dol.read_bytes(),q.elf.read_bytes()
         with plan_cache_scope():
-            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch)
-            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch else None
-            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch else None
+            p=plan(d,e,second=q.second,third=q.third,control=q.control or q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch)
+            post=post_ctr_plan(d,e,previous=p[0][1],control=p[1]) if q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
+            partial=partial_plan(d,e,previous=p[0][1],control=p[1],post=post) if q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
             special=None
-            if q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch:
+            if q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch:
                 special,info=special_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial)
                 if info[:2]!=('link',1):raise ValueError('nested fixture special provenance')
-            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch else None
-            return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch else None
-            caller_contract=caller_plan(d,e,release=release,previous=p[0][1],return_info=return_contract) if q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch else None
-            byte_contract=byte_plan(d,e,arrival=caller_contract) if q.caller_byte or q.caller_integers or q.caller_branch else None
+            release=release_plan(d,e,previous=p[0][1],control=p[1],post=post,partial=partial,special=special) if q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
+            return_contract=return_plan(d,e,release=release,previous=p[0][1]) if q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
+            caller_contract=caller_plan(d,e,release=release,previous=p[0][1],return_info=return_contract) if q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
+            byte_contract=byte_plan(d,e,arrival=caller_contract) if q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch else None
             integer_contract=None
-            if q.caller_integers or q.caller_branch:
+            if q.caller_integers or q.caller_branch or q.caller_second_branch:
                 integer_contract,_=integer_plan(d,e,byte=byte_contract)
                 if integer_contract is None:raise ValueError('nested fixture caller integers')
             branch_contract=None
-            if q.caller_branch:
-                branch_contract,_=branch_plan(d,e,byte=byte_contract,contract=integer_contract)
-            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract);return 0
-            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract);return 0
+            second_branch_contract=None
+            if q.caller_branch or q.caller_second_branch:
+                branch_contract,second=branch_plan(d,e,byte=byte_contract,contract=integer_contract)
+                if q.caller_second_branch:
+                    second_branch_contract,_,_=second_branch_plan(d,e,byte=byte_contract,integer=integer_contract,first=branch_contract,second=second)
+                    if second_branch_contract is None:raise ValueError('nested fixture caller second branch')
+            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract);return 0
+            if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract);return 0
             if q.analyzer:
                 if not q.symbols:raise ValueError('nested fixture extent')
-                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract))
-                if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch:
+                source=analyzer(q.analyzer.read_text(),scope(d,e,symbols(q.symbols.read_text()),(p[0],release or special or partial or post) if post is not None else p,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract))
+                if q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch:
                     fields=p[1][1];source=analyzer_local_edge(source,fields[0],fields[2],fields[7])
                 q.analyzer.write_text(source)
                 print('FORMATTER_NESTED_ANALYZER verified=1 expanded_root=1 new_roots=0');return 0
