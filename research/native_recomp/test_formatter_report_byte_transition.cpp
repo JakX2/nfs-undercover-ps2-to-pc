@@ -58,10 +58,12 @@ struct Cpu {
 struct Report {
     uint8_t byte=0;
     bool allow=true;
+    unsigned reads=0;
     template<class C>
     std::optional<uint8_t> observed_child_byte(
         C& c,bool held,uint32_t sp,uint32_t link,uint32_t depth,
         uint32_t address,uint32_t extra) {
+        ++reads;
         if(!allow||!held||sp!=Sp||c.gpr[1]!=Sp||
            link!=Link||depth!=736u||extra!=0u||address!=Address)
             return {};
@@ -99,9 +101,11 @@ static unsigned positives() {
             for(unsigned value=0;value<=255u;++value) {
                 Harness h(rt,value,indexed);
                 assert(h.arm());
+                assert(h.report.reads==1u);
                 assert(h.witness.stage()==1u&&!h.witness.failed());
                 h.execute(rt,value);
                 assert(h.observe());
+                assert(h.report.reads==2u);
                 assert(h.witness.stage()==2u&&!h.witness.failed());
                 assert(!h.observe()&&h.witness.failed());
                 ++cases;
@@ -179,11 +183,13 @@ static unsigned native_positives() {
                 h.cpu.mmu.write32(Entry+8u,0x44000002u);
                 h.cpu.mmu.write32(Link,0x44000002u);
                 assert(h.witness.arm_native(h.cpu,h.report,h.step,true));
+                assert(h.report.reads==1u);
                 ++h.cpu.inst_count;
                 h.cpu.gpr[rt]=value;
                 assert(h.cpu.pc==Entry);
                 assert(h.witness.observe_native_label(h.cpu,h.report,
                     Entry+4u,Nop,true));
+                assert(h.report.reads==2u);
                 assert(h.witness.stage()==2u&&!h.witness.failed());
                 assert(!h.witness.observe_native_label(h.cpu,h.report,
                     Entry+4u,Nop,true));
