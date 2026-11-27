@@ -789,6 +789,33 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     assert(child.caller_report_copy_visits()==1u&&child.caller_post_fourth_tick_budget()==12u);
     if(parent_delay)assert(parent.frame_age(c)==142u&&child.caller_parent_tick_limit()==142u);
     if(follow==366)assert(!child.stop_after_caller_report_copy(c,next_entry+12u,after_copy,held()));
+    if(follow<376)return;
+    const auto prior_immediate=c.gpr;
+    if(follow==380)c.mmu.write32(next_entry+12u,entry_word);
+    if(follow==381)c.mmu.write32(next_entry+20u,entry_word);
+    if(follow==382)c.mmu.write32(next_entry+16u,entry_word);
+    if(follow==383)++c.inst_count;
+    if(follow==384)++c.gpr[3];
+    const bool immediate_armed=child.resume_caller_report_immediate(
+        c,follow==377?11u:3u,follow==378?2u:1u,held()&&follow!=379);
+    if(follow>=377&&follow<=384){assert(!immediate_armed);return;}
+    assert(immediate_armed&&child.stage()==36u&&child.caller_report_immediate_visits()==0u);
+    assert(child.caller_post_fourth_tick_budget()==13u&&c.gpr==prior_immediate);
+    c.gpr[3]=follow==385?0u:1u;
+    if(follow==389)c.gpr[8]^=1u;
+    if(follow==390)c.mmu.write32(next_entry+20u,entry_word);
+    if(follow==391)c.cr[1].lt=!c.cr[1].lt;
+    c.inst_count+=follow==386?2u:1u;
+    const bool immediate_done=child.stop_after_caller_report_immediate(c,
+        follow==387?next_entry+12u:next_entry+16u,
+        follow==388?entry_word:after_immediate,held());
+    if(follow>=385&&follow<=391){assert(!immediate_done);return;}
+    assert(immediate_done&&child.stage()==37u&&
+           child.reached_caller_report_immediate(c,held())&&
+           child.caller_report_immediate_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==13u);
+    if(follow==392)
+        assert(!child.stop_after_caller_report_immediate(c,next_entry+16u,after_immediate,held()));
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -813,6 +840,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
-    for(unsigned follow=348;follow<=375;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=348;follow<=392;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=670 compare_cases=10 copy_cases=29 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=687 compare_cases=10 copy_cases=46 immediate_cases=17 original_execution=0\n";}
