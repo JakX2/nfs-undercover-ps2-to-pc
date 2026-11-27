@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed
+from prepare_formatter_nested_fixture import render,expand,render_return,render_caller,expand_caller,render_byte,expand_byte,render_integers,expand_integers,render_branch,expand_branch,expand_second_branch,expand_post_integers,expand_third_branch,expand_fourth_branch,render_mixed,expand_mixed,render_mixed_byte,expand_mixed_byte,render_post_mixed,expand_post_mixed,render_stack_move,expand_stack_move
 from guarded_continuation import GUARD
 R=0x80010000;T=0x80020000;L=0x80030000;A=0x80040000;N=0x60000000
 class Test(unittest.TestCase):
@@ -254,6 +254,20 @@ int main(){return 0;}
         with self.assertRaisesRegex(ValueError,'overlap'):expand_post_mixed(old,byte,mixed,post,bad)
         with self.assertRaisesRegex(ValueError,'expansion'):expand_post_mixed(old,byte,mixed,({**new,T:(N,N)},*post[1:]),branches)
         with self.assertRaisesRegex(ValueError,'post mixed'):expand_post_mixed(old,byte,({},mixed[1],pc+4,load),post,branches)
+    def test_stack_move_expansion(self):
+        pc=R+48;w=(31<<26)|(1<<21)|(7<<16)|(1<<11)|(444<<1)
+        old={R:(N,GUARD,GUARD,GUARD,GUARD,N,GUARD,GUARD,N,N,N,N,w,GUARD,GUARD),T:(N,GUARD)}
+        branches=tuple((None,(R,128,R+4,N,False,R+8,N,R+4*i)) for i in (1,2,3,4))
+        mixed=({},((pc-8,N,(),pc-4,R+24,True),),pc-4,N)
+        post=(old,((pc-4,N,(),pc,R+28,True),),pc,w)
+        body=list(old[R]);body[13]=N;new={**old,R:tuple(body)}
+        info=(R,128,pc,w,864,pc+4,N);contract=(new,info)
+        self.assertIn('formatter_caller_stack_move_private',render_stack_move(contract))
+        self.assertEqual(expand_stack_move(old,post,mixed,contract,branches),new)
+        bad=(branches[0],branches[1],branches[2],(None,branches[3][1][:-1]+(pc+4,)))
+        with self.assertRaisesRegex(ValueError,'overlap'):expand_stack_move(old,post,mixed,contract,bad)
+        with self.assertRaisesRegex(ValueError,'expansion'):expand_stack_move(old,post,mixed,({**new,T:(N,N)},info),branches)
+        with self.assertRaisesRegex(ValueError,'stack move'):render_stack_move((new,(R,128,pc,w|1,864,pc+4,N)))
     def test_expand(self):
         old={R:(N,GUARD),T:(N,)};new={**old,R:(N,N,GUARD)}
         self.assertEqual(expand(old,new,old,R),new)
