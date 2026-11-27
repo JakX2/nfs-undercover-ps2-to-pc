@@ -462,7 +462,22 @@ def expand_report_byte(old,entry,contract):
     check_spans({a:4*len(ws) for a,ws in blocks.items()})
     return blocks
 
-def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None):
+_COMPARE_EXPANSION_STAGES = frozenset({
+    'begin', 'base_joined', 'caller_joined', 'callee_joined',
+    'byte_joined', 'compare_joined', 'spans_checked',
+    'census_checked', 'image_rebuilt', 'header_rendered',
+})
+
+
+def private_compare_checkpoint(stage):
+    """Fixed stage labels only, never original words, addresses or state."""
+    if stage not in _COMPARE_EXPANSION_STAGES:
+        raise ValueError('nested fixture diagnostic stage')
+    print(f'FORMATTER_NESTED_119_STAGE stage={stage}', flush=True)
+
+
+def extend(directory,p,*,post=None,partial=None,special=None,release=None,return_contract=None,caller_contract=None,byte_contract=None,integer_contract=None,branch_contract=None,second_branch_contract=None,post_integer_contract=None,third_branch_contract=None,fourth_branch_contract=None,mixed_contract=None,mixed_byte_contract=None,post_mixed_contract=None,stack_move_contract=None,final_integer_contract=None,next_entry_contract=None,report_byte_contract=None,compare_contract=None,stage_trace=False):
+    if stage_trace:private_compare_checkpoint('begin')
     if compare_contract is not None and report_byte_contract is None:raise ValueError('nested fixture mode')
     if report_byte_contract is not None and next_entry_contract is None:raise ValueError('nested fixture mode')
     if next_entry_contract is not None and final_integer_contract is None:raise ValueError('nested fixture mode')
@@ -487,6 +502,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     image=directory/'fixture.dol';csv=directory/'symbols.csv';raw=image.read_bytes()
     live={a:words_at(raw,a,n//4) for a,n in symbols(csv.read_text()).items()}
     expanded=expand(old,blocks,live,root)
+    if stage_trace:private_compare_checkpoint('base_joined')
     if caller_contract is not None:
         caller_blocks,info=caller_contract
         expanded={**expanded,**expand_caller(blocks,caller_blocks,info)}
@@ -502,11 +518,14 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
         if post_mixed_contract is not None:expanded={**expanded,**expand_post_mixed(mixed_byte_contract[0],mixed_byte_contract,mixed_contract,post_mixed_contract,(branch_contract,second_branch_contract,third_branch_contract,fourth_branch_contract))}
         if stack_move_contract is not None:expanded={**expanded,**expand_stack_move(post_mixed_contract[0],post_mixed_contract,mixed_contract,stack_move_contract,(branch_contract,second_branch_contract,third_branch_contract,fourth_branch_contract))}
         if final_integer_contract is not None:expanded={**expanded,**expand_final_integer(stack_move_contract[0],stack_move_contract,mixed_contract,post_mixed_contract,final_integer_contract,(branch_contract,second_branch_contract,third_branch_contract,fourth_branch_contract))}
+        if stage_trace:private_compare_checkpoint('caller_joined')
         if next_entry_contract is not None:
             if next_entry_contract[1][4] in live:raise ValueError('nested fixture caller next entry overlap')
             expanded={**expanded,**expand_next_entry(final_integer_contract[0],final_integer_contract,next_entry_contract)}
+            if stage_trace:private_compare_checkpoint('callee_joined')
             if report_byte_contract is not None:
                 expanded={**expanded,**expand_report_byte(next_entry_contract[0],next_entry_contract,report_byte_contract)}
+                if stage_trace:private_compare_checkpoint('byte_joined')
                 if compare_contract is not None:
                     candidate,fields=promote_report_compare(report_byte_contract,compare_contract[1][3],compare_contract[1][4:6])
                     if compare_contract!=(candidate,fields) or candidate[fields[0]]!=(
@@ -514,7 +533,9 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
                             candidate[a]!=words for a,words in expanded.items() if a!=fields[0]):
                         raise ValueError('nested fixture report compare expansion')
                     expanded={**expanded,**candidate}
+                    if stage_trace:private_compare_checkpoint('compare_joined')
         check_spans({a:4*len(ws) for a,ws in expanded.items()})
+        if stage_trace:private_compare_checkpoint('spans_checked')
     # The previously authenticated formatter image has 58 CSV roots
     # plus two vector roots. Admit exactly one new authenticated callee.
     root_limit=60
@@ -523,7 +544,9 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
             raise ValueError('nested fixture caller next entry root census')
         root_limit=61
         print('FORMATTER_NESTED_ROOT_CENSUS verified=1 prior=60 expanded=61 new_roots=1')
+    if stage_trace:private_compare_checkpoint('census_checked')
     new=rebuild(raw,expanded,max_roots=root_limit)
+    if stage_trace:private_compare_checkpoint('image_rebuilt')
     header=render(contract)
     if post is not None:header+=render(post,stack_boundary=True)
     if partial is not None:header+=render(partial,instruction_boundary=True)
@@ -546,6 +569,7 @@ def extend(directory,p,*,post=None,partial=None,special=None,release=None,return
     if next_entry_contract is not None:header+=render_next_entry(next_entry_contract)
     if report_byte_contract is not None:header+=render_report_byte(next_entry_contract,report_byte_contract)
     if compare_contract is not None:header+=render_report_compare(compare_contract)
+    if stage_trace:private_compare_checkpoint('header_rendered')
     with (directory/'private_formatter_nested.h').open('x') as out:out.write(header)
     image.write_bytes(new)
     csv.write_text('Name,Location,Size\n'+''.join(f'func_{a:08X},{a:08x},{4*len(ws)}\n' for a,ws in sorted(expanded.items())))
@@ -895,7 +919,7 @@ def main():
             compare_contract=report_compare_plan(
                 d,e,predecessor=report_byte_state) if q.caller_report_compare else None
             phase='fixture_expansion'
-            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract);return 0
+            if q.fixture:extend(q.fixture,p,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract,stage_trace=q.caller_report_compare);return 0
             phase='native_install'
             if q.install:install(q.install,p,arrival=q.arrival or q.post_ctr or q.partial or q.special or q.release or q.return_mode or q.caller_arrival or q.caller_byte or q.caller_integers or q.caller_branch or q.caller_second_branch or q.caller_post_integers or q.caller_third_branch or q.caller_fourth_branch or q.caller_mixed,post=post,partial=partial,special=special,release=release,return_contract=return_contract,caller_contract=caller_contract,byte_contract=byte_contract,integer_contract=integer_contract,branch_contract=branch_contract,second_branch_contract=second_branch_contract,post_integer_contract=post_integer_contract,third_branch_contract=third_branch_contract,fourth_branch_contract=fourth_branch_contract,mixed_contract=mixed_contract,mixed_byte_contract=mixed_byte_contract,post_mixed_contract=post_mixed_contract,stack_move_contract=stack_move_contract,final_integer_contract=final_integer_contract,next_entry_contract=next_entry_contract,report_byte_contract=report_byte_contract,compare_contract=compare_contract);return 0
             phase='analyzer_expansion'
