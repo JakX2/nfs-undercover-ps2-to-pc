@@ -458,5 +458,31 @@ class CallerReportCompare(unittest.TestCase):
     def test_mode_conflict(self):
         with self.assertRaisesRegex(ValueError,'mode'):
             self.probe(self.logs(),caller_report_byte=True)
+    def test_trial_accounting_and_duplicate(self):
+        rows=self.logs()
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(rows[1:])
+        duplicate=rows[:]
+        duplicate.insert(1,rows[0])
+        with self.assertRaisesRegex(ValueError,'trial'):
+            self.probe(duplicate)
+    def test_native_aggregate_required(self):
+        rows=self.logs()
+        with self.assertRaisesRegex(ValueError,'coverage'):
+            self.probe(rows[:-1])
+    def test_no_synthetic_fallback_claim(self):
+        rows=self.logs()
+        rows[-1]=rows[-1].replace('fallback=0','fallback=1')
+        with self.assertRaisesRegex(ValueError,'aggregate'):
+            self.probe(rows)
+    def test_incomplete_guard_or_corrupted_visit(self):
+        rows=self.logs()
+        rows[0]=rows[0].replace('next_label_stop=1','next_label_stop=0')
+        with self.assertRaisesRegex(ValueError,'trial'):
+            self.probe(rows)
+        rows=self.logs()
+        rows[-1]=rows[-1].replace('total_visits=952','total_visits=944')
+        with self.assertRaisesRegex(ValueError,'aggregate'):
+            self.probe(rows)
 
 if __name__=='__main__':unittest.main(verbosity=2)
