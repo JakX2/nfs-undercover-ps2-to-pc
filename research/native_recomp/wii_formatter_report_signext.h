@@ -31,8 +31,11 @@ public:
            (instruction&1u)||rs!=ra||rs!=source_reg||
            !(rs==0u||(rs>=3u&&rs<=12u))||
            next_word==0x44000002u||return_pc!=c.lr||
-           return_pc==root||return_pc==pc||return_pc==pc+4u||
-           return_pc==pc+8u||c.inst_count==std::numeric_limits<uint64_t>::max()||
+           // The private fixture excludes every slot occupied by the
+           // original 118..122 chain and both test-only guards. Do not
+           // let a synthetic return alias an earlier instruction slot.
+           (return_pc>=root&&return_pc<=pc+8u)||
+           c.inst_count==std::numeric_limits<uint64_t>::max()||
            !word(c,pc,instruction)||!word(c,pc+4u,next_word)||
            !word(c,pc+8u,0x44000002u)||!word(c,return_pc,0x44000002u))
             return reject();
