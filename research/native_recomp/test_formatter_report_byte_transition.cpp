@@ -355,6 +355,63 @@ static unsigned native_independent_compare_refusals() {
     return 4u;
 }
 
+// Exercise the exact three-instruction guarded geometry without original data.
+// Both earlier witnesses must accept the extra authenticated word, but neither
+// may authorize an altered word, return guard, or an execution past its label.
+static unsigned extended_guard_cases() {
+    constexpr uint32_t guard=0x44000002u;
+    constexpr uint32_t cmp=(11u<<26u)|(3u<<23u)|(8u<<16u)|16u;
+    constexpr uint32_t copy=(31u<<26u)|(1u<<21u)|(10u<<16u)|(1u<<11u)|(444u<<1u);
+    constexpr uint32_t following=0x38630001u;
+    for(unsigned fault=0;fault<15u;++fault){
+        Harness h(9u,0x5au,false);
+        h.step.next_word=cmp;
+        h.cpu.mmu.write32(Entry+4u,cmp);
+        h.cpu.mmu.write32(Entry+8u,copy);
+        h.cpu.mmu.write32(Entry+12u,following);
+        h.cpu.mmu.write32(Entry+16u,guard);
+        h.cpu.mmu.write32(Link,guard);
+        if(fault==1u)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==2u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==3u){h.cpu.lr=Entry+12u;h.step.lr=h.cpu.lr;}
+        if(fault==4u){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,{},following));
+            continue;
+        }
+        if(fault>=1u&&fault<=3u){
+            assert(!h.witness.arm_native(h.cpu,h.report,h.step,true,copy,following));
+            continue;
+        }
+        assert(h.witness.arm_native(h.cpu,h.report,h.step,true,copy,following));
+        ++h.cpu.inst_count;h.cpu.gpr[9]=0x5au;
+        if(fault==5u)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==6u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==7u)h.cpu.mmu.write32(Entry+8u,0u);
+        if(fault>=5u&&fault<=7u){
+            assert(!h.witness.observe_native_label(h.cpu,h.report,Entry+4u,cmp,true));
+            continue;
+        }
+        assert(h.witness.observe_native_label(h.cpu,h.report,Entry+4u,cmp,true));
+        CallerImmediateCompareWitness compare;
+        if(fault==8u)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==9u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==10u){h.cpu.lr=Entry+16u;}
+        if(fault>=8u&&fault<=10u){
+            assert(!compare.arm(h.cpu,Entry,Entry+4u,cmp,copy,{8u,16u},following));
+            continue;
+        }
+        assert(compare.arm(h.cpu,Entry,Entry+4u,cmp,copy,{8u,16u},following));
+        h.cpu.cr[3]={false,false,true,false};
+        ++h.cpu.inst_count;
+        if(fault==11u)h.cpu.mmu.write32(Entry+12u,0u);
+        if(fault==12u)h.cpu.mmu.write32(Entry+16u,0u);
+        if(fault==13u)h.cpu.gpr[10]=Sp;
+        if(fault==14u)++h.cpu.inst_count;
+        assert(compare.observe(h.cpu,Entry+8u,copy)==(fault==0u));
+    }
+    return 15u;
+}
+
 int main() {
     const auto successful=positives();
     const auto native_successful=native_positives();
@@ -363,10 +420,11 @@ int main() {
     const auto compare_chain=native_compare_chain();
     native_compare_chain_rejections();
     const auto independent_rejected=native_independent_compare_refusals();
+    const auto extended=extended_guard_cases();
     assert(compare_chain==24576u&&independent_rejected==4u);
     std::cout<<"FORMATTER_REPORT_BYTE_TRANSITION_TEST valid="<<successful
              <<" native_valid="<<native_successful
              <<" rejected=47 compare_chain="<<compare_chain
              <<" compare_chain_rejected=9 independent_source_rejected="
-             <<independent_rejected<<" original_execution=0\n";
+             <<independent_rejected<<" extended_guard_cases="<<extended<<" original_execution=0\n";
 }
