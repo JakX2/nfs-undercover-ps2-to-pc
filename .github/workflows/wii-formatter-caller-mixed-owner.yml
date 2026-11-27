@@ -1,0 +1,217 @@
+name: Wii Original Formatter Caller Mixed Continuation
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-formatter-caller-mixed-owner.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: wii-formatter-return-owner-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          bash -n research/native_recomp/run_v1256_native_scheduler_postack.sh
+          python3 -m py_compile research/native_recomp/prepare_ipc_deferred_ack_geometry.py research/native_recomp/prepare_deferred_active_resume.py
+          python3 research/native_recomp/test_ipc_deferred_ack_geometry.py
+          python3 research/native_recomp/test_stm_outer_restore.py
+          python3 research/native_recomp/test_post_stm_sc_join.py
+          python3 research/native_recomp/test_post_stm_sc_disable.py
+          python3 research/native_recomp/test_post_stm_sc_decision.py
+          python3 research/native_recomp/test_post_stm_sc_restore.py
+          python3 research/native_recomp/test_post_stm_sc_version.py
+          python3 research/native_recomp/test_post_stm_sc_version_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_report_abi.py
+          python3 research/native_recomp/test_post_stm_sc_report_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_report_helper_prefix.py
+          python3 research/native_recomp/test_post_stm_sc_report_helper_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_report_dependency_abi.py
+          python3 research/native_recomp/test_post_stm_sc_report_dependency_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_report_dependency_path.py
+          python3 research/native_recomp/test_post_stm_sc_report_helper_resume.py
+          python3 research/native_recomp/test_post_stm_sc_report_helper_resume_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_report_formatter_path.py
+          python3 research/native_recomp/test_post_stm_sc_report_formatter_fixture.py
+          python3 research/native_recomp/test_post_stm_sc_formatter_leaf_fixture.py
+          python3 research/native_recomp/test_formatter_continuation_plan.py
+          python3 research/native_recomp/test_formatter_continuation_fixture.py
+          python3 research/native_recomp/test_formatter_nested_contract.py
+          python3 research/native_recomp/test_formatter_second_contract.py
+          python3 research/native_recomp/test_formatter_third_contract.py
+          python3 research/native_recomp/test_formatter_control_contract.py
+          python3 research/native_recomp/test_formatter_post_ctr_contract.py
+          python3 research/native_recomp/test_formatter_local_ctr_native.py
+          python3 research/native_recomp/test_formatter_nested_fixture.py
+          python3 research/native_recomp/test_formatter_nested_log.py
+          python3 research/native_recomp/test_formatter_partial_native_contract.py
+          python3 research/native_recomp/test_formatter_special_contract.py
+          python3 research/native_recomp/test_formatter_release_contract.py
+          python3 research/native_recomp/test_formatter_return_contract.py
+          python3 research/native_recomp/test_formatter_caller_load.py
+          python3 research/native_recomp/test_formatter_caller_arrival_contract.py
+          python3 research/native_recomp/test_formatter_caller_byte_contract.py
+          python3 research/native_recomp/test_formatter_caller_integer.py
+          python3 research/native_recomp/test_formatter_caller_integer_contract.py
+          python3 research/native_recomp/test_formatter_caller_branch.py
+          python3 research/native_recomp/test_formatter_caller_branch_contract.py
+          python3 research/native_recomp/test_formatter_caller_second_branch_contract.py
+          python3 research/native_recomp/test_formatter_caller_post_branch.py
+          python3 research/native_recomp/test_formatter_caller_post_integer_contract.py
+          python3 research/native_recomp/test_formatter_caller_third_branch_contract.py
+          python3 research/native_recomp/test_formatter_caller_fourth_branch.py
+          python3 research/native_recomp/test_formatter_caller_fourth_branch_contract.py
+          python3 research/native_recomp/test_formatter_caller_mixed_contract.py
+          python3 research/native_recomp/test_formatter_caller_mixed_load.py
+          python3 research/native_recomp/test_post_stm_sc_report_return.py
+          python3 research/native_recomp/test_v626_ipc_fixture.py
+          for test in test_deferred_ack_execution test_stm_deferred_event_gate test_ipc_deferred_ack_memory test_deferred_active_return test_live_epilogue_select_v1284 test_stm_resumed_restore test_stm_final_return test_post_stm_sc_entry test_post_stm_sc_disable test_post_stm_sc_decision test_post_stm_sc_restore test_post_stm_sc_version test_post_stm_sc_report test_post_stm_sc_report_helper test_post_stm_sc_queue test_post_stm_sc_report_return test_post_stm_sc_leaf_shadow test_post_stm_sc_formatter test_post_stm_sc_formatter_leaf_shadow test_register_continuation test_register_continuation_join test_post_stm_sc_formatter_boundary test_initialized_cell_observation test_formatter_nested_join test_formatter_caller_integer; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -Iresearch/native_recomp "research/native_recomp/$test.cpp" -o "/tmp/$test"
+            "/tmp/$test"
+          done
+  owner-caller-fourth-branch:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require verified third branch and authenticated fourth forward edge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          reqs=(
+              Requirement(45962949727,'6792e114cf730c7c926bc6f414ddb02e1f6777ec',
+                          '.github/workflows/wii-formatter-caller-post-branch-owner.yml','owner-caller-third-branch'),
+              Requirement(45963301152,'bed66cd22cf76dc8634c83f064b33a3c9aa132bb',
+                          '.github/workflows/wii-formatter-caller-fourth-branch-contract.yml','owner-geometry'),
+              Requirement(45963361463,'4a17b1cc55e6e0829538aa8d56908d76d677dba2',
+                          '.github/workflows/wii-formatter-nested-boundary.yml','original-free'),
+              Requirement(45963510148,'9997a0e7c402e8b4f9385b6af00f0611c0066ea5',
+                          '.github/workflows/wii-formatter-control-source.yml','original-free'),
+          )
+          def fetch(path):
+              raw=subprocess.check_output(['gh','api',f"repos/{os.environ['GH_REPO']}/{path}"],stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:
+              ok=all(verify(fetch,req) for req in reqs)
+          except (OSError,ValueError,subprocess.SubprocessError):
+              ok=False
+          if not ok:raise SystemExit('POST_STM_SC_FORMATTER_OWNER_GATE verified=0')
+          print('POST_STM_SC_FORMATTER_OWNER_GATE verified=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original 106-instruction path through fourth caller branch
+        env:
+          UNDERCOVER_EXPECTED_CALLER_INTEGER_COUNT: '2'
+          UNDERCOVER_EXPECTED_CALLER_POST_INTEGER_COUNT: '1'
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw1352"
+          git -C "$RUNNER_TEMP/nw1352" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1352" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1352" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nw1352" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --formatter-nested-caller-fourth-branch
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw1352"
+  owner-caller-mixed:
+    needs: [original-free, owner-caller-fourth-branch]
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require authenticated mixed path and verified native witness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PYTHONPATH: research/native_recomp
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          from verify_v1062_owner_gate import Requirement,verify
+          reqs=(
+              Requirement(45963685357,'7ab733d443931895eeadca636242b11de1796f66',
+                          '.github/workflows/wii-formatter-caller-mixed-contract.yml','owner-geometry'),
+              Requirement(45963789689,'b323b534447e7eaaf959bca698c0078f5b4b08e8',
+                          '.github/workflows/wii-formatter-nested-boundary.yml','original-free'),
+              Requirement(45964164142,'042469efa7bb2bc40c0942112b2549e2e448a696',
+                          '.github/workflows/wii-formatter-control-source.yml','original-free'),
+          )
+          def fetch(path):
+              raw=subprocess.check_output(['gh','api',f"repos/{os.environ['GH_REPO']}/{path}"],stderr=subprocess.DEVNULL,timeout=30)
+              if len(raw)>2*1024*1024:raise ValueError('metadata size')
+              return json.loads(raw)
+          try:
+              ok=all(verify(fetch,req) for req in reqs)
+          except (OSError,ValueError,subprocess.SubprocessError):
+              ok=False
+          if not ok:raise SystemExit('POST_STM_SC_FORMATTER_OWNER_GATE verified=0')
+          print('POST_STM_SC_FORMATTER_OWNER_GATE verified=1')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --quiet 'gdown==5.2.0'
+      - name: Authenticate private owner inputs
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py "$RUNNER_TEMP/originals"
+      - name: Execute original 111-instruction path through five additional mixed operations
+        env:
+          UNDERCOVER_EXPECTED_CALLER_INTEGER_COUNT: '2'
+          UNDERCOVER_EXPECTED_CALLER_POST_INTEGER_COUNT: '1'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_INTEGERS: '2'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_TAKEN: '2'
+          UNDERCOVER_EXPECTED_CALLER_MIXED_FALLTHROUGH: '1'
+        run: |
+          set -euo pipefail
+          umask 077
+          git init -q "$RUNNER_TEMP/nw1352"
+          git -C "$RUNNER_TEMP/nw1352" remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C "$RUNNER_TEMP/nw1352" fetch -q --depth=1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          git -C "$RUNNER_TEMP/nw1352" checkout -q --detach FETCH_HEAD
+          bash research/native_recomp/run_v1256_native_scheduler_postack.sh "$RUNNER_TEMP/nw1352" "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf" --formatter-nested-caller-mixed
+      - name: Clean private original files
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/originals" "$RUNNER_TEMP/nw1352"
