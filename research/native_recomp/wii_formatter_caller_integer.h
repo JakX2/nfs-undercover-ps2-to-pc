@@ -151,7 +151,7 @@ public:
              std::optional<uint32_t> seventh_original={}) {
         const unsigned op=instruction>>26u;
         if(stage_||failed_||!safe(c)||c.pc!=root||
-           root<0x80000000u||root>(seventh_original?0x817fffd8u:sixth_original?0x817fffdcu:fifth_original?0x817fffe0u:fourth_original?0x817fffe4u:0x817ffff0u)||(root&3u)||
+           root<0x80000000u||root>(seventh_original?0x817fffd4u:sixth_original?0x817fffdcu:fifth_original?0x817fffe0u:fourth_original?0x817fffe4u:0x817ffff0u)||(root&3u)||
            label!=root+4u||!(op==10u||op==11u)||
            ((instruction>>16u)&31u)!=input.reg||
            next_word==0x44000002u||!word(c,label,instruction)||
