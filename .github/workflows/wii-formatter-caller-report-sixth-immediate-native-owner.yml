@@ -34,6 +34,7 @@ on:
       - 'research/native_recomp/test_native_scheduler_postack_v1256.cpp'
       - 'research/native_recomp/run_v1256_native_scheduler_postack.sh'
       - 'research/native_recomp/test_formatter_report_successor_chain.cpp'
+      - 'research/native_recomp/test_formatter_nested_join.cpp'
 permissions:
   contents: read
   actions: read

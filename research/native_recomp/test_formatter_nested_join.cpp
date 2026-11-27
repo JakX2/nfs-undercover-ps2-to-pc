@@ -660,7 +660,9 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const uint32_t after_signext=ins(14,4,0,0xfffe);
     const uint32_t after_second=follow>=417?ins(14,5,0,0x1234):0x60000000u;
     const uint32_t after_third=follow>=436?ins(14,6,0,0xfffe):0x60000000u;
-    const uint32_t after_fourth=0x60000000u;
+    const uint32_t after_fourth=follow>=450?ins(14,7,0,0x7fff):0x60000000u;
+    const uint32_t after_fifth=follow>=470?ins(14,8,0,0x8000):0x60000000u;
+    const uint32_t after_sixth=0x60000000u;
     if(follow>=318){
         c.mmu.write32(move_value,0x5a000000u);
         c.mmu.write32(next_entry+8u,follow>=338?after_compare:guard_word);
@@ -677,7 +679,12 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
                 if(follow>=417){
                     c.mmu.write32(next_entry+28u,after_third);
                     c.mmu.write32(next_entry+32u,follow>=436?after_fourth:guard_word);
-                    if(follow>=436)c.mmu.write32(next_entry+36u,guard_word);
+                    if(follow>=436){
+                        c.mmu.write32(next_entry+36u,follow>=450?after_fifth:guard_word);
+                        if(follow>=450)c.mmu.write32(next_entry+40u,
+                            follow>=470?after_sixth:guard_word);
+                        if(follow>=470)c.mmu.write32(next_entry+44u,guard_word);
+                    }
                 }
             }
         }
@@ -695,7 +702,9 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         follow>=393?std::optional<uint32_t>{after_signext}:std::nullopt,
         follow>=393?std::optional<uint32_t>{after_second}:std::nullopt,
         follow>=417?std::optional<uint32_t>{after_third}:std::nullopt,
-        follow>=436?std::optional<uint32_t>{after_fourth}:std::nullopt);
+        follow>=436?std::optional<uint32_t>{after_fourth}:std::nullopt,
+        follow>=450?std::optional<uint32_t>{after_fifth}:std::nullopt,
+        follow>=470?std::optional<uint32_t>{after_sixth}:std::nullopt);
     if((follow>=293&&follow<=299)||(follow>=370&&follow<=372)||follow==374){
         assert(!entry_armed);return;
     }
@@ -954,6 +963,60 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         assert(!child.stop_after_caller_report_fourth_immediate(
             c,next_entry+32u,after_fourth,held()));return;
     }
+    if(follow<450)return;
+    // Step 126 uses the ninth authenticated label and the earlier
+    // fourth-stage register lease; the model never executes guest code.
+    if(follow==454)c.mmu.write32(next_entry+36u,guard_word);
+    const bool fifth_armed=child.resume_caller_report_fifth_immediate(
+        c,follow==451?6u:7u,follow==452?0u:0x7fffu,
+        held()&&follow!=453);
+    if(follow>=451&&follow<=454){assert(!fifth_armed);return;}
+    assert(fifth_armed&&child.stage()==46u);
+    assert(child.caller_post_fourth_tick_budget()==18u);
+    c.gpr[7]=follow==455?0u:0x7fffu;
+    if(follow==456)c.gpr[9]^=1u;
+    if(follow==457)c.cr[1].lt=!c.cr[1].lt;
+    if(follow==458)c.mmu.write32(next_entry+40u,entry_word);
+    c.inst_count+=follow==459?2u:1u;
+    const bool fifth_done=child.stop_after_caller_report_fifth_immediate(
+        c,follow==460?next_entry+32u:next_entry+36u,
+        follow==461?entry_word:after_fifth,held()&&follow!=462);
+    if(follow>=455&&follow<=462){assert(!fifth_done);return;}
+    assert(fifth_done&&child.stage()==47u&&
+           child.reached_caller_report_fifth_immediate(c,held())&&
+           child.caller_report_fifth_immediate_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==18u);
+    if(follow==463){
+        assert(!child.stop_after_caller_report_fifth_immediate(
+            c,next_entry+36u,after_fifth,held()));return;
+    }
+    if(follow<470)return;
+    // Step 127 consumes the already classified tenth successor, then
+    // refuses every incorrect register, counter, PC, word or guard.
+    if(follow==474)c.mmu.write32(next_entry+40u,guard_word);
+    const bool sixth_armed=child.resume_caller_report_sixth_immediate(
+        c,follow==471?7u:8u,follow==472?0u:0xffff8000u,
+        held()&&follow!=473);
+    if(follow>=471&&follow<=474){assert(!sixth_armed);return;}
+    assert(sixth_armed&&child.stage()==48u);
+    assert(child.caller_post_fourth_tick_budget()==19u);
+    c.gpr[8]=follow==475?0u:0xffff8000u;
+    if(follow==476)c.gpr[9]^=1u;
+    if(follow==477)c.cr[1].lt=!c.cr[1].lt;
+    if(follow==478)c.mmu.write32(next_entry+44u,entry_word);
+    c.inst_count+=follow==479?2u:1u;
+    const bool sixth_done=child.stop_after_caller_report_sixth_immediate(
+        c,follow==480?next_entry+36u:next_entry+40u,
+        follow==481?entry_word:after_sixth,held()&&follow!=482);
+    if(follow>=475&&follow<=482){assert(!sixth_done);return;}
+    assert(sixth_done&&child.stage()==49u&&
+           child.reached_caller_report_sixth_immediate(c,held())&&
+           child.caller_report_sixth_immediate_visits()==1u);
+    assert(child.caller_post_fourth_tick_budget()==19u);
+    if(follow==483){
+        assert(!child.stop_after_caller_report_sixth_immediate(
+            c,next_entry+40u,after_sixth,held()));return;
+    }
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -978,10 +1041,12 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=318;follow<=337;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
-    for(unsigned follow=348;follow<=449;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=348;follow<=483;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
     // The full 124/125 stage transitions must also survive the original
     // parent's independently measured 128-tick lease threshold.
     caller_trial(0,0x1234beefu,417,128u-baseline);
     caller_trial(0,0x1234beefu,436,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=744 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 original_execution=0\n";}
+    caller_trial(0,0x1234beefu,450,128u-baseline);
+    caller_trial(0,0x1234beefu,470,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=744 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 original_execution=0\n";}
