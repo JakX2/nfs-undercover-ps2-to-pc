@@ -348,4 +348,22 @@ class CallerPostMixed(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerMixedByte().logs())
     def test_modes(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_mixed_byte=True)
+class CallerStackMove(unittest.TestCase):
+    def logs(self):
+        rows=CallerPostMixed().logs()
+        return [s.replace('FORMATTER_CALLER_POST_MIXED_TRIAL','FORMATTER_CALLER_STACK_MOVE_TRIAL').replace(' next_label_stop=1',' stack_move_verified=1 next_label_stop=1').replace('total_visits=114','total_visits=115') for s in rows[:-1]]+[rows[-1].replace('FORMATTER_CALLER_POST_MIXED_NATIVE','FORMATTER_CALLER_STACK_MOVE_NATIVE').replace(' next_label_stop=8',' stack_moves_verified=8 next_label_stop=8').replace('total_visits=912','total_visits=920')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_stack_move=True,integer_count=2,post_integer_count=1,mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        x=self.logs();self.assertEqual(self.probe(x),(x[-1],))
+    def test_missing_copy(self):
+        x=self.logs();x[0]=x[0].replace('stack_move_verified=1','stack_move_verified=0')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(x)
+    def test_old_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=920','total_visits=912')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerPostMixed().logs())
+    def test_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_post_mixed=True)
 if __name__=='__main__':unittest.main(verbosity=2)
