@@ -55,6 +55,7 @@ from prepare_formatter_report_fifth_immediate_fixture import (
 from prepare_formatter_report_sixth_immediate_fixture import (
     plan as report_sixth_immediate_plan, render as render_report_sixth_immediate,
 )
+from prepare_formatter_branch_128_fixture import render as render_report_branch_128
 from audit_formatter_partial_copy import boundary_shape
 from prepare_formatter_continuation_plan import plan as continuation_plan
 from prepare_formatter_continuation_fixture import scope as continuation_scope
@@ -778,6 +779,43 @@ def sixth_immediate_extension(prior, fifth_immediate_contract,
     if any(prior[at] != words for at,words in blocks.items() if at != root):
         raise ValueError('nested fixture report sixth immediate sibling')
     merged = {**prior, **blocks}
+    check_spans({address: 4 * len(words) for address, words in merged.items()})
+    return merged, info
+
+
+def branch_128_extension(prior, sixth_contract, branch_contract):
+    """Add exactly one independently authenticated taken-branch target root.
+
+    Existing original-127 code spans remain byte-identical. An untaken
+    branch requires a different guard layout and is refused here.
+    """
+    if (not isinstance(sixth_contract, tuple) or len(sixth_contract) != 2 or
+            not isinstance(sixth_contract[0], dict) or
+            not isinstance(sixth_contract[1], tuple) or
+            len(sixth_contract[1]) != 8 or
+            not isinstance(branch_contract, tuple) or len(branch_contract) != 2 or
+            not isinstance(branch_contract[0], dict) or
+            not isinstance(branch_contract[1], tuple) or
+            len(branch_contract[1]) != 9):
+        raise ValueError('nested fixture branch 128 contract')
+    blocks, info = branch_contract
+    root, pc, branch, selected, selected_word, unused, taken, extent, ret = info
+    old_blocks, old_info = sixth_contract
+    if (taken != 1 or root != old_info[0] or
+            (pc, branch) != old_info[3:5] or ret != old_info[7] or
+            root not in prior or selected in prior or
+            set(blocks) != set(old_blocks) | {selected} or
+            not set(old_blocks).issubset(prior) or
+            blocks.get(root) != prior[root] or
+            any(prior[at] != value for at, value in old_blocks.items()) or
+            any(blocks[at] != prior[at] for at in old_blocks) or
+            blocks.get(selected) != (selected_word, GUARD) or
+            unused != pc + 4 or
+            selected <= pc + 4 or
+            selected + 8 > root + extent):
+        raise ValueError('nested fixture branch 128 predecessor')
+    render_report_branch_128(branch_contract)
+    merged = {**prior, selected: blocks[selected]}
     check_spans({address: 4 * len(words) for address, words in merged.items()})
     return merged, info
 
