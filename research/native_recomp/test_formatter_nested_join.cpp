@@ -509,14 +509,14 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     c.mmu.write32(byte_next,follow==211?guard_word:byte_next_word);
     c.mmu.write32(byte_next+4u,follow==212?byte_next_word:guard_word);
     if(follow==215)c.mmu.write32(mix_other,byte_next_word);
-    if(follow==216)c.mmu.write8(parent_sp+19,8u);
+    if(follow==216)c.mmu.write32(parent_sp+16,8u);
     const bool byte_armed=child.resume_caller_mixed_byte(c,follow==208?18:follow==209?24:19,
         follow==210?8u:9u,byte_next+(follow==217?4u:0u),byte_next_word,held()&&follow!=218);
     if(follow>=208&&follow<=218){assert(!byte_armed);return;}
     assert(byte_armed&&child.stage()==20u&&child.caller_mixed_byte_visits()==0u);
     // Separate synthetic architectural effect, not a witness assignment.
     c.gpr[6]=follow==219?8u:9u;
-    if(follow==221)c.mmu.write8(parent_sp+19,8u);
+    if(follow==221)c.mmu.write32(parent_sp+16,8u);
     if(follow==222)c.mmu.write32(byte_next,guard_word);
     if(follow==223)c.mmu.write32(byte_next+4u,byte_next_word);
     if(follow==224)c.mmu.write32(mix_other,byte_next_word);
