@@ -603,6 +603,13 @@ static_assert(formatter_caller_mixed_private::end_pc==formatter_caller_mixed_pri
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
 static_assert(formatter_caller_mixed_byte_private::next_pc==formatter_caller_mixed_private::end_pc+4u);
 static_assert(formatter_caller_mixed_byte_private::offset>=8&&formatter_caller_mixed_byte_private::offset<704);
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+static_assert(formatter_caller_post_mixed_private::path.size()==2u);
+static_assert(formatter_caller_post_mixed_private::path.front().pc==formatter_caller_mixed_byte_private::next_pc);
+static_assert(formatter_caller_post_mixed_private::path.front().word==formatter_caller_mixed_byte_private::next_word);
+static_assert(!formatter_caller_post_mixed_private::path[0].other_pc&&formatter_caller_post_mixed_private::path[1].other_pc&&formatter_caller_post_mixed_private::path[1].taken);
+static_assert(formatter_caller_post_mixed_private::end_pc==formatter_caller_post_mixed_private::path.back().next_pc);
+#endif
 #endif
 static_assert(std::count_if(formatter_caller_mixed_private::path.begin(),formatter_caller_mixed_private::path.end(),[](auto s){return !s.other_pc;})==UNDERCOVER_EXPECTED_CALLER_MIXED_INTEGERS);
 static_assert(std::count_if(formatter_caller_mixed_private::path.begin(),formatter_caller_mixed_private::path.end(),[](auto s){return s.other_pc&&s.taken;})==UNDERCOVER_EXPECTED_CALLER_MIXED_TAKEN);
@@ -1116,7 +1123,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
             if(!formatter_nested->resume_caller_mixed_byte(c,formatter_caller_mixed_byte_private::offset,
                 formatter_caller_mixed_byte_private::value,formatter_caller_mixed_byte_private::next_pc,
-                formatter_caller_mixed_byte_private::next_word,formatter_nested_held(c)))formatter_nested_refuse(2);
+                formatter_caller_mixed_byte_private::next_word,formatter_nested_held(c)
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+                ,formatter_caller_post_mixed_private::path,formatter_caller_post_mixed_private::end_pc,formatter_caller_post_mixed_private::end_word
+#endif
+                ))formatter_nested_refuse(2);
 #else
             ++formatter_nested_count;throw FormatterNestedStop{};
 #endif
@@ -1126,8 +1137,20 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
     if(formatter_nested->stage()==20u){
         if(!formatter_nested->stop_after_caller_mixed_byte(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+        if(!formatter_nested->resume_caller_post_mixed(c,formatter_nested_held(c)))formatter_nested_refuse(2);
+        return;
+#else
         ++formatter_nested_count;throw FormatterNestedStop{};
+#endif
     }
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+    if(formatter_nested->stage()==22u){
+        if(!formatter_nested->caller_post_mixed_boundary(c,pc,w,formatter_nested_held(c)))formatter_nested_refuse(2);
+        if(formatter_nested->stage()==23u){++formatter_nested_count;throw FormatterNestedStop{};}
+        return;
+    }
+#endif
 #endif
 #endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_POST_INTEGERS
@@ -3776,7 +3799,16 @@ int main(int argc,char** argv)try{
         c.mmu.write32(formatter_caller_mixed_private::end_pc,formatter_caller_mixed_private::end_word);
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
         c.mmu.write32(formatter_caller_mixed_byte_private::next_pc,formatter_caller_mixed_byte_private::next_word);
+        
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+        for(auto s:formatter_caller_post_mixed_private::path){
+            c.mmu.write32(s.pc,s.word);
+            if(s.other_pc)c.mmu.write32(s.other_pc,0x44000002u);
+        }
+        c.mmu.write32(formatter_caller_post_mixed_private::end_pc,formatter_caller_post_mixed_private::end_word);
+#else
         c.mmu.write32(formatter_caller_mixed_byte_private::next_pc+4u,0x44000002u);
+#endif
 #endif
 #endif
 #endif
@@ -4937,7 +4969,11 @@ int main(int argc,char** argv)try{
             const bool nested_boundary_held=formatter_nested_held(c);
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             const bool nested_reached=
-#ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
+#if defined(UNDERCOVER_FORMATTER_CALLER_POST_MIXED)
+                nested.reached_caller_post_mixed(c,nested_boundary_held)&&nested.caller_mixed_byte_visits()==1u&&
+                nested.caller_post_mixed_visits()==2u&&nested.caller_post_mixed_integers()==1u&&
+                nested.caller_post_mixed_taken()==1u&&nested.caller_post_mixed_fallthrough()==0u&&
+#elif defined(UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE)
                 nested.reached_caller_mixed_byte(c,nested_boundary_held)&&nested.caller_mixed_byte_visits()==1u&&
 #else
                 nested.reached_caller_mixed(c,nested_boundary_held)&&
@@ -5021,7 +5057,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
             std::cout<<
-#ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
+#if defined(UNDERCOVER_FORMATTER_CALLER_POST_MIXED)
+                "FORMATTER_CALLER_POST_MIXED_TRIAL n="
+#elif defined(UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE)
                 "FORMATTER_CALLER_MIXED_BYTE_TRIAL n="
 #else
                 "FORMATTER_CALLER_MIXED_TRIAL n="
@@ -5035,7 +5073,11 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
                 <<" mixed_byte_verified="<<nested.caller_mixed_byte_visits()
 #endif
-                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()<<'\n';
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+                <<" post_mixed_integers="<<nested.caller_post_mixed_integers()<<" post_mixed_taken="<<nested.caller_post_mixed_taken()
+                <<" post_mixed_fallthrough="<<nested.caller_post_mixed_fallthrough()
+#endif
+                <<" next_label_stop=1 deferred=1 reply=0 visits=98 total_visits="<<99u+nested.caller_integer_visits()+nested.caller_branch_visits()+nested.caller_post_integer_visits()+nested.caller_mixed_visits()+nested.caller_mixed_byte_visits()+nested.caller_post_mixed_visits()<<'\n';
 #elif defined(UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH)
             std::cout<<"FORMATTER_CALLER_FOURTH_BRANCH_TRIAL n="<<trial
                 <<" native_prefix=1 frame=48 loads=15 stores=17 nonvolatile=18 authenticated_loads=5 conditional_stack_load=1 caller_stores=4 parent_overlay=1 lr_restored=1 frame_release=1 original_return=1 caller_dispatch=1 caller_load=1 caller_byte_verified=1 caller_integers="<<nested.caller_integer_visits()
@@ -5398,7 +5440,9 @@ int main(int argc,char** argv)try{
 #endif
 #if defined(UNDERCOVER_FORMATTER_CALLER_MIXED)
     std::cout<<
-#ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
+#if defined(UNDERCOVER_FORMATTER_CALLER_POST_MIXED)
+        "FORMATTER_CALLER_POST_MIXED_NATIVE"
+#elif defined(UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE)
         "FORMATTER_CALLER_MIXED_BYTE_NATIVE"
 #else
         "FORMATTER_CALLER_MIXED_NATIVE"
@@ -5411,9 +5455,15 @@ int main(int argc,char** argv)try{
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
         <<" mixed_bytes_verified=8"
 #endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+        <<" post_mixed_integers=8 post_mixed_taken=8 post_mixed_fallthrough=0"
+#endif
         <<" next_label_stop=8 deferred=8 reply=0 visits=784 total_visits="<<824u+8u*(formatter_caller_integer_private::path.size()+formatter_caller_post_integer_private::path.size()+formatter_caller_mixed_private::path.size()
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED_BYTE
         +1u
+#endif
+#ifdef UNDERCOVER_FORMATTER_CALLER_POST_MIXED
+        +formatter_caller_post_mixed_private::path.size()
 #endif
         )
         <<" ios_steps=5 fallback=0 complete_image=0 boot_verified=0\n";

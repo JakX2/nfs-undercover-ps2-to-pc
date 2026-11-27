@@ -330,4 +330,22 @@ class CallerMixedByte(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerMixed().logs(integers=2,taken=2,fallthrough=1))
     def test_modes(self):
         with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_mixed=True)
+class CallerPostMixed(unittest.TestCase):
+    def logs(self):
+        rows=CallerMixedByte().logs()
+        return [s.replace('FORMATTER_CALLER_MIXED_BYTE_TRIAL','FORMATTER_CALLER_POST_MIXED_TRIAL').replace(' next_label_stop=1',' post_mixed_integers=1 post_mixed_taken=1 post_mixed_fallthrough=0 next_label_stop=1').replace('total_visits=112','total_visits=114') for s in rows[:-1]]+[rows[-1].replace('FORMATTER_CALLER_MIXED_BYTE_NATIVE','FORMATTER_CALLER_POST_MIXED_NATIVE').replace(' next_label_stop=8',' post_mixed_integers=8 post_mixed_taken=8 post_mixed_fallthrough=0 next_label_stop=8').replace('total_visits=896','total_visits=912')]
+    def probe(self,rows,**kw):
+        return verify(rows,caller_post_mixed=True,integer_count=2,post_integer_count=1,mixed_integers=2,mixed_taken=2,mixed_fallthrough=1,**kw)
+    def test_exact(self):
+        x=self.logs();self.assertEqual(self.probe(x),(x[-1],))
+    def test_branch_outcome(self):
+        x=self.logs();x[0]=x[0].replace('post_mixed_taken=1','post_mixed_taken=0')
+        with self.assertRaisesRegex(ValueError,'trial'):self.probe(x)
+    def test_old_total(self):
+        x=self.logs();x[-1]=x[-1].replace('total_visits=912','total_visits=896')
+        with self.assertRaisesRegex(ValueError,'aggregate'):self.probe(x)
+    def test_prior(self):
+        with self.assertRaisesRegex(ValueError,'coverage'):self.probe(CallerMixedByte().logs())
+    def test_modes(self):
+        with self.assertRaisesRegex(ValueError,'mode'):self.probe(self.logs(),caller_mixed_byte=True)
 if __name__=='__main__':unittest.main(verbosity=2)
