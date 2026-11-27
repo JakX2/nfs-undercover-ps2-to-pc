@@ -628,21 +628,21 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     if(parent_delay)assert(parent.frame_age(c)==138u&&child.caller_parent_tick_limit()==138u);
     if(follow==291){assert(!child.stop_after_caller_final_integer(c,final_pc,final_word,held()));return;}
     if(follow<292)return;
-    const uint32_t entry_word=ins(32,9,7,0),ret=final_pc+4u;
+    const uint32_t entry_word=ins(32,9,7,0),next_ret=final_pc+4u;
     c.mmu.write32(next_entry,follow==294?guard_word:entry_word);
     c.mmu.write32(next_entry+4u,follow==295?entry_word:guard_word);
-    if(follow==296)c.mmu.write32(ret,entry_word);
+    if(follow==296)c.mmu.write32(next_ret,entry_word);
     const bool entry_armed=child.resume_caller_next_entry(c,follow==293?next_entry+4u:next_entry,
-        follow==297?0x60000000u:entry_word,ret+(follow==298?4u:0u),held()&&follow!=299);
+        follow==297?0x60000000u:entry_word,next_ret+(follow==298?4u:0u),held()&&follow!=299);
     if(follow>=293&&follow<=299){assert(!entry_armed);return;}
     assert(entry_armed&&child.stage()==28u&&child.caller_next_entry_visits()==0u);
     // Execute only the synthetic BL effect. The callee's load never runs.
     c.pc=follow==300?next_entry+4u:next_entry;
-    c.lr=follow==301?ret+4u:ret;
+    c.lr=follow==301?next_ret+4u:next_ret;
     if(follow==302)c.gpr[7]^=1u;
     if(follow==304)c.mmu.write32(next_entry,guard_word);
     if(follow==305)c.mmu.write32(next_entry+4u,entry_word);
-    if(follow==306)c.mmu.write32(ret,entry_word);
+    if(follow==306)c.mmu.write32(next_ret,entry_word);
     if(follow==307)c.mmu.write32(other,entry_word);
     if(follow==308)c.mmu.write32(parent_sp+16,8u);
     if(follow==309)c.cr[0].eq=false;
