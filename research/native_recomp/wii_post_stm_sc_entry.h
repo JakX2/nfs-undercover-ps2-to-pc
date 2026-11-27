@@ -103,8 +103,34 @@ public:
     // A native child may use the caller's reserved LR linkage word at
     // SP+4. Preserve every other byte, including SC's own saved LR/GPR.
     template<class C>bool nested_frame_held(C& c,bool held,uint32_t child_sp,uint32_t link_word,uint32_t depth=512u,uint64_t ticks=128u)const{
+        return ticks<=256u&&nested_frame_storage_held(c,held,child_sp,link_word,depth,ticks);
+    }
+    template<class C>uint64_t frame_age(C& c)const{
+        return c.inst_count>=last_?c.inst_count-last_:UINT64_MAX;
+    }
+    // Capture only at a separately verified child checkpoint. The original
+    // 256-tick check and all storage checks must still pass at capture.
+    template<class C>bool capture_nested_checkpoint(C& c,bool held,uint32_t child_sp,uint32_t link_word,uint32_t depth){
+        if(nested_checkpoint_valid_||!nested_frame_held(c,held,child_sp,link_word,depth,256u))return false;
+        nested_checkpoint_tick_=c.inst_count;nested_checkpoint_age_=frame_age(c);
+        nested_checkpoint_sp_=child_sp;nested_checkpoint_link_=link_word;nested_checkpoint_depth_=depth;
+        nested_checkpoint_valid_=true;return true;
+    }
+    bool nested_checkpoint_valid()const{return nested_checkpoint_valid_;}
+    uint64_t nested_checkpoint_age()const{return nested_checkpoint_valid_?nested_checkpoint_age_:0u;}
+    // The child's bounded, independently counted continuation supplies the
+    // extra budget. Recheck the same frame and linkage at every boundary.
+    template<class C>bool nested_frame_held_after_checkpoint(C& c,bool held,uint32_t child_sp,uint32_t link_word,
+                                                            uint32_t depth,unsigned authorized_ticks)const{
+        if(!nested_checkpoint_valid_||authorized_ticks>36u||child_sp!=nested_checkpoint_sp_||
+           link_word!=nested_checkpoint_link_||depth!=nested_checkpoint_depth_||
+           c.inst_count<nested_checkpoint_tick_||c.inst_count-nested_checkpoint_tick_>authorized_ticks)return false;
+        return nested_frame_storage_held(c,held,child_sp,link_word,depth,nested_checkpoint_age_+authorized_ticks);
+    }
+private:
+    template<class C>bool nested_frame_storage_held(C& c,bool held,uint32_t child_sp,uint32_t link_word,uint32_t depth,uint64_t ticks)const{
         if(stage_!=2u||error_||!held||cpu_!=&c||!safe(c)||c.gpr[1]!=child_sp||
-           depth>1024u||ticks>256u||child_sp>frame_.base||frame_.base-child_sp>depth||(child_sp&7u)||
+           depth>1024u||child_sp>frame_.base||frame_.base-child_sp>depth||(child_sp&7u)||
            !mapped(c,frame_)||c.inst_count<last_||c.inst_count-last_>ticks||
            frame_.size<8u)return false;
         for(auto s:e_.slots)if(int64_t(incoming_[1])+s.caller_offset==int64_t(frame_.base)+4)return false;
@@ -114,7 +140,9 @@ public:
         }
         return true;
     }
-private:
+    bool nested_checkpoint_valid_=false;
+    uint64_t nested_checkpoint_tick_=0,nested_checkpoint_age_=0;
+    uint32_t nested_checkpoint_sp_=0,nested_checkpoint_link_=0,nested_checkpoint_depth_=0;
     PostStmScExpectation e_;const void* cpu_=nullptr;AllocatorRange frame_{};
     std::array<uint32_t,32> gp_{},incoming_{};std::array<uint32_t,8> gqr_{};
     std::vector<uint8_t> shadow_;

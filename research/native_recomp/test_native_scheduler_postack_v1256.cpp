@@ -1080,8 +1080,10 @@ void formatter_continuation_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_NESTED
 static unsigned formatter_nested_held_mask=0;
 static uint64_t formatter_nested_parent_age=0,formatter_nested_parent_limit=0,formatter_nested_parent_baseline=0;
+static uint64_t formatter_nested_outer_age=0,formatter_nested_outer_limit=0,formatter_nested_outer_baseline=0;
 static bool formatter_nested_held(nw::CPUContext& c){
     formatter_nested_held_mask=0;formatter_nested_parent_age=0;formatter_nested_parent_limit=0;formatter_nested_parent_baseline=0;
+    formatter_nested_outer_age=0;formatter_nested_outer_limit=0;formatter_nested_outer_baseline=0;
     if(!formatter_nested||!post_stm_formatter||!post_stm_formatter_leaf||!post_stm_resume||
        !post_stm_dependency||!post_stm_helper||!post_stm_report||!post_stm_version_data||
        !post_stm_objects||!post_stm_frame||!third_return_join)return false;
@@ -1089,8 +1091,14 @@ static bool formatter_nested_held(nw::CPUContext& c){
     if(sp!=parent&&sp!=parent-48u)return false;
     const unsigned extra=parent-sp;
     const auto joined=third_return_join->post_resume_storage_held(c,third_return_storage(c),post_stm_version_msr);
-    const auto outer=post_stm_frame->nested_frame_held(c,joined,
-        sp,post_stm_report->linkage_word(),864u+extra,256u);
+    const auto budget=formatter_nested->caller_post_fourth_tick_budget();
+    const bool captured=post_stm_frame->nested_checkpoint_valid();
+    const auto outer=captured?(budget&&post_stm_frame->nested_frame_held_after_checkpoint(c,joined,
+        sp,post_stm_report->linkage_word(),864u+extra,*budget)):
+        post_stm_frame->nested_frame_held(c,joined,sp,post_stm_report->linkage_word(),864u+extra,256u);
+    formatter_nested_outer_age=std::min<uint64_t>(999u,post_stm_frame->frame_age(c));
+    formatter_nested_outer_baseline=post_stm_frame->nested_checkpoint_age();
+    formatter_nested_outer_limit=captured&&budget?formatter_nested_outer_baseline+*budget:256u;
     const auto report=post_stm_report->child_frame_held(c,outer,sp,post_stm_helper->linkage_word(),736u+extra,extra);
     const auto helper=post_stm_helper->child_frame_held(c,report,sp,post_stm_formatter->linkage_word(),704u+extra,extra);
     const auto parent_held=formatter_nested->has_caller_stores()?
@@ -1119,7 +1127,9 @@ static bool formatter_nested_held(nw::CPUContext& c){
         <<" post="<<(formatter_nested?formatter_nested->caller_post_integer_visits():0u)
         <<" branch_detail="<<(formatter_nested?formatter_nested->branch_refusal_detail():0u)
         <<" held_mask="<<formatter_nested_held_mask<<" parent_age="<<formatter_nested_parent_age
-        <<" parent_limit="<<formatter_nested_parent_limit<<" parent_baseline="<<formatter_nested_parent_baseline<<'\n';
+        <<" parent_limit="<<formatter_nested_parent_limit<<" parent_baseline="<<formatter_nested_parent_baseline
+        <<" outer_age="<<formatter_nested_outer_age<<" outer_limit="<<formatter_nested_outer_limit
+        <<" outer_baseline="<<formatter_nested_outer_baseline<<'\n';
     throw WitnessFailure{};
 }
 void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
@@ -1243,6 +1253,11 @@ void formatter_nested_before(nw::CPUContext& c,uint32_t pc,uint32_t w){
 #ifdef UNDERCOVER_FORMATTER_CALLER_FOURTH_BRANCH
         if(formatter_nested->caller_branch_visits()==4u){
 #ifdef UNDERCOVER_FORMATTER_CALLER_MIXED
+            // The fourth-branch boundary has just passed the full existing
+            // chain. Freeze the outer frame's real age before extending it.
+            if(!formatter_nested->reached_caller_branch(c,held)||
+               !post_stm_frame->capture_nested_checkpoint(c,held,c.gpr[1],post_stm_report->linkage_word(),864u))
+                formatter_nested_refuse(2);
             if(!formatter_nested->resume_caller_mixed(c,formatter_caller_mixed_private::path,
                 formatter_caller_mixed_private::end_pc,formatter_caller_mixed_private::end_word,held))formatter_nested_refuse(2);
             return;

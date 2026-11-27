@@ -929,6 +929,17 @@ public:
         if(extra>38u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
+    // Only the already-observed fourth branch can open a continuation
+    // budget for an ancestor frame. No budget comes from the live counter.
+    std::optional<unsigned> caller_post_fourth_tick_budget()const{
+        if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=29u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u;
+        const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(armed);
+        if(n>36u)return {};
+        return n;
+    }
     bool has_caller_stores()const{return caller_parent_!=nullptr;}
 private:
     struct LoadForm {unsigned width=0;bool indexed=false,update=false,sign=false;};

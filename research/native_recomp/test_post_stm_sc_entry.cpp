@@ -65,6 +65,30 @@ static void trial(unsigned fault){
         if(fault==24){assert(!w.nested_frame_held(c,false,child,link));}
         if(fault==25){c.mmu.write32(Sp-32,0);assert(!w.nested_frame_held(c,true,child,link));}
         if(fault==26){c.inst_count+=129;assert(!w.nested_frame_held(c,true,child,link));}
+        if(fault>=27){
+            c.inst_count+=fault==28?257u:256u;
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,1u));
+            const bool captured=w.capture_nested_checkpoint(c,fault!=29,child,link,512u);
+            if(fault==28||fault==29){assert(!captured);return;}
+            assert(captured&&w.nested_checkpoint_valid()&&w.nested_checkpoint_age()==256u);
+            assert(!w.capture_nested_checkpoint(c,true,child,link,512u));
+            ++c.inst_count;
+            assert(!w.nested_frame_held(c,true,child,link,512u,256u));
+            assert(!w.nested_frame_held(c,true,child,link,512u,257u));
+            assert(w.nested_frame_held_after_checkpoint(c,true,child,link,512u,1u));
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,0u));
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,512u,37u));
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link,516u,1u));
+            assert(!w.nested_frame_held_after_checkpoint(c,true,child,link+4u,512u,1u));
+            if(fault==30)c.mmu.write32(Sp-16,1u);
+            if(fault==31)c.mmu.write32(Sp-28,link+4u);
+            if(fault==32)c.mmu.write32(Sp+4,0u);
+            if(fault==33)c.gpr[1]+=8u;
+            if(fault==34)c.inst_count+=1u;
+            if(fault==35)c.in_callback=true;
+            if(fault==36)c.inst_count-=2u;
+            assert(w.nested_frame_held_after_checkpoint(c,fault!=37,child,link,512u,1u)==(fault==27));
+        }
     }
 }
-int main(){for(unsigned i=0;i<=26;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=27 original_execution=0\n";}
+int main(){for(unsigned i=0;i<=37;++i)trial(i);std::cout<<"POST_STM_SC_ENTRY_TEST cases=38 original_execution=0\n";}
