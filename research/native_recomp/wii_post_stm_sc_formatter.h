@@ -125,8 +125,9 @@ public:
             }
             gp_[rs]=form.sign&&(v&0x8000u)?v|0xffff0000u:v;++loads_;
             if(form.update)gp_[ra]=a;
-        }else if(op==31u&&xo==339u&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
-        else if(op==31u&&xo==467u&&(ra|(rb<<5))==9u)ctr_=gp_[rs];
+        }else if(op==31u&&xo==339u&&!(w&1u)&&(ra|(rb<<5))==8u&&rs!=1u)gp_[rs]=lr_;
+        else if(op==31u&&xo==467u&&!(w&1u)&&(ra|(rb<<5))==9u)ctr_=gp_[rs];
+        else if(op==31u&&xo==467u&&!(w&1u)&&(ra|(rb<<5))==8u)lr_=gp_[rs];
         else if((op==14u||op==15u)&&rs!=1u)gp_[rs]=(ra?gp_[ra]:0u)+(op==15u?imm<<16u:imm);
         else if(op==10u||op==11u){
             if(w&0x00200000u)return fail(6);

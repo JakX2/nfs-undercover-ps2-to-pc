@@ -108,7 +108,8 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     const std::array<ScFormatterAccess,4> ca{{{T,4,-48,true,true},{T+8,4,4,true,true},
         {T+12,2,-40,true,true},{T+16,4,A,false,false,dst}}};
     const std::array<StmFinalSlot,1> cs{{{4,32}}};
-    const uint32_t branch=0x4e800420u,body=ins(14,7,0,9),load=ins(32,9,1,8),guard=0x60000000u;
+    const uint32_t branch=0x4e800420u,body=ins(14,7,0,9),load=ins(32,9,1,8);
+    const uint32_t guard=follow>=13?(31u<<26)|(7u<<21)|(8u<<16)|(467u<<1):0x60000000u;
     std::vector<IpcDispatchWord> mid(cp.begin(),cp.end());mid.push_back({T,site,branch});mid.push_back({T,dst,body});
     std::vector<IpcDispatchWord> full(mid);full.push_back({T,partial,load});
     full.push_back({T,dst+8,ins(36,7,1,64)});full.push_back({T,dst+12,ins(36,9,1,68)});
@@ -201,11 +202,14 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0){
     if(follow==2||follow==3||follow==4||follow==5||follow==6||follow==8||follow==9||follow==11||follow==12){
         assert(!continued);return;
     }
-    assert(continued); // Original guard is ori r0,r0,0, no register change.
+    assert(continued);
+    // Independent synthetic CPU effect of the boundary instruction.
+    // The usual ori is a no-op; the new mtlr copies all 32 source bits.
+    if(follow>=13)c.lr=follow==14?8u:9u;
     for(unsigned i=0;i<extra;++i){
         ++c.inst_count;const auto& row=later[full.size()+1u+i];
         const bool ok=child.before(c,row.pc,row.word,held());
-        if(follow==7&&i==1){assert(!ok);return;}
+        if((follow==7&&i==1)||(follow==14&&i==0)){assert(!ok);return;}
         assert(ok);c.gpr[12]=(seed&0xffffu)^unsigned(follow==7);
     }
     ++c.inst_count;
@@ -218,5 +222,5 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0u);caller_trial(0,0xffffffffu);
     // Each opaque byte position exercises all 256 possible values.
     for(unsigned i=0;i<256;++i)caller_trial(11,0x5a5a0000u|(i<<8)|(255u-i));
-    for(unsigned follow=1;follow<=12;++follow)caller_trial(0,0x1234beefu,follow);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=299 original_execution=0\n";}
+    for(unsigned follow=1;follow<=14;++follow)caller_trial(0,0x1234beefu,follow);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=301 original_execution=0\n";}

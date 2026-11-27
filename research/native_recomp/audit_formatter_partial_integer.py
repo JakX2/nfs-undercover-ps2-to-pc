@@ -59,12 +59,26 @@ def describe(w,gp):
     return (name,len(set(reads)),len(set(writes)),kinds['const'],kinds['stack'],kinds['partial'],
             kinds['reg']+kinds['lr'],cr,carry_read,xer_write,oe,int(bool(set(reads)&set(writes))))
 
+def special_destination(w,gp,caller):
+    if w>>26!=31 or (w>>1)&1023!=467 or w&1:return 'not_special_write',0,0
+    spr=((w>>16)&31)|(((w>>11)&31)<<5)
+    kind={1:'xer',8:'link',9:'count'}.get(spr,'other')
+    source=gp[(w>>21)&31]
+    known=source[0]=='const'
+    return kind,int(known),int(known and kind=='link' and source[1]==caller)
+
 def plan(d,e):
     result,extra,trace,admitted,entry,record=replay_plan(d,e,details=True)
     if result[3:9]!=(1,1,2,2,11,'other') or extra!=('integer',11,1,16) or len(trace)!=12:
         raise ValueError('integer audit predecessor')
-    _,w,gp,_=trace[-1]
-    return describe(w,gp)
+    pc,w,gp,_=trace[-1]
+    root,_,_,caller,_=entry
+    from make_v624_ipc_geometry import exact_words
+    words=exact_words(d,e,root,383)
+    i=(pc-root)//4
+    if not 0<=i<len(words)-1 or words[i]!=w:raise ValueError('integer audit predecessor')
+    from audit_formatter_partial_copy import boundary_shape
+    return describe(w,gp),special_destination(w,gp,caller),boundary_shape(words[i+1])
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('dol',type=Path);a.add_argument('elf',type=Path);q=a.parse_args()
@@ -72,9 +86,12 @@ def main():
     try:
         if not 256<=q.dol.stat().st_size<=MAX_DOL or not 52<=q.elf.stat().st_size<=64*1024*1024:raise ValueError('size')
         with plan_cache_scope():
-            name,reads,writes,constant,stack,partial,other,cr,carry_read,xer_write,oe,alias=plan(q.dol.read_bytes(),q.elf.read_bytes())
+            result,special,next_family=plan(q.dol.read_bytes(),q.elf.read_bytes())
+            name,reads,writes,constant,stack,partial,other,cr,carry_read,xer_write,oe,alias=result
     except (OSError,ValueError,TypeError,KeyError,IndexError,struct.error) as ex:
         print('FORMATTER_PARTIAL_INTEGER verified=0 reason='+(str(ex).replace(' ','_') if str(ex) in safe else 'private_input'));return 1
     print(f'FORMATTER_PARTIAL_INTEGER verified=1 family={name} reads={reads} writes={writes} constant_inputs={constant} stack_inputs={stack} partial_inputs={partial} other_inputs={other} condition_write={cr} carry_read={carry_read} xer_write={xer_write} overflow_enable={oe} alias={alias} original_execution=0')
+    kind,known,caller_match=special
+    print(f'FORMATTER_PARTIAL_SPECIAL destination={kind} known_source={known} caller_link_match={caller_match} next_family={next_family} original_execution=0')
     return 0
 if __name__=='__main__':raise SystemExit(main())
