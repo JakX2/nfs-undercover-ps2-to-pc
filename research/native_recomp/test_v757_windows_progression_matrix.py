@@ -18,14 +18,15 @@ from test_v759_windows_callback_frontier import sample as frontier_sample
 from test_v760_windows_wireless_wrapper import sample as wireless_sample
 from test_v761_windows_wireless_write import changed_sample as write_sample
 from test_v762_windows_combined_callback import sample as combined_sample, getter as combined_getter, S as COMBINED_SUFFIX, I as COMBINED_INVALID
+from test_v763_windows_handler_return import sample as handler_sample
 from windows_progression_matrix_v757 import (
     REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, run,
 )
 from windows_full_build_v426 import build as windows_build
 
 FIXTURES = (transfer_sample(), suffix_sample(CALL), owner_log(),
-            alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample(), wireless_sample(), write_sample(), combined_sample())
-EXIT = (0, 126, 0, 126, 0, 0, 0, 0, 0, 0)
+            alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample(), wireless_sample(), write_sample(), combined_sample(), handler_sample())
+EXIT = (0, 126, 0, 126, 0, 0, 0, 0, 0, 0, 0)
 BASE = {key: '1' for key in REQUIRED}
 
 
@@ -56,8 +57,8 @@ class WindowsProgression(unittest.TestCase):
     def test_exact_five_service_boundaries(self):
         self.assertEqual(tuple(s.name for s in STAGES),
                          ('transfer-return', 'transfer-suffix', 'alarm-return',
-                          'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier', 'wireless-wrapper', 'wireless-write', 'combined-callback'))
-        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
+                          'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier', 'wireless-wrapper', 'wireless-write', 'combined-callback', 'handler-return'))
+        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12))
         for i, stage in enumerate(STAGES):
             env = stage_environment(BASE, stage)
             self.assertEqual({key for key in OPTIONAL if key in env},
@@ -69,11 +70,11 @@ class WindowsProgression(unittest.TestCase):
     def test_full_progression_uses_one_executable(self):
         seen, output, failure = simulate()
         self.assertIsNone(failure)
-        self.assertEqual(len(seen), 10)
+        self.assertEqual(len(seen), 11)
         self.assertEqual(len({tuple(map(str, v[0])) for v in seen}), 1)
         self.assertTrue(all(v[1] == 20 for v in seen))
-        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 10)
-        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=10'))
+        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 11)
+        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=11'))
         self.assertNotIn('main=1', '\n'.join(output))
 
     def test_early_callback_stop_never_completes_progression(self):
@@ -107,7 +108,7 @@ class WindowsProgression(unittest.TestCase):
                 self.assertIn('callback_return=1 outer_dispatch=1', row)
 
     def test_first_failure_prevents_all_later_native_launches(self):
-        for i in range(10):
+        for i in range(11):
             contents = list(FIXTURES)
             contents[i] = contents[i] + b'unexpected opaque private bytes\n'
             with self.subTest(stage=i):
@@ -119,13 +120,22 @@ class WindowsProgression(unittest.TestCase):
                 self.assertFalse(any('completed=5' in r for r in output))
 
     def test_refuse_errors_and_timeout(self):
-        for i in range(10):
+        for i in range(11):
             codes = list(EXIT)
             codes[i] = 126 if EXIT[i] == 0 else 0
             seen, _, failure = simulate(codes=tuple(codes))
             self.assertEqual((len(seen), failure), (i + 1, STAGES[i].name))
             seen, _, failure = simulate(timeouts={i: True})
             self.assertEqual((len(seen), failure), (i + 1, STAGES[i].name))
+
+    def test_missing_handler_return_fails_last_stage(self):
+        contents = list(FIXTURES)
+        contents[-1] = combined_sample()
+        seen, output, failure = simulate(contents=tuple(contents))
+        self.assertEqual(len(seen), 11)
+        self.assertEqual(failure, 'handler-return')
+        self.assertTrue(any('handler_return=0' in r for r in output))
+        self.assertFalse(any('completed=11' in r for r in output))
 
     def test_reject_stale_environment(self):
         for key in REQUIRED:

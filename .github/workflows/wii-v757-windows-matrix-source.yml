@@ -16,6 +16,8 @@ on:
       - 'research/native_recomp/test_v761_windows_wireless_write.py'
       - 'research/native_recomp/windows_combined_callback_v762.py'
       - 'research/native_recomp/test_v762_windows_combined_callback.py'
+      - 'research/native_recomp/windows_handler_return_v763.py'
+      - 'research/native_recomp/test_v763_windows_handler_return.py'
       - '.github/workflows/wii-v757-windows-matrix-source.yml'
 permissions:
   contents: read
@@ -31,6 +33,8 @@ jobs:
       - name: Test same-PE multi-launch SI boundary gates and fail-first behavior
         shell: pwsh
         run: |
+          python -m unittest discover -s research/native_recomp -p test_v763_windows_handler_return.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v762_windows_combined_callback.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v761_windows_wireless_write.py -v
