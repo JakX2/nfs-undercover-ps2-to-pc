@@ -45,7 +45,7 @@ def promote(branch, predecessor, words):
     return expanded, (target, comparison, target + 4, words[1], reg, value, ret)
 
 
-def validate(branch, predecessor, candidate):
+def validate(branch, predecessor, words, candidate):
     """Independently verify every old root and every new private field."""
     if (not isinstance(candidate, tuple) or len(candidate) != 2 or
             not isinstance(candidate[0], dict) or
@@ -57,15 +57,17 @@ def validate(branch, predecessor, candidate):
     target, comparison, following, word, reg, value, ret = fields
     if blocks.get(target) != (comparison, word, GUARD):
         raise ValueError('compare 129 contract')
-    expected = promote(branch, predecessor, (comparison, word))
+    # Compare against a separately supplied DOL/ELF-verified pair, not
+    # the candidate's own metadata (which could be forged together).
+    expected = promote(branch, predecessor, words)
     if candidate != expected:
         raise ValueError('compare 129 contract')
     return fields
 
 
-def render(branch, predecessor, candidate):
+def render(branch, predecessor, words, candidate):
     target, comparison, following, word, reg, value, ret = validate(
-        branch, predecessor, candidate)
+        branch, predecessor, words, candidate)
     # Private owner workspace only. Never print this header in CI.
     return (
         'namespace formatter_compare_129_private {\n'
@@ -82,8 +84,8 @@ def plan(dol, elf):
     target = branch[1][3]
     words = exact_words(dol, elf, target, 2)
     candidate = promote(branch, predecessor, words)
-    validate(branch, predecessor, candidate)
-    return branch, predecessor, candidate
+    validate(branch, predecessor, words, candidate)
+    return branch, predecessor, words, candidate
 
 
 class Tests(unittest.TestCase):
@@ -107,9 +109,9 @@ class Tests(unittest.TestCase):
                          {a:w for a,w in branch[0].items() if a != root})
         self.assertEqual(fields, (root, words[0], root+4, words[1],
                                   6, 5, branch[1][-1]))
-        self.assertEqual(validate(branch, predecessor, candidate), fields)
+        self.assertEqual(validate(branch, predecessor, words, candidate), fields)
         self.assertIn('source_value=0x00000005u',
-                      render(branch, predecessor, candidate))
+                      render(branch, predecessor, words, candidate))
 
     def test_source_geometry_and_identity_refusals(self):
         branch, predecessor, words = self.inputs()
@@ -141,25 +143,34 @@ class Tests(unittest.TestCase):
         for slot in (0, 1, 2, 4, 5, 6):
             bad = fields[:slot]+(fields[slot]^1,)+fields[slot+1:]
             with self.subTest(slot=slot), self.assertRaises(ValueError):
-                render(branch, predecessor, (blocks, bad))
+                render(branch, predecessor, words, (blocks, bad))
+        # Mutating the successor word and its corresponding field in
+        # tandem must still fail against the separately authenticated pair.
+        forged = dict(blocks)
+        forged_word = words[1] ^ 1
+        forged[fields[0]] = (words[0], forged_word, GUARD)
+        forged_fields = fields[:3] + (forged_word,) + fields[4:]
+        with self.assertRaises(ValueError):
+            render(branch, predecessor, words, (forged, forged_fields))
         changed = dict(blocks)
         changed[branch[1][0]] = (GUARD,)
         with self.assertRaises(ValueError):
-            render(branch, predecessor, (changed, fields))
+            render(branch, predecessor, words, (changed, fields))
         changed = dict(blocks)
         changed[fields[0]] = (*words, words[1])
         with self.assertRaises(ValueError):
-            render(branch, predecessor, (changed, fields))
+            render(branch, predecessor, words, (changed, fields))
 
     def test_plan_authenticates_target_words_at_selected_pc(self):
         branch, predecessor, words = self.inputs()
         with patch(__name__+'.branch_plan', return_value=branch), \
              patch(__name__+'.byte_plan', return_value=predecessor), \
              patch(__name__+'.exact_words', return_value=words) as original:
-            prior, state, candidate = plan(b'dol', b'elf')
+            prior, state, authenticated, candidate = plan(b'dol', b'elf')
         original.assert_called_once_with(b'dol', b'elf', branch[1][3], 2)
         self.assertEqual(prior, branch)
         self.assertEqual(state, predecessor)
+        self.assertEqual(authenticated, words)
         self.assertEqual(candidate, promote(branch, predecessor, words))
 
 
@@ -178,8 +189,8 @@ def main():
                 not 52 <= q.elf.stat().st_size <= 64 * 1024 * 1024):
             raise ValueError('size')
         with plan_cache_scope():
-            branch, predecessor, candidate = plan(q.dol.read_bytes(), q.elf.read_bytes())
-            render(branch, predecessor, candidate)
+            branch, predecessor, words, candidate = plan(q.dol.read_bytes(), q.elf.read_bytes())
+            render(branch, predecessor, words, candidate)
     except (OSError, ValueError, TypeError, KeyError, IndexError, struct.error):
         print('FORMATTER_129_COMPARE_FIXTURE verified=0')
         return 1
