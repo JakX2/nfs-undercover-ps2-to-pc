@@ -101,7 +101,7 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         # scheduler calls. The authenticated V920 handoff arms all V922 hooks.
         self.assertEqual(out.count('if(!scheduler_enabled()||!scheduler_handoff)return;'),2)
         self.assertIn('if(!scheduler_enabled()||!scheduler_handoff)return false;',out)
-        self.assertIn('if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||',out)
+        self.assertIn('if(!scheduler_handoff||!scheduler_pending||!scheduler_traced)scheduler_refusal(22);',out)
         self.assertIn('if(!scheduler_pending&&!scheduler_traced)scheduler_refusal(12);',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(6);',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(11);',out)
