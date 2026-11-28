@@ -6,7 +6,7 @@ from unittest.mock import patch
 from prepare_owner_context_v720 import L, RFI
 from prepare_owner_scheduler_v722 import E, S
 from prepare_v667_si_dispatch import DISPATCH
-from prepare_v921_windows_dispatcher_epilogue import native_expectations, audit
+from prepare_v921_windows_dispatcher_epilogue import native_expectations, audit, refusal_reason
 from windows_transfer_prefix_v751 import plan
 
 
@@ -40,6 +40,14 @@ class WindowsDispatcherEpilogue(unittest.TestCase):
         roots[L][-1] = blr
         with self.assertRaises(ValueError):
             native_expectations(roots, j, d, r)
+
+    def test_refusals_never_expose_owner_values(self):
+        for message, code in (('native IPC label identity', 'label'),
+                              ('native IPC label body', 'fallback'),
+                              ('native overlap', 'overlap'),
+                              ('native IPC coverage', 'coverage'),
+                              ('owner code at 0x80529434', 'private_or_io')):
+            self.assertEqual(refusal_reason(ValueError(message)), code)
 
     def test_missing_original_owner_fails_closed(self):
         from pathlib import Path

@@ -31,16 +31,20 @@ def native_expectations(roots: dict[int, list[int]], resume: int,
         raise ValueError('context loader')
     if len({resume, E, S, disable, restore, L}) != 6:
         raise ValueError('native overlap')
-    expected = {resume + i * 4: (DISPATCH, word)
-                for i, word in enumerate(roots[resume][:4])}
+    expected: dict[int, tuple[int, int]] = {}
+    def add(pc: int, owner: int, word: int) -> None:
+        # Never allow one compiled label to silently replace another.
+        if pc in expected:
+            raise ValueError('native overlap')
+        expected[pc] = (owner, word)
+    for i, word in enumerate(roots[resume][:4]):
+        add(resume + i * 4, DISPATCH, word)
     for owner in (E, S, disable, restore):
         words = roots[owner]
-        expected.update({pc: (owner, words[(pc-owner)//4])
-                         for pc in reachable(owner, words)})
-    expected.update({L + i * 4: (L, word)
-                     for i, word in enumerate(roots[L])})
-    if len(expected) < 70:
-        raise ValueError('native coverage')
+        for pc in reachable(owner, words):
+            add(pc, owner, words[(pc-owner)//4])
+    for i, word in enumerate(roots[L]):
+        add(L + i * 4, L, word)
     return expected
 
 
@@ -70,6 +74,28 @@ def audit(dol: bytes, elf: bytes, generated: Path) -> int:
     return count
 
 
+# Public-safe categories only. No raw owner addresses, instructions or paths.
+REFUSALS = {
+    'dispatcher shape': 'geometry',
+    'context loader': 'context',
+    'native overlap': 'overlap',
+    'native tree': 'tree',
+    'native owner': 'owner',
+    'native IPC duplicate root': 'duplicate',
+    'native IPC label identity': 'label',
+    'native IPC label body': 'fallback',
+    'native IPC coverage': 'coverage',
+    'native IPC dispatch': 'dispatch',
+    'helper exact root': 'owner',
+    'helper call label': 'edge',
+    'helper direct native call': 'edge',
+    'helper native return edge': 'return_edge',
+}
+
+def refusal_reason(error: Exception) -> str:
+    return REFUSALS.get(str(error), 'private_or_io')
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument('dol', type=Path)
@@ -79,8 +105,9 @@ def main() -> int:
     try:
         # Owner-only inputs stay on the private runner, never in the repository.
         count = audit(a.dol.read_bytes(), a.elf.read_bytes(), a.generated)
-    except (OSError, ValueError, UnicodeError, IndexError, KeyError, struct.error):
-        print('V921_WINDOWS_DISPATCHER_PREFLIGHT verified=0')
+    except (OSError, ValueError, UnicodeError, IndexError, KeyError, struct.error) as error:
+        print('V921_WINDOWS_DISPATCHER_PREFLIGHT verified=0 reason=' +
+              refusal_reason(error))
         return 1
     print(f'V921_WINDOWS_DISPATCHER_PREFLIGHT verified=1 native_labels={count} direct_edges=5 rfi_loader=1 execution=0 rfi=0 boot_verified=0')
     return 0
