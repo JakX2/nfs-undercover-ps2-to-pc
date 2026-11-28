@@ -83,6 +83,7 @@ class WindowsSuffixTests(unittest.TestCase):
             [TAIL[0], TAIL[1].replace(b'visits=32', b'visits=31'), TAIL[2]],
             [TAIL[0], TAIL[1], TAIL[2].replace(b'polls=0', b'polls=1')],
             [*TAIL, b'V726_HANDLER_STAGE n=3'],
+            [*TAIL, b'unexpected host output after refusal'],
             [*TAIL, b'V747_NEXT_BOUNDARY ordinal=4 kind=1 visits=32 polls=0 executed=0'],
         ]
         for n, tail in enumerate(altered):
