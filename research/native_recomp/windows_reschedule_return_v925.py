@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict complete-image reschedule return, before original context loader."""
 from __future__ import annotations
+import re
 from windows_reschedule_entry_v924 import inspect as earlier,RESULT as PREDECESSOR,diagnostic as diag
 from windows_startup_scope_v434 import MAX_LOG
 
@@ -22,4 +23,5 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
             f'reschedule_return={int(ok)} no_thread_switch={int(ok)} rfi=0 boot_verified=0',ok)
 
 def diagnostic(line:bytes)->bool:
-    return type(line) is bytes and diag(line)
+    return type(line) is bytes and bool(diag(line) or re.fullmatch(
+        rb'V925_WINDOWS_RESCHEDULE_RETURN_INVALID reason=[1-7]',line))

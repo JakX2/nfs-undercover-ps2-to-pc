@@ -45,19 +45,23 @@ inline bool resched_return_enabled(){
     const char* v=std::getenv("UNDERCOVER_V925_RESCHEDULE_RETURN");
     return v&&v[0]=='1'&&v[1]=='\0';
 }
+[[noreturn]]inline void resched_return_refusal(unsigned code){
+    std::cout<<"V925_WINDOWS_RESCHEDULE_RETURN_INVALID reason="<<code<<std::endl;
+    std::_Exit(126);
+}
 template<class C>void resched_return_arm(C& c){
     if(resched_return_pending||resched_return_traced||!resched_pending||
        !resched_traced||c.pc!=reschedule_entry_pc||
        c.lr!=reschedule_branch_pc+4u||c.msr!=resched_msr||
        !c.is_running||c.in_callback||c.dispatch_saved_ctx||
-       !v850::held(c))reject(6);
+       !v850::held(c))resched_return_refusal(1);
     const int64_t address=int64_t(c.gpr[13])+int64_t(resched_hint_disp);
-    if(address<0x80000000ll||address>0x817ffffcll||(address&3ll))reject(6);
+    if(address<0x80000000ll||address>0x817ffffcll||(address&3ll))resched_return_refusal(2);
     const uint32_t hint=uint32_t(address);
-    if(!c.mmu.get_ptr(hint)||!c.mmu.get_ptr(hint+3u))reject(6);
+    if(!c.mmu.get_ptr(hint)||!c.mmu.get_ptr(hint+3u))resched_return_refusal(3);
     // A nonzero hint may select an alternate thread. Do not silently skip
     // that original branch or claim the interrupted context was resumed.
-    if(c.mmu.read32(hint)!=0u)reject(6);
+    if(c.mmu.read32(hint)!=0u)resched_return_refusal(4);
     resched_hint_address=hint;
     resched_return_gp=c.gpr;
     resched_return_tick=c.inst_count;
@@ -72,7 +76,7 @@ template<class C>bool resched_return_trace(uint32_t addr,C& c){
        c.gpr[13]!=resched_r13||
        c.inst_count<=resched_return_tick||
        c.inst_count-resched_return_tick>128u||
-       !v850::held(c))reject(6);
+       !v850::held(c))resched_return_refusal(5);
     resched_return_traced=true;return true;
 }
 template<class C>void resched_return_native(C& c,uint32_t pc,uint32_t w){
@@ -87,11 +91,13 @@ template<class C>void resched_return_native(C& c,uint32_t pc,uint32_t w){
        c.gpr[13]!=resched_r13||
        !c.mmu.get_ptr(resched_hint_address)||
        c.mmu.read32(resched_hint_address)!=0u||
+       !c.mmu.get_ptr(scheduler_counter_address)||
+       !c.mmu.get_ptr(scheduler_counter_address+3u)||
        c.mmu.read32(scheduler_counter_address)!=scheduler_initial-1u||
        !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))reject(6);
+       c.mmu.read32(pc)!=w||!v850::held(c))resched_return_refusal(6);
     for(unsigned i=14u;i<32u;++i)
-        if(c.gpr[i]!=resched_return_gp[i])reject(6);
+        if(c.gpr[i]!=resched_return_gp[i])resched_return_refusal(7);
     std::cout<<"V925_WINDOWS_RESCHEDULE_RETURN scheduler_return=1 original_reschedule_return=1 original_dispatcher_resume=1 no_thread_switch=1 abi=1 context_loader_executed=0 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }
