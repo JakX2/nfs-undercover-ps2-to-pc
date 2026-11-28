@@ -16,6 +16,9 @@ on:
       - 'research/native_recomp/test_wii_sysconf_image.cpp'
       - 'research/native_recomp/test_wii_ios_yield_scheduler.cpp'
       - 'research/native_recomp/test_wii_nand_ios_reply_v374.cpp'
+      - 'research/native_recomp/wii_external_return_v706.h'
+      - 'research/native_recomp/wii_saved_context_join_v921.h'
+      - 'research/native_recomp/test_saved_context_join_v921.cpp'
       - 'research/native_recomp/wii_ios_yield_scheduler.h'
       - 'research/native_recomp/wii_nand_ios_reply_yield.h'
       - 'research/native_recomp/wii_sysconf_image.h'
@@ -73,7 +76,11 @@ jobs:
           if errorlevel 1 exit /b 1
           "%RUNNER_TEMP%\wii-native-win\nand_reply.exe"
           if errorlevel 1 exit /b 1
-          echo PASS: original-free Windows x64 IPC, IRQ, IOS, STM, NAND reply, guest filesystem, and SYSCONF
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Iresearch\native_recomp research\native_recomp\test_saved_context_join_v921.cpp /Fe:"%RUNNER_TEMP%\wii-native-win\context_join.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-win\context_join.exe"
+          if errorlevel 1 exit /b 1
+          echo PASS: original-free Windows x64 IPC, IRQ, IOS, STM, NAND reply, guest filesystem, SYSCONF, and saved-context join
 
   windows-msvc-asan-original-free-runtime:
     needs: windows-msvc-original-free-runtime
@@ -102,4 +109,8 @@ jobs:
           if errorlevel 1 exit /b 1
           "%RUNNER_TEMP%\wii-native-asan\nand_reply.exe"
           if errorlevel 1 exit /b 1
-          echo PASS: MSVC AddressSanitizer guest filesystem SYSCONF and NAND reply
+          cl /nologo /std:c++20 /EHsc /W4 /WX /Od /Zi /MD /fsanitize=address /Iresearch\native_recomp research\native_recomp\test_saved_context_join_v921.cpp /Fe:"%RUNNER_TEMP%\wii-native-asan\context_join.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\wii-native-asan\context_join.exe"
+          if errorlevel 1 exit /b 1
+          echo PASS: MSVC AddressSanitizer guest filesystem SYSCONF NAND reply and saved-context join
