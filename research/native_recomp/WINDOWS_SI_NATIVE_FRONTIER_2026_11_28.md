@@ -55,6 +55,35 @@ before its additional results can be reported as original executed.
 - [46103926739](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103926739): the expanded **eleven-stage Windows source/integration regression** passed, including fail-closed callback and handler-return output checks. The predecessor [46103731727](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103731727) failed on stale ten-stage test assumptions, and [46103875745](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103875745) caught a Python line-break regression; both were fixed before this passing run.
 - The V763 full-image handler-return stage is **implemented but not owner-original Windows verified**. The Linux native RFI fixture is a reference implementation, not evidence that the Windows single-image pipeline has reached RFI, OSInit resumption or main. Check the owner-original Windows workflow's redacted stage evidence before advancing this ledger.
 
+## Windows complete-image RFI dependency translation (new preflight)
+
+Commits [a3329ab](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/a3329abdfeca71a02f3334c12bc7cdee01ede1d4),
+[48aacd5](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/48aacd5b6f7257fa8afa90720c55e4103ecab87a),
+[fc0cd88](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/fc0cd888b1645e5e59a0b5f3829af78a185cc40e)
+and [4d0ef1d](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/4d0ef1d27b0bccd03904798f41129f0abf733fc7)
+prepare the original dispatcher-to-RFI dependencies in the deepest Windows
+full-image translation. This is intentionally **not** a new execution gate.
+
+- The original handler-return mode now passes `--epilogue` to the authenticated
+  SI analyzer, including the original scheduler enable, reschedule and
+  54-word context-loader ending in `rfi`. Earlier modes retain their
+  original analyzer roots and stop conditions.
+- The read-only V921 native audit checks unique original function/label
+  ownership, direct dispatcher and scheduler edges, the terminal native
+  RFI source label, and absence of interpreter fallback in audited labels.
+  The focused V923 owner fixture remains a separate execution result.
+- The original-free [46104222828](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46104222828)
+  Windows progression/source workflow passed at `fc0cd88`. Later V921
+  overlap/refusal hardening at `4d0ef1d` must not be called CI-verified until
+  its own checks finish.
+- The owner-original Windows progression must report the redacted
+  `V921_WINDOWS_DISPATCHER_PREFLIGHT verified=1` marker before the
+  native link and eleven-stage execution matrix can qualify at this head.
+  A V921 failure is a translation/preflight failure, **not** an observed
+  guest RFI fault. Even a V921 pass proves code coverage only. Original
+  handler return, RFI, OSInit resumption and main each require their own
+  authenticated execution evidence.
+
 ## Technical next actions, in dependency order
 
 1. **Verify the owner-original V758/V759 branches** of the same compiled
