@@ -67,8 +67,12 @@ template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){
     // Earlier original scheduler calls occur before the completed SI handler.
     // These are not part of this authenticated dispatcher handoff.
     if(!scheduler_enabled()||!scheduler_handoff)return;
+    // Authentic sequential PPC labels need not update ctx.pc. The pinned
+    // emitter leaves it at the last branch target during straight-line code.
+    // Trust only the installed, authenticated label and original memory word;
+    // do not synthesize a PC assignment or reject that valid guest flow.
     if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||
-       v726::witness.stage()!=5u||c.pc!=pc||
+       v726::witness.stage()!=5u||c.inst_count<=scheduler_tick||
        !c.is_running||c.in_callback||c.dispatch_saved_ctx||
        (c.msr&0x8000u)||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
        c.mmu.read32(pc)!=w)scheduler_refusal(18);

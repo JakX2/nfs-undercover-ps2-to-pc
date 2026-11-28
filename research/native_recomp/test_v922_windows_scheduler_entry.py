@@ -78,6 +78,16 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
                         out.index('if(!scheduler_traced)scheduler_refusal(21);'))
         self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',out)
         self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',out)
+        body=out.split('template<class C>void scheduler_device_tick(',1)[1]
+        body=body.split('template<class C>void scheduler_start(',1)[0]
+        # Windows run #58 reached the first original scheduler instruction.
+        # Subsequent original labels do not each assign ctx.pc, so a stale
+        # call-target PC must not falsely reject a genuine guest visit.
+        self.assertNotIn('c.pc!=pc',body)
+        self.assertIn('v726::witness.stage()!=5u||c.inst_count<=scheduler_tick||',body)
+        self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',body)
+        self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',body)
+        self.assertNotIn('c.pc=pc',body)
         self.assertIn('template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){',out)
         # Disarmed observers must not reject independent original OS startup
         # scheduler calls. The authenticated V920 handoff arms all V922 hooks.
