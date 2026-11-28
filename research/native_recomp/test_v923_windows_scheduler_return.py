@@ -44,7 +44,8 @@ class WindowsSchedulerReturn(unittest.TestCase):
     def test_default_disabled_source_hooks(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',p.env)
-        self.assertEqual(p.observers[-1][1],'prepare_v923_windows_scheduler_return.py')
+        self.assertEqual(p.observers[-2][1],'prepare_v923_windows_scheduler_return.py')
+        self.assertEqual(p.observers[-1][1],'prepare_v924_windows_reschedule_entry.py')
         base='''#include "v922_private_scheduler_entry.h"
 template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
     std::cout<<"V922_SCHEDULER_ENTRY original_handler_return=1 original_dispatcher_branch=1 original_scheduler_entry=1 native_tick=1 rfi=0 boot_verified=0"<<std::endl;

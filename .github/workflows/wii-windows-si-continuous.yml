@@ -36,6 +36,9 @@ on:
       - 'research/native_recomp/prepare_v923_windows_scheduler_return.py'
       - 'research/native_recomp/windows_scheduler_return_v923.py'
       - 'research/native_recomp/test_v923_windows_scheduler_return.py'
+      - 'research/native_recomp/prepare_v924_windows_reschedule_entry.py'
+      - 'research/native_recomp/windows_reschedule_entry_v924.py'
+      - 'research/native_recomp/test_v924_windows_reschedule_entry.py'
       - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/prepare_v868_handler_suffix.py'
@@ -79,6 +82,7 @@ jobs:
             'test_v763_windows_handler_return.py',
             'test_v922_windows_scheduler_entry.py',
             'test_v923_windows_scheduler_return.py',
+            'test_v924_windows_reschedule_entry.py',
             'test_v921_windows_dispatcher_epilogue.py',
             'test_v868_handler_suffix.py',
             'test_v919_handler_epilogue.py',
