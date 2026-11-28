@@ -14,14 +14,15 @@ from test_v754_windows_alarm_return import owner_log
 from test_v755_windows_alarm_suffix import sample as alarm_suffix_sample
 from test_v756_windows_callback_prefix import sample as callback_sample
 from test_v758_windows_callback_time import sample as time_sample
+from test_v759_windows_callback_frontier import sample as frontier_sample
 from windows_progression_matrix_v757 import (
     REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, run,
 )
 from windows_full_build_v426 import build as windows_build
 
 FIXTURES = (transfer_sample(), suffix_sample(CALL), owner_log(),
-            alarm_suffix_sample(), callback_sample(), time_sample())
-EXIT = (0, 126, 0, 126, 0, 0)
+            alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample())
+EXIT = (0, 126, 0, 126, 0, 0, 0)
 BASE = {key: '1' for key in REQUIRED}
 
 
@@ -52,8 +53,8 @@ class WindowsProgression(unittest.TestCase):
     def test_exact_five_service_boundaries(self):
         self.assertEqual(tuple(s.name for s in STAGES),
                          ('transfer-return', 'transfer-suffix', 'alarm-return',
-                          'alarm-suffix', 'callback-prefix', 'callback-time'))
-        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5))
+                          'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier'))
+        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5, 6))
         for i, stage in enumerate(STAGES):
             env = stage_environment(BASE, stage)
             self.assertEqual({key for key in OPTIONAL if key in env},
@@ -65,15 +66,15 @@ class WindowsProgression(unittest.TestCase):
     def test_full_progression_uses_one_executable(self):
         seen, output, failure = simulate()
         self.assertIsNone(failure)
-        self.assertEqual(len(seen), 6)
+        self.assertEqual(len(seen), 7)
         self.assertEqual(len({tuple(map(str, v[0])) for v in seen}), 1)
         self.assertTrue(all(v[1] == 20 for v in seen))
-        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 6)
-        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=6'))
+        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 7)
+        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=7'))
         self.assertNotIn('main=1', '\n'.join(output))
 
     def test_first_failure_prevents_all_later_native_launches(self):
-        for i in range(6):
+        for i in range(7):
             contents = list(FIXTURES)
             contents[i] = contents[i] + b'unexpected opaque private bytes\n'
             with self.subTest(stage=i):
@@ -85,7 +86,7 @@ class WindowsProgression(unittest.TestCase):
                 self.assertFalse(any('completed=5' in r for r in output))
 
     def test_refuse_errors_and_timeout(self):
-        for i in range(6):
+        for i in range(7):
             codes = list(EXIT)
             codes[i] = 126 if EXIT[i] == 0 else 0
             seen, _, failure = simulate(codes=tuple(codes))

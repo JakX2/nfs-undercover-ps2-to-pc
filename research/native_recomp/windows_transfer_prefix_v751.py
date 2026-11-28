@@ -23,13 +23,14 @@ class TransferPlan(NamedTuple):
 def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
          returned: bool = False, suffix: bool = False,
          alarm: bool = False, alarm_suffix: bool = False,
-         callback_prefix: bool = False, callback_time: bool = False) -> TransferPlan:
+         callback_prefix: bool = False, callback_time: bool = False,
+         callback_frontier: bool = False) -> TransferPlan:
     """One contract for source ownership, observer order and launch flags."""
-    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time)):
+    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier)):
         raise ValueError('transfer option')
-    if not prefix and not returned and not suffix and not alarm and not alarm_suffix and not callback_prefix and not callback_time:
+    if not prefix and not returned and not suffix and not alarm and not alarm_suffix and not callback_prefix and not callback_time and not callback_frontier:
         return TransferPlan({}, (), ())
-    if synthetic or scope != 'os-si-handler-time' or time_suffix or sum((prefix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time)) != 1:
+    if synthetic or scope != 'os-si-handler-time' or time_suffix or sum((prefix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier)) != 1:
         raise ValueError('transfer scope')
     # Match the existing Linux full-image translation contract. The
     # analyzer owns the original transfer root and compiler save alias;
@@ -37,27 +38,30 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
     analyzer = ('--transfer-prefix',)
     observers = (('transfer_prefix_observer', 'prepare_v768_transfer_prefix.py'),)
     env = {'UNDERCOVER_V747_TIME_SUFFIX': '1'}
-    if returned or suffix or alarm or alarm_suffix or callback_prefix or callback_time:
+    if returned or suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier:
         analyzer += ('--transfer-return',)
         observers += (('transfer_return_observer', 'prepare_v777_transfer_return.py'),)
         env['UNDERCOVER_V777_TRANSFER_RETURN'] = '1'
-        if suffix or alarm or alarm_suffix or callback_prefix or callback_time:
+        if suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier:
             observers += (('transfer_suffix_observer', 'prepare_v778_transfer_suffix.py'),)
             env['UNDERCOVER_V778_TRANSFER_SUFFIX'] = '1'
-        if alarm or alarm_suffix or callback_prefix or callback_time:
+        if alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier:
             analyzer += ('--alarm',)
             observers += (('alarm_return_observer', 'prepare_v786_alarm_return.py'),)
             env['UNDERCOVER_V786_ALARM_RETURN'] = '1'
-        if alarm_suffix or callback_prefix or callback_time:
+        if alarm_suffix or callback_prefix or callback_time or callback_frontier:
             observers += (('alarm_suffix_observer', 'prepare_v789_alarm_suffix.py'),)
             env['UNDERCOVER_V789_ALARM_SUFFIX'] = '1'
-        if callback_prefix or callback_time:
+        if callback_prefix or callback_time or callback_frontier:
             analyzer += ('--callback-prefix',)
             observers += (('callback_prefix_observer', 'prepare_v807_callback_prefix.py'),)
             env['UNDERCOVER_V807_CALLBACK_PREFIX'] = '1'
-        if callback_time:
+        if callback_time or callback_frontier:
             observers += (('callback_time_observer', 'prepare_v813_callback_time.py'),)
             env['UNDERCOVER_V813_CALLBACK_TIME'] = '1'
+        if callback_frontier:
+            observers += (('callback_frontier_observer', 'prepare_v831_callback_frontier.py'),)
+            env['UNDERCOVER_V831_CALLBACK_FRONTIER'] = '1'
     else:
         env['UNDERCOVER_V768_TRANSFER_PREFIX'] = '1'
     return TransferPlan(env, analyzer, observers)
