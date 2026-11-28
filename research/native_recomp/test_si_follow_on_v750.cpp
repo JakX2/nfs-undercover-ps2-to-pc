@@ -54,5 +54,39 @@ int main(){
         if(trial<4){need(w.stage()==3&&w.failure()==0);++valid;}
     }
     need(valid==4&&rejected==20);
+    // Exercise the post-completion Status W1C handoff against the real
+    // SI controller, not an injected status byte. The read-only witness
+    // must accept only a store that has actually cleared the expected bit.
+    for(unsigned trial=0;trial<4;++trial){
+        std::atomic<uint32_t> cause{0x100u},mask{SI};
+        SiController ctl(cause);
+        const SiTypeScheduler::Profile profile{
+            Port::absent(),Port::absent(),Port::absent(),Port::absent()};
+        SiTypeScheduler sched(ctl,profile,8);
+        ctl.write(C,0xc0010301u);sched.advance(1);sched.advance(9);
+        need(cause==(0x100u|SI));
+        ctl.write(C,0xe0010300u);
+        need(cause==0x100u);
+        ctl.write(B,0u);
+        uint64_t tick=100;SiFollowOnWitness w;
+        constexpr uint32_t start=0xc0010301u,clear=0x08000000u;
+        need(w.arm(ctl,cause,mask,tick,start,0,std::nullopt,8));
+        ctl.write(C,start);need(w.started(tick));
+        for(unsigned i=1;i<=9;++i){
+            ++tick;sched.advance(tick);
+            need(w.observe(tick));
+        }
+        need(w.stage()==3u&&w.held(tick));
+        const uint32_t before=ctl.read(S);
+        need(before==clear);
+        if(trial!=1u)ctl.write(S,clear);
+        const uint32_t witnessed_before=trial==2u?before^0x01000000u:before;
+        const uint32_t witnessed_clear=trial==3u?0u:clear;
+        const bool ok=w.accept_status_w1c(tick,witnessed_before,witnessed_clear);
+        if(trial==0u){
+            need(ok&&w.held(tick)&&ctl.read(S)==0u);
+            need(!w.accept_status_w1c(tick,before,clear)&&w.failure()==6u);
+        }else need(!ok&&w.failure()==6u);
+    }
     std::cout<<"V750_SI_FOLLOW_ON synthetic=1 valid=4 refused=20 real_device=1 real_scheduler=1 original_execution=0\n";
 }
