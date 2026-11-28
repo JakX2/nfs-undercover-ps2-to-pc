@@ -44,13 +44,22 @@ _MEMORY_FAMILIES = frozenset({'load', 'store', 'floating_load',
 
 def memory_shape(word, family):
     if family not in _MEMORY_FAMILIES:
-        return 'not_memory', 0
+        return 'not_memory', 0, 1
     op = word >> 26
     if op == 31:
-        return 'indexed', int(((word >> 1) & 1023) in _MEMORY_UPDATE_X)
-    if op in (46, 47):
-        return 'multiple', 0
-    return 'displacement', int(op in _MEMORY_UPDATE_D)
+        mode = 'indexed'
+        updated = int(((word >> 1) & 1023) in _MEMORY_UPDATE_X)
+    elif op in (46, 47):
+        mode, updated = 'multiple', 0
+    else:
+        mode, updated = 'displacement', int(op in _MEMORY_UPDATE_D)
+    ra, target = (word >> 16) & 31, (word >> 21) & 31
+    # PowerPC forbids RA=0 for update forms, and RA=RT for GPR
+    # load-update forms. An FP destination occupies a different register
+    # bank and must not be rejected just because its index equals RA.
+    valid = not updated or (ra != 0 and
+                            (family != 'load' or ra != target))
+    return mode, updated, int(valid)
 
 
 def classify_target(fixture):
@@ -82,9 +91,11 @@ def classify_target(fixture):
         branch_form = branch_shape(original)[0]
         if branch_form not in BRANCH_FORMS:
             branch_form = 'unsupported_branch'
-    memory_form, base_updated = memory_shape(original, family)
+    memory_form, base_updated, update_base_valid = memory_shape(original, family)
+    if not update_base_valid:
+        raise ValueError('target successor invalid update base')
     return (family, reads, writes, cr, carry_read, xer, overflow, supported,
-            branch_form, memory_form, base_updated)
+            branch_form, memory_form, base_updated, update_base_valid)
 
 
 class Tests(unittest.TestCase):
@@ -117,29 +128,57 @@ class Tests(unittest.TestCase):
         # No effective address, register ID or displacement is returned.
         cases = (
             (32 << 26, 'load', 'displacement', 0),  # lwz
-            (33 << 26, 'load', 'displacement', 1),  # lwzu
+            ((33 << 26) | (3 << 21) | (1 << 16),
+             'load', 'displacement', 1),  # lwzu
             (46 << 26, 'load', 'multiple', 0),       # lmw
             (47 << 26, 'store', 'multiple', 0),      # stmw
             ((31 << 26) | (23 << 1), 'load', 'indexed', 0),
-            ((31 << 26) | (55 << 1), 'load', 'indexed', 1),
+            ((31 << 26) | (3 << 21) | (1 << 16) | (55 << 1),
+             'load', 'indexed', 1),
             ((31 << 26) | (151 << 1), 'store', 'indexed', 0),
-            ((31 << 26) | (183 << 1), 'store', 'indexed', 1),
+            ((31 << 26) | (3 << 21) | (1 << 16) | (183 << 1),
+             'store', 'indexed', 1),
             (48 << 26, 'floating_load', 'displacement', 0),
-            (49 << 26, 'floating_load', 'displacement', 1),
+            ((49 << 26) | (1 << 21) | (1 << 16),
+             'floating_load', 'displacement', 1),
             ((31 << 26) | (535 << 1), 'floating_load', 'indexed', 0),
-            ((31 << 26) | (567 << 1), 'floating_load', 'indexed', 1),
+            ((31 << 26) | (1 << 21) | (1 << 16) | (567 << 1),
+             'floating_load', 'indexed', 1),
             (56 << 26, 'paired_single_memory', 'displacement', 0),
-            (57 << 26, 'paired_single_memory', 'displacement', 1),
+            ((57 << 26) | (2 << 21) | (1 << 16),
+             'paired_single_memory', 'displacement', 1),
         )
         for word, family, mode, updated in cases:
             with self.subTest(family=family, mode=mode, updated=updated):
                 actual = classify_target(self.fixture(word))
                 self.assertEqual(actual[0], family)
-                self.assertEqual(actual[9:], (mode, updated))
+                self.assertEqual(actual[9:], (mode, updated, 1))
                 self.assertEqual(actual[1:8], (0, 0, 0, 0, 0, 0, 0))
         for word in (0x60000000, 0x48000010, 0x4e800020):
             actual = classify_target(self.fixture(word))
-            self.assertEqual(actual[9:], ('not_memory', 0))
+            self.assertEqual(actual[9:], ('not_memory', 0, 1))
+
+    def test_illegal_update_base_registers_are_rejected(self):
+        # PowerPC update forms cannot use GPR0 as RA; integer load-update
+        # also cannot overwrite its destination register as the base.
+        cases = (
+            (33 << 26, 'load'),
+            ((33 << 26) | (3 << 21) | (3 << 16), 'load'),
+            ((31 << 26) | (55 << 1), 'load'),
+            ((31 << 26) | (3 << 21) | (3 << 16) | (55 << 1), 'load'),
+            (37 << 26, 'store'),
+            ((31 << 26) | (183 << 1), 'store'),
+            (49 << 26, 'floating_load'),
+            ((31 << 26) | (567 << 1), 'floating_load'),
+            (57 << 26, 'paired_single_memory'),
+        )
+        for word, family in cases:
+            with self.subTest(family=family, op=word >> 26):
+                mode, updated, valid = memory_shape(word, family)
+                self.assertIn(mode, ('displacement', 'indexed'))
+                self.assertEqual((updated, valid), (1, 0))
+                with self.assertRaisesRegex(ValueError, 'invalid update base'):
+                    classify_target(self.fixture(word))
 
     def test_integer_effect_metadata_matrix_is_bounded(self):
         # This is static classification of synthetic words. It must not
@@ -161,7 +200,8 @@ class Tests(unittest.TestCase):
         for word, effects in cases:
             with self.subTest(word_family='integer', effects=effects):
                 (family, reads, writes, cr, carry_read, xer, overflow,
-                 supported, form, memory_form, base_updated) = (
+                 supported, form, memory_form, base_updated,
+                 update_base_valid) = (
                     classify_target(self.fixture(word)))
                 self.assertEqual(family, 'integer')
                 self.assertEqual(
@@ -170,6 +210,7 @@ class Tests(unittest.TestCase):
                 self.assertEqual(form, 'not_branch')
                 self.assertEqual((memory_form, base_updated),
                                  ('not_memory', 0))
+                self.assertEqual(update_base_valid, 1)
 
     def test_control_transfers_never_claim_integer_observation(self):
         for word, family, form in (
@@ -184,7 +225,7 @@ class Tests(unittest.TestCase):
                 self.assertEqual(actual[0], family)
                 self.assertEqual(actual[1:8], (0, 0, 0, 0, 0, 0, 0))
                 self.assertEqual(actual[8], form)
-                self.assertEqual(actual[9:], ('not_memory', 0))
+                self.assertEqual(actual[9:], ('not_memory', 0, 1))
 
     def test_original_target_classification_never_retargets_128(self):
         original = self.fixture((14 << 26) | (3 << 21) | 0x7fff)
@@ -206,7 +247,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(result[0], 'other')
         self.assertEqual(result[7], 0)
         self.assertEqual(result[8], 'not_branch')
-        self.assertEqual(result[9:], ('not_memory', 0))
+        self.assertEqual(result[9:], ('not_memory', 0, 1))
 
     def test_refuse_forged_target_and_untaken_sibling(self):
         with self.assertRaises(ValueError):
@@ -247,19 +288,21 @@ def main():
                                                  q.elf.read_bytes()))
     except (OSError,ValueError,TypeError,KeyError,IndexError,
             struct.error) as error:
-        safe = {'size','target successor provenance','target successor family'}
+        safe = {'size','target successor provenance','target successor family',
+                'target successor invalid update base'}
         reason = str(error)
         print('FORMATTER_129_TARGET_AUDIT verified=0 reason=' +
               (reason.replace(' ','_') if reason in safe else 'private_input'))
         return 1
     (family, reads, writes, cr, carry_read, xer, overflow, supported,
-     branch_form, memory_form, base_updated) = result
+     branch_form, memory_form, base_updated, update_base_valid) = result
     print(
         f'FORMATTER_129_TARGET_AUDIT verified=1 previous_128_fixture=1 '
         f'selected_edge=target family={family} reads={reads} writes={writes} '
         f'cr_write={cr} carry_read={carry_read} xer_write={xer} overflow_enable={overflow} '
         f'integer_classified={supported} branch_form={branch_form} '
         f'memory_form={memory_form} base_updated={base_updated} '
+        f'update_base_valid={update_base_valid} '
         'original_execution=0'
     )
     return 0
