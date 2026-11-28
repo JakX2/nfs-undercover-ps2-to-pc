@@ -21,13 +21,13 @@ class TransferPlan(NamedTuple):
 
 
 def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
-         returned: bool = False) -> TransferPlan:
+         returned: bool = False, suffix: bool = False) -> TransferPlan:
     """One contract for source ownership, observer order and launch flags."""
-    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned)):
+    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned, suffix)):
         raise ValueError('transfer option')
-    if not prefix and not returned:
+    if not prefix and not returned and not suffix:
         return TransferPlan({}, (), ())
-    if synthetic or scope != 'os-si-handler-time' or time_suffix or (prefix and returned):
+    if synthetic or scope != 'os-si-handler-time' or time_suffix or sum((prefix, returned, suffix)) != 1:
         raise ValueError('transfer scope')
     # Match the existing Linux full-image translation contract. The
     # analyzer owns the original transfer root and compiler save alias;
@@ -35,10 +35,13 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
     analyzer = ('--transfer-prefix',)
     observers = (('transfer_prefix_observer', 'prepare_v768_transfer_prefix.py'),)
     env = {'UNDERCOVER_V747_TIME_SUFFIX': '1'}
-    if returned:
+    if returned or suffix:
         analyzer += ('--transfer-return',)
         observers += (('transfer_return_observer', 'prepare_v777_transfer_return.py'),)
         env['UNDERCOVER_V777_TRANSFER_RETURN'] = '1'
+        if suffix:
+            observers += (('transfer_suffix_observer', 'prepare_v778_transfer_suffix.py'),)
+            env['UNDERCOVER_V778_TRANSFER_SUFFIX'] = '1'
     else:
         env['UNDERCOVER_V768_TRANSFER_PREFIX'] = '1'
     return TransferPlan(env, analyzer, observers)
