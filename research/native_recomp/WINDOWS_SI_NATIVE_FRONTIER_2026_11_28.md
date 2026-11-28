@@ -160,11 +160,35 @@ scheduler flag that the owner launcher did not supply. This was corrected in
 now validates the complete progression contract **before native compilation**
 and emits the redacted `progression_environment` refusal if invalid.
 
-The later private owner-original
+The next private owner-original
 [46108297899](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46108297899)
-was still in progress at the time of this ledger update. No original Windows
-scheduler entry, return, reschedule or RFI should be marked verified without
-its completed original-owner execution markers.
+**completed with failure at the first new scheduler-entry stage**. Native
+translation and Windows x64 link passed. All **11 earlier original-image
+progression stages passed on one compiled executable**, including the
+handler BLR return; the twelfth launch exited 126 and printed
+`V922_WINDOWS_SCHEDULER exit=other handler_return=0 scheduler_entry=0`.
+No owner-original Windows scheduler-entry claim follows from that run.
+The prior hardware-access hook can reject on an unrelated address callback
+before authentic scheduler entry, so native label hooks replaced it.
+This is a plausible cause, not a separately verified game-code diagnosis.
+
+The corrected native-label branch was original-free CI-tested by
+[46109995875](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46109995875).
+Its later owner-original full-image
+[46110407497](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46110407497)
+was still running when last checked. To avoid opaque exit 126 results,
+[7bc36f3](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/7bc36f302d94f151b562714d8c0b5871b505765e)
+adds 17 allowlisted, public-safe scheduler refusal categories. A failure
+prints only the bounded category, not proprietary instructions, PCs,
+registers or memory contents.
+
+The saved-context bridge is now integrated, **default-disabled**, into
+owner-original Windows full-image installation by
+[21ea3a4](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/21ea3a4bb635ca9ab8e1692e12d80f4f1dd3dd65).
+It does not arm a Windows `rfi` or change the 15 existing stage flags.
+[46112866534](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46112866534)
+passed its source/integration suite. Full-image compilation and private
+execution with the bridge installed remain unverified.
 
 ## Correct native scheduler witnesses and saved-context RFI prerequisite
 
