@@ -22,10 +22,17 @@ SO = ('    out << "    ctx.cr[" << crD << "].so = ((ctx.xer >> 31u) & 1u) != 0u;
 
 def rewrite(source):
     starts = list(re.finditer(ANCHOR, source))
-    ends = list(re.finditer(END, source))
-    if len(starts) != 1 or len(ends) != 1 or starts[0].end() >= ends[0].start():
+    if len(starts) != 1:
         raise ValueError('unsupported signed compare emitter layout')
-    lo, hi = starts[0].end(), ends[0].start()
+    lo = starts[0].end()
+    # The pinned upstream also has an earlier opcode-34 arm. Restrict
+    # the end delimiter to the very next top-level dispatch arm.
+    end = re.search(r'(?m)^  \} else if \(', source[lo:])
+    if end is None:
+        raise ValueError('unsupported signed compare emitter layout')
+    hi = lo + end.start()
+    if not re.compile(END).match(source, hi):
+        raise ValueError('unsupported signed compare emitter layout')
     body = source[lo:hi]
     if (body.count(EQ) != 1 or body.count('uint32_t crD = ppc_inst.rd() >> 2;') != 1
             or body.count('<< crD << "].lt =') != 1
@@ -76,6 +83,13 @@ class Tests(unittest.TestCase):
             with self.subTest(case=bad[:60]):
                 with self.assertRaises(ValueError):
                     rewrite(bad)
+
+    def test_earlier_duplicate_opcode_34_arm_is_unchanged(self):
+        earlier = '  } else if (ppc_inst.opcode() == 34) { \n'
+        original = earlier + self.fixture()
+        patched = rewrite(original)
+        self.assertEqual(patched, earlier + rewrite(self.fixture()))
+        self.assertEqual(rewrite(patched), patched)
 
     def test_no_other_opcode_changed(self):
         original = self.fixture()
