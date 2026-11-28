@@ -1034,6 +1034,21 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     assert(branch128_armed&&child.stage()==50u);
     assert(child.caller_post_fourth_tick_budget()==20u);
     assert(child.caller_report_branch_128_visits()==0u);
+    // The selected target is a separate generated root: NWiiRecomp
+    // switches dispatch PC and traces entry before the target label tick.
+    c.pc=follow==507?next_entry:target128;
+    if(follow==508)++c.inst_count;
+    if(follow!=509){
+        const bool traced=child.caller_report_branch_128_trace(
+            c,follow==510?target128+4u:target128,held()&&follow!=511);
+        if(follow==507||follow==508||follow==510||follow==511){
+            assert(!traced);return;
+        }
+        assert(traced);
+        if(follow==512){
+            assert(!child.caller_report_branch_128_trace(c,target128,held()));return;
+        }
+    }
     if(follow==499)c.cr[1].lt=false;
     if(follow==500)c.gpr[5]^=1u;
     if(follow==501)c.mmu.write32(target128+4u,target_word);
@@ -1041,7 +1056,7 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     const bool branch_done=child.stop_after_caller_report_branch_128(
         c,follow==503?target128+4u:target128,
         follow==504?guard_word:target_word,held()&&follow!=505);
-    if(follow>=499&&follow<=505){assert(!branch_done);return;}
+    if((follow>=499&&follow<=505)||follow==509){assert(!branch_done);return;}
     assert(branch_done&&child.stage()==51u&&
            child.caller_report_branch_128_visits()==1u&&
            child.reached_caller_report_branch_128(c,held()));
@@ -1075,7 +1090,7 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,318,128u-baseline);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
     for(unsigned follow=348;follow<=483;++follow)caller_trial(0,0x1234beefu,follow);
-    for(unsigned follow=490;follow<=506;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=490;follow<=512;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
     // The full 124/125 stage transitions must also survive the original
     // parent's independently measured 128-tick lease threshold.
@@ -1084,4 +1099,4 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,450,128u-baseline);
     caller_trial(0,0x1234beefu,470,128u-baseline);
     caller_trial(0,0x1234beefu,490,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=795 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 branch_128_cases=17 original_execution=0\n";}
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=801 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 branch_128_cases=23 original_execution=0\n";}
