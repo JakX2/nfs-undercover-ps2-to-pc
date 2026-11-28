@@ -70,7 +70,7 @@ def frontier(raw: bytes, rc: int, timed_out: bool = False,
             n = 0
             while k < len(tail) and tail[k].startswith(b'V719_POSTACK_LOOP_POLL '):
                 n += 1
-                match = POL.fullmatch(tail[k])
+                match = POLL.fullmatch(tail[k])
                 if not match or n > 8192 or int(match[1]) != n:
                     reason = 'poll_invalid'
                     following = 'loop_poll'
