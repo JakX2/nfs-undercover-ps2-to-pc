@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict complete-image reschedule-entry evidence after real scheduler return."""
 from __future__ import annotations
+import re
 from windows_scheduler_return_v923 import inspect as earlier,RESULT as PREDECESSOR,diagnostic as diag
 from windows_startup_scope_v434 import MAX_LOG
 
@@ -21,4 +22,5 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
             f'reschedule_entry={int(ok)} native_tick={int(ok)} rfi=0 boot_verified=0',ok)
 
 def diagnostic(line:bytes)->bool:
-    return type(line) is bytes and diag(line)
+    return type(line) is bytes and bool(diag(line) or re.fullmatch(
+        rb'V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason=[1-3]',line))

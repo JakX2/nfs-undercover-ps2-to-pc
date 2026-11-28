@@ -3,7 +3,7 @@
 import unittest
 from test_v923_windows_scheduler_return import sample as earlier
 from windows_scheduler_return_v923 import RESULT as PREDECESSOR
-from windows_reschedule_entry_v924 import RESULT,inspect
+from windows_reschedule_entry_v924 import RESULT,inspect,diagnostic
 from prepare_v924_windows_reschedule_entry import private_header,patch_binding,patch_native
 from prepare_owner_scheduler_v722 import S
 from windows_transfer_prefix_v751 import plan
@@ -28,6 +28,14 @@ class WindowsRescheduleEntry(unittest.TestCase):
         for bad in ((b'abc',True,False),('text',0,False),(b'abc',0,1),
                     (b'x'*(8*1024*1024+1),0,False)):
             with self.assertRaises(ValueError):inspect(*bad)
+    def test_strict_stage_refusal_diagnostics(self):
+        for reason in range(1,4):
+            self.assertTrue(diagnostic(f'V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason={reason}'.encode()))
+        for suffix in ('reason=0','reason=4','reason=-1','reason=01',
+                       'reason=foo','reason=1 pc=0x80000000'):
+            self.assertFalse(diagnostic(f'V924_WINDOWS_RESCHEDULE_ENTRY_INVALID {suffix}'.encode()))
+        self.assertFalse(diagnostic('V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason=1'))
+
     def test_failure_retains_authenticated_predecessor(self):
         for rc in (1,126,-1073741819):
             row,ok=inspect(sample(),rc)
@@ -50,6 +58,7 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
 }'''
         out=patch_binding(base)
         self.assertIn('if(resched_enabled()){resched_arm(c,pc,w);return;}',out)
+        self.assertIn('V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason=',out)
         self.assertIn('V924_WINDOWS_RESCHEDULE_ENTRY',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('original_enable=1','original_enable=0'))
         self.assertIn('resched_trace(uint32_t addr,C& c)',out)

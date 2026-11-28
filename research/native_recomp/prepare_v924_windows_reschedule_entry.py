@@ -43,11 +43,15 @@ inline bool resched_enabled(){
     const char* v=std::getenv("UNDERCOVER_V924_RESCHEDULE_ENTRY");
     return v&&v[0]=='1'&&v[1]=='\0';
 }
+[[noreturn]]inline void resched_refusal(unsigned code){
+    std::cout<<"V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason="<<code<<std::endl;
+    std::_Exit(126);
+}
 template<class C>void resched_arm(C& c,uint32_t pc,uint32_t w){
     if(resched_pending||resched_traced||!scheduler_return_enabled()||
        scheduler_dependency_stage!=3u||pc!=reschedule_branch_pc||
        w!=reschedule_branch_word||c.pc!=pc||c.lr!=pc||
-       c.msr!=scheduler_msr||!v850::held(c))reject(6);
+       c.msr!=scheduler_msr||!v850::held(c))resched_refusal(1);
     resched_tick=c.inst_count;resched_stack=c.gpr[1];resched_r2=c.gpr[2];
     resched_r13=c.gpr[13];resched_msr=c.msr;resched_arg=c.gpr[3];
     resched_pending=true;
@@ -59,7 +63,7 @@ template<class C>bool resched_trace(uint32_t addr,C& c){
        c.lr!=reschedule_branch_pc+4u||c.inst_count!=resched_tick||
        c.gpr[1]!=resched_stack||c.gpr[2]!=resched_r2||
        c.gpr[13]!=resched_r13||c.gpr[3]!=resched_arg||
-       c.msr!=resched_msr||!v850::held(c))reject(6);
+       c.msr!=resched_msr||!v850::held(c))resched_refusal(2);
     resched_traced=true;return true;
 }
 template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
@@ -71,7 +75,7 @@ template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
        c.gpr[13]!=resched_r13||c.gpr[3]!=resched_arg||
        c.msr!=resched_msr||!c.mmu.get_ptr(pc)||
        !c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w||
-       !v850::held(c))reject(6);
+       !v850::held(c))resched_refusal(3);
     std::cout<<"V924_WINDOWS_RESCHEDULE_ENTRY original_handler_return=1 scheduler_return=1 original_reschedule_branch=1 native_entry_tick=1 reschedule_return=0 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }
