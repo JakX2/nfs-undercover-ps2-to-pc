@@ -71,7 +71,9 @@ template<class C>void before(C& c,uint32_t pc,uint32_t w){
 }
 template<class C>void dispatch_resume(C& c,uint32_t pc,uint32_t w){
     if(!active())return;
-    // The outer dispatcher has incremented the real counter already.
+    // V438 counts real PPC instruction labels only: there is no guest tick
+    // for the host dispatcher edge. The native witness uses the build's
+    // explicit guest-only (or legacy) compile-time counter policy.
     if(!returned||!caller||!observe_completed_callback_dispatch(si_transfer_device,c.inst_count)||
        !returned->dispatch_resume(c,pc,w,si_transfer_device.held_now()))reject(7);
 }

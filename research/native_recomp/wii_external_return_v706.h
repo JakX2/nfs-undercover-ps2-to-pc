@@ -2,6 +2,13 @@
 #include "native_external_irq.h"
 #include <array>
 #include <cstdint>
+#ifndef UNDERCOVER_WII_GUEST_ONLY_DISPATCH
+#define UNDERCOVER_WII_GUEST_ONLY_DISPATCH 0
+#endif
+static_assert(UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 0 ||
+              UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 1,
+              "unknown native dispatch guest tick policy");
+
 namespace undercover::wii {
 // Read-only same-thread integer context witness. Does not claim FPU
 // ownership or a scheduler context switch, and never performs RFI itself.
@@ -87,9 +94,10 @@ public:
     }
     template<class C>bool resume(C& c,uint32_t pc,uint32_t word,uint32_t cause,uint32_t mask){
         // Hook after ++inst_count at the original resume label. The
-        // authenticated split dispatcher increments once before dispatch.
+        // legacy dispatcher adds one host tick; V438 adds none.
         if(pending_return_||stage_!=4||!common(c,cause,mask)||!restored(c)||pc!=resume_||
-           c.inst_count-rfi_tick_!=2u||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+           c.inst_count-rfi_tick_!=uint64_t(2u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH)||
+           !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
            c.mmu.read32(pc)!=word)return fail(4);
         stage_=5;return true;
     }

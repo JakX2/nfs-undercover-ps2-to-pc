@@ -1,6 +1,13 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#ifndef UNDERCOVER_WII_GUEST_ONLY_DISPATCH
+#define UNDERCOVER_WII_GUEST_ONLY_DISPATCH 0
+#endif
+static_assert(UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 0 ||
+              UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 1,
+              "unknown native dispatch guest tick policy");
+
 namespace undercover::wii {
 // Read-only integer ABI and control-flow witness for the SI handler suffix.
 // The surrounding authenticated ACK route must separately check device state.
@@ -105,8 +112,9 @@ public:
     }
     // The full callback witness must prove its original BLR, outer
     // dispatch poll/tick and matching caller label before this handoff.
-    // Count the real elapsed ticks, including both dispatcher ticks, not
-    // just the last epilogue's instruction visits.
+    // Count original guest instruction visits across the callback and
+    // dispatcher. Legacy compilation additionally counts two host edges;
+    // V438 guest-only compilation must not manufacture those ticks.
     template<class C>bool callback_returned(C& c,uint32_t pc,uint64_t call_tick,bool verified,bool device,unsigned slot){
         if(!verified||(slot!=6u&&slot!=11u)||!active_indirect_||call_tick!=last_||
            c.inst_count<=call_tick||c.inst_count-call_tick<14u||
@@ -132,7 +140,9 @@ public:
     }
     template<class C>bool resumed(C& c,uint32_t pc,uint32_t w,bool device){
         if(stage_!=4||!common(c)||!device||pending_||pc!=e_.resume||c.pc!=pc||
-           w!=e_.resume_word||!word(c,pc,w)||c.inst_count-last_!=2u||!abi(c)||c.lr!=pc)
+           w!=e_.resume_word||!word(c,pc,w)||
+           c.inst_count-last_!=uint64_t(2u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH)||
+           !abi(c)||c.lr!=pc)
             return fail(7);
         stage_=5;return true;
     }
