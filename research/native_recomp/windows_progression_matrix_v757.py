@@ -189,6 +189,13 @@ def run_native_rfi(exe: Path, dol: Path, config: Path, launch: Path,
     if log.exists() or log.is_symlink():
         raise ProgressionFailure('native-rfi')
     native_env = dict(environment)
+    # The V922-V925 incremental observers require scheduler_start() to arm
+    # their own private handshake. The complete V926 RFI route takes its
+    # authenticated dispatcher return through v922::begin() instead.
+    # Leaving those incremental flags enabled would incorrectly reject the
+    # genuine scheduler callee before its first original instruction.
+    for key in DEEP_ONLY:
+        native_env.pop(key, None)
     native_env.update({key: '1' for key in flags})
     timeout_status: dict[str, bool] = {}
     rc = command([exe, dol, config], log, 20, env=native_env, cwd=launch,

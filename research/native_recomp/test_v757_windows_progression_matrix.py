@@ -25,7 +25,7 @@ from test_v924_windows_reschedule_entry import sample as reschedule_sample
 from test_v925_windows_reschedule_return import sample as reschedule_return_sample
 from test_windows_native_rfi_audit_v926 import sample as native_rfi_sample
 from windows_progression_matrix_v757 import (
-    REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run, run_native_rfi,
+    REQUIRED, OPTIONAL, DEEP_ONLY, STAGES, ProgressionFailure, stage_environment, full_image_environment, run, run_native_rfi,
 )
 from windows_full_build_v426 import build as windows_build,progression_contract,BuildError
 
@@ -279,6 +279,16 @@ class WindowsProgression(unittest.TestCase):
                     'UNDERCOVER_V932_PENDING_RFI'):
             self.assertEqual(called[-1][1][key], '1')
             self.assertNotIn(key, BASE)
+        # The incremental scheduler-entry and nested-return observers need
+        # scheduler_start(), which the authentic V926 route intentionally
+        # replaces with v922::begin() at the original dispatcher return.
+        # They must be present in their own matrix stages but absent in RFI.
+        self.assertEqual(tuple(DEEP_ONLY), tuple(REQUIRED[-4:]))
+        self.assertEqual({key for key in DEEP_ONLY if key in BASE},
+                         set(DEEP_ONLY))
+        for index, key in enumerate(DEEP_ONLY, start=11):
+            self.assertEqual(called[index][1][key], '1')
+            self.assertNotIn(key, called[-1][1])
         self.assertIn('stage=native-rfi verified=1 boot_verified=0', output[-1])
         self.assertTrue(any('native_rfi=1 second_vector=1' in x for x in output))
 
