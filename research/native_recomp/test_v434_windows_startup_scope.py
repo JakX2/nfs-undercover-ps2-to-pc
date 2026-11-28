@@ -175,6 +175,26 @@ class Tests(unittest.TestCase):
         for bad in (raw.replace(LEAVES[0],LEAVES[1]),raw.replace(b'V719_POSTACK_LOOP_POLL n=2',b'V719_POSTACK_LOOP_POLL n=3'),raw.replace(POSTACK_RETURN,b'V688_SI_SECOND_INVALID reason=6 stage=2 trace=0'),raw+b'V718_POSTACK_REFUSAL kind=1 region=2 backward=1 masked=1 second=2 nested=4 leaves=3\n'):
             self.assertFalse(audit(bad,0,'os-si-os-leaves')[1])
         self.assertTrue(audit(raw.replace(b'V719_POSTACK_LOOP_POLL n=1\nV719_POSTACK_LOOP_POLL n=2\n',b''),0,'os-si-os-leaves')[1])
+    def test_handler_time_scoped_native_marker_contract(self):
+        raw=LOGS['os-si-handler-time']
+        self.assertIn(b'V726_HANDLER_STAGE n=2',raw)
+        self.assertIn(b'V742_TIME_LEAF ordinal=3 n=3',raw)
+        self.assertTrue(audit(raw,0,'os-si-handler-time')[1])
+        self.assertFalse(audit(raw,0,'os-si-os-leaves')[1])
+        self.assertFalse(audit(LOGS['os-si-os-leaves'],0,'os-si-handler-time')[1])
+        self.assertFalse(audit(raw.replace(b'V742_TIME_STAGE n=2',
+                                           b'V742_TIME_STAGE n=3',1),0,
+                               'os-si-handler-time')[1])
+        self.assertFalse(audit(raw+b'V742_TIME_INVALID reason=3 stage=2 '
+                               b'leaf=2 witness=1 trace=0\\n',0,
+                               'os-si-handler-time')[1])
+        self.assertFalse(audit(raw+b'V726_HANDLER_INVALID kind=3 '
+                               b'witness=4 stage=2 visits=20 polls=0\\n',
+                               0,'os-si-handler-time')[1])
+        for prior in ('os-si-ack','os-si-dispatch','os-external-entry'):
+            with self.subTest(prior=prior):
+                self.assertFalse(audit(raw,0,prior)[1])
+
     def test_exit_and_duplicates(self):
         for scope,raw in LOGS.items():
             for rc in (1,124,134,256,0xc0000005,-1,-1073741819):
