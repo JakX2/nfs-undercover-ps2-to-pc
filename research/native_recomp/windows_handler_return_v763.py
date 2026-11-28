@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from audit_v852_callback_return import CALLBACK_RETURN
 from audit_v870_handler_suffix import inspect as audit_suffix, BAD as SUFFIX_FAULT
-from audit_v920_handler_return import inspect as audit_return
+from audit_v920_handler_return import inspect as audit_return, RETURN as HANDLER_RETURN
 from windows_combined_callback_v762 import inspect_completed as callback_return, diagnostic as prior
 from windows_startup_scope_v434 import MAX_LOG
 
@@ -32,7 +32,7 @@ def inspect(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
                              'handler_ordinal=6 next=12 kind=1 ' in suffix_row)
             if suffix_ok:
                 _, handler_ok = audit_return(raw, 0)
-    ok = bool(callback_ok and suffix_ok and handler_ok)
+    # Native V920 prints this exact terminal marker and exits immediately.\n    # Reject anything appended after it, including otherwise unrecognized\n    # output that the shared diagnostic auditors intentionally ignore.\n    ok = bool(callback_ok and suffix_ok and handler_ok and\n              rows and rows[-1] == HANDLER_RETURN)
     exit_kind = ('timeout' if timed_out else
                  'zero' if rc == 0 else
                  'exception' if rc < 0 or rc >= 0xC0000000 else 'other')
