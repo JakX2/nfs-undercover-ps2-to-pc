@@ -16,6 +16,11 @@ on:
     paths:
       - '.github/workflows/wii-windows-si-continuous.yml'
       - 'research/native_recomp/windows_full_build_v426.py'
+      - 'research/native_recomp/apply_native_tick_v438.py'
+      - 'research/native_recomp/test_v438_native_tick.py'
+      - 'research/native_recomp/prepare_v663_external_entry.py'
+      - 'research/native_recomp/test_v663_external_entry.py'
+      - 'research/native_recomp/test_v922_handoff_native_compile.py'
       - 'research/native_recomp/windows_transfer_prefix_v751.py'
       - 'research/native_recomp/windows_transfer_return_v752.py'
       - 'research/native_recomp/windows_transfer_suffix_v753.py'
@@ -97,6 +102,8 @@ jobs:
             'test_v761_windows_wireless_write.py',
             'test_v762_windows_combined_callback.py',
             'test_v763_windows_handler_return.py',
+            'test_v663_external_entry.py',
+            'test_v922_handoff_native_compile.py',
             'test_v922_windows_scheduler_entry.py',
             'test_v923_windows_scheduler_return.py',
             'test_v924_windows_reschedule_entry.py',
