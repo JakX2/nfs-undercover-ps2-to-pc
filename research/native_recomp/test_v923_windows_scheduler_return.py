@@ -5,7 +5,7 @@ from windows_scheduler_entry_v922 import RESULT as ENTRY
 from windows_scheduler_return_v923 import RESULT,inspect
 from test_v922_windows_scheduler_entry import sample as earlier
 from prepare_v923_windows_scheduler_return import (
-    private_header,patch_binding,patch_ack,patch_dispatcher)
+    private_header,patch_binding,patch_dependency,patch_dispatcher)
 from prepare_owner_scheduler_v722 import E,S
 from windows_transfer_prefix_v751 import plan
 
@@ -56,8 +56,15 @@ template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
         self.assertIn('if(scheduler_return_enabled()){scheduler_return_arm(c);return;}',out)
         self.assertIn('V923_WINDOWS_SCHEDULER_RETURN',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('original_scheduler_entry=1','original_scheduler_entry=0'))
-        self.assertIn('scheduler_return_trace(a,c)',patch_ack('if(v868::scheduler_trace(a,c))return;'))
-        with self.assertRaises(ValueError):patch_ack('wrong')
+        dep='''void fn_805265AC(CPUContext& ctx) {
+loc_805265AC: ;
+    // 0x805265AC: 60000000
+    ++ctx.inst_count;
+    ctx.pc = 0x805265B0;
+}'''
+        bound=patch_dependency(dep,0x805265ac,0x60000000)
+        self.assertLess(bound.index('scheduler_return_trace('),bound.index('++ctx.inst_count;'))
+        with self.assertRaises(ValueError):patch_dependency(bound,0x805265ac,0x60000000)
         src='''void fn_80526A3C(CPUContext& ctx) {
 loc_80526AAC: ;
     // 0x80526AAC: 60000000

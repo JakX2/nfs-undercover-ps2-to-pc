@@ -4,7 +4,7 @@ import unittest
 from test_v924_windows_reschedule_entry import sample as earlier
 from windows_reschedule_entry_v924 import RESULT as PREDECESSOR
 from windows_reschedule_return_v925 import RESULT,inspect
-from prepare_v925_windows_reschedule_return import private_header,patch_binding,patch_ack,patch_resume
+from prepare_v925_windows_reschedule_return import private_header,patch_binding,patch_resume
 from prepare_owner_scheduler_v722 import S
 from windows_transfer_prefix_v751 import plan
 
@@ -43,8 +43,7 @@ template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
         self.assertIn('if(resched_return_enabled()){resched_return_arm(c);return;}',out)
         self.assertIn('V925_WINDOWS_RESCHEDULE_RETURN',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('reschedule_return=0','reschedule_return=1'))
-        self.assertIn('resched_return_trace(a,c)',patch_ack('if(v868::resched_trace(a,c))return;'))
-        with self.assertRaises(ValueError):patch_ack('other')
+        self.assertIn('resched_return_trace(uint32_t addr,C& c)',out)
         src='''void fn_80526A3C(CPUContext& ctx) {
 loc_80526AB0: ;
     // 0x80526AB0: 60000000
@@ -53,6 +52,8 @@ loc_80526AB0: ;
 }'''
         amended=patch_resume(src,0x80526ab0,0x60000000)
         self.assertEqual(amended.count('resched_return_native('),1)
+        self.assertLess(amended.index('resched_return_trace('),amended.index('++ctx.inst_count;'))
+        self.assertLess(amended.index('++ctx.inst_count;'),amended.index('resched_return_native('))
         with self.assertRaises(ValueError):patch_resume(amended,0x80526ab0,0x60000000)
     def test_same_image_plan_legacy_disabled(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)

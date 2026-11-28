@@ -4,7 +4,7 @@ import unittest
 from audit_v920_handler_return import RETURN as HANDLER_RETURN
 from test_v763_windows_handler_return import sample as handler_sample
 from windows_scheduler_entry_v922 import RESULT,inspect
-from prepare_v922_windows_scheduler_entry import patch_binding,patch_ack,patch_scheduler
+from prepare_v922_windows_scheduler_entry import patch_binding,patch_scheduler
 from windows_transfer_prefix_v751 import plan
 
 def sample(changed=True):
@@ -42,8 +42,7 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('if(scheduler_enabled()){scheduler_start(c,pc,w);return;}',out)
         self.assertIn('V922_SCHEDULER_ENTRY',out)
         with self.assertRaises(ValueError):patch_binding(a.replace('original_blr=1','original_blr=0'))
-        self.assertIn('scheduler_trace(a,c)',patch_ack('if(v868::active()){v868::observe(a,c);return;}'))
-        with self.assertRaises(ValueError):patch_ack('invalid')
+        self.assertIn('scheduler_trace(uint32_t addr,C& c)',out)
 
     def test_native_first_instruction_hook_and_opt_in_plan(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
@@ -60,6 +59,9 @@ loc_80529434: ;
 }'''
         out=patch_scheduler(src,0x80529434,0x60000000)
         self.assertEqual(out.count('scheduler_native('),1)
+        self.assertEqual(out.count('scheduler_trace('),1)
+        self.assertLess(out.index('scheduler_trace('),out.index('++ctx.inst_count;'))
+        self.assertLess(out.index('++ctx.inst_count;'),out.index('scheduler_native('))
         with self.assertRaises(ValueError):patch_scheduler(out,0x80529434,0x60000000)
 
 if __name__=='__main__':unittest.main()
