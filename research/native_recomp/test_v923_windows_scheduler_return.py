@@ -2,7 +2,7 @@
 """Original-free Windows scheduler completion with original disables/restores."""
 import unittest
 from windows_scheduler_entry_v922 import RESULT as ENTRY
-from windows_scheduler_return_v923 import RESULT,inspect
+from windows_scheduler_return_v923 import RESULT,inspect,diagnostic
 from test_v922_windows_scheduler_entry import sample as earlier
 from prepare_v923_windows_scheduler_return import (
     private_header,patch_binding,patch_dependency,patch_dispatcher)
@@ -28,6 +28,14 @@ class WindowsSchedulerReturn(unittest.TestCase):
             self.assertFalse(inspect(sample(),rc,timeout)[1])
         for args in ((b'abc',True,False),('text',0,False),(b'abc',0,1),(b'x'*(8*1024*1024+1),0,False)):
             with self.assertRaises(ValueError):inspect(*args)
+    def test_strict_stage_refusal_diagnostics(self):
+        for reason in range(1,8):
+            self.assertTrue(diagnostic(f'V923_WINDOWS_SCHEDULER_RETURN_INVALID reason={reason}'.encode()))
+        for suffix in ('reason=0','reason=8','reason=-1','reason=01',
+                       'reason=foo','reason=1 pc=0x80000000'):
+            self.assertFalse(diagnostic(f'V923_WINDOWS_SCHEDULER_RETURN_INVALID {suffix}'.encode()))
+        self.assertFalse(diagnostic('V923_WINDOWS_SCHEDULER_RETURN_INVALID reason=1'))
+
     def test_failure_retains_authenticated_predecessor(self):
         for rc in (1,126,-1073741819):
             row,ok=inspect(sample(),rc)
@@ -63,6 +71,7 @@ template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
 }'''
         out=patch_binding(base)
         self.assertIn('if(scheduler_return_enabled()){scheduler_return_arm(c);return;}',out)
+        self.assertIn('V923_WINDOWS_SCHEDULER_RETURN_INVALID reason=',out)
         self.assertIn('V923_WINDOWS_SCHEDULER_RETURN',out)
         self.assertIn('c.msr!=scheduler_msr||c.gpr[1]!=scheduler_frame_stack||',out)
         self.assertIn('c.gpr[1]!=scheduler_stack||c.gpr[2]!=scheduler_r2||',out)

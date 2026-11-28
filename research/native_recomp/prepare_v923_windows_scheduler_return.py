@@ -50,15 +50,19 @@ inline bool scheduler_return_enabled(){
     const char* v=std::getenv("UNDERCOVER_V923_SCHEDULER_RETURN");
     return v&&v[0]=='1'&&v[1]=='\0';
 }
+[[noreturn]]inline void scheduler_return_refusal(unsigned code){
+    std::cout<<"V923_WINDOWS_SCHEDULER_RETURN_INVALID reason="<<code<<std::endl;
+    std::_Exit(126);
+}
 template<class C>void scheduler_return_arm(C& c){
     if(!scheduler_enabled()||!scheduler_pending||!scheduler_traced||
-       scheduler_dependency_stage||c.msr!=scheduler_msr||!v850::held(c))reject(6);
+       scheduler_dependency_stage||c.msr!=scheduler_msr||!v850::held(c))scheduler_return_refusal(1);
     const int64_t address=int64_t(c.gpr[13])+int64_t(scheduler_counter_disp);
-    if(address<0x80000000ll||address>0x817ffffcll||(address&3ll))reject(6);
+    if(address<0x80000000ll||address>0x817ffffcll||(address&3ll))scheduler_return_refusal(2);
     const uint32_t addr=uint32_t(address);
-    if(!c.mmu.get_ptr(addr)||!c.mmu.get_ptr(addr+3u))reject(6);
+    if(!c.mmu.get_ptr(addr)||!c.mmu.get_ptr(addr+3u))scheduler_return_refusal(3);
     scheduler_counter_address=addr;scheduler_initial=c.mmu.read32(addr);
-    if(scheduler_initial==0u||scheduler_initial>1024u)reject(6);
+    if(scheduler_initial==0u||scheduler_initial>1024u)scheduler_return_refusal(4);
     scheduler_return_gp=c.gpr;
     scheduler_dependency_stage=1u;
 }
@@ -72,7 +76,7 @@ template<class C>bool scheduler_return_trace(uint32_t addr,C& c){
        c.msr!=scheduler_msr||c.gpr[1]!=scheduler_frame_stack||
        c.gpr[2]!=scheduler_r2||c.gpr[13]!=scheduler_r13||
        c.inst_count<=scheduler_tick||c.inst_count-scheduler_tick>512u||
-       !v850::held(c))reject(6);
+       !v850::held(c))scheduler_return_refusal(5);
     ++scheduler_dependency_stage;return true;
 }
 template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
@@ -86,9 +90,9 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
        !c.mmu.get_ptr(scheduler_counter_address)||
        c.mmu.read32(scheduler_counter_address)!=scheduler_initial-1u||
        !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))reject(6);
+       c.mmu.read32(pc)!=w||!v850::held(c))scheduler_return_refusal(6);
     for(unsigned i=14u;i<32u;++i)
-        if(c.gpr[i]!=scheduler_return_gp[i])reject(6);
+        if(c.gpr[i]!=scheduler_return_gp[i])scheduler_return_refusal(7);
     std::cout<<"V923_WINDOWS_SCHEDULER_RETURN original_handler_return=1 original_enable=1 disable=1 restore=1 counter=1 abi=1 reschedule_executed=0 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }

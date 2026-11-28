@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Require real original scheduler-enable return before original reschedule."""
 from __future__ import annotations
+import re
 from windows_scheduler_entry_v922 import inspect as predecessor, RESULT as ENTRY, diagnostic as prior_diag
 from windows_startup_scope_v434 import MAX_LOG
 
@@ -21,4 +22,5 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
             f'scheduler_return={int(ok)} disable_restore={int(ok)} rfi=0 boot_verified=0',ok)
 
 def diagnostic(line:bytes)->bool:
-    return type(line) is bytes and prior_diag(line)
+    return type(line) is bytes and bool(prior_diag(line) or re.fullmatch(
+        rb'V923_WINDOWS_SCHEDULER_RETURN_INVALID reason=[1-7]',line))
