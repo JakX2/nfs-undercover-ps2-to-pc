@@ -53,14 +53,15 @@ class WindowsTransferPrefixTests(unittest.TestCase):
         if os.name == 'nt':
             with tempfile.TemporaryDirectory() as td:
                 root = Path(td)
-                for extra in ([], ['--owner-time-suffix']):
+                for extra, reason in (([], 'transfer_scope'),
+                                      (['--owner-time-suffix'], 'suffix_scope')):
                     cmd = [sys.executable, str(runner),
                            str(root/'missing-upstream'), str(root/'fresh-work'),
                            '--owner-transfer-prefix', '--owner-scope',
                            'os-si-handler-time', *extra]
                     p = subprocess.run(cmd, capture_output=True, text=True)
                     self.assertNotEqual(p.returncode, 0)
-                    self.assertIn('V426_WINDOWS_FAILED reason=transfer_scope', p.stdout)
+                    self.assertIn('V426_WINDOWS_FAILED reason=' + reason, p.stdout)
 
     def test_original_time_and_prefix_required(self):
         row, ok = inspect(sample(), 0)
