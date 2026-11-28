@@ -258,6 +258,22 @@ jobs:
           python3 "$here/apply_exception_sprg.py" "$RUNNER_TEMP/nwii"
           python3 "$here/apply_mtmsr_resume_v74.py" "$RUNNER_TEMP/nwii"
           test -f "$RUNNER_TEMP/nwii/nWiiRuntime/include/runtime/cpu_context.h"
+      - name: Validate signed immediate compare emitter SO correction
+        run: |
+          set -euo pipefail
+          here=research/native_recomp
+          public="$RUNNER_TEMP/nwii"
+          candidate="$RUNNER_TEMP/cmpi-source"
+          mkdir -p "$candidate/nWiiRecomp/src"
+          git -C "$public" show HEAD:nWiiRecomp/src/recompiler.cpp > "$candidate/nWiiRecomp/src/recompiler.cpp"
+          python3 "$here/apply_signed_compare_so.py" --self-test
+          python3 "$here/apply_signed_compare_so.py" "$candidate"
+          cp "$candidate/nWiiRecomp/src/recompiler.cpp" "$candidate/once.cpp"
+          python3 "$here/apply_signed_compare_so.py" "$candidate"
+          cmp "$candidate/once.cpp" "$candidate/nWiiRecomp/src/recompiler.cpp"
+          g++ -std=c++20 -fsyntax-only -I"$public/nWiiRuntime/include" -I"$public/nWiiAnalyzer/include" -I"$public/nWiiRecomp/include" "$candidate/nWiiRecomp/src/recompiler.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie "$here/test_signed_compare_so_emission.cpp" -o "$RUNNER_TEMP/cmpi-source-test"
+          "$RUNNER_TEMP/cmpi-source-test"
       - name: Compile full original-free NAND observer harness before owner runs
         env:
           V347_NWII_ROOT: ${{ runner.temp }}/nwii
