@@ -2841,6 +2841,12 @@ void trace_call(uint32_t pc,CPUContext& c){
 #ifdef UNDERCOVER_FORMATTER_NESTED
     if(formatter_nested){
         const bool held=formatter_nested_held(c);
+#ifdef UNDERCOVER_FORMATTER_CALLER_REPORT_BRANCH_128
+        if(formatter_nested->stage()==50u){
+            if(!formatter_nested->caller_report_branch_128_trace(c,pc,held))formatter_nested_refuse(3);
+            return;
+        }
+#endif
 #ifdef UNDERCOVER_FORMATTER_CALLER_NEXT_ENTRY
         if(formatter_nested->stage()==28u){
             if(!formatter_nested->caller_next_entry_trace(c,pc,held))formatter_nested_refuse(3);
