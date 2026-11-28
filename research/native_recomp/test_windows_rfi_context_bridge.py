@@ -36,7 +36,7 @@ class WindowsContextBridge(unittest.TestCase):
     def test_owner_windows_build_installs_bridge_only_after_native_scheduler(self):
         from windows_full_build_v426 import build
         source=inspect.getsource(build)
-        self.assertIn("if owner_handler_return or owner_progression_matrix:",source)
+        self.assertIn("if owner_handler_return or owner_progression_matrix or owner_native_rfi:",source)
         self.assertIn("run_stage('rfi_context_bridge',",source)
         self.assertIn("generated,'--install']",source)
         self.assertLess(source.index('for stage,script in transfer_plan.observers:'),
