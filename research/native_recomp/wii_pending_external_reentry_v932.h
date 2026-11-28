@@ -12,8 +12,11 @@ public:
     template<class C,size_t N>bool enter(C& c,uint32_t cause,uint32_t mask,
                                         const std::array<uint8_t,N>& vector,bool restored,bool held){
         static_assert(N>=4&&N<=0x100&&N%4==0);
-        if(stage_||error_||!restored||!held||!safe(c)||(cause&mask)!=8u||!(c.msr&0x8000u)||
-           c.inst_count==UINT64_MAX)return fail(1);
+        // The SDK external vector selects its dispatch table only when
+        // the restored MSR has RI (recoverable interrupt) as well as EE.
+        // Without RI it branches to the default exception handler, not SI.
+        if(stage_||error_||!restored||!held||!safe(c)||(cause&mask)!=8u||
+           (c.msr&0x8002u)!=0x8002u||c.inst_count==UINT64_MAX)return fail(1);
         for(unsigned i=0;i<N;++i){
             if(!c.mmu.get_ptr(ExternalVector+i)||c.mmu.read8(ExternalVector+i)!=vector[i])return fail(1);
             vector_[i]=vector[i];

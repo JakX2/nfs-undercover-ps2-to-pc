@@ -66,6 +66,15 @@ jobs:
             -o "$RUNNER_TEMP/test-sysconf-sanitized"
           "$RUNNER_TEMP/test-sysconf-sanitized"
           echo 'PASS: synthetic Wii SYSCONF original-free optimized and ASan/UBSan IOS regression'
+      - name: Verify native pending-SI recoverability and vector entry
+        run: |
+          set -euo pipefail
+          src=research/native_recomp/test_wii_pending_external_reentry_v932.cpp
+          inc=research/native_recomp
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -I"$inc" "$src" -o "$RUNNER_TEMP/test-pending-si"
+          "$RUNNER_TEMP/test-pending-si"
+          g++ -std=c++20 -O1 -g -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -fno-pie -no-pie -I"$inc" "$src" -o "$RUNNER_TEMP/test-pending-si-sanitized"
+          "$RUNNER_TEMP/test-pending-si-sanitized"
       - name: Clean temporary built executables
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/nwii-v19" "$RUNNER_TEMP/v5-build" "$RUNNER_TEMP/ppc-v5.log" "$RUNNER_TEMP/ppc-v19.log" "$RUNNER_TEMP/test-sysconf" "$RUNNER_TEMP/test-sysconf-sanitized"
+        run: rm -rf -- "$RUNNER_TEMP/nwii" "$RUNNER_TEMP/nwii-v19" "$RUNNER_TEMP/v5-build" "$RUNNER_TEMP/ppc-v5.log" "$RUNNER_TEMP/ppc-v19.log" "$RUNNER_TEMP/test-sysconf" "$RUNNER_TEMP/test-sysconf-sanitized" "$RUNNER_TEMP/test-pending-si" "$RUNNER_TEMP/test-pending-si-sanitized"
