@@ -23,8 +23,9 @@ from test_v922_windows_scheduler_entry import sample as scheduler_sample
 from test_v923_windows_scheduler_return import sample as scheduler_return_sample
 from test_v924_windows_reschedule_entry import sample as reschedule_sample
 from test_v925_windows_reschedule_return import sample as reschedule_return_sample
+from test_windows_native_rfi_audit_v926 import sample as native_rfi_sample
 from windows_progression_matrix_v757 import (
-    REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run,
+    REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run, run_native_rfi,
 )
 from windows_full_build_v426 import build as windows_build,progression_contract,BuildError
 
@@ -247,6 +248,75 @@ class WindowsProgression(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run(Path('x'), Path('y'), Path('z'), folder, BASE,
                     None, lambda s: None)
+
+
+    def test_native_rfi_reuses_matrix_image_without_early_capture(self):
+        # RFI is an extra owner-original process after the existing 15
+        # verified boundaries. It never substitutes for scheduler proof.
+        called = []
+        output = []
+
+        def fake(args, log, seconds, *, env, cwd, timeout_status):
+            i = len(called)
+            called.append((tuple(args), dict(env), seconds))
+            timeout_status['expired'] = False
+            log.write_bytes(FIXTURES[i] if i < 15 else native_rfi_sample())
+            return EXIT[i] if i < 15 else 0
+
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            exe, dol, config = Path('original.exe'), Path('owner.dol'), Path('config.toml')
+            run(exe, dol, config, folder, BASE, fake, output.append)
+            run_native_rfi(exe, dol, config, folder, BASE, fake, output.append)
+        self.assertEqual(len(called), 16)
+        self.assertEqual(len({entry[0] for entry in called}), 1)
+        self.assertTrue(all(entry[2] == 20 for entry in called))
+        for _, env, _ in called[:15]:
+            for key in ('UNDERCOVER_V751_CAPTURE', 'UNDERCOVER_V926_WINDOWS_RFI',
+                        'UNDERCOVER_V932_PENDING_RFI'):
+                self.assertNotIn(key, env)
+        for key in ('UNDERCOVER_V751_CAPTURE', 'UNDERCOVER_V926_WINDOWS_RFI',
+                    'UNDERCOVER_V932_PENDING_RFI'):
+            self.assertEqual(called[-1][1][key], '1')
+            self.assertNotIn(key, BASE)
+        self.assertIn('stage=native-rfi verified=1 boot_verified=0', output[-1])
+        self.assertTrue(any('native_rfi=1 second_vector=1' in x for x in output))
+
+    def test_post_matrix_native_rfi_refuses_forgery_without_success(self):
+        output = []
+
+        def fake(args, log, seconds, *, env, cwd, timeout_status):
+            timeout_status['expired'] = False
+            log.write_bytes(native_rfi_sample().replace(
+                b'V932_RFI_REENTRY restored_integer=1 native_rfi=1',
+                b'V932_RFI_REENTRY restored_integer=0 native_rfi=1'))
+            return 0
+
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            with self.assertRaises(ProgressionFailure) as result:
+                run_native_rfi(Path('native.exe'), Path('owner.dol'),
+                               Path('config.toml'), folder, BASE, fake,
+                               output.append)
+            self.assertEqual(str(result.exception), 'native-rfi')
+            self.assertIn('stage=native-rfi verified=0 boot_verified=0', output[-1])
+            self.assertFalse(any('stage=native-rfi verified=1' in s for s in output))
+
+    def test_post_matrix_native_rfi_environment_and_output_guards(self):
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d)
+            args = (Path('native.exe'), Path('owner.dol'), Path('config.toml'),
+                    folder)
+            def unused(*a, **k):
+                raise AssertionError('must fail before launching native code')
+            for invalid in ({}, {**BASE, 'UNDERCOVER_V751_CAPTURE': '1'},
+                            {**BASE, 'UNDERCOVER_V926_WINDOWS_RFI': '0'},
+                            {**BASE, 'UNDERCOVER_V932_PENDING_RFI': '1'}):
+                with self.assertRaises(ValueError):
+                    run_native_rfi(*args, invalid, unused)
+            (folder/'progression-native-rfi.log').write_bytes(b'protected')
+            with self.assertRaises(ProgressionFailure):
+                run_native_rfi(*args, BASE, unused)
 
     def test_windows_ci_replaces_stale_pushes_but_preserves_manual_rfi(self):
         # The owner-private build is lengthy. New source commits must reach

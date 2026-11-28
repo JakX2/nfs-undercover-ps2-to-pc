@@ -25,7 +25,7 @@ from windows_wireless_write_v761 import inspect as inspect_wireless_write
 from windows_combined_callback_v762 import inspect_completed as inspect_combined_callback
 from windows_handler_return_v763 import inspect as inspect_handler_return
 from windows_native_rfi_v926 import inspect as inspect_native_rfi
-from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure, full_image_environment, stage_environment, STAGES
+from windows_progression_matrix_v757 import run as run_progression, run_native_rfi as run_post_rfi, ProgressionFailure, full_image_environment, stage_environment, STAGES
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -204,7 +204,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,
         owner_callback_prefix,owner_callback_time,owner_callback_frontier,
         owner_wireless_wrapper,owner_wireless_write,owner_combined_callback,
-        owner_handler_return,owner_progression_matrix))):
+        owner_handler_return))):
         raise BuildError('native_rfi_scope')
     if owner_progression_matrix and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix))):raise BuildError('progression_scope')
     try: suffix_env=launch_overlay(scope,synthetic,owner_time_suffix)
@@ -315,8 +315,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env.update(launch_flags(scope,synthetic))
     env.update(suffix_env)
     env.update(transfer_plan.env)
-    if owner_native_rfi:
-        # Only the explicit owner-original RFI execution mode activates
+    if owner_native_rfi and not owner_progression_matrix:
+        # Only the standalone original RFI run activates capture here.
+        # The combined mode keeps capture disabled for all 15 predecessors.
         # saved-frame capture and the genuine V932 pending-source path.
         env.update(UNDERCOVER_V751_CAPTURE='1',
                    UNDERCOVER_V926_WINDOWS_RFI='1',
@@ -335,6 +336,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         try:
             env=progression_contract(env)
             run_progression(exe,dol,config,launch,env,command)
+            if owner_native_rfi:
+                # Same compiled original image; only fresh-process flags differ.
+                run_post_rfi(exe,dol,config,launch,env,command)
         except ProgressionFailure as exc:raise BuildError('progression_'+str(exc).replace('-','_')) from exc
         print('V429_WINDOWS_OWNER_SCOPE scope=os-si-handler-time verified=1 boot_verified=0',flush=True)
         print('V426_WINDOWS_START synthetic=0 verified=1 boot_verified=0',flush=True)

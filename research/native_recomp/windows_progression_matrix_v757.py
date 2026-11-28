@@ -28,6 +28,7 @@ from windows_scheduler_entry_v922 import inspect as check_scheduler, diagnostic 
 from windows_scheduler_return_v923 import inspect as check_scheduler_return, diagnostic as diag_scheduler_return
 from windows_reschedule_entry_v924 import inspect as check_reschedule_entry, diagnostic as diag_reschedule_entry
 from windows_reschedule_return_v925 import inspect as check_reschedule_return, diagnostic as diag_reschedule_return
+from windows_native_rfi_v926 import inspect as check_native_rfi, diagnostic as diag_native_rfi
 
 
 # The complete native image must have all the previously authenticated
@@ -163,3 +164,50 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
            ' compiler_reused=1 native=1 handler_return=1 scheduler_entry=1'
            ' scheduler_return=1 reschedule_entry=1 reschedule_return=1'
            ' rfi=0 boot_verified=0')
+
+
+def run_native_rfi(exe: Path, dol: Path, config: Path, launch: Path,
+                   environment: dict[str, str], command: Callable[..., int],
+                   report: Callable[[str], None] = print) -> None:
+    """Run opt-in original RFI after all 15 native stages, with the same PE.
+
+    Saved-frame capture and the RFI route must be absent during every
+    predecessor launch. Only this fresh native process enables them.
+    No private log lines, guest PCs, instructions or assets are published.
+    """
+    if any(not isinstance(p, Path) for p in (exe, dol, config, launch)):
+        raise ValueError('native RFI progression inputs')
+    if not launch.is_dir() or not callable(command) or not callable(report):
+        raise ValueError('native RFI progression runtime')
+    flags = ('UNDERCOVER_V751_CAPTURE', 'UNDERCOVER_V926_WINDOWS_RFI',
+             'UNDERCOVER_V932_PENDING_RFI')
+    if (type(environment) is not dict or
+            any(environment.get(key) != '1' for key in REQUIRED) or
+            any(key in environment for key in flags)):
+        raise ValueError('native RFI progression environment')
+    log = launch / 'progression-native-rfi.log'
+    if log.exists() or log.is_symlink():
+        raise ProgressionFailure('native-rfi')
+    native_env = dict(environment)
+    native_env.update({key: '1' for key in flags})
+    timeout_status: dict[str, bool] = {}
+    rc = command([exe, dol, config], log, 20, env=native_env, cwd=launch,
+                 timeout_status=timeout_status)
+    timed_out = timeout_status.get('expired')
+    row = ''
+    ok = False
+    raw = b''
+    if (type(rc) is int and type(timed_out) is bool and log.is_file()
+            and not log.is_symlink() and log.stat().st_size <= MAX_LOG):
+        raw = log.read_bytes()
+        row, ok = check_native_rfi(raw, rc, timed_out)
+    if row:
+        report(row)
+    if not ok:
+        for line in raw.splitlines():
+            if b'_INVALID ' in line and len(line) <= 256 and diag_native_rfi(line):
+                report(line.decode('ascii'))
+    report('V757_WINDOWS_PROGRESSION stage=native-rfi verified=' +
+           str(int(ok)) + ' boot_verified=0')
+    if not ok:
+        raise ProgressionFailure('native-rfi')

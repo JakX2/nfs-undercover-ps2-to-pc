@@ -170,7 +170,7 @@ jobs:
         shell: pwsh
         run: |
           $original = Join-Path $env:RUNNER_TEMP 'native-si-input'
-          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-progression-matrix
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-progression-matrix --owner-native-rfi
           exit $LASTEXITCODE
       - name: Execute original native RFI and pending SI second vector on Windows
         if: inputs.native_rfi == true
