@@ -57,7 +57,10 @@ def inspect(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
         # The failure at the final guarded call is deliberately expected.
         # All other hardware/SDK failures and scope-family events after
         # the time return must be rejected, never silently dropped.
-        tail_ok = all(
+        # The production observer emits the invalid-call record then
+        # _Exit(126); accepting arbitrary output after it would conceal
+        # unbounded execution beyond the guard.
+        tail_ok = bool(after and re.fullmatch(INVALID, after[-1])) and all(
             (not line.startswith(FAILURE_PREFIXES) or
              re.fullmatch(INVALID, line) is not None) and
             (not line.startswith(PREFIXES) or
