@@ -52,6 +52,59 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 rewrite(malformed,require_dispatch=True)
 
+    def test_dispatch_roundtrip_does_not_count_host_edges(self):
+        cc = shutil.which('g++')
+        if not cc:
+            self.skipTest('GCC unavailable')
+        # The earlier regression covered labels but not the generated host
+        # run_game dispatch edges. Exercise both wrapper shapes, three genuine
+        # native guest visits, and an RFI-style PC continuation with no
+        # proprietary instructions or owner data.
+        patched_emitter = rewrite(FULL_SOURCE, require_dispatch=True)
+        self.assertEqual(patched_emitter.count(DISPATCH_AFTER), 2)
+        self.assertNotIn(DISPATCH_BEFORE, patched_emitter)
+
+        def source(patched):
+            seam = DISPATCH_AFTER if patched else DISPATCH_BEFORE
+            emitted = seam.partition('"')[2].rpartition('"')[0].replace('\\n', '\n')
+            if not emitted.startswith('        uint32_t target = ctx.pc;\n'):
+                raise AssertionError('unexpected dispatcher emitter seam')
+            fragment = emitted + '100000) == 0) ++diagnostics;\n'
+            return (
+                '#include <cstdint>\n'
+                'struct CPU { uint64_t inst_count=0; uint32_t pc=1, visits=0; };\n'
+                'unsigned diagnostics=0;\n'
+                'void first(CPU& c) { ++c.inst_count; c.pc=2; ++c.visits; }\n'
+                'void second(CPU& c) { ++c.inst_count; c.pc=3; ++c.visits; }\n'
+                'void rfi(CPU& c) { ++c.inst_count; c.pc=4; ++c.visits; }\n'
+                'void unsplit(CPU& ctx) {\n'
+                '  while(ctx.pc!=4) {\n' + fragment +
+                '    switch(target) {case 1:first(ctx);break; case 2:second(ctx);break; '
+                'case 3:rfi(ctx);break; default:return;}\n'
+                '  }\n}\n'
+                'void split(CPU& ctx) {\n'
+                '  while(ctx.pc!=4) {\n' + fragment +
+                '    if(target==1)first(ctx);else if(target==2)second(ctx);'
+                'else if(target==3)rfi(ctx);else return;\n'
+                '  }\n}\n'
+                'int main() {CPU a,b;unsplit(a);split(b);\n'
+                '  if(a.inst_count!=3||b.inst_count!=3||a.visits!=3||b.visits!=3||'
+                'a.pc!=4||b.pc!=4||diagnostics)return 1;\n'
+                '  return 0;\n}\n'
+            )
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for patched in (False, True):
+                (root/'dispatch.cpp').write_text(source(patched), encoding='utf-8')
+                subprocess.run([cc, '-std=c++20', '-Wall', '-Wextra', '-Werror',
+                                '-fsanitize=address,undefined', '-fno-pie', '-no-pie',
+                                str(root/'dispatch.cpp'), '-o', str(root/'dispatch')],
+                               check=True, capture_output=True)
+                result = subprocess.run([str(root/'dispatch')], capture_output=True)
+                self.assertEqual(result.returncode, 0 if patched else 1,
+                                 result.stderr.decode('utf-8', errors='replace'))
+
     def test_emitted_control_flow(self):
         cc=shutil.which('g++')
         if not cc:self.skipTest('GCC unavailable')
