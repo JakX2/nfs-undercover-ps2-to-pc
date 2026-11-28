@@ -129,7 +129,12 @@ private:
             word(c,0x80003090u,0x80531b34u);
     }
     template<class C> bool image(C& c)const{
-        if(!c.mmu.get_ptr(ExternalVector)||!c.mmu.get_ptr(ExternalVector+e_.vector.size()-1u))return false;
+        // The vector is a fixed small array. Keep guest addresses uint32_t
+        // on both 32-bit PPC and 64-bit Windows without implicit size_t narrowing.
+        constexpr uint32_t LastVectorOffset =
+            uint32_t(std::tuple_size_v<decltype(e_.vector)>-1u);
+        if(!c.mmu.get_ptr(ExternalVector)||
+           !c.mmu.get_ptr(ExternalVector+LastVectorOffset))return false;
         for(unsigned i=0;i<e_.vector.size();++i)
             if(c.mmu.read8(ExternalVector+i)!=e_.vector[i])return false;
         return true;
