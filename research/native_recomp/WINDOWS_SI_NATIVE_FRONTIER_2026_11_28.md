@@ -125,9 +125,50 @@ tests. The original owner run [46105889593](https://github.com/JakX2/nfs-underco
 was still in progress at the time of this ledger revision; do not infer
 scheduler execution from the source suite or a running workflow.
 
+## Original reschedule continuation, private Windows owner verification pending
+
+The translated full Windows executable now installs original scheduler
+enable/disable/restore and original rescheduling as one code path. These
+are authentic original-function boundaries, **not** arbitrary instruction
+count targets:
+
+- V922: original dispatcher branches into the generated native scheduler
+  enable function and reaches its first original instruction tick.
+- V923: original scheduler enable executes its disable/restore callees,
+  updates the original nesting counter and returns to the dispatcher.
+- V924: original dispatcher calls the original reschedule function, whose
+  first native instruction tick is authenticated.
+- V925: no-thread-switch reschedule follows original branch/return and
+  reaches the dispatcher at the original context argument instruction.
+  A nonzero scheduling hint is explicitly **unadmitted**. This mode does not
+  pretend the thread switch returned, nor execute the context loader or RFI.
+
+All four modes are strictly ordered, default disabled for earlier runs and
+audited against the original native compiled source labels and ABI state.
+The [15-stage Windows original-free source/integration workflow 46109586905](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46109586905)
+passed at `0f39c67`. It is not owner-original 15-stage execution proof.
+
+The first twelve-stage owner-original attempt,
+[46105889593](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46105889593),
+**failed after successful original translation, native scheduler observer
+installation, V921 code-coverage preflight and native Windows link**, but
+**before the first stage launch** with `V426_WINDOWS_FAILED reason=host_error`.
+The original-free progression environment had gained an additional required
+scheduler flag that the owner launcher did not supply. This was corrected in
+[e7971fa](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/e7971fa86117f5628b0baf85fbb6e3b0263365e9).
+[cedab4e](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/cedab4e485fb713132b25c83ac67869a2a61280b)
+now validates the complete progression contract **before native compilation**
+and emits the redacted `progression_environment` refusal if invalid.
+
+The later private owner-original
+[46108297899](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46108297899)
+was still in progress at the time of this ledger update. No original Windows
+scheduler entry, return, reschedule or RFI should be marked verified without
+its completed original-owner execution markers.
+
 ## Technical next actions, in dependency order
 
-1. **Verify the owner-original V922/V923 scheduler stages** in the complete
+1. **Verify the owner-original V922–V925 scheduler and reschedule stages** in the complete
    native Windows executable. Use only the first redacted refusal marker
    to fix actual CPU state, instruction translation or Wii service behavior.
 2. **Continue from original scheduler return into reschedule and context
