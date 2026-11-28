@@ -175,6 +175,23 @@ class Tests(unittest.TestCase):
         for bad in (raw.replace(LEAVES[0],LEAVES[1]),raw.replace(b'V719_POSTACK_LOOP_POLL n=2',b'V719_POSTACK_LOOP_POLL n=3'),raw.replace(POSTACK_RETURN,b'V688_SI_SECOND_INVALID reason=6 stage=2 trace=0'),raw+b'V718_POSTACK_REFUSAL kind=1 region=2 backward=1 masked=1 second=2 nested=4 leaves=3\n'):
             self.assertFalse(audit(bad,0,'os-si-os-leaves')[1])
         self.assertTrue(audit(raw.replace(b'V719_POSTACK_LOOP_POLL n=1\nV719_POSTACK_LOOP_POLL n=2\n',b''),0,'os-si-os-leaves')[1])
+    def test_original_windows_handler_time_installer_order(self):
+        from pathlib import Path
+        build=(Path(__file__).parent /
+               'windows_full_build_v426.py').read_text(encoding='utf-8')
+        guard="if scope=='os-si-handler-time':"
+        baseline="if scope in ('os-si-os-leaves','os-si-handler-time'):"
+        prior="run_stage('si_os_leaf_observer'"
+        follow="run_stage('handler_return_observer'"
+        time="run_stage('handler_time_observer'"
+        self.assertIn(baseline,build)
+        self.assertEqual(build.count(guard),2)
+        self.assertEqual(build.count(follow),1)
+        self.assertEqual(build.count(time),1)
+        self.assertTrue(build.index(prior)<build.index(follow)<build.index(time))
+        self.assertIn("from audit_v742_handler_time import diagnostic",build)
+        self.assertIn('if handler_time_diagnostic(line):print(line.decode(),flush=True)',build)
+
     def test_handler_time_scoped_native_marker_contract(self):
         raw=LOGS['os-si-handler-time']
         self.assertIn(b'V726_HANDLER_STAGE n=2',raw)
