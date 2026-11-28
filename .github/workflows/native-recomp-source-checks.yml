@@ -274,6 +274,9 @@ jobs:
           g++ -std=c++20 -fsyntax-only -I"$public/nWiiRuntime/include" -I"$public/nWiiAnalyzer/include" -I"$public/nWiiRecomp/include" "$candidate/nWiiRecomp/src/recompiler.cpp"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie "$here/test_signed_compare_so_emission.cpp" -o "$RUNNER_TEMP/cmpi-source-test"
           "$RUNNER_TEMP/cmpi-source-test"
+          python3 "$here/prepare_formatter_compare_129_fixture.py" --self-test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-pie -no-pie -I"$here" "$here/test_formatter_compare_129.cpp" -o "$RUNNER_TEMP/compare-129-witness"
+          "$RUNNER_TEMP/compare-129-witness"
       - name: Compile full original-free NAND observer harness before owner runs
         env:
           V347_NWII_ROOT: ${{ runner.temp }}/nwii
