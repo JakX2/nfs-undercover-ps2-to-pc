@@ -24,7 +24,7 @@ from windows_wireless_wrapper_v760 import inspect as inspect_wireless_wrapper
 from windows_wireless_write_v761 import inspect as inspect_wireless_write
 from windows_combined_callback_v762 import inspect_completed as inspect_combined_callback
 from windows_handler_return_v763 import inspect as inspect_handler_return
-from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure, full_image_environment
+from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure, full_image_environment, stage_environment, STAGES
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -171,6 +171,21 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
+def progression_contract(env: dict[str, str]) -> dict[str, str]:
+    """Fail before any expensive private translation when native flags drift.
+
+    This is only a host-source contract; passing it cannot establish original
+    game execution or native RFI. Diagnostics reveal no private input data.
+    """
+    try:
+        prepared=full_image_environment(env)
+        for stage in STAGES:
+            stage_environment(prepared,stage)
+    except ValueError as exc:
+        raise BuildError('progression_environment') from exc
+    return prepared
+
+
 def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False,owner_transfer_suffix=False,owner_alarm_return=False,owner_alarm_suffix=False,owner_callback_prefix=False,owner_progression_matrix=False,owner_callback_time=False,owner_callback_frontier=False,owner_wireless_wrapper=False,owner_wireless_write=False,owner_combined_callback=False,owner_handler_return=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
@@ -188,6 +203,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     except ValueError as e:raise BuildError('suffix_scope') from e
     try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_wireless_wrapper,owner_wireless_write,owner_combined_callback,owner_handler_return or owner_progression_matrix)
     except ValueError as e:raise BuildError('transfer_scope') from e
+    if owner_progression_matrix:
+        progression_contract(transfer_plan.env)
     extra_patches,observer=owner_scope(scope,synthetic)
     if requires_exi_profile(scope) and legacy_ticks:raise BuildError('exi_requires_native_ticks')
     if not synthetic and hashlib.sha256(dol.read_bytes()).hexdigest()!=OWNER_SHA:raise BuildError('owner_dol')
@@ -290,7 +307,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         env['UNDERCOVER_V518_SI_PROFILE']=str(profile)
     if owner_progression_matrix:
         try:
-            env=full_image_environment(env)
+            env=progression_contract(env)
             run_progression(exe,dol,config,launch,env,command)
         except ProgressionFailure as exc:raise BuildError('progression_'+str(exc).replace('-','_')) from exc
         print('V429_WINDOWS_OWNER_SCOPE scope=os-si-handler-time verified=1 boot_verified=0',flush=True)

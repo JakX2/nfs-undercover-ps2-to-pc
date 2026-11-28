@@ -26,7 +26,7 @@ from test_v925_windows_reschedule_return import sample as reschedule_return_samp
 from windows_progression_matrix_v757 import (
     REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run,
 )
-from windows_full_build_v426 import build as windows_build
+from windows_full_build_v426 import build as windows_build,progression_contract,BuildError
 
 FIXTURES = (transfer_sample(), suffix_sample(CALL), owner_log(),
             alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample(), wireless_sample(), write_sample(), combined_sample(), handler_sample(), scheduler_sample(), scheduler_return_sample(), reschedule_sample(), reschedule_return_sample())
@@ -83,6 +83,22 @@ class WindowsProgression(unittest.TestCase):
             if not corrupted: candidate.pop('UNDERCOVER_V920_HANDLER_RETURN')
             with self.assertRaises(ValueError):
                 full_image_environment(candidate)
+
+    def test_host_preflight_refuses_invalid_matrix_before_native_build(self):
+        from windows_transfer_prefix_v751 import plan
+        base=plan('os-si-handler-time',False,False,False,handler_return=True).env
+        prepared=progression_contract(base)
+        self.assertEqual(prepared,BASE)
+        for key in base:
+            faulty=dict(base);faulty.pop(key)
+            with self.subTest(key=key),self.assertRaises(BuildError) as caught:
+                progression_contract(faulty)
+            self.assertEqual(str(caught.exception),'progression_environment')
+        for change in ({'UNDERCOVER_V922_SCHEDULER_ENTRY':'true'},
+                       {'UNDERCOVER_V925_RESCHEDULE_RETURN':'0'}):
+            with self.assertRaises(BuildError) as caught:
+                progression_contract({**base,**change})
+            self.assertEqual(str(caught.exception),'progression_environment')
 
     def test_exact_stage_progression(self):
         self.assertEqual(tuple(s.name for s in STAGES),
