@@ -1,64 +1,79 @@
-# Windows owner-original Wii startup frontier, 2026-11-28
+# Windows owner-original Wii startup frontier, November 28, 2026
 
-Branch: `research/wii-native-recomp-preflight` (draft PR #36).
-This records observed **complete-image Windows x64** execution separately from
-Linux isolated owner-original AOT probes and original-free Windows test fixtures.
-A passing source-only unit test does not mean the underlying game path ran.
+Branch: research/wii-native-recomp-preflight, draft PR #36. This ledger
+records authenticated **complete-image Windows x64 original AOT execution**
+separately from Linux isolated-owner fixtures and original-free Windows
+tests. Static source analysis, an installed observer and a successful
+compiler/link do not prove execution through a new original call.
 
-## Last verified Windows milestones
+## Verified continuous Windows original code
 
-| Stage | Owner Windows evidence | Verified behavior | Next unexecuted boundary |
-| --- | --- | --- | --- |
-| V750, post-time guard | [run 46095473544](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46095473544) | Complete translated native Windows PE linked/launched. Original third system-time helper returned. Fourth linked SI call authentically refused (ordinal 4, kind 1) | Original fourth-call instruction |
-| V751, transfer prefix | [run 46096246382](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46096246382) | Complete Windows PE linked/launched. Original `__SITransfer` entry, GPR-save and interrupt-disable prefix with 20 authenticated visits | First unadmitted transfer call/MMIO |
-
-The V750 exit was a planned *refusal*, not a successful SI transfer. The
-V751 exit was a planned zero-exit *before MMIO*, not a transfer return.
-Both carry `boot_verified=0`. The executable runs translated original logic
-natively, but it does not reach original game `main`.
-
-## New stages: composed and source-tested, not yet Windows owner-executed
-
-The owner-private original installers build on V742 in this exact order.
-
-| CLI mode | Existing native installer chain | Proof needed |
+| Boundary | Authenticated original-owner Windows result | What executed |
 | --- | --- | --- |
-| `--owner-transfer-return` | V768, V777 | Fourth original transfer returns through real device and ABI restore, no caller instruction |
-| `--owner-transfer-suffix` | V768, V777, V778 | Handler resumes until next refused call or BLR |
-| `--owner-alarm-return` | V768, V777, V778, V786 | Fifth original alarm cancellation returns |
-| `--owner-alarm-suffix` | V768, V777, V778, V786, V789 | Classify exact subsequent original handler branch before execution |
-| `--owner-callback-prefix` | V768, V777, V778, V786, V789, V807 | Authenticate original callback bctrl entry, native prologue, compiler save, strict pre-continuation stop |
+| Post-time, pre-fourth SI | [46095473544](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46095473544) | Original third system-time helper return; stop before fourth handler call |
+| Fourth SI entry and pre-MMIO save/disable | [46096246382](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46096246382), independently rerun [46098038611](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46098038611) | Original __SITransfer entered; compiler GPR save and interrupt disable reached |
+| Fourth SI native device and ABI return | [46098038611 owner-return](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46098038611), plus independent full callback [46099124041](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46099124041) | V777 original_return=1, irq_restore=1, compiler_restore=1, idle=1, SI reads=2 writes=3, follow=3 and pending=0. Handler return remains 0 |
+| Fifth alarm-cancellation return | [46099124041](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46099124041) | V786 original_return=1, queue=1, abi=1, lane=0, timer=0, deferred=0. Handler return remains 0 |
+| Original callback entry and compiler save | [46099124041](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46099124041) | V807 original_prologue=1, save_return=1, 8 original stack writes, 13 observed visits, ordinal=6. Stop before callback continuation |
 
-All require `--owner-scope os-si-handler-time`, pinned original owner DOL/ELF
-and the exact pinned NWiiRecomp checkout. Every mode is mutually exclusive,
-has its own installer order, env flags, analyzer roots and strict log auditor.
-Unexpected raw tail markers, failure codes and timeouts must not pass.
+The full-image owner-original Windows native executable is a linked PE32+
+AMD64 running actual original translated game code with the pinned NWiiRecomp
+runtime and private authenticated Wii inputs. The V756 complete-image
+callback-prefix result above **succeeded**, not merely passed source tests.
+Its terminal authenticated summary is:
 
-Focused source-only workflows at the recorded versions:
+~~~text
+V756_WINDOWS_CALLBACK_PREFIX exit=zero alarm_return_verified=1 callback_prefix_verified=1 ordinal=6 original_prologue=1 compiler_save=1 continuation_executed=0 callback_return=0 handler_return=0 boot_verified=0
+~~~
 
-- V754 Windows alarm return: [run 46097541177](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46097541177), **12/12 passed**.
-- V755 Windows alarm suffix: [run 46098038788](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46098038788), **16/16 passed**.
-- V756 Windows callback prefix: [run 46098227345](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46098227345), **15/15 passed**.
+This is a substantial original-game startup milestone but **not** a game
+boot. No complete callback or interrupt return, native game main, graphics
+frame, frontend or gameplay has been verified.
 
-Isolated original-owner V754 alarm cancellation also passed
-[run 46097541073](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46097541073)
-(split/non-split). This is not a full-image Windows fifth-call return.
+## Implemented continuous-next Windows steps (awaiting original-image owner results)
 
-## Next gated actions
+These modes are not arbitrary instruction-count milestones. They run
+further original game initialization and Wii service behavior in the
+complete Windows executable, with a precise stop when the next original
+hardware call is not yet admitted.
 
-1. **Keep the Windows execution frontier at V751** until the original-private
-   `owner-return-windows` job of `wii-v751-windows-transfer-prefix.yml` proves
-   the complete V777 SI transaction, IRQ/compiler restores and original ABI
-   return with `boot_verified=0`.
-2. Run the V753 owner Windows suffix, then verify the exact next handler
-   boundary. Never infer a full transfer from a source-only or isolated test.
-3. Only after V752 and V753 pass, run the opt-in owner-private V754, V755
-   and V756 workflows in order. Fix native execution failures before adding
-   further original calls.
-4. Keep owner executables, private code, resource archives, generated game C++
-   and raw owner traces out of Git; CI must delete all private temporary files.
-5. The game's original `main`, first frame, frontend and gameplay remain
-   **unverified**. Keep PR #36 draft.
+| Mode or stage | Original code to execute | Windows evidence as of this ledger |
+| --- | --- | --- |
+| --owner-callback-time | V813: original callback continuation through authentic OS time helper + leaf returns; V822 exact-time census | [46101497609](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46101497609) 24/24 source/integration passed; original execution pending |
+| --owner-callback-frontier | V831: original post-time callback continuation through its wireless-service branch, stopping **before** the wireless callee | [46101682908](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46101682908) 30/30 source/integration passed; original execution pending |
+| --owner-progression-matrix | Compile one complete Windows PE and relaunch with fresh state for seven successively enabled native SI, handler, callback and wireless-frontier stops | Latest 7-stage original-free Windows test passed; owner run still needed. Every step has its own strict validation and fails at the first incorrect gate |
 
-This is native ahead-of-time recompilation with bounded runtime witnesses,
-not Dolphin/PCSX2, not a fully booted game, and not a playable PC port.
+The old single-build [46099124041](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46099124041)
+already proved callback prefix in one complete original Windows executable.
+The newer progression matrix must independently prove all later bounds
+before its additional results can be reported as original executed.
+
+## Technical next actions, in dependency order
+
+1. **Verify the owner-original V758/V759 branches** of the same compiled
+   Windows image. If the private observer refuses, use the first
+   V813_CALLBACK_TIME_INVALID or V831_CALLBACK_FRONTIER_INVALID evidence,
+   then repair the actual native call, CPU state or runtime service.
+2. **Implement and exercise actual wireless dependency/return** with the
+   existing authenticated V847 wrapper and V861/863 EXI write integration
+   when required. Reuse existing original code and never replace a missing
+   EXI service with a fake successful return. Verify callback return with
+   the V850 source/ABI/dispatcher witnesses only after its predecessor.
+3. **Continue through the original handler BLR and dispatcher resume**
+   using existing V868/V920 code, then RFI and saved Wii context through
+   the existing V921/V922 components. Those Linux original-image
+   implementations still need authentic Windows composition and proof.
+4. **Resume OSInit and return toward game main** via V928's original
+   interrupt-enable helper return. Original static audit identifies
+   __start at 0x8000403C, OSInit at 0x80520670, the main call at
+   0x800041A0 and main at 0x802D3F40. The presence of these symbol
+   addresses in the image is not execution evidence.
+5. After entering original main, address whichever genuine DVD/IOS,
+   filesystem, memory, threading, video (VI/GX), audio and controller
+   services it needs. First native frame, frontend and gameplay require
+   their own verified runtime observations.
+
+No isolated instruction-count increases without an actual failing
+instruction requiring a focused regression. Preserve private DOL/ELF,
+assets, translated game C++, original binaries and raw owner execution
+traces outside Git. Keep PR #36 draft until authentic boot milestones.
