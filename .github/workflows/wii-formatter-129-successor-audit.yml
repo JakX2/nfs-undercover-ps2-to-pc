@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/wii-formatter-129-successor-audit.yml'
       - 'research/native_recomp/audit_formatter_branch_128_target_successor.py'
+      - 'research/native_recomp/prepare_formatter_compare_129_fixture.py'
 permissions:
   contents: read
   actions: read
@@ -22,6 +23,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile research/native_recomp/audit_formatter_branch_128_target_successor.py
           python3 research/native_recomp/audit_formatter_branch_128_target_successor.py --self-test
+          python3 research/native_recomp/prepare_formatter_compare_129_fixture.py --self-test
   prerequisites:
     needs: original-free
     if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
@@ -93,6 +95,9 @@ jobs:
           set -euo pipefail
           umask 077
           python3 research/native_recomp/audit_formatter_branch_128_target_successor.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
+          # The successor is still unexecuted. Recheck its genuine word
+          # and signed compare input against the authenticated 128 target.
+          python3 research/native_recomp/prepare_formatter_compare_129_fixture.py "$RUNNER_TEMP/originals/NfsMWRelease.dol" "$RUNNER_TEMP/originals/NfsMWRelease.elf"
       - name: Remove owner files
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/originals" "$GITHUB_WORKSPACE/owner-staging"
