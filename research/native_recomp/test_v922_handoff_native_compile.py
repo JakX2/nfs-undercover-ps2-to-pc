@@ -104,7 +104,7 @@ int main(int argc,char** argv){
         c.lr=v::scheduler_call_pc+4u;
         if(!v::scheduler_trace(v::scheduler_entry_pc,c))return 11;
         ++c.inst_count;
-        if(mode=="bad-device-stage")v::v726::witness.current=4u;
+        if(mode=="bad-device-stage")undercover::wii::v726::witness.current=4u;
         if(mode=="bad-device-tick")--c.inst_count;
         if(mode=="bad-device-state")c.in_callback=true;
         if(mode=="bad-device-msr")c.msr|=0x8000u;
@@ -114,7 +114,7 @@ int main(int argc,char** argv){
         v::scheduler_device_tick(c,0x80004104u,0x60000000u);
         if(mode=="valid-stale-pc"){
             if(c.pc!=v::scheduler_entry_pc)return 12;
-            std::cout<<"V922_SEQUENTIAL_LABEL native=1 stale_pc_preserved=1\\n";
+            std::cout<<"V922_SEQUENTIAL_LABEL native=1 stale_pc_preserved=1\n";
             return 0;
         }
         return 13;
