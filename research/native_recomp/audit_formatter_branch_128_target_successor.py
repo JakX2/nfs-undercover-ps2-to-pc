@@ -15,6 +15,8 @@ from audit_formatter_partial_integer import classify
 from audit_formatter_report_sixth_immediate_successor import branch_shape
 from guarded_continuation import GUARD
 from prepare_formatter_branch_128_fixture import plan as branch_plan, render
+from prepare_formatter_next_entry_report_byte_contract import plan as byte_plan
+from prepare_formatter_caller_integer_contract import step
 from prepare_v419_full_start import MAX_DOL
 from private_plan_cache import plan_cache_scope
 
@@ -130,6 +132,71 @@ def classify_target(fixture):
             branch_form, memory_form, base_updated, update_base_valid)
 
 
+def compare_source(fixture, predecessor):
+    """Classify a cmpi input using authenticated symbolic 118–127 state.
+
+    The caller obtains both inputs from the owner-private planners.
+    This is a read-only dependency check, not execution of instruction 129.
+    The returned constant (when known) is for private fixture consumers only.
+    """
+    render(fixture)
+    blocks, fields = fixture
+    root, _, _, target, original, _, taken, _, ret = fields
+    if taken != 1 or blocks.get(target) != (original, GUARD):
+        raise ValueError('target compare provenance')
+    if comparison_kind(original, successor_family(original)) != 'signed_immediate':
+        return 'not_signed_immediate', None
+    if original & 0x00600000:
+        raise ValueError('target compare encoding')
+    if (not isinstance(predecessor, tuple) or len(predecessor) != 3):
+        raise ValueError('target compare state')
+    byte, regs, saved = predecessor
+    if (not isinstance(byte, tuple) or len(byte) != 2 or
+            not isinstance(byte[0], dict) or
+            not isinstance(byte[1], tuple) or len(byte[1]) != 8 or
+            not isinstance(regs, (tuple, list)) or len(regs) != 32 or
+            type(saved) is not int or not 0 <= saved <= 0xffffffff or
+            saved & 0x3fff):
+        raise ValueError('target compare state')
+    b_root, load, _, _, value, label, comparison, b_ret = byte[1]
+    body = blocks[root]
+    if (b_root != root or b_ret != ret or label != root+4 or
+            body[:2] != (load, comparison) or
+            byte[0].get(root) != (load, comparison, GUARD) or
+            type(value) is not int or not 0 <= value <= 255 or
+            not all(isinstance(v, tuple) and len(v) == 2 and
+                    isinstance(v[0], str) for v in regs) or
+            regs[1][0] != 'stack'):
+        raise ValueError('target compare provenance')
+    # Replay only the authenticated predecessor effects. The taken bc
+    # at slot 10 is CR-only and cannot change the comparison source.
+    gp = list(regs)
+    gp[(load >> 21) & 31] = ('const', value)
+    live = tuple(gp)
+    try:
+        for index, word in enumerate(body[1:10], start=1):
+            live, _ = step(word, live, saved_mask=saved,
+                           allow_stack_copy=(index == 2))
+    except (ValueError, KeyError, TypeError, IndexError):
+        raise ValueError('target compare predecessor state') from None
+    if len(live) != 32 or live[1] != regs[1]:
+        raise ValueError('target compare predecessor state')
+    reg = (original >> 16) & 31
+    kind, value = live[reg]
+    if kind != 'const':
+        return (kind if kind in ('stack', 'partial', 'reg', 'lr')
+                else 'untracked'), None
+    if type(value) is not int or not 0 <= value <= 0xffffffff:
+        raise ValueError('target compare source constant')
+    try:
+        after, inputs = step(original, live, saved_mask=saved)
+    except ValueError:
+        raise ValueError('target compare source constant') from None
+    if after != live or inputs != ((reg, value),):
+        raise ValueError('target compare source constant')
+    return 'constant', (reg, value)
+
+
 class Tests(unittest.TestCase):
     def fixture(self, selected_word=0x60000000, eq=True):
         from prepare_formatter_branch_128_fixture import Tests as Base, promote
@@ -139,6 +206,50 @@ class Tests(unittest.TestCase):
         target = seed.ROOT + 40 + 16
         words[(target-seed.ROOT)//4] = selected_word
         return promote(sixth, compare, tuple(words), size)
+
+    def compare_predecessor(self, fixture):
+        root = fixture[1][0]
+        body = fixture[0][root]
+        byte = ({root: (body[0], body[1], GUARD)},
+                (root, body[0], 753, 17, 0x5a, root+4,
+                 body[1], fixture[1][-1]))
+        regs = [('reg', i) for i in range(32)]
+        regs[1] = ('stack', -864)
+        regs[5] = ('const', 7)
+        return byte, tuple(regs), 0
+
+    def test_compare_input_replayed_from_predecessor(self):
+        for reg, expected in ((6, ('constant', (6, 5))),
+                              (7, ('constant', (7, 3))),
+                              (0, ('constant', (0, 0x5a))),
+                              (1, ('stack', None)),
+                              (12, ('reg', None))):
+            word = (11 << 26) | (3 << 23) | (reg << 16) | 0xffff
+            fixture = self.fixture(word)
+            before = self.compare_predecessor(fixture)
+            self.assertEqual(compare_source(fixture, before), expected)
+            self.assertEqual(before, self.compare_predecessor(fixture))
+
+    def test_compare_input_refuses_invalid_predecessor(self):
+        word = (11 << 26) | (6 << 16)
+        fixture = self.fixture(word)
+        byte, regs, saved = self.compare_predecessor(fixture)
+        with self.assertRaises(ValueError):
+            compare_source(fixture, (byte, regs[:31], saved))
+        with self.assertRaises(ValueError):
+            compare_source(fixture, (byte, regs, 1))
+        with self.assertRaises(ValueError):
+            compare_source(fixture, ((byte[0], byte[1][:-1] +
+                                       (byte[1][-1] + 4,)), regs, saved))
+        wrong = list(regs)
+        wrong[5] = ('reg', 5)
+        with self.assertRaises(ValueError):
+            compare_source(fixture, (byte, tuple(wrong), saved))
+        bad = self.fixture(word | 0x00200000)
+        with self.assertRaises(ValueError):
+            compare_source(bad, self.compare_predecessor(bad))
+        self.assertEqual(compare_source(self.fixture(), None),
+                         ('not_signed_immediate', None))
 
     def test_integer_and_memory_classification(self):
         for word, family in (
@@ -359,13 +470,19 @@ def main():
                 not 52 <= q.elf.stat().st_size <= 64 * 1024 * 1024):
             raise ValueError('size')
         with plan_cache_scope():
-            fixture = branch_plan(q.dol.read_bytes(), q.elf.read_bytes())
+            dol, elf = q.dol.read_bytes(), q.elf.read_bytes()
+            fixture = branch_plan(dol, elf)
             result = classify_target(fixture)
             comparison = comparison_kind(fixture[1][4], result[0])
+            source_kind, source = compare_source(
+                fixture, byte_plan(dol, elf, with_live=True)
+                if comparison == 'signed_immediate' else None)
     except (OSError,ValueError,TypeError,KeyError,IndexError,
             struct.error) as error:
         safe = {'size','target successor provenance','target successor family',
-                'target successor invalid update base'}
+                'target successor invalid update base', 'target compare provenance',
+                'target compare encoding', 'target compare state',
+                'target compare predecessor state', 'target compare source constant'}
         reason = str(error)
         print('FORMATTER_129_TARGET_AUDIT verified=0 reason=' +
               (reason.replace(' ','_') if reason in safe else 'private_input'))
@@ -379,6 +496,7 @@ def main():
         f'integer_classified={supported} branch_form={branch_form} '
         f'memory_form={memory_form} base_updated={base_updated} '
         f'update_base_valid={update_base_valid} comparison_kind={comparison} '
+        f'compare_source={source_kind} constant_input={int(source is not None)} '
         'original_execution=0'
     )
     return 0
