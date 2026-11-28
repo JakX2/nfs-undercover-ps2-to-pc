@@ -167,6 +167,9 @@ jobs:
       - name: Run boot checkpoint driver regressions
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_boot_progress.py -v
+      - name: Verify native Windows launch frontier without proprietary code
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v722_windows_boot_frontier.py -v
       - name: Check complete-image first-vector candidate and bounded debug oracle
         run: |
           set -euo pipefail
