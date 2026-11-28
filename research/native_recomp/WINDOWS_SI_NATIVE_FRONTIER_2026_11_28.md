@@ -6,6 +6,45 @@ separately from Linux isolated-owner fixtures and original-free Windows
 tests. Static source analysis, an installed observer and a successful
 compiler/link do not prove execution through a new original call.
 
+## Latest owner-original Windows progression: 12/15 (2026-11-28)
+
+[Full-image Windows run #58](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46122849990)
+at `a23a521b` built and linked the owner-authenticated Wii DOL/ELF into a
+native Windows x64 executable, then relaunched the **same PE** at successive
+original-code checkpoints. **Twelve of fifteen stages passed.**
+
+- Checkpoint 12, `scheduler-entry`, passed with
+  `V922_WINDOWS_SCHEDULER exit=zero handler_return=1 scheduler_entry=1 native_tick=1`.
+  This proves execution of the first **original translated scheduler instruction**
+  after the authentic handler return and dispatcher branch.
+- Checkpoint 13, `scheduler-return`, refused:
+  `V922_WINDOWS_SCHEDULER_INVALID reason=18` in the post-entry device observer.
+  No original Windows scheduler return, RFI, second SI vector, game `main`,
+  first frame, frontend or gameplay is verified by this run.
+
+The pinned NWiiRecomp emitter increments the guest instruction counter at
+each authentic translated label but does **not** rewrite `ctx.pc` on each
+straight-line instruction. The post-entry observer incorrectly required
+`c.pc == pc` at every subsequent label. [Commit `d8e258b`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/d8e258b7dfeeb55af86568b1341fe2225b6da9c9)
+removes that invalid equality while preserving original-word, MMU,
+monotonic-tick, authentic-label and SI-held checks. The separate function
+entry, direct call/return, and dispatcher-resume PC witnesses are unchanged.
+
+[Commit `562b3f3`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/562b3f3977c8fd32b46138f65d06b7874683d95c)
+adds bounded post-entry refusal categories (22-28) without private state;
+[commit `680ac11`](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/680ac1150f8bd31499cc92f1c9ecdf7c8a66e019)
+aligns its regression checks. Their [new Windows full-image run](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46126076197)
+has not yet completed, so **13/15 and full-image RFI are not claimed**.
+
+The independent [V438 dispatcher-counter fix](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/b708e1ed9be797a2726926a30d44e66d7982a90b)
+and [one-shot diagnostic fix](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/57652d3d7a24d800f771d7909ec017774d8ced88)
+passed [PowerPC runtime](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46125775319)
+and [source-only](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46125775284)
+CI, but these do not constitute a later owner-original Windows execution result.
+
+Sections below preserve historical evidence as originally recorded. Earlier
+statements that the scheduler entry was awaiting proof are superseded by this
+verified 12/15 checkpoint; do not infer later stages from those entries.
 ## Verified continuous Windows original code
 
 | Boundary | Authenticated original-owner Windows result | What executed |
