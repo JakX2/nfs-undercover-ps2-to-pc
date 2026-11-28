@@ -1262,13 +1262,22 @@ public:
         branch_128_size_=owner_size;
         stage_=50u;return true;
     }
+    // The cross-root native dispatch traces the selected function before
+    // its first instruction tick. No extra guest instruction is executed.
+    template<class C>bool caller_report_branch_128_trace(C& c,uint32_t pc,bool held){
+        if(stage_!=50u||branch_128_trace_seen_||pc!=branch_128_pc_||
+           !branch_128_size_||!word(c,pc,branch_128_word_)||
+           !word(c,pc+4u,0x44000002u)||
+           !report_byte_storage(c,held,10u,branch_128_pc_))return fail(6);
+        branch_128_trace_seen_=true;return true;
+    }
     template<class C>bool stop_after_caller_report_branch_128(C& c,
         uint32_t pc,uint32_t w,bool held){
-        if(stage_!=50u||pc!=branch_128_pc_||w!=branch_128_word_||
+        if(stage_!=50u||!branch_128_trace_seen_||pc!=branch_128_pc_||w!=branch_128_word_||
            !branch_128_size_||
            !word(c,branch_128_pc_,branch_128_word_)||
            !word(c,branch_128_pc_+4u,0x44000002u)||
-           !report_byte_storage(c,held,11u))return fail(6);
+           !report_byte_storage(c,held,11u,branch_128_pc_))return fail(6);
         branch_128_completed_=true;stage_=51u;return true;
     }
     unsigned caller_report_branch_128_visits()const{
@@ -1276,10 +1285,10 @@ public:
     }
     template<class C>bool reached_caller_report_branch_128(C& c,
         bool held)const{
-        return stage_==51u&&branch_128_completed_&&
+        return stage_==51u&&branch_128_trace_seen_&&branch_128_completed_&&
             word(c,branch_128_pc_,branch_128_word_)&&
             word(c,branch_128_pc_+4u,0x44000002u)&&
-            report_byte_storage(c,held,11u);
+            report_byte_storage(c,held,11u,branch_128_pc_);
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -1467,13 +1476,13 @@ private:
     uint32_t report_sixth_immediate_value_=0u;
     bool report_sixth_immediate_completed_=false;
     uint32_t branch_128_pc_=0u,branch_128_word_=0u,branch_128_size_=0u;
-    bool branch_128_completed_=false;
-    template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u)const{
+    bool branch_128_completed_=false,branch_128_trace_seen_=false;
+    template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u,std::optional<uint32_t> dispatch_pc={})const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
-            next_entry_storage(c,held,true,tick)&&mapped(c,{report_byte_address_,1u})&&
+            next_entry_storage(c,held,true,tick,dispatch_pc)&&mapped(c,{report_byte_address_,1u})&&
             c.mmu.read8(report_byte_address_)==report_byte_expected_;
     }
-    template<class C>bool next_entry_storage(C& c,bool held,bool label_tick=true,unsigned extra=0u)const{
+    template<class C>bool next_entry_storage(C& c,bool held,bool label_tick=true,unsigned extra=0u,std::optional<uint32_t> dispatch_pc={})const{
         return final_integer_completed_&&stack_move_completed_&&mixed_byte_completed_&&
             post_mixed_completed_==post_mixed_path_.size()&&stack_move_code(c)&&mixed_byte_code(c)&&
             word(c,next_entry_pc_,next_entry_word_)&&
@@ -1490,7 +1499,7 @@ private:
             (!next_entry_tenth_||word(c,next_entry_pc_+44u,0x44000002u))&&
             word(c,next_entry_lr_,0x44000002u)&&
             mixed_storage(c,held,mixed_completed_+3u+post_mixed_completed_+unsigned(label_tick)+extra,
-                CallerArrival{next_entry_pc_,next_entry_lr_})&&visits_==e_.path.size()+1u;
+                CallerArrival{dispatch_pc.value_or(next_entry_pc_),next_entry_lr_})&&visits_==e_.path.size()+1u;
     }
     template<class C>bool stack_move_code(C& c)const{
         if(!word(c,stack_move_next_pc_,stack_move_next_word_))return false;
