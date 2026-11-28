@@ -57,7 +57,8 @@ template<class C>void resched_arm(C& c,uint32_t pc,uint32_t w){
     resched_pending=true;
 }
 template<class C>bool resched_trace(uint32_t addr,C& c){
-    if(!resched_enabled())return false;
+    // A separate original rescheduler call is not a V924 witness.
+    if(!resched_enabled()||!resched_pending)return false;
     if(addr!=reschedule_entry_pc)return false;
     if(!resched_pending||resched_traced||c.pc!=addr||
        c.lr!=reschedule_branch_pc+4u||c.inst_count!=resched_tick||
@@ -67,7 +68,7 @@ template<class C>bool resched_trace(uint32_t addr,C& c){
     resched_traced=true;return true;
 }
 template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
-    if(!resched_enabled())return;
+    if(!resched_enabled()||!resched_pending)return;
     if(!resched_pending||!resched_traced||pc!=reschedule_entry_pc||
        w!=reschedule_entry_word||c.pc!=pc||
        c.lr!=reschedule_branch_pc+4u||c.inst_count!=resched_tick+1u||

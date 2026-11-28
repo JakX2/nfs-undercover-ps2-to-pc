@@ -64,7 +64,9 @@ template<class C>bool scheduler_held_after_tick(C& c){
 // invoke this after their real native tick. No code bytes or synthetic
 // instruction counts are advanced by this observer.
 template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){
-    if(!scheduler_enabled())return;
+    // Earlier original scheduler calls occur before the completed SI handler.
+    // These are not part of this authenticated dispatcher handoff.
+    if(!scheduler_enabled()||!scheduler_handoff)return;
     if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||
        v726::witness.stage()!=5u||c.pc!=pc||
        !c.is_running||c.in_callback||c.dispatch_saved_ctx||
@@ -88,7 +90,7 @@ template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
     scheduler_r13=c.gpr[13];scheduler_msr=c.msr;scheduler_pending=true;
 }
 template<class C>bool scheduler_trace(uint32_t addr,C& c){
-    if(!scheduler_enabled())return false;
+    if(!scheduler_enabled()||!scheduler_handoff)return false;
     if(!scheduler_pending||scheduler_traced)scheduler_refusal(7);
     if(addr!=scheduler_entry_pc||c.pc!=addr||
        c.lr!=scheduler_call_pc+4u)scheduler_refusal(8);
@@ -99,7 +101,7 @@ template<class C>bool scheduler_trace(uint32_t addr,C& c){
     scheduler_traced=true;return true;
 }
 template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
-    if(!scheduler_enabled())return;
+    if(!scheduler_enabled()||!scheduler_handoff)return;
     // Classify missing scheduler-entry phases without changing guest state.
     // 12: neither phase armed; 20: missing dispatcher handoff;
     // 21: handoff armed but the pre-tick native label was not witnessed.

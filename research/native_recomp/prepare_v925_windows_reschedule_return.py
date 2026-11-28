@@ -68,7 +68,8 @@ template<class C>void resched_return_arm(C& c){
     resched_return_pending=true;
 }
 template<class C>bool resched_return_trace(uint32_t addr,C& c){
-    if(!resched_return_enabled())return false;
+    // The dispatcher may resume earlier than the V925 no-switch handoff.
+    if(!resched_return_enabled()||!resched_return_pending)return false;
     if(addr!=resched_resume_pc)return false;
     if(!resched_return_pending||resched_return_traced||c.pc!=addr||
        c.lr!=addr||c.msr!=resched_msr||
@@ -80,7 +81,7 @@ template<class C>bool resched_return_trace(uint32_t addr,C& c){
     resched_return_traced=true;return true;
 }
 template<class C>void resched_return_native(C& c,uint32_t pc,uint32_t w){
-    if(!resched_return_enabled())return;
+    if(!resched_return_enabled()||!resched_return_pending)return;
     if(!resched_return_pending||!resched_return_traced||
        pc!=resched_resume_pc||w!=resched_resume_word||c.pc!=pc||
        c.lr!=pc||c.msr!=resched_msr||

@@ -79,6 +79,12 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',out)
         self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',out)
         self.assertIn('template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){',out)
+        # Disarmed observers must not reject independent original OS startup
+        # scheduler calls. The authenticated V920 handoff arms all V922 hooks.
+        self.assertEqual(out.count('if(!scheduler_enabled()||!scheduler_handoff)return;'),2)
+        self.assertIn('if(!scheduler_enabled()||!scheduler_handoff)return false;',out)
+        self.assertIn('if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||',out)
+        self.assertIn('if(!scheduler_pending&&!scheduler_traced)scheduler_refusal(12);',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(6);',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(11);',out)
         self.assertEqual(out.count('scheduler_held_after_tick(c)'),2)

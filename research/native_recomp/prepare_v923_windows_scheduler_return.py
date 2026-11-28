@@ -68,7 +68,9 @@ template<class C>void scheduler_return_arm(C& c){
     scheduler_dependency_stage=1u;
 }
 template<class C>bool scheduler_return_trace(uint32_t addr,C& c){
-    if(!scheduler_return_enabled())return false;
+    // Disable/restore interrupt leaves also run during earlier Wii startup.
+    // Only the authenticated V920/V922 scheduler call owns this observer.
+    if(!scheduler_return_enabled()||!scheduler_handoff)return false;
     if(addr!=scheduler_disable_pc&&addr!=scheduler_restore_pc)return false;
     const bool disable=addr==scheduler_disable_pc;
     if(!scheduler_pending||!scheduler_traced||
@@ -81,7 +83,7 @@ template<class C>bool scheduler_return_trace(uint32_t addr,C& c){
     ++scheduler_dependency_stage;return true;
 }
 template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
-    if(!scheduler_return_enabled())return;
+    if(!scheduler_return_enabled()||!scheduler_handoff)return;
     if(!scheduler_pending||!scheduler_traced||scheduler_dependency_stage!=3u||
        pc!=scheduler_return_pc||w!=scheduler_return_word||c.pc!=pc||
        c.lr!=pc||c.msr!=scheduler_msr||c.inst_count<=scheduler_tick||
