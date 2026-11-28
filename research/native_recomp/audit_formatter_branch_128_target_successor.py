@@ -75,6 +75,25 @@ def memory_shape(word, family):
     return mode, updated, int(valid)
 
 
+def comparison_kind(word, family):
+    # Signedness and operand form are sufficient to choose a future
+    # native witness; never expose original operand indices or immediate.
+    if family != 'integer':
+        return 'not_integer'
+    op = word >> 26
+    if op == 10:
+        return 'unsigned_immediate'
+    if op == 11:
+        return 'signed_immediate'
+    if op == 31:
+        xo = (word >> 1) & 1023
+        if xo == 0:
+            return 'signed_register'
+        if xo == 32:
+            return 'unsigned_register'
+    return 'not_comparison'
+
+
 def classify_target(fixture):
     # Revalidate the separately authenticated fixture at the boundary,
     # including target geometry, root membership and all code guards.
@@ -136,6 +155,25 @@ class Tests(unittest.TestCase):
                 self.assertEqual(result[0], family)
                 self.assertIn(result[7], (0, 1))
                 self.assertIn(result[8], BRANCH_FORMS)
+
+    def test_compare_discriminator_is_redacted_and_unambiguous(self):
+        for op, kind in ((10, 'unsigned_immediate'), (11, 'signed_immediate')):
+            for field in (0, 3, 7):
+                for immediate in (0, 1, 0x7fff, 0x8000, 0xffff):
+                    word = ((op << 26) | (field << 23) |
+                            (5 << 16) | immediate)
+                    with self.subTest(op=op, field=field):
+                        self.assertEqual(comparison_kind(word, 'integer'), kind)
+                        self.assertEqual(comparison_kind(
+                            word, 'other'), 'not_integer')
+        for xo, kind in ((0, 'signed_register'), (32, 'unsigned_register')):
+            for ra, rb in ((3, 3), (3, 7), (0, 12)):
+                word = ((31 << 26) | (ra << 16) | (rb << 11) |
+                        (xo << 1))
+                self.assertEqual(comparison_kind(word, 'integer'), kind)
+        for word in (0x60000000, 0x44000002, 0):
+            self.assertEqual(comparison_kind(word, 'integer'),
+                             'not_comparison')
 
     def test_memory_addressing_modes_are_redacted_and_bounded(self):
         # No effective address, register ID or displacement is returned.
@@ -321,8 +359,9 @@ def main():
                 not 52 <= q.elf.stat().st_size <= 64 * 1024 * 1024):
             raise ValueError('size')
         with plan_cache_scope():
-            result = classify_target(branch_plan(q.dol.read_bytes(),
-                                                 q.elf.read_bytes()))
+            fixture = branch_plan(q.dol.read_bytes(), q.elf.read_bytes())
+            result = classify_target(fixture)
+            comparison = comparison_kind(fixture[1][4], result[0])
     except (OSError,ValueError,TypeError,KeyError,IndexError,
             struct.error) as error:
         safe = {'size','target successor provenance','target successor family',
@@ -339,7 +378,7 @@ def main():
         f'cr_write={cr} carry_read={carry_read} xer_write={xer} overflow_enable={overflow} '
         f'integer_classified={supported} branch_form={branch_form} '
         f'memory_form={memory_form} base_updated={base_updated} '
-        f'update_base_valid={update_base_valid} '
+        f'update_base_valid={update_base_valid} comparison_kind={comparison} '
         'original_execution=0'
     )
     return 0
