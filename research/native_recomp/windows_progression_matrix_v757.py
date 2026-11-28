@@ -27,6 +27,7 @@ from windows_handler_return_v763 import inspect as check_handler, diagnostic as 
 from windows_scheduler_entry_v922 import inspect as check_scheduler, diagnostic as diag_scheduler
 from windows_scheduler_return_v923 import inspect as check_scheduler_return, diagnostic as diag_scheduler_return
 from windows_reschedule_entry_v924 import inspect as check_reschedule_entry, diagnostic as diag_reschedule_entry
+from windows_reschedule_return_v925 import inspect as check_reschedule_return, diagnostic as diag_reschedule_return
 
 
 # The complete native image must have all the previously authenticated
@@ -47,13 +48,15 @@ REQUIRED = ('UNDERCOVER_V747_TIME_SUFFIX',
             'UNDERCOVER_V920_HANDLER_RETURN',
             'UNDERCOVER_V922_SCHEDULER_ENTRY',
             'UNDERCOVER_V923_SCHEDULER_RETURN',
-            'UNDERCOVER_V924_RESCHEDULE_ENTRY')
+            'UNDERCOVER_V924_RESCHEDULE_ENTRY',
+            'UNDERCOVER_V925_RESCHEDULE_RETURN')
 OPTIONAL = REQUIRED[2:]
 # Deepest observer flags are required by the matrix, but deliberately absent
 # from the standalone --owner-handler-return launcher.
 DEEP_ONLY = ('UNDERCOVER_V922_SCHEDULER_ENTRY',
              'UNDERCOVER_V923_SCHEDULER_RETURN',
-             'UNDERCOVER_V924_RESCHEDULE_ENTRY')
+             'UNDERCOVER_V924_RESCHEDULE_ENTRY',
+             'UNDERCOVER_V925_RESCHEDULE_RETURN')
 
 
 def full_image_environment(base: dict[str, str]) -> dict[str, str]:
@@ -96,6 +99,7 @@ STAGES = (
     Stage('scheduler-entry', OPTIONAL[:13], check_scheduler, diag_scheduler),
     Stage('scheduler-return', OPTIONAL[:14], check_scheduler_return, diag_scheduler_return),
     Stage('reschedule-entry', OPTIONAL[:15], check_reschedule_entry, diag_reschedule_entry),
+    Stage('reschedule-return', OPTIONAL[:16], check_reschedule_return, diag_reschedule_return),
 )
 
 
@@ -123,7 +127,7 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
         raise ValueError('original progression inputs')
     if not launch.is_dir() or not callable(command) or not callable(report):
         raise ValueError('original progression runtime')
-    if len(STAGES) != 14 or len({s.name for s in STAGES}) != 14:
+    if len(STAGES) != 15 or len({s.name for s in STAGES}) != 15:
         raise ValueError('original progression stages')
     for stage in STAGES:
         log = launch / ('progression-' + stage.name + '.log')
@@ -155,6 +159,7 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
                + ' verified=' + str(int(ok)) + ' boot_verified=0')
         if not ok:
             raise ProgressionFailure(stage.name)
-    report('V757_WINDOWS_PROGRESSION completed=14 full_image=1'
+    report('V757_WINDOWS_PROGRESSION completed=15 full_image=1'
            ' compiler_reused=1 native=1 handler_return=1 scheduler_entry=1'
-           ' scheduler_return=1 reschedule_entry=1 rfi=0 boot_verified=0')
+           ' scheduler_return=1 reschedule_entry=1 reschedule_return=1'
+           ' rfi=0 boot_verified=0')
