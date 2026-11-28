@@ -49,8 +49,9 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY',p.env)
         self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',p.env)
-        self.assertEqual(p.observers[-2][1],'prepare_v923_windows_scheduler_return.py')
-        self.assertEqual(p.observers[-1][1],'prepare_v924_windows_reschedule_entry.py')
+        self.assertEqual(p.observers[-3][1],'prepare_v923_windows_scheduler_return.py')
+        self.assertEqual(p.observers[-2][1],'prepare_v924_windows_reschedule_entry.py')
+        self.assertEqual(p.observers[-1][1],'prepare_v925_windows_reschedule_return.py')
         src='''void fn_80529434(CPUContext& ctx) {
 loc_80529434: ;
     // 0x80529434: 60000000

@@ -27,7 +27,7 @@ def sample(changed=True, tail=None):
 class WindowsHandlerReturn(unittest.TestCase):
     def test_plan_reuses_authenticated_predecessors(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
-        self.assertEqual(p.observers[-7:-3],
+        self.assertEqual(p.observers[-8:-4],
                          (('combined_callback_observer','prepare_v863_combined_callback.py'),
                           ('handler_suffix_observer','prepare_v868_handler_suffix.py'),
                           ('handler_epilogue_observer','prepare_v919_handler_epilogue.py'),
@@ -45,10 +45,11 @@ class WindowsHandlerReturn(unittest.TestCase):
             args.update(change)
             with self.subTest(change=change),self.assertRaises(ValueError):
                 plan(**args)
-        self.assertEqual(p.observers[-3:],
+        self.assertEqual(p.observers[-4:],
                          (('scheduler_entry_observer','prepare_v922_windows_scheduler_entry.py'),
                           ('scheduler_return_observer','prepare_v923_windows_scheduler_return.py'),
-                          ('reschedule_entry_observer','prepare_v924_windows_reschedule_entry.py')))
+                          ('reschedule_entry_observer','prepare_v924_windows_reschedule_entry.py'),
+                          ('reschedule_return_observer','prepare_v925_windows_reschedule_return.py')))
         self.assertIn('owner_handler_return',std_inspect.signature(windows_build).parameters)
         self.assertEqual(p.analyzer[-1], '--epilogue')
 

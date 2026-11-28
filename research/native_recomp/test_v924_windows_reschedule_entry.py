@@ -57,6 +57,7 @@ loc_80529940: ;
     def test_same_image_plan_legacy_disabled(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V924_RESCHEDULE_ENTRY',p.env)
-        self.assertEqual(p.observers[-1],('reschedule_entry_observer','prepare_v924_windows_reschedule_entry.py'))
+        self.assertEqual(p.observers[-2],('reschedule_entry_observer','prepare_v924_windows_reschedule_entry.py'))
+        self.assertEqual(p.observers[-1],('reschedule_return_observer','prepare_v925_windows_reschedule_return.py'))
 
 if __name__=='__main__':unittest.main()

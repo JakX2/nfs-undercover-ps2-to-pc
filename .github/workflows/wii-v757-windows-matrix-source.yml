@@ -27,6 +27,9 @@ on:
       - 'research/native_recomp/prepare_v924_windows_reschedule_entry.py'
       - 'research/native_recomp/windows_reschedule_entry_v924.py'
       - 'research/native_recomp/test_v924_windows_reschedule_entry.py'
+      - 'research/native_recomp/prepare_v925_windows_reschedule_return.py'
+      - 'research/native_recomp/windows_reschedule_return_v925.py'
+      - 'research/native_recomp/test_v925_windows_reschedule_return.py'
       - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - '.github/workflows/wii-v757-windows-matrix-source.yml'
@@ -44,6 +47,8 @@ jobs:
       - name: Test same-PE multi-launch SI boundary gates and fail-first behavior
         shell: pwsh
         run: |
+          python -m unittest discover -s research/native_recomp -p test_v925_windows_reschedule_return.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v924_windows_reschedule_entry.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v923_windows_scheduler_return.py -v
