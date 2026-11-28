@@ -24,13 +24,13 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
          returned: bool = False, suffix: bool = False,
          alarm: bool = False, alarm_suffix: bool = False,
          callback_prefix: bool = False, callback_time: bool = False,
-         callback_frontier: bool = False, wireless_wrapper: bool = False, wireless_write: bool = False) -> TransferPlan:
+         callback_frontier: bool = False, wireless_wrapper: bool = False, wireless_write: bool = False, combined_callback: bool = False) -> TransferPlan:
     """One contract for source ownership, observer order and launch flags."""
-    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier, wireless_wrapper, wireless_write)):
+    if any(type(x) is not bool for x in (synthetic, prefix, time_suffix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier, wireless_wrapper, wireless_write, combined_callback)):
         raise ValueError('transfer option')
-    if not prefix and not returned and not suffix and not alarm and not alarm_suffix and not callback_prefix and not callback_time and not callback_frontier and not wireless_wrapper and not wireless_write:
+    if not prefix and not returned and not suffix and not alarm and not alarm_suffix and not callback_prefix and not callback_time and not callback_frontier and not wireless_wrapper and not wireless_write and not combined_callback:
         return TransferPlan({}, (), ())
-    if synthetic or scope != 'os-si-handler-time' or time_suffix or sum((prefix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier, wireless_wrapper, wireless_write)) != 1:
+    if synthetic or scope != 'os-si-handler-time' or time_suffix or sum((prefix, returned, suffix, alarm, alarm_suffix, callback_prefix, callback_time, callback_frontier, wireless_wrapper, wireless_write, combined_callback)) != 1:
         raise ValueError('transfer scope')
     # Match the existing Linux full-image translation contract. The
     # analyzer owns the original transfer root and compiler save alias;
@@ -38,36 +38,39 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
     analyzer = ('--transfer-prefix',)
     observers = (('transfer_prefix_observer', 'prepare_v768_transfer_prefix.py'),)
     env = {'UNDERCOVER_V747_TIME_SUFFIX': '1'}
-    if returned or suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write:
+    if returned or suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
         analyzer += ('--transfer-return',)
         observers += (('transfer_return_observer', 'prepare_v777_transfer_return.py'),)
         env['UNDERCOVER_V777_TRANSFER_RETURN'] = '1'
-        if suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write:
+        if suffix or alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             observers += (('transfer_suffix_observer', 'prepare_v778_transfer_suffix.py'),)
             env['UNDERCOVER_V778_TRANSFER_SUFFIX'] = '1'
-        if alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write:
+        if alarm or alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             analyzer += ('--alarm',)
             observers += (('alarm_return_observer', 'prepare_v786_alarm_return.py'),)
             env['UNDERCOVER_V786_ALARM_RETURN'] = '1'
-        if alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write:
+        if alarm_suffix or callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             observers += (('alarm_suffix_observer', 'prepare_v789_alarm_suffix.py'),)
             env['UNDERCOVER_V789_ALARM_SUFFIX'] = '1'
-        if callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write:
+        if callback_prefix or callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             analyzer += ('--callback-prefix',)
             observers += (('callback_prefix_observer', 'prepare_v807_callback_prefix.py'),)
             env['UNDERCOVER_V807_CALLBACK_PREFIX'] = '1'
-        if callback_time or callback_frontier or wireless_wrapper or wireless_write:
+        if callback_time or callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             observers += (('callback_time_observer', 'prepare_v813_callback_time.py'),)
             env['UNDERCOVER_V813_CALLBACK_TIME'] = '1'
-        if callback_frontier or wireless_wrapper or wireless_write:
+        if callback_frontier or wireless_wrapper or wireless_write or combined_callback:
             observers += (('callback_frontier_observer', 'prepare_v831_callback_frontier.py'),)
             env['UNDERCOVER_V831_CALLBACK_FRONTIER'] = '1'
-        if wireless_wrapper or wireless_write:
+        if wireless_wrapper or wireless_write or combined_callback:
             observers += (('wireless_wrapper_observer', 'prepare_v847_wireless_wrapper.py'),)
             env['UNDERCOVER_V847_WIRELESS'] = '1'
-        if wireless_write:
+        if wireless_write or combined_callback:
             observers += (('wireless_write_observer', 'prepare_v861_wireless_write.py'),)
             env['UNDERCOVER_V861_WIRELESS_WRITE'] = '1'
+        if combined_callback:
+            observers += (('combined_callback_observer', 'prepare_v863_combined_callback.py'),)
+            env['UNDERCOVER_V850_CALLBACK_RETURN'] = '1'
     else:
         env['UNDERCOVER_V768_TRANSFER_PREFIX'] = '1'
     return TransferPlan(env, analyzer, observers)

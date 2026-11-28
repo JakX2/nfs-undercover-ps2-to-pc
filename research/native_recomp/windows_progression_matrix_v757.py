@@ -22,6 +22,7 @@ from windows_callback_time_v758 import inspect as check_time, diagnostic as diag
 from windows_callback_frontier_v759 import inspect as check_frontier, diagnostic as diag_frontier
 from windows_wireless_wrapper_v760 import inspect as check_wireless, diagnostic as diag_wireless
 from windows_wireless_write_v761 import inspect as check_write, diagnostic as diag_write
+from windows_combined_callback_v762 import inspect as check_combined, diagnostic as diag_combined
 
 
 # The complete native image must have all the previously authenticated
@@ -35,7 +36,8 @@ REQUIRED = ('UNDERCOVER_V747_TIME_SUFFIX',
             'UNDERCOVER_V813_CALLBACK_TIME',
             'UNDERCOVER_V831_CALLBACK_FRONTIER',
             'UNDERCOVER_V847_WIRELESS',
-            'UNDERCOVER_V861_WIRELESS_WRITE')
+            'UNDERCOVER_V861_WIRELESS_WRITE',
+            'UNDERCOVER_V850_CALLBACK_RETURN')
 OPTIONAL = REQUIRED[2:]
 
 
@@ -57,6 +59,7 @@ STAGES = (
     Stage('callback-frontier', OPTIONAL[:6], check_frontier, diag_frontier),
     Stage('wireless-wrapper', OPTIONAL[:7], check_wireless, diag_wireless),
     Stage('wireless-write', OPTIONAL[:8], check_write, diag_write),
+    Stage('combined-callback', OPTIONAL[:9], check_combined, diag_combined),
 )
 
 
@@ -84,7 +87,7 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
         raise ValueError('original progression inputs')
     if not launch.is_dir() or not callable(command) or not callable(report):
         raise ValueError('original progression runtime')
-    if len(STAGES) != 9 or len({s.name for s in STAGES}) != 9:
+    if len(STAGES) != 10 or len({s.name for s in STAGES}) != 10:
         raise ValueError('original progression stages')
     for stage in STAGES:
         log = launch / ('progression-' + stage.name + '.log')
@@ -116,5 +119,5 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
                + ' verified=' + str(int(ok)) + ' boot_verified=0')
         if not ok:
             raise ProgressionFailure(stage.name)
-    report('V757_WINDOWS_PROGRESSION completed=9 full_image=1'
+    report('V757_WINDOWS_PROGRESSION completed=10 full_image=1'
            ' compiler_reused=1 native=1 handler_return=0 boot_verified=0')
