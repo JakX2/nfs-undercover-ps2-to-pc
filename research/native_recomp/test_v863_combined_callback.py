@@ -21,7 +21,9 @@ class Combined(unittest.TestCase):
         self.assertIn('v861::device.held()',new)
         self.assertIn('template<class C>void finish(C& c,uint32_t pc,uint32_t w)',new)
         self.assertIn('route.stage()==2u&&route.ordinal()==3u&&!route.changed()&&v850::enabled()',new)
-        self.assertEqual(new.count('v850::start(c,pc,w,true)'),2)
+        # Existing v861::after has changed and unchanged returns; the
+        # wrapper's guarded finish is a separate, exact resume site.
+        self.assertEqual(new.count('v850::start(c,pc,w,true)'),3)
         self.assertIn('finish(c,pc,0u);return true;',new)
         self.assertIn('finish(c,pc,w);',new)
         self.assertNotIn('    finish(c);',new)
