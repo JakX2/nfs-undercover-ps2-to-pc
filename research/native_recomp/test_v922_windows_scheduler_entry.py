@@ -33,10 +33,10 @@ class WindowsSchedulerEntry(unittest.TestCase):
             with self.assertRaises(ValueError):inspect(*args)
 
     def test_bounded_original_scheduler_refusal_diagnostics(self):
-        for i in range(1,22):
+        for i in range(1,29):
             self.assertTrue(diagnostic(f'V922_WINDOWS_SCHEDULER_INVALID reason={i}'.encode()))
         for invalid in (b'V922_WINDOWS_SCHEDULER_INVALID reason=0',
-                        b'V922_WINDOWS_SCHEDULER_INVALID reason=22',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=29',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=1 address=0x80000000',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=-1',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=0001',
@@ -65,7 +65,7 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         with self.assertRaises(ValueError):patch_binding(a.replace('original_blr=1','original_blr=0'))
         self.assertIn('scheduler_trace(uint32_t addr,C& c)',out)
         self.assertIn('V922_WINDOWS_SCHEDULER_INVALID reason=',out)
-        self.assertEqual(out.count('scheduler_refusal('),22)
+        self.assertEqual(out.count('scheduler_refusal('),28)
         # Native Windows run #51 reached the first original scheduler tick,
         # then refused reason=17 because the device still held the prior
         # tick. Only post-tick witnesses may advance the native device.
@@ -77,15 +77,23 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertLess(out.index('if(!scheduler_pending&&!scheduler_traced)scheduler_refusal(12);'),
                         out.index('if(!scheduler_traced)scheduler_refusal(21);'))
         self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',out)
-        self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',out)
+        self.assertIn('if(c.mmu.read32(pc)!=w)scheduler_refusal(28);',out)
         body=out.split('template<class C>void scheduler_device_tick(',1)[1]
         body=body.split('template<class C>void scheduler_start(',1)[0]
         # Windows run #58 reached the first original scheduler instruction.
         # Subsequent original labels do not each assign ctx.pc, so a stale
         # call-target PC must not falsely reject a genuine guest visit.
         self.assertNotIn('c.pc!=pc',body)
-        self.assertIn('v726::witness.stage()!=5u||c.inst_count<=scheduler_tick||',body)
-        self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',body)
+        for code,condition in (
+                (22,'!scheduler_handoff||!scheduler_pending||!scheduler_traced'),
+                (23,'v726::witness.stage()!=5u'),
+                (24,'c.inst_count<=scheduler_tick'),
+                (25,'!c.is_running||c.in_callback||c.dispatch_saved_ctx'),
+                (26,'c.msr&0x8000u'),
+                (27,'!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)'),
+                (28,'c.mmu.read32(pc)!=w')):
+            self.assertIn(f'if({condition})scheduler_refusal({code});',body)
+        self.assertIn('if(c.mmu.read32(pc)!=w)scheduler_refusal(28);',body)
         self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',body)
         self.assertNotIn('c.pc=pc',body)
         self.assertIn('template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){',out)

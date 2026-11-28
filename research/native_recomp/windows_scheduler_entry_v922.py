@@ -25,4 +25,4 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
 def diagnostic(line:bytes)->bool:
     if type(line) is not bytes:return False
     return bool(prior_diag(line) or re.fullmatch(
-        rb'V922_WINDOWS_SCHEDULER_INVALID reason=(?:[1-9]|1[0-9]|2[01])',line))
+        rb'V922_WINDOWS_SCHEDULER_INVALID reason=(?:[1-9]|1[0-9]|2[0-8])',line))

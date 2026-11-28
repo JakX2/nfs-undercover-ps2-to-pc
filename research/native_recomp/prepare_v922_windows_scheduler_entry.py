@@ -71,11 +71,15 @@ template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){
     // emitter leaves it at the last branch target during straight-line code.
     // Trust only the installed, authenticated label and original memory word;
     // do not synthesize a PC assignment or reject that valid guest flow.
-    if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||
-       v726::witness.stage()!=5u||c.inst_count<=scheduler_tick||
-       !c.is_running||c.in_callback||c.dispatch_saved_ctx||
-       (c.msr&0x8000u)||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w)scheduler_refusal(18);
+    // Each failure code is a bounded, public-safe predicate category.
+    // Avoid leaking original PCs, instruction words or register contents.
+    if(!scheduler_handoff||!scheduler_pending||!scheduler_traced)scheduler_refusal(22);
+    if(v726::witness.stage()!=5u)scheduler_refusal(23);
+    if(c.inst_count<=scheduler_tick)scheduler_refusal(24);
+    if(!c.is_running||c.in_callback||c.dispatch_saved_ctx)scheduler_refusal(25);
+    if(c.msr&0x8000u)scheduler_refusal(26);
+    if(!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u))scheduler_refusal(27);
+    if(c.mmu.read32(pc)!=w)scheduler_refusal(28);
     if(!scheduler_held_after_tick(c))scheduler_refusal(19);
 }
 template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
