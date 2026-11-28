@@ -16,6 +16,8 @@ on:
       - 'research/native_recomp/windows_alarm_return_v754.py'
       - 'research/native_recomp/windows_alarm_suffix_v755.py'
       - 'research/native_recomp/windows_callback_prefix_v756.py'
+      - 'research/native_recomp/windows_progression_matrix_v757.py'
+      - 'research/native_recomp/test_v757_windows_progression_matrix.py'
       - 'research/native_recomp/prepare_v777_transfer_return.py'
       - 'research/native_recomp/prepare_v778_transfer_suffix.py'
       - 'research/native_recomp/prepare_v786_alarm_return.py'
@@ -40,6 +42,7 @@ jobs:
         shell: pwsh
         run: |
           $specs = @(
+            'test_v757_windows_progression_matrix.py',
             'test_v752_windows_transfer_return.py',
             'test_v753_windows_transfer_suffix.py',
             'test_v754_windows_alarm_return.py',
@@ -87,11 +90,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           git -C $root checkout -q --detach FETCH_HEAD
           exit $LASTEXITCODE
-      - name: Build and execute complete native Windows image through original SI callback
+      - name: Build one full native Windows image and test successive original SI boundaries
         shell: pwsh
         run: |
           $original = Join-Path $env:RUNNER_TEMP 'native-si-input'
-          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-callback-prefix
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-progression-matrix
           exit $LASTEXITCODE
       - name: Remove original code and private Windows build output
         if: always()
