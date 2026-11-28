@@ -3,7 +3,9 @@
 
 Compile the *actual* V922 installer-produced C++ helpers against a synthetic
 CPU. Earlier real OS scheduler calls must not arm/reject; once the original
-SI handler has returned, incorrect handoffs must still fail closed.
+SI handler has returned, incorrect handoffs must still fail closed. The
+pinned emitter does not update ctx.pc at each sequential instruction label;
+the positive continuation and independent 19/22-28 refusals check that fact.
 """
 from __future__ import annotations
 import os
@@ -28,13 +30,17 @@ PRE = r'''
 #include <string_view>
 struct Mmu {
     uint8_t memory=0;
+    bool unmapped_label=false,corrupt_label=false;
     uint8_t* get_ptr(uint32_t a) {
+        if(unmapped_label&&(a==0x80004104u||a==0x80004107u))return nullptr;
         return a==0x80004000u||a==0x80004003u||
-               a==0x80004100u||a==0x80004103u?&memory:nullptr;
+               a==0x80004100u||a==0x80004103u||
+               a==0x80004104u||a==0x80004107u?&memory:nullptr;
     }
     uint32_t read32(uint32_t a) {
         return a==0x80004000u?0x48000101u:
-               a==0x80004100u?0x9421fff0u:0u;
+               a==0x80004100u?0x9421fff0u:
+               a==0x80004104u?(corrupt_label?0xDEADBEEFu:0x60000000u):0u;
     }
 };
 struct Cpu {
@@ -42,13 +48,14 @@ struct Cpu {
     uint32_t pc=0x80004000u,lr=0x80004000u,msr=0x32u;
     uint64_t inst_count=100u;
     bool is_running=true,in_callback=false,dispatch_saved_ctx=false;
+    bool device_held=true,device_advance=true;
     Mmu mmu;
     Cpu(){gpr[1]=0x80002000u;gpr[13]=0x80003000u;}
 };
 namespace undercover::wii {
-namespace v850 {template<class C>bool held(C&){return true;}}
+namespace v850 {template<class C>bool held(C& c){return c.device_held;}}
 namespace v726 {
-    struct Witness{unsigned stage()const{return 5u;}};
+    struct Witness{unsigned current=5u;unsigned stage()const{return current;}};
     inline Witness witness;
 }
 namespace v868 {
@@ -59,7 +66,7 @@ inline constexpr uint32_t scheduler_entry_word=0x9421fff0u;
 inline constexpr int32_t scheduler_frame_delta=-16;
 inline thread_local bool scheduler_handoff=false;
 inline thread_local bool dispatch_tick_seen=true;
-template<class C>bool advance_restore(C&){return true;}
+template<class C>bool advance_restore(C& c){return c.device_advance;}
 '''
 
 POST = r'''
@@ -77,12 +84,40 @@ int main(int argc,char** argv){
         if(v::scheduler_pending||v::scheduler_traced||v::scheduler_handoff)return 4;
         if(mode=="early"){std::cout<<"V922_EARLY_SCOPE valid=1\n";return 0;}
     }
-    if(mode=="bad-handoff"||mode=="bad-trace"||mode=="bad-device"){
+    if(mode=="bad-handoff"||mode=="bad-trace"||mode=="bad-device-unarmed"){
         v::scheduler_handoff=true;
         if(mode=="bad-handoff")v::scheduler_native(c,v::scheduler_entry_pc,v::scheduler_entry_word);
         if(mode=="bad-trace")v::scheduler_trace(v::scheduler_entry_pc,c);
-        if(mode=="bad-device")v::scheduler_device_tick(c,v::scheduler_entry_pc,v::scheduler_entry_word);
+        if(mode=="bad-device-unarmed")v::scheduler_device_tick(c,v::scheduler_entry_pc,v::scheduler_entry_word);
         return 5;
+    }
+    if(mode=="valid-stale-pc"||mode=="bad-device-stage"||
+       mode=="bad-device-tick"||mode=="bad-device-state"||
+       mode=="bad-device-msr"||mode=="bad-device-map"||
+       mode=="bad-device-opcode"||mode=="bad-device-held"){
+        // Arm the actual V920 handoff and original-entry trace, then
+        // exercise the next *sequential* guest label. The pinned emitter
+        // leaves ctx.pc at the first branch target across linear PPC code.
+        v::dispatcher_resume(c,v::scheduler_call_pc,v::scheduler_call_word);
+        v::scheduler_handoff=true;
+        c.pc=v::scheduler_entry_pc;
+        c.lr=v::scheduler_call_pc+4u;
+        if(!v::scheduler_trace(v::scheduler_entry_pc,c))return 11;
+        ++c.inst_count;
+        if(mode=="bad-device-stage")v::v726::witness.current=4u;
+        if(mode=="bad-device-tick")--c.inst_count;
+        if(mode=="bad-device-state")c.in_callback=true;
+        if(mode=="bad-device-msr")c.msr|=0x8000u;
+        if(mode=="bad-device-map")c.mmu.unmapped_label=true;
+        if(mode=="bad-device-opcode")c.mmu.corrupt_label=true;
+        if(mode=="bad-device-held"){c.device_held=false;c.device_advance=false;}
+        v::scheduler_device_tick(c,0x80004104u,0x60000000u);
+        if(mode=="valid-stale-pc"){
+            if(c.pc!=v::scheduler_entry_pc)return 12;
+            std::cout<<"V922_SEQUENTIAL_LABEL native=1 stale_pc_preserved=1\\n";
+            return 0;
+        }
+        return 13;
     }
     if(mode=="early-then-handoff"||mode=="bad-post"){
         v::dispatcher_resume(c,v::scheduler_call_pc,v::scheduler_call_word);
@@ -128,7 +163,15 @@ class SchedulerHandoffCompiled(unittest.TestCase):
                       'early-then-handoff':(0,'V922_SCHEDULER_ENTRY original_handler_return=1'),
                       'bad-handoff':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=12'),
                       'bad-trace':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=7'),
-                      'bad-device':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=18'),
+                      'bad-device-unarmed':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=22'),
+                      'bad-device-stage':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=23'),
+                      'bad-device-tick':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=24'),
+                      'bad-device-state':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=25'),
+                      'bad-device-msr':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=26'),
+                      'bad-device-map':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=27'),
+                      'bad-device-opcode':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=28'),
+                      'bad-device-held':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=19'),
+                      'valid-stale-pc':(0,'V922_SEQUENTIAL_LABEL native=1 stale_pc_preserved=1'),
                       'bad-post':(126,'V922_WINDOWS_SCHEDULER_INVALID reason=21')}
             for mode,(rc,marker) in expected.items():
                 with self.subTest(mode=mode):
