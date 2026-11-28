@@ -5,6 +5,8 @@ on:
     paths:
       - 'research/native_recomp/windows_full_build_v426.py'
       - 'research/native_recomp/test_v426_windows_full_build.py'
+      - 'research/native_recomp/windows_boot_frontier_v722.py'
+      - 'research/native_recomp/test_v722_windows_boot_frontier.py'
       - 'research/native_recomp/test_v429_windows_scope.py'
       - 'research/native_recomp/windows_startup_scope_v434.py'
       - 'research/native_recomp/test_v434_windows_startup_scope.py'
@@ -99,6 +101,8 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v429_windows_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v722_windows_boot_frontier.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v436_windows_loader.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
