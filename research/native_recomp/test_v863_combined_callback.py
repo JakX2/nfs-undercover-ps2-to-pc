@@ -19,6 +19,12 @@ class Combined(unittest.TestCase):
         self.assertIn('v861::after(c,old,route);',new)
         self.assertIn('if(route.changed()){v850::start(c,pc,w,true);return;}',new)
         self.assertIn('v861::device.held()',new)
+        self.assertIn('template<class C>void finish(C& c,uint32_t pc,uint32_t w)',new)
+        self.assertIn('route.stage()==2u&&route.ordinal()==3u&&!route.changed()&&v850::enabled()',new)
+        self.assertEqual(new.count('v850::start(c,pc,w,true)'),2)
+        self.assertIn('finish(c,pc,0u);return true;',new)
+        self.assertIn('finish(c,pc,w);',new)
+        self.assertNotIn('    finish(c);',new)
         with self.assertRaises(ValueError):patch_wrapper(new)
     def test_write(self):
         src=(HERE/'wii_wireless_write_binding_v861.h').read_text()

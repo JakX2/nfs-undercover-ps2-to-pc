@@ -47,7 +47,17 @@ def patch_wrapper(s):
         v850::start(c,pc,w,true);return;
     }
     finish(c);''')
-    # With V850 disabled the extended path must still stop in V861::after.
+    # V861's original unchanged wireless branch returns before v861::after.
+    # Hand off at its real resume tick, not the legacy diagnostic stop.
+    s=replace_exact(s,'template<class C>void finish(C& c){',
+                       'template<class C>void finish(C& c,uint32_t pc,uint32_t w){')
+    a='        std::_Exit(0);'
+    s=replace_exact(s,a,
+        '        if(route.stage()==2u&&route.ordinal()==3u&&!route.changed()&&v850::enabled()){v850::start(c,pc,w,true);return;}\n'+a)
+    s=replace_exact(s,'    finish(c);return true;',
+                       '    finish(c,pc,0u);return true;')
+    s=replace_exact(s,'    finish(c);','    finish(c,pc,w);')
+    # Both original exits remain when V850 is disabled.
     return s
 
 def patch_write(s):
