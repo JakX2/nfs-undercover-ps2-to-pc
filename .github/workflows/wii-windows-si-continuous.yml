@@ -1,0 +1,103 @@
+name: Wii Native Windows Continuous SI Startup
+
+# One private original-DOL full-image build through the deepest existing
+# native SI handler/callback path. No instruction-count target. This does
+# not claim boot until a separately authenticated game-main/frame witness.
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - '.github/workflows/wii-windows-si-continuous.yml'
+      - 'research/native_recomp/windows_full_build_v426.py'
+      - 'research/native_recomp/windows_transfer_prefix_v751.py'
+      - 'research/native_recomp/windows_transfer_return_v752.py'
+      - 'research/native_recomp/windows_transfer_suffix_v753.py'
+      - 'research/native_recomp/windows_alarm_return_v754.py'
+      - 'research/native_recomp/windows_alarm_suffix_v755.py'
+      - 'research/native_recomp/windows_callback_prefix_v756.py'
+      - 'research/native_recomp/prepare_v777_transfer_return.py'
+      - 'research/native_recomp/prepare_v778_transfer_suffix.py'
+      - 'research/native_recomp/prepare_v786_alarm_return.py'
+      - 'research/native_recomp/prepare_v789_alarm_suffix.py'
+      - 'research/native_recomp/prepare_v807_callback_prefix.py'
+permissions:
+  contents: read
+concurrency:
+  group: wii-windows-continuous-si-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-gates:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate full chain without proprietary executable
+        shell: pwsh
+        run: |
+          $specs = @(
+            'test_v752_windows_transfer_return.py',
+            'test_v753_windows_transfer_suffix.py',
+            'test_v754_windows_alarm_return.py',
+            'test_v755_windows_alarm_suffix.py',
+            'test_v756_windows_callback_prefix.py',
+            'test_v777_transfer_return.py',
+            'test_v807_callback_prefix.py'
+          )
+          foreach ($spec in $specs) {
+            python -m unittest discover -s research/native_recomp -p $spec -v
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+
+  owner-original-windows:
+    needs: source-gates
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned private staging dependency
+        run: python -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage and authenticate owner DOL and ELF
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        shell: pwsh
+        run: |
+          python owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py (Join-Path $env:RUNNER_TEMP 'native-si-input')
+          exit $LASTEXITCODE
+      - name: Fetch exact pinned NWiiRecomp
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'native-si-nwii'
+          git init -q $root
+          git -C $root remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C $root fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git -C $root checkout -q --detach FETCH_HEAD
+          exit $LASTEXITCODE
+      - name: Build and execute complete native Windows image through original SI callback
+        shell: pwsh
+        run: |
+          $original = Join-Path $env:RUNNER_TEMP 'native-si-input'
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-callback-prefix
+          exit $LASTEXITCODE
+      - name: Remove original code and private Windows build output
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($folder in @('native-si-input','native-si-nwii','native-si-image')) {
+            $p = Join-Path $env:RUNNER_TEMP $folder
+            if (Test-Path $p) { Remove-Item -Recurse -Force $p }
+          }
