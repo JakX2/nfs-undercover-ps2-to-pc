@@ -5,6 +5,12 @@ name: Wii Native Windows Continuous SI Startup
 # not claim boot until a separately authenticated game-main/frame witness.
 on:
   workflow_dispatch:
+    inputs:
+      native_rfi:
+        description: "Run authentic original scheduler/OSLoadContext RFI and pending SI reentry on Windows"
+        required: false
+        type: boolean
+        default: false
   push:
     branches: [research/wii-native-recomp-preflight]
     paths:
@@ -46,6 +52,8 @@ on:
       - 'research/native_recomp/test_windows_rfi_context_bridge.py'
       - 'research/native_recomp/prepare_windows_native_rfi_v926.py'
       - 'research/native_recomp/test_windows_native_rfi_v926.py'
+      - 'research/native_recomp/windows_native_rfi_v926.py'
+      - 'research/native_recomp/test_windows_native_rfi_audit_v926.py'
       - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/prepare_v868_handler_suffix.py'
@@ -93,6 +101,7 @@ jobs:
             'test_v925_windows_reschedule_return.py',
             'test_windows_rfi_context_bridge.py',
             'test_windows_native_rfi_v926.py',
+            'test_windows_native_rfi_audit_v926.py',
             'test_v921_windows_dispatcher_epilogue.py',
             'test_v868_handler_suffix.py',
             'test_v919_handler_epilogue.py',
@@ -155,10 +164,18 @@ jobs:
           git -C $root checkout -q --detach FETCH_HEAD
           exit $LASTEXITCODE
       - name: Build one full native Windows image and test successive original SI boundaries
+        if: inputs.native_rfi != true
         shell: pwsh
         run: |
           $original = Join-Path $env:RUNNER_TEMP 'native-si-input'
           python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-progression-matrix
+          exit $LASTEXITCODE
+      - name: Execute original native RFI and pending SI second vector on Windows
+        if: inputs.native_rfi == true
+        shell: pwsh
+        run: |
+          $original = Join-Path $env:RUNNER_TEMP 'native-si-input'
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'native-si-nwii') (Join-Path $env:RUNNER_TEMP 'native-si-image') --owner-dol (Join-Path $original 'NfsMWRelease.dol') --owner-elf (Join-Path $original 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-native-rfi
           exit $LASTEXITCODE
       - name: Remove original code and private Windows build output
         if: always()

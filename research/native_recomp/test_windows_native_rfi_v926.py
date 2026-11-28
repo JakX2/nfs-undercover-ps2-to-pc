@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Original-free Windows native RFI adapter: fail-closed routing seams."""
 import unittest
+import inspect
 from pathlib import Path
 from prepare_windows_native_rfi_v926 import patch_return,patch_entry,patch_label
 from prepare_windows_rfi_context_bridge import patch_handler,patch_external
@@ -26,6 +27,22 @@ class WindowsNativeRfi(unittest.TestCase):
         s=patch_reschedule_return(s)
         s=patch_handler(s)
         return s
+
+    def test_original_windows_builder_never_installs_rfi_in_earlier_modes(self):
+        from windows_full_build_v426 import build
+        source=inspect.getsource(build)
+        self.assertIn("if owner_native_rfi and",source)
+        self.assertIn("raise BuildError('native_rfi_scope')",source)
+        self.assertIn("if owner_native_rfi:",source)
+        self.assertIn("run_stage('native_rfi_observer',",source)
+        self.assertIn("UNDERCOVER_V751_CAPTURE='1'",source)
+        self.assertIn("UNDERCOVER_V926_WINDOWS_RFI='1'",source)
+        self.assertIn("UNDERCOVER_V932_PENDING_RFI='1'",source)
+        self.assertIn("row,ok=inspect_native_rfi",source)
+        self.assertLess(source.index("run_stage('rfi_context_bridge',"),
+                        source.index("run_stage('native_rfi_observer',"))
+        self.assertLess(source.index("run_stage('native_rfi_observer',"),
+                        source.index("run_stage('external_translation_audit'"))
 
     def test_handler_join_before_original_rfi_route(self):
         s=patch_return(self.binding())

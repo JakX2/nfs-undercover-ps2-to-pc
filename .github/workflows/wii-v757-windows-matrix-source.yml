@@ -34,6 +34,8 @@ on:
       - 'research/native_recomp/test_windows_rfi_context_bridge.py'
       - 'research/native_recomp/prepare_windows_native_rfi_v926.py'
       - 'research/native_recomp/test_windows_native_rfi_v926.py'
+      - 'research/native_recomp/windows_native_rfi_v926.py'
+      - 'research/native_recomp/test_windows_native_rfi_audit_v926.py'
       - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - '.github/workflows/wii-v757-windows-matrix-source.yml'
@@ -51,6 +53,8 @@ jobs:
       - name: Test same-PE multi-launch SI boundary gates and fail-first behavior
         shell: pwsh
         run: |
+          python -m unittest discover -s research/native_recomp -p test_windows_native_rfi_audit_v926.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_windows_native_rfi_v926.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_windows_rfi_context_bridge.py -v
