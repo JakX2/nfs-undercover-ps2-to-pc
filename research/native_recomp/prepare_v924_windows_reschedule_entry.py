@@ -82,16 +82,18 @@ template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
             '    if(resched_enabled()){resched_arm(c,pc,w);return;}\n'
             '    std::_Exit(0);')
 
-def patch_ack(s):
-    a='if(v868::scheduler_return_trace(a,c))return;'
-    return replace_exact(s,a,'if(v868::resched_trace(a,c))return;'+a)
+# A translated branch target, not a memory/interrupt observer, proves entry.
 
 def patch_native(body,pc,word):
     hits=list(LABEL_TICK(pc,word).finditer(body))
     if len(hits)!=1:raise ValueError('reschedule label')
+    trace=f'    (void)undercover::wii::v868::resched_trace(0x{pc:08x}u,ctx);\n'
     hook=f'    undercover::wii::v868::resched_native(ctx,0x{pc:08x}u,0x{word:08x}u);\n'
-    if hook in body:raise ValueError('reschedule duplicate')
-    return body[:hits[0].end()]+hook+body[hits[0].end():]
+    if trace in body or hook in body:raise ValueError('reschedule duplicate')
+    m=hits[0];tick='    ++ctx.inst_count;\n'
+    stamp=body[m.start():m.end()]
+    if not stamp.endswith(tick):raise ValueError('reschedule tick')
+    return body[:m.start()]+stamp[:-len(tick)]+trace+tick+hook+body[m.end():]
 
 def install(dol,elf,generated):
     roots,j,*_=plan(dol,elf)
@@ -115,13 +117,12 @@ def install(dol,elf,generated):
             '#include "runtime/cpu_context.h"\n'+include)
     dest=generated/'nWiiRuntime/include/undercover'
     bind=dest/'wii_handler_suffix_binding_v868.h'
-    ack=dest/'wii_si_ack_binding_v672.h'
     header=dest/'v924_private_reschedule_entry.h'
-    if (dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or
-        not bind.is_file() or not ack.is_file() or header.exists() or header.is_symlink()):
+    if (dest.is_symlink() or bind.is_symlink() or
+        not bind.is_file() or header.exists() or header.is_symlink()):
         raise ValueError('reschedule destination')
     changes={p:updated,bind:patch_binding(bind.read_text(encoding='utf-8')),
-             ack:patch_ack(ack.read_text(encoding='utf-8')),header:private}
+             header:private}
     for path,contents in changes.items():path.write_text(contents,encoding='utf-8')
     print('V924_WINDOWS_RESCHEDULE_ROUTE installed=1 original_dispatcher_branch=1 original_reschedule_entry=1 guarded=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
 

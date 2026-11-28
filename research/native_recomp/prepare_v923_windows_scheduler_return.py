@@ -101,10 +101,17 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
         '    std::_Exit(0);')
 
 
-def patch_ack(s):
-    a='if(v868::scheduler_trace(a,c))return;'
-    return replace_exact(s,a,
-        'if(v868::scheduler_return_trace(a,c))return;'+a)
+# Observe disable and restore through their real translated callee labels.
+
+def patch_dependency(body,pc,word):
+    hits=list(LABEL_TICK(pc,word).finditer(body))
+    if len(hits)!=1:raise ValueError('scheduler dependency label')
+    hook=f'    (void)undercover::wii::v868::scheduler_return_trace(0x{pc:08x}u,ctx);\n'
+    if hook in body:raise ValueError('scheduler dependency duplicate')
+    m=hits[0];tick='    ++ctx.inst_count;\n'
+    stamp=body[m.start():m.end()]
+    if not stamp.endswith(tick):raise ValueError('scheduler dependency tick')
+    return body[:m.start()]+stamp[:-len(tick)]+hook+tick+body[m.end():]
 
 
 def patch_dispatcher(body,pc,word):
@@ -134,16 +141,25 @@ def install(dol,elf,generated):
     verify_direct(dispatch[0][1],j+4,S)
     for site,target in calls:verify_direct(enable[0],site,target)
     p,body=dispatch[0]
-    updated=replace_exact(src[p],body,patch_dispatcher(body,j+4,word))
+    changes={p:replace_exact(src[p],body,patch_dispatcher(body,j+4,word))}
+    include='#include "undercover/wii_handler_suffix_binding_v868.h"'
+    for target in (disable,restore):
+        owners=[(p,exact_function(s,target)) for p,s in src.items() if owns_root(s,target)]
+        if len(owners)!=1:raise ValueError('scheduler dependency owner')
+        path,owned=owners[0]
+        old=changes.get(path,src[path])
+        new=replace_exact(old,owned,patch_dependency(owned,target,roots[target][0]))
+        if include not in new:
+            new=replace_exact(new,'#include "runtime/cpu_context.h"',
+                '#include "runtime/cpu_context.h"\n'+include)
+        changes[path]=new
     dest=generated/'nWiiRuntime/include/undercover'
     bind=dest/'wii_handler_suffix_binding_v868.h'
-    ack=dest/'wii_si_ack_binding_v672.h'
     private=dest/'v923_private_scheduler_return.h'
-    if (dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or
-        not bind.is_file() or not ack.is_file() or private.exists() or private.is_symlink()):
+    if (dest.is_symlink() or bind.is_symlink() or
+        not bind.is_file() or private.exists() or private.is_symlink()):
         raise ValueError('scheduler return destination')
-    changes={p:updated,bind:patch_binding(bind.read_text(encoding='utf-8')),
-             ack:patch_ack(ack.read_text(encoding='utf-8')),private:head}
+    changes.update({bind:patch_binding(bind.read_text(encoding='utf-8')),private:head})
     for path,contents in changes.items():path.write_text(contents,encoding='utf-8')
     print('V923_WINDOWS_SCHEDULER_RETURN_ROUTE installed=1 original_enable=1 two_original_leaves=1 dispatcher_resume=1 guarded=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
 

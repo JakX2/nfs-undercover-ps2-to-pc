@@ -102,16 +102,18 @@ template<class C>void resched_return_native(C& c,uint32_t pc,uint32_t w){
             '    if(resched_return_enabled()){resched_return_arm(c);return;}\n'
             '    std::_Exit(0);')
 
-def patch_ack(s):
-    a='if(v868::resched_trace(a,c))return;'
-    return replace_exact(s,a,'if(v868::resched_return_trace(a,c))return;'+a)
+# Native dispatcher-resume label is the only admissible return witness.
 
 def patch_resume(body,pc,word):
     hits=list(LABEL_TICK(pc,word).finditer(body))
     if len(hits)!=1:raise ValueError('reschedule resume label')
+    trace=f'    (void)undercover::wii::v868::resched_return_trace(0x{pc:08x}u,ctx);\n'
     hook=f'    undercover::wii::v868::resched_return_native(ctx,0x{pc:08x}u,0x{word:08x}u);\n'
-    if hook in body:raise ValueError('reschedule resume duplicate')
-    return body[:hits[0].end()]+hook+body[hits[0].end():]
+    if trace in body or hook in body:raise ValueError('reschedule resume duplicate')
+    m=hits[0];tick='    ++ctx.inst_count;\n'
+    stamp=body[m.start():m.end()]
+    if not stamp.endswith(tick):raise ValueError('reschedule resume tick')
+    return body[:m.start()]+stamp[:-len(tick)]+trace+tick+hook+body[m.end():]
 
 def install(dol,elf,generated):
     roots,j,_,_,_,hint,*_=plan(dol,elf)
@@ -130,13 +132,12 @@ def install(dol,elf,generated):
     updated=replace_exact(src[p],body,patch_resume(body,j+8,word))
     dest=generated/'nWiiRuntime/include/undercover'
     bind=dest/'wii_handler_suffix_binding_v868.h'
-    ack=dest/'wii_si_ack_binding_v672.h'
     header=dest/'v925_private_reschedule_return.h'
-    if (dest.is_symlink() or bind.is_symlink() or ack.is_symlink() or
-        not bind.is_file() or not ack.is_file() or header.exists() or header.is_symlink()):
+    if (dest.is_symlink() or bind.is_symlink() or
+        not bind.is_file() or header.exists() or header.is_symlink()):
         raise ValueError('reschedule return destination')
     changes={p:updated,bind:patch_binding(bind.read_text(encoding='utf-8')),
-             ack:patch_ack(ack.read_text(encoding='utf-8')),header:private}
+             header:private}
     for path,contents in changes.items():path.write_text(contents,encoding='utf-8')
     print('V925_WINDOWS_RESCHEDULE_RETURN_ROUTE installed=1 original_no_switch=1 dispatcher_resume=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
 
