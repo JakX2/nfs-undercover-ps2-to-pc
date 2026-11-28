@@ -4,6 +4,8 @@ on:
     branches: [research/wii-native-recomp-preflight]
     paths:
       - 'research/native_recomp/windows_full_build_v426.py'
+      - 'research/native_recomp/windows_time_suffix_v750.py'
+      - 'research/native_recomp/test_v750_windows_time_suffix.py'
       - 'research/native_recomp/test_v426_windows_full_build.py'
       - 'research/native_recomp/windows_boot_frontier_v722.py'
       - 'research/native_recomp/test_v722_windows_boot_frontier.py'
@@ -76,6 +78,10 @@ on:
         default: os-si-handler-time
         required: true
         options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves, os-si-handler-time]
+      owner_time_suffix:
+        description: 'Opt in to the first refused original handler call after authenticated system-time return (scope os-si-handler-time only)'
+        type: boolean
+        default: false
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -107,6 +113,8 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v722_windows_boot_frontier.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v750_windows_time_suffix.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v726_handler_return.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -205,12 +213,14 @@ jobs:
           OWNER_SCOPE: ${{ inputs.owner_scope || 'os-si-handler-time' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
+          OWNER_TIME_SUFFIX: ${{ inputs.owner_time_suffix && '1' || '0' }}
         shell: pwsh
         run: |
           $orig = Join-Path $env:RUNNER_TEMP 'orig426'
           $extra = @()
           if ($env:LEGACY_LOADER -eq '1') { $extra += '--legacy-loader' }
           if ($env:LEGACY_TICKS -eq '1') { $extra += '--legacy-ticks' }
+          if ($env:OWNER_TIME_SUFFIX -eq '1') { $extra += '--owner-time-suffix' }
           python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw426-o') (Join-Path $env:RUNNER_TEMP 'w426-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf') --owner-scope $env:OWNER_SCOPE @extra
           exit $LASTEXITCODE
       - name: Clean all private original files, logs and binaries
