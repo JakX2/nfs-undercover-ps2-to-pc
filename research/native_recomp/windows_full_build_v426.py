@@ -24,6 +24,7 @@ from windows_wireless_wrapper_v760 import inspect as inspect_wireless_wrapper
 from windows_wireless_write_v761 import inspect as inspect_wireless_write
 from windows_combined_callback_v762 import inspect_completed as inspect_combined_callback
 from windows_handler_return_v763 import inspect as inspect_handler_return
+from windows_native_rfi_v926 import inspect as inspect_native_rfi
 from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure, full_image_environment, stage_environment, STAGES
 
 HOST=Path(__file__).resolve().parent
@@ -186,7 +187,7 @@ def progression_contract(env: dict[str, str]) -> dict[str, str]:
     return prepared
 
 
-def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False,owner_transfer_suffix=False,owner_alarm_return=False,owner_alarm_suffix=False,owner_callback_prefix=False,owner_progression_matrix=False,owner_callback_time=False,owner_callback_frontier=False,owner_wireless_wrapper=False,owner_wireless_write=False,owner_combined_callback=False,owner_handler_return=False):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False,owner_transfer_suffix=False,owner_alarm_return=False,owner_alarm_suffix=False,owner_callback_prefix=False,owner_progression_matrix=False,owner_callback_time=False,owner_callback_frontier=False,owner_wireless_wrapper=False,owner_wireless_write=False,owner_combined_callback=False,owner_handler_return=False,owner_native_rfi=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
@@ -198,10 +199,17 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if owner_wireless_wrapper and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_progression_matrix))):raise BuildError('wireless_wrapper_scope')
     if owner_callback_frontier and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_progression_matrix))):raise BuildError('callback_frontier_scope')
     if owner_callback_time and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_progression_matrix))):raise BuildError('callback_time_scope')
+    if owner_native_rfi and (synthetic or scope!='os-si-handler-time' or any((
+        owner_time_suffix,owner_transfer_prefix,owner_transfer_return,
+        owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,
+        owner_callback_prefix,owner_callback_time,owner_callback_frontier,
+        owner_wireless_wrapper,owner_wireless_write,owner_combined_callback,
+        owner_handler_return,owner_progression_matrix))):
+        raise BuildError('native_rfi_scope')
     if owner_progression_matrix and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix))):raise BuildError('progression_scope')
     try: suffix_env=launch_overlay(scope,synthetic,owner_time_suffix)
     except ValueError as e:raise BuildError('suffix_scope') from e
-    try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_wireless_wrapper,owner_wireless_write,owner_combined_callback,owner_handler_return or owner_progression_matrix)
+    try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_wireless_wrapper,owner_wireless_write,owner_combined_callback,owner_handler_return or owner_progression_matrix or owner_native_rfi)
     except ValueError as e:raise BuildError('transfer_scope') from e
     if owner_progression_matrix:
         progression_contract(transfer_plan.env)
@@ -274,15 +282,20 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
                     for stage,script in transfer_plan.observers:
                         inputs=[generated] if stage=='transfer_suffix_observer' else [dol,elf,generated]
                         run_stage(stage,[sys.executable,HOST/script,*inputs],work,300)
-                    if owner_handler_return or owner_progression_matrix:
-                        # Install verified pre-exception capture + saved-frame
-                        # join, strictly default-disabled in all existing
-                        # owner launch stages. No loader/RFI hook is enabled.
+                    if owner_handler_return or owner_progression_matrix or owner_native_rfi:
+                        # Preserve the authentic original pre-exception CPU.
+                        # Disabled in all existing 15-stage launch environments.
                         run_stage('rfi_context_bridge',
                                   [sys.executable,HOST/'prepare_windows_rfi_context_bridge.py',
                                    generated,'--install'],work,300)
+                    if owner_native_rfi:
+                        # Reuse the Linux owner-original RFI witness and
+                        # patch the same verified native labels on Windows.
+                        run_stage('native_rfi_observer',
+                                  [sys.executable,HOST/'prepare_windows_native_rfi_v926.py',
+                                   dol,elf,generated],work,600)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
-        if scope=='os-si-handler-time' and (owner_handler_return or owner_progression_matrix):
+        if scope=='os-si-handler-time' and (owner_handler_return or owner_progression_matrix or owner_native_rfi):
             # Read-only native-label and direct-edge proof for scheduler,
             # reschedule and context RFI loader. No RFI execution claim.
             run_stage('dispatcher_epilogue_preflight',[sys.executable,HOST/'prepare_v921_windows_dispatcher_epilogue.py',dol,elf,generated],work,300)
@@ -302,6 +315,12 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env.update(launch_flags(scope,synthetic))
     env.update(suffix_env)
     env.update(transfer_plan.env)
+    if owner_native_rfi:
+        # Only the explicit owner-original RFI execution mode activates
+        # saved-frame capture and the genuine V932 pending-source path.
+        env.update(UNDERCOVER_V751_CAPTURE='1',
+                   UNDERCOVER_V926_WINDOWS_RFI='1',
+                   UNDERCOVER_V932_PENDING_RFI='1')
     if requires_exi_profile(scope):
         profile=launch/'exi-test-profile.txt'
         sram=sram_fixture() if requires_sram_profile(scope) else bytes(64)
@@ -332,7 +351,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=(not launch_status['expired'] and rc==0 and
             markers==[b'V426_SYNTHETIC_SWAP verified=1'])
     else:
-        if owner_handler_return:
+        if owner_native_rfi:
+            row,ok=inspect_native_rfi(raw,rc,launch_status['expired'])
+        elif owner_handler_return:
             row,ok=inspect_handler_return(raw,rc,launch_status['expired'])
         elif owner_combined_callback:
             row,ok=inspect_combined_callback(raw,rc,launch_status['expired'])
@@ -380,7 +401,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
         if scope=='os-si-handler-time':
-            if owner_handler_return:
+            if owner_native_rfi:
+                from windows_native_rfi_v926 import diagnostic as handler_time_diagnostic
+            elif owner_handler_return:
                 from windows_handler_return_v763 import diagnostic as handler_time_diagnostic
             elif owner_combined_callback:
                 from windows_combined_callback_v762 import diagnostic as handler_time_diagnostic
@@ -432,8 +455,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     print(f'V441_WINDOWS_TICKS corrected={int(not legacy_ticks)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before next unadmitted call or MMIO');p.add_argument('--owner-transfer-return',action='store_true',help='Opt-in original fourth SI transfer return with native device; stop before handler resume instruction');p.add_argument('--owner-transfer-suffix',action='store_true',help='Resume original SI handler after fourth transfer; stop before next unadmitted call or BLR');p.add_argument('--owner-alarm-return',action='store_true',help='Opt-in fifth original SI alarm cancellation return; not a handler return or game boot');p.add_argument('--owner-alarm-suffix',action='store_true',help='Opt-in bounded post-alarm SI handler until next refused call or BLR; no game boot');p.add_argument('--owner-callback-prefix',action='store_true',help='Opt-in first original SI callback prefix and compiler save; not callback return or boot');p.add_argument('--owner-progression-matrix',action='store_true',help='One full Windows image, separately launch successive authenticated SI service boundaries');p.add_argument('--owner-callback-time',action='store_true',help='Continue genuine callback from compiler save through original OS time helper return');p.add_argument('--owner-callback-frontier',action='store_true',help='Continue original callback through system-time helper to next genuine wireless service callsite');p.add_argument('--owner-wireless-wrapper',action='store_true',help='Continue original wireless wrapper to its return or authentic EXI-lock callsite');p.add_argument('--owner-wireless-write',action='store_true',help='Execute original wireless EXI lock, 44-byte SRAM write, unlock and setter return using host device model');p.add_argument('--owner-combined-callback',action='store_true',help='Continue original wireless setter into callback suffix and ABI restore/outer dispatch; never handler return');p.add_argument('--owner-handler-return',action='store_true',help='Opt-in genuine callback, handler suffix, original restore, and original dispatcher return; not RFI or boot');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix,a.owner_transfer_return,a.owner_transfer_suffix,a.owner_alarm_return,a.owner_alarm_suffix,a.owner_callback_prefix,a.owner_progression_matrix,a.owner_callback_time,a.owner_callback_frontier,a.owner_wireless_wrapper,a.owner_wireless_write,a.owner_combined_callback,a.owner_handler_return)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before next unadmitted call or MMIO');p.add_argument('--owner-transfer-return',action='store_true',help='Opt-in original fourth SI transfer return with native device; stop before handler resume instruction');p.add_argument('--owner-transfer-suffix',action='store_true',help='Resume original SI handler after fourth transfer; stop before next unadmitted call or BLR');p.add_argument('--owner-alarm-return',action='store_true',help='Opt-in fifth original SI alarm cancellation return; not a handler return or game boot');p.add_argument('--owner-alarm-suffix',action='store_true',help='Opt-in bounded post-alarm SI handler until next refused call or BLR; no game boot');p.add_argument('--owner-callback-prefix',action='store_true',help='Opt-in first original SI callback prefix and compiler save; not callback return or boot');p.add_argument('--owner-progression-matrix',action='store_true',help='One full Windows image, separately launch successive authenticated SI service boundaries');p.add_argument('--owner-callback-time',action='store_true',help='Continue genuine callback from compiler save through original OS time helper return');p.add_argument('--owner-callback-frontier',action='store_true',help='Continue original callback through system-time helper to next genuine wireless service callsite');p.add_argument('--owner-wireless-wrapper',action='store_true',help='Continue original wireless wrapper to its return or authentic EXI-lock callsite');p.add_argument('--owner-wireless-write',action='store_true',help='Execute original wireless EXI lock, 44-byte SRAM write, unlock and setter return using host device model');p.add_argument('--owner-combined-callback',action='store_true',help='Continue original wireless setter into callback suffix and ABI restore/outer dispatch; never handler return');p.add_argument('--owner-handler-return',action='store_true',help='Opt-in genuine callback, handler suffix, original restore, and original dispatcher return; not RFI or boot');p.add_argument('--owner-native-rfi',action='store_true',help='Opt-in owner-original Windows scheduler, OSLoadContext, native RFI and pending SI second vector; never a boot claim');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix,a.owner_transfer_return,a.owner_transfer_suffix,a.owner_alarm_return,a.owner_alarm_suffix,a.owner_callback_prefix,a.owner_progression_matrix,a.owner_callback_time,a.owner_callback_frontier,a.owner_wireless_wrapper,a.owner_wireless_write,a.owner_combined_callback,a.owner_handler_return,a.owner_native_rfi)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):
