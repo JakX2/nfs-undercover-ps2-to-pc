@@ -61,7 +61,8 @@ class WindowsHandlerReturn(unittest.TestCase):
                     sample(tail=(JOIN,STATUS,STORE,INDEX,STOP)),
                     sample(tail=(JOIN,STATUS,STORE,INDEX,STOP,*MARKERS,POLL)),
                     sample(tail=(JOIN,STATUS,STORE,INDEX,STOP,*MARKERS,POLL,RETURN,RETURN)),
-                    sample(tail=(JOIN,STATUS,STORE,INDEX,STOP,*MARKERS,RETURN,POLL))):
+                    sample(tail=(JOIN,STATUS,STORE,INDEX,STOP,*MARKERS,RETURN,POLL)),
+                    sample() + b'unexpected opaque private bytes\n'):
             with self.subTest(raw=raw[-100:]):
                 self.assertFalse(inspect(raw,0)[1])
         for rc,timeout in ((126,False),(1,False),(0,True),

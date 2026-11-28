@@ -32,7 +32,11 @@ def inspect(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
                              'handler_ordinal=6 next=12 kind=1 ' in suffix_row)
             if suffix_ok:
                 _, handler_ok = audit_return(raw, 0)
-    # Native V920 prints this exact terminal marker and exits immediately.\n    # Reject anything appended after it, including otherwise unrecognized\n    # output that the shared diagnostic auditors intentionally ignore.\n    ok = bool(callback_ok and suffix_ok and handler_ok and\n              rows and rows[-1] == HANDLER_RETURN)
+    # Native V920 prints this exact terminal marker and exits immediately.
+    # Reject anything appended after it, including otherwise unrecognized
+    # output that the shared diagnostic auditors intentionally ignore.
+    ok = bool(callback_ok and suffix_ok and handler_ok and
+              rows and rows[-1] == HANDLER_RETURN)
     exit_kind = ('timeout' if timed_out else
                  'zero' if rc == 0 else
                  'exception' if rc < 0 or rc >= 0xC0000000 else 'other')
