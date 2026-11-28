@@ -22,7 +22,7 @@ from test_v763_windows_handler_return import sample as handler_sample
 from test_v922_windows_scheduler_entry import sample as scheduler_sample
 from test_v923_windows_scheduler_return import sample as scheduler_return_sample
 from windows_progression_matrix_v757 import (
-    REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, run,
+    REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run,
 )
 from windows_full_build_v426 import build as windows_build
 
@@ -56,6 +56,26 @@ def simulate(contents=FIXTURES, codes=EXIT, timeouts=None):
 
 
 class WindowsProgression(unittest.TestCase):
+    def test_host_prepares_deep_flags_only_for_progression(self):
+        from windows_transfer_prefix_v751 import plan
+        standalone=plan('os-si-handler-time',False,False,False,handler_return=True)
+        self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY', standalone.env)
+        self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN', standalone.env)
+        prepared=full_image_environment(standalone.env)
+        self.assertEqual(prepared, BASE)
+        self.assertEqual(len(prepared), len(standalone.env)+2)
+        for stage in STAGES[:-2]:
+            env=stage_environment(prepared,stage)
+            self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY',env)
+            self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',env)
+        for corrupted in ({}, {'UNDERCOVER_V922_SCHEDULER_ENTRY':'0'},
+                          {'UNDERCOVER_V923_SCHEDULER_RETURN':'wrong'}):
+            candidate=dict(standalone.env)
+            candidate.update(corrupted)
+            if not corrupted: candidate.pop('UNDERCOVER_V920_HANDLER_RETURN')
+            with self.assertRaises(ValueError):
+                full_image_environment(candidate)
+
     def test_exact_stage_progression(self):
         self.assertEqual(tuple(s.name for s in STAGES),
                          ('transfer-return', 'transfer-suffix', 'alarm-return',

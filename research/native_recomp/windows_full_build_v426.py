@@ -24,7 +24,7 @@ from windows_wireless_wrapper_v760 import inspect as inspect_wireless_wrapper
 from windows_wireless_write_v761 import inspect as inspect_wireless_write
 from windows_combined_callback_v762 import inspect_completed as inspect_combined_callback
 from windows_handler_return_v763 import inspect as inspect_handler_return
-from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure
+from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure, full_image_environment
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -289,7 +289,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         with profile.open('xb') as f:f.write(b'UNDERCOVER_SI_PROFILE_V1\nlatency=00000008\nport0=absent\nport1=absent\nport2=absent\nport3=absent\n')
         env['UNDERCOVER_V518_SI_PROFILE']=str(profile)
     if owner_progression_matrix:
-        try:run_progression(exe,dol,config,launch,env,command)
+        try:
+            env=full_image_environment(env)
+            run_progression(exe,dol,config,launch,env,command)
         except ProgressionFailure as exc:raise BuildError('progression_'+str(exc).replace('-','_')) from exc
         print('V429_WINDOWS_OWNER_SCOPE scope=os-si-handler-time verified=1 boot_verified=0',flush=True)
         print('V426_WINDOWS_START synthetic=0 verified=1 boot_verified=0',flush=True)

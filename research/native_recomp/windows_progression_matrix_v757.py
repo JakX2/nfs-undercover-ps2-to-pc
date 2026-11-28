@@ -47,6 +47,27 @@ REQUIRED = ('UNDERCOVER_V747_TIME_SUFFIX',
             'UNDERCOVER_V922_SCHEDULER_ENTRY',
             'UNDERCOVER_V923_SCHEDULER_RETURN')
 OPTIONAL = REQUIRED[2:]
+# Deepest observer flags are required by the matrix, but deliberately absent
+# from the standalone --owner-handler-return launcher.
+DEEP_ONLY = ('UNDERCOVER_V922_SCHEDULER_ENTRY',
+             'UNDERCOVER_V923_SCHEDULER_RETURN')
+
+
+def full_image_environment(base: dict[str, str]) -> dict[str, str]:
+    """Admit the two newest private observers only for progression launches.
+
+    Strictly validate all authenticated predecessor flags before amending the
+    matrix's base environment. stage_environment still removes optional flags
+    from every earlier process, so no earlier stopping point is altered.
+    """
+    if (type(base) is not dict or REQUIRED[-len(DEEP_ONLY):] != DEEP_ONLY or
+            any(base.get(key) != '1' for key in REQUIRED[:-len(DEEP_ONLY)]) or
+            any(key in base and base[key] != '1' for key in DEEP_ONLY)):
+        raise ValueError('original progression base environment')
+    output = dict(base)
+    output.update({key: '1' for key in DEEP_ONLY})
+    return output
+
 
 
 @dataclass(frozen=True)
