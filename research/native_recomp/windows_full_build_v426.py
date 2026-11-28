@@ -11,6 +11,7 @@ import sys
 from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requires_exi_profile,requires_si_profile,requires_sram_profile,requires_sc_overlay,requires_external_overlay,REPORT_SCOPES,EXTERNAL_SCOPES
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 from write_sram_profile_v536 import sram_fixture
+from windows_time_suffix_v750 import launch_overlay, inspect as inspect_suffix
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -157,12 +158,14 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
-def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
     synthetic=dol is None
     if synthetic!=(elf is None):raise BuildError('input_pair')
+    try: suffix_env=launch_overlay(scope,synthetic,owner_time_suffix)
+    except ValueError as e:raise BuildError('suffix_scope') from e
     extra_patches,observer=owner_scope(scope,synthetic)
     if requires_exi_profile(scope) and legacy_ticks:raise BuildError('exi_requires_native_ticks')
     if not synthetic and hashlib.sha256(dol.read_bytes()).hexdigest()!=OWNER_SHA:raise BuildError('owner_dol')
@@ -243,6 +246,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env={k:v for k,v in os.environ.items() if k.upper() in ('PATH','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','PATHEXT')}
     env.update(NWII_HEADLESS='1',NWII_TRACE_CALLS='1',SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy',USERPROFILE=str(launch),HOME=str(launch))
     env.update(launch_flags(scope,synthetic))
+    env.update(suffix_env)
     if requires_exi_profile(scope):
         profile=launch/'exi-test-profile.txt'
         sram=sram_fixture() if requires_sram_profile(scope) else bytes(64)
@@ -263,7 +267,11 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=(not launch_status['expired'] and rc==0 and
             markers==[b'V426_SYNTHETIC_SWAP verified=1'])
     else:
-        row,ok=audit_owner_start(raw,rc,scope);print(row)
+        if owner_time_suffix:
+            row,ok=inspect_suffix(raw,rc,launch_status['expired'])
+        else:
+            row,ok=audit_owner_start(raw,rc,scope)
+        print(row,flush=True)
         if scope in REPORT_SCOPES:
             from report_diagnostic_v643 import diagnostic as report_diag
             from audit_v591_memory_init import mapper_diagnostic
@@ -283,7 +291,10 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
         if scope=='os-si-handler-time':
-            from audit_v742_handler_time import diagnostic as handler_time_diagnostic
+            if owner_time_suffix:
+                from windows_time_suffix_v750 import diagnostic as handler_time_diagnostic
+            else:
+                from audit_v742_handler_time import diagnostic as handler_time_diagnostic
             for line in raw.splitlines():
                 if handler_time_diagnostic(line):print(line.decode(),flush=True)
         if scope=='os-si-os-leaves':
@@ -308,8 +319,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     print(f'V441_WINDOWS_TICKS corrected={int(not legacy_ticks)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):
