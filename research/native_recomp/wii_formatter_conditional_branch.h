@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <optional>
 
 namespace undercover::wii {
 
@@ -19,7 +20,8 @@ public:
 
     template<class C>bool arm(C& c,uint32_t root,uint32_t pc,
         uint32_t instruction,uint32_t selected_pc,uint32_t selected_word,
-        uint32_t return_pc,uint32_t owner_size){
+        uint32_t return_pc,uint32_t owner_size,
+        std::optional<uint32_t> compare_successor={}){
         if(stage_||failed_||!safe(c)||c.pc!=root||
            root<0x80000000u||root>0x817fff90u||(root&3u)||
            pc!=root+40u||owner_size<48u||owner_size>65536u||
@@ -49,7 +51,15 @@ public:
            !in_owner(unused)||selected_pc==unused||selected_pc==pc||
            in_owner(return_pc)||return_pc==selected_pc||return_pc==unused||
            !word(c,selected_pc,selected_word)||!word(c,unused,guard)||
-           !word(c,selected_pc+4u,guard))return reject();
+           !word(c,selected_pc+4u,compare_successor.value_or(guard)))return reject();
+        // Only the taken, authenticated cmpi root may admit one extra
+        // successor label for the 129 observer. Original 128 defaults
+        // to the old two-word span and still refuses unguarded tails.
+        if(compare_successor&&(!predicted->taken||
+           selected_word>>26u!=11u||(selected_word&0x00600000u)||
+           *compare_successor==guard||!in_owner(selected_pc+8u)||
+           !word(c,selected_pc+8u,guard)))return reject();
+        compare_successor_=compare_successor;
         cpu_=&c;root_=root;pc_=pc;instruction_=instruction;
         selected_pc_=selected_pc;selected_word_=selected_word;
         unused_pc_=unused;return_pc_=return_pc;taken_=predicted->taken;
@@ -61,7 +71,7 @@ public:
 
     // NWiiRecomp's non-local conditional branch dispatch assigns ctx.pc
     // to the selected translated function root before calling that root.
-    // The branch target is a separate authenticated 2-word code span;
+    // The branch target is a separate authenticated guarded code span;
     // expecting the old root here would reject genuine AOT execution.
     template<class C>bool observe(C& c,uint32_t arrival_pc,uint32_t arrival_word){
         if(stage_!=1u||failed_||cpu_!=&c||!safe(c)||
@@ -73,7 +83,8 @@ public:
            !word(c,pc_,instruction_)||
            !word(c,selected_pc_,selected_word_)||
            !word(c,unused_pc_,guard)||
-           !word(c,selected_pc_+4u,guard)||
+           !word(c,selected_pc_+4u,compare_successor_.value_or(guard))||
+           (compare_successor_&&!word(c,selected_pc_+8u,guard))||
            !word(c,return_pc_,guard))return reject();
         stage_=2u;return true;
     }
@@ -95,6 +106,7 @@ private:
         return p&&q&&reinterpret_cast<uintptr_t>(q)==
             reinterpret_cast<uintptr_t>(p)+3u&&c.mmu.read32(at)==expected;
     }
+    std::optional<uint32_t> compare_successor_{};
     const void* cpu_=nullptr;
     std::array<uint32_t,32> gpr_{};
     std::array<uint32_t,8> gqr_{};

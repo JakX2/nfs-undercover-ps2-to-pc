@@ -1,6 +1,7 @@
 // Synthetic branch labels only. No private game data or native execution.
 #include "wii_formatter_conditional_branch.h"
 #include "wii_formatter_report_sixth_immediate.h"
+#include "wii_formatter_compare_129.h"
 #include <optional>
 #include <array>
 #ifdef NDEBUG
@@ -155,6 +156,77 @@ void chained_sixth_immediate_branch(){
                           0xffff8000u,Next));
     }
 }
+// The synthetic 128-to-129 handoff must retain the original branch
+// witness, then observe a genuine-shaped local label transition. No
+// guest code is executed by either witness.
+void chained_taken_branch_compare(){
+    constexpr uint32_t chosen=PC+16u;
+    constexpr uint32_t branch=bc(12u,2u,16u);
+    constexpr uint32_t cmp=(11u<<26u)|(3u<<23u)|(5u<<16u)|7u;
+    auto setup=[](){
+        Cpu c=seed(true);
+        c.gpr[5]=7u;
+        c.mmu.write32(chosen,cmp);
+        c.mmu.write32(chosen+4u,Next);
+        c.mmu.write32(chosen+8u,Guard);
+        return c;
+    };
+    {
+        auto c=setup();
+        FormatterConditionalBranchWitness edge;
+        assert(edge.arm(c,Root,PC,branch,chosen,cmp,Ret,80u,Next));
+        ++c.inst_count;c.pc=chosen;
+        assert(edge.observe(c,chosen,cmp)&&edge.stage()==2u);
+        FormatterCompare129Witness compare;
+        assert(compare.arm(c,chosen,cmp,chosen+4u,Next,Ret,{5u,7u},
+                           edge.stage()==2u&&!edge.failed()));
+        c.cr[3]={false,false,true,true};
+        ++c.inst_count;
+        assert(compare.observe(c,chosen+4u,Next)&&compare.stage()==2u);
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        // Never allow the 129 layout in default original-128 mode.
+        assert(!edge.arm(c,Root,PC,branch,chosen,cmp,Ret,80u));
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        // The extra successor must be inside the true owner extent.
+        assert(!edge.arm(c,Root,PC,branch,chosen,cmp,Ret,64u,Next));
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        c.mmu.write32(chosen+8u,Next);
+        assert(!edge.arm(c,Root,PC,branch,chosen,cmp,Ret,80u,Next));
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        assert(edge.arm(c,Root,PC,branch,chosen,cmp,Ret,80u,Next));
+        ++c.inst_count;c.pc=chosen;
+        c.mmu.write32(chosen+4u,Next^1u);
+        assert(!edge.observe(c,chosen,cmp));
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        assert(edge.arm(c,Root,PC,branch,chosen,cmp,Ret,80u,Next));
+        ++c.inst_count;c.pc=chosen;
+        c.mmu.write32(chosen+8u,Next);
+        assert(!edge.observe(c,chosen,cmp));
+    }
+    {
+        auto c=setup();FormatterConditionalBranchWitness edge;
+        c.mmu.write32(chosen,Next);
+        assert(!edge.arm(c,Root,PC,branch,chosen,Next,Ret,80u,Next));
+    }
+    {
+        auto c=seed(false);FormatterConditionalBranchWitness edge;
+        const uint32_t fallthrough=PC+4u;
+        c.mmu.write32(fallthrough,cmp);
+        c.mmu.write32(fallthrough+4u,Next);
+        c.mmu.write32(fallthrough+8u,Guard);
+        assert(!edge.arm(c,Root,PC,branch,fallthrough,cmp,Ret,80u,Next));
+    }
+}
 void refusal_cases(){
     for(const unsigned fault:{0u,1u,2u,3u,4u,5u,6u,7u,8u,9u,10u,11u}){
         Cpu c=seed(true);
@@ -242,9 +314,11 @@ int main(){
     positives();
     condition_register_matrix();
     chained_sixth_immediate_branch();
+    chained_taken_branch_compare();
     refusal_cases();
     observe_refuses_old_root_without_native_dispatch();
     observe_refusals();
     std::cout<<"FORMATTER_CONDITIONAL_BRANCH_SOURCE_ONLY routes=4 cr_matrix=128 chained_127_128=4 cross_root=1 arm_refusals=12"
              <<" observe_refusals=22 original_execution=0\n";
+    std::cout<<"FORMATTER_BRANCH_COMPARE_CHAIN_SOURCE_ONLY transitions=2 refusals=7 original_execution=0\n";
 }
