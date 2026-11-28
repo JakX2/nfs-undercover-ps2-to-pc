@@ -44,6 +44,8 @@ on:
       - 'research/native_recomp/test_v925_windows_reschedule_return.py'
       - 'research/native_recomp/prepare_windows_rfi_context_bridge.py'
       - 'research/native_recomp/test_windows_rfi_context_bridge.py'
+      - 'research/native_recomp/prepare_windows_native_rfi_v926.py'
+      - 'research/native_recomp/test_windows_native_rfi_v926.py'
       - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - 'research/native_recomp/prepare_v868_handler_suffix.py'
@@ -90,6 +92,7 @@ jobs:
             'test_v924_windows_reschedule_entry.py',
             'test_v925_windows_reschedule_return.py',
             'test_windows_rfi_context_bridge.py',
+            'test_windows_native_rfi_v926.py',
             'test_v921_windows_dispatcher_epilogue.py',
             'test_v868_handler_suffix.py',
             'test_v919_handler_epilogue.py',
