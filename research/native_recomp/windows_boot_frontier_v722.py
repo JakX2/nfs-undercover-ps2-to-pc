@@ -53,6 +53,7 @@ def frontier(raw: bytes, rc: int, timed_out: bool = False,
     if ack_count != 1:
         reason = 'ack_missing' if ack_count == 0 else 'ack_duplicate'
     else:
+        last = 'ack_result'
         pos = rows.index(RESULT) + 1
         tail = rows[pos:]
         k = 0
