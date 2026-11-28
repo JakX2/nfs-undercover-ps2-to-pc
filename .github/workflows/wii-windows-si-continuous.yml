@@ -72,8 +72,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: wii-windows-continuous-si-${{ github.ref }}
-  cancel-in-progress: false
+  # Replace stale push builds so the latest owner-original code is tested.
+  # Preserve separately dispatched RFI experiments across ordinary pushes.
+  group: wii-windows-continuous-si-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   source-gates:

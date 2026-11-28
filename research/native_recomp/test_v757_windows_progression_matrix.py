@@ -248,6 +248,25 @@ class WindowsProgression(unittest.TestCase):
                 run(Path('x'), Path('y'), Path('z'), folder, BASE,
                     None, lambda s: None)
 
+    def test_windows_ci_replaces_stale_pushes_but_preserves_manual_rfi(self):
+        # The owner-private build is lengthy. New source commits must reach
+        # native execution without waiting for obsolete branch jobs.
+        # Manual native-RFI investigations should not be cancelled by pushes.
+        workflow = (Path(__file__).resolve().parents[2] /
+                    '.github/workflows/wii-windows-si-continuous.yml'
+                    ).read_text(encoding='utf-8')
+        self.assertRegex(
+            workflow,
+            r"(?m)^concurrency:\n"
+            r"  # Replace stale push builds so the latest owner-original code is tested\.\n"
+            r"  # Preserve separately dispatched RFI experiments across ordinary pushes\.\n"
+            r"  group: wii-windows-continuous-si-\$\{\{ github\.ref \}\}-\$\{\{ github\.event_name \}\}\n"
+            r"  cancel-in-progress: \$\{\{ github\.event_name == 'push' \}\}\n"
+        )
+        self.assertIn('if: always()', workflow)
+        self.assertIn('--owner-progression-matrix', workflow)
+        self.assertIn('--owner-native-rfi', workflow)
+
     def test_options_are_opt_in_and_mutually_exclusive(self):
         self.assertIn('owner_progression_matrix', inspect.signature(windows_build).parameters)
         runner = Path(__file__).with_name('windows_full_build_v426.py')
