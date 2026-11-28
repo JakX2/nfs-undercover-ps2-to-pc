@@ -4,7 +4,7 @@ import unittest
 from audit_v920_handler_return import RETURN as HANDLER_RETURN
 from test_v763_windows_handler_return import sample as handler_sample
 from windows_scheduler_entry_v922 import RESULT,inspect,diagnostic
-from prepare_v922_windows_scheduler_entry import patch_binding,patch_scheduler
+from prepare_v922_windows_scheduler_entry import patch_binding,patch_scheduler,patch_post_handler_observers
 from windows_transfer_prefix_v751 import plan
 
 def sample(changed=True):
@@ -67,6 +67,31 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('V922_WINDOWS_SCHEDULER_INVALID reason=',out)
         self.assertEqual(out.count('scheduler_refusal('),18)
         self.assertIn('std::_Exit(126);',out)
+
+
+    def test_completed_handler_observers_are_scoped_at_scheduler_call(self):
+        from pathlib import Path
+        from prepare_v919_handler_epilogue import patch_binding as epilogue
+        from prepare_v920_handler_return import patch_binding as handler_return
+        source=(Path(__file__).parent/'wii_handler_suffix_binding_v868.h').read_text(encoding='utf-8')
+        out=patch_post_handler_observers(patch_binding(handler_return(epilogue(source))))
+        self.assertEqual(out.count('inline thread_local bool scheduler_handoff=false;'),1)
+        self.assertEqual(out.count('scheduler_handoff=true;'),1)
+        self.assertIn('scheduler_pending=true;scheduler_handoff=true;',out)
+        self.assertIn('if(scheduler_enabled()){scheduler_start(c,pc,w);return;}',out)
+        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(6);',out)
+        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(5);',out)
+        self.assertEqual(out.count('if(scheduler_handoff){'),2)
+        self.assertIn('if(!restore_enabled()||restore.stage()!=1u',out)
+        self.assertIn('if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);',out)
+        self.assertLess(out.index('if(scheduler_pending||scheduler_traced)scheduler_refusal(1);'),
+                        out.index('scheduler_handoff=true;'))
+        with self.assertRaises(ValueError):
+            patch_post_handler_observers(out)
+        with self.assertRaises(ValueError):
+            patch_post_handler_observers(out.replace('scheduler_handoff=true;', 'scheduler_handoff=false;'))
+        with self.assertRaises(ValueError):
+            patch_post_handler_observers(out.replace('if(scheduler_handoff){','if(true){',1))
 
     def test_native_first_instruction_hook_and_opt_in_plan(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)

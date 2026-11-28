@@ -99,6 +99,40 @@ def patch_scheduler(body,pc,word):
     if not stamp.endswith(tick):raise ValueError('scheduler tick seam')
     return body[:m.start()]+stamp[:-len(tick)]+trace+tick+hook+body[m.end():]
 
+
+def patch_post_handler_observers(s):
+    """Scope handler observers after the original dispatcher-to-scheduler BL.
+
+    V672/V868 remain armed throughout the original SI handler and register
+    restore. Once the verified V920 dispatcher resumes, the original
+    scheduler's external-entry and instruction-boundary callbacks are not
+    another handler restore. Only the authenticated V922 scheduler_start
+    can activate this handoff. The SI held-state witness remains mandatory.
+    """
+    anchor='template<class C>void observe(uint32_t pc,C& c){'
+    s=replace_exact(s,anchor,'inline thread_local bool scheduler_handoff=false;\n'+anchor)
+    old='''template<class C>void observe(uint32_t pc,C& c){
+    if(!restore_enabled()||restore.stage()!=1u||!v850::held(c)||!restore.entry(c,pc))reject(6);'''
+    new='''template<class C>void observe(uint32_t pc,C& c){
+    if(scheduler_handoff){
+        if(v726::witness.stage()!=5u||!v850::held(c))reject(6);
+        return;
+    }
+    if(!restore_enabled()||restore.stage()!=1u||!v850::held(c)||!restore.entry(c,pc))reject(6);'''
+    s=replace_exact(s,old,new)
+    old='''template<class C>bool poll(C& c){
+    if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);'''
+    new='''template<class C>bool poll(C& c){
+    if(scheduler_handoff){
+        if(v726::witness.stage()!=5u||!v850::held(c))reject(5);
+        return false;
+    }
+    if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);'''
+    s=replace_exact(s,old,new)
+    s=replace_exact(s,'scheduler_msr=c.msr;scheduler_pending=true;',
+                    'scheduler_msr=c.msr;scheduler_pending=true;scheduler_handoff=true;')
+    return s
+
 def install(dol,elf,generated):
     roots,j,*_=plan(dol,elf);jw=roots[j][0];ew=roots[E][0]
     if direct_bl(jw,j)!=E:raise ValueError('scheduler call')
@@ -124,7 +158,7 @@ def install(dol,elf,generated):
     if (dest.is_symlink() or bind.is_symlink() or
         not bind.is_file() or private.exists() or private.is_symlink()):
         raise ValueError('scheduler destination')
-    changes={path:updated,bind:patch_binding(bind.read_text(encoding='utf-8')),
+    changes={path:updated,bind:patch_post_handler_observers(patch_binding(bind.read_text(encoding='utf-8'))),
              private:private_header(j,jw,ew)}
     for f,data in changes.items():f.write_text(data,encoding='utf-8')
     print('V922_WINDOWS_SCHEDULER_ROUTE installed=1 original_dispatcher=1 native_scheduler_entry=1 guarded=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
