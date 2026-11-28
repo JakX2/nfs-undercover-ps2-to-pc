@@ -103,8 +103,8 @@ class Original126NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+36u',
             '!report_byte_storage(c,held,9u)',
             'next_entry_ninth_', '(ninth&&!eighth)',
-            'stage_<=51u', 'stage_==46u',
-            'unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed)',
+            'stage_<=53u', 'stage_==46u',
+            'unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(compare_129_completed_)+unsigned(armed)',
             'if(n>43u)return {};',
         ):
             with self.subTest(marker=marker):
