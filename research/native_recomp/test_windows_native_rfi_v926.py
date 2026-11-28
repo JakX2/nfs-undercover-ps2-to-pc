@@ -75,6 +75,31 @@ class WindowsNativeRfi(unittest.TestCase):
         self.assertEqual(new.count('wii_live_irq_return_binding_v922.h'),1)
         with self.assertRaises(ValueError):patch_entry(new)
 
+    def test_genuine_windows_pre_tick_hooks_are_preserved_around_rfi_witness(self):
+        pc=0x80010000;word=0x60000000
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n'
+        tick='    ++ctx.inst_count;\n'
+        si='    ctx.si_instruction_boundary();\n'
+        expected=('scheduler_trace','scheduler_return_trace',
+                  'resched_trace','resched_return_trace')
+        for name in expected:
+            pre=f'    (void)undercover::wii::v868::{name}(0x{pc:08x}u,ctx);\n'
+            out=patch_label(label+pre+tick+si,pc,word,trace=name)
+            self.assertLess(out.index(pre),out.index(tick))
+            self.assertLess(out.index(tick),out.index(si))
+            self.assertLess(out.index(si),out.index('v922::before('))
+            self.assertEqual(out.count(pre),1)
+            with self.assertRaises(ValueError):
+                patch_label(out,pc,word,trace=name)
+            with self.assertRaises(ValueError):
+                patch_label(label+pre+pre+tick+si,pc,word,trace=name)
+            with self.assertRaises(ValueError):
+                patch_label(label+pre+tick+si,pc,word,trace='wrong')
+            with self.assertRaises(ValueError):
+                patch_label(label+pre+tick+si,pc,word,trace=name,resume=True)
+        with self.assertRaises(ValueError):
+            patch_label(label+tick+si,pc,word,trace='scheduler_trace')
+
     def test_authenticated_guest_label_never_skips_original_instruction(self):
         pc=0x80010000;word=0x60000000
         label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n    ++ctx.inst_count;\n'

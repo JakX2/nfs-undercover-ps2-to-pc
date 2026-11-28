@@ -20,7 +20,33 @@ from prepare_v680_si_helper import exact_function,verify_direct
 from prepare_v709_os_leaves import owns_root,entry_count
 from prepare_v726_handler_return import verify_resume_dispatch
 from prepare_v667_si_dispatch import DISABLE,RESTORE
-from prepare_v922_irq_return import patch_label,patch_entry
+from prepare_v922_irq_return import patch_label as linux_patch_label,patch_entry
+
+
+def patch_label(body:str,pc:int,word:int,resume:bool=False,
+                shared:int=0,trace:str|None=None)->str:
+    """Preserve authenticated Windows pre-tick probes at original labels.
+
+    The known-good Linux RFI installer starts immediately at ++inst_count.
+    Windows V922-V925 also validate the pre-tick boundary, before that
+    increment. Temporarily remove *only the exact authenticated* observer
+    when locating the Linux seam, then restore it at its original place.
+    Neither the original instruction nor any observer is skipped.
+    """
+    if trace is None:
+        return linux_patch_label(body,pc,word,resume,shared)
+    allowed={'scheduler_trace','scheduler_return_trace',
+             'resched_trace','resched_return_trace'}
+    if trace not in allowed or resume or type(body) is not str:
+        raise ValueError('Windows RFI pre-tick contract')
+    stem=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n'
+    tick='    ++ctx.inst_count;\n'
+    check=f'    (void)undercover::wii::v868::{trace}(0x{pc:08x}u,ctx);\n'
+    if body.count(stem+check+tick)!=1:
+        raise ValueError('Windows RFI pre-tick identity')
+    temporary=replace_exact(body,stem+check+tick,stem+tick)
+    changed=linux_patch_label(temporary,pc,word,resume,shared)
+    return replace_exact(changed,stem+tick,stem+check+tick)
 
 
 def patch_return(s:str)->str:
@@ -80,6 +106,10 @@ def install(dol:bytes,elf:bytes,root:Path,host:Path)->int:
     if any(sum(entry_count(s,a) for s in sources.values())!=1 for a in entries):
         raise ValueError('Windows RFI entry coverage')
 
+    E,S,D,R,L=entries
+    pre_tick={E:'scheduler_trace',D:'scheduler_return_trace',
+              R:'scheduler_return_trace',S:'resched_trace',
+              j+8:'resched_return_trace'}
     changes={};seen=set()
     for path,old in sources.items():
         new=old
@@ -88,7 +118,9 @@ def install(dol:bytes,elf:bytes,root:Path,host:Path)->int:
                 continue
             if pc in seen:
                 raise ValueError('Windows RFI label duplicate')
-            new=patch_label(new,pc,w,pc==resume,1 if owner==DISABLE else 3 if owner==RESTORE else 0)
+            new=patch_label(new,pc,w,pc==resume,
+                            1 if owner==DISABLE else 3 if owner==RESTORE else 0,
+                            pre_tick.get(pc))
             seen.add(pc)
         if new!=old:
             inc='#include "undercover/wii_live_irq_return_binding_v922.h"'
