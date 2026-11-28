@@ -17,7 +17,8 @@ from prepare_v680_si_helper import exact_function, verify_direct
 from prepare_v709_os_leaves import owns_root
 from prepare_owner_irq_join_v923 import plan
 from prepare_owner_scheduler_v722 import E, S, reachable
-from prepare_v850_callback_return import LABEL_TICK
+from prepare_v850_callback_return import LABEL_TICK,BLOCK_END,INSTR_PREFIX
+from prepare_v807_callback_prefix import SI
 
 MARKER=('V922_SCHEDULER_ENTRY original_handler_return=1 original_dispatcher_branch=1 '
         'original_scheduler_entry=1 native_tick=1 rfi=0 boot_verified=0')
@@ -105,6 +106,24 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
         '    std::_Exit(0);')
 
 
+# Advance the existing completion witness at every authenticated original
+# instruction tick within the scheduler, interrupt leaves and rescheduler.
+# The E entry tick is already covered by V922 scheduler_native.
+def patch_device_tick(body,pc,word):
+    hits=list(LABEL_TICK(pc,word).finditer(body))
+    if len(hits)!=1:raise ValueError('scheduler device label')
+    start=hits[0].end()
+    stop=BLOCK_END.search(body,start)
+    end=stop.start() if stop else len(body)
+    block=body[start:end]
+    if block.count(SI)!=1 or not INSTR_PREFIX.fullmatch(block[:block.index(SI)]):
+        raise ValueError('scheduler device boundary')
+    hook=f'    undercover::wii::v868::scheduler_device_tick(ctx,0x{pc:08x}u,0x{word:08x}u);\n'
+    if 'scheduler_device_tick(' in block:raise ValueError('scheduler device duplicate')
+    at=block.index(SI)+len(SI)
+    return body[:start]+block[:at]+hook+block[at:]+body[end:]
+
+
 # Observe disable and restore through their real translated callee labels.
 
 def patch_dependency(body,pc,word):
@@ -135,7 +154,7 @@ def install(dol,elf,generated):
         raise ValueError('scheduler return tree')
     src={p:p.read_text(encoding='utf-8') for p in shards};outer=main.read_text(encoding='utf-8')
     expected={j+4:(DISPATCH,word)}
-    for owner in (E,disable,restore):
+    for owner in (E,disable,restore,S):
         ws=roots[owner]
         expected.update({pc:(owner,ws[(pc-owner)//4]) for pc in reachable(owner,ws)})
     audit_native(src.values(),outer,expected)
@@ -147,12 +166,20 @@ def install(dol,elf,generated):
     p,body=dispatch[0]
     changes={p:replace_exact(src[p],body,patch_dispatcher(body,j+4,word))}
     include='#include "undercover/wii_handler_suffix_binding_v868.h"'
-    for target in (disable,restore):
+    for target in (E,disable,restore,S):
         owners=[(p,exact_function(s,target)) for p,s in src.items() if owns_root(s,target)]
         if len(owners)!=1:raise ValueError('scheduler dependency owner')
-        path,owned=owners[0]
+        path,original=owners[0]
+        owned=exact_function(changes.get(path,src[path]),target)
+        for pc in sorted(reachable(target,roots[target])):
+            if target==E and pc==E:
+                # V922 scheduler_native already advances the entry tick.
+                continue
+            owned=patch_device_tick(owned,pc,roots[target][(pc-target)//4])
+        if target in (disable,restore):
+            owned=patch_dependency(owned,target,roots[target][0])
         old=changes.get(path,src[path])
-        new=replace_exact(old,owned,patch_dependency(owned,target,roots[target][0]))
+        new=replace_exact(old,exact_function(old,target),owned)
         if include not in new:
             new=replace_exact(new,'#include "runtime/cpu_context.h"',
                 '#include "runtime/cpu_context.h"\n'+include)
@@ -165,7 +192,7 @@ def install(dol,elf,generated):
         raise ValueError('scheduler return destination')
     changes.update({bind:patch_binding(bind.read_text(encoding='utf-8')),private:head})
     for path,contents in changes.items():path.write_text(contents,encoding='utf-8')
-    print('V923_WINDOWS_SCHEDULER_RETURN_ROUTE installed=1 original_enable=1 two_original_leaves=1 dispatcher_resume=1 guarded=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
+    print('V923_WINDOWS_SCHEDULER_RETURN_ROUTE installed=1 original_enable=1 two_original_leaves=1 dispatcher_resume=1 guest_ticks=1 guarded=1 default_disabled=1 execution=0 rfi=0 boot_verified=0')
 
 
 def main():

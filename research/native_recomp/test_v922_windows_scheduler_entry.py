@@ -33,10 +33,10 @@ class WindowsSchedulerEntry(unittest.TestCase):
             with self.assertRaises(ValueError):inspect(*args)
 
     def test_bounded_original_scheduler_refusal_diagnostics(self):
-        for i in range(1,18):
+        for i in range(1,20):
             self.assertTrue(diagnostic(f'V922_WINDOWS_SCHEDULER_INVALID reason={i}'.encode()))
         for invalid in (b'V922_WINDOWS_SCHEDULER_INVALID reason=0',
-                        b'V922_WINDOWS_SCHEDULER_INVALID reason=18',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=20',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=1 address=0x80000000',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=-1',
                         b'V922_WINDOWS_SCHEDULER_INVALID reason=0001',
@@ -65,15 +65,18 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         with self.assertRaises(ValueError):patch_binding(a.replace('original_blr=1','original_blr=0'))
         self.assertIn('scheduler_trace(uint32_t addr,C& c)',out)
         self.assertIn('V922_WINDOWS_SCHEDULER_INVALID reason=',out)
-        self.assertEqual(out.count('scheduler_refusal('),18)
+        self.assertEqual(out.count('scheduler_refusal('),20)
         # Native Windows run #51 reached the first original scheduler tick,
         # then refused reason=17 because the device still held the prior
         # tick. Only post-tick witnesses may advance the native device.
         self.assertIn('return v850::held(c)||advance_restore(c);',out)
         self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(17);',out)
+        self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(19);',out)
+        self.assertIn('c.mmu.read32(pc)!=w)scheduler_refusal(18);',out)
+        self.assertIn('template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(6);',out)
         self.assertIn('if(!v850::held(c))scheduler_refusal(11);',out)
-        self.assertEqual(out.count('scheduler_held_after_tick(c)'),1)
+        self.assertEqual(out.count('scheduler_held_after_tick(c)'),2)
         self.assertEqual(out.count('advance_restore(c)'),1)
         self.assertIn('std::_Exit(126);',out)
 

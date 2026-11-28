@@ -60,6 +60,18 @@ inline bool scheduler_enabled(){
 template<class C>bool scheduler_held_after_tick(C& c){
     return v850::held(c)||advance_restore(c);
 }
+// Authenticated original scheduler, disable/restore, and reschedule labels
+// invoke this after their real native tick. No code bytes or synthetic
+// instruction counts are advanced by this observer.
+template<class C>void scheduler_device_tick(C& c,uint32_t pc,uint32_t w){
+    if(!scheduler_enabled())return;
+    if(!scheduler_handoff||!scheduler_pending||!scheduler_traced||
+       v726::witness.stage()!=5u||c.pc!=pc||
+       !c.is_running||c.in_callback||c.dispatch_saved_ctx||
+       (c.msr&0x8000u)||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+       c.mmu.read32(pc)!=w)scheduler_refusal(18);
+    if(!scheduler_held_after_tick(c))scheduler_refusal(19);
+}
 template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
     if(scheduler_pending||scheduler_traced)scheduler_refusal(1);
     if(!dispatch_tick_seen||v726::witness.stage()!=5u)scheduler_refusal(2);

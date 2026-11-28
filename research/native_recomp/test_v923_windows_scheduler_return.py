@@ -5,7 +5,7 @@ from windows_scheduler_entry_v922 import RESULT as ENTRY
 from windows_scheduler_return_v923 import RESULT,inspect,diagnostic
 from test_v922_windows_scheduler_entry import sample as earlier
 from prepare_v923_windows_scheduler_return import (
-    private_header,patch_binding,patch_dependency,patch_dispatcher)
+    private_header,patch_binding,patch_dependency,patch_dispatcher,patch_device_tick,install)
 from prepare_owner_scheduler_v722 import E,S
 from windows_transfer_prefix_v751 import plan
 
@@ -58,6 +58,56 @@ class WindowsSchedulerReturn(unittest.TestCase):
             private_header(j,0x60000000,d,r,calls,-32)
         with self.assertRaises(ValueError):
             private_header(j,branch,d,r,[(E+0x10,r),(E+0x20,d)],-32)
+    def test_device_completion_advances_only_on_real_guest_instruction(self):
+        # The SI hardware scheduler tick alone does not update the separate
+        # post-ACK completion witness. Authentic E/D/R/S labels must do so.
+        import inspect as inspection
+        source=inspection.getsource(install)
+        self.assertIn('for owner in (E,disable,restore,S):',source)
+        self.assertIn('for target in (E,disable,restore,S):',source)
+        self.assertIn('if target==E and pc==E:',source)
+        self.assertIn('owned=patch_device_tick(owned,pc,roots[target][(pc-target)//4])',source)
+        pc=0x80004000
+        word=0x60000000
+        label=f'loc_{pc:X}: ;\n    // 0x{pc:08X}: {word:08X}\n'
+        tick='    ++ctx.inst_count;\n'
+        device='    undercover::wii::v868::scheduler_device_tick(ctx,0x80004000u,0x60000000u);\n'
+        boundary='    ctx.si_instruction_boundary();\n'
+        preceding='    undercover::wii::v709::before(ctx,0x80004000u,0x60000000u,1u);\n'
+        for prior in ('',preceding):
+            original=('void fn_80004000(CPUContext& ctx) {\n'+label+tick+
+                      '    ctx.exi_instruction_boundary();\n'+prior+
+                      boundary+'    ctx.pc=0x80004004u;\n}')
+            changed=patch_device_tick(original,pc,word)
+            self.assertEqual(changed.count(device),1)
+            self.assertLess(changed.index(boundary),changed.index(device))
+            self.assertLess(changed.index(device),changed.index('ctx.pc='))
+            self.assertIn(tick,changed)
+            with self.assertRaises(ValueError):patch_device_tick(changed,pc,word)
+            with self.assertRaises(ValueError):patch_device_tick(
+                original.replace(boundary,''),pc,word)
+            with self.assertRaises(ValueError):patch_device_tick(
+                original.replace(boundary,boundary+boundary),pc,word)
+            with self.assertRaises(ValueError):patch_device_tick(
+                original.replace(boundary,'    ctx.gpr[3]=0;\n'+boundary),pc,word)
+
+    def test_rfi_composition_retains_tick_handoff_after_original_si_boundary(self):
+        from prepare_windows_native_rfi_v926 import patch_label as rfi_patch
+        pc=0x80004000
+        word=0x60000000
+        original=f'''loc_{pc:X}: ;
+    // 0x{pc:08X}: {word:08X}
+    ++ctx.inst_count;
+    ctx.si_instruction_boundary();
+    ctx.pc=0x80004004u;
+'''
+        with_tick=patch_device_tick(original,pc,word)
+        with_entry=patch_dependency(with_tick,pc,word)
+        final=rfi_patch(with_entry,pc,word,trace='scheduler_return_trace')
+        self.assertLess(final.index('scheduler_return_trace('),final.index('++ctx.inst_count;'))
+        self.assertLess(final.index('ctx.si_instruction_boundary();'),final.index('v922::before('))
+        self.assertLess(final.index('v922::before('),final.index('scheduler_device_tick('))
+
     def test_default_disabled_source_hooks(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',p.env)
