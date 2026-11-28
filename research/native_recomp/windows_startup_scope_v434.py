@@ -125,7 +125,11 @@ def audit(raw,rc,scope):
     _,_,module=contract(scope)
     if len(raw)>MAX_LOG:raise ValueError('log size')
     auditor=import_module(module)
-    accepted=getattr(auditor,'MARKERS',ALLOWED[scope])
+    # V742 re-exports its V709 predecessor's MARKERS tuple for its own
+    # audit, but the new Windows owner scope also permits native handler
+    # and time-stage markers. Keep all earlier scopes unchanged.
+    accepted=(ALLOWED[scope] if scope=='os-si-handler-time' else
+              getattr(auditor,'MARKERS',ALLOWED[scope]))
     for line in raw.splitlines():
         if line.startswith(FAILURE_PREFIXES) or (line.startswith(PREFIXES) and not line.startswith(accepted)):
             return f'V434_WINDOWS_SCOPE_REJECT scope={scope} reason=foreign_marker verified=0 boot_verified=0',False
