@@ -18,6 +18,9 @@ on:
       - 'research/native_recomp/windows_callback_prefix_v756.py'
       - 'research/native_recomp/windows_progression_matrix_v757.py'
       - 'research/native_recomp/test_v757_windows_progression_matrix.py'
+      - 'research/native_recomp/windows_callback_time_v758.py'
+      - 'research/native_recomp/test_v758_windows_callback_time.py'
+      - 'research/native_recomp/prepare_v813_callback_time.py'
       - 'research/native_recomp/prepare_v777_transfer_return.py'
       - 'research/native_recomp/prepare_v778_transfer_suffix.py'
       - 'research/native_recomp/prepare_v786_alarm_return.py'
@@ -43,6 +46,9 @@ jobs:
         run: |
           $specs = @(
             'test_v757_windows_progression_matrix.py',
+            'test_v758_windows_callback_time.py',
+            'test_v813_callback_time.py',
+            'test_v822_callback_time.py',
             'test_v752_windows_transfer_return.py',
             'test_v753_windows_transfer_suffix.py',
             'test_v754_windows_alarm_return.py',
