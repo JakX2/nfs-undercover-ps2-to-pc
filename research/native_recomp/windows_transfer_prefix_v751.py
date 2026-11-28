@@ -80,6 +80,7 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
                 ('handler_epilogue_observer', 'prepare_v919_handler_epilogue.py'),
                 ('handler_dispatch_return_observer', 'prepare_v920_handler_return.py'),
                 ('scheduler_entry_observer', 'prepare_v922_windows_scheduler_entry.py'),
+                ('scheduler_return_observer', 'prepare_v923_windows_scheduler_return.py'),
             )
             env.update(UNDERCOVER_V868_HANDLER_SUFFIX='1',
                        UNDERCOVER_V919_HANDLER_EPILOGUE='1',

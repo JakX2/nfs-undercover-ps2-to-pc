@@ -25,6 +25,7 @@ from windows_wireless_write_v761 import inspect as check_write, diagnostic as di
 from windows_combined_callback_v762 import inspect_completed as check_combined, diagnostic as diag_combined
 from windows_handler_return_v763 import inspect as check_handler, diagnostic as diag_handler
 from windows_scheduler_entry_v922 import inspect as check_scheduler, diagnostic as diag_scheduler
+from windows_scheduler_return_v923 import inspect as check_scheduler_return, diagnostic as diag_scheduler_return
 
 
 # The complete native image must have all the previously authenticated
@@ -43,7 +44,8 @@ REQUIRED = ('UNDERCOVER_V747_TIME_SUFFIX',
             'UNDERCOVER_V868_HANDLER_SUFFIX',
             'UNDERCOVER_V919_HANDLER_EPILOGUE',
             'UNDERCOVER_V920_HANDLER_RETURN',
-            'UNDERCOVER_V922_SCHEDULER_ENTRY')
+            'UNDERCOVER_V922_SCHEDULER_ENTRY',
+            'UNDERCOVER_V923_SCHEDULER_RETURN')
 OPTIONAL = REQUIRED[2:]
 
 
@@ -68,6 +70,7 @@ STAGES = (
     Stage('combined-callback', OPTIONAL[:9], check_combined, diag_combined),
     Stage('handler-return', OPTIONAL[:12], check_handler, diag_handler),
     Stage('scheduler-entry', OPTIONAL[:13], check_scheduler, diag_scheduler),
+    Stage('scheduler-return', OPTIONAL[:14], check_scheduler_return, diag_scheduler_return),
 )
 
 
@@ -95,7 +98,7 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
         raise ValueError('original progression inputs')
     if not launch.is_dir() or not callable(command) or not callable(report):
         raise ValueError('original progression runtime')
-    if len(STAGES) != 12 or len({s.name for s in STAGES}) != 12:
+    if len(STAGES) != 13 or len({s.name for s in STAGES}) != 13:
         raise ValueError('original progression stages')
     for stage in STAGES:
         log = launch / ('progression-' + stage.name + '.log')
@@ -127,6 +130,6 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
                + ' verified=' + str(int(ok)) + ' boot_verified=0')
         if not ok:
             raise ProgressionFailure(stage.name)
-    report('V757_WINDOWS_PROGRESSION completed=12 full_image=1'
+    report('V757_WINDOWS_PROGRESSION completed=13 full_image=1'
            ' compiler_reused=1 native=1 handler_return=1 scheduler_entry=1'
-           ' rfi=0 boot_verified=0')
+           ' scheduler_return=1 rfi=0 boot_verified=0')
