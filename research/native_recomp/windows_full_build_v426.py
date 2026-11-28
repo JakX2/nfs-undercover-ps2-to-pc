@@ -128,11 +128,17 @@ def translator_project(host,root,sc_overlay=False):
             'target_compile_definitions(dol_equivalence PRIVATE NOMINMAX)\n'
             'target_compile_options(dol_equivalence PRIVATE /utf-8 /Zc:__cplusplus)\n')
 
-def command(args,log,seconds,env=None,cwd=None):
+def command(args,log,seconds,env=None,cwd=None,timeout_status=None):
+    # Exit code 124 alone cannot tell a guest return from host timeout.
+    # Preserve the old integer return contract for every build stage.
+    if timeout_status is not None:
+        if not isinstance(timeout_status,dict):raise ValueError('timeout status')
+        timeout_status['expired']=False
     with log.open('wb') as f:
         p=subprocess.Popen([str(a) for a in args],stdout=f,stderr=subprocess.STDOUT,env=env,cwd=cwd)
         try:return p.wait(timeout=seconds)
         except subprocess.TimeoutExpired:
+            if timeout_status is not None:timeout_status['expired']=True
             if os.name=='nt':subprocess.run(['taskkill','/T','/F','/PID',str(p.pid)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15,check=False)
             else:p.kill()
             p.wait(timeout=15);return 124
@@ -241,12 +247,15 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         profile=launch/'si-test-profile.txt'
         with profile.open('xb') as f:f.write(b'UNDERCOVER_SI_PROFILE_V1\nlatency=00000008\nport0=absent\nport1=absent\nport2=absent\nport3=absent\n')
         env['UNDERCOVER_V518_SI_PROFILE']=str(profile)
-    rc=command([exe,dol,config],launch/'private.log',20,env=env,cwd=launch)
+    launch_status={}
+    rc=command([exe,dol,config],launch/'private.log',20,env=env,cwd=launch,
+               timeout_status=launch_status)
     if (launch/'private.log').stat().st_size>8*1024*1024:raise BuildError('launch_log')
     raw=(launch/'private.log').read_bytes()
     if synthetic:
         markers=[l for l in raw.splitlines() if l.startswith(b'V426_SYNTHETIC_SWAP')]
-        ok=rc==0 and markers==[b'V426_SYNTHETIC_SWAP verified=1']
+        ok=(not launch_status['expired'] and rc==0 and
+            markers==[b'V426_SYNTHETIC_SWAP verified=1'])
     else:
         row,ok=audit_owner_start(raw,rc,scope);print(row)
         if scope in REPORT_SCOPES:
@@ -276,6 +285,12 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             for line in raw.splitlines():
                 if re.fullmatch(rb'V663_EXTERNAL_INVALID reason=[1-9] stage=[0-6]|V663_EXTERNAL_PENDING active=[0-9]{1,10}|V670_VECTOR_REFUSAL mask=[0-9]{1,4}|V678_DISPATCH_REFUSAL mask=[0-9]{1,3} gpr_mask=[0-9]{1,10}|V667_SI_DISPATCH_INVALID reason=[1-6] stage=[0-6]|V672_SI_ACK_INVALID reason=[1-6] trace=[0-8]|V673_SI_ACK_CALL ordinal=[0-9]{1,2} kind=[0-2]|V677_SI_ACK_WRITE_INVALID trace=[1-7]|V680_SI_HELPER_INVALID reason=[0-5] stage=[0-4]|V680_SI_HELPER_STAGE n=[1-3]|V688_SI_SECOND_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V688_SI_SECOND_CALL ordinal=[0-9]{1,2} kind=[1-2]|V688_SI_SECOND_STAGE n=[1-3]|V688_SI_SECOND_ACK n=1|V693_SI_NESTED_INVALID reason=[0-5] stage=[0-4] trace=[0-8]|V693_SI_NESTED_CALL ordinal=[0-9]{1,2} kind=[1-2]|V693_SI_NESTED_STAGE n=[1-3]|V693_SI_NESTED_ACK n=1|V697_SI_READ_INVALID trace=[0-8]|V697_SI_ACCESS_INVALID width=[1248] integer=[01]|V711_POST_CONTROL kind=[1-3] channel=[0-3] geometry=[01] type=[01] mask=[01] reserved=[01]',line):
                     print(line.decode(),flush=True)
+        # The result below remains scoped to the selected original prefix.
+        # It never prints private instruction bytes or guest register state.
+        ok=ok and not launch_status['expired']
+        if scope=='os-si-os-leaves':
+            from windows_boot_frontier_v722 import frontier
+            print(frontier(raw,rc,launch_status['expired'],ok),flush=True)
         print(f'V429_WINDOWS_OWNER_SCOPE scope={scope} verified={int(ok)} boot_verified=0',flush=True)
     print(f'V426_WINDOWS_START synthetic={int(synthetic)} verified={int(ok)} boot_verified=0',flush=True)
     if not ok:raise BuildError('launch_gate')
