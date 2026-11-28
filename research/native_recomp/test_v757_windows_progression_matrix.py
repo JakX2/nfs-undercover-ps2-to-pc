@@ -21,14 +21,15 @@ from test_v762_windows_combined_callback import sample as combined_sample, gette
 from test_v763_windows_handler_return import sample as handler_sample
 from test_v922_windows_scheduler_entry import sample as scheduler_sample
 from test_v923_windows_scheduler_return import sample as scheduler_return_sample
+from test_v924_windows_reschedule_entry import sample as reschedule_sample
 from windows_progression_matrix_v757 import (
     REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, full_image_environment, run,
 )
 from windows_full_build_v426 import build as windows_build
 
 FIXTURES = (transfer_sample(), suffix_sample(CALL), owner_log(),
-            alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample(), wireless_sample(), write_sample(), combined_sample(), handler_sample(), scheduler_sample(), scheduler_return_sample())
-EXIT = (0, 126, 0, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+            alarm_suffix_sample(), callback_sample(), time_sample(), frontier_sample(), wireless_sample(), write_sample(), combined_sample(), handler_sample(), scheduler_sample(), scheduler_return_sample(), reschedule_sample())
+EXIT = (0, 126, 0, 126, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 BASE = {key: '1' for key in REQUIRED}
 
 
@@ -61,15 +62,18 @@ class WindowsProgression(unittest.TestCase):
         standalone=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY', standalone.env)
         self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN', standalone.env)
+        self.assertNotIn('UNDERCOVER_V924_RESCHEDULE_ENTRY', standalone.env)
         prepared=full_image_environment(standalone.env)
         self.assertEqual(prepared, BASE)
-        self.assertEqual(len(prepared), len(standalone.env)+2)
-        for stage in STAGES[:-2]:
+        self.assertEqual(len(prepared), len(standalone.env)+3)
+        for stage in STAGES[:-3]:
             env=stage_environment(prepared,stage)
             self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY',env)
             self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',env)
+            self.assertNotIn('UNDERCOVER_V924_RESCHEDULE_ENTRY',env)
         for corrupted in ({}, {'UNDERCOVER_V922_SCHEDULER_ENTRY':'0'},
-                          {'UNDERCOVER_V923_SCHEDULER_RETURN':'wrong'}):
+                          {'UNDERCOVER_V923_SCHEDULER_RETURN':'wrong'},
+                          {'UNDERCOVER_V924_RESCHEDULE_ENTRY':'0'}):
             candidate=dict(standalone.env)
             candidate.update(corrupted)
             if not corrupted: candidate.pop('UNDERCOVER_V920_HANDLER_RETURN')
@@ -79,8 +83,8 @@ class WindowsProgression(unittest.TestCase):
     def test_exact_stage_progression(self):
         self.assertEqual(tuple(s.name for s in STAGES),
                          ('transfer-return', 'transfer-suffix', 'alarm-return',
-                          'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier', 'wireless-wrapper', 'wireless-write', 'combined-callback', 'handler-return', 'scheduler-entry', 'scheduler-return'))
-        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14))
+                          'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier', 'wireless-wrapper', 'wireless-write', 'combined-callback', 'handler-return', 'scheduler-entry', 'scheduler-return', 'reschedule-entry'))
+        self.assertEqual(tuple(len(s.enable) for s in STAGES), (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14, 15))
         for i, stage in enumerate(STAGES):
             env = stage_environment(BASE, stage)
             self.assertEqual({key for key in OPTIONAL if key in env},
@@ -92,11 +96,11 @@ class WindowsProgression(unittest.TestCase):
     def test_full_progression_uses_one_executable(self):
         seen, output, failure = simulate()
         self.assertIsNone(failure)
-        self.assertEqual(len(seen), 13)
+        self.assertEqual(len(seen), 14)
         self.assertEqual(len({tuple(map(str, v[0])) for v in seen}), 1)
         self.assertTrue(all(v[1] == 20 for v in seen))
-        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 13)
-        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=13'))
+        self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 14)
+        self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=14'))
         self.assertNotIn('main=1', '\n'.join(output))
 
     def test_early_callback_stop_never_completes_progression(self):
@@ -121,7 +125,7 @@ class WindowsProgression(unittest.TestCase):
                 self.assertEqual(failure, 'combined-callback')
                 self.assertIn('callback_return=0 outer_dispatch=0',
                               '\\n'.join(output))
-                self.assertFalse(any('completed=13' in r for r in output))
+                self.assertFalse(any('completed=14' in r for r in output))
 
         for changed in (True, False):
             with self.subTest(returned=changed):
@@ -130,7 +134,7 @@ class WindowsProgression(unittest.TestCase):
                 self.assertIn('callback_return=1 outer_dispatch=1', row)
 
     def test_first_failure_prevents_all_later_native_launches(self):
-        for i in range(13):
+        for i in range(14):
             contents = list(FIXTURES)
             contents[i] = contents[i] + b'unexpected opaque private bytes\n'
             with self.subTest(stage=i):
@@ -142,7 +146,7 @@ class WindowsProgression(unittest.TestCase):
                 self.assertFalse(any('completed=5' in r for r in output))
 
     def test_refuse_errors_and_timeout(self):
-        for i in range(13):
+        for i in range(14):
             codes = list(EXIT)
             codes[i] = 126 if EXIT[i] == 0 else 0
             seen, _, failure = simulate(codes=tuple(codes))
@@ -157,7 +161,7 @@ class WindowsProgression(unittest.TestCase):
         self.assertEqual(len(seen), 11)
         self.assertEqual(failure, 'handler-return')
         self.assertTrue(any('handler_return=0' in r for r in output))
-        self.assertFalse(any('completed=13' in r for r in output))
+        self.assertFalse(any('completed=14' in r for r in output))
 
     def test_missing_scheduler_entry_fails_before_return(self):
         contents = list(FIXTURES)
@@ -166,16 +170,25 @@ class WindowsProgression(unittest.TestCase):
         self.assertEqual(len(seen), 12)
         self.assertEqual(failure, 'scheduler-entry')
         self.assertTrue(any('scheduler_entry=0' in r for r in output))
-        self.assertFalse(any('completed=13' in r for r in output))
+        self.assertFalse(any('completed=14' in r for r in output))
 
-    def test_missing_scheduler_return_fails_last_stage(self):
+    def test_missing_scheduler_return_fails_before_reschedule(self):
         contents = list(FIXTURES)
-        contents[-1] = scheduler_sample()
+        contents[12] = scheduler_sample()
         seen, output, failure = simulate(contents=tuple(contents))
         self.assertEqual(len(seen), 13)
         self.assertEqual(failure, 'scheduler-return')
         self.assertTrue(any('scheduler_return=0' in r for r in output))
-        self.assertFalse(any('completed=13' in r for r in output))
+        self.assertFalse(any('completed=14' in r for r in output))
+
+    def test_missing_reschedule_entry_fails_last_stage(self):
+        contents = list(FIXTURES)
+        contents[-1] = scheduler_return_sample()
+        seen, output, failure = simulate(contents=tuple(contents))
+        self.assertEqual(len(seen), 14)
+        self.assertEqual(failure, 'reschedule-entry')
+        self.assertTrue(any('reschedule_entry=0' in r for r in output))
+        self.assertFalse(any('completed=14' in r for r in output))
 
     def test_reject_stale_environment(self):
         for key in REQUIRED:
