@@ -7,6 +7,9 @@ on:
       - 'research/native_recomp/test_v426_windows_full_build.py'
       - 'research/native_recomp/windows_boot_frontier_v722.py'
       - 'research/native_recomp/test_v722_windows_boot_frontier.py'
+      - 'research/native_recomp/*v726*'
+      - 'research/native_recomp/*v742*'
+      - 'research/native_recomp/wii_si_handler_return_v725.h'
       - 'research/native_recomp/test_v429_windows_scope.py'
       - 'research/native_recomp/windows_startup_scope_v434.py'
       - 'research/native_recomp/test_v434_windows_startup_scope.py'
@@ -67,11 +70,11 @@ on:
   workflow_dispatch:
     inputs:
       owner_scope:
-        description: 'Bounded original startup through OS hardware, IPC or exception vectors'
+        description: 'Bounded original Windows startup through authenticated SI handler time'
         type: choice
-        default: os-si-os-leaves
+        default: os-si-handler-time
         required: true
-        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves]
+        options: [startup, hardware, cache, data, os-entry, os-time, os-hardware, os-arena, os-ipc, os-vector, os-pack, os-alarm, os-irq, os-mmio, os-irq-return, os-context, os-cache-reuse, os-exi-poll, os-exi-handlers, os-exi-id, os-exi-absent, os-si-entry, os-si-sample, os-si-return, os-sram, os-thread, os-audio, os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves, os-si-handler-time]
       legacy_loader:
         description: 'Use the old DOL loader as an independent control'
         type: boolean
@@ -103,6 +106,10 @@ jobs:
           python -m unittest discover -s research/native_recomp -p test_v434_windows_startup_scope.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v722_windows_boot_frontier.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v726_handler_return.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v742_handler_time.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v436_windows_loader.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
@@ -194,7 +201,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Build complete private native Windows executable and verify bounded startup
         env:
-          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-si-os-leaves' }}
+          OWNER_SCOPE: ${{ inputs.owner_scope || 'os-si-handler-time' }}
           LEGACY_TICKS: ${{ inputs.legacy_ticks && '1' || '0' }}
           LEGACY_LOADER: ${{ inputs.legacy_loader && '1' || '0' }}
         shell: pwsh
