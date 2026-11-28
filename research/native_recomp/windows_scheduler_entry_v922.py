@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Strict Windows first original scheduler call proof following native handler return."""
 from __future__ import annotations
+import re
 from windows_handler_return_v763 import inspect as previous, diagnostic as prior_diag
 from audit_v920_handler_return import RETURN as HANDLER_RETURN
 from windows_startup_scope_v434 import MAX_LOG
@@ -22,4 +23,6 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
             f'scheduler_entry={int(ok)} native_tick={int(ok)} rfi=0 boot_verified=0',ok)
 
 def diagnostic(line:bytes)->bool:
-    return type(line) is bytes and prior_diag(line)
+    if type(line) is not bytes:return False
+    return bool(prior_diag(line) or re.fullmatch(
+        rb'V922_WINDOWS_SCHEDULER_INVALID reason=(?:[1-9]|1[0-7])',line))

@@ -3,7 +3,7 @@
 import unittest
 from audit_v920_handler_return import RETURN as HANDLER_RETURN
 from test_v763_windows_handler_return import sample as handler_sample
-from windows_scheduler_entry_v922 import RESULT,inspect
+from windows_scheduler_entry_v922 import RESULT,inspect,diagnostic
 from prepare_v922_windows_scheduler_entry import patch_binding,patch_scheduler
 from windows_transfer_prefix_v751 import plan
 
@@ -32,6 +32,18 @@ class WindowsSchedulerEntry(unittest.TestCase):
         for args in ((b'abc',True,False),('text',0,False),(b'abc',0,1),(b'x'*(8*1024*1024+1),0,False)):
             with self.assertRaises(ValueError):inspect(*args)
 
+    def test_bounded_original_scheduler_refusal_diagnostics(self):
+        for i in range(1,18):
+            self.assertTrue(diagnostic(f'V922_WINDOWS_SCHEDULER_INVALID reason={i}'.encode()))
+        for invalid in (b'V922_WINDOWS_SCHEDULER_INVALID reason=0',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=18',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=1 address=0x80000000',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=-1',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=0001',
+                        b'V922_WINDOWS_SCHEDULER_INVALID reason=foo'):
+            self.assertFalse(diagnostic(invalid))
+        self.assertFalse(diagnostic('V922_WINDOWS_SCHEDULER_INVALID reason=1'))
+
     def test_binding_does_not_change_default_handler_stop(self):
         a='''#include "v920_private_handler_resume.h"
 template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
@@ -43,6 +55,9 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('V922_SCHEDULER_ENTRY',out)
         with self.assertRaises(ValueError):patch_binding(a.replace('original_blr=1','original_blr=0'))
         self.assertIn('scheduler_trace(uint32_t addr,C& c)',out)
+        self.assertIn('V922_WINDOWS_SCHEDULER_INVALID reason=',out)
+        self.assertEqual(out.count('scheduler_refusal('),18)
+        self.assertIn('std::_Exit(126);',out)
 
     def test_native_first_instruction_hook_and_opt_in_plan(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)

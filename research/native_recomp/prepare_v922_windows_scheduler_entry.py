@@ -35,31 +35,47 @@ inline bool scheduler_enabled(){
     const char* v=std::getenv("UNDERCOVER_V922_SCHEDULER_ENTRY");
     return v&&v[0]=='1'&&v[1]=='\0';
 }
+[[noreturn]]inline void scheduler_refusal(unsigned code){
+    // Public-safe reason only; do not emit proprietary instructions,
+    // addresses, register values, memory or original input paths.
+    std::cout<<"V922_WINDOWS_SCHEDULER_INVALID reason="<<code<<std::endl;
+    std::_Exit(126);
+}
 template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
-    if(scheduler_pending||scheduler_traced||!dispatch_tick_seen||
-       v726::witness.stage()!=5u||pc!=scheduler_call_pc||w!=scheduler_call_word||
-       c.pc!=pc||c.lr!=pc||!c.is_running||c.in_callback||c.dispatch_saved_ctx||
-       (c.msr&0x8000u)||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))reject(6);
+    if(scheduler_pending||scheduler_traced)scheduler_refusal(1);
+    if(!dispatch_tick_seen||v726::witness.stage()!=5u)scheduler_refusal(2);
+    if(pc!=scheduler_call_pc||w!=scheduler_call_word||c.pc!=pc||
+       c.lr!=pc)scheduler_refusal(3);
+    if(!c.is_running||c.in_callback||c.dispatch_saved_ctx||
+       (c.msr&0x8000u))scheduler_refusal(4);
+    if(!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+       c.mmu.read32(pc)!=w)scheduler_refusal(5);
+    if(!v850::held(c))scheduler_refusal(6);
     scheduler_tick=c.inst_count;scheduler_stack=c.gpr[1];scheduler_r2=c.gpr[2];
     scheduler_r13=c.gpr[13];scheduler_msr=c.msr;scheduler_pending=true;
 }
 template<class C>bool scheduler_trace(uint32_t addr,C& c){
     if(!scheduler_enabled())return false;
-    if(!scheduler_pending||scheduler_traced||addr!=scheduler_entry_pc||
-       c.pc!=addr||c.lr!=scheduler_call_pc+4u||c.inst_count!=scheduler_tick||
-       c.gpr[1]!=scheduler_stack||c.gpr[2]!=scheduler_r2||
-       c.gpr[13]!=scheduler_r13||c.msr!=scheduler_msr||!v850::held(c))reject(6);
+    if(!scheduler_pending||scheduler_traced)scheduler_refusal(7);
+    if(addr!=scheduler_entry_pc||c.pc!=addr||
+       c.lr!=scheduler_call_pc+4u)scheduler_refusal(8);
+    if(c.inst_count!=scheduler_tick)scheduler_refusal(9);
+    if(c.gpr[1]!=scheduler_stack||c.gpr[2]!=scheduler_r2||
+       c.gpr[13]!=scheduler_r13||c.msr!=scheduler_msr)scheduler_refusal(10);
+    if(!v850::held(c))scheduler_refusal(11);
     scheduler_traced=true;return true;
 }
 template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
     if(!scheduler_enabled())return;
-    if(!scheduler_pending||!scheduler_traced||pc!=scheduler_entry_pc||
-       w!=scheduler_entry_word||c.pc!=pc||c.lr!=scheduler_call_pc+4u||
-       c.inst_count!=scheduler_tick+1u||c.gpr[1]!=scheduler_stack||
-       c.gpr[2]!=scheduler_r2||c.gpr[13]!=scheduler_r13||
-       c.msr!=scheduler_msr||!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))reject(6);
+    if(!scheduler_pending||!scheduler_traced)scheduler_refusal(12);
+    if(pc!=scheduler_entry_pc||w!=scheduler_entry_word||
+       c.pc!=pc||c.lr!=scheduler_call_pc+4u)scheduler_refusal(13);
+    if(c.inst_count!=scheduler_tick+1u)scheduler_refusal(14);
+    if(c.gpr[1]!=scheduler_stack||c.gpr[2]!=scheduler_r2||
+       c.gpr[13]!=scheduler_r13||c.msr!=scheduler_msr)scheduler_refusal(15);
+    if(!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
+       c.mmu.read32(pc)!=w)scheduler_refusal(16);
+    if(!v850::held(c))scheduler_refusal(17);
     std::cout<<"V922_SCHEDULER_ENTRY original_handler_return=1 original_dispatcher_branch=1 original_scheduler_entry=1 native_tick=1 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }
