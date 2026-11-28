@@ -1,0 +1,81 @@
+name: Wii V751 Windows Original Fourth SI Transfer Prefix
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/windows_transfer_prefix_v751.py'
+      - 'research/native_recomp/test_v751_windows_transfer_prefix.py'
+      - 'research/native_recomp/windows_full_build_v426.py'
+      - '.github/workflows/wii-v751-windows-transfer-prefix.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wii-v751-windows-transfer-prefix-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  original-free:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate strict Windows fourth transfer prefix
+        shell: pwsh
+        run: |
+          python -m unittest discover -s research/native_recomp -p test_v751_windows_transfer_prefix.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v750_windows_time_suffix.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v768_transfer_prefix.py -v
+          exit $LASTEXITCODE
+  owner-windows:
+    needs: original-free
+    if: github.ref == 'refs/heads/research/wii-native-recomp-preflight' && vars.WII_GHIDRA_PRIVATE_ENABLED == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: 59e8af244d1e8105a04029ec35b95baf34fc5084
+          path: owner-staging
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned private staging dependency
+        run: python -m pip install --quiet 'gdown==5.2.0'
+      - name: Stage and authenticate owner DOL and ELF
+        env:
+          WII_ORIGINAL_DOL_ID: ${{ secrets.WII_ORIGINAL_DOL_ID }}
+          WII_ORIGINAL_ELF_ID: ${{ secrets.WII_ORIGINAL_ELF_ID }}
+        shell: pwsh
+        run: |
+          python owner-staging/research/cloud_ghidra/stage_owner_wii_gdown.py (Join-Path $env:RUNNER_TEMP 'orig751')
+          exit $LASTEXITCODE
+      - name: Fetch exact pinned NWiiRecomp
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'nw751-o'
+          git init -q $root
+          git -C $root remote add origin https://github.com/BlackLineInteractive/NWiiRecomp.git
+          git -C $root fetch -q --depth 1 origin 595f176f1d24cc54ff2e8389feed12d7fb553cc2
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          git -C $root checkout -q --detach FETCH_HEAD
+          exit $LASTEXITCODE
+      - name: Build original Windows x64 SI transfer prefix without MMIO
+        shell: pwsh
+        run: |
+          $orig = Join-Path $env:RUNNER_TEMP 'orig751'
+          python research/native_recomp/windows_full_build_v426.py (Join-Path $env:RUNNER_TEMP 'nw751-o') (Join-Path $env:RUNNER_TEMP 'w751-o') --owner-dol (Join-Path $orig 'NfsMWRelease.dol') --owner-elf (Join-Path $orig 'NfsMWRelease.elf') --owner-scope os-si-handler-time --owner-transfer-prefix
+          exit $LASTEXITCODE
+      - name: Delete owner inputs, generated game code and private binaries
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($name in @('orig751','nw751-o','w751-o')) {
+            $path = Join-Path $env:RUNNER_TEMP $name
+            if (Test-Path $path) { Remove-Item -Recurse -Force $path }
+          }
