@@ -1,6 +1,13 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#ifndef UNDERCOVER_WII_GUEST_ONLY_DISPATCH
+#define UNDERCOVER_WII_GUEST_ONLY_DISPATCH 0
+#endif
+static_assert(UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 0 ||
+              UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 1,
+              "unknown native dispatch guest tick policy");
+
 namespace undercover::wii {
 template<unsigned Loads> struct NativeReturnExpectation {
     static_assert(Loads>=1u&&Loads<=18u);
@@ -30,7 +37,8 @@ public:
     }
     // The live callback is reached via bctrl, unlike the direct V846
     // fixture. Returning to its caller requires the existing outer poll
-    // and exactly one dispatcher tick BEFORE the first caller label.
+    // and the emitter-specific host edge count BEFORE the caller label.
+    // Guest-only V438 emits zero host ticks; the old legacy emitter emits one.
     template<class C> bool start_dispatch(C& c,uint32_t pc,uint32_t w,const std::array<uint32_t,32>& original,uint32_t cr,bool held){
         if(!start(c,pc,w,original,cr,held))return false;
         dispatch_=true;return true;
@@ -42,7 +50,8 @@ public:
     }
     template<class C> bool dispatch_resume(C& c,uint32_t pc,uint32_t w,bool held){
         if(!dispatch_||stage_!=4u||!polled_||dispatched_||!common(c,held)||
-           c.inst_count-last_!=1u||pc!=e_.caller||c.pc!=pc||w!=e_.caller_word||
+           c.inst_count-last_!=uint64_t(1u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH)||
+           pc!=e_.caller||c.pc!=pc||w!=e_.caller_word||
            !state(c)||!match(c,pc,w))return fail(6);
         last_=c.inst_count;dispatched_=true;return true;
     }

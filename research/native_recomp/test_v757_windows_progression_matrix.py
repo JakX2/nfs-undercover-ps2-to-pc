@@ -25,7 +25,7 @@ from test_v924_windows_reschedule_entry import sample as reschedule_sample
 from test_v925_windows_reschedule_return import sample as reschedule_return_sample
 from test_windows_native_rfi_audit_v926 import sample as native_rfi_sample
 from windows_progression_matrix_v757 import (
-    REQUIRED, OPTIONAL, DEEP_ONLY, STAGES, ProgressionFailure, stage_environment, full_image_environment, run, run_native_rfi,
+    REQUIRED, OPTIONAL, DEEP_ONLY, STAGES, ProgressionFailure, stage_environment, full_image_environment, run, run_native_rfi, bounded_vector_fault,
 )
 from windows_full_build_v426 import build as windows_build,progression_contract,BuildError
 
@@ -165,6 +165,30 @@ class WindowsProgression(unittest.TestCase):
                 self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION stage='))
                 self.assertNotIn('unexpected opaque private bytes', '\n'.join(output))
                 self.assertFalse(any('completed=5' in r for r in output))
+
+    def test_vector_stage_failure_reports_only_bounded_public_reason(self):
+        # The owner-private V663 observer rejects a first vector with reason
+        # six. Preserve its safe bitmask while declining all forged data.
+        self.assertTrue(bounded_vector_fault(b'V670_VECTOR_REFUSAL mask=2'))
+        for invalid in (b'V670_VECTOR_REFUSAL mask=0',
+                        b'V670_VECTOR_REFUSAL mask=1024',
+                        b'V670_VECTOR_REFUSAL mask=0002',
+                        b'V670_VECTOR_REFUSAL mask=2 pc=0x80000500',
+                        b'V670_VECTOR_REFUSAL mask=9999', b'x',
+                        'V670_VECTOR_REFUSAL mask=2'):
+            self.assertFalse(bounded_vector_fault(invalid))
+        for vector in (b'V670_VECTOR_REFUSAL mask=2',
+                       b'V670_VECTOR_REFUSAL mask=1024'):
+            payload=(vector+b'\nV663_EXTERNAL_INVALID reason=6 stage=3\n'
+                     b'private-opcode=<redacted>\n')
+            contents=list(FIXTURES);contents[0]=payload
+            codes=list(EXIT);codes[0]=124
+            seen,logs,reason=simulate(contents=tuple(contents),codes=tuple(codes))
+            self.assertEqual((len(seen),reason),(1,'transfer-return'))
+            self.assertIn('V663_EXTERNAL_INVALID reason=6 stage=3',logs)
+            self.assertEqual(vector.decode('ascii') in logs, vector.endswith(b'mask=2'))
+            self.assertFalse(any('private-opcode=' in line for line in logs))
+            self.assertFalse(any('completed=15' in line for line in logs))
 
     def test_refuse_errors_and_timeout(self):
         for i in range(15):

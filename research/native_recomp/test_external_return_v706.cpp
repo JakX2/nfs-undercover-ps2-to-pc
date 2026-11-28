@@ -17,6 +17,7 @@ struct Cpu{
 };
 static void need(bool b){if(!b)throw std::runtime_error("V706 return witness assertion");}
 int main(){
+    constexpr uint64_t resume_ticks=2u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH;
     for(unsigned trial=0;trial<22;++trial){
         Cpu c;for(unsigned i=0;i<32;++i)c.gpr[i]=0x1234567u*(i+1u);
         for(unsigned i=0;i<8;++i)c.cr[i]={bool(i&1),bool(i&2),bool(i&4),bool(i==7)};
@@ -45,7 +46,7 @@ int main(){
         if(trial>=13&&trial<=15){need(!ok&&w.failure()==3);continue;}need(ok);
         if(trial!=16)need(w.poll(c,Other,Mask));
         if(trial==17){need(!w.poll(c,Other,Mask)&&w.failure()==3);continue;}
-        c.inst_count+=trial==18?1u:2u;
+        c.inst_count+=trial==18?resume_ticks-1u:resume_ticks;
         if(trial==19)c.gpr[31]^=1;
         if(trial==20)c.mmu.words[Resume]^=1;
         ok=w.resume(c,Resume,Word,trial==21?Other|8u:Other,Mask);

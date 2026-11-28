@@ -18,6 +18,7 @@ struct Cpu{
 };
 static void need(bool b){if(!b)throw std::runtime_error("V725 witness assertion");}
 int main(){
+    constexpr uint64_t resume_ticks=2u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH;
     unsigned valid=0,rejected=0;
     for(unsigned trial=0;trial<20;++trial){
         Cpu c;for(unsigned i=0;i<32;++i)c.gpr[i]=i*13u+9u;
@@ -58,7 +59,7 @@ int main(){
         need(w.before(c,H+12,Blr,true));c.pc=R;
         if(trial==18){c.lr=H;need(!w.poll(c,true));++rejected;continue;}
         need(w.poll(c,true));
-        c.inst_count+=2;
+        c.inst_count+=resume_ticks;
         if(trial==19){++c.inst_count;need(!w.resumed(c,R,Nop,true));++rejected;continue;}
         need(w.resumed(c,R,Nop,true)&&w.stage()==5&&w.visits()==(trial==1?5u:3u));
         ++valid;

@@ -45,6 +45,10 @@ jobs:
             -I"$RUNNER_TEMP/nwii-v438/nWiiAnalyzer/include" \
             -I"$RUNNER_TEMP/nwii-v438/nWiiRecomp/include" \
             "$RUNNER_TEMP/nwii-v438/nWiiRecomp/src/recompiler.cpp"
+      - name: Verify native guest-only and legacy callback, handler and RFI return ticks
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s research/native_recomp -p test_v438_guest_only_return_contracts.py -v
       - name: Native C++20 paired-single and GQR emitter/runtime assertions
         run: |
           set -euo pipefail

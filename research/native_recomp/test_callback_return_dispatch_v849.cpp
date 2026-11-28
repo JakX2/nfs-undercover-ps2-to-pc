@@ -67,14 +67,15 @@ struct Fixture {
 };
 }
 int main(){
+    constexpr uint64_t host_edge_ticks=1u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH;
     unsigned valid=0,refused=0;
     for(bool dispatch:{false,true}){
         Fixture f;f.run_to_blr(dispatch);
-        if(dispatch){need(f.w.dispatch_poll(f.c,true));++f.c.inst_count;need(f.w.dispatch_resume(f.c,Caller,Nop,true));}
+        if(dispatch){need(f.w.dispatch_poll(f.c,true));f.c.inst_count+=host_edge_ticks;need(f.w.dispatch_resume(f.c,Caller,Nop,true));}
         ++f.c.inst_count;need(f.w.before(f.c,Caller,Nop,true)&&f.w.stage()==5&&f.w.visits()==12);
         ++valid;
     }
-    for(unsigned kind=0;kind<11;++kind){
+    for(unsigned kind=0;kind<12;++kind){
         Fixture f;f.run_to_blr(true);auto& c=f.c;auto& w=f.w;
         bool ok=false;
         switch(kind){
@@ -83,12 +84,14 @@ int main(){
         case 2: ++c.inst_count;ok=w.dispatch_poll(c,true);break;
         case 3: need(w.dispatch_poll(c,true));ok=w.dispatch_poll(c,true);break;
         case 4: need(w.dispatch_poll(c,true));c.inst_count+=2;ok=w.dispatch_resume(c,Caller,Nop,true);break;
-        case 5: need(w.dispatch_poll(c,true));++c.inst_count;ok=w.dispatch_resume(c,Caller+4,Nop,true);break;
-        case 6: need(w.dispatch_poll(c,true));++c.inst_count;ok=w.dispatch_resume(c,Caller,Nop,false);break;
-        case 7: need(w.dispatch_poll(c,true));++c.inst_count;c.gpr[26]^=1;ok=w.dispatch_resume(c,Caller,Nop,true);break;
-        case 8: need(w.dispatch_poll(c,true));++c.inst_count;need(w.dispatch_resume(c,Caller,Nop,true));ok=w.dispatch_resume(c,Caller,Nop,true);break;
-        case 9: need(w.dispatch_poll(c,true));++c.inst_count;need(w.dispatch_resume(c,Caller,Nop,true));++c.inst_count;c.gpr[31]^=1;ok=w.before(c,Caller,Nop,true);break;
+        case 5: need(w.dispatch_poll(c,true));c.inst_count+=host_edge_ticks;ok=w.dispatch_resume(c,Caller+4,Nop,true);break;
+        case 6: need(w.dispatch_poll(c,true));c.inst_count+=host_edge_ticks;ok=w.dispatch_resume(c,Caller,Nop,false);break;
+        case 7: need(w.dispatch_poll(c,true));c.inst_count+=host_edge_ticks;c.gpr[26]^=1;ok=w.dispatch_resume(c,Caller,Nop,true);break;
+        case 8: need(w.dispatch_poll(c,true));c.inst_count+=host_edge_ticks;need(w.dispatch_resume(c,Caller,Nop,true));ok=w.dispatch_resume(c,Caller,Nop,true);break;
+        case 9: need(w.dispatch_poll(c,true));c.inst_count+=host_edge_ticks;need(w.dispatch_resume(c,Caller,Nop,true));++c.inst_count;c.gpr[31]^=1;ok=w.before(c,Caller,Nop,true);break;
         case 10: c.mmu.put(Caller,Nop^1u);ok=w.dispatch_poll(c,true);break;
+        case 11: need(w.dispatch_poll(c,true));c.inst_count+=(1u-host_edge_ticks);
+                 ok=w.dispatch_resume(c,Caller,Nop,true);break;
         }
         need(!ok&&w.failure()!=0&&w.stage()!=5);++refused;
     }

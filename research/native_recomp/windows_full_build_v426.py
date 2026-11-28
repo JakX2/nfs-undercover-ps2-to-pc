@@ -305,7 +305,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if not legacy_loader:
         run_stage('strict_runtime_loader',[sys.executable,HOST/'apply_dol_loader_v431.py',generated],work,60)
     out=work/'native-build'
-    run_stage('native_config',['cmake','-S',generated,'-B',out,*gen,'-DCMAKE_CXX_FLAGS_RELEASE=/Od /DNDEBUG /bigobj /utf-8 /Zc:__cplusplus','-DCMAKE_C_FLAGS_RELEASE=/Od /DNDEBUG'],work,600)
+    run_stage('native_config',['cmake','-S',generated,'-B',out,*gen,'-DCMAKE_CXX_FLAGS_RELEASE=/Od /DNDEBUG /bigobj /utf-8 /Zc:__cplusplus /DUNDERCOVER_WII_GUEST_ONLY_DISPATCH='+('0' if legacy_ticks else '1'),'-DCMAKE_C_FLAGS_RELEASE=/Od /DNDEBUG'],work,600)
     run_stage('native_build',['cmake','--build',out,'--config','Release','--target','UndercoverWiiLocal','--parallel','2'],work,5400)
     exe=out/'Release/UndercoverWiiLocal.exe';validate_pe(exe)
     print(f'V426_WINDOWS_LINK linked=1 platform=windows-x64 synthetic={int(synthetic)} boot_verified=0',flush=True)

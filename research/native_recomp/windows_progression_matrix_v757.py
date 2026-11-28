@@ -8,6 +8,7 @@ No game main, first frame or gameplay is claimed; RFI remains unverified.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -29,6 +30,18 @@ from windows_scheduler_return_v923 import inspect as check_scheduler_return, dia
 from windows_reschedule_entry_v924 import inspect as check_reschedule_entry, diagnostic as diag_reschedule_entry
 from windows_reschedule_return_v925 import inspect as check_reschedule_return, diagnostic as diag_reschedule_return
 from windows_native_rfi_v926 import inspect as check_native_rfi, diagnostic as diag_native_rfi
+
+
+# The first guest-only Windows run refused before the original vector's
+# initial guest instruction (V663 stage=3). Print only the already bounded
+# vector failure bitmask on a failed stage; never reveal private guest state.
+_VECTOR_FAULT=re.compile(rb'V670_VECTOR_REFUSAL mask=([1-9][0-9]{0,3})')
+
+def bounded_vector_fault(line: bytes) -> bool:
+    if type(line) is not bytes:
+        return False
+    match=_VECTOR_FAULT.fullmatch(line)
+    return bool(match and 1<=int(match[1])<=1023)
 
 
 # The complete native image must have all the previously authenticated
@@ -152,7 +165,9 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
             # Print only exactly recognized, bounded diagnostic refusal
             # markers, never raw owner output, instructions or guest state.
             for line in raw.splitlines():
-                if b'_INVALID ' in line and stage.diagnostic(line) and len(line) <= 256:
+                if len(line) <= 256 and (
+                        (b'_INVALID ' in line and stage.diagnostic(line))
+                        or bounded_vector_fault(line)):
                     report(line.decode('ascii'))
         # Always leave the redacted verdict as the final stage marker,
         # including after a known original instruction/MMIO refusal.
