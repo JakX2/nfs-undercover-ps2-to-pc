@@ -14,10 +14,10 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
         raise ValueError('scheduler log contract')
     rows=raw.splitlines();matches=[i for i,line in enumerate(rows) if line==HANDLER_RETURN]
     handler=False
-    if len(matches)==1 and rc==0 and not timed_out:
+    if len(matches)==1 and not timed_out:
         prefix=b'\n'.join(rows[:matches[0]+1])+b'\n'
         _,handler=previous(prefix,0)
-    ok=bool(handler and rows[matches[0]+1:]==[RESULT])
+    ok=bool(handler and rc==0 and not timed_out and rows[matches[0]+1:]==[RESULT])
     kind='timeout' if timed_out else 'zero' if rc==0 else 'exception' if rc<0 or rc>=0xC0000000 else 'other'
     return (f'V922_WINDOWS_SCHEDULER exit={kind} handler_return={int(handler)} '
             f'scheduler_entry={int(ok)} native_tick={int(ok)} rfi=0 boot_verified=0',ok)

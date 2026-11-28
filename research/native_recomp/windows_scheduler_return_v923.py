@@ -12,10 +12,10 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
         raise ValueError('scheduler return log contract')
     rows=raw.splitlines();matches=[i for i,row in enumerate(rows) if row==ENTRY]
     before=False
-    if len(matches)==1 and rc==0 and not timed_out:
+    if len(matches)==1 and not timed_out:
         prefix=b'\n'.join(rows[:matches[0]+1])+b'\n'
         _,before=predecessor(prefix,0)
-    ok=bool(before and rows[matches[0]+1:]==[RESULT])
+    ok=bool(before and rc==0 and not timed_out and rows[matches[0]+1:]==[RESULT])
     kind='timeout' if timed_out else 'zero' if rc==0 else 'exception' if rc<0 or rc>=0xC0000000 else 'other'
     return (f'V923_WINDOWS_SCHEDULER_RETURN exit={kind} scheduler_entry={int(before)} '
             f'scheduler_return={int(ok)} disable_restore={int(ok)} rfi=0 boot_verified=0',ok)

@@ -12,10 +12,10 @@ def inspect(raw:bytes,rc:int,timed_out:bool=False)->tuple[str,bool]:
         raise ValueError('reschedule entry contract')
     rows=raw.splitlines();matches=[i for i,line in enumerate(rows) if line==PREDECESSOR]
     returned=False
-    if len(matches)==1 and rc==0 and not timed_out:
+    if len(matches)==1 and not timed_out:
         prefix=b'\n'.join(rows[:matches[0]+1])+b'\n'
         _,returned=earlier(prefix,0)
-    ok=bool(returned and rows[matches[0]+1:]==[RESULT])
+    ok=bool(returned and rc==0 and not timed_out and rows[matches[0]+1:]==[RESULT])
     kind='timeout' if timed_out else 'zero' if rc==0 else 'exception' if rc<0 or rc>=0xC0000000 else 'other'
     return (f'V924_WINDOWS_RESCHEDULE exit={kind} scheduler_return={int(returned)} '
             f'reschedule_entry={int(ok)} native_tick={int(ok)} rfi=0 boot_verified=0',ok)
