@@ -108,6 +108,58 @@ class WindowsSchedulerReturn(unittest.TestCase):
         self.assertLess(final.index('ctx.si_instruction_boundary();'),final.index('v922::before('))
         self.assertLess(final.index('v922::before('),final.index('scheduler_device_tick('))
 
+
+    def test_complete_native_first_two_labels_preserve_pre_tick_identity(self):
+        # The complete-image RFI adapter runs after both original scheduler
+        # installers even for an incremental scheduler-entry process. Verify
+        # that no later hook moves/removes the first pre-tick V922 gate.
+        from prepare_v922_windows_scheduler_entry import patch_scheduler
+        from prepare_windows_native_rfi_v926 import patch_label as rfi_patch
+        first=0x80004000
+        second=first+4
+        word=0x9421fff0  # synthetic PPC stwu r1, -16(r1)
+        next_word=0x60000000  # synthetic nop
+        original=f'''void fn_{first:X}(CPUContext& ctx) {{
+loc_{first:X}: ;
+    // 0x{first:08X}: {word:08X}
+    ++ctx.inst_count;
+    ctx.exi_instruction_boundary();
+    ctx.si_instruction_boundary();
+    ctx.gpr[1]-=16;
+loc_{second:X}: ;
+    // 0x{second:08X}: {next_word:08X}
+    ++ctx.inst_count;
+    ctx.exi_instruction_boundary();
+    ctx.si_instruction_boundary();
+    ctx.pc=0;
+}}'''
+        with_entry=patch_scheduler(original,first,word)
+        with_device=patch_device_tick(with_entry,second,next_word)
+        with_rfi_first=rfi_patch(with_device,first,word,
+                                 trace='scheduler_trace')
+        final=rfi_patch(with_rfi_first,second,next_word)
+        left=final.index(f'loc_{first:X}:')
+        right=final.index(f'loc_{second:X}:')
+        first_body=final[left:right]
+        second_body=final[right:]
+        self.assertEqual(first_body.count('scheduler_trace('),1)
+        self.assertEqual(first_body.count('scheduler_native('),1)
+        self.assertEqual(first_body.count('v922::before('),1)
+        self.assertLess(first_body.index('scheduler_trace('),
+                        first_body.index('++ctx.inst_count;'))
+        self.assertLess(first_body.index('++ctx.inst_count;'),
+                        first_body.index('scheduler_native('))
+        self.assertLess(first_body.index('scheduler_native('),
+                        first_body.index('ctx.si_instruction_boundary();'))
+        self.assertLess(first_body.index('ctx.si_instruction_boundary();'),
+                        first_body.index('v922::before('))
+        self.assertEqual(second_body.count('scheduler_device_tick('),1)
+        self.assertLess(second_body.index('ctx.si_instruction_boundary();'),
+                        second_body.index('v922::before('))
+        self.assertLess(second_body.index('v922::before('),
+                        second_body.index('scheduler_device_tick('))
+        self.assertEqual(final.count('++ctx.inst_count;'),2)
+
     def test_default_disabled_source_hooks(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',p.env)

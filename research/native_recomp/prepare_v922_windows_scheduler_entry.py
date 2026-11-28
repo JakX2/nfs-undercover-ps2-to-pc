@@ -100,7 +100,13 @@ template<class C>bool scheduler_trace(uint32_t addr,C& c){
 }
 template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
     if(!scheduler_enabled())return;
-    if(!scheduler_pending||!scheduler_traced)scheduler_refusal(12);
+    // Classify missing scheduler-entry phases without changing guest state.
+    // 12: neither phase armed; 20: missing dispatcher handoff;
+    // 21: handoff armed but the pre-tick native label was not witnessed.
+    // These are public-safe boolean failure categories, never guest data.
+    if(!scheduler_pending&&!scheduler_traced)scheduler_refusal(12);
+    if(!scheduler_pending)scheduler_refusal(20);
+    if(!scheduler_traced)scheduler_refusal(21);
     if(pc!=scheduler_entry_pc||w!=scheduler_entry_word||
        c.pc!=pc||c.lr!=scheduler_call_pc+4u)scheduler_refusal(13);
     if(c.inst_count!=scheduler_tick+1u)scheduler_refusal(14);
