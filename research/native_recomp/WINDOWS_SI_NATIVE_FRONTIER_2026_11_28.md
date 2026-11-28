@@ -84,6 +84,34 @@ full-image translation. This is intentionally **not** a new execution gate.
   handler return, RFI, OSInit resumption and main each require their own
   authenticated execution evidence.
 
+## Original Windows scheduler-enable entry, next authenticated boundary
+
+The native Windows continuation now has an **opt-in twelfth execution gate**,
+which runs after the original SI handler BLR and resumed dispatcher.
+
+- [94ecf5a](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/94ecf5a6a177887aeb18234ffbfde75949997e89) installs a checked
+  original-dispatcher branch handoff that must reach the first generated
+  instruction tick of the original scheduler-enable function. It tracks
+  the same CPU, link register, native instruction count, stack, r2/r13,
+  MSR, unchanged service state, and exact original word identity.
+- [919b46c](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/919b46c40358921413fb5ede1e232e2ae23a15d7) makes the observer part of
+  the full translated image, disabled for all earlier execution stages.
+- [19fec08](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/19fec08c160c59b9e8d6aead9e5b74d9f2764bba)
+  adds the twelfth same-executable stage and strict log verification.
+- [d8c552b](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/d8c552b3fd83f30a208b0d73706b83ec2ac6e922)
+  updates the earlier native-RFI source regression to recognize this
+  additional post-V920 observer.
+- [46105889638](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46105889638)
+  **passed the 12-stage Windows original-free source/integration suite**.
+  It establishes correct composition, ordering and refusal behavior with
+  test logs, not twelve executed original-owner Windows checkpoints.
+
+The new terminal marker `V922_SCHEDULER_ENTRY` must be emitted by the
+real private Windows executable and pass the new strict V922 auditor
+before claiming an original scheduler call. The native scheduler leaf's
+return, subsequent reschedule, original context loader and `rfi` still
+require separate continuous owner-original execution evidence.
+
 ## Technical next actions, in dependency order
 
 1. **Verify the owner-original V758/V759 branches** of the same compiled
