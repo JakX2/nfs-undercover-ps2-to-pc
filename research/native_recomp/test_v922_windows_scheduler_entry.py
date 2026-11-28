@@ -4,7 +4,7 @@ import unittest
 from audit_v920_handler_return import RETURN as HANDLER_RETURN
 from test_v763_windows_handler_return import sample as handler_sample
 from windows_scheduler_entry_v922 import RESULT,inspect,diagnostic
-from prepare_v922_windows_scheduler_entry import patch_binding,patch_scheduler,patch_post_handler_observers
+from prepare_v922_windows_scheduler_entry import (patch_binding, patch_scheduler, patch_post_handler_observers, scheduler_frame_delta, private_header)
 from windows_transfer_prefix_v751 import plan
 
 def sample(changed=True):
@@ -92,6 +92,33 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
             patch_post_handler_observers(out.replace('scheduler_handoff=true;', 'scheduler_handoff=false;'))
         with self.assertRaises(ValueError):
             patch_post_handler_observers(out.replace('if(scheduler_handoff){','if(true){',1))
+
+
+    def test_owner_scheduler_stack_frame_prologue_derived_not_hardcoded(self):
+        # Generic synthetic update-store instructions, not private game bytes.
+        pc=0x80529434
+        callsite=pc-0x100
+        branch=0x48000001 | ((pc-callsite)&0x03fffffc)
+        for disp in (-16,-32,-64):
+            synthetic=(37<<26)|(1<<21)|(1<<16)|(disp&0xffff)
+            self.assertEqual(scheduler_frame_delta(synthetic),disp)
+            header=private_header(callsite,branch,synthetic)
+            self.assertIn(f'scheduler_frame_delta={disp};',header)
+        for word in (0x60000000, 0x94200000, 0x94210010,
+                     0x9421fff1, 0x9421f000):
+            with self.subTest(word=word):
+                with self.assertRaises(ValueError):scheduler_frame_delta(word)
+        with self.assertRaises(ValueError):scheduler_frame_delta(True)
+
+    def test_caller_and_callee_stack_are_separate_native_witnesses(self):
+        source=patch_binding('''#include "v920_private_handler_resume.h"
+template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
+    std::cout<<"V920_HANDLER_RETURN original_blr=1 original_dispatcher=1 abi=1 outer_tick=1 follow_held=1 dispatcher_instruction_executed=0 rfi_return=0 boot_verified=0"<<std::endl;
+    std::_Exit(0);
+}''')
+        self.assertIn('scheduler_frame_stack=scheduler_stack+uint32_t(scheduler_frame_delta);',source)
+        self.assertIn('inline thread_local uint32_t scheduler_stack=0,scheduler_frame_stack=0',source)
+        self.assertIn('c.gpr[1]!=scheduler_stack||',source)
 
     def test_native_first_instruction_hook_and_opt_in_plan(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)

@@ -17,12 +17,25 @@ from prepare_v850_callback_return import LABEL_TICK
 from prepare_owner_irq_join_v923 import plan
 from prepare_owner_scheduler_v722 import E
 
+def scheduler_frame_delta(word: int) -> int:
+    """Authenticate generic PPC stwu r1, negative_frame(r1), no owner bytes."""
+    if type(word) is not int or word < 0 or word > 0xffffffff:
+        raise ValueError('scheduler prologue')
+    op,rs,ra = word >> 26, (word >> 21) & 31, (word >> 16) & 31
+    disp = ((word & 0xffff) ^ 0x8000) - 0x8000
+    if op != 37 or rs != 1 or ra != 1 or not -512 <= disp <= -16 or disp & 15:
+        raise ValueError('scheduler prologue')
+    return disp
+
+
 def private_header(j, jw, ew):
+    frame = scheduler_frame_delta(ew)
     return ('#pragma once\n#include <cstdint>\nnamespace undercover::wii::v868 {\n'
             f'inline constexpr uint32_t scheduler_call_pc=0x{j:08x}u,'
             f'scheduler_call_word=0x{jw:08x}u,'
             f'scheduler_entry_pc=0x{E:08x}u,'
-            f'scheduler_entry_word=0x{ew:08x}u;\n}}\n')
+            f'scheduler_entry_word=0x{ew:08x}u;\n'
+            f'inline constexpr int32_t scheduler_frame_delta={frame};\n}}\n')
 
 def patch_binding(s):
     a='#include "v920_private_handler_resume.h"'
@@ -30,7 +43,7 @@ def patch_binding(s):
     a='template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){'
     helpers=r'''inline thread_local bool scheduler_pending=false,scheduler_traced=false;
 inline thread_local uint64_t scheduler_tick=0;
-inline thread_local uint32_t scheduler_stack=0,scheduler_r2=0,scheduler_r13=0,scheduler_msr=0;
+inline thread_local uint32_t scheduler_stack=0,scheduler_frame_stack=0,scheduler_r2=0,scheduler_r13=0,scheduler_msr=0;
 inline bool scheduler_enabled(){
     const char* v=std::getenv("UNDERCOVER_V922_SCHEDULER_ENTRY");
     return v&&v[0]=='1'&&v[1]=='\0';
@@ -51,7 +64,9 @@ template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
     if(!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
        c.mmu.read32(pc)!=w)scheduler_refusal(5);
     if(!v850::held(c))scheduler_refusal(6);
-    scheduler_tick=c.inst_count;scheduler_stack=c.gpr[1];scheduler_r2=c.gpr[2];
+    scheduler_tick=c.inst_count;scheduler_stack=c.gpr[1];
+    scheduler_frame_stack=scheduler_stack+uint32_t(scheduler_frame_delta);
+    scheduler_r2=c.gpr[2];
     scheduler_r13=c.gpr[13];scheduler_msr=c.msr;scheduler_pending=true;
 }
 template<class C>bool scheduler_trace(uint32_t addr,C& c){

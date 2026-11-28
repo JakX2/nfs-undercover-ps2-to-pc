@@ -64,6 +64,8 @@ template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
         out=patch_binding(base)
         self.assertIn('if(scheduler_return_enabled()){scheduler_return_arm(c);return;}',out)
         self.assertIn('V923_WINDOWS_SCHEDULER_RETURN',out)
+        self.assertIn('c.msr!=scheduler_msr||c.gpr[1]!=scheduler_frame_stack||',out)
+        self.assertIn('c.gpr[1]!=scheduler_stack||c.gpr[2]!=scheduler_r2||',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('original_scheduler_entry=1','original_scheduler_entry=0'))
         dep='''void fn_805265AC(CPUContext& ctx) {
 loc_805265AC: ;

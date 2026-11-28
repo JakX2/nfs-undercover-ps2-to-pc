@@ -69,7 +69,7 @@ template<class C>bool scheduler_return_trace(uint32_t addr,C& c){
     if(!scheduler_pending||!scheduler_traced||
        scheduler_dependency_stage!=(disable?1u:2u)||
        c.pc!=addr||c.lr!=(disable?scheduler_disable_lr:scheduler_restore_lr)||
-       c.msr!=scheduler_msr||c.gpr[1]!=scheduler_stack||
+       c.msr!=scheduler_msr||c.gpr[1]!=scheduler_frame_stack||
        c.gpr[2]!=scheduler_r2||c.gpr[13]!=scheduler_r13||
        c.inst_count<=scheduler_tick||c.inst_count-scheduler_tick>512u||
        !v850::held(c))reject(6);
