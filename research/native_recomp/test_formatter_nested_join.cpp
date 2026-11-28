@@ -1073,11 +1073,11 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     }
     if(!compare129)return;
     if(follow==525)c.mmu.write32(target128+8u,successor129);
-    const bool compare_armed=child.resume_caller_report_compare_129(
+    const bool compare_129_parent_armed=child.resume_caller_report_compare_129(
         c,follow==521?7u:8u,follow==522?0u:0xffff8000u,
         follow!=523,held()&&follow!=524);
-    if(follow>=521&&follow<=525){assert(!compare_armed);return;}
-    assert(compare_armed&&child.stage()==52u&&
+    if(follow>=521&&follow<=525){assert(!compare_129_parent_armed);return;}
+    assert(compare_129_parent_armed&&child.stage()==52u&&
            child.caller_post_fourth_tick_budget()==21u&&
            child.caller_report_compare_129_visits()==0u);
     // Synthetic architectural effect: equal signed operands, plus XER.SO.
