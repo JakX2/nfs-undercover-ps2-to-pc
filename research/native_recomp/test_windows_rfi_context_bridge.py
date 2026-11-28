@@ -2,6 +2,7 @@
 """Original-free Windows SI saved-context bridge regressions."""
 from __future__ import annotations
 from pathlib import Path
+import inspect
 import tempfile
 import unittest
 
@@ -31,6 +32,17 @@ class WindowsContextBridge(unittest.TestCase):
         a.write_text((HOST/a.name).read_text(encoding='utf-8'),encoding='utf-8')
         b.write_text(HANDLER,encoding='utf-8')
         return dest,a,b
+
+    def test_owner_windows_build_installs_bridge_only_after_native_scheduler(self):
+        from windows_full_build_v426 import build
+        source=inspect.getsource(build)
+        self.assertIn("if owner_handler_return or owner_progression_matrix:",source)
+        self.assertIn("run_stage('rfi_context_bridge',",source)
+        self.assertIn("generated,'--install']",source)
+        self.assertLess(source.index('for stage,script in transfer_plan.observers:'),
+                        source.index("run_stage('rfi_context_bridge',"))
+        self.assertLess(source.index("run_stage('rfi_context_bridge',"),
+                        source.index("run_stage('external_translation_audit'"))
 
     def test_exact_capture_and_post_handler_join_gated_by_environment(self):
         external=(HOST/'wii_external_entry_binding_v663.h').read_text(encoding='utf-8')

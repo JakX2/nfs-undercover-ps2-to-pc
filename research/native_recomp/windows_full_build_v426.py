@@ -274,6 +274,13 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
                     for stage,script in transfer_plan.observers:
                         inputs=[generated] if stage=='transfer_suffix_observer' else [dol,elf,generated]
                         run_stage(stage,[sys.executable,HOST/script,*inputs],work,300)
+                    if owner_handler_return or owner_progression_matrix:
+                        # Install verified pre-exception capture + saved-frame
+                        # join, strictly default-disabled in all existing
+                        # owner launch stages. No loader/RFI hook is enabled.
+                        run_stage('rfi_context_bridge',
+                                  [sys.executable,HOST/'prepare_windows_rfi_context_bridge.py',
+                                   generated,'--install'],work,300)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
         if scope=='os-si-handler-time' and (owner_handler_return or owner_progression_matrix):
             # Read-only native-label and direct-edge proof for scheduler,
