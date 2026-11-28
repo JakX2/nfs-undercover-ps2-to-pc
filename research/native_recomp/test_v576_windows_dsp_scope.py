@@ -25,5 +25,5 @@ class Tests(unittest.TestCase):
         wf=(HOST.parent.parent/'.github/workflows/wii-native-windows-full.yml').read_text()
         self.assertIn('default: os-si-os-leaves',wf)
         self.assertIn("inputs.owner_scope || 'os-si-os-leaves'",wf)
-        self.assertIn('os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves]',wf)
+        self.assertIn('os-dsp-stage, os-dsp-sc, os-dsp-return, os-report, os-arena-clear, os-external-entry, os-si-dispatch, os-si-ack, os-si-os-leaves, os-si-handler-time]',wf)
 if __name__=='__main__':unittest.main()
