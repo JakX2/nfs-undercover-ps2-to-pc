@@ -186,10 +186,10 @@ class Tests(unittest.TestCase):
                                            b'V742_TIME_STAGE n=3',1),0,
                                'os-si-handler-time')[1])
         self.assertFalse(audit(raw+b'V742_TIME_INVALID reason=3 stage=2 '
-                               b'leaf=2 witness=1 trace=0\\n',0,
+                               b'leaf=2 witness=1 trace=0\n',0,
                                'os-si-handler-time')[1])
         self.assertFalse(audit(raw+b'V726_HANDLER_INVALID kind=3 '
-                               b'witness=4 stage=2 visits=20 polls=0\\n',
+                               b'witness=4 stage=2 visits=20 polls=0\n',
                                0,'os-si-handler-time')[1])
         for prior in ('os-si-ack','os-si-dispatch','os-external-entry'):
             with self.subTest(prior=prior):
