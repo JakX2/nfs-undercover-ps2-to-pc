@@ -28,6 +28,15 @@ class WindowsRescheduleReturn(unittest.TestCase):
         for bad in ((b'abc',True,False),('text',0,False),(b'abc',0,1),
                     (b'x'*(8*1024*1024+1),0,False)):
             with self.assertRaises(ValueError):inspect(*bad)
+    def test_failure_retains_authenticated_predecessor(self):
+        for rc in (1,126,-1073741819):
+            row,ok=inspect(sample(),rc)
+            self.assertFalse(ok)
+            self.assertIn('reschedule_entry=1',row)
+        row,ok=inspect(sample(),0,True)
+        self.assertFalse(ok)
+        self.assertIn('reschedule_entry=0',row)
+
     def test_exact_native_source(self):
         j=0x80526aa8
         branch=0x48000001|((S-(j+4))&0x03fffffc)

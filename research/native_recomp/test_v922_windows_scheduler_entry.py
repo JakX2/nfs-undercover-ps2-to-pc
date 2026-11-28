@@ -44,6 +44,15 @@ class WindowsSchedulerEntry(unittest.TestCase):
             self.assertFalse(diagnostic(invalid))
         self.assertFalse(diagnostic('V922_WINDOWS_SCHEDULER_INVALID reason=1'))
 
+    def test_failure_retains_authenticated_predecessor(self):
+        for rc in (1,126,-1073741819):
+            row,ok=inspect(sample(),rc)
+            self.assertFalse(ok)
+            self.assertIn('handler_return=1',row)
+        row,ok=inspect(sample(),0,True)
+        self.assertFalse(ok)
+        self.assertIn('handler_return=0',row)
+
     def test_binding_does_not_change_default_handler_stop(self):
         a='''#include "v920_private_handler_resume.h"
 template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){

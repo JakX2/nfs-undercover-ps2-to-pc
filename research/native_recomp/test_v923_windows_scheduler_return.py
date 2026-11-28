@@ -28,6 +28,15 @@ class WindowsSchedulerReturn(unittest.TestCase):
             self.assertFalse(inspect(sample(),rc,timeout)[1])
         for args in ((b'abc',True,False),('text',0,False),(b'abc',0,1),(b'x'*(8*1024*1024+1),0,False)):
             with self.assertRaises(ValueError):inspect(*args)
+    def test_failure_retains_authenticated_predecessor(self):
+        for rc in (1,126,-1073741819):
+            row,ok=inspect(sample(),rc)
+            self.assertFalse(ok)
+            self.assertIn('scheduler_entry=1',row)
+        row,ok=inspect(sample(),0,True)
+        self.assertFalse(ok)
+        self.assertIn('scheduler_entry=0',row)
+
     def test_exact_private_original_call_contract(self):
         j=0x80526ca8
         d,r=0x805265ac,0x805265d4
