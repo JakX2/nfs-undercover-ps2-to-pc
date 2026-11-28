@@ -14,10 +14,16 @@ build="$(realpath -m "$2")"
 }
 # Keep the build out of the generated tree and never replace existing files.
 case "$build/" in "$src/"*) echo 'V415_FULL_LINK stage=input result=failed'; exit 1;; esac
+# Older independent link callers retain the legacy counter policy.
+# V572 explicitly selects guest-only V438 after patching its emitter.
+dispatch_policy="${UNDERCOVER_WII_GUEST_ONLY_DISPATCH:-0}"
+if [[ "$dispatch_policy" != 0 && "$dispatch_policy" != 1 ]]; then
+  echo 'V415_FULL_LINK stage=policy result=failed'; exit 1
+fi
 mkdir -m 700 "$build"
 echo 'V415_FULL_LINK stage=input result=passed'
 if ! timeout --kill-after=10s 600s cmake -S "$src" -B "$build" -G Ninja \
-    -DCMAKE_BUILD_TYPE=Debug '-DCMAKE_CXX_FLAGS_DEBUG=-O0 -g0' \
+    -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_CXX_FLAGS_DEBUG=-O0 -g0 -DUNDERCOVER_WII_GUEST_ONLY_DISPATCH=$dispatch_policy" \
     '-DCMAKE_C_FLAGS_DEBUG=-O0 -g0' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$build/bin" \
     > "$build/configure-private.log" 2>&1; then
   echo 'V415_FULL_LINK stage=configure result=failed'; exit 1

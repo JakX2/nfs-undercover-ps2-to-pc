@@ -3,6 +3,13 @@
 #include "wii_irq_enable_witness_v615.h"
 #include <array>
 #include <cstdint>
+#ifndef UNDERCOVER_WII_GUEST_ONLY_DISPATCH
+#define UNDERCOVER_WII_GUEST_ONLY_DISPATCH 0
+#endif
+static_assert(UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 0 ||
+              UNDERCOVER_WII_GUEST_ONLY_DISPATCH == 1,
+              "unknown native dispatch guest tick policy");
+
 namespace undercover::wii {
 // Separate cold lane for the already asserted SI transfer-complete source.
 // Never acknowledges the device or changes the interrupt mask. Stop before
@@ -65,12 +72,13 @@ public:
                c.inst_count<=last_||!word(c,addr,e_.leaf.entry_word))return fail(5);
             entry_tick_=c.inst_count;stage_=2;
         }else if(stage_==3){
-            // The split outer dispatcher increments inst_count once after
-            // process_pending_callbacks, BEFORE the first vector entry trace.
+            // The legacy dispatcher adds one host tick after callbacks.
+            // V438 counts original translated PPC instructions only, so the
+            // vector entry trace occurs without a guest tick between polls.
             // No guest instruction executes between these two boundaries.
             vector_refusal_=0;
             if(addr!=ExternalVector)vector_refusal_|=1u;
-            if(c.inst_count-last_!=1u)vector_refusal_|=2u;
+            if(c.inst_count-last_!=uint64_t(1u-UNDERCOVER_WII_GUEST_ONLY_DISPATCH))vector_refusal_|=2u;
             if(!image(c))vector_refusal_|=4u;
             if(c.srr0!=resume_)vector_refusal_|=8u;
             if(c.srr1!=(prior_&ExternalSrr1Mask))vector_refusal_|=16u;

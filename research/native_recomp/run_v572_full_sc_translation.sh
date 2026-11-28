@@ -692,7 +692,9 @@ if [[ "$private_preflight" == 1 ]]; then
 fi
 
 if [[ "$mode" == --run-dsp-sc || "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --run-report || "$mode" == --run-arena || "$mode" == --run-irq-enable || "$mode" == --run-ipc-client || "$mode" == --run-stm-open ]]; then
-  bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
+  # V438 is always installed in this full-image translation, so select
+  # zero synthetic host-dispatch ticks for the original return witnesses.
+  UNDERCOVER_WII_GUEST_ONLY_DISPATCH=1 bash "$here/run_private_full_link.sh" "$work/generated" "$work/native-build"
   if [[ "$matrix" == 1 ]]; then
     bash "$here/run_v1018_second_irq_matrix.sh" "$work/native-build/bin/UndercoverWiiLocal" "$dol" "$work/irq-matrix"
   elif [[ "$mode" == --run-dsp-return || "$mode" == --run-mi || "$mode" == --prepare-report-observer || "$mode" == --run-report || "$mode" == --prepare-arena || "$mode" == --run-arena || "$mode" == --prepare-irq-enable || "$mode" == --run-irq-enable || "$mode" == --prepare-ipc-client || "$mode" == --run-ipc-client || "$mode" == --prepare-stm-open || "$mode" == --run-stm-open ]]; then

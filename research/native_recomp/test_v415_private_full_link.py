@@ -21,8 +21,11 @@ class Tests(unittest.TestCase):
         # Would create a file if the executable were accidentally launched.
         (self.src/'main.cpp').write_text('#include <fstream>\nint main(){std::ofstream("unexpected-launch").put(1); return 0;}\n')
     def tearDown(self):self.tmp.cleanup()
-    def invoke(self):
-        result=subprocess.run(['bash',str(SCRIPT),str(self.src),str(self.out)],cwd=self.root,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=40)
+    def invoke(self,policy=None):
+        env=os.environ.copy()
+        env.pop('UNDERCOVER_WII_GUEST_ONLY_DISPATCH',None)
+        if policy is not None:env['UNDERCOVER_WII_GUEST_ONLY_DISPATCH']=policy
+        result=subprocess.run(['bash',str(SCRIPT),str(self.src),str(self.out)],cwd=self.root,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,timeout=40,env=env)
         self.assertNotIn(str(self.root),result.stdout+result.stderr)
         self.assertFalse((self.root/'unexpected-launch').exists())
         return result
@@ -31,6 +34,31 @@ class Tests(unittest.TestCase):
         self.assertIn('V415_FULL_LINK_GATE linked=1 platform=linux-x64 launch=0 boot_verified=0',r.stdout)
         self.assertTrue(os.access(self.out/'bin'/'UndercoverWiiLocal',os.X_OK))
         self.assertRegex(r.stdout,r'V1026_LINK_PROGRESS elapsed_seconds=[0-9]+ completed=2 total=2')
+    def test_guest_only_compilation_is_selected_only_for_v438(self):
+        runner=SCRIPT.with_name('run_v572_full_sc_translation.sh').read_text()
+        self.assertIn('apply_native_tick_v438',runner)
+        self.assertIn('UNDERCOVER_WII_GUEST_ONLY_DISPATCH=1 bash "$here/run_private_full_link.sh"',runner)
+        self.src.joinpath('main.cpp').write_text(
+            '#ifndef UNDERCOVER_WII_GUEST_ONLY_DISPATCH\n'
+            '#error Native dispatch macro missing\n'
+            '#endif\n'
+            '#if UNDERCOVER_WII_GUEST_ONLY_DISPATCH != 1\n'
+            '#error Native guest-only compilation missing\n'
+            '#endif\n'
+            'int main(){return 0;}\n')
+        p=self.invoke(policy='1')
+        self.assertEqual(p.returncode,0,p.stdout+p.stderr)
+        cache=(self.out/'CMakeCache.txt').read_text()
+        self.assertIn('DUNDERCOVER_WII_GUEST_ONLY_DISPATCH=1',cache)
+
+    def test_invalid_guest_tick_policy_fails_before_build(self):
+        for value in ('2','-1','bogus'):
+            with self.subTest(value=value):
+                p=self.invoke(policy=value)
+                self.assertNotEqual(p.returncode,0)
+                self.assertIn('V415_FULL_LINK stage=policy result=failed',p.stdout)
+                self.assertFalse(self.out.exists())
+
     def test_progress_numeric_only(self):
         log=self.root/'fixture-private.log'
         log.write_bytes(b'V1026_NINJA 1/10 private source name\nV1026_NINJA 999/10 malformed\n')

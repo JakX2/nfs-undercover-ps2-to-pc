@@ -18,6 +18,7 @@ SOURCES=(
     ("test_callback_return_dispatch_v849.cpp","V849_RETURN_DISPATCH valid=2 refused=12"),
     ("test_si_handler_return_v725.cpp","V725_HANDLER_RETURN synthetic=1 valid=3 refused=17"),
     ("test_external_return_v706.cpp","V706_EXTERNAL_RETURN synthetic=1 cases=22 valid=1 rejects=21"),
+    ("test_cold_external_entry_v663.cpp","V663_EXTERNAL synthetic=1 rejects=16"),
 )
 
 
@@ -63,6 +64,11 @@ class NativeGuestOnlyReturnContracts(unittest.TestCase):
         self.assertIn("if not legacy_ticks:",source)
         self.assertIn("UNDERCOVER_WII_GUEST_ONLY_DISPATCH",source)
         self.assertIn("('0' if legacy_ticks else '1')",source)
+        link=(HERE/'run_private_full_link.sh').read_text(encoding='utf-8')
+        linux=(HERE/'run_v572_full_sc_translation.sh').read_text(encoding='utf-8')
+        self.assertIn('DUNDERCOVER_WII_GUEST_ONLY_DISPATCH=$dispatch_policy',link)
+        self.assertIn('UNDERCOVER_WII_GUEST_ONLY_DISPATCH=1 bash',linux)
+        self.assertIn('apply_native_tick_v438',linux)
 
 
 if __name__=="__main__":unittest.main()

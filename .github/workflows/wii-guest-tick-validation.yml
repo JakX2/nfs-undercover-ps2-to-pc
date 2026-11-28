@@ -13,6 +13,10 @@ jobs:
       - name: Compile real return witnesses with legacy and V438 guest-only counters
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_v438_guest_only_return_contracts.py -v
+      - name: Verify Linux build policy and bounded Windows refusal audit
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v415_private_full_link.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v757_windows_progression_matrix.py -v
       - name: Check direct native return witness audit interfaces
         run: |
           python3 -m unittest discover -s research/native_recomp -p test_v850_callback_return.py -v
