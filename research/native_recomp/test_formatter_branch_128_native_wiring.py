@@ -42,6 +42,7 @@ class Original128NativeWiring(unittest.TestCase):
             'formatter_branch_128->arm(c,',
             'formatter_branch_128->taken()',
             'formatter_nested->resume_caller_report_branch_128(c,',
+            'formatter_nested->caller_report_branch_128_trace(c,pc,held)',
             'formatter_branch_128->observe(c,pc,w)',
             'formatter_nested->stop_after_caller_report_branch_128(c,pc,w,held)',
             'formatter_nested->reached_caller_report_branch_128',
@@ -67,7 +68,11 @@ class Original128NativeWiring(unittest.TestCase):
                        'reached_caller_report_branch_128(',
                        'stage_=50u;return true;',
                        'branch_128_completed_=true;stage_=51u;return true;',
-                       'report_byte_storage(c,held,11u)'):
+                       'caller_report_branch_128_trace(',
+                       'report_byte_storage(c,held,10u,branch_128_pc_)',
+                       'report_byte_storage(c,held,11u,branch_128_pc_)',
+                       'CallerArrival{dispatch_pc.value_or(next_entry_pc_),next_entry_lr_}',
+                       '!branch_128_trace_seen_'):
             with self.subTest(marker=marker):self.assertIn(marker,self.parent)
         self.assertIn('formatter_report_sixth_immediate_private::next_pc+4u,0x44000002u',
                       self.harness)
