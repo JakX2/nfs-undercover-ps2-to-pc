@@ -176,7 +176,13 @@ The corrected native-label branch was original-free CI-tested by
 [46109995875](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46109995875).
 Its later owner-original full-image
 [46110407497](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46110407497)
-was still running when last checked. To avoid opaque exit 126 results,
+**also failed at scheduler-entry stage 12** after the native-label
+correction. Original DOL translation, generated scheduler/loader preflight,
+native Windows x64 link and all **11 authentic earlier stages passed**.
+The twelfth run exited 126, with no recognized precise refusal marker in
+that revision. Therefore the original scheduler entry is still **not
+execution verified** in the Windows full image. To avoid opaque future
+exit 126 results,
 [7bc36f3](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/7bc36f302d94f151b562714d8c0b5871b505765e)
 adds 17 allowlisted, public-safe scheduler refusal categories. A failure
 prints only the bounded category, not proprietary instructions, PCs,
@@ -231,6 +237,49 @@ to Windows source CI in
 [9ffb3fe](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/9ffb3fe0dea9689d00ba056be5e01e1d121cbcce).
 The corresponding real-image installation and Windows RFI execution
 remain pending separate verification.
+
+## Windows continuous original RFI adapter (opt-in, unverified)
+
+The Linux original-owner complete-image native RFI path already authenticates
+the scheduler, original OSLoadContext, restored integer/GQR state and the
+second pending-SI exception. Commits
+[13e0add](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/13e0add4f5e250a22b47c7c4116c676ec6a0de36),
+[0271aca](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/0271acabd9702d770bb1aa98877210701ca06439)
+and
+[f5e808c](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/f5e808ceaf7194464034d3465433138fd3184e74)
+add a Windows-native adapter which:
+
+- Authenticates the same original scheduler, disable/restore, reschedule,
+  54-word context-loader and original RFI labels against the owner DOL/ELF
+  and generated Windows native C++ before changing any output.
+- Uses the genuine V751/V921 saved OSContext witness rather than creating
+  a synthetic restored context.
+- Preserves exact Windows V922–V925 **pre-tick** checks and post-tick
+  RFI verification hooks in the translated code without omitting any
+  genuine PowerPC instructions.
+- Runs only with the explicit `--owner-native-rfi` option, which sets
+  `UNDERCOVER_V751_CAPTURE=1`,
+  `UNDERCOVER_V926_WINDOWS_RFI=1`, and
+  `UNDERCOVER_V932_PENDING_RFI=1`. No ordinary 15-stage launch opts in.
+- Includes a strict RFI audit which requires the full previously verified
+  Windows handler return, real saved context, exact original RFI
+  restoration event, and actual second SI vector entry.
+
+The Windows private-owner native RFI mode can be selected in the existing
+`Wii Native Windows Continuous SI Startup` workflow's manual
+`native_rfi` input. It has **not** yet passed a complete original-owner
+native Windows executable run. Original-free unit/source checks are
+not proof of Windows RFI execution, game-main entry or rendering.
+
+MSVC and AddressSanitizer original-free tests for the existing saved-context
+join passed in
+[46113294024](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46113294024).
+The original-free scheduler/RFI witness test also passed in
+[46113417986](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46113417986).
+A separate MSVC cold-vector test found implicit 64-bit `size_t` narrowing
+in a guest address calculation; this was corrected with a fixed-width
+vector-offset conversion in
+[5a5bc53](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/5a5bc5339fc8c6d53032aefcaf954cf0494a647d).
 
 ## Technical next actions, in dependency order
 
