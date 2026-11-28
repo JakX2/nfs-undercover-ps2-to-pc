@@ -84,6 +84,25 @@ class WindowsCombinedCallback(unittest.TestCase):
                     self.assertIn('V426_WINDOWS_FAILED reason=combined_callback_scope',
                                   result.stdout)
 
+    def test_owner_cli_requires_original_callback_return(self):
+        # The standalone Windows owner flag must use the same fail-closed
+        # completion policy as the single-build progression matrix.
+        from windows_full_build_v426 import inspect_combined_callback as cli_audit
+        from windows_combined_callback_v762 import inspect_completed
+        self.assertIs(cli_audit, inspect_completed)
+
+        for early in (sample(True, (S, I)), sample(False, (S, I)), getter()):
+            with self.subTest(stop=early.splitlines()[-1]):
+                row, ok = cli_audit(early, 0)
+                self.assertFalse(ok, row)
+                self.assertIn('callback_return=0 outer_dispatch=0', row)
+
+        for changed in (True, False):
+            with self.subTest(changed=changed):
+                row, ok = cli_audit(sample(changed), 0)
+                self.assertTrue(ok, row)
+                self.assertIn('callback_return=1 outer_dispatch=1', row)
+
     def test_changed_and_unchanged_original_callback_return(self):
         for changed in (True, False):
             with self.subTest(changed=changed):
