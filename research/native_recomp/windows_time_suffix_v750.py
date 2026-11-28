@@ -15,7 +15,7 @@ from audit_v747_time_suffix import (
     diagnostic as suffix_diagnostic,
 )
 from windows_startup_scope_v434 import (
-    MAX_LOG, PREFIXES, FAILURE_PREFIXES, audit as inspect_time,
+    MAX_LOG, audit as inspect_time,
 )
 
 
@@ -57,18 +57,15 @@ def inspect(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
         # The failure at the final guarded call is deliberately expected.
         # All other hardware/SDK failures and scope-family events after
         # the time return must be rejected, never silently dropped.
-        # The production observer emits the invalid-call record then
-        # _Exit(126); accepting arbitrary output after it would conceal
-        # unbounded execution beyond the guard.
-        tail_ok = bool(after and re.fullmatch(INVALID, after[-1])) and all(
-            (not line.startswith(FAILURE_PREFIXES) or
-             re.fullmatch(INVALID, line) is not None) and
-            (not line.startswith(PREFIXES) or
-             re.fullmatch(CONTROL, line) is not None or
-             re.fullmatch(INVALID, line) is not None) and
-            (not line.startswith(b'V747_') or
-             re.fullmatch(BOUNDARY, line) is not None)
-            for line in after
+        # Require exactly the original control, unexecuted boundary,
+        # and expected refusal. The suffix auditor filters unrelated
+        # lines, so accepting arbitrary host output here could otherwise
+        # hide extra activity before _Exit(126).
+        tail_ok = (
+            len(after) == 3 and
+            re.fullmatch(CONTROL, after[0]) is not None and
+            re.fullmatch(BOUNDARY, after[1]) is not None and
+            re.fullmatch(INVALID, after[2]) is not None
         )
         if rc == 126 and not timed_out and time_ok and tail_ok:
             _, suffix_ok = inspect_suffix(raw, rc)
