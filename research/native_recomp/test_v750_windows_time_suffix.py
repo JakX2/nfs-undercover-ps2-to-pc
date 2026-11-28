@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Original-free Windows post-system-time boundary regression."""
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 from test_v434_windows_startup_scope import OS_SI_HANDLER_TIME, log
 from windows_time_suffix_v750 import launch_overlay, inspect, diagnostic
+from windows_full_build_v426 import build as windows_build
 
 TAIL = [
     b'V726_HANDLER_CONTROL ordinal=4 kind=1 opcode=18',
@@ -30,6 +36,24 @@ class WindowsSuffixTests(unittest.TestCase):
                     launch_overlay(scope, synthetic, True)
         with self.assertRaises(ValueError):
             launch_overlay('os-si-handler-time', False, 1)
+
+    def test_windows_runner_cli_refuses_unpaired_suffix(self):
+        import inspect as std_inspect
+        self.assertIn('owner_time_suffix', std_inspect.signature(windows_build).parameters)
+        runner = Path(__file__).with_name('windows_full_build_v426.py')
+        help_result = subprocess.run([sys.executable, str(runner), '--help'],
+                                     capture_output=True, text=True, check=True)
+        self.assertIn('--owner-time-suffix', help_result.stdout)
+        if os.name == 'nt':
+            with tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                for scope in ('startup', 'os-si-handler-time'):
+                    p = subprocess.run([sys.executable, str(runner),
+                                        str(root/'missing-upstream'), str(root/'new-work'),
+                                        '--owner-scope', scope, '--owner-time-suffix'],
+                                       capture_output=True, text=True)
+                    self.assertNotEqual(p.returncode, 0)
+                    self.assertIn('V426_WINDOWS_FAILED reason=suffix_scope', p.stdout)
 
     def test_exact_guarded_refusal(self):
         row, ok = inspect(sample(), 126)
