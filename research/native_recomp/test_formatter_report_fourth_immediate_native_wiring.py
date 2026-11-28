@@ -86,8 +86,8 @@ class Original125NativeWiring(unittest.TestCase):
             'pc!=next_entry_pc_+32u',
             '!report_byte_storage(c,held,8u)',
             'next_entry_eighth_', 'eighth&&!seventh',
-            'stage_<=51u',
-            'unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed)',
+            'stage_<=53u',
+            'unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(compare_129_completed_)+unsigned(armed)',
             'if(n>43u)return {};',
         ):
             with self.subTest(marker=marker):
