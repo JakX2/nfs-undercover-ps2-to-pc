@@ -1,0 +1,29 @@
+name: Wii Windows Full-Image SI Progression Matrix Source Check
+on:
+  workflow_dispatch:
+  push:
+    branches: [research/wii-native-recomp-preflight]
+    paths:
+      - 'research/native_recomp/windows_progression_matrix_v757.py'
+      - 'research/native_recomp/test_v757_windows_progression_matrix.py'
+      - '.github/workflows/wii-v757-windows-matrix-source.yml'
+permissions:
+  contents: read
+jobs:
+  source-only:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test same-PE multi-launch SI boundary gates and fail-first behavior
+        shell: pwsh
+        run: |
+          python -m unittest discover -s research/native_recomp -p test_v757_windows_progression_matrix.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v756_windows_callback_prefix.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v752_windows_transfer_return.py -v
+          exit $LASTEXITCODE
