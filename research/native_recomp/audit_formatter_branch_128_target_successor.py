@@ -32,6 +32,27 @@ BRANCH_FORMS = frozenset({
 })
 
 
+# These are coarse architecture properties, not authorization to execute a
+# memory instruction or evidence that its effective address is available.
+_MEMORY_UPDATE_D = frozenset({33, 35, 37, 39, 41, 43, 45, 49, 51, 53, 55,
+                              57, 61})
+_MEMORY_UPDATE_X = frozenset({55, 119, 183, 247, 311, 375, 439, 567,
+                              631, 695, 759})
+_MEMORY_FAMILIES = frozenset({'load', 'store', 'floating_load',
+                              'floating_store', 'paired_single_memory'})
+
+
+def memory_shape(word, family):
+    if family not in _MEMORY_FAMILIES:
+        return 'not_memory', 0
+    op = word >> 26
+    if op == 31:
+        return 'indexed', int(((word >> 1) & 1023) in _MEMORY_UPDATE_X)
+    if op in (46, 47):
+        return 'multiple', 0
+    return 'displacement', int(op in _MEMORY_UPDATE_D)
+
+
 def classify_target(fixture):
     # Revalidate the separately authenticated fixture at the boundary,
     # including target geometry, root membership and all code guards.
@@ -61,7 +82,9 @@ def classify_target(fixture):
         branch_form = branch_shape(original)[0]
         if branch_form not in BRANCH_FORMS:
             branch_form = 'unsupported_branch'
-    return family, reads, writes, cr, carry_read, xer, overflow, supported, branch_form
+    memory_form, base_updated = memory_shape(original, family)
+    return (family, reads, writes, cr, carry_read, xer, overflow, supported,
+            branch_form, memory_form, base_updated)
 
 
 class Tests(unittest.TestCase):
@@ -90,6 +113,34 @@ class Tests(unittest.TestCase):
                 self.assertIn(result[7], (0, 1))
                 self.assertIn(result[8], BRANCH_FORMS)
 
+    def test_memory_addressing_modes_are_redacted_and_bounded(self):
+        # No effective address, register ID or displacement is returned.
+        cases = (
+            (32 << 26, 'load', 'displacement', 0),  # lwz
+            (33 << 26, 'load', 'displacement', 1),  # lwzu
+            (46 << 26, 'load', 'multiple', 0),       # lmw
+            (47 << 26, 'store', 'multiple', 0),      # stmw
+            ((31 << 26) | (23 << 1), 'load', 'indexed', 0),
+            ((31 << 26) | (55 << 1), 'load', 'indexed', 1),
+            ((31 << 26) | (151 << 1), 'store', 'indexed', 0),
+            ((31 << 26) | (183 << 1), 'store', 'indexed', 1),
+            (48 << 26, 'floating_load', 'displacement', 0),
+            (49 << 26, 'floating_load', 'displacement', 1),
+            ((31 << 26) | (535 << 1), 'floating_load', 'indexed', 0),
+            ((31 << 26) | (567 << 1), 'floating_load', 'indexed', 1),
+            (56 << 26, 'paired_single_memory', 'displacement', 0),
+            (57 << 26, 'paired_single_memory', 'displacement', 1),
+        )
+        for word, family, mode, updated in cases:
+            with self.subTest(family=family, mode=mode, updated=updated):
+                actual = classify_target(self.fixture(word))
+                self.assertEqual(actual[0], family)
+                self.assertEqual(actual[9:], (mode, updated))
+                self.assertEqual(actual[1:8], (0, 0, 0, 0, 0, 0, 0))
+        for word in (0x60000000, 0x48000010, 0x4e800020):
+            actual = classify_target(self.fixture(word))
+            self.assertEqual(actual[9:], ('not_memory', 0))
+
     def test_integer_effect_metadata_matrix_is_bounded(self):
         # This is static classification of synthetic words. It must not
         # execute any branch or mutate an original native CPU snapshot.
@@ -109,13 +160,16 @@ class Tests(unittest.TestCase):
         )
         for word, effects in cases:
             with self.subTest(word_family='integer', effects=effects):
-                family, reads, writes, cr, carry_read, xer, overflow, supported, form = (
+                (family, reads, writes, cr, carry_read, xer, overflow,
+                 supported, form, memory_form, base_updated) = (
                     classify_target(self.fixture(word)))
                 self.assertEqual(family, 'integer')
                 self.assertEqual(
                     (reads, writes, cr, carry_read, xer, overflow, supported),
                     effects)
                 self.assertEqual(form, 'not_branch')
+                self.assertEqual((memory_form, base_updated),
+                                 ('not_memory', 0))
 
     def test_control_transfers_never_claim_integer_observation(self):
         for word, family, form in (
@@ -130,6 +184,7 @@ class Tests(unittest.TestCase):
                 self.assertEqual(actual[0], family)
                 self.assertEqual(actual[1:8], (0, 0, 0, 0, 0, 0, 0))
                 self.assertEqual(actual[8], form)
+                self.assertEqual(actual[9:], ('not_memory', 0))
 
     def test_original_target_classification_never_retargets_128(self):
         original = self.fixture((14 << 26) | (3 << 21) | 0x7fff)
@@ -151,6 +206,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(result[0], 'other')
         self.assertEqual(result[7], 0)
         self.assertEqual(result[8], 'not_branch')
+        self.assertEqual(result[9:], ('not_memory', 0))
 
     def test_refuse_forged_target_and_untaken_sibling(self):
         with self.assertRaises(ValueError):
@@ -196,12 +252,14 @@ def main():
         print('FORMATTER_129_TARGET_AUDIT verified=0 reason=' +
               (reason.replace(' ','_') if reason in safe else 'private_input'))
         return 1
-    family,reads,writes,cr,carry_read,xer,overflow,supported,branch_form = result
+    (family, reads, writes, cr, carry_read, xer, overflow, supported,
+     branch_form, memory_form, base_updated) = result
     print(
         f'FORMATTER_129_TARGET_AUDIT verified=1 previous_128_fixture=1 '
         f'selected_edge=target family={family} reads={reads} writes={writes} '
         f'cr_write={cr} carry_read={carry_read} xer_write={xer} overflow_enable={overflow} '
         f'integer_classified={supported} branch_form={branch_form} '
+        f'memory_form={memory_form} base_updated={base_updated} '
         'original_execution=0'
     )
     return 0
