@@ -40,13 +40,26 @@ _MEMORY_UPDATE_X = frozenset({55, 119, 183, 247, 311, 375, 439, 567,
                               631, 695, 759})
 _MEMORY_FAMILIES = frozenset({'load', 'store', 'floating_load',
                               'floating_store', 'paired_single_memory'})
+# Opcode 4 uses a six-bit XW secondary opcode, not the ten-bit
+# ordinary X-form field. The upper four bits encode W and GQR I.
+_PSQ_INDEXED = frozenset({6, 7, 38, 39})
+_PSQ_UPDATED = frozenset({38, 39})
+
+
+def successor_family(word):
+    if word >> 26 == 4 and ((word >> 1) & 63) in _PSQ_INDEXED:
+        return 'paired_single_memory'
+    return boundary_shape(word)
 
 
 def memory_shape(word, family):
     if family not in _MEMORY_FAMILIES:
         return 'not_memory', 0, 1
     op = word >> 26
-    if op == 31:
+    if op == 4:
+        mode = 'indexed'
+        updated = int(((word >> 1) & 63) in _PSQ_UPDATED)
+    elif op == 31:
         mode = 'indexed'
         updated = int(((word >> 1) & 1023) in _MEMORY_UPDATE_X)
     elif op in (46, 47):
@@ -74,7 +87,7 @@ def classify_target(fixture):
             pc != root + 40 or size < 52 or branch == GUARD or
             original == GUARD):
         raise ValueError('target successor provenance')
-    family = boundary_shape(original)
+    family = successor_family(original)
     if family not in FAMILIES:
         raise ValueError('target successor family')
     operation = 'not_integer'
@@ -157,6 +170,30 @@ class Tests(unittest.TestCase):
         for word in (0x60000000, 0x48000010, 0x4e800020):
             actual = classify_target(self.fixture(word))
             self.assertEqual(actual[9:], ('not_memory', 0, 1))
+
+    def test_paired_single_indexed_w_and_gqr_variants(self):
+        # Four PPC750CL XW forms, with W and all eight GQR selectors.
+        # The upper four bits must not be mistaken for an X-form opcode.
+        for xo, updated in ((6, 0), (7, 0), (38, 1), (39, 1)):
+            for w in (0, 1):
+                for gqr in range(8):
+                    word = ((4 << 26) | (2 << 21) | (5 << 16) |
+                            (3 << 11) | (w << 10) | (gqr << 7) | (xo << 1))
+                    with self.subTest(xo=xo, w=w, gqr=gqr):
+                        result = classify_target(self.fixture(word))
+                        self.assertEqual(result[0], 'paired_single_memory')
+                        self.assertEqual(result[9:],
+                                         ('indexed', updated, 1))
+        # Nonmemory paired single operations retain the old classification.
+        self.assertEqual(successor_family((4 << 26) | (21 << 1)),
+                         'paired_single')
+        for xo in (38, 39):
+            illegal = (4 << 26) | (2 << 21) | (xo << 1)
+            with self.subTest(xo=xo, invalid_base=True):
+                self.assertEqual(memory_shape(illegal, 'paired_single_memory'),
+                                 ('indexed', 1, 0))
+                with self.assertRaisesRegex(ValueError, 'invalid update base'):
+                    classify_target(self.fixture(illegal))
 
     def test_illegal_update_base_registers_are_rejected(self):
         # PowerPC update forms cannot use GPR0 as RA; integer load-update
