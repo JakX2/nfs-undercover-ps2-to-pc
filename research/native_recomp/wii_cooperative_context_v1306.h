@@ -22,7 +22,7 @@ public:
            !equal(c,e_.active,e_.context)||!equal(c,e_.physical,e_.context&0x3fffffffu)||
            !equal(c,e_.current,e_.context)||(c.msr&0x8000u)||!e_.saved_msr_mask||
            !c.gpr[1]||(c.gpr[1]&7u)||!mapped(c,c.gpr[1],8u))return fail(1);
-        cpu_=&c;gp_=c.gpr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
+        cpu_=&c;gp_=c.gpr;gqr_=c.gqr;cr_=pack(c);lr_=c.lr;ctr_=c.ctr;xer_=c.xer;
         msr_=c.msr&e_.saved_msr_mask;tick_=c.inst_count;stage_=1;return true;
     }
     // Call after the original save helper returns zero, before switching
@@ -68,6 +68,10 @@ public:
     }
 private:
     Geometry e_;const void* cpu_=nullptr;std::array<uint32_t,32> gp_{};
+    // Original OSSaveContext stores GQR1-GQR7 in the OSContext frame,
+    // and OSLoadContext restores them before its authentic RFI.
+    // These are architectural register values, not host-side substitutes.
+    std::array<uint32_t,8> gqr_{};
     std::array<uint32_t,0x2c8u/4u> image_{};
     uint32_t cr_=0,lr_=0,ctr_=0,xer_=0,msr_=0;
     uint64_t tick_=0,load_tick_=0,rfi_tick_=0;unsigned stage_=0,error_=0;
@@ -101,6 +105,8 @@ private:
            !equal(c,a+140u,xer_)||!equal(c,a+408u,lr_)||!equal(c,a+412u,msr_)||
            (c.mmu.read16(a+0x1a2u)&2u))return false;
         for(unsigned i=13;i<32;++i)if(!equal(c,a+4u*i,gp_[i]))return false;
+        for(unsigned i=1;i<8;++i)
+            if(!equal(c,a+424u+4u*(i-1u),gqr_[i]))return false;
         return true;
     }
     template<class C>bool selected(C& c)const{
@@ -108,7 +114,10 @@ private:
                equal(c,e_.current,e_.context)&&mapped(c,e_.context+0x2c8u,2u)&&c.mmu.read16(e_.context+0x2c8u)==2u;
     }
     template<class C>bool restored_regs(C& c)const{
-        return live_abi(c)&&pack(c)==cr_&&c.lr==lr_&&c.ctr==ctr_&&c.xer==xer_&&c.gpr[3]==1u;
+        if(!live_abi(c)||pack(c)!=cr_||c.lr!=lr_||c.ctr!=ctr_||
+           c.xer!=xer_||c.gpr[3]!=1u)return false;
+        for(unsigned i=1;i<8;++i)if(c.gqr[i]!=gqr_[i])return false;
+        return true;
     }
 };
 }
