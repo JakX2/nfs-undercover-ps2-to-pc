@@ -48,6 +48,8 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
     def test_native_first_instruction_hook_and_opt_in_plan(self):
         p=plan('os-si-handler-time',False,False,False,handler_return=True)
         self.assertNotIn('UNDERCOVER_V922_SCHEDULER_ENTRY',p.env)
+        self.assertNotIn('UNDERCOVER_V923_SCHEDULER_RETURN',p.env)
+        self.assertEqual(p.observers[-1][1],'prepare_v923_windows_scheduler_return.py')
         src='''void fn_80529434(CPUContext& ctx) {
 loc_80529434: ;
     // 0x80529434: 60000000

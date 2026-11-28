@@ -19,8 +19,9 @@ class WindowsDispatcherEpilogue(unittest.TestCase):
         self.assertNotIn('--epilogue', combined.analyzer)
         self.assertEqual(returned.analyzer[-1], '--epilogue')
         self.assertEqual(returned.analyzer.count('--epilogue'), 1)
-        self.assertEqual(returned.observers[-2][1], 'prepare_v920_handler_return.py')
-        self.assertEqual(returned.observers[-1][1], 'prepare_v922_windows_scheduler_entry.py')
+        self.assertEqual(returned.observers[-3][1], 'prepare_v920_handler_return.py')
+        self.assertEqual(returned.observers[-2][1], 'prepare_v922_windows_scheduler_entry.py')
+        self.assertEqual(returned.observers[-1][1], 'prepare_v923_windows_scheduler_return.py')
 
     def test_original_code_mapping_excludes_fixture_guard(self):
         j, d, r = 0x80526ca8, 0x805265ac, 0x805265d4
