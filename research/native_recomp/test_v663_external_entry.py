@@ -1,15 +1,35 @@
 import unittest
 from unittest.mock import patch
 from audit_v663_external_entry import inspect,EVENTS,RESULT
-from prepare_v663_external_entry import patch_probe,patch_ios,verify_dispatch_tick,HEADER,PROBE,START,CALLBACK,IOS_INCLUDE
+from prepare_v663_external_entry import (patch_probe,patch_ios,verify_dispatch_tick,
+    LEGACY_DISPATCH_DIAG,NATIVE_DISPATCH_DIAG,HEADER,PROBE,START,CALLBACK,IOS_INCLUDE)
 class Tests(unittest.TestCase):
     def test_dispatch_tick(self):
-        s='        process_pending_callbacks(ctx);\n        uint32_t target = ctx.pc;\n        if ((++ctx.inst_count % 100000) == 0) std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;\n        switch (target) {'
-        verify_dispatch_tick(s)
-        # Real split dispatcher also calls the callback inside its idle path.
-        verify_dispatch_tick('          process_pending_callbacks(ctx);\n'+s)
-        for x in (s+s,s.replace('++ctx.inst_count','ctx.inst_count'),s.replace('uint32_t target','++ctx.inst_count;\n        uint32_t target')):
-            with self.assertRaises(ValueError):verify_dispatch_tick(x)
+        def wrapper(diag,native=False):
+            return ((('    uint64_t last_dispatch_diagnostic_count = 0;\n')
+                     if native else '')+
+                    '        process_pending_callbacks(ctx);\n'
+                    '        uint32_t target = ctx.pc;\n'+diag+
+                    '\n        switch (target) {')
+        old=wrapper(LEGACY_DISPATCH_DIAG)
+        current=wrapper(NATIVE_DISPATCH_DIAG,True)
+        for s in (old,current):
+            verify_dispatch_tick(s)
+            # Pinned split dispatcher also calls callbacks in its idle path.
+            verify_dispatch_tick('          process_pending_callbacks(ctx);\n'+s)
+        for bad in (old+old,current+current,
+                    old.replace('++ctx.inst_count','ctx.inst_count'),
+                    current.replace('ctx.inst_count &&','++ctx.inst_count &&'),
+                    current.replace('last_dispatch_diagnostic_count = 0','other_counter = 0'),
+                    current.replace('last_dispatch_diagnostic_count = ctx.inst_count','last_dispatch_diagnostic_count = 0'),
+                    current.replace('uint32_t target','++ctx.inst_count;\n        uint32_t target'),
+                    current.replace('switch (target)', 'switch (ctx.pc)'),
+                    old.replace('        switch (target)',NATIVE_DISPATCH_DIAG+'\n        switch (target)'),
+                    old.replace('        process_pending_callbacks(ctx);',''),
+                    current.replace('        process_pending_callbacks(ctx);','')):
+            with self.subTest(bad=bad[-90:]),self.assertRaises(ValueError):
+                verify_dispatch_tick(bad)
+        with self.assertRaises(ValueError):verify_dispatch_tick(b'raw not decoded')
     def test_failure_marker(self):
         with patch('audit_v663_external_entry.inspect_arena',return_value=('ok',True)):
             rows=EVENTS+[RESULT]
