@@ -81,6 +81,18 @@ def inspect(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
     )
 
 
+def inspect_completed(raw: bytes, rc: int, timed_out: bool = False) -> tuple[str, bool]:
+    """Accept only a proven original callback ABI return as progression.
+
+    The general inspector still accepts authentic early diagnostic stops.
+    A valid suffix boundary or ordinal-5 getter is not the callback return.
+    """
+    row, observed = inspect(raw, rc, timed_out)
+    completed = (observed and 'suffix_boundary=13 ' in row and
+                 'callback_return=1 outer_dispatch=1 ' in row)
+    return row, bool(completed)
+
+
 def diagnostic(line: bytes) -> bool:
     return type(line) is bytes and (
         prior(line) or re.fullmatch(SUFFIX_ENTRY, line) is not None or

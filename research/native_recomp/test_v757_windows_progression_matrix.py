@@ -17,7 +17,7 @@ from test_v758_windows_callback_time import sample as time_sample
 from test_v759_windows_callback_frontier import sample as frontier_sample
 from test_v760_windows_wireless_wrapper import sample as wireless_sample
 from test_v761_windows_wireless_write import changed_sample as write_sample
-from test_v762_windows_combined_callback import sample as combined_sample
+from test_v762_windows_combined_callback import sample as combined_sample, getter as combined_getter, S as COMBINED_SUFFIX, I as COMBINED_INVALID
 from windows_progression_matrix_v757 import (
     REQUIRED, OPTIONAL, STAGES, ProgressionFailure, stage_environment, run,
 )
@@ -75,6 +75,36 @@ class WindowsProgression(unittest.TestCase):
         self.assertEqual(sum(' verified=1 boot_verified=0' in row for row in output), 10)
         self.assertTrue(output[-1].startswith('V757_WINDOWS_PROGRESSION completed=10'))
         self.assertNotIn('main=1', '\n'.join(output))
+
+    def test_early_callback_stop_never_completes_progression(self):
+        # Both legitimate bounded stops remain available to the diagnostic
+        # inspector, but cannot masquerade as an original ABI return.
+        from windows_combined_callback_v762 import inspect, inspect_completed
+        for earlier in (
+            combined_sample(True, (COMBINED_SUFFIX, COMBINED_INVALID)),
+            combined_sample(False, (COMBINED_SUFFIX, COMBINED_INVALID)),
+            combined_getter(),
+        ):
+            with self.subTest(stop=earlier.splitlines()[-1]):
+                _, observed = inspect(earlier, 0)
+                self.assertTrue(observed)
+                row, completed = inspect_completed(earlier, 0)
+                self.assertFalse(completed)
+                self.assertIn('callback_return=0 outer_dispatch=0', row)
+                contents = list(FIXTURES)
+                contents[-1] = earlier
+                seen, output, failure = simulate(contents=tuple(contents))
+                self.assertEqual(len(seen), 10)
+                self.assertEqual(failure, 'combined-callback')
+                self.assertIn('callback_return=0 outer_dispatch=0',
+                              '\\n'.join(output))
+                self.assertFalse(any('completed=10' in r for r in output))
+
+        for changed in (True, False):
+            with self.subTest(returned=changed):
+                row, completed = inspect_completed(combined_sample(changed), 0)
+                self.assertTrue(completed, row)
+                self.assertIn('callback_return=1 outer_dispatch=1', row)
 
     def test_first_failure_prevents_all_later_native_launches(self):
         for i in range(10):

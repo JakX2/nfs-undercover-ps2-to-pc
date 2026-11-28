@@ -22,7 +22,7 @@ from windows_callback_time_v758 import inspect as check_time, diagnostic as diag
 from windows_callback_frontier_v759 import inspect as check_frontier, diagnostic as diag_frontier
 from windows_wireless_wrapper_v760 import inspect as check_wireless, diagnostic as diag_wireless
 from windows_wireless_write_v761 import inspect as check_write, diagnostic as diag_write
-from windows_combined_callback_v762 import inspect as check_combined, diagnostic as diag_combined
+from windows_combined_callback_v762 import inspect_completed as check_combined, diagnostic as diag_combined
 
 
 # The complete native image must have all the previously authenticated
