@@ -31,7 +31,7 @@ class WindowsHandlerReturn(unittest.TestCase):
                          (('combined_callback_observer','prepare_v863_combined_callback.py'),
                           ('handler_suffix_observer','prepare_v868_handler_suffix.py'),
                           ('handler_epilogue_observer','prepare_v919_handler_epilogue.py'),
-                          ('handler_return_observer','prepare_v920_handler_return.py')))
+                          ('handler_dispatch_return_observer','prepare_v920_handler_return.py')))
         for flag in ('UNDERCOVER_V850_CALLBACK_RETURN',
                      'UNDERCOVER_V868_HANDLER_SUFFIX',
                      'UNDERCOVER_V919_HANDLER_EPILOGUE',
