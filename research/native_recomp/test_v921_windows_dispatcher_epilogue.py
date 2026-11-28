@@ -26,7 +26,8 @@ class WindowsDispatcherEpilogue(unittest.TestCase):
         blr = 0x4e800020
         roots = {
             j: [0x48000001, 0x48000001, 0x7ca30378, 0x48000001, blr],
-            E: [blr] * 15, S: [blr] * 6,
+            E: [0x60000000] * 14 + [blr],
+            S: [0x60000000] * 5 + [blr],
             d: [blr], r: [blr], L: [blr] * 53 + [RFI],
         }
         expected = native_expectations(roots, j, d, r)
