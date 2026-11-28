@@ -40,6 +40,8 @@ on:
       - 'research/native_recomp/test_formatter_conditional_branch.cpp'
       - 'research/native_recomp/test_formatter_branch_128_native_wiring.py'
       - 'research/native_recomp/test_formatter_branch_128_nested.py'
+      - 'research/native_recomp/make_v626_ipc_fixture.py'
+      - 'research/native_recomp/test_v626_ipc_fixture.py'
       - 'research/native_recomp/test_formatter_branch_128_log.py'
       - 'research/native_recomp/validate_formatter_nested_log.py'
       - 'research/native_recomp/prepare_formatter_nested_fixture.py'
@@ -74,6 +76,7 @@ jobs:
           python3 research/native_recomp/test_formatter_report_fifth_immediate_log.py
           python3 research/native_recomp/test_formatter_report_sixth_immediate_log.py
           python3 research/native_recomp/test_formatter_branch_128_log.py
+          python3 research/native_recomp/test_v626_ipc_fixture.py
           python3 research/native_recomp/test_formatter_branch_128_nested.py
           python3 research/native_recomp/test_formatter_branch_128_native_wiring.py
           python3 research/native_recomp/prepare_formatter_branch_128_fixture.py --self-test
