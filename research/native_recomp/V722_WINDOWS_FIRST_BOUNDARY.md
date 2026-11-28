@@ -11,9 +11,15 @@ launched it on Windows, and reported
 Its bounded original SI dispatcher passed all six stages:
 `V667_SI_DISPATCH_CENSUS rc=0 external=1 stages=6 verified=1 boot_verified=0`.
 
-This was **not a full game boot**. Do not equate the separate
-127-instruction formatter witness with the complete-image startup route.
-The newer `os-si-os-leaves` route is a distinct, gated continuation.
+A later, stronger [Windows owner run 45542663429](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45542663429)
+also successfully built and launched the full Windows PE. Its verified
+`os-si-os-leaves` scope observed all 9 original OS-leaf stages, the
+nested-helper return, the second-helper return, and 3 masked post-ACK
+loop polls (`V709_OS_LEAF_CENSUS ... verified=1 boot_verified=0`).
+
+These are **not full game boots**. The separate 127-instruction formatter
+witness is also not a complete-image startup result. The authenticated
+Windows post-ACK leaf scope is the baseline, not a pending milestone.
 
 ## What V722 changes
 
@@ -67,12 +73,20 @@ private-log redaction and rejection of an invalid success claim.
 
 ## Next original-runtime blocker
 
-Use the owner-private Windows log's `V709_OS_LEAF_CENSUS` together with
-`V722_WINDOWS_FRONTIER` to identify the first unobserved post-ACK
-checkpoint. Reproduce the same boundary with the current Linux
-complete-image runner and the original-free synthetic fixtures. Fix the
-specific Wii runtime, scheduling or AOT emission defect, re-run the
-Windows owner scope, and only then promote its verified frontier.
+The Linux full-image V726 run
+[45545629913](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45545629913)
+reached the first unhandled handler call after the verified V709 leaf
+boundary: ordinal 3, a linked call to `__OSGetSystemTime`. That
+function's already authenticated 25-word and three-leaf route completed a
+separate **original Linux native** continuation in
+[45547793332](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45547793332)
+with 43 actual visits. It did not return from the entire handler.
 
-The V722 change itself is a diagnostic and timeout-accounting improvement,
+The V743 Windows candidate reuses the same production V726 and V742
+observers under the new `os-si-handler-time` scope, after the existing
+V709 owner proof. Its native Windows owner execution remains unverified
+until the Windows workflow logs the exact V742 audit gate. The original
+`os-si-os-leaves` scope remains available as a regression control.
+
+The V722 diagnostic is a separate timeout and first-boundary improvement,
 **not an additional original instruction, first frame or gameplay claim**.
