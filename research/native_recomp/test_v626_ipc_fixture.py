@@ -94,11 +94,18 @@ class Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'fixture geometry'):
             assemble({**words,start+16*62:(NOP,guard)},
                      start,max_roots=62)
+        # Keep root count valid while checking independent span/range
+        # guards, otherwise the root census would hide those failures.
+        overlap = dict(words)
+        overlap.pop(callee)
+        overlap[target+4] = (NOP,guard)
         with self.assertRaisesRegex(ValueError,'fixture overlap'):
-            assemble({**words,target+4:(NOP,guard)},start,max_roots=62)
+            assemble(overlap,start,max_roots=62)
+        distant = dict(words)
+        distant.pop(target)
+        distant[target+0x50000] = (NOP,guard)
         with self.assertRaisesRegex(ValueError,'fixture range'):
-            assemble({**words,target+0x50000:(NOP,guard)},
-                     start,max_roots=62)
+            assemble(distant,start,max_roots=62)
 
     def test_isolated_sections(self):
         start=0x80510000
