@@ -28,7 +28,7 @@ class WindowsNativeRfiAudit(unittest.TestCase):
                     handler_sample()+b'\n'.join((JOIN,SOURCE,FIRST,SECOND,POLL,RESULT))+b'\n',
                     sample().replace(FIRST,SECOND),sample().replace(JOIN,b'forged'),
                     sample().replace(b'visits=86',b'visits=513'),
-                    sample().replace(b'original_resume_executed=0',b'original_resume_executed=1'),
+                    sample().replace(b'resumed_instruction_executed=0',b'resumed_instruction_executed=1'),
                     sample().replace(SOURCE,b'V932_PENDING_SOURCE held_completion=0 only_si=1'),
                     sample().replace(SECOND,FIRST),
                     RESULT+b'\n'+sample()):
