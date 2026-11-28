@@ -22,7 +22,7 @@ from windows_callback_time_v758 import inspect as inspect_callback_time
 from windows_callback_frontier_v759 import inspect as inspect_callback_frontier
 from windows_wireless_wrapper_v760 import inspect as inspect_wireless_wrapper
 from windows_wireless_write_v761 import inspect as inspect_wireless_write
-from windows_combined_callback_v762 import inspect as inspect_combined_callback
+from windows_combined_callback_v762 import inspect_completed as inspect_combined_callback
 from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure
 
 HOST=Path(__file__).resolve().parent
