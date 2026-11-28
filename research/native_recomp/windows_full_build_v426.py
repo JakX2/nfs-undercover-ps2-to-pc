@@ -20,6 +20,7 @@ from windows_alarm_suffix_v755 import inspect as inspect_alarm_suffix
 from windows_callback_prefix_v756 import inspect as inspect_callback_prefix
 from windows_callback_time_v758 import inspect as inspect_callback_time
 from windows_callback_frontier_v759 import inspect as inspect_callback_frontier
+from windows_wireless_wrapper_v760 import inspect as inspect_wireless_wrapper
 from windows_progression_matrix_v757 import run as run_progression, ProgressionFailure
 
 HOST=Path(__file__).resolve().parent
@@ -167,18 +168,19 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
-def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False,owner_transfer_suffix=False,owner_alarm_return=False,owner_alarm_suffix=False,owner_callback_prefix=False,owner_progression_matrix=False,owner_callback_time=False,owner_callback_frontier=False):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False,owner_transfer_suffix=False,owner_alarm_return=False,owner_alarm_suffix=False,owner_callback_prefix=False,owner_progression_matrix=False,owner_callback_time=False,owner_callback_frontier=False,owner_wireless_wrapper=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
     synthetic=dol is None
     if synthetic!=(elf is None):raise BuildError('input_pair')
+    if owner_wireless_wrapper and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_progression_matrix))):raise BuildError('wireless_wrapper_scope')
     if owner_callback_frontier and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_progression_matrix))):raise BuildError('callback_frontier_scope')
     if owner_callback_time and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_progression_matrix))):raise BuildError('callback_time_scope')
     if owner_progression_matrix and (synthetic or scope!='os-si-handler-time' or any((owner_time_suffix,owner_transfer_prefix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix))):raise BuildError('progression_scope')
     try: suffix_env=launch_overlay(scope,synthetic,owner_time_suffix)
     except ValueError as e:raise BuildError('suffix_scope') from e
-    try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier or owner_progression_matrix)
+    try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return,owner_transfer_suffix,owner_alarm_return,owner_alarm_suffix,owner_callback_prefix,owner_callback_time,owner_callback_frontier,owner_wireless_wrapper or owner_progression_matrix)
     except ValueError as e:raise BuildError('transfer_scope') from e
     extra_patches,observer=owner_scope(scope,synthetic)
     if requires_exi_profile(scope) and legacy_ticks:raise BuildError('exi_requires_native_ticks')
@@ -294,7 +296,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=(not launch_status['expired'] and rc==0 and
             markers==[b'V426_SYNTHETIC_SWAP verified=1'])
     else:
-        if owner_callback_frontier:
+        if owner_wireless_wrapper:
+            row,ok=inspect_wireless_wrapper(raw,rc,launch_status['expired'])
+        elif owner_callback_frontier:
             row,ok=inspect_callback_frontier(raw,rc,launch_status['expired'])
         elif owner_callback_time:
             row,ok=inspect_callback_time(raw,rc,launch_status['expired'])
@@ -334,7 +338,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
         if scope=='os-si-handler-time':
-            if owner_callback_frontier:
+            if owner_wireless_wrapper:
+                from windows_wireless_wrapper_v760 import diagnostic as handler_time_diagnostic
+            elif owner_callback_frontier:
                 from windows_callback_frontier_v759 import diagnostic as handler_time_diagnostic
             elif owner_callback_time:
                 from windows_callback_time_v758 import diagnostic as handler_time_diagnostic
@@ -378,8 +384,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     print(f'V441_WINDOWS_TICKS corrected={int(not legacy_ticks)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before next unadmitted call or MMIO');p.add_argument('--owner-transfer-return',action='store_true',help='Opt-in original fourth SI transfer return with native device; stop before handler resume instruction');p.add_argument('--owner-transfer-suffix',action='store_true',help='Resume original SI handler after fourth transfer; stop before next unadmitted call or BLR');p.add_argument('--owner-alarm-return',action='store_true',help='Opt-in fifth original SI alarm cancellation return; not a handler return or game boot');p.add_argument('--owner-alarm-suffix',action='store_true',help='Opt-in bounded post-alarm SI handler until next refused call or BLR; no game boot');p.add_argument('--owner-callback-prefix',action='store_true',help='Opt-in first original SI callback prefix and compiler save; not callback return or boot');p.add_argument('--owner-progression-matrix',action='store_true',help='One full Windows image, separately launch successive authenticated SI service boundaries');p.add_argument('--owner-callback-time',action='store_true',help='Continue genuine callback from compiler save through original OS time helper return');p.add_argument('--owner-callback-frontier',action='store_true',help='Continue original callback through system-time helper to next genuine wireless service callsite');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix,a.owner_transfer_return,a.owner_transfer_suffix,a.owner_alarm_return,a.owner_alarm_suffix,a.owner_callback_prefix,a.owner_progression_matrix,a.owner_callback_time,a.owner_callback_frontier)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before next unadmitted call or MMIO');p.add_argument('--owner-transfer-return',action='store_true',help='Opt-in original fourth SI transfer return with native device; stop before handler resume instruction');p.add_argument('--owner-transfer-suffix',action='store_true',help='Resume original SI handler after fourth transfer; stop before next unadmitted call or BLR');p.add_argument('--owner-alarm-return',action='store_true',help='Opt-in fifth original SI alarm cancellation return; not a handler return or game boot');p.add_argument('--owner-alarm-suffix',action='store_true',help='Opt-in bounded post-alarm SI handler until next refused call or BLR; no game boot');p.add_argument('--owner-callback-prefix',action='store_true',help='Opt-in first original SI callback prefix and compiler save; not callback return or boot');p.add_argument('--owner-progression-matrix',action='store_true',help='One full Windows image, separately launch successive authenticated SI service boundaries');p.add_argument('--owner-callback-time',action='store_true',help='Continue genuine callback from compiler save through original OS time helper return');p.add_argument('--owner-callback-frontier',action='store_true',help='Continue original callback through system-time helper to next genuine wireless service callsite');p.add_argument('--owner-wireless-wrapper',action='store_true',help='Continue original wireless wrapper to its return or authentic EXI-lock callsite');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix,a.owner_transfer_return,a.owner_transfer_suffix,a.owner_alarm_return,a.owner_alarm_suffix,a.owner_callback_prefix,a.owner_progression_matrix,a.owner_callback_time,a.owner_callback_frontier,a.owner_wireless_wrapper)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):
