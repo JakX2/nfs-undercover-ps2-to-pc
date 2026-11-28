@@ -8,7 +8,7 @@ OS_IPC_PATCHES=OS_HW_PATCHES+('apply_exact_dispatch_v445',)
 OS_VECTOR_PATCHES=OS_IPC_PATCHES+('apply_cache_continuous_v39','apply_cache_trace_v44','apply_dcbz_v67','apply_cache_order_v456')
 OS_SRAM_PATCHES=OS_VECTOR_PATCHES+('apply_data_cache_invalidate_v532',)
 OS_SC_PATCHES=OS_SRAM_PATCHES+('apply_native_lowmem_v63','apply_syscall_pc_v26','apply_syscall_transfer_v461')
-EXTERNAL_SCOPES=('os-external-entry','os-si-dispatch','os-si-ack','os-si-os-leaves')
+EXTERNAL_SCOPES=('os-external-entry','os-si-dispatch','os-si-ack','os-si-os-leaves','os-si-handler-time')
 REPORT_SCOPES=('os-report','os-arena-clear',*EXTERNAL_SCOPES)
 SCOPES={
     'startup':((), 'prepare_v419_full_start.py','audit_v419_full_start'),
@@ -47,15 +47,16 @@ SCOPES={
     'os-si-dispatch':(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py','audit_v667_si_dispatch'),
     'os-si-ack':(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py','audit_v672_si_ack_route'),
     'os-si-os-leaves':(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py','audit_v709_os_leaves'),
+    'os-si-handler-time':(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py','audit_v742_handler_time'),
 }
-PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_',b'V470_ALARM_',b'V473_IRQ_',b'V476_MMIO_',b'V483_IRQ_RETURN_',b'V486_CONTEXT_',b'V488_REUSE_',b'V491_EXI_POLL_',b'V500_EXI_HANDLER_',b'V504_EXI_ID_',b'V510_EXI_ABSENT_',b'V520_SI_ENTRY_',b'V524_SI_SAMPLE_',b'V529_SI_DISCOVERY_',b'V534_SRAM_',b'V549_THREAD_',b'V556_AUDIO_',b'V559_DSP_STAGE',b'V574_DSP_SC_',b'V572_SC_DIRECT_ONLY',b'V581_DSP_',b'V591_MI_',b'V603_REPORT_',b'V609_ARENA_',b'V616_IRQ_',b'V663_EXTERNAL_',b'V667_SI_DISPATCH_',b'V672_SI_ACK_',b'V680_SI_HELPER_STAGE ',b'V688_SI_SECOND_STAGE ',b'V688_SI_SECOND_ACK ',b'V693_SI_NESTED_STAGE ',b'V693_SI_NESTED_ACK ',b'V699_POSTACK_',b'V709_OS_LEAF_',b'V719_POSTACK_LOOP_POLL ')
-FAILURE_PREFIXES=(b'V670_VECTOR_REFUSAL ',b'V678_DISPATCH_REFUSAL ',b'V673_SI_ACK_CALL ',b'V677_SI_ACK_WRITE_INVALID ',b'V680_SI_HELPER_INVALID ',b'V688_SI_SECOND_INVALID ',b'V688_SI_SECOND_CALL ',b'V693_SI_NESTED_INVALID ',b'V693_SI_NESTED_CALL ',b'V697_SI_READ_INVALID ',b'V697_SI_ACCESS_INVALID ',b'V711_POST_CONTROL ',b'V699_POSTACK_INVALID ',b'V709_OS_LEAF_INVALID ',b'V718_POSTACK_REFUSAL ')
+PREFIXES=(b'V419_FULL_START_',b'V425_HARDWARE_',b'V428_CACHE_',b'V430_DATA_',b'V433_OS_',b'V435_TIME_',b'V439_HW_',b'V444_ARENA_',b'V446_IPC_',b'V457_VECTOR_',b'V466_PACK_',b'V470_ALARM_',b'V473_IRQ_',b'V476_MMIO_',b'V483_IRQ_RETURN_',b'V486_CONTEXT_',b'V488_REUSE_',b'V491_EXI_POLL_',b'V500_EXI_HANDLER_',b'V504_EXI_ID_',b'V510_EXI_ABSENT_',b'V520_SI_ENTRY_',b'V524_SI_SAMPLE_',b'V529_SI_DISCOVERY_',b'V534_SRAM_',b'V549_THREAD_',b'V556_AUDIO_',b'V559_DSP_STAGE',b'V574_DSP_SC_',b'V572_SC_DIRECT_ONLY',b'V581_DSP_',b'V591_MI_',b'V603_REPORT_',b'V609_ARENA_',b'V616_IRQ_',b'V663_EXTERNAL_',b'V667_SI_DISPATCH_',b'V672_SI_ACK_',b'V680_SI_HELPER_STAGE ',b'V688_SI_SECOND_STAGE ',b'V688_SI_SECOND_ACK ',b'V693_SI_NESTED_STAGE ',b'V693_SI_NESTED_ACK ',b'V699_POSTACK_',b'V709_OS_LEAF_',b'V719_POSTACK_LOOP_POLL ',b'V726_HANDLER_',b'V742_TIME_')
+FAILURE_PREFIXES=(b'V670_VECTOR_REFUSAL ',b'V678_DISPATCH_REFUSAL ',b'V673_SI_ACK_CALL ',b'V677_SI_ACK_WRITE_INVALID ',b'V680_SI_HELPER_INVALID ',b'V688_SI_SECOND_INVALID ',b'V688_SI_SECOND_CALL ',b'V693_SI_NESTED_INVALID ',b'V693_SI_NESTED_CALL ',b'V697_SI_READ_INVALID ',b'V697_SI_ACCESS_INVALID ',b'V711_POST_CONTROL ',b'V699_POSTACK_INVALID ',b'V709_OS_LEAF_INVALID ',b'V718_POSTACK_REFUSAL ',b'V726_HANDLER_INVALID ',b'V742_TIME_INVALID ')
 ALLOWED={
     'startup':PREFIXES[:1], 'hardware':PREFIXES[1:2],
     'cache':PREFIXES[1:3], 'data':PREFIXES[1:4], 'os-entry':PREFIXES[1:5], 'os-time':PREFIXES[1:6],
     'os-hardware':PREFIXES[1:7], 'os-arena':PREFIXES[1:8], 'os-ipc':PREFIXES[1:9],
     'os-vector':PREFIXES[1:10], 'os-pack':PREFIXES[1:11],
-    'os-alarm':PREFIXES[1:12], 'os-irq':PREFIXES[1:13], 'os-mmio':PREFIXES[1:14], 'os-irq-return':PREFIXES[1:15], 'os-context':PREFIXES[1:16], 'os-cache-reuse':PREFIXES[1:17], 'os-exi-poll':PREFIXES[1:18], 'os-exi-handlers':PREFIXES[1:19], 'os-exi-id':PREFIXES[1:20], 'os-exi-absent':PREFIXES[1:21], 'os-si-entry':PREFIXES[1:22], 'os-si-sample':PREFIXES[1:23], 'os-si-return':PREFIXES[1:24], 'os-sram':PREFIXES[1:25], 'os-thread':PREFIXES[1:26], 'os-audio':PREFIXES[1:27], 'os-dsp-stage':PREFIXES[1:28], 'os-dsp-sc':PREFIXES[1:30], 'os-dsp-return':PREFIXES[1:31], 'os-report':PREFIXES[1:33], 'os-arena-clear':PREFIXES[1:34], 'os-external-entry':PREFIXES[1:36], 'os-si-dispatch':PREFIXES[1:37], 'os-si-ack':PREFIXES[1:43], 'os-si-os-leaves':PREFIXES[1:],
+    'os-alarm':PREFIXES[1:12], 'os-irq':PREFIXES[1:13], 'os-mmio':PREFIXES[1:14], 'os-irq-return':PREFIXES[1:15], 'os-context':PREFIXES[1:16], 'os-cache-reuse':PREFIXES[1:17], 'os-exi-poll':PREFIXES[1:18], 'os-exi-handlers':PREFIXES[1:19], 'os-exi-id':PREFIXES[1:20], 'os-exi-absent':PREFIXES[1:21], 'os-si-entry':PREFIXES[1:22], 'os-si-sample':PREFIXES[1:23], 'os-si-return':PREFIXES[1:24], 'os-sram':PREFIXES[1:25], 'os-thread':PREFIXES[1:26], 'os-audio':PREFIXES[1:27], 'os-dsp-stage':PREFIXES[1:28], 'os-dsp-sc':PREFIXES[1:30], 'os-dsp-return':PREFIXES[1:31], 'os-report':PREFIXES[1:33], 'os-arena-clear':PREFIXES[1:34], 'os-external-entry':PREFIXES[1:36], 'os-si-dispatch':PREFIXES[1:37], 'os-si-ack':PREFIXES[1:43], 'os-si-os-leaves':PREFIXES[1:-2], 'os-si-handler-time':PREFIXES[1:],
 }
 MAX_LOG=8*1024*1024
 
@@ -101,7 +102,8 @@ def launch_flags(scope,synthetic=False):
         flags={**launch_flags('os-arena-clear'),'UNDERCOVER_V616_IRQ':'1','UNDERCOVER_V663_EXTERNAL':'1'}
         if scope in EXTERNAL_SCOPES[1:]:flags['UNDERCOVER_V667_SI_DISPATCH']='1'
         if scope in EXTERNAL_SCOPES[2:]:flags['UNDERCOVER_V672_SI_ACK']='1'
-        if scope=='os-si-os-leaves':flags.update(UNDERCOVER_V699_SI_POSTACK='1',UNDERCOVER_V709_OS_LEAVES='1')
+        if scope in ('os-si-os-leaves','os-si-handler-time'):flags.update(UNDERCOVER_V699_SI_POSTACK='1',UNDERCOVER_V709_OS_LEAVES='1')
+        if scope=='os-si-handler-time':flags.update(UNDERCOVER_V726_HANDLER_RETURN='1',UNDERCOVER_V742_HANDLER_TIME='1')
         return flags
     if scope=='os-arena-clear':
         return {**launch_flags('os-report'), 'UNDERCOVER_V609_ARENA':'1'}
