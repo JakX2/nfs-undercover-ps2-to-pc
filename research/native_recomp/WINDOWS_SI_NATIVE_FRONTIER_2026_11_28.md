@@ -41,12 +41,19 @@ hardware call is not yet admitted.
 | --- | --- | --- |
 | --owner-callback-time | V813: original callback continuation through authentic OS time helper + leaf returns; V822 exact-time census | [46101497609](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46101497609) 24/24 source/integration passed; original execution pending |
 | --owner-callback-frontier | V831: original post-time callback continuation through its wireless-service branch, stopping **before** the wireless callee | [46101682908](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46101682908) 30/30 source/integration passed; original execution pending |
-| --owner-progression-matrix | Compile one complete Windows PE and relaunch with fresh state for seven successively enabled native SI, handler, callback and wireless-frontier stops | Latest 7-stage original-free Windows test passed; owner run still needed. Every step has its own strict validation and fails at the first incorrect gate |
+| --owner-progression-matrix | Compile one complete Windows PE and relaunch with fresh state for eleven successively enabled native SI, handler, callback, wireless and handler-return stops | [46103926739](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103926739) source and integration tests passed at `a7e73b9`; owner-original 11-stage run still needed. Every step has its own strict validation and fails at the first incorrect gate |
 
 The old single-build [46099124041](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46099124041)
 already proved callback prefix in one complete original Windows executable.
 The newer progression matrix must independently prove all later bounds
 before its additional results can be reported as original executed.
+
+## Later verified checkpoints (November 28, 2026)
+
+- [46100488015](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46100488015): original-owner Windows single-image pipeline passed its **five** authenticated SI/callback-prefix stages. Repeated launches used one compiled PE. This does not establish a callback return, handler return or native boot.
+- [46103388951](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103388951) (V923) and [46103389001](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103389001) (V933): owner-original Linux focused harnesses passed native handler-return / RFI checks in split and non-split configurations, eight valid trials each. Their resume/vector boundaries were synthetic and they do **not** authenticate a continuous Windows boot.
+- [46103926739](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103926739): the expanded **eleven-stage Windows source/integration regression** passed, including fail-closed callback and handler-return output checks. The predecessor [46103731727](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103731727) failed on stale ten-stage test assumptions, and [46103875745](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46103875745) caught a Python line-break regression; both were fixed before this passing run.
+- The V763 full-image handler-return stage is **implemented but not owner-original Windows verified**. The Linux native RFI fixture is a reference implementation, not evidence that the Windows single-image pipeline has reached RFI, OSInit resumption or main. Check the owner-original Windows workflow's redacted stage evidence before advancing this ledger.
 
 ## Technical next actions, in dependency order
 
