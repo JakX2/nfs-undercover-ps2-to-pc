@@ -18,6 +18,8 @@ on:
       - 'research/native_recomp/test_v762_windows_combined_callback.py'
       - 'research/native_recomp/windows_handler_return_v763.py'
       - 'research/native_recomp/test_v763_windows_handler_return.py'
+      - 'research/native_recomp/prepare_v921_windows_dispatcher_epilogue.py'
+      - 'research/native_recomp/test_v921_windows_dispatcher_epilogue.py'
       - '.github/workflows/wii-v757-windows-matrix-source.yml'
 permissions:
   contents: read
