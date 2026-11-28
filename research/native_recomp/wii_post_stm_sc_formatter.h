@@ -1233,7 +1233,8 @@ public:
     // after the independently observed original-127 label.
     template<class C>bool resume_caller_report_branch_128(C& c,
         uint32_t selected_pc,uint32_t selected_word,
-        uint32_t owner_size,bool held){
+        uint32_t owner_size,bool held,
+        std::optional<uint32_t> compare_successor={}){
         if(!reached_caller_report_sixth_immediate(c,held)||
            !next_entry_tenth_||selected_word==0x44000002u||
            owner_size<52u||owner_size>65536u||(owner_size&3u)||
@@ -1254,9 +1255,14 @@ public:
            (next_entry_lr_>=next_entry_pc_&&
             uint64_t(next_entry_lr_)<uint64_t(next_entry_pc_)+owner_size)||
            !word(c,selected_pc,selected_word)||
-           !word(c,selected_pc+4u,0x44000002u)||
+           !word(c,selected_pc+4u,compare_successor.value_or(0x44000002u))||
            !word(c,branch_pc+4u,0x44000002u))
             return fail(6);
+        if(compare_successor&&(selected_word>>26u!=11u||
+           (selected_word&0x00600000u)||*compare_successor==0x44000002u||
+           uint64_t(selected_pc)+12u>uint64_t(next_entry_pc_)+owner_size||
+           !word(c,selected_pc+8u,0x44000002u)))return fail(6);
+        compare_129_successor_=compare_successor;
         branch_128_pc_=selected_pc;
         branch_128_word_=selected_word;
         branch_128_size_=owner_size;
@@ -1266,8 +1272,7 @@ public:
     // its first instruction tick. No extra guest instruction is executed.
     template<class C>bool caller_report_branch_128_trace(C& c,uint32_t pc,bool held){
         if(stage_!=50u||branch_128_trace_seen_||pc!=branch_128_pc_||
-           !branch_128_size_||!word(c,pc,branch_128_word_)||
-           !word(c,pc+4u,0x44000002u)||
+           !branch_128_size_||!branch_128_tail(c)||
            !report_byte_storage(c,held,10u,branch_128_pc_))return fail(6);
         branch_128_trace_seen_=true;return true;
     }
@@ -1275,8 +1280,7 @@ public:
         uint32_t pc,uint32_t w,bool held){
         if(stage_!=50u||!branch_128_trace_seen_||pc!=branch_128_pc_||w!=branch_128_word_||
            !branch_128_size_||
-           !word(c,branch_128_pc_,branch_128_word_)||
-           !word(c,branch_128_pc_+4u,0x44000002u)||
+           !branch_128_tail(c)||
            !report_byte_storage(c,held,11u,branch_128_pc_))return fail(6);
         branch_128_completed_=true;stage_=51u;return true;
     }
@@ -1286,9 +1290,40 @@ public:
     template<class C>bool reached_caller_report_branch_128(C& c,
         bool held)const{
         return stage_==51u&&branch_128_trace_seen_&&branch_128_completed_&&
-            word(c,branch_128_pc_,branch_128_word_)&&
-            word(c,branch_128_pc_+4u,0x44000002u)&&
+            branch_128_tail(c)&&
             report_byte_storage(c,held,11u,branch_128_pc_);
+    }
+    // The independently proven constant and read-only comparison witness
+    // are both required. Lease exactly one further tick for the original
+    // translated cmpi while preserving the previous parent/frame overlay.
+    template<class C>bool resume_caller_report_compare_129(C& c,
+        unsigned source_reg,uint32_t source_value,bool transition_armed,bool held){
+        if(!reached_caller_report_branch_128(c,held)||!compare_129_successor_||
+           !transition_armed||source_reg>=32u||
+           branch_128_word_>>26u!=11u||
+           ((branch_128_word_>>16u)&31u)!=source_reg)return fail(6);
+        const std::array<CallerIntegerInput,1> input{{{source_reg,source_value}}};
+        const auto predicted=predict_caller_integer(
+            branch_128_word_,c.gpr,pack(c),c.xer,input);
+        if(!predicted||predicted->reg)return fail(6);
+        cr_=predicted->cr;
+        stage_=52u;return true;
+    }
+    template<class C>bool stop_after_caller_report_compare_129(C& c,
+        uint32_t pc,uint32_t w,bool transition_verified,bool held){
+        if(stage_!=52u||!transition_verified||!compare_129_successor_||
+           pc!=branch_128_pc_+4u||w!=*compare_129_successor_||
+           !branch_128_tail(c)||!report_byte_storage(c,held,12u,branch_128_pc_))
+            return fail(6);
+        compare_129_completed_=true;stage_=53u;return true;
+    }
+    unsigned caller_report_compare_129_visits()const{
+        return compare_129_completed_&&!error_?1u:0u;
+    }
+    template<class C>bool reached_caller_report_compare_129(C& c,bool held)const{
+        return stage_==53u&&compare_129_completed_&&branch_128_completed_&&
+            branch_128_trace_seen_&&branch_128_tail(c)&&
+            report_byte_storage(c,held,12u,branch_128_pc_);
     }
     template<class C>bool stop_before_instruction(C& c,uint32_t pc,uint32_t w,bool held){
         if(stage_!=1u||!e_.boundary.instruction||!boundary_due_||back_poll_due_||due_||
@@ -1360,8 +1395,8 @@ public:
            integer_completed_!=2u||post_integer_completed_!=1u)return 128u;
         // The current instruction is counted only in an armed stage.
         // Return-storage checks still enforce its exact one-tick delta.
-        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u;
-        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed);
+        const bool armed=stage_==14u||stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u||stage_==52u;
+        const auto extra=branch_completed_-2u+mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(compare_129_completed_)+unsigned(armed);
         if(extra>45u)return 128u;
         return std::max<uint64_t>(128u,parent_checkpoint_age_+extra);
     }
@@ -1369,10 +1404,10 @@ public:
     // budget for an ancestor frame. No budget comes from the live counter.
     std::optional<unsigned> caller_post_fourth_tick_budget()const{
         if(error_||!frame_released_||branch_completed_!=4u||integer_completed_!=2u||
-           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=51u)))return {};
-        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u;
+           post_integer_completed_!=1u||!(stage_==15u||(stage_>=18u&&stage_<=53u)))return {};
+        const bool armed=stage_==18u||stage_==20u||stage_==22u||stage_==24u||stage_==26u||stage_==28u||stage_==30u||stage_==32u||stage_==34u||stage_==36u||stage_==38u||stage_==40u||stage_==42u||stage_==44u||stage_==46u||stage_==48u||stage_==50u||stage_==52u;
         const unsigned n=mixed_completed_+unsigned(mixed_byte_completed_)+post_mixed_completed_+
-            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(armed);
+            unsigned(stack_move_completed_)+unsigned(final_integer_completed_)+unsigned(next_entry_completed_)+unsigned(report_byte_completed_)+unsigned(compare_completed_)+unsigned(report_copy_completed_)+unsigned(report_immediate_completed_)+unsigned(report_signext_completed_)+unsigned(report_second_immediate_completed_)+unsigned(report_third_immediate_completed_)+unsigned(report_fourth_immediate_completed_)+unsigned(report_fifth_immediate_completed_)+unsigned(report_sixth_immediate_completed_)+unsigned(branch_128_completed_)+unsigned(compare_129_completed_)+unsigned(armed);
         if(n>43u)return {};
         return n;
     }
@@ -1477,6 +1512,13 @@ private:
     bool report_sixth_immediate_completed_=false;
     uint32_t branch_128_pc_=0u,branch_128_word_=0u,branch_128_size_=0u;
     bool branch_128_completed_=false,branch_128_trace_seen_=false;
+    std::optional<uint32_t> compare_129_successor_{};
+    bool compare_129_completed_=false;
+    template<class C>bool branch_128_tail(C& c)const{
+        return branch_128_size_&&word(c,branch_128_pc_,branch_128_word_)&&
+            word(c,branch_128_pc_+4u,compare_129_successor_.value_or(0x44000002u))&&
+            (!compare_129_successor_||word(c,branch_128_pc_+8u,0x44000002u));
+    }
     template<class C>bool report_byte_storage(C& c,bool held,unsigned tick=1u,std::optional<uint32_t> dispatch_pc={})const{
         return next_entry_completed_&&next_entry_trace_seen_&&next_entry_successor_&&
             next_entry_storage(c,held,true,tick,dispatch_pc)&&mapped(c,{report_byte_address_,1u})&&

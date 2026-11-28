@@ -1022,14 +1022,20 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
     }
     if(follow<490)return;
     const uint32_t target128=next_entry+64u;
-    const uint32_t target_word=0x60000000u;
+    const bool compare129=follow>=520u;
+    const uint32_t target_word=compare129?
+        (11u<<26u)|(3u<<23u)|(8u<<16u)|0x8000u:0x60000000u;
+    const uint32_t successor129=0x60000000u;
     c.mmu.write32(target128,follow==495?guard_word:target_word);
-    c.mmu.write32(target128+4u,follow==496?target_word:guard_word);
+    c.mmu.write32(target128+4u,compare129?successor129:
+                  follow==496?target_word:guard_word);
+    if(compare129)c.mmu.write32(target128+8u,guard_word);
     if(follow==497)c.mmu.write32(next_entry+44u,target_word);
     const bool branch128_armed=child.resume_caller_report_branch_128(
         c,follow==491?target128+4u:target128,
         follow==492?guard_word:target_word,
-        follow==493?64u:80u,held()&&follow!=494);
+        follow==493?64u:80u,held()&&follow!=494,
+        compare129?std::optional<uint32_t>{successor129}:std::nullopt);
     if(follow>=491&&follow<=497){assert(!branch128_armed);return;}
     assert(branch128_armed&&child.stage()==50u);
     assert(child.caller_post_fourth_tick_budget()==20u);
@@ -1065,6 +1071,36 @@ static void caller_trial(unsigned fault,uint32_t seed,unsigned follow=0,uint64_t
         assert(!child.stop_after_caller_report_branch_128(
             c,target128,target_word,held()));return;
     }
+    if(!compare129)return;
+    if(follow==525)c.mmu.write32(target128+8u,successor129);
+    const bool compare_armed=child.resume_caller_report_compare_129(
+        c,follow==521?7u:8u,follow==522?0u:0xffff8000u,
+        follow!=523,held()&&follow!=524);
+    if(follow>=521&&follow<=525){assert(!compare_armed);return;}
+    assert(compare_armed&&child.stage()==52u&&
+           child.caller_post_fourth_tick_budget()==21u&&
+           child.caller_report_compare_129_visits()==0u);
+    // Synthetic architectural effect: equal signed operands, plus XER.SO.
+    c.cr[3]={false,false,true,bool(c.xer&0x80000000u)};
+    if(follow==526)c.cr[3].eq=false;
+    if(follow==527)c.cr[2].lt=!c.cr[2].lt;
+    if(follow==528)c.gpr[8]^=1u;
+    if(follow==529)c.pc=target128+4u;
+    if(follow==535)c.mmu.write32(target128+8u,successor129);
+    c.inst_count+=follow==530?2u:1u;
+    const bool compare_done=child.stop_after_caller_report_compare_129(
+        c,follow==531?target128:target128+4u,
+        follow==532?guard_word:successor129,follow!=533,held()&&follow!=534);
+    if(follow>=526&&follow<=535){assert(!compare_done);return;}
+    assert(compare_done&&child.stage()==53u&&
+           child.caller_report_compare_129_visits()==1u&&
+           child.caller_report_branch_128_visits()==1u&&
+           child.reached_caller_report_compare_129(c,held())&&
+           child.caller_post_fourth_tick_budget()==21u);
+    if(follow==536){
+        assert(!child.stop_after_caller_report_compare_129(
+            c,target128+4u,successor129,true,held()));return;
+    }
 }
 int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned i=0;i<=20;++i)caller_trial(i,0x1234beefu);
@@ -1091,6 +1127,7 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     for(unsigned follow=338;follow<=347;++follow)caller_trial(0,0x1234beefu,follow);
     for(unsigned follow=348;follow<=483;++follow)caller_trial(0,0x1234beefu,follow);
     for(unsigned follow=490;follow<=512;++follow)caller_trial(0,0x1234beefu,follow);
+    for(unsigned follow=520;follow<=536;++follow)caller_trial(0,0x1234beefu,follow);
     caller_trial(0,0x1234beefu,348,128u-baseline);
     // The full 124/125 stage transitions must also survive the original
     // parent's independently measured 128-tick lease threshold.
@@ -1099,4 +1136,6 @@ int main(){for(unsigned i=0;i<8;++i)trial(i);
     caller_trial(0,0x1234beefu,450,128u-baseline);
     caller_trial(0,0x1234beefu,470,128u-baseline);
     caller_trial(0,0x1234beefu,490,128u-baseline);
-    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=801 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 branch_128_cases=23 original_execution=0\n";}
+    caller_trial(0,0x1234beefu,520,128u-baseline);
+    std::cout<<"FORMATTER_NESTED_JOIN_TEST cases=801 compare_cases=10 copy_cases=46 immediate_cases=17 signext_second_cases=24 third_fourth_cases=33 fifth_sixth_cases=34 branch_128_cases=23 original_execution=0\n";
+    std::cout<<"FORMATTER_COMPARE_129_PARENT_SOURCE_ONLY cases=18 lease_budget=21 original_execution=0\n";}
