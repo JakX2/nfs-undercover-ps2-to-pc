@@ -220,8 +220,14 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
                 run_stage('si_helper_observer',[sys.executable,HOST/'prepare_v680_si_helper.py',dol,elf,generated],work,300)
                 run_stage('si_second_observer',[sys.executable,HOST/'prepare_v688_si_second.py',dol,elf,generated],work,300)
                 run_stage('si_nested_observer',[sys.executable,HOST/'prepare_v693_si_nested.py',dol,elf,generated],work,300)
-                if scope=='os-si-os-leaves':
+                if scope in ('os-si-os-leaves','os-si-handler-time'):
                     run_stage('si_os_leaf_observer',[sys.executable,HOST/'prepare_v709_os_leaves.py',dol,elf,generated],work,300)
+                if scope=='os-si-handler-time':
+                    # Compose the already authenticated Linux handler return
+                    # and the ordinal-3 time helper before compilation.
+                    # Neither installer executes or fabricates guest code.
+                    run_stage('handler_return_observer',[sys.executable,HOST/'prepare_v726_handler_return.py',dol,elf,generated],work,300)
+                    run_stage('handler_time_observer',[sys.executable,HOST/'prepare_v742_handler_time.py',dol,elf,generated],work,300)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
         if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
@@ -276,6 +282,10 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             from audit_v524_si_sampling import diagnostic
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
+        if scope=='os-si-handler-time':
+            from audit_v742_handler_time import diagnostic as handler_time_diagnostic
+            for line in raw.splitlines():
+                if handler_time_diagnostic(line):print(line.decode(),flush=True)
         if scope=='os-si-os-leaves':
             from audit_v709_os_leaves import public_diagnostic
             for line in raw.splitlines():
