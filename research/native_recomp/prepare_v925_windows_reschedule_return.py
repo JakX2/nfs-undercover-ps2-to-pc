@@ -95,7 +95,7 @@ template<class C>void resched_return_native(C& c,uint32_t pc,uint32_t w){
        !c.mmu.get_ptr(scheduler_counter_address+3u)||
        c.mmu.read32(scheduler_counter_address)!=scheduler_initial-1u||
        !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))resched_return_refusal(6);
+       c.mmu.read32(pc)!=w||!scheduler_held_after_tick(c))resched_return_refusal(6);
     for(unsigned i=14u;i<32u;++i)
         if(c.gpr[i]!=resched_return_gp[i])resched_return_refusal(7);
     std::cout<<"V925_WINDOWS_RESCHEDULE_RETURN scheduler_return=1 original_reschedule_return=1 original_dispatcher_resume=1 no_thread_switch=1 abi=1 context_loader_executed=0 rfi=0 boot_verified=0"<<std::endl;

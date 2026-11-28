@@ -59,6 +59,8 @@ template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
         out=patch_binding(base)
         self.assertIn('if(resched_return_enabled()){resched_return_arm(c);return;}',out)
         self.assertIn('V925_WINDOWS_RESCHEDULE_RETURN_INVALID reason=',out)
+        self.assertIn('c.mmu.read32(pc)!=w||!scheduler_held_after_tick(c))resched_return_refusal(6);',out)
+        self.assertIn('!v850::held(c))resched_return_refusal(5);',out)
         self.assertIn('!c.mmu.get_ptr(scheduler_counter_address+3u)||',out)
         self.assertIn('V925_WINDOWS_RESCHEDULE_RETURN',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('reschedule_return=0','reschedule_return=1'))

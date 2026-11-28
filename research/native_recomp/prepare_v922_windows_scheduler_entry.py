@@ -54,6 +54,12 @@ inline bool scheduler_enabled(){
     std::cout<<"V922_WINDOWS_SCHEDULER_INVALID reason="<<code<<std::endl;
     std::_Exit(126);
 }
+// The handler is finished, but its SI device completion is still held.
+// Advance only at a genuinely incremented native instruction boundary;
+// the existing device witness rejects skipped, repeated or altered ticks.
+template<class C>bool scheduler_held_after_tick(C& c){
+    return v850::held(c)||advance_restore(c);
+}
 template<class C>void scheduler_start(C& c,uint32_t pc,uint32_t w){
     if(scheduler_pending||scheduler_traced)scheduler_refusal(1);
     if(!dispatch_tick_seen||v726::witness.stage()!=5u)scheduler_refusal(2);
@@ -90,7 +96,7 @@ template<class C>void scheduler_native(C& c,uint32_t pc,uint32_t w){
        c.gpr[13]!=scheduler_r13||c.msr!=scheduler_msr)scheduler_refusal(15);
     if(!c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
        c.mmu.read32(pc)!=w)scheduler_refusal(16);
-    if(!v850::held(c))scheduler_refusal(17);
+    if(!scheduler_held_after_tick(c))scheduler_refusal(17);
     std::cout<<"V922_SCHEDULER_ENTRY original_handler_return=1 original_dispatcher_branch=1 original_scheduler_entry=1 native_tick=1 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }
@@ -139,7 +145,7 @@ def patch_post_handler_observers(s):
     if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);'''
     new='''template<class C>bool poll(C& c){
     if(scheduler_handoff){
-        if(v726::witness.stage()!=5u||!v850::held(c))reject(5);
+        if(v726::witness.stage()!=5u||!scheduler_held_after_tick(c))reject(5);
         return false;
     }
     if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);'''

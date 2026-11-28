@@ -79,7 +79,7 @@ class WindowsNativeRfi(unittest.TestCase):
                         result.index('scheduler_handoff=true;',result.index('if(windows_rfi_enabled()){')))
         self.assertIn('if(scheduler_handoff){',result)
         self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(6);',result)
-        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(5);',result)
+        self.assertIn('if(v726::witness.stage()!=5u||!scheduler_held_after_tick(c))reject(5);',result)
         with self.assertRaises(ValueError):
             patch_return(s.replace('inline thread_local bool scheduler_handoff=false;',''))
         with self.assertRaises(ValueError):

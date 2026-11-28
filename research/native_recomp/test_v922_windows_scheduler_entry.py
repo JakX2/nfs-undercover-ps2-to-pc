@@ -66,6 +66,15 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('scheduler_trace(uint32_t addr,C& c)',out)
         self.assertIn('V922_WINDOWS_SCHEDULER_INVALID reason=',out)
         self.assertEqual(out.count('scheduler_refusal('),18)
+        # Native Windows run #51 reached the first original scheduler tick,
+        # then refused reason=17 because the device still held the prior
+        # tick. Only post-tick witnesses may advance the native device.
+        self.assertIn('return v850::held(c)||advance_restore(c);',out)
+        self.assertIn('if(!scheduler_held_after_tick(c))scheduler_refusal(17);',out)
+        self.assertIn('if(!v850::held(c))scheduler_refusal(6);',out)
+        self.assertIn('if(!v850::held(c))scheduler_refusal(11);',out)
+        self.assertEqual(out.count('scheduler_held_after_tick(c)'),1)
+        self.assertEqual(out.count('advance_restore(c)'),1)
         self.assertIn('std::_Exit(126);',out)
 
 
@@ -80,8 +89,12 @@ template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
         self.assertIn('scheduler_pending=true;scheduler_handoff=true;',out)
         self.assertIn('if(scheduler_enabled()){scheduler_start(c,pc,w);return;}',out)
         self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(6);',out)
-        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(5);',out)
+        self.assertIn('if(v726::witness.stage()!=5u||!scheduler_held_after_tick(c))reject(5);',out)
         self.assertEqual(out.count('if(scheduler_handoff){'),2)
+        self.assertIn('if(v726::witness.stage()!=5u||!scheduler_held_after_tick(c))reject(5);',out)
+        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(6);',out)
+        # Calling the helper twice at one tick is idempotent while held.
+        self.assertIn('return v850::held(c)||advance_restore(c);',out)
         self.assertIn('if(!restore_enabled()||restore.stage()!=1u',out)
         self.assertIn('if(!v850::held(c)||!v726::witness.poll(c,true))reject(5);',out)
         self.assertLess(out.index('if(scheduler_pending||scheduler_traced)scheduler_refusal(1);'),

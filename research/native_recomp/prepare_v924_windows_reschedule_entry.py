@@ -75,7 +75,7 @@ template<class C>void resched_native(C& c,uint32_t pc,uint32_t w){
        c.gpr[13]!=resched_r13||c.gpr[3]!=resched_arg||
        c.msr!=resched_msr||!c.mmu.get_ptr(pc)||
        !c.mmu.get_ptr(pc+3u)||c.mmu.read32(pc)!=w||
-       !v850::held(c))resched_refusal(3);
+       !scheduler_held_after_tick(c))resched_refusal(3);
     std::cout<<"V924_WINDOWS_RESCHEDULE_ENTRY original_handler_return=1 scheduler_return=1 original_reschedule_branch=1 native_entry_tick=1 reschedule_return=0 rfi=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
 }

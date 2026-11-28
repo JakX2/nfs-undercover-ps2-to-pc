@@ -59,6 +59,8 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
         out=patch_binding(base)
         self.assertIn('if(resched_enabled()){resched_arm(c,pc,w);return;}',out)
         self.assertIn('V924_WINDOWS_RESCHEDULE_ENTRY_INVALID reason=',out)
+        self.assertIn('!scheduler_held_after_tick(c))resched_refusal(3);',out)
+        self.assertIn('!v850::held(c))resched_refusal(2);',out)
         self.assertIn('V924_WINDOWS_RESCHEDULE_ENTRY',out)
         with self.assertRaises(ValueError):patch_binding(base.replace('original_enable=1','original_enable=0'))
         self.assertIn('resched_trace(uint32_t addr,C& c)',out)

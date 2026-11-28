@@ -90,7 +90,7 @@ template<class C>void scheduler_return(C& c,uint32_t pc,uint32_t w){
        !c.mmu.get_ptr(scheduler_counter_address)||
        c.mmu.read32(scheduler_counter_address)!=scheduler_initial-1u||
        !c.mmu.get_ptr(pc)||!c.mmu.get_ptr(pc+3u)||
-       c.mmu.read32(pc)!=w||!v850::held(c))scheduler_return_refusal(6);
+       c.mmu.read32(pc)!=w||!scheduler_held_after_tick(c))scheduler_return_refusal(6);
     for(unsigned i=14u;i<32u;++i)
         if(c.gpr[i]!=scheduler_return_gp[i])scheduler_return_refusal(7);
     std::cout<<"V923_WINDOWS_SCHEDULER_RETURN original_handler_return=1 original_enable=1 disable=1 restore=1 counter=1 abi=1 reschedule_executed=0 rfi=0 boot_verified=0"<<std::endl;
