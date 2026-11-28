@@ -72,6 +72,9 @@ def plan(scope: str, synthetic: bool, prefix: bool, time_suffix: bool,
             observers += (('combined_callback_observer', 'prepare_v863_combined_callback.py'),)
             env['UNDERCOVER_V850_CALLBACK_RETURN'] = '1'
         if handler_return:
+            # Include the authenticated original scheduler and RFI loader
+            # in the same full-image translation, but do not execute them.
+            analyzer += ('--epilogue',)
             observers += (
                 ('handler_suffix_observer', 'prepare_v868_handler_suffix.py'),
                 ('handler_epilogue_observer', 'prepare_v919_handler_epilogue.py'),

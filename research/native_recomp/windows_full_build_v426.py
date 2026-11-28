@@ -258,6 +258,10 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
                         inputs=[generated] if stage=='transfer_suffix_observer' else [dol,elf,generated]
                         run_stage(stage,[sys.executable,HOST/script,*inputs],work,300)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
+        if scope=='os-si-handler-time' and (owner_handler_return or owner_progression_matrix):
+            # Read-only native-label and direct-edge proof for scheduler,
+            # reschedule and context RFI loader. No RFI execution claim.
+            run_stage('dispatcher_epilogue_preflight',[sys.executable,HOST/'prepare_v921_windows_dispatcher_epilogue.py',dol,elf,generated],work,300)
         if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
             run_stage('bat_translation_audit',[sys.executable,HOST/'audit_v584_bat_translation.py',dol,generated],work,300)

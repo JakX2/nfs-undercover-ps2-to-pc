@@ -45,6 +45,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v758_windows_callback_time.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m unittest discover -s research/native_recomp -p test_v921_windows_dispatcher_epilogue.py -v
+          if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v757_windows_progression_matrix.py -v
           if ($LASTEXITCODE -ne 0) { exit 1 }
           python -m unittest discover -s research/native_recomp -p test_v756_windows_callback_prefix.py -v

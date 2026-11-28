@@ -46,6 +46,7 @@ class WindowsHandlerReturn(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):
                 plan(**args)
         self.assertIn('owner_handler_return',std_inspect.signature(windows_build).parameters)
+        self.assertEqual(p.analyzer[-1], '--epilogue')
 
     def test_actual_return_on_changed_and_unchanged_id(self):
         for changed in (True,False):

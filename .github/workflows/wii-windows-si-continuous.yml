@@ -69,6 +69,7 @@ jobs:
             'test_v761_windows_wireless_write.py',
             'test_v762_windows_combined_callback.py',
             'test_v763_windows_handler_return.py',
+            'test_v921_windows_dispatcher_epilogue.py',
             'test_v868_handler_suffix.py',
             'test_v919_handler_epilogue.py',
             'test_v920_handler_return.py',
