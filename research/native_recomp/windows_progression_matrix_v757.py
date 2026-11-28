@@ -92,14 +92,17 @@ def run(exe: Path, dol: Path, config: Path, launch: Path,
             row, ok = stage.auditor(raw, rc, timeout)
         if row:
             report(row)
-        report('V757_WINDOWS_PROGRESSION stage=' + stage.name
-               + ' verified=' + str(int(ok)) + ' boot_verified=0')
         if not ok:
             # Print only exactly recognized, bounded diagnostic refusal
             # markers, never raw owner output, instructions or guest state.
             for line in raw.splitlines():
                 if b'_INVALID ' in line and stage.diagnostic(line) and len(line) <= 256:
                     report(line.decode('ascii'))
+        # Always leave the redacted verdict as the final stage marker,
+        # including after a known original instruction/MMIO refusal.
+        report('V757_WINDOWS_PROGRESSION stage=' + stage.name
+               + ' verified=' + str(int(ok)) + ' boot_verified=0')
+        if not ok:
             raise ProgressionFailure(stage.name)
     report('V757_WINDOWS_PROGRESSION completed=5 full_image=1'
            ' compiler_reused=1 native=1 handler_return=0 boot_verified=0')
