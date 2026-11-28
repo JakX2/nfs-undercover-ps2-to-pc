@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from test_v434_windows_startup_scope import OS_SI_HANDLER_TIME, log
-from windows_transfer_prefix_v751 import launch_overlay, inspect, diagnostic
+from windows_transfer_prefix_v751 import launch_overlay, inspect, diagnostic, plan
 from windows_full_build_v426 import build as windows_build
 
 TAIL = [
@@ -22,6 +22,14 @@ def sample(prefix=None, tail=None):
 
 
 class WindowsTransferPrefixTests(unittest.TestCase):
+    def test_transfer_analyzer_and_observer_contract(self):
+        p = plan('os-si-handler-time', False, True, False)
+        self.assertEqual(p.analyzer, ('--transfer-prefix',))
+        self.assertEqual(p.observers, (('transfer_prefix_observer', 'prepare_v768_transfer_prefix.py'),))
+        self.assertEqual(p.env, launch_overlay('os-si-handler-time', False, True, False))
+        control = plan('os-si-handler-time', False, False, False)
+        self.assertEqual(control, ({}, (), ()))
+
     def test_isolated_launch_option(self):
         expected = {'UNDERCOVER_V747_TIME_SUFFIX': '1',
                     'UNDERCOVER_V768_TRANSFER_PREFIX': '1'}

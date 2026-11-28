@@ -12,7 +12,8 @@ from windows_startup_scope_v434 import SCOPES,contract,audit,launch_flags,requir
 from write_exi_profile_v505 import encode as encode_exi_profile,create as create_exi_profile
 from write_sram_profile_v536 import sram_fixture
 from windows_time_suffix_v750 import launch_overlay, inspect as inspect_suffix
-from windows_transfer_prefix_v751 import launch_overlay as transfer_overlay, inspect as inspect_transfer
+from windows_transfer_prefix_v751 import plan as make_transfer_plan, inspect as inspect_transfer
+from windows_transfer_return_v752 import inspect as inspect_transfer_return
 
 HOST=Path(__file__).resolve().parent
 PIN='595f176f1d24cc54ff2e8389feed12d7fb553cc2'
@@ -159,7 +160,7 @@ def audit_owner_start(raw,rc,scope):
     owner_scope(scope,False)
     return audit(raw,rc,scope)
 
-def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False):
+def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy_ticks=False,owner_time_suffix=False,owner_transfer_prefix=False,owner_transfer_return=False):
     if os.name!='nt':raise BuildError('windows_required')
     root=root.resolve();work=work.absolute()
     if work.exists() or work.is_symlink() or root==work or root in work.resolve().parents:raise BuildError('fresh_work')
@@ -167,7 +168,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     if synthetic!=(elf is None):raise BuildError('input_pair')
     try: suffix_env=launch_overlay(scope,synthetic,owner_time_suffix)
     except ValueError as e:raise BuildError('suffix_scope') from e
-    try: transfer_env=transfer_overlay(scope,synthetic,owner_transfer_prefix,owner_time_suffix)
+    try: transfer_plan=make_transfer_plan(scope,synthetic,owner_transfer_prefix,owner_time_suffix,owner_transfer_return)
     except ValueError as e:raise BuildError('transfer_scope') from e
     extra_patches,observer=owner_scope(scope,synthetic)
     if requires_exi_profile(scope) and legacy_ticks:raise BuildError('exi_requires_native_ticks')
@@ -194,7 +195,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         run_stage('bat_roots',[sys.executable,HOST/'apply_bat_roots_v586.py',root],work,60)
         run_stage('report_table',[sys.executable,HOST/'apply_report_table_v594.py',root,dol,elf],work,60)
     if scope in EXTERNAL_SCOPES:
-        run_stage('si_roots',[sys.executable,HOST/'apply_si_roots_v669.py',root,dol,elf,*(['--first-ack-helper'] if scope in EXTERNAL_SCOPES[2:] else [])],work,120)
+        helper_args=['--first-ack-helper'] if scope in EXTERNAL_SCOPES[2:] else []
+        run_stage('si_roots',[sys.executable,HOST/'apply_si_roots_v669.py',root,dol,elf,*helper_args,*transfer_plan.analyzer],work,120)
     portable_patch(root)
     sc_overlay=requires_sc_overlay(scope)
     src=work/'translator-src';src.mkdir();(src/'CMakeLists.txt').write_text(translator_project(HOST,root,sc_overlay),encoding='utf-8')
@@ -234,8 +236,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
                     # Neither installer executes or fabricates guest code.
                     run_stage('handler_return_observer',[sys.executable,HOST/'prepare_v726_handler_return.py',dol,elf,generated],work,300)
                     run_stage('handler_time_observer',[sys.executable,HOST/'prepare_v742_handler_time.py',dol,elf,generated],work,300)
-                    if owner_transfer_prefix:
-                        run_stage('transfer_prefix_observer',[sys.executable,HOST/'prepare_v768_transfer_prefix.py',dol,elf,generated],work,300)
+                    for stage,script in transfer_plan.observers:
+                        run_stage(stage,[sys.executable,HOST/script,dol,elf,generated],work,300)
             run_stage('external_translation_audit',[sys.executable,HOST/'audit_v662_external_overlay.py',dol,generated],work,300)
         if scope in REPORT_SCOPES:
             run_stage('report_translation_audit',[sys.executable,HOST/'audit_v594_report_translation.py',dol,elf,generated],work,300)
@@ -252,7 +254,7 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     env.update(NWII_HEADLESS='1',NWII_TRACE_CALLS='1',SDL_VIDEODRIVER='dummy',SDL_AUDIODRIVER='dummy',USERPROFILE=str(launch),HOME=str(launch))
     env.update(launch_flags(scope,synthetic))
     env.update(suffix_env)
-    env.update(transfer_env)
+    env.update(transfer_plan.env)
     if requires_exi_profile(scope):
         profile=launch/'exi-test-profile.txt'
         sram=sram_fixture() if requires_sram_profile(scope) else bytes(64)
@@ -273,7 +275,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
         ok=(not launch_status['expired'] and rc==0 and
             markers==[b'V426_SYNTHETIC_SWAP verified=1'])
     else:
-        if owner_transfer_prefix:
+        if owner_transfer_return:
+            row,ok=inspect_transfer_return(raw,rc,launch_status['expired'])
+        elif owner_transfer_prefix:
             row,ok=inspect_transfer(raw,rc,launch_status['expired'])
         elif owner_time_suffix:
             row,ok=inspect_suffix(raw,rc,launch_status['expired'])
@@ -299,7 +303,9 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
             diag=diagnostic(raw,rc)
             if diag:print(diag,flush=True)
         if scope=='os-si-handler-time':
-            if owner_transfer_prefix:
+            if owner_transfer_return:
+                from windows_transfer_return_v752 import diagnostic as handler_time_diagnostic
+            elif owner_transfer_prefix:
                 from windows_transfer_prefix_v751 import diagnostic as handler_time_diagnostic
             elif owner_time_suffix:
                 from windows_time_suffix_v750 import diagnostic as handler_time_diagnostic
@@ -329,8 +335,8 @@ def build(root,work,dol=None,elf=None,scope='startup',legacy_loader=False,legacy
     print(f'V441_WINDOWS_TICKS corrected={int(not legacy_ticks)} launch_verified=1 boot_verified=0',flush=True)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before MMIO');a=p.parse_args()
-    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('upstream',type=Path);p.add_argument('work',type=Path);p.add_argument('--owner-dol',type=Path);p.add_argument('--owner-elf',type=Path);p.add_argument('--owner-scope',choices=tuple(SCOPES),default='startup');p.add_argument('--legacy-loader',action='store_true');p.add_argument('--legacy-ticks',action='store_true');p.add_argument('--owner-time-suffix',action='store_true',help='Opt-in first refused post-time original handler call; never a boot assertion');p.add_argument('--owner-transfer-prefix',action='store_true',help='Opt-in original fourth-call SI transfer prefix; stop before next unadmitted call or MMIO');p.add_argument('--owner-transfer-return',action='store_true',help='Opt-in original fourth SI transfer return with native device; stop before handler resume instruction');a=p.parse_args()
+    try:build(a.upstream,a.work,a.owner_dol.resolve() if a.owner_dol else None,a.owner_elf.resolve() if a.owner_elf else None,a.owner_scope,a.legacy_loader,a.legacy_ticks,a.owner_time_suffix,a.owner_transfer_prefix,a.owner_transfer_return)
     except BuildError as e:
         print('V426_WINDOWS_FAILED reason='+str(e));return 1
     except (OSError,ValueError,struct.error,subprocess.SubprocessError):
