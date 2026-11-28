@@ -74,6 +74,22 @@ int main(){
         scheduler.advance(++tick);ok=w.after_return(tick);
         if(trial>=21){CHECK(!ok);++refused;continue;}
         CHECK(ok&&ctl.issued_tokens()==2&&w.reads()==1&&w.writes()==3);++valid;
+        if(trial==0u||trial==1u){
+            // After a real SI transfer completed, the same latched source
+            // remains valid through more original-instruction ticks than
+            // the 33-label Windows scheduler and interrupt-leaf window.
+            for(unsigned native_tick=0;native_tick<48u;++native_tick){
+                scheduler.advance(++tick);
+                CHECK(w.after_return_at(tick)&&w.held_now());
+            }
+            if(trial==0u){
+                // Even with the real device advanced, a skipped guest tick
+                // is never a successful native continuation.
+                tick+=2u;scheduler.advance(tick);
+                CHECK(!w.after_return_at(tick)&&w.failure()==7u);
+            }
+        }
+
     }
     CHECK(valid==5&&refused==25);
     unsigned status_ok=0,status_bad=0;
