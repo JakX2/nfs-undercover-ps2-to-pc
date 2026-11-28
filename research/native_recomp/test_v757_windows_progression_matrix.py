@@ -54,7 +54,7 @@ def simulate(contents=FIXTURES, codes=EXIT, timeouts=None):
 
 
 class WindowsProgression(unittest.TestCase):
-    def test_exact_five_service_boundaries(self):
+    def test_exact_stage_progression(self):
         self.assertEqual(tuple(s.name for s in STAGES),
                          ('transfer-return', 'transfer-suffix', 'alarm-return',
                           'alarm-suffix', 'callback-prefix', 'callback-time', 'callback-frontier', 'wireless-wrapper', 'wireless-write', 'combined-callback', 'handler-return'))
@@ -62,7 +62,7 @@ class WindowsProgression(unittest.TestCase):
         for i, stage in enumerate(STAGES):
             env = stage_environment(BASE, stage)
             self.assertEqual({key for key in OPTIONAL if key in env},
-                             set(OPTIONAL[:i]))
+                             set(stage.enable))
             self.assertEqual(env[REQUIRED[0]], '1')
             self.assertEqual(env[REQUIRED[1]], '1')
             self.assertEqual(BASE, {key: '1' for key in REQUIRED})
@@ -93,13 +93,13 @@ class WindowsProgression(unittest.TestCase):
                 self.assertFalse(completed)
                 self.assertIn('callback_return=0 outer_dispatch=0', row)
                 contents = list(FIXTURES)
-                contents[-1] = earlier
+                contents[9] = earlier
                 seen, output, failure = simulate(contents=tuple(contents))
                 self.assertEqual(len(seen), 10)
                 self.assertEqual(failure, 'combined-callback')
                 self.assertIn('callback_return=0 outer_dispatch=0',
                               '\\n'.join(output))
-                self.assertFalse(any('completed=10' in r for r in output))
+                self.assertFalse(any('completed=11' in r for r in output))
 
         for changed in (True, False):
             with self.subTest(returned=changed):
