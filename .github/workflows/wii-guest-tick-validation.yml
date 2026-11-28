@@ -1,0 +1,24 @@
+name: Wii Guest-only Dispatcher Return Contract Validation
+on:
+  push:
+    branches: [research/wii-guest-tick-compat-validation]
+permissions:
+  contents: read
+jobs:
+  original-free-return-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile real return witnesses with legacy and V438 guest-only counters
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v438_guest_only_return_contracts.py -v
+      - name: Check direct native return witness audit interfaces
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v850_callback_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v920_handler_return.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v922_windows_scheduler_entry.py -v
+      - name: Verify native builder/source-only diagnostic seams
+        run: |
+          python3 -m unittest discover -s research/native_recomp -p test_v438_native_tick.py -v
+          python3 -m unittest discover -s research/native_recomp -p test_v663_external_entry.py -v
