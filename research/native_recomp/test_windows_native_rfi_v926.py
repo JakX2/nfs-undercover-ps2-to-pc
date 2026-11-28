@@ -6,13 +6,14 @@ from pathlib import Path
 from prepare_windows_native_rfi_v926 import patch_return,patch_entry,patch_label
 from prepare_windows_rfi_context_bridge import patch_handler,patch_external
 from prepare_v667_si_dispatch import patch_binding as patch_dispatcher
-from prepare_v922_windows_scheduler_entry import patch_binding as patch_scheduler_entry
+from prepare_v922_windows_scheduler_entry import patch_binding as patch_scheduler_entry,patch_post_handler_observers
 from prepare_v923_windows_scheduler_return import patch_binding as patch_scheduler_return
 from prepare_v924_windows_reschedule_entry import patch_binding as patch_reschedule_entry
 from prepare_v925_windows_reschedule_return import patch_binding as patch_reschedule_return
 
 HERE=Path(__file__).resolve().parent
 BASE='''#include "v920_private_handler_resume.h"
+inline thread_local bool scheduler_handoff=false;
 template<class C>void dispatcher_resume(C& c,uint32_t pc,uint32_t w){
     std::cout<<"V920_HANDLER_RETURN original_blr=1 original_dispatcher=1 abi=1 outer_tick=1 follow_held=1 dispatcher_instruction_executed=0 rfi_return=0 boot_verified=0"<<std::endl;
     std::_Exit(0);
@@ -50,11 +51,39 @@ class WindowsNativeRfi(unittest.TestCase):
         self.assertIn('if(windows_context_bridge_enabled())',s)
         self.assertIn('!v921::join.captured()',s)
         self.assertIn('v922::begin(c,pc,w);',s)
+        self.assertLess(s.index('v922::begin(c,pc,w);'),
+                        s.index('scheduler_handoff=true;',s.index('if(windows_rfi_enabled()){')))
         self.assertLess(s.index('WINDOWS_RFI_CONTEXT_JOIN'),s.index('if(windows_rfi_enabled()){'))
         self.assertLess(s.index('if(windows_rfi_enabled()){'),
                         s.index('if(scheduler_enabled()){scheduler_start(c,pc,w);return;}'))
         self.assertEqual(s.count('#include "wii_live_irq_return_binding_v922.h"'),1)
         with self.assertRaises(ValueError):patch_return(s)
+
+
+    def test_full_handler_scheduler_rfi_source_integration(self):
+        from prepare_v919_handler_epilogue import patch_binding as epilogue
+        from prepare_v920_handler_return import patch_binding as handler_return
+        source=(HERE/'wii_handler_suffix_binding_v868.h').read_text(encoding='utf-8')
+        s=patch_scheduler_entry(handler_return(epilogue(source)))
+        s=patch_post_handler_observers(s)
+        s=patch_scheduler_return(s)
+        s=patch_reschedule_entry(s)
+        s=patch_reschedule_return(s)
+        s=patch_handler(s)
+        result=patch_return(s)
+        self.assertEqual(result.count('inline thread_local bool scheduler_handoff=false;'),1)
+        self.assertEqual(result.count('scheduler_handoff=true;'),2)
+        self.assertIn('scheduler_pending=true;scheduler_handoff=true;',result)
+        self.assertIn('v922::begin(c,pc,w);',result)
+        self.assertLess(result.index('v922::begin(c,pc,w);'),
+                        result.index('scheduler_handoff=true;',result.index('if(windows_rfi_enabled()){')))
+        self.assertIn('if(scheduler_handoff){',result)
+        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(6);',result)
+        self.assertIn('if(v726::witness.stage()!=5u||!v850::held(c))reject(5);',result)
+        with self.assertRaises(ValueError):
+            patch_return(s.replace('inline thread_local bool scheduler_handoff=false;',''))
+        with self.assertRaises(ValueError):
+            patch_return(result)
 
     def test_unjoined_or_unverified_windows_binding_refused(self):
         s=self.binding()

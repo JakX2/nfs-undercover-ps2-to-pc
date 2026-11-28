@@ -53,6 +53,8 @@ def patch_return(s:str)->str:
     """RFI route is selected only at the already-authenticated V920 return."""
     if type(s) is not str or 'windows_rfi_enabled' in s:
         raise ValueError('Windows RFI return duplicate')
+    if s.count('inline thread_local bool scheduler_handoff=false;')!=1:
+        raise ValueError('Windows RFI handler handoff')
     s=replace_exact(s,'#include "wii_saved_context_join_v921.h"',
         '#include "wii_saved_context_join_v921.h"\n'
         '#include "wii_live_irq_return_binding_v922.h"')
@@ -74,6 +76,8 @@ def patch_return(s:str)->str:
         if(!windows_context_bridge_enabled()||
            !v921::join.captured()||v921::join.stage()!=2u)reject(6);
         v922::begin(c,pc,w);
+        // A successful original entry retires the completed handler lane.
+        scheduler_handoff=true;
         return;
     }
 '''+anchor)
