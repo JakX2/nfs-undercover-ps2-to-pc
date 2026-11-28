@@ -44,6 +44,22 @@ class WindowsContextBridge(unittest.TestCase):
         self.assertLess(source.index("run_stage('rfi_context_bridge',"),
                         source.index("run_stage('external_translation_audit'"))
 
+    def test_context_bridge_composes_with_original_dispatcher_and_si_observers(self):
+        # The real full-image installer runs after the V667 SI dispatcher
+        # and V920 native handler return. It must not replace either route.
+        from prepare_v667_si_dispatch import patch_binding as patch_dispatcher
+        external=(HOST/'wii_external_entry_binding_v663.h').read_text(encoding='utf-8')
+        original=patch_dispatcher(external)
+        patched=patch_external(original)
+        self.assertIn('if(v667::route.stage())return v667::poll(c);',patched)
+        self.assertIn('if(v667::route.stage()){v667::observe(a,c);return;}',patched)
+        self.assertIn('if(entered&&capture_enabled())',patched)
+        self.assertIn('v921::join.attach(c,capture.witness()',patched)
+        self.assertEqual(patched.count('V751_CAPTURE_STAGE n=2'),1)
+        self.assertIn('V663_EXTERNAL_RESULT',patched)
+        self.assertEqual(patched.count('#include "wii_saved_context_join_v921.h"'),1)
+        with self.assertRaises(ValueError):patch_external(patched)
+
     def test_exact_capture_and_post_handler_join_gated_by_environment(self):
         external=(HOST/'wii_external_entry_binding_v663.h').read_text(encoding='utf-8')
         patched=patch_external(external)
