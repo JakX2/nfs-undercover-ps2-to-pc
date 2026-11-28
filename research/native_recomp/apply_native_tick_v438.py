@@ -21,6 +21,16 @@ TICK='out << "    ++ctx.inst_count;\\n";'
 DISPATCH_BEFORE='    out << "        uint32_t target = ctx.pc;\\n        if ((++ctx.inst_count % "'
 DISPATCH_AFTER='    out << "        uint32_t target = ctx.pc;\\n        if (ctx.inst_count && (ctx.inst_count % "'
 
+# An instruction-count milestone may be visited repeatedly by host dispatch
+# without another translated guest instruction (e.g. callback/RFI churn).
+# Report each milestone once per run_game invocation, never once per host edge.
+HISTORY='    out << "    static uint32_t pc_history[10] = {0};\\n";'
+HISTORY_ONCE='    out << "    uint64_t last_dispatch_diagnostic_count = 0;\\n";\n'+HISTORY
+DIAGNOSTIC='           "100000) == 0) std::cout << \\"Dispatcher PC: 0x\\" << std::hex << "'
+DIAGNOSTIC_ONCE='           "100000) == 0 && ctx.inst_count != last_dispatch_diagnostic_count) { last_dispatch_diagnostic_count = ctx.inst_count; std::cout << \\"Dispatcher PC: 0x\\" << std::hex << "'
+DIAGNOSTIC_END='           "target << std::endl;\\n";'
+DIAGNOSTIC_END_ONCE='           "target << std::endl; }\\n";'
+
 def rewrite(source, *, require_dispatch=False):
     if type(source) is not str or type(require_dispatch) is not bool:
         raise ValueError('native tick source')
@@ -52,6 +62,24 @@ def rewrite(source, *, require_dispatch=False):
         raise ValueError('ambiguous host dispatcher ticks')
     if require_dispatch and out.count(DISPATCH_AFTER)!=2:
         raise ValueError('missing host dispatch wrappers')
+    if out.count(DISPATCH_AFTER)==2:
+        state=(out.count(HISTORY),out.count(HISTORY_ONCE),
+               out.count(DIAGNOSTIC),out.count(DIAGNOSTIC_ONCE),
+               out.count(DIAGNOSTIC_END),out.count(DIAGNOSTIC_END_ONCE))
+        if state==(2,0,2,0,2,0):
+            updated=(out.replace(HISTORY,HISTORY_ONCE,2)
+                        .replace(DIAGNOSTIC,DIAGNOSTIC_ONCE,2)
+                        .replace(DIAGNOSTIC_END,DIAGNOSTIC_END_ONCE,2))
+            if (updated.replace(DIAGNOSTIC_END_ONCE,DIAGNOSTIC_END,2)
+                       .replace(DIAGNOSTIC_ONCE,DIAGNOSTIC,2)
+                       .replace(HISTORY_ONCE,HISTORY,2))!=out:
+                raise ValueError('dispatcher diagnostic roundtrip')
+            out=updated
+        elif state!=(2,2,0,2,0,2):
+            raise ValueError('ambiguous dispatcher diagnostic geometry')
+    elif any(x in out for x in (HISTORY_ONCE,DIAGNOSTIC_ONCE,
+                                DIAGNOSTIC_END_ONCE)):
+        raise ValueError('orphan dispatcher diagnostic patch')
     return out
 
 

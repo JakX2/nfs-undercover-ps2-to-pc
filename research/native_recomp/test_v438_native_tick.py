@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from apply_native_tick_v438 import (BEFORE,AFTER,LABEL,LABEL_TICK,TICK,FILE,
-    DISPATCH_BEFORE,DISPATCH_AFTER,rewrite,apply)
+    DISPATCH_BEFORE,DISPATCH_AFTER,HISTORY,HISTORY_ONCE,DIAGNOSTIC,\
+    DIAGNOSTIC_ONCE,DIAGNOSTIC_END,DIAGNOSTIC_END_ONCE,rewrite,apply)
 
 SOURCE='''void emit_function(){
   for(const auto& inst: instructions){
@@ -17,7 +18,7 @@ void emit_instruction(){
 }
 '''
 
-FULL_SOURCE=SOURCE+'\n'+DISPATCH_BEFORE+'\n'+DISPATCH_BEFORE+'\n'
+FULL_SOURCE=SOURCE+'\n'+(HISTORY+DISPATCH_BEFORE+'\n'+DIAGNOSTIC+'\n'+DIAGNOSTIC_END+'\n')*2
 
 class Tests(unittest.TestCase):
     def test_geometry(self):
@@ -104,6 +105,51 @@ class Tests(unittest.TestCase):
                 result = subprocess.run([str(root/'dispatch')], capture_output=True)
                 self.assertEqual(result.returncode, 0 if patched else 1,
                                  result.stderr.decode('utf-8', errors='replace'))
+
+    def test_repeated_host_dispatch_reports_each_guest_milestone_once(self):
+        patched=rewrite(FULL_SOURCE,require_dispatch=True)
+        for marker in (HISTORY_ONCE,DIAGNOSTIC_ONCE,DIAGNOSTIC_END_ONCE):
+            self.assertEqual(patched.count(marker),2)
+        for corrupted in (patched.replace(HISTORY_ONCE,HISTORY,1),
+                          patched.replace(DIAGNOSTIC_ONCE,DIAGNOSTIC,1),
+                          patched.replace(DIAGNOSTIC_END_ONCE,DIAGNOSTIC_END,1)):
+            with self.assertRaises(ValueError):
+                rewrite(corrupted,require_dispatch=True)
+
+        cc=shutil.which('g++')
+        if not cc:self.skipTest('GCC unavailable')
+        # Mirror the genuine emitted C++ instruction-counter diagnostic
+        # and deliberately revisit the host dispatcher at the same tick.
+        # No game instruction or private file is included.
+        program=r'''#include <cstdint>
+#include <iostream>
+struct Context { uint64_t inst_count=0; uint32_t pc=0x80010000; };
+int main(){
+    Context ctx;
+    uint64_t last_dispatch_diagnostic_count = 0;
+    for(uint64_t tick: {0ull,100000ull,100000ull,100001ull,200000ull,200000ull}){
+        ctx.inst_count=tick;
+        for(int i=0;i<32;++i){
+            uint32_t target=ctx.pc;
+            if (ctx.inst_count && (ctx.inst_count % 100000) == 0 && ctx.inst_count != last_dispatch_diagnostic_count) {
+                last_dispatch_diagnostic_count = ctx.inst_count;
+                std::cout << "Dispatcher PC: 0x" << std::hex << target << std::endl;
+            }
+        }
+    }
+}'''
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            (root/'dispatch_diagnostic.cpp').write_text(program,encoding='utf-8')
+            subprocess.run([cc,'-std=c++20','-Wall','-Wextra','-Werror',
+                            '-fsanitize=address,undefined','-fno-pie','-no-pie',
+                            str(root/'dispatch_diagnostic.cpp'),'-o',
+                            str(root/'dispatch_diagnostic')],
+                           check=True,capture_output=True)
+            out=subprocess.run([str(root/'dispatch_diagnostic')],
+                               capture_output=True,check=True)
+            self.assertEqual(out.stdout.count(b'Dispatcher PC: 0x'),2)
+            self.assertNotIn(b'runtime error:',out.stderr)
 
     def test_emitted_control_flow(self):
         cc=shutil.which('g++')
