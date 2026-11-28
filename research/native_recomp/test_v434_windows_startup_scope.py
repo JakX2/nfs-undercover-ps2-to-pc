@@ -38,6 +38,7 @@ from audit_v667_si_dispatch import EVENTS as SI_DISP,RESULT as SI_DISP_RESULT
 from audit_v672_si_ack_route import EVENTS as SI_ACK,RESULT as SI_ACK_RESULT
 from audit_v699_si_postack import STAGE as POSTACK, NESTED, RETURN as POSTACK_RETURN, END as POSTACK_END
 from audit_v709_os_leaves import LEAVES
+from audit_v742_handler_time import STAGES as TIME_STAGES
 
 
 def log(lines):return b'\n'.join(lines)+b'\n'
@@ -74,10 +75,11 @@ OS_EXTERNAL=OS_ARENA_CLEAR+EXT+[EXT_RESULT]
 OS_SI_DISPATCH=OS_EXTERNAL+SI_DISP+[SI_DISP_RESULT]
 OS_SI_ACK=OS_SI_DISPATCH+SI_ACK+[SI_ACK_RESULT]
 OS_SI_OS_LEAVES=OS_SI_DISPATCH+SI_ACK[:1]+[f'V680_SI_HELPER_STAGE n={i}'.encode() for i in range(1,4)]+[b'V688_SI_SECOND_STAGE n=1',b'V688_SI_SECOND_STAGE n=2',b'V688_SI_SECOND_ACK n=1']+SI_ACK[1:]+[SI_ACK_RESULT,POSTACK,*NESTED[:2],*LEAVES,NESTED[2],b'V719_POSTACK_LOOP_POLL n=1',b'V719_POSTACK_LOOP_POLL n=2',POSTACK_RETURN,POSTACK_END]
+OS_SI_HANDLER_TIME=OS_SI_OS_LEAVES+TIME_STAGES+[b'V742_TIME_RESULT returned=1 abi=1 leaves=3 visits=25 total=43 handler_return=0 boot_verified=0']
 LOGS={name:log(lines) for name,lines in (
     ('startup',START+[START_RESULT]),('hardware',HW+[HW_RESULT]),
     ('cache',CACHE+[CACHE_RESULT]),('data',DATA),('os-entry',OS),
-    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT),('os-arena-clear',OS_ARENA_CLEAR),('os-external-entry',OS_EXTERNAL),('os-si-dispatch',OS_SI_DISPATCH),('os-si-ack',OS_SI_ACK),('os-si-os-leaves',OS_SI_OS_LEAVES))}
+    ('os-time',OS_TIME),('os-hardware',OS_HARDWARE),('os-arena',OS_ARENA),('os-ipc',OS_IPC),('os-vector',OS_VECTOR),('os-pack',OS_PACK),('os-alarm',OS_ALARM),('os-irq',OS_IRQ),('os-mmio',OS_MMIO),('os-irq-return',OS_IRQ_RETURN),('os-context',OS_CONTEXT),('os-cache-reuse',OS_REUSE),('os-exi-poll',OS_EXI_POLL),('os-exi-handlers',OS_EXI_HANDLERS),('os-exi-id',OS_EXI_ID),('os-exi-absent',OS_EXI_ABSENT),('os-si-entry',OS_SI_ENTRY),('os-si-sample',OS_SI_SAMPLE),('os-si-return',OS_SI_RETURN),('os-sram',OS_SRAM),('os-thread',OS_THREAD),('os-audio',OS_AUDIO),('os-dsp-stage',OS_DSP_STAGE),('os-dsp-sc',OS_DSP_SC),('os-dsp-return',OS_DSP_RETURN),('os-report',OS_REPORT),('os-arena-clear',OS_ARENA_CLEAR),('os-external-entry',OS_EXTERNAL),('os-si-dispatch',OS_SI_DISPATCH),('os-si-ack',OS_SI_ACK),('os-si-os-leaves',OS_SI_OS_LEAVES),('os-si-handler-time',OS_SI_HANDLER_TIME))}
 
 
 class Tests(unittest.TestCase):
@@ -122,7 +124,7 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):contract('os-report',True)
         self.assertEqual(contract('os-arena-clear'),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v609_arena_clear.py','audit_v609_arena_clear'))
         with self.assertRaises(ValueError):contract('os-arena-clear',True)
-        for name,auditor in zip(EXTERNAL_SCOPES,('audit_v663_external_entry','audit_v667_si_dispatch','audit_v672_si_ack_route','audit_v709_os_leaves')):
+        for name,auditor in zip(EXTERNAL_SCOPES,('audit_v663_external_entry','audit_v667_si_dispatch','audit_v672_si_ack_route','audit_v709_os_leaves','audit_v742_handler_time')):
             self.assertEqual(contract(name),(OS_SC_PATCHES+('apply_bat_registers_v65',),'prepare_v616_irq_enable.py',auditor))
             with self.assertRaises(ValueError):contract(name,True)
         self.assertEqual(set(LOGS),set(SCOPES))
@@ -137,7 +139,8 @@ class Tests(unittest.TestCase):
                 expected={**launch_flags('os-arena-clear'),'UNDERCOVER_V616_IRQ':'1','UNDERCOVER_V663_EXTERNAL':'1'}
                 if scope in EXTERNAL_SCOPES[1:]:expected['UNDERCOVER_V667_SI_DISPATCH']='1'
                 if scope in EXTERNAL_SCOPES[2:]:expected['UNDERCOVER_V672_SI_ACK']='1'
-                if scope=='os-si-os-leaves':expected.update(UNDERCOVER_V699_SI_POSTACK='1',UNDERCOVER_V709_OS_LEAVES='1')
+                if scope in ('os-si-os-leaves','os-si-handler-time'):expected.update(UNDERCOVER_V699_SI_POSTACK='1',UNDERCOVER_V709_OS_LEAVES='1')
+                if scope=='os-si-handler-time':expected.update(UNDERCOVER_V726_HANDLER_RETURN='1',UNDERCOVER_V742_HANDLER_TIME='1')
                 self.assertEqual(launch_flags(scope),expected)
                 continue
             if scope=='os-arena-clear':
