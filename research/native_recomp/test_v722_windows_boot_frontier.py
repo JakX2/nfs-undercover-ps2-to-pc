@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Original-free Windows startup boundary tests; no proprietary instructions."""
 import unittest
+import sys
+import tempfile
+from pathlib import Path
 
 from audit_v672_si_ack_route import RESULT
 from audit_v699_si_postack import STAGE, RETURN, END
 from audit_v709_os_leaves import LEAVES, MAX_LOG
 from test_v434_windows_startup_scope import LOGS
 from windows_boot_frontier_v722 import CHECKPOINTS, classify_exit, frontier
+from windows_full_build_v426 import command
 
 
 class Tests(unittest.TestCase):
@@ -77,6 +81,29 @@ class Tests(unittest.TestCase):
         for args in ((True, False), (0, 1), ('0', False)):
             self.assertRaises(ValueError, classify_exit, *args)
         self.assertRaises(ValueError, frontier, self.raw, 0, False, 1)
+
+    def test_real_host_command_exit_124_is_not_timeout(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / 'private.log'
+            status = {}
+            rc = command([sys.executable, '-c', 'import sys;sys.exit(124)'],
+                         out, 10, timeout_status=status)
+            self.assertEqual(rc, 124)
+            self.assertEqual(status, {'expired': False})
+            rc = command([sys.executable, '-c', 'import time;time.sleep(2)'],
+                         out, 0.01, timeout_status=status)
+            self.assertEqual(rc, 124)
+            self.assertEqual(status, {'expired': True})
+
+    def test_windows_native_runner_uses_timeout_and_frontier_gates(self):
+        source = (Path(__file__).parent /
+                  'windows_full_build_v426.py').read_text(encoding='utf-8')
+        for needle in ("timeout_status=launch_status",
+                       "ok=ok and not launch_status['expired']",
+                       "from windows_boot_frontier_v722 import frontier",
+                       "print(frontier(raw,rc,launch_status['expired'],ok),flush=True)"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, source)
 
 
 if __name__ == '__main__':
