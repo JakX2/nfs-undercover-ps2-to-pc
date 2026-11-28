@@ -166,6 +166,48 @@ was still in progress at the time of this ledger update. No original Windows
 scheduler entry, return, reschedule or RFI should be marked verified without
 its completed original-owner execution markers.
 
+## Correct native scheduler witnesses and saved-context RFI prerequisite
+
+The original Windows scheduler and reschedule boundary hooks were
+corrected in [c77ea36](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/c77ea36e86cdc3ce121148e92a47fb4a96431a8b)
+and [68e8eb1](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/68e8eb195f3d83e74fdb210d70e444dd4c02762e):
+
+- Native function entry is now checked **directly at the generated original
+  instruction label, before its guest instruction tick**, followed by an
+  exact post-tick entry witness. The previous hardware-access callback
+  could not prove an original branch into the scheduler.
+- Both original scheduler disable/restore callees receive direct native
+  entry hooks; the dispatcher return still checks its authentic ABI and
+  nesting-counter result. Reschedule entry and no-switch return likewise
+  use original native label hooks.
+- These observers no longer modify the SI-device access callback chain;
+  existing earlier Windows stop modes remain default disabled for the
+  deeper stages.
+- [46109995875](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/46109995875)
+  **passed the corrected 15-stage original-free Windows source suite**.
+  This verifies emitted hook order and refusal contracts, not actual
+  owner-original scheduler execution.
+
+**Existing reusable continuous RFI proof:** the original-owner Linux
+complete-image run [45711850472](https://github.com/JakX2/nfs-undercover-ps2-to-pc/actions/runs/45711850472)
+**passed** with `native_rfi=1 second_vector=1 visits=86`. The real
+PowerPC context loader restored integer state and performed `rfi`,
+immediately taking a second pending SI exception before any interrupted
+startup instruction ran. The same proof is **not** yet available for the
+complete Windows PE.
+
+The Windows path needs the captured original pre-exception OSContext, not a
+synthetic context return. The new
+[read-only Windows context bridge](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/524316a5e0a3ac2377c186c2c5c011c53a0198ee)
+composes the existing V751 cold-entry snapshot with V921 same-CPU
+saved-frame/handler-return join. It can install only with an explicit
+`--install` argument, remains gated by `UNDERCOVER_V751_CAPTURE=1`,
+and does **not** enable Windows RFI execution. Synthetic tests were added
+to Windows source CI in
+[9ffb3fe](https://github.com/JakX2/nfs-undercover-ps2-to-pc/commit/9ffb3fe0dea9689d00ba056be5e01e1d121cbcce).
+The corresponding real-image installation and Windows RFI execution
+remain pending separate verification.
+
 ## Technical next actions, in dependency order
 
 1. **Verify the owner-original V922–V925 scheduler and reschedule stages** in the complete
