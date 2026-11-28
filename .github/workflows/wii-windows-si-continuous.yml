@@ -24,6 +24,9 @@ on:
       - 'research/native_recomp/test_v759_windows_callback_frontier.py'
       - 'research/native_recomp/windows_wireless_wrapper_v760.py'
       - 'research/native_recomp/test_v760_windows_wireless_wrapper.py'
+      - 'research/native_recomp/windows_wireless_write_v761.py'
+      - 'research/native_recomp/test_v761_windows_wireless_write.py'
+      - 'research/native_recomp/prepare_v861_wireless_write.py'
       - 'research/native_recomp/prepare_v847_wireless_wrapper.py'
       - 'research/native_recomp/prepare_v831_callback_frontier.py'
       - 'research/native_recomp/prepare_v813_callback_time.py'
@@ -55,6 +58,9 @@ jobs:
             'test_v758_windows_callback_time.py',
             'test_v759_windows_callback_frontier.py',
             'test_v760_windows_wireless_wrapper.py',
+            'test_v761_windows_wireless_write.py',
+            'test_v861_wireless_write.py',
+            'test_v862_wireless_write_audit.py',
             'test_v847_wireless_wrapper.py',
             'test_v848_wireless_wrapper.py',
             'test_v831_callback_frontier.py',
