@@ -1,3 +1,4 @@
+import ast
 import unittest
 from pathlib import Path
 from windows_startup_scope_v434 import contract
@@ -10,7 +11,12 @@ class Tests(unittest.TestCase):
         self.assertIn("if not legacy_ticks:\n        "+a,src)
         self.assertLess(src.index(a),src.index("run_stage('translator_config'"))
         self.assertLess(src.index("run_stage('translator_config'"),src.index("run_stage('translation'"))
-        self.assertIn("a.owner_scope,a.legacy_loader,a.legacy_ticks)",src)
+        calls=[n for n in ast.walk(ast.parse(src)) if isinstance(n,ast.Call)
+               and isinstance(n.func,ast.Name) and n.func.id=='build']
+        self.assertEqual(len(calls),1)
+        args=calls[0].args
+        self.assertEqual([ast.unparse(a) for a in args[4:7]],
+                         ['a.owner_scope','a.legacy_loader','a.legacy_ticks'])
         self.assertIn('apply_native_tick_v438.py',src)
     def test_os_time_scope(self):
         self.assertEqual(contract('os-time')[1],'prepare_v435_full_os_time.py')
