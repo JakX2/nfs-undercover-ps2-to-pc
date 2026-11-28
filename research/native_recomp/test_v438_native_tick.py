@@ -3,7 +3,8 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from apply_native_tick_v438 import BEFORE,AFTER,LABEL,LABEL_TICK,TICK,FILE,rewrite,apply
+from apply_native_tick_v438 import (BEFORE,AFTER,LABEL,LABEL_TICK,TICK,FILE,
+    DISPATCH_BEFORE,DISPATCH_AFTER,rewrite,apply)
 
 SOURCE='''void emit_function(){
   for(const auto& inst: instructions){
@@ -16,6 +17,8 @@ void emit_instruction(){
 }
 '''
 
+FULL_SOURCE=SOURCE+'\n'+DISPATCH_BEFORE+'\n'+DISPATCH_BEFORE+'\n'
+
 class Tests(unittest.TestCase):
     def test_geometry(self):
         out=rewrite(SOURCE)
@@ -26,11 +29,29 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):rewrite(bad)
     def test_install(self):
         with tempfile.TemporaryDirectory() as td:
-            root=Path(td);p=root/FILE;p.parent.mkdir(parents=True);p.write_text(SOURCE)
+            root=Path(td);p=root/FILE;p.parent.mkdir(parents=True);p.write_text(FULL_SOURCE)
             self.assertTrue(apply(root));self.assertFalse(apply(root))
-            p.write_text(SOURCE+TICK)
+            p.write_text(FULL_SOURCE+TICK)
             with self.assertRaises(ValueError):apply(root)
-            self.assertEqual(p.read_text(),SOURCE+TICK)
+            self.assertEqual(p.read_text(),FULL_SOURCE+TICK)
+            p.write_text(SOURCE)
+            with self.assertRaises(ValueError):apply(root)
+            self.assertEqual(p.read_text(),SOURCE)
+    def test_host_dispatch_has_no_implicit_guest_tick(self):
+        patched=rewrite(FULL_SOURCE,require_dispatch=True)
+        self.assertEqual(patched.count(DISPATCH_BEFORE),0)
+        self.assertEqual(patched.count(DISPATCH_AFTER),2)
+        self.assertEqual(rewrite(patched,require_dispatch=True),patched)
+        self.assertIn(LABEL_TICK,patched)
+        self.assertEqual(patched.count(TICK),1)
+        for malformed in (FULL_SOURCE.replace(DISPATCH_BEFORE,'',1),
+                          FULL_SOURCE.replace(DISPATCH_BEFORE,DISPATCH_AFTER,1),
+                          patched+DISPATCH_BEFORE,
+                          FULL_SOURCE.replace(DISPATCH_BEFORE,
+                                              '    ++ctx.inst_count;\\n',1)):
+            with self.assertRaises(ValueError):
+                rewrite(malformed,require_dispatch=True)
+
     def test_emitted_control_flow(self):
         cc=shutil.which('g++')
         if not cc:self.skipTest('GCC unavailable')
